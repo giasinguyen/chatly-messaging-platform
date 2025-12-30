@@ -1,4 +1,20 @@
-# Chatly Messaging Platform
+<div align="center">
+  <img src="images/chatly-logo.png" alt="Chatly Logo" width="200"/>
+  
+  # Chatly Messaging Platform
+  
+  [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+  [![Node.js](https://img.shields.io/badge/Node.js-18+-green.svg)](https://nodejs.org/)
+  [![React](https://img.shields.io/badge/React-18+-61DAFB.svg)](https://reactjs.org/)
+  [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15+-336791.svg)](https://www.postgresql.org/)
+  [![MongoDB](https://img.shields.io/badge/MongoDB-6+-47A248.svg)](https://www.mongodb.com/)
+  
+  **A modern real-time messaging platform inspired by Zalo and Messenger**
+  
+  [Features](#-features) • [Architecture](#️-system-architecture) • [Tech Stack](#-tech-stack) • [Getting Started](#-getting-started) • [Deployment](#️-deployment)
+</div>
+
+---
 
 Chatly is a real-time messaging platform inspired by modern chat applications such as Zalo and Messenger.  
 This project is built for educational purposes, focusing on scalable architecture, real-time communication, and cloud deployment.
