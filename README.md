@@ -21,6 +21,15 @@ This project is built for educational purposes, focusing on scalable architectur
 
 ---
 
+## 👥Members
+
+- Nguyễn Trần Gia Sĩ
+- Nguyễn Văn Minh
+- Nguyễn Trung Nguyên 🗿
+- Đào Quốc Tuấn
+
+---
+
 ## 📌 Features
 
 - Real-time 1–1 and group messaging
