@@ -1,0 +1,33 @@
+spring:
+  application:
+    name: chatly-backend
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/chatly
+    username: chatly
+    password: chatly123
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
+  data:
+    mongodb:
+      uri: mongodb://localhost:27017/chatly
+    redis:
+      host: localhost
+      port: 6379
+
+server:
+  port: 8080
+
+app:
+  jwt:
+    secret: Y2hhdGx5LXNlY3JldC1rZXktZm9yLWp3dC10b2tlbi1nZW5lcmF0aW9uLTIwMjY=
+    expiration-ms: 86400000
+    refresh-expiration-ms: 604800000
