@@ -1,7 +1,73 @@
 package com.chatly.service;
 
+import com.chatly.dto.request.UserUpdateRequest;
+import com.chatly.dto.response.UserResponse;
+import com.chatly.exception.AppException;
+import com.chatly.exception.ErrorCode;
+import com.chatly.mapper.UserMapper;
+import com.chatly.model.postgres.User;
+import com.chatly.repository.postgres.UserRepository;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+import java.util.UUID;
 
 @Service
+@RequiredArgsConstructor
 public class UserService {
+
+    private final UserRepository userRepository;
+    private final UserMapper userMapper;
+
+    public UserResponse getById(UUID id) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+        return userMapper.toResponse(user);
+    }
+
+    public UserResponse getByEmail(String email) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+        return userMapper.toResponse(user);
+    }
+
+    public List<UserResponse> getAll() {
+        return userRepository.findAll().stream()
+                .map(userMapper::toResponse)
+                .toList();
+    }
+
+    @Transactional
+    public UserResponse update(UUID id, UserUpdateRequest request) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+
+        if (request.getDisplayName() != null) {
+            user.setDisplayName(request.getDisplayName());
+        }
+        if (request.getAvatarUrl() != null) {
+            user.setAvatarUrl(request.getAvatarUrl());
+        }
+        if (request.getPhone() != null) {
+            if (userRepository.existsByPhone(request.getPhone())) {
+                throw new AppException(ErrorCode.PHONE_ALREADY_EXISTS);
+            }
+            user.setPhone(request.getPhone());
+        }
+        if (request.getBio() != null) {
+            user.setBio(request.getBio());
+        }
+
+        return userMapper.toResponse(userRepository.save(user));
+    }
+
+    @Transactional
+    public void delete(UUID id) {
+        if (!userRepository.existsById(id)) {
+            throw new AppException(ErrorCode.USER_NOT_FOUND);
+        }
+        userRepository.deleteById(id);
+    }
 }
