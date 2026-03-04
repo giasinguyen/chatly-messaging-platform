@@ -8,6 +8,8 @@ import com.chatly.mapper.UserMapper;
 import com.chatly.model.postgres.User;
 import com.chatly.repository.postgres.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,6 +22,18 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final UserMapper userMapper;
+
+    public UserResponse getCurrentUser() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()) {
+            throw new AppException(ErrorCode.UNAUTHENTICATED);
+        }
+
+        String userId = authentication.getPrincipal().toString();
+        User user = userRepository.findById(UUID.fromString(userId))
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+        return userMapper.toResponse(user);
+    }
 
     public UserResponse getById(UUID id) {
         User user = userRepository.findById(id)

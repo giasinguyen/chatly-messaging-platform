@@ -1,6 +1,7 @@
 package com.chatly.service;
 
 import com.chatly.dto.request.LoginRequest;
+import com.chatly.dto.request.RefreshTokenRequest;
 import com.chatly.dto.request.RegisterRequest;
 import com.chatly.dto.response.AuthResponse;
 import com.chatly.dto.response.UserResponse;
@@ -14,6 +15,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -64,6 +67,26 @@ public class AuthService {
         return AuthResponse.builder()
                 .token(token)
                 .refreshToken(refreshToken)
+                .user(userResponse)
+                .build();
+    }
+
+    public AuthResponse refreshToken(RefreshTokenRequest request) {
+        if (!jwtProvider.validateToken(request.getRefreshToken())) {
+            throw new AppException(ErrorCode.INVALID_TOKEN);
+        }
+
+        String userId = jwtProvider.getUserIdFromToken(request.getRefreshToken());
+        User user = userRepository.findById(UUID.fromString(userId))
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+
+        String newToken = jwtProvider.generateToken(user.getId().toString());
+        String newRefreshToken = jwtProvider.generateRefreshToken(user.getId().toString());
+        UserResponse userResponse = userMapper.toResponse(user);
+
+        return AuthResponse.builder()
+                .token(newToken)
+                .refreshToken(newRefreshToken)
                 .user(userResponse)
                 .build();
     }

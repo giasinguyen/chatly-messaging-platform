@@ -33,7 +33,8 @@ public enum ErrorCode {
     GROUP_PERMISSION_DENIED(1502, "You do not have permission for this action", HttpStatus.FORBIDDEN),
 
     UNAUTHORIZED(1600, "You do not have permission", HttpStatus.FORBIDDEN),
-    UNAUTHENTICATED(1601, "Unauthenticated", HttpStatus.UNAUTHORIZED);
+    UNAUTHENTICATED(1601, "Unauthenticated", HttpStatus.UNAUTHORIZED),
+    INVALID_TOKEN(1602, "Invalid or expired token", HttpStatus.UNAUTHORIZED);
 
     private final int code;
     private final String message;

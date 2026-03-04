@@ -1,6 +1,7 @@
 package com.chatly.controller;
 
 import com.chatly.dto.request.LoginRequest;
+import com.chatly.dto.request.RefreshTokenRequest;
 import com.chatly.dto.request.RegisterRequest;
 import com.chatly.dto.response.ApiResponse;
 import com.chatly.dto.response.AuthResponse;
@@ -30,6 +31,13 @@ public class AuthController {
     ApiResponse<AuthResponse> login(@RequestBody @Valid LoginRequest request) {
         return ApiResponse.<AuthResponse>builder()
                 .result(authService.login(request))
+                .build();
+    }
+
+    @PostMapping("/refresh")
+    ApiResponse<AuthResponse> refreshToken(@RequestBody @Valid RefreshTokenRequest request) {
+        return ApiResponse.<AuthResponse>builder()
+                .result(authService.refreshToken(request))
                 .build();
     }
 }

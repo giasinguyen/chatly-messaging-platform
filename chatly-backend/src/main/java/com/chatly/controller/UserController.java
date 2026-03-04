@@ -17,6 +17,13 @@ public class UserController {
 
     private final UserService userService;
 
+    @GetMapping("/me")
+    ApiResponse<UserResponse> getCurrentUser() {
+        return ApiResponse.<UserResponse>builder()
+                .result(userService.getCurrentUser())
+                .build();
+    }
+
     @GetMapping
     ApiResponse<List<UserResponse>> getAll() {
         return ApiResponse.<List<UserResponse>>builder()
