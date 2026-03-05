@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="images/chatly-logo.png" alt="Chatly Logo" width="200"/>
+  <img src="_resources/images/chatly-logo.png" alt="Chatly Logo" width="200"/>
   
   # Chatly Messaging Platform
   
@@ -51,8 +51,8 @@ Chatly is designed with a service-oriented architecture:
 - **Backend API**: REST + WebSocket
 - **Realtime Layer**: WebSocket for instant messaging
 - **Databases**:
-  - PostgreSQL for relational data (users, relationships, permissions)
-  - MongoDB for chat messages and conversation data
+    - PostgreSQL for relational data (users, relationships, permissions)
+    - MongoDB for chat messages and conversation data
 - **Cache & Realtime State**: Redis
 - **Media Storage**: Amazon S3
 - **Deployment**: AWS Cloud Infrastructure
@@ -62,21 +62,25 @@ Chatly is designed with a service-oriented architecture:
 ## 🧱 Tech Stack
 
 ### Backend
-- Node.js / Java Spring Boot *(configurable)*
+
+- Node.js / Java Spring Boot _(configurable)_
 - RESTful API
 - WebSocket (Socket.IO / native WS)
 - JWT Authentication
 
 ### Frontend
-- React / Next.js *(Web)*
-- Flutter / React Native *(Mobile – optional)*
+
+- React / Next.js _(Web)_
+- Flutter / React Native _(Mobile – optional)_
 
 ### Database
+
 - **PostgreSQL** – transactional & relational data
 - **MongoDB** – message storage & chat history
 - **Redis** – caching, session, presence
 
 ### Cloud & DevOps
+
 - AWS EC2 / ECS / EKS
 - AWS RDS (PostgreSQL)
 - MongoDB Atlas
@@ -104,17 +108,17 @@ chatly-messaging-platform/
 │   └── terraform/
 ├── docs/
 └── README.md
-````
+```
 
 ---
 
 ## 🔐 Authentication & Security
 
-* JWT + Refresh Token
-* Password hashing (bcrypt / argon2)
-* Role-based access control (RBAC)
-* Rate limiting & request validation
-* HTTPS & secure communication
+- JWT + Refresh Token
+- Password hashing (bcrypt / argon2)
+- Role-based access control (RBAC)
+- Rate limiting & request validation
+- HTTPS & secure communication
 
 ---
 
@@ -122,12 +126,12 @@ chatly-messaging-platform/
 
 The system is deployed on **AWS** with the following services:
 
-* EC2 / ECS for backend services
-* RDS for PostgreSQL
-* MongoDB Atlas for NoSQL storage
-* S3 for media files
-* CloudFront as CDN
-* Redis for caching and realtime state
+- EC2 / ECS for backend services
+- RDS for PostgreSQL
+- MongoDB Atlas for NoSQL storage
+- S3 for media files
+- CloudFront as CDN
+- Redis for caching and realtime state
 
 ---
 
@@ -135,11 +139,11 @@ The system is deployed on **AWS** with the following services:
 
 ### Prerequisites
 
-* Docker & Docker Compose
-* Node.js / JDK
-* PostgreSQL
-* MongoDB
-* Redis
+- Docker & Docker Compose
+- Node.js / JDK
+- PostgreSQL
+- MongoDB
+- Redis
 
 ### Run locally
 
@@ -158,11 +162,11 @@ Chatly is **not affiliated with or endorsed by Zalo or any other commercial mess
 
 ## 📌 Future Improvements
 
-* End-to-End Encryption (E2EE)
-* Message search with Elasticsearch
-* Push notifications (FCM / APNs)
-* Voice & video calling
-* Kubernetes-based deployment
-* Advanced monitoring & tracing
+- End-to-End Encryption (E2EE)
+- Message search with Elasticsearch
+- Push notifications (FCM / APNs)
+- Voice & video calling
+- Kubernetes-based deployment
+- Advanced monitoring & tracing
 
 ---
