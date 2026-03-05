@@ -1,0 +1,35 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: chatly-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: chatly
+      POSTGRES_USER: chatly
+      POSTGRES_PASSWORD: chatly123
+    volumes:
+      - chatly-postgres-data:/var/lib/postgresql/data
+
+  mongodb:
+    image: mongo:7
+    container_name: chatly-mongodb
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_DATABASE: chatly
+    volumes:
+      - chatly-mongo-data:/data/db
+
+  redis:
+    image: redis:7-alpine
+    container_name: chatly-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - chatly-redis-data:/data
+
+volumes:
+  chatly-postgres-data:
+  chatly-mongo-data:
+  chatly-redis-data:
