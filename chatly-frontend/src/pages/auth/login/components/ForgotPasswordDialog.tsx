@@ -7,6 +7,7 @@ import {
     DialogTrigger,
     DialogClose,
 } from "@/components/ui/dialog";
+import { toast } from "sonner";
 
 interface ForgotPasswordDialogProps {
     email: string;
@@ -39,6 +40,11 @@ export function ForgotPasswordDialog({ email }: ForgotPasswordDialogProps) {
                 <div className="mt-4 flex w-full">
                     <DialogClose asChild>
                         <button
+                            onClick={() =>
+                                toast(
+                                    "Xin lỗi, tính năng đang trong giai đoạn thử nghiệm và phát triển",
+                                )
+                            }
                             type="button"
                             className="w-full cursor-pointer rounded-full border-none bg-brand py-2.5 text-[15px] font-semibold text-white transition-all duration-300 hover:bg-brand-hover"
                         >

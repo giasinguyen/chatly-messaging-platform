@@ -5,6 +5,7 @@ import chatlyLogo from "@/assets/brand/chatly-logo-transparent.png";
 import qrCode from "@/mocks/images/QR-fake.png";
 import { useThemeStore } from "@/store/theme.store";
 import { ForgotPasswordDialog } from "./components/ForgotPasswordDialog";
+import { toast } from "sonner";
 import "./login.css";
 
 export default function LoginPage() {
@@ -182,6 +183,11 @@ export default function LoginPage() {
                     <div className="flex flex-col gap-2.5">
                         <button
                             type="button"
+                            onClick={() =>
+                                toast(
+                                    "Xin lỗi, tính năng đang trong giai đoạn thử nghiệm và phát triển",
+                                )
+                            }
                             className="flex w-full cursor-pointer items-center justify-center gap-2.5 rounded-full border border-gray-200 bg-gray-50 px-2.5 py-2.5 text-sm font-medium text-gray-700 transition-all duration-200 hover:scale-[1.02] hover:border-gray-300 hover:bg-gray-100 active:scale-[0.99] dark:border-white/10 dark:bg-white/4 dark:text-[#d1d3da] dark:hover:border-white/18 dark:hover:bg-white/8"
                         >
                             <svg
@@ -211,6 +217,11 @@ export default function LoginPage() {
                         </button>
                         <button
                             type="button"
+                            onClick={() =>
+                                toast(
+                                    "Xin lỗi, tính năng đang trong giai đoạn thử nghiệm và phát triển",
+                                )
+                            }
                             className="flex w-full cursor-pointer items-center justify-center gap-2.5 rounded-full border border-gray-200 bg-gray-50 px-2.5 py-2.5 text-sm font-medium text-gray-700 transition-all duration-200 hover:scale-[1.02] hover:border-gray-300 hover:bg-gray-100 active:scale-[0.99] dark:border-white/10 dark:bg-white/4 dark:text-[#d1d3da] dark:hover:border-white/18 dark:hover:bg-white/8"
                         >
                             <svg
