@@ -1,26 +1,20 @@
-import { Button } from "@/components/ui/button";
-import { useBear } from "@/store/store";
+import { RouterProvider } from "react-router-dom";
+import { Toaster } from "sonner";
+import { router } from "@/routes";
 
 function App() {
-    // Lấy state và actions từ store
-    const bears = useBear((state: any) => state.bears);
-    const increasePopulation = useBear(
-        (state: any) => state.increasePopulation,
-    );
-    const removeAllBears = useBear((state: any) => state.removeAllBears);
-
     return (
-        <div className="flex min-h-svh flex-col items-center justify-center gap-4">
-            <p>
-                🐻 Số gấu: <strong>{bears}</strong>
-            </p>
-            <Button onClick={increasePopulation}>Thêm gấu</Button>
-            <Button onClick={removeAllBears} variant="destructive">
-                Xóa tất cả
-            </Button>
-        </div>
+        <>
+            <RouterProvider router={router} />
+            <Toaster
+                duration={3000}
+                closeButton
+                position="top-center"
+                theme="system"
+                richColors
+            />
+        </>
     );
 }
 
 export default App;
-
