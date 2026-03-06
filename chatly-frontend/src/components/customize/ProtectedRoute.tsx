@@ -30,7 +30,7 @@ export const ProtectedRoute = ({
      * The value should remain `true` when the page is refreshed
      * as long as the session/token is still valid.
      */
-    const isLogin = true;
+    const isLogin = false;
 
     /**
      * If the user is not authenticated:
