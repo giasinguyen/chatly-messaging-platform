@@ -26,6 +26,9 @@ import "./login.css";
 
 export default function LoginPage() {
     const [showPassword, setShowPassword] = useState(false);
+    const [loginMethod, setLoginMethod] = useState<"password" | "sms">(
+        "password",
+    );
     const toggleTheme = useThemeStore((s) => s.toggleTheme);
 
     const form = useForm<LoginFormValues>({
@@ -133,7 +136,7 @@ export default function LoginPage() {
                                                 aria-invalid={
                                                     fieldState.invalid
                                                 }
-                                                className="py-2.5 text-[15px] !text-gray-900 dark:!text-white"
+                                                className="py-2.5 text-[15px] text-gray-900! dark:text-white!"
                                             />
                                         </InputGroup>
                                         {fieldState.invalid && (
@@ -146,72 +149,76 @@ export default function LoginPage() {
                             />
 
                             {/* Password */}
-                            <Controller
-                                name="password"
-                                control={form.control}
-                                render={({ field, fieldState }) => (
-                                    <Field data-invalid={fieldState.invalid}>
-                                        <FieldLabel
-                                            htmlFor="login-password"
-                                            className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-[#b0b3bc]"
+                            {loginMethod === "password" && (
+                                <Controller
+                                    name="password"
+                                    control={form.control}
+                                    render={({ field, fieldState }) => (
+                                        <Field
+                                            data-invalid={fieldState.invalid}
                                         >
-                                            Password{" "}
-                                            <span className="text-red-400">
-                                                *
-                                            </span>
-                                        </FieldLabel>
-                                        <InputGroup className="rounded-xl border-gray-200 bg-gray-50 dark:border-white/8 dark:bg-[#1a1c23] transition-all has-[[data-slot=input-group-control]:focus]:border-brand has-[[data-slot=input-group-control]:focus]:ring-brand/30">
-                                            <InputGroupAddon align="inline-start">
-                                                <Lock
-                                                    size={16}
-                                                    className="text-gray-400 dark:text-[#6c6f78]"
-                                                />
-                                            </InputGroupAddon>
-                                            <InputGroupInput
-                                                {...field}
-                                                id="login-password"
-                                                type={
-                                                    showPassword
-                                                        ? "text"
-                                                        : "password"
-                                                }
-                                                autoComplete="current-password"
-                                                aria-invalid={
-                                                    fieldState.invalid
-                                                }
-                                                className="py-2.5 text-[15px] !text-gray-900 dark:!text-white pr-0"
-                                            />
-                                            <InputGroupAddon align="inline-end">
-                                                <InputGroupButton
-                                                    type="button"
-                                                    onClick={() =>
-                                                        setShowPassword(
-                                                            !showPassword,
-                                                        )
+                                            <FieldLabel
+                                                htmlFor="login-password"
+                                                className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-[#b0b3bc]"
+                                            >
+                                                Password{" "}
+                                                <span className="text-red-400">
+                                                    *
+                                                </span>
+                                            </FieldLabel>
+                                            <InputGroup className="rounded-xl border-gray-200 bg-gray-50 dark:border-white/8 dark:bg-[#1a1c23] transition-all has-[[data-slot=input-group-control]:focus]:border-brand has-[[data-slot=input-group-control]:focus]:ring-brand/30">
+                                                <InputGroupAddon align="inline-start">
+                                                    <Lock
+                                                        size={16}
+                                                        className="text-gray-400 dark:text-[#6c6f78]"
+                                                    />
+                                                </InputGroupAddon>
+                                                <InputGroupInput
+                                                    {...field}
+                                                    id="login-password"
+                                                    type={
+                                                        showPassword
+                                                            ? "text"
+                                                            : "password"
                                                     }
-                                                    variant="ghost"
-                                                    size="icon-xs"
-                                                    className="text-gray-400 hover:text-gray-700 dark:text-[#6c6f78] dark:hover:text-white"
-                                                >
-                                                    {showPassword ? (
-                                                        <EyeOff size={16} />
-                                                    ) : (
-                                                        <Eye size={16} />
-                                                    )}
-                                                </InputGroupButton>
-                                            </InputGroupAddon>
-                                        </InputGroup>
-                                        {fieldState.invalid && (
-                                            <FieldError
-                                                errors={[fieldState.error]}
+                                                    autoComplete="current-password"
+                                                    aria-invalid={
+                                                        fieldState.invalid
+                                                    }
+                                                    className="py-2.5 text-[15px] !text-gray-900 dark:!text-white pr-0"
+                                                />
+                                                <InputGroupAddon align="inline-end">
+                                                    <InputGroupButton
+                                                        type="button"
+                                                        onClick={() =>
+                                                            setShowPassword(
+                                                                !showPassword,
+                                                            )
+                                                        }
+                                                        variant="ghost"
+                                                        size="icon-xs"
+                                                        className="text-gray-400 hover:text-gray-700 dark:text-[#6c6f78] dark:hover:text-white"
+                                                    >
+                                                        {showPassword ? (
+                                                            <EyeOff size={16} />
+                                                        ) : (
+                                                            <Eye size={16} />
+                                                        )}
+                                                    </InputGroupButton>
+                                                </InputGroupAddon>
+                                            </InputGroup>
+                                            {fieldState.invalid && (
+                                                <FieldError
+                                                    errors={[fieldState.error]}
+                                                />
+                                            )}
+                                            <ForgotPasswordDialog
+                                                email={form.getValues("email")}
                                             />
-                                        )}
-                                        <ForgotPasswordDialog
-                                            email={form.getValues("email")}
-                                        />
-                                    </Field>
-                                )}
-                            />
+                                        </Field>
+                                    )}
+                                />
+                            )}
                         </FieldGroup>
 
                         {/* Submit */}
@@ -219,18 +226,37 @@ export default function LoginPage() {
                             type="submit"
                             className="mt-1 w-full cursor-pointer rounded-full border-none bg-brand py-3 text-[15px] font-semibold text-white transition-all duration-300 hover:scale-[1.02] hover:bg-brand-hover active:scale-[0.99]"
                         >
-                            Log In
+                            {loginMethod === "password"
+                                ? "Log In"
+                                : "Send OTP via SMS"}
                         </button>
 
-                        <p className="text-left text-[13px] text-gray-500 dark:text-[#6c6f78]">
-                            Need an account?{" "}
-                            <Link
-                                to="/auth/register"
-                                className="font-medium text-brand no-underline transition-colors duration-200 hover:text-brand-light hover:underline dark:text-brand-light dark:hover:text-brand-light"
+                        <div className="flex items-center justify-between text-[13px]">
+                            <p className="text-left text-gray-500 dark:text-[#6c6f78]">
+                                Need an account?{" "}
+                                <Link
+                                    to="/auth/register"
+                                    className="font-medium text-brand no-underline transition-colors duration-200 hover:text-brand-light hover:underline dark:text-brand-light dark:hover:text-brand-light"
+                                >
+                                    Register
+                                </Link>
+                            </p>
+                            <button
+                                type="button"
+                                onClick={() =>
+                                    setLoginMethod(
+                                        loginMethod === "password"
+                                            ? "sms"
+                                            : "password",
+                                    )
+                                }
+                                className="cursor-pointer bg-transparent border-none p-0 font-medium text-brand no-underline transition-colors duration-200 hover:text-brand-light hover:underline dark:text-brand-light dark:hover:text-brand-light"
                             >
-                                Register
-                            </Link>
-                        </p>
+                                {loginMethod === "password"
+                                    ? "Log in via SMS"
+                                    : "Log in via Password"}
+                            </button>
+                        </div>
                     </form>
 
                     {/* Divider */}
