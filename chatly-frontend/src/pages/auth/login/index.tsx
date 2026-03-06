@@ -4,6 +4,7 @@ import { Mail, Lock, Eye, EyeOff, Sun, Moon } from "lucide-react";
 import chatlyLogo from "@/assets/brand/chatly-logo-transparent.png";
 import qrCode from "@/mocks/images/QR-fake.png";
 import { useThemeStore } from "@/store/theme.store";
+import { ForgotPasswordDialog } from "./components/ForgotPasswordDialog";
 import "./login.css";
 
 export default function LoginPage() {
@@ -63,7 +64,7 @@ export default function LoginPage() {
             </button>
 
             {/* Center card */}
-            <div className="login-card-enter relative z-5 flex w-[90%] max-w-[780px] overflow-hidden rounded-2xl border border-black/10 bg-white/90 shadow-[0_16px_64px_rgba(0,0,0,0.15)] backdrop-blur-xl dark:border-white/8 dark:bg-[rgba(30,33,40,0.92)] dark:shadow-[0_16px_64px_rgba(0,0,0,0.45)]">
+            <div className="login-card-enter relative z-5 flex w-[90%] max-w-[780px] overflow-hidden rounded-[20px] border border-black/10 bg-white/90 shadow-[0_4px_20px_rgba(0,0,0,0.08)] backdrop-blur-[20px] dark:border-white/8 dark:bg-[rgba(30,33,40,0.92)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.4)]">
                 {/* Left — form */}
                 <div className="flex-1 p-9 pb-8">
                     <h1 className="mb-1.5 text-center text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
@@ -94,7 +95,7 @@ export default function LoginPage() {
                                 <input
                                     id="login-email"
                                     type="text"
-                                    className="w-full rounded-lg border border-gray-200 bg-gray-50 py-2.5 pr-3 pl-[38px] text-[15px] text-gray-900 outline-none transition-all duration-200 focus:border-brand focus:shadow-[0_0_0_3px_rgba(0,113,227,0.15)] dark:border-white/8 dark:bg-[#1a1c23] dark:text-white dark:focus:shadow-[0_0_0_3px_rgba(0,113,227,0.2)]"
+                                    className="w-full rounded-xl border border-gray-200 bg-gray-50 py-2.5 pr-3 pl-[38px] text-[15px] text-gray-900 outline-none transition-all duration-200 focus:border-brand focus:shadow-[0_0_0_3px_rgba(0,113,227,0.15)] dark:border-white/8 dark:bg-[#1a1c23] dark:text-white dark:focus:shadow-[0_0_0_3px_rgba(0,113,227,0.2)]"
                                     value={email}
                                     onChange={(e) => setEmail(e.target.value)}
                                     autoComplete="email"
@@ -119,7 +120,7 @@ export default function LoginPage() {
                                 <input
                                     id="login-password"
                                     type={showPassword ? "text" : "password"}
-                                    className="w-full rounded-lg border border-gray-200 bg-gray-50 py-2.5 pr-10 pl-[38px] text-[15px] text-gray-900 outline-none transition-all duration-200 focus:border-brand focus:shadow-[0_0_0_3px_rgba(0,113,227,0.15)] dark:border-white/8 dark:bg-[#1a1c23] dark:text-white dark:focus:shadow-[0_0_0_3px_rgba(0,113,227,0.2)]"
+                                    className="w-full rounded-xl border border-gray-200 bg-gray-50 py-2.5 pr-10 pl-[38px] text-[15px] text-gray-900 outline-none transition-all duration-200 focus:border-brand focus:shadow-[0_0_0_3px_rgba(0,113,227,0.15)] dark:border-white/8 dark:bg-[#1a1c23] dark:text-white dark:focus:shadow-[0_0_0_3px_rgba(0,113,227,0.2)]"
                                     value={password}
                                     onChange={(e) =>
                                         setPassword(e.target.value)
@@ -146,18 +147,13 @@ export default function LoginPage() {
                                     )}
                                 </button>
                             </div>
-                            <Link
-                                to="/auth/forget"
-                                className="mt-0.5 w-fit text-[13px] text-brand no-underline transition-colors duration-200 hover:text-brand-light hover:underline dark:text-brand-light dark:hover:text-[#5ac8fa]"
-                            >
-                                Forgot your password?
-                            </Link>
+                            <ForgotPasswordDialog email={email} />
                         </div>
 
                         {/* Submit */}
                         <button
                             type="submit"
-                            className="mt-1 w-full cursor-pointer rounded-lg border-none bg-brand py-3 text-[15px] font-semibold text-white transition-all duration-300 hover:scale-[1.01] hover:bg-[#0077ed] active:scale-[0.99]"
+                            className="mt-1 w-full cursor-pointer rounded-full border-none bg-brand py-3 text-[15px] font-semibold text-white transition-all duration-300 hover:scale-[1.02] hover:bg-[#0077ed] active:scale-[0.99]"
                         >
                             Log In
                         </button>
@@ -186,7 +182,7 @@ export default function LoginPage() {
                     <div className="flex flex-col gap-2.5">
                         <button
                             type="button"
-                            className="flex w-full cursor-pointer items-center justify-center gap-2.5 rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-2.5 text-sm font-medium text-gray-700 transition-all duration-200 hover:scale-[1.01] hover:border-gray-300 hover:bg-gray-100 active:scale-[0.99] dark:border-white/10 dark:bg-white/4 dark:text-[#d1d3da] dark:hover:border-white/18 dark:hover:bg-white/8"
+                            className="flex w-full cursor-pointer items-center justify-center gap-2.5 rounded-full border border-gray-200 bg-gray-50 px-2.5 py-2.5 text-sm font-medium text-gray-700 transition-all duration-200 hover:scale-[1.02] hover:border-gray-300 hover:bg-gray-100 active:scale-[0.99] dark:border-white/10 dark:bg-white/4 dark:text-[#d1d3da] dark:hover:border-white/18 dark:hover:bg-white/8"
                         >
                             <svg
                                 width="18"
@@ -215,7 +211,7 @@ export default function LoginPage() {
                         </button>
                         <button
                             type="button"
-                            className="flex w-full cursor-pointer items-center justify-center gap-2.5 rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-2.5 text-sm font-medium text-gray-700 transition-all duration-200 hover:scale-[1.01] hover:border-gray-300 hover:bg-gray-100 active:scale-[0.99] dark:border-white/10 dark:bg-white/4 dark:text-[#d1d3da] dark:hover:border-white/18 dark:hover:bg-white/8"
+                            className="flex w-full cursor-pointer items-center justify-center gap-2.5 rounded-full border border-gray-200 bg-gray-50 px-2.5 py-2.5 text-sm font-medium text-gray-700 transition-all duration-200 hover:scale-[1.02] hover:border-gray-300 hover:bg-gray-100 active:scale-[0.99] dark:border-white/10 dark:bg-white/4 dark:text-[#d1d3da] dark:hover:border-white/18 dark:hover:bg-white/8"
                         >
                             <svg
                                 width="18"
@@ -232,7 +228,7 @@ export default function LoginPage() {
 
                 {/* Right — QR Code */}
                 <div className="hidden w-[240px] flex-col items-center justify-center border-l border-gray-200 p-9 px-7 text-center dark:border-white/6 md:flex">
-                    <div className="mb-5 h-[160px] w-[160px] rounded-xl bg-white p-2 shadow-[0_4px_20px_rgba(0,0,0,0.1)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.3)]">
+                    <div className="mb-5 h-[160px] w-[160px] rounded-[20px] bg-white p-2 shadow-[0_4px_20px_rgba(0,0,0,0.08)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.4)]">
                         <img
                             src={qrCode}
                             alt="QR Code"

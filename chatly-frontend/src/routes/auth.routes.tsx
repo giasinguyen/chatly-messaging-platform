@@ -4,7 +4,6 @@ import { LazyWrapper } from "@/components/customize/LazyWrapper";
 
 const LoginPage = lazy(() => import("@/pages/auth/login"));
 const RegisterPage = lazy(() => import("@/pages/auth/register"));
-const ForgetPage = lazy(() => import("@/pages/auth/forget"));
 
 export const authRoutes: RouteObject[] = [
     {
@@ -18,8 +17,8 @@ export const authRoutes: RouteObject[] = [
             { index: true, element: <Navigate to="login" replace /> },
             { path: "login", element: <LoginPage /> },
             { path: "register", element: <RegisterPage /> },
-            { path: "forget", element: <ForgetPage /> },
         ],
     },
+    { path: "login", element: <Navigate to="/auth" replace /> },
+    { path: "register", element: <Navigate to="/auth" replace /> },
 ];
-
