@@ -24,7 +24,7 @@ export default function LoginPage() {
             {/* Background decorations */}
             <div className="login-blob absolute -top-[10%] -left-[5%] h-[400px] w-[400px] rounded-full bg-brand-light opacity-35 blur-[80px]" />
             <div className="login-blob absolute -right-[3%] -bottom-[8%] h-[300px] w-[300px] rounded-full bg-brand opacity-35 blur-[80px] [animation-delay:3s]" />
-            <div className="login-blob absolute top-[20%] right-[10%] h-[200px] w-[200px] rounded-full bg-[#5ac8fa] opacity-35 blur-[80px] [animation-delay:6s]" />
+            <div className="login-blob absolute top-[20%] right-[10%] h-[200px] w-[200px] rounded-full bg-brand-light opacity-35 blur-[80px] [animation-delay:6s]" />
             <div className="login-blob absolute bottom-[15%] left-[8%] h-[250px] w-[250px] rounded-full bg-brand-dark opacity-35 blur-[80px] [animation-delay:9s]" />
 
             {/* Stars */}
@@ -153,7 +153,7 @@ export default function LoginPage() {
                         {/* Submit */}
                         <button
                             type="submit"
-                            className="mt-1 w-full cursor-pointer rounded-full border-none bg-brand py-3 text-[15px] font-semibold text-white transition-all duration-300 hover:scale-[1.02] hover:bg-[#0077ed] active:scale-[0.99]"
+                            className="mt-1 w-full cursor-pointer rounded-full border-none bg-brand py-3 text-[15px] font-semibold text-white transition-all duration-300 hover:scale-[1.02] hover:bg-brand-hover active:scale-[0.99]"
                         >
                             Log In
                         </button>
@@ -162,7 +162,7 @@ export default function LoginPage() {
                             Need an account?{" "}
                             <Link
                                 to="/auth/register"
-                                className="font-medium text-brand no-underline transition-colors duration-200 hover:text-brand-light hover:underline dark:text-brand-light dark:hover:text-[#5ac8fa]"
+                                className="font-medium text-brand no-underline transition-colors duration-200 hover:text-brand-light hover:underline dark:text-brand-light dark:hover:text-brand-light"
                             >
                                 Register
                             </Link>

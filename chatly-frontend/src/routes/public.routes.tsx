@@ -1,6 +1,8 @@
 import { lazy } from "react";
 import { Navigate, Outlet, type RouteObject } from "react-router-dom";
 import { LazyWrapper } from "@/components/customize/LazyWrapper";
+import TermsPage from "@/pages/public/terms";
+import PrivacyPage from "@/pages/public/privacy";
 
 const LandingPage = lazy(() => import("@/pages/public/landing"));
 const AboutPage = lazy(() => import("@/pages/public/about"));
@@ -25,7 +27,8 @@ export const publicRoutes: RouteObject[] = [
             { path: "impact", element: <ImpactPage /> },
             { path: "product", element: <ProductPage /> },
             { path: "home", element: <Navigate to="/" replace /> },
+            { path: "terms", element: <TermsPage /> },
+            { path: "privacy", element: <PrivacyPage /> },
         ],
     },
 ];
-

@@ -35,7 +35,7 @@ export default function NotFoundPage() {
                 </button>
                 <Link
                     to="/"
-                    className="flex items-center gap-2 rounded-full bg-brand px-5 py-2.5 text-sm font-medium text-white shadow-sm transition-all duration-200 hover:scale-[1.02] hover:bg-[#0077ed] active:scale-[0.98]"
+                    className="flex items-center gap-2 rounded-full bg-brand px-5 py-2.5 text-sm font-medium text-white shadow-sm transition-all duration-200 hover:scale-[1.02] hover:bg-brand-hover active:scale-[0.98]"
                 >
                     <Home size={16} />
                     Back to Home
@@ -44,4 +44,3 @@ export default function NotFoundPage() {
         </div>
     );
 }
-

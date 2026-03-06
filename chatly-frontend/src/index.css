@@ -46,6 +46,7 @@
 
     /* Chatly Brand Colors */
     --color-brand: var(--brand);
+    --color-brand-hover: var(--brand-hover);
     --color-brand-light: var(--brand-light);
     --color-brand-dark: var(--brand-dark);
     --color-brand-deep: var(--brand-deep);
@@ -86,7 +87,8 @@
     --sidebar-ring: oklch(0.708 0 0);
 
     /* Chatly Brand */
-    --brand: #0071E3;
+    --brand: #0071e3;
+    --brand-hover: #0077ed;
     --brand-light: #34aadc;
     --brand-dark: #0d3b7a;
     --brand-deep: #0a1628;
@@ -127,7 +129,8 @@
     --sidebar-ring: oklch(0.556 0 0);
 
     /* Chatly Brand (same in dark — inherently dark gradient) */
-    --brand: #0071E3;
+    --brand: #0071e3;
+    --brand-hover: #0077ed;
     --brand-light: #34aadc;
     --brand-dark: #0d3b7a;
     --brand-deep: #0a1628;

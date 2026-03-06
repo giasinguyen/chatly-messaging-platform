@@ -18,7 +18,7 @@ export function ForgotPasswordDialog({ email }: ForgotPasswordDialogProps) {
             <DialogTrigger asChild>
                 <button
                     type="button"
-                    className="mt-0.5 w-fit cursor-pointer border-none bg-transparent p-0 text-left text-[13px] text-brand no-underline transition-colors duration-200 hover:text-brand-light hover:underline dark:text-brand-light dark:hover:text-[#5ac8fa]"
+                    className="mt-0.5 w-fit cursor-pointer border-none bg-transparent p-0 text-left text-[13px] text-brand no-underline transition-colors duration-200 hover:text-brand-light hover:underline dark:text-brand-light dark:hover:text-brand-light"
                 >
                     Forgot your password?
                 </button>
@@ -40,7 +40,7 @@ export function ForgotPasswordDialog({ email }: ForgotPasswordDialogProps) {
                     <DialogClose asChild>
                         <button
                             type="button"
-                            className="w-full cursor-pointer rounded-full border-none bg-brand py-2.5 text-[15px] font-semibold text-white transition-all duration-300 hover:bg-[#0077ed]"
+                            className="w-full cursor-pointer rounded-full border-none bg-brand py-2.5 text-[15px] font-semibold text-white transition-all duration-300 hover:bg-brand-hover"
                         >
                             Okay
                         </button>
@@ -50,4 +50,3 @@ export function ForgotPasswordDialog({ email }: ForgotPasswordDialogProps) {
         </Dialog>
     );
 }
-
