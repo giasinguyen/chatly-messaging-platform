@@ -7,7 +7,7 @@ interface IPageLoader {
 }
 
 export default function PageLoader({
-    type = "dots",
+    type = "pulse",
     message,
     className,
 }: IPageLoader) {
@@ -83,4 +83,3 @@ function PulseAnimation() {
         </div>
     );
 }
-

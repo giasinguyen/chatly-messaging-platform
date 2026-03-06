@@ -1,0 +1,43 @@
+/* Login Page — Keyframes & Background (Tailwind can't do these inline) */
+.login-page {
+    background: var(--gradient-brand);
+}
+
+/* Blob floating animation */
+.login-blob {
+    animation: blob-float 12s ease-in-out infinite;
+}
+
+@keyframes blob-float {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    33% { transform: translate(30px, -20px) scale(1.05); }
+    66% { transform: translate(-20px, 15px) scale(0.95); }
+}
+
+/* Star twinkling */
+.login-star {
+    animation: star-twinkle 3s ease-in-out infinite;
+}
+
+@keyframes star-twinkle {
+    0%, 100% { opacity: 0.2; transform: scale(1); }
+    50% { opacity: 0.9; transform: scale(1.4); }
+}
+
+/* Card enter animation */
+.login-card-enter {
+    animation: card-enter 500ms cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+}
+
+@keyframes card-enter {
+    from { opacity: 0; transform: translateY(24px) scale(0.97); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* Responsive: mobile card */
+@media (max-width: 768px) {
+    .login-card-enter {
+        flex-direction: column;
+        max-width: 420px;
+    }
+}
