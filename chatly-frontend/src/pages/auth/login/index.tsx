@@ -1,23 +1,46 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Mail, Lock, Eye, EyeOff, Sun, Moon } from "lucide-react";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { Controller, useForm } from "react-hook-form";
+import { toast } from "sonner";
+
 import chatlyLogo from "@/assets/brand/chatly-logo-transparent.png";
 import qrCode from "@/mocks/images/QR-fake.png";
 import { useThemeStore } from "@/store/theme.store";
 import { ForgotPasswordDialog } from "./components/ForgotPasswordDialog";
-import { toast } from "sonner";
+import { loginSchema, type LoginFormValues } from "@/validations/login.schema";
+import {
+    Field,
+    FieldError,
+    FieldGroup,
+    FieldLabel,
+} from "@/components/ui/field";
+import {
+    InputGroup,
+    InputGroupAddon,
+    InputGroupInput,
+    InputGroupButton,
+} from "@/components/ui/input-group";
 import "./login.css";
 
 export default function LoginPage() {
     const [showPassword, setShowPassword] = useState(false);
-    const [email, setEmail] = useState("");
-    const [password, setPassword] = useState("");
     const toggleTheme = useThemeStore((s) => s.toggleTheme);
 
-    const handleSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
-        // TODO: API integration
-        console.log("Login:", { email, password });
+    const form = useForm<LoginFormValues>({
+        resolver: zodResolver(loginSchema),
+        defaultValues: {
+            email: "",
+            password: "",
+        },
+    });
+
+    const onSubmit = (data: LoginFormValues) => {
+        toast("Login initiated", {
+            description: `Email: ${data.email}`,
+        });
+        console.log("Login:", data);
     };
 
     return (
@@ -76,80 +99,120 @@ export default function LoginPage() {
                     </p>
 
                     <form
-                        onSubmit={handleSubmit}
+                        onSubmit={form.handleSubmit(onSubmit)}
                         className="flex flex-col gap-4"
                     >
-                        {/* Email */}
-                        <div className="flex flex-col gap-1.5">
-                            <label
-                                className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-[#b0b3bc]"
-                                htmlFor="login-email"
-                            >
-                                Email or Phone Number{" "}
-                                <span className="text-red-400">*</span>
-                            </label>
-                            <div className="relative flex items-center">
-                                <Mail
-                                    size={16}
-                                    className="pointer-events-none absolute left-3 text-gray-400 transition-colors duration-200 dark:text-[#6c6f78]"
-                                />
-                                <input
-                                    id="login-email"
-                                    type="text"
-                                    className="w-full rounded-xl border border-gray-200 bg-gray-50 py-2.5 pr-3 pl-[38px] text-[15px] text-gray-900 outline-none transition-all duration-200 focus:border-brand focus:shadow-[0_0_0_3px_rgba(0,113,227,0.15)] dark:border-white/8 dark:bg-[#1a1c23] dark:text-white dark:focus:shadow-[0_0_0_3px_rgba(0,113,227,0.2)]"
-                                    value={email}
-                                    onChange={(e) => setEmail(e.target.value)}
-                                    autoComplete="email"
-                                    required
-                                />
-                            </div>
-                        </div>
+                        <FieldGroup>
+                            {/* Email */}
+                            <Controller
+                                name="email"
+                                control={form.control}
+                                render={({ field, fieldState }) => (
+                                    <Field data-invalid={fieldState.invalid}>
+                                        <FieldLabel
+                                            htmlFor="login-email"
+                                            className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-[#b0b3bc]"
+                                        >
+                                            Email or Phone Number{" "}
+                                            <span className="text-red-400">
+                                                *
+                                            </span>
+                                        </FieldLabel>
+                                        <InputGroup className="rounded-xl border-gray-200 bg-gray-50 dark:border-white/8 dark:bg-[#1a1c23] transition-all has-[[data-slot=input-group-control]:focus]:border-brand has-[[data-slot=input-group-control]:focus]:ring-brand/30">
+                                            <InputGroupAddon align="inline-start">
+                                                <Mail
+                                                    size={16}
+                                                    className="text-gray-400 dark:text-[#6c6f78]"
+                                                />
+                                            </InputGroupAddon>
+                                            <InputGroupInput
+                                                {...field}
+                                                id="login-email"
+                                                type="text"
+                                                autoComplete="email"
+                                                aria-invalid={
+                                                    fieldState.invalid
+                                                }
+                                                className="py-2.5 text-[15px] !text-gray-900 dark:!text-white"
+                                            />
+                                        </InputGroup>
+                                        {fieldState.invalid && (
+                                            <FieldError
+                                                errors={[fieldState.error]}
+                                            />
+                                        )}
+                                    </Field>
+                                )}
+                            />
 
-                        {/* Password */}
-                        <div className="flex flex-col gap-1.5">
-                            <label
-                                className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-[#b0b3bc]"
-                                htmlFor="login-password"
-                            >
-                                Password <span className="text-red-400">*</span>
-                            </label>
-                            <div className="relative flex items-center">
-                                <Lock
-                                    size={16}
-                                    className="pointer-events-none absolute left-3 text-gray-400 transition-colors duration-200 dark:text-[#6c6f78]"
-                                />
-                                <input
-                                    id="login-password"
-                                    type={showPassword ? "text" : "password"}
-                                    className="w-full rounded-xl border border-gray-200 bg-gray-50 py-2.5 pr-10 pl-[38px] text-[15px] text-gray-900 outline-none transition-all duration-200 focus:border-brand focus:shadow-[0_0_0_3px_rgba(0,113,227,0.15)] dark:border-white/8 dark:bg-[#1a1c23] dark:text-white dark:focus:shadow-[0_0_0_3px_rgba(0,113,227,0.2)]"
-                                    value={password}
-                                    onChange={(e) =>
-                                        setPassword(e.target.value)
-                                    }
-                                    autoComplete="current-password"
-                                    required
-                                />
-                                <button
-                                    type="button"
-                                    className="absolute right-2.5 flex cursor-pointer items-center justify-center border-none bg-transparent p-1 text-gray-400 transition-colors duration-200 hover:text-gray-700 dark:text-[#6c6f78] dark:hover:text-white"
-                                    onClick={() =>
-                                        setShowPassword(!showPassword)
-                                    }
-                                    aria-label={
-                                        showPassword
-                                            ? "Hide password"
-                                            : "Show password"
-                                    }
-                                >
-                                    {showPassword ? (
-                                        <EyeOff size={16} />
-                                    ) : (
-                                        <Eye size={16} />
-                                    )}
-                                </button>
-                            </div>
-                            <ForgotPasswordDialog email={email} />
-                        </div>
+                            {/* Password */}
+                            <Controller
+                                name="password"
+                                control={form.control}
+                                render={({ field, fieldState }) => (
+                                    <Field data-invalid={fieldState.invalid}>
+                                        <FieldLabel
+                                            htmlFor="login-password"
+                                            className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-[#b0b3bc]"
+                                        >
+                                            Password{" "}
+                                            <span className="text-red-400">
+                                                *
+                                            </span>
+                                        </FieldLabel>
+                                        <InputGroup className="rounded-xl border-gray-200 bg-gray-50 dark:border-white/8 dark:bg-[#1a1c23] transition-all has-[[data-slot=input-group-control]:focus]:border-brand has-[[data-slot=input-group-control]:focus]:ring-brand/30">
+                                            <InputGroupAddon align="inline-start">
+                                                <Lock
+                                                    size={16}
+                                                    className="text-gray-400 dark:text-[#6c6f78]"
+                                                />
+                                            </InputGroupAddon>
+                                            <InputGroupInput
+                                                {...field}
+                                                id="login-password"
+                                                type={
+                                                    showPassword
+                                                        ? "text"
+                                                        : "password"
+                                                }
+                                                autoComplete="current-password"
+                                                aria-invalid={
+                                                    fieldState.invalid
+                                                }
+                                                className="py-2.5 text-[15px] !text-gray-900 dark:!text-white pr-0"
+                                            />
+                                            <InputGroupAddon align="inline-end">
+                                                <InputGroupButton
+                                                    type="button"
+                                                    onClick={() =>
+                                                        setShowPassword(
+                                                            !showPassword,
+                                                        )
+                                                    }
+                                                    variant="ghost"
+                                                    size="icon-xs"
+                                                    className="text-gray-400 hover:text-gray-700 dark:text-[#6c6f78] dark:hover:text-white"
+                                                >
+                                                    {showPassword ? (
+                                                        <EyeOff size={16} />
+                                                    ) : (
+                                                        <Eye size={16} />
+                                                    )}
+                                                </InputGroupButton>
+                                            </InputGroupAddon>
+                                        </InputGroup>
+                                        {fieldState.invalid && (
+                                            <FieldError
+                                                errors={[fieldState.error]}
+                                            />
+                                        )}
+                                        <ForgotPasswordDialog
+                                            email={form.getValues("email")}
+                                        />
+                                    </Field>
+                                )}
+                            />
+                        </FieldGroup>
 
                         {/* Submit */}
                         <button
