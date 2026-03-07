@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
     MessageCircle,
     Zap,
@@ -65,6 +66,7 @@ function Reveal({
 
 // ─── Navbar ───────────────────────────────────────────────────────────────────
 function Navbar() {
+    const navigate = useNavigate();
     const [scrolled, setScrolled] = useState(false);
 
     useEffect(() => {
@@ -179,7 +181,7 @@ function Navbar() {
                 {/* CTA */}
                 <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
                     <a
-                        href="#"
+                        href="/auth"
                         style={{
                             fontFamily:
                                 '"Inter",-apple-system,BlinkMacSystemFont,sans-serif',
@@ -193,6 +195,7 @@ function Navbar() {
                         Sign in
                     </a>
                     <button
+                        onClick={() => navigate("/auth")}
                         style={{
                             background: "#0071E3",
                             color: "#fff",
@@ -230,6 +233,7 @@ function Navbar() {
 
 // ─── Hero ─────────────────────────────────────────────────────────────────────
 function Hero() {
+    const navigate = useNavigate();
     return (
         <section
             style={{
@@ -323,6 +327,7 @@ function Hero() {
                 }}
             >
                 <button
+                    onClick={() => navigate("/auth")}
                     style={{
                         background: "#0071E3",
                         color: "#fff",
@@ -781,6 +786,7 @@ function SocialProof() {
 
 // ─── CTA ─────────────────────────────────────────────────────────────────────
 function CTA() {
+    const navigate = useNavigate();
     return (
         <section
             style={{
@@ -836,6 +842,7 @@ function CTA() {
                         }}
                     >
                         <button
+                            onClick={() => navigate("/auth")}
                             style={{
                                 background: "#0071E3",
                                 color: "#fff",
@@ -994,4 +1001,3 @@ export default function LandingPage() {
         </>
     );
 }
-

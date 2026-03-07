@@ -44,7 +44,7 @@ export default function RegisterPage() {
     };
 
     return (
-        <div className="login-page relative flex min-h-screen items-center justify-center overflow-hidden font-[Inter,-apple-system,BlinkMacSystemFont,sans-serif]">
+        <div className="login-page relative flex min-h-screen flex-col items-center justify-center overflow-y-auto py-12 font-[Inter,-apple-system,BlinkMacSystemFont,sans-serif]">
             {/* Background decorations */}
             <div className="login-blob absolute -top-[10%] -left-[5%] h-[400px] w-[400px] rounded-full bg-brand-light opacity-35 blur-[80px]" />
             <div className="login-blob absolute -right-[3%] -bottom-[8%] h-[300px] w-[300px] rounded-full bg-brand opacity-35 blur-[80px] [animation-delay:3s]" />
@@ -130,7 +130,8 @@ export default function RegisterPage() {
                             render={({ field, fieldState }) => (
                                 <Field data-invalid={fieldState.invalid}>
                                     <FieldLabel className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-[#b0b3bc]">
-                                        Display Name
+                                        Display Name{" "}
+                                        <span className="text-red-400">*</span>
                                     </FieldLabel>
                                     <Input
                                         {...field}

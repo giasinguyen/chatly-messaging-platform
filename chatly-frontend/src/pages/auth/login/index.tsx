@@ -9,7 +9,11 @@ import chatlyLogo from "@/assets/brand/chatly-logo-transparent.png";
 import qrCode from "@/mocks/images/QR-fake.png";
 import { useThemeStore } from "@/store/theme.store";
 import { ForgotPasswordDialog } from "./components/ForgotPasswordDialog";
-import { loginSchema, type LoginFormValues } from "@/validations/login.schema";
+import {
+    loginSchema,
+    smsLoginSchema,
+    type LoginFormValues,
+} from "@/validations/login.schema";
 import {
     Field,
     FieldError,
@@ -32,7 +36,9 @@ export default function LoginPage() {
     const toggleTheme = useThemeStore((s) => s.toggleTheme);
 
     const form = useForm<LoginFormValues>({
-        resolver: zodResolver(loginSchema),
+        resolver: zodResolver(
+            loginMethod === "password" ? loginSchema : smsLoginSchema,
+        ),
         defaultValues: {
             email: "",
             password: "",
@@ -40,14 +46,23 @@ export default function LoginPage() {
     });
 
     const onSubmit = (data: LoginFormValues) => {
+        if (loginMethod === "sms") {
+            return toast(
+                "Xin lỗi, tính năng đang trong giai đoạn thử nghiệm và phát triển",
+                {
+                    description: "SMS login is not available yet",
+                },
+            );
+        }
+
         toast("Login initiated", {
-            description: `Email: ${data.email}`,
+            description: `${loginMethod === "password" ? "Password" : "SMS"} - Email: ${data.email}`,
         });
-        console.log("Login:", data);
+        console.log("Login Payload:", { ...data, method: loginMethod });
     };
 
     return (
-        <div className="login-page relative flex min-h-screen items-center justify-center overflow-hidden font-[Inter,-apple-system,BlinkMacSystemFont,sans-serif]">
+        <div className="login-page relative flex min-h-screen flex-col items-center justify-center overflow-y-auto py-12 font-[Inter,-apple-system,BlinkMacSystemFont,sans-serif]">
             {/* Background decorations */}
             <div className="login-blob absolute -top-[10%] -left-[5%] h-[400px] w-[400px] rounded-full bg-brand-light opacity-35 blur-[80px]" />
             <div className="login-blob absolute -right-[3%] -bottom-[8%] h-[300px] w-[300px] rounded-full bg-brand opacity-35 blur-[80px] [animation-delay:3s]" />

@@ -5,7 +5,7 @@ export const registerSchema = z.object({
         .string()
         .email("Email không hợp lệ")
         .min(1, "Email không được để trống"),
-    displayName: z.string().optional(),
+    displayName: z.string().min(1, "Tên hiển thị không được để trống"),
     username: z.string().min(3, "Username phải chứa ít nhất 3 ký tự"),
     password: z.string().min(6, "Mật khẩu phải chứa ít nhất 6 ký tự"),
     month: z.string().min(1, "Vui lòng chọn tháng"),
