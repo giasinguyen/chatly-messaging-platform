@@ -42,25 +42,37 @@ public class JwtProvider {
             return false;
         }
     }
+    
+    public long getExpirationTimeInSeconds(String token) {
+        try {
+            Claims claims = parseClaims(token);
+            Date expiration = claims.getExpiration();
+            Date now = new Date();
+            long diffInMillis = expiration.getTime() - now.getTime();
+            return Math.max(0, diffInMillis / 1000);
+        } catch (Exception e) {
+            return 0;
+        }
+    }
 
     private String buildToken(String userId, long expirationMs) {
         Date now = new Date();
         Date expiry = new Date(now.getTime() + expirationMs);
 
         return Jwts.builder()
-                .subject(userId)
-                .issuedAt(now)
-                .expiration(expiry)
-                .signWith(getSigningKey())
-                .compact();
+            .subject(userId)
+            .issuedAt(now)
+            .expiration(expiry)
+            .signWith(getSigningKey())
+            .compact();
     }
 
     private Claims parseClaims(String token) {
         return Jwts.parser()
-                .verifyWith(getSigningKey())
-                .build()
-                .parseSignedClaims(token)
-                .getPayload();
+            .verifyWith(getSigningKey())
+            .build()
+            .parseSignedClaims(token)
+            .getPayload();
     }
 
     private SecretKey getSigningKey() {
