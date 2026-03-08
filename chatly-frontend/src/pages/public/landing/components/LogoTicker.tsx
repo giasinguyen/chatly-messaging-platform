@@ -4,6 +4,8 @@ import nginxLogo from "@/assets/landing/sponsors/nginx.svg";
 import redisLogo from "@/assets/landing/sponsors/redis.svg";
 import shadcnLogo from "@/assets/landing/sponsors/shadcn/ui_dark.svg";
 import springLogo from "@/assets/landing/sponsors/spring-wordmark.svg";
+import copilotLogo from "@/assets/landing/sponsors/copilot.svg";
+import gitlabLogo from "@/assets/landing/sponsors/gitlab.svg";
 
 import { motion } from "framer-motion";
 export const LogoTicker = () => {
@@ -17,7 +19,7 @@ export const LogoTicker = () => {
               translateX: "-50%",
             }}
             transition={{
-              duration: 20,
+              duration: 10,
               repeat: Infinity,
               ease: 'linear',
               repeatType: "loop"
@@ -29,6 +31,9 @@ export const LogoTicker = () => {
             <img src={redisLogo} alt="Redis logo" className="logo-ticker-image" />
             <img src={shadcnLogo} alt="shadcn/ui logo" className="logo-ticker-image" />
             <img src={springLogo} alt="Spring logo" className="logo-ticker-image" />
+            <img src={gitlabLogo} alt="Gitlab logo" className="logo-ticker-image" />
+            <img src={copilotLogo} alt="Copilot logo" className="logo-ticker-image" />
+
             {/* second copied section of logos */}
             <img src={githubLogo} alt="Acme logo" className="logo-ticker-image" />
             <img src={reactLogo} alt="React logo" className="logo-ticker-image" />
@@ -36,6 +41,8 @@ export const LogoTicker = () => {
             <img src={redisLogo} alt="Redis logo" className="logo-ticker-image" />
             <img src={shadcnLogo} alt="shadcn/ui logo" className="logo-ticker-image" />
             <img src={springLogo} alt="Spring logo" className="logo-ticker-image" />
+            <img src={gitlabLogo} alt="Gitlab logo" className="logo-ticker-image" />
+            <img src={copilotLogo} alt="Copilot logo" className="logo-ticker-image" />
           </motion.div>
         </div>
       </div>

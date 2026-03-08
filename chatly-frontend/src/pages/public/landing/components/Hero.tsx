@@ -18,16 +18,16 @@ export const Hero = () => {
     return (
         <section
             ref={heroRef}
-            className="pt-8 pb-20 bg-[radial-gradient(ellipse_200%_100%_at_bottom_left,#183EC2,#EAEEFE_100%)] md:pt-5 md:pb-10 overflow-x-clip"
+            className="pt-8 pb-20 bg-[radial-gradient(ellipse_200%_100%_at_bottom_left,#0071e3,#EAEEFE_66%)] md:pt-5 md:pb-10 overflow-x-clip"
         >
             <div className="container flex justify-center">
                 <div className="md:flex md:items-center md:gap-10 md:max-w-[1040px] w-full">
                     <div className="md:w-[420px] md:flex-shrink-0">
                         <div className="tag">Version 1.0.0 comming soon</div>
-                        <h1 className="text-5xl md:text-7xl font-bold tracking-tighter bg-gradient-to-b from-black to-[#001E80] text-transparent bg-clip-text mt-6">
+                        <h1 className="text-5xl md:text-7xl font-bold tracking-tighter bg-gradient-to-b from-black to-[#0071e3] text-transparent bg-clip-text mt-6">
                             Chatly
                         </h1>
-                        <p className="text-xl text-[#010D3E] tracking-tight mt-6">
+                        <p className="text-xl text-[#1d1d1f] tracking-tight mt-6">
                             Your AI-Powered, messaging, storage and
                             collaboration platform
                         </p>

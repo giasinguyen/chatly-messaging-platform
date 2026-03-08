@@ -9,7 +9,7 @@ import { Testimonials } from "./components/Testimonials";
 
 export default function LandingPage() {
     return (
-        <div className="min-h-screen antialiased bg-[#EAEEFE]" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+        <div className="min-h-screen antialiased bg-[#EAEEFE] dark:text-[#1d1d1f]" style={{ fontFamily: "'DM Sans', sans-serif" }}>
             <Header />
             <Hero />
             <LogoTicker />

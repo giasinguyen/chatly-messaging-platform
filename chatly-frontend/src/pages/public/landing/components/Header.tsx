@@ -6,17 +6,12 @@ import { Link } from "react-router-dom";
 export const Header = () => {
     return (
         <header className="sticky top-0 backdrop-blur-sm z-20">
-            <div className="flex justify-center items-center py-3 bg-black text-white text-sm gap-3">
+            <div className="flex justify-center items-center py-3 bg-[#0071e3] text-white text-sm gap-3">
                 <p className="text-white/60 hidden md:block">
                     Version 1.0.0 will be officially released on May 1, 2026.
                 </p>
                 <div className="inline-flex gap-1 items-center">
                     <Link to="/auth/login">Try now</Link>
-                    <img
-                        src={ArrowRight}
-                        alt="Arrow right"
-                        className="h-4 w-4 inline-flex justify-center items-center"
-                    />
                 </div>
             </div>
             <div className="py-5">
@@ -36,7 +31,7 @@ export const Header = () => {
                         <nav className="hidden md:flex gap-6 text-black/60 items-center">
                             <a href="/terms">Terms</a>
                             <a href="/privacy">Privacy</a>
-                            <button className="bg-black text-white px-4 py-2 rounded-lg font-medium inline-flex justify-center tracking-tight">
+                            <button className="bg-[#0071e3] text-white px-4 py-2 rounded-lg font-medium inline-flex justify-center tracking-tight hover:bg-[#0077ed] transition-colors">
                                 <Link to="/auth/login">Login</Link>
                             </button>
                         </nav>
