@@ -1,9 +1,10 @@
-import acmeLogo from "@/assets/landing/logo-acme.png";
-import quantumLogo from "@/assets/landing/logo-quantum.png";
-import echoLogo from "@/assets/landing/logo-echo.png";
-import celestialLogo from "@/assets/landing/logo-celestial.png";
-import pulseLogo from "@/assets/landing/logo-pulse.png";
-import apexLogo from "@/assets/landing/logo-apex.png";
+import githubLogo from "@/assets/landing/sponsors/GitHub_wordmark_light_dark/GitHub_wordmark_light.svg";
+import reactLogo from "@/assets/landing/sponsors/React_wordmark_light_dark/React_wordmark_light.svg";
+import nginxLogo from "@/assets/landing/sponsors/nginx.svg";
+import redisLogo from "@/assets/landing/sponsors/redis.svg";
+import shadcnLogo from "@/assets/landing/sponsors/shadcn/ui_dark.svg";
+import springLogo from "@/assets/landing/sponsors/spring-wordmark.svg";
+
 import { motion } from "framer-motion";
 export const LogoTicker = () => {
   return (
@@ -22,19 +23,19 @@ export const LogoTicker = () => {
               repeatType: "loop"
             }}
           >
-            <img src={acmeLogo} alt="Acme logo" className="logo-ticker-image" />
-            <img src={quantumLogo} alt="Quantum logo" className="logo-ticker-image" />
-            <img src={echoLogo} alt="Echo logo" className="logo-ticker-image" />
-            <img src={celestialLogo} alt="celestial logo" className="logo-ticker-image" />
-            <img src={pulseLogo} alt="pulse logo" className="logo-ticker-image" />
-            <img src={apexLogo} alt="apex logo" className="logo-ticker-image" />
+            <img src={githubLogo} alt="Acme logo" className="logo-ticker-image" />
+            <img src={reactLogo} alt="React logo" className="logo-ticker-image" />
+            <img src={nginxLogo} alt="NGINX logo" className="logo-ticker-image" />
+            <img src={redisLogo} alt="Redis logo" className="logo-ticker-image" />
+            <img src={shadcnLogo} alt="shadcn/ui logo" className="logo-ticker-image" />
+            <img src={springLogo} alt="Spring logo" className="logo-ticker-image" />
             {/* second copied section of logos */}
-            <img src={acmeLogo} alt="Acme logo" className="logo-ticker-image" />
-            <img src={quantumLogo} alt="Quantum logo" className="logo-ticker-image" />
-            <img src={echoLogo} alt="Echo logo" className="logo-ticker-image" />
-            <img src={celestialLogo} alt="celestial logo" className="logo-ticker-image" />
-            <img src={pulseLogo} alt="pulse logo" className="logo-ticker-image" />
-            <img src={apexLogo} alt="apex logo" className="logo-ticker-image" />
+            <img src={githubLogo} alt="Acme logo" className="logo-ticker-image" />
+            <img src={reactLogo} alt="React logo" className="logo-ticker-image" />
+            <img src={nginxLogo} alt="NGINX logo" className="logo-ticker-image" />
+            <img src={redisLogo} alt="Redis logo" className="logo-ticker-image" />
+            <img src={shadcnLogo} alt="shadcn/ui logo" className="logo-ticker-image" />
+            <img src={springLogo} alt="Spring logo" className="logo-ticker-image" />
           </motion.div>
         </div>
       </div>

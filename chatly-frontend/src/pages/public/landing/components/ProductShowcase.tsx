@@ -1,4 +1,4 @@
-import productImage from "@/assets/landing/product-image.png";
+import productImage from "@/mocks/images/pc.png";
 import pyramidImage from "@/assets/landing/pyramid.png";
 import tubeImage from "@/assets/landing/tube.png";
 import {motion, useScroll, useTransform} from "framer-motion"
@@ -26,7 +26,7 @@ export const ProductShowcase = () => {
           </p>
         </div>
         <div className="relative">
-          <img src={productImage} alt="Product image" className="mt-10" />
+          <img src={productImage} alt="Product image" className="mt-10 w-full" />
           <motion.img
             src={pyramidImage}
             alt="pyramid image"
