@@ -31,7 +31,8 @@ public class WebSecurityConfig {
             "/api/auth/**",
             "/ws/**",
             "/ws-raw/**",
-            "/ws-test.html"
+            "/ws-test.html",
+            "/chatroom-test.html"
     };
 
     @Bean
