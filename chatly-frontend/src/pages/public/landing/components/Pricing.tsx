@@ -1,6 +1,7 @@
 import CheckIcon from "@/assets/landing/check.svg";
 import { twMerge } from "tailwind-merge";
 import {motion} from "framer-motion"
+import { useNavigate } from "react-router-dom";
 
 const pricingTiers = [
   {
@@ -62,6 +63,7 @@ const pricingTiers = [
 ];
 
 export const Pricing = () => {
+  const navigate = useNavigate();
   return (
     <section className="py-24 bg-white">
       <div className="container">
@@ -125,6 +127,7 @@ export const Pricing = () => {
                   </span>
                 </div>
                 <button
+                  onClick={() => navigate("/auth/register")}
                   className={twMerge(
                     "btn btn-primary w-full mt-[30px]",
                     inverse === true && "bg-white text-black"

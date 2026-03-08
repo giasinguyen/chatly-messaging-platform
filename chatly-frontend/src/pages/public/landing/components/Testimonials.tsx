@@ -11,61 +11,60 @@ import avatar9 from "@/assets/landing/avatar-9.png";
 import React from "react";
 import {motion} from "framer-motion"
 
-
 const testimonials = [
   {
-    text: "As a seasoned designer always on the lookout for innovative tools, Framer.com instantly grabbed my attention.",
+    text: "The future of communication is fast, decentralized, and user-first. Platforms like this push the internet in the right direction.",
     imageSrc: avatar1,
-    name: "Jamie Rivera",
-    username: "@jamietechguru00",
+    name: "Elon Musk",
+    username: "@elonmusk",
   },
   {
-    text: "Our team's productivity has skyrocketed since we started using this tool. ",
+    text: "Great products focus on simplicity and community. This platform shows how powerful digital communication can be.",
     imageSrc: avatar2,
-    name: "Josh Smith",
-    username: "@jjsmith",
+    name: "Mark Zuckerberg",
+    username: "@zuck",
   },
   {
-    text: "This app has completely transformed how I manage my projects and deadlines.",
+    text: "Technology should empower people to collaborate and build together. Tools like this make that possible.",
     imageSrc: avatar3,
-    name: "Morgan Lee",
-    username: "@morganleewhiz",
+    name: "Satya Nadella",
+    username: "@satyanadella",
   },
   {
-    text: "I was amazed at how quickly we were able to integrate this app into our workflow.",
+    text: "Innovation happens when people connect and share ideas. Communication platforms are the backbone of the modern internet.",
     imageSrc: avatar4,
-    name: "Casey Jordan",
-    username: "@caseyj",
+    name: "Bill Gates",
+    username: "@billgates",
   },
   {
-    text: "Planning and executing events has never been easier. This app helps me keep track of all the moving parts, ensuring nothing slips through the cracks.",
+    text: "The best products create communities. When people feel connected, amazing things happen.",
     imageSrc: avatar5,
-    name: "Taylor Kim",
-    username: "@taylorkimm",
+    name: "Tim Cook",
+    username: "@tim_cook",
   },
   {
-    text: "The customizability and integration capabilities of this app are top-notch.",
+    text: "Building tools that help creators and communities thrive is the future of the digital world.",
     imageSrc: avatar6,
-    name: "Riley Smith",
-    username: "@rileysmith1",
+    name: "MrBeast",
+    username: "@mrbeast",
   },
   {
-    text: "Adopting this app for our team has streamlined our project management and improved communication across the board.",
+    text: "Communication platforms shape culture. When designed well, they bring people closer together.",
     imageSrc: avatar7,
-    name: "Jordan Patels",
-    username: "@jpatelsdesign",
+    name: "Sundar Pichai",
+    username: "@sundarpichai",
   },
   {
-    text: "With this app, we can easily assign tasks, track progress, and manage documents all in one place.",
+    text: "The power of the internet lies in how we connect and share ideas. Great platforms make that seamless.",
     imageSrc: avatar8,
-    name: "Sam Dawson",
-    username: "@dawsontechtips",
+    name: "Jack Dorsey",
+    username: "@jack",
   },
   {
-    text: "Its user-friendly interface and robust features support our diverse needs.",
+    text: "Communities are everything online. The right platform can turn a simple idea into a global movement.",
     imageSrc: avatar9,
-    name: "Casey Harper",
-    username: "@casey09",
+    name: "Taylor Swift",
+    username: "@taylorswift13",
   },
 ];
 

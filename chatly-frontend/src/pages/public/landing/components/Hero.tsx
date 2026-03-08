@@ -4,7 +4,10 @@ import cylinderImage from "@/assets/landing/cylinder.png";
 import noodleImage from "@/assets/landing/noodle.png";
 import { motion, useScroll, useTransform } from "framer-motion";
 import { useRef } from "react";
+import { useNavigate } from "react-router-dom";
 export const Hero = () => {
+    const navigate = useNavigate();
+
     const heroRef = useRef(null);
     const { scrollYProgress } = useScroll({
         target: heroRef,
@@ -29,10 +32,10 @@ export const Hero = () => {
                             collaboration platform
                         </p>
                         <div className="flex gap-1 items-center mt-[30px]">
-                            <button className="btn btn-primary">
+                            <button className="btn btn-primary" onClick={() => navigate("/auth/login")}>
                                 Try now
                             </button>
-                            <button className="btn btn-text gap-1">
+                            <button className="btn btn-text gap-1" onClick={() => navigate("/auth/register")}>
                                 <span>Learn more</span>
                                 <img
                                     src={ArrowIcon}
