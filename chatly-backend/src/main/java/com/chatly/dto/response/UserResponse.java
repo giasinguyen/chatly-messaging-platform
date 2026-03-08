@@ -13,10 +13,12 @@ import java.time.Instant;
 public class UserResponse {
 
     private String id;
+    private String username;
     private String email;
     private String displayName;
     private String avatarUrl;
     private String phone;
+    private Instant dob;
     private String bio;
     private UserStatus status;
     private Instant lastSeen;

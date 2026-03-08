@@ -19,7 +19,7 @@ spring:
 
     sql:
         init:
-            mode: always
+            mode: never # chịu khó gọi Postman 'register / create' data sample đi seed lag vc:v
             data-locations: classpath:db/seed-data.sql
 
     data:

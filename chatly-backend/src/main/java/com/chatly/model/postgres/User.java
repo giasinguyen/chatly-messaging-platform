@@ -23,6 +23,9 @@ public class User {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
+    @Column(unique = true, nullable = false)
+    private String username;
+
     @Column(unique = true)
     private String email;
 
@@ -36,6 +39,8 @@ public class User {
 
     @Column(unique = true)
     private String phone;
+
+    private Instant dob;
 
     private String bio;
 

@@ -1,6 +1,5 @@
 package com.chatly.dto.request;
 
-import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import lombok.*;
 
@@ -12,8 +11,7 @@ import lombok.*;
 public class LoginRequest {
 
     @NotBlank(message = "INVALID_KEY")
-    @Email(message = "INVALID_KEY")
-    private String email;
+    private String identifier;
 
     @NotBlank(message = "INVALID_KEY")
     private String password;

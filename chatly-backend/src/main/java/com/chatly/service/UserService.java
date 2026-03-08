@@ -58,6 +58,13 @@ public class UserService {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
 
+        if (request.getUsername() != null) {
+            if (userRepository.existsByUsername(request.getUsername())
+                    && !request.getUsername().equals(user.getUsername())) {
+                throw new AppException(ErrorCode.USERNAME_ALREADY_EXISTS);
+            }
+            user.setUsername(request.getUsername());
+        }
         if (request.getDisplayName() != null) {
             user.setDisplayName(request.getDisplayName());
         }
@@ -65,10 +72,13 @@ public class UserService {
             user.setAvatarUrl(request.getAvatarUrl());
         }
         if (request.getPhone() != null) {
-            if (userRepository.existsByPhone(request.getPhone())) {
+            if (userRepository.existsByPhone(request.getPhone()) && !request.getPhone().equals(user.getPhone())) {
                 throw new AppException(ErrorCode.PHONE_ALREADY_EXISTS);
             }
             user.setPhone(request.getPhone());
+        }
+        if (request.getDob() != null) {
+            user.setDob(request.getDob());
         }
         if (request.getBio() != null) {
             user.setBio(request.getBio());
