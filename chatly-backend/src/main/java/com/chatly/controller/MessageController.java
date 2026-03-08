@@ -6,6 +6,8 @@ import com.chatly.dto.response.MessageResponse;
 import com.chatly.service.MessageService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -17,42 +19,40 @@ public class MessageController {
 
     private final MessageService messageService;
 
-    @PostMapping("/{senderId}")
-    ApiResponse<MessageResponse> send(
-            @PathVariable String senderId,
-            @RequestBody @Valid MessageRequest request) {
+    @PostMapping
+    ApiResponse<MessageResponse> send(@RequestBody @Valid MessageRequest request) {
         return ApiResponse.<MessageResponse>builder()
-                .result(messageService.send(senderId, request))
+                .result(messageService.send(getAuthenticatedUserId(), request))
                 .build();
     }
 
-    @GetMapping("/conversation/{conversationId}/user/{userId}")
+    @GetMapping("/conversation/{conversationId}")
     ApiResponse<List<MessageResponse>> getByConversation(
             @PathVariable String conversationId,
-            @PathVariable String userId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
         return ApiResponse.<List<MessageResponse>>builder()
-                .result(messageService.getByConversation(conversationId, userId, page, size))
+                .result(messageService.getByConversation(conversationId, getAuthenticatedUserId(), page, size))
                 .build();
     }
 
-    @PutMapping("/{messageId}/read/{userId}")
-    ApiResponse<MessageResponse> markAsRead(
-            @PathVariable String messageId,
-            @PathVariable String userId) {
+    @PutMapping("/{messageId}/read")
+    ApiResponse<MessageResponse> markAsRead(@PathVariable String messageId) {
         return ApiResponse.<MessageResponse>builder()
-                .result(messageService.markAsRead(messageId, userId))
+                .result(messageService.markAsRead(messageId, getAuthenticatedUserId()))
                 .build();
     }
 
-    @DeleteMapping("/{messageId}/user/{senderId}")
-    ApiResponse<Void> delete(
-            @PathVariable String messageId,
-            @PathVariable String senderId) {
-        messageService.delete(messageId, senderId);
+    @DeleteMapping("/{messageId}")
+    ApiResponse<Void> delete(@PathVariable String messageId) {
+        messageService.delete(messageId, getAuthenticatedUserId());
         return ApiResponse.<Void>builder()
                 .message("Message deleted successfully")
                 .build();
+    }
+
+    private String getAuthenticatedUserId() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        return authentication.getPrincipal().toString();
     }
 }
