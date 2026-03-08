@@ -26,6 +26,7 @@ import {
     InputGroupInput,
     InputGroupButton,
 } from "@/components/ui/input-group";
+import axiosClient from "@/lib/axiosClient";
 import "./login.css";
 
 export default function LoginPage() {
@@ -57,14 +58,20 @@ export default function LoginPage() {
 
         const payload = {
             identifier: data.identifier,
-            password: data.password || "", // Ensure password is included if present, or an empty string
-            method: loginMethod,
+            password: data.password || "",
         };
 
         toast("Login initiated", {
             description: `${loginMethod === "password" ? "Password" : "SMS"} - Identifier: ${data.identifier}`,
         });
-        console.log("Login Payload:", payload);
+
+        // Backend call preparation (for logging as requested)
+        console.log(
+            `👉 [API Call Login - Method: ${loginMethod}]: POST /api/auth/login`,
+        );
+        console.log("👉 Payload:", payload);
+
+        // await axiosClient.post("/api/auth/login", payload);
     };
 
     return (

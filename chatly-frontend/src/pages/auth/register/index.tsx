@@ -17,6 +17,7 @@ import {
     FieldLabel,
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import axiosClient from "@/lib/axiosClient";
 import "../login/login.css";
 
 export default function RegisterPage() {
@@ -57,7 +58,12 @@ export default function RegisterPage() {
         toast("Registration initiated", {
             description: `Username: ${payload.username}`,
         });
-        console.log("Register payload:", payload);
+
+        // Backend call preparation (for logging as requested)
+        console.log("👉 [API Call Register]: POST /api/auth/register");
+        console.log("👉 Payload:", payload);
+
+        // await axiosClient.post("/api/auth/register", payload);
     };
 
     return (
