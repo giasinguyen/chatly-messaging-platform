@@ -168,13 +168,13 @@
         @apply bg-[#0071e3] text-white;
     }
     .btn-text {
-        @apply text-black bg-transparent;
+        @apply text-black dark:text-white bg-transparent;
     }
     .logo-ticker-image {
         @apply h-8 w-auto;
     }
     .tag {
-        @apply text-sm inline-flex border border-[#222]/10 px-3 py-1 rounded-lg tracking-tight;
+        @apply text-sm inline-flex border border-[#222]/10 dark:border-white/20 px-3 py-1 rounded-lg tracking-tight text-gray-700 dark:text-gray-200;
     }
     .section-title {
         @apply text-center text-3xl md:text-[54px] md:leading-[60px] font-bold tracking-tighter bg-gradient-to-b from-black to-[#0071e3] bg-clip-text text-transparent;

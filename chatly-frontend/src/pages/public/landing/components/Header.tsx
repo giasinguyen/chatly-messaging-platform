@@ -1,4 +1,3 @@
-import ArrowRight from "@/assets/landing/arrow-right.svg";
 import Logo from "@/assets/brand/chatly-logo-transparent.png";
 import MenuIcon from "@/assets/landing/menu.svg";
 import { Link } from "react-router-dom";
@@ -6,14 +5,6 @@ import { Link } from "react-router-dom";
 export const Header = () => {
     return (
         <header className="sticky top-0 backdrop-blur-sm z-20">
-            <div className="flex justify-center items-center py-3 bg-[#0071e3] text-white text-sm gap-3">
-                <p className="text-white/60 hidden md:block">
-                    Version 1.0.0 will be officially released on May 1, 2026.
-                </p>
-                <div className="inline-flex gap-1 items-center">
-                    <Link to="/auth/login">Try now</Link>
-                </div>
-            </div>
             <div className="py-5">
                 <div className="container">
                     <div className="flex items-center justify-between">
@@ -31,7 +22,7 @@ export const Header = () => {
                         <nav className="hidden md:flex gap-6 text-black/60 items-center">
                             <a href="/terms">Terms</a>
                             <a href="/privacy">Privacy</a>
-                            <button className="bg-[#0071e3] text-white px-4 py-2 rounded-lg font-medium inline-flex justify-center tracking-tight hover:bg-[#0077ed] transition-colors">
+                            <button className="bg-brand text-white px-4 py-2 rounded-lg font-medium inline-flex justify-center tracking-tight hover:bg-brand-hover transition-colors">
                                 <Link to="/auth/login">Login</Link>
                             </button>
                         </nav>

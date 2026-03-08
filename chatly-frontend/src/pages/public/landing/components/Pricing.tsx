@@ -88,7 +88,7 @@ export const Pricing = () => {
                 key={title}
                 className={twMerge(
                   "card",
-                  inverse === true && "border-[#004eaa] bg-[#0071e3] text-white/90"
+                  inverse === true && "border-brand-dark bg-brand text-white/90"
                 )}
               >
                 <div className="flex justify-between">

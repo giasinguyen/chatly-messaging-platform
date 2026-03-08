@@ -1,10 +1,11 @@
-import ArrowIcon from "@/assets/landing/arrow-right.svg";
 import cogImage from "@/assets/landing/68407334ccf9aeca71903bab_home-new.webp";
 import cylinderImage from "@/assets/landing/cylinder.png";
 import noodleImage from "@/assets/landing/noodle.png";
 import { motion, useScroll, useTransform } from "framer-motion";
 import { useRef } from "react";
 import { useNavigate } from "react-router-dom";
+import "./hero.css";
+
 export const Hero = () => {
     const navigate = useNavigate();
 
@@ -18,16 +19,38 @@ export const Hero = () => {
     return (
         <section
             ref={heroRef}
-            className="pt-8 pb-20 bg-[radial-gradient(ellipse_200%_100%_at_bottom_left,#0071e3,#EAEEFE_66%)] md:pt-5 md:pb-10 overflow-x-clip"
+            className="hero-section relative pt-8 pb-20 md:pt-5 md:pb-10 overflow-x-clip"
         >
-            <div className="container flex justify-center">
+            {/* Blobs */}
+            <div className="hero-blob absolute -top-[10%] -left-[5%] h-[400px] w-[400px] rounded-full bg-brand-light opacity-35 blur-[80px]" />
+            <div className="hero-blob absolute -right-[3%] -bottom-[8%] h-[300px] w-[300px] rounded-full bg-brand opacity-35 blur-[80px] [animation-delay:3s]" />
+            <div className="hero-blob absolute top-[20%] right-[10%] h-[200px] w-[200px] rounded-full bg-brand-light opacity-35 blur-[80px] [animation-delay:6s]" />
+            <div className="hero-blob absolute bottom-[15%] left-[8%] h-[250px] w-[250px] rounded-full bg-brand-dark opacity-35 blur-[80px] [animation-delay:9s]" />
+
+            {/* Stars */}
+            <div className="pointer-events-none absolute inset-0">
+                {Array.from({ length: 20 }).map((_, i) => (
+                    <div
+                        key={i}
+                        className="hero-star absolute rounded-full bg-white/70"
+                        style={{
+                            left: `${(i * 53) % 100}%`,
+                            top: `${(i * 37) % 100}%`,
+                            animationDelay: `${(i * 0.2) % 4}s`,
+                            width: `${2 + (i % 3)}px`,
+                            height: `${2 + (i % 3)}px`,
+                        }}
+                    />
+                ))}
+            </div>
+            <div className="relative z-10 container flex justify-center">
                 <div className="md:flex md:items-center md:gap-10 md:max-w-[1040px] w-full">
                     <div className="md:w-[420px] md:flex-shrink-0">
                         <div className="tag">Version 1.0.0 comming soon</div>
-                        <h1 className="text-5xl md:text-7xl font-bold tracking-tighter bg-gradient-to-b from-black to-[#0071e3] text-transparent bg-clip-text mt-6">
+                        <h1 className="text-7xl md:text-8xl font-bold tracking-tighter bg-gradient-to-b from-black to-brand dark:from-white dark:to-brand-light text-transparent bg-clip-text mt-6">
                             Chatly
                         </h1>
-                        <p className="text-xl text-[#1d1d1f] tracking-tight mt-6">
+                        <p className="text-xl text-gray-900 dark:text-gray-100 tracking-tight mt-6">
                             Your AI-Powered, messaging, storage and
                             collaboration platform
                         </p>
@@ -37,11 +60,6 @@ export const Hero = () => {
                             </button>
                             <button className="btn btn-text gap-1" onClick={() => navigate("/auth/register")}>
                                 <span>Learn more</span>
-                                <img
-                                    src={ArrowIcon}
-                                    alt="Arrow icon"
-                                    className="h-5 w-5"
-                                />
                             </button>
                         </div>
                     </div>
@@ -65,7 +83,7 @@ export const Hero = () => {
                             alt="cylinder image"
                             width={220}
                             height={220}
-                            className="hidden md:block md:absolute -top-8 -left-32"
+                            className="hidden md:block md:absolute top-10 -left-32"
                             style={{
                                 translateY: translateY,
                             }}
