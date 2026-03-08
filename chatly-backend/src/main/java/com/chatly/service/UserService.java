@@ -65,6 +65,12 @@ public class UserService {
             }
             user.setUsername(request.getUsername());
         }
+        if (request.getEmail() != null) {
+            if (userRepository.existsByEmail(request.getEmail()) && !request.getEmail().equals(user.getEmail())) {
+                throw new AppException(ErrorCode.EMAIL_ALREADY_EXISTS);
+            }
+            user.setEmail(request.getEmail());
+        }
         if (request.getDisplayName() != null) {
             user.setDisplayName(request.getDisplayName());
         }

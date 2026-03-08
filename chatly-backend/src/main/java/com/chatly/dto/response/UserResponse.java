@@ -1,6 +1,7 @@
 package com.chatly.dto.response;
 
 import com.chatly.model.enums.UserStatus;
+import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.*;
 
 import java.time.Instant;
@@ -18,9 +19,13 @@ public class UserResponse {
     private String displayName;
     private String avatarUrl;
     private String phone;
+
+    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd", timezone = "UTC")
     private Instant dob;
+
     private String bio;
     private UserStatus status;
     private Instant lastSeen;
     private Instant createdAt;
+    private Instant updatedAt;
 }

@@ -1,5 +1,7 @@
 package com.chatly.dto.request;
 
+import com.chatly.configuration.CustomInstantDeserializer;
+import tools.jackson.databind.annotation.JsonDeserialize;
 import lombok.*;
 
 import java.time.Instant;
@@ -12,9 +14,13 @@ import java.time.Instant;
 public class UserUpdateRequest {
 
     private String username;
+    private String email;
+    private String phone;
     private String displayName;
     private String avatarUrl;
-    private String phone;
+
+    @JsonDeserialize(using = CustomInstantDeserializer.class)
     private Instant dob;
+
     private String bio;
 }

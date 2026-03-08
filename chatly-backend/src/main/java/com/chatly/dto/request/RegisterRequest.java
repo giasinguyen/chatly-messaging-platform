@@ -1,5 +1,7 @@
 package com.chatly.dto.request;
 
+import com.chatly.configuration.CustomInstantDeserializer;
+import tools.jackson.databind.annotation.JsonDeserialize;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
@@ -29,5 +31,6 @@ public class RegisterRequest {
     @Size(min = 6, message = "PASSWORD_TOO_SHORT")
     private String password;
 
+    @JsonDeserialize(using = CustomInstantDeserializer.class)
     private Instant dob;
 }
