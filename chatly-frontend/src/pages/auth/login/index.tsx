@@ -38,7 +38,7 @@ export default function LoginPage() {
     const form = useForm<LoginFormValues>({
         resolver: zodResolver(
             loginMethod === "password" ? loginSchema : smsLoginSchema,
-        ),
+        ) as any,
         defaultValues: {
             identifier: "",
             password: "",
@@ -55,18 +55,14 @@ export default function LoginPage() {
             );
         }
 
-        const { identifier, ...rest } = data;
-        const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(identifier);
-
         const payload = {
-            ...rest,
-            email: isEmail ? identifier : null,
-            phone: !isEmail ? identifier : null,
+            identifier: data.identifier,
+            password: data.password || "", // Ensure password is included if present, or an empty string
             method: loginMethod,
         };
 
         toast("Login initiated", {
-            description: `${loginMethod === "password" ? "Password" : "SMS"} - Identifier: ${identifier}`,
+            description: `${loginMethod === "password" ? "Password" : "SMS"} - Identifier: ${data.identifier}`,
         });
         console.log("Login Payload:", payload);
     };
@@ -141,7 +137,9 @@ export default function LoginPage() {
                                             htmlFor="login-identifier"
                                             className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-[#b0b3bc]"
                                         >
-                                            Email or Phone Number{" "}
+                                            {loginMethod === "password"
+                                                ? "Email, Phone or Username"
+                                                : "Phone Number"}{" "}
                                             <span className="text-red-400">
                                                 *
                                             </span>
@@ -166,7 +164,11 @@ export default function LoginPage() {
                                                 onBlur={field.onBlur}
                                                 ref={field.ref}
                                                 type="text"
-                                                placeholder="Enter your email or phone"
+                                                placeholder={
+                                                    loginMethod === "password"
+                                                        ? "Enter email, phone or username"
+                                                        : "Enter your phone number"
+                                                }
                                                 autoComplete="username"
                                                 aria-invalid={
                                                     fieldState.invalid
