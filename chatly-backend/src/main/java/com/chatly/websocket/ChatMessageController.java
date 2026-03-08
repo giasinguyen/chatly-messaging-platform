@@ -58,7 +58,7 @@ public class ChatMessageController {
 
         messagingTemplate.convertAndSend(
                 "/topic/conversation." + request.conversationId() + ".typing",
-                Map.of("userId", userId, "typing", request.typing())
+                (Object) Map.of("userId", userId, "typing", request.typing())
         );
     }
 
