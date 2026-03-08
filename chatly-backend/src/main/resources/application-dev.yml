@@ -32,6 +32,11 @@ spring:
 server:
     port: 8080
 
+logging:
+    level:
+        org.springframework.web.socket: DEBUG
+        org.springframework.messaging: DEBUG
+
 app:
     jwt:
         secret: Y2hhdGx5LXNlY3JldC1rZXktZm9yLWp3dC10b2tlbi1nZW5lcmF0aW9uLTIwMjY=

@@ -5,6 +5,7 @@ import com.chatly.dto.response.MessageResponse;
 import com.chatly.exception.AppException;
 import com.chatly.exception.ErrorCode;
 import com.chatly.mapper.MessageMapper;
+import com.chatly.model.enums.MessageStatus;
 import com.chatly.model.enums.MessageType;
 import com.chatly.model.mongo.Conversation;
 import com.chatly.model.mongo.LastMessage;
@@ -69,20 +70,25 @@ public class MessageService {
                 .toList();
     }
 
-    public MessageResponse markAsRead(String messageId, String userId) {
+    public MessageResponse markAsSeen(String messageId, String userId) {
         Message message = messageRepository.findById(messageId)
                 .orElseThrow(() -> new AppException(ErrorCode.MESSAGE_NOT_FOUND));
 
-        boolean alreadyRead = message.getReadBy().stream()
+        if (message.getSenderId().equals(userId)) {
+            return messageMapper.toResponse(message);
+        }
+
+        boolean alreadySeen = message.getReadBy().stream()
                 .anyMatch(r -> r.getUserId().equals(userId));
 
-        if (!alreadyRead) {
+        if (!alreadySeen) {
             message.getReadBy().add(
                     ReadReceipt.builder()
                             .userId(userId)
                             .readAt(Instant.now())
                             .build()
             );
+            message.setStatus(MessageStatus.READ);
             message = messageRepository.save(message);
         }
 

@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "349fe04e-9503-4ed5-b7af-9ac2cba5342a",
     "name": "Chatly API",
-    "description": "Complete API collection for Chatly messaging platform including Auth, Users, Contacts, and Conversations endpoints",
+    "description": "Complete API collection for Chatly messaging platform including Auth, Users, Contacts, Conversations, and Messages endpoints",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
     "_exporter_id": "40740215"
   },
@@ -608,17 +608,16 @@
               "raw": "{\n    \"type\": \"PRIVATE\",\n    \"participantIds\": [\"{{targetUserId}}\"]\n}"
             },
             "url": {
-              "raw": "{{baseUrl}}/api/conversations/{{userId}}",
+              "raw": "{{baseUrl}}/api/conversations",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
                 "api",
-                "conversations",
-                "{{userId}}"
+                "conversations"
               ]
             },
-            "description": "Create a new private conversation between two users. Type must be PRIVATE or GROUP. Requires authentication."
+            "description": "Create a new private conversation. Creator is determined from JWT token. Type must be PRIVATE or GROUP."
           },
           "response": []
         },
@@ -659,17 +658,41 @@
               "raw": "{\n    \"type\": \"GROUP\",\n    \"name\": \"Project Team Chat\",\n    \"participantIds\": [\"{{targetUserId}}\", \"{{anotherUserId}}\"]\n}"
             },
             "url": {
-              "raw": "{{baseUrl}}/api/conversations/{{userId}}",
+              "raw": "{{baseUrl}}/api/conversations",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
                 "api",
-                "conversations",
-                "{{userId}}"
+                "conversations"
               ]
             },
-            "description": "Create a new group conversation. Type must be GROUP and name field is optional but recommended. Requires authentication."
+            "description": "Create a new group conversation. Creator is determined from JWT token. Name field is recommended for groups."
+          },
+          "response": []
+        },
+        {
+          "name": "Get My Conversations",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/conversations",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "conversations"
+              ]
+            },
+            "description": "Get all conversations for the authenticated user. Returns both private and group conversations sorted by last updated."
           },
           "response": []
         },
@@ -685,46 +708,17 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/api/conversations/{{conversationId}}/user/{{userId}}",
+              "raw": "{{baseUrl}}/api/conversations/{{conversationId}}",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
                 "api",
                 "conversations",
-                "{{conversationId}}",
-                "user",
-                "{{userId}}"
+                "{{conversationId}}"
               ]
             },
-            "description": "Get details of a specific conversation by ID for a given user. Requires authentication."
-          },
-          "response": []
-        },
-        {
-          "name": "Get User Conversations",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{accessToken}}",
-                "type": "text"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/api/conversations/user/{{userId}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "conversations",
-                "user",
-                "{{userId}}"
-              ]
-            },
-            "description": "Get all conversations for a specific user. Returns both private and group conversations. Requires authentication."
+            "description": "Get details of a specific conversation. Only accessible by participants."
           },
           "response": []
         },
@@ -740,24 +734,218 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/api/conversations/{{conversationId}}/user/{{userId}}",
+              "raw": "{{baseUrl}}/api/conversations/{{conversationId}}",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
                 "api",
                 "conversations",
-                "{{conversationId}}",
-                "user",
-                "{{userId}}"
+                "{{conversationId}}"
               ]
             },
-            "description": "Delete a conversation for a specific user. Requires authentication."
+            "description": "Delete a conversation. Only the creator can delete."
           },
           "response": []
         }
       ],
       "description": "Conversation management endpoints for private and group chats"
+    },
+    {
+      "name": "Messages",
+      "item": [
+        {
+          "name": "Send Message",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const jsonData = pm.response.json();",
+                  "    if (jsonData.result && jsonData.result.id) {",
+                  "        pm.collectionVariables.set('messageId', jsonData.result.id);",
+                  "        console.log('Message ID saved: ' + jsonData.result.id);",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"conversationId\": \"{{conversationId}}\",\n    \"content\": \"Hello! This is a test message.\",\n    \"type\": \"TEXT\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/messages",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "messages"
+              ]
+            },
+            "description": "Send a message to a conversation. Sender is determined from JWT token. Must be a participant of the conversation."
+          },
+          "response": []
+        },
+        {
+          "name": "Send Reply Message",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const jsonData = pm.response.json();",
+                  "    if (jsonData.result && jsonData.result.id) {",
+                  "        pm.collectionVariables.set('messageId', jsonData.result.id);",
+                  "        console.log('Reply Message ID saved: ' + jsonData.result.id);",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"conversationId\": \"{{conversationId}}\",\n    \"content\": \"This is a reply message.\",\n    \"type\": \"TEXT\",\n    \"replyToId\": \"{{messageId}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/messages",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "messages"
+              ]
+            },
+            "description": "Send a reply to an existing message. Include replyToId to reference the original message."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Messages by Conversation",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/messages/conversation/{{conversationId}}?page=0&size=20",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "messages",
+                "conversation",
+                "{{conversationId}}"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "0"
+                },
+                {
+                  "key": "size",
+                  "value": "20"
+                }
+              ]
+            },
+            "description": "Get message history for a conversation with pagination. Only accessible by participants. Sorted by newest first."
+          },
+          "response": []
+        },
+        {
+          "name": "Mark Message as Seen",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/messages/{{messageId}}/seen",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "messages",
+                "{{messageId}}",
+                "seen"
+              ]
+            },
+            "description": "Mark a message as seen by the authenticated user. Updates message status to READ and adds a read receipt."
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Message",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/messages/{{messageId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "messages",
+                "{{messageId}}"
+              ]
+            },
+            "description": "Delete a message. Only the sender can delete their own message."
+          },
+          "response": []
+        }
+      ],
+      "description": "Message endpoints for sending, retrieving, and managing messages within conversations"
     }
   ],
   "event": [
@@ -818,6 +1006,11 @@
     },
     {
       "key": "conversationId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "messageId",
       "value": "",
       "type": "string"
     }

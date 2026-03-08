@@ -29,7 +29,9 @@ public class WebSecurityConfig {
 
     private static final String[] PUBLIC_ENDPOINTS = {
             "/api/auth/**",
-            "/ws/**"
+            "/ws/**",
+            "/ws-raw/**",
+            "/ws-test.html"
     };
 
     @Bean

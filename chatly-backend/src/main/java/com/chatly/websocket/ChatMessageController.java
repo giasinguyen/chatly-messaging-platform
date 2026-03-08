@@ -11,6 +11,8 @@ import org.springframework.messaging.simp.SimpMessageHeaderAccessor;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Controller;
 
+import java.util.Map;
+
 @Controller
 @RequiredArgsConstructor
 public class ChatMessageController {
@@ -38,11 +40,11 @@ public class ChatMessageController {
         );
     }
 
-    @MessageMapping("/chat.read")
-    public void markAsRead(@Payload ReadReceiptRequest request, SimpMessageHeaderAccessor headerAccessor) {
+    @MessageMapping("/chat.seen")
+    public void markAsSeen(@Payload SeenRequest request, SimpMessageHeaderAccessor headerAccessor) {
         String userId = (String) headerAccessor.getSessionAttributes().get("userId");
 
-        MessageResponse response = messageService.markAsRead(request.messageId(), userId);
+        MessageResponse response = messageService.markAsSeen(request.messageId(), userId);
 
         messagingTemplate.convertAndSend(
                 "/topic/conversation." + response.getConversationId(),
@@ -50,5 +52,16 @@ public class ChatMessageController {
         );
     }
 
-    public record ReadReceiptRequest(String messageId) {}
+    @MessageMapping("/chat.typing")
+    public void typing(@Payload TypingRequest request, SimpMessageHeaderAccessor headerAccessor) {
+        String userId = (String) headerAccessor.getSessionAttributes().get("userId");
+
+        messagingTemplate.convertAndSend(
+                "/topic/conversation." + request.conversationId() + ".typing",
+                (Object) Map.of("userId", userId, "typing", request.typing())
+        );
+    }
+
+    public record SeenRequest(String messageId) {}
+    public record TypingRequest(String conversationId, boolean typing) {}
 }
