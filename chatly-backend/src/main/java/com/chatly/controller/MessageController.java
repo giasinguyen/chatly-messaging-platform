@@ -36,10 +36,10 @@ public class MessageController {
                 .build();
     }
 
-    @PutMapping("/{messageId}/read")
-    ApiResponse<MessageResponse> markAsRead(@PathVariable String messageId) {
+    @PutMapping("/{messageId}/seen")
+    ApiResponse<MessageResponse> markAsSeen(@PathVariable String messageId) {
         return ApiResponse.<MessageResponse>builder()
-                .result(messageService.markAsRead(messageId, getAuthenticatedUserId()))
+                .result(messageService.markAsSeen(messageId, getAuthenticatedUserId()))
                 .build();
     }
 
