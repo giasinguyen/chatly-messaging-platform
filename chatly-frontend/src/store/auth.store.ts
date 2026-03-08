@@ -27,6 +27,10 @@ export const useAuthStore = create<AuthState>()(
             loading: false,
 
             setAuth: (payload) => {
+                // Lưu token vào localStorage để axiosClient có thể sử dụng
+                localStorage.setItem("access_token", payload.token);
+                localStorage.setItem("refresh_token", payload.refreshToken);
+
                 set({
                     user: payload.user,
                     isAuthenticated: true,

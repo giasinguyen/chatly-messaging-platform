@@ -1,5 +1,5 @@
-import { Link } from "react-router-dom";
-import { Sun, Moon } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { Sun, Moon, ArrowRight } from "lucide-react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";
@@ -17,7 +17,8 @@ import {
     FieldLabel,
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import axiosClient from "@/lib/axiosClient";
+import { authService } from "@/services/auth.service";
+import { useAuthStore } from "@/store/auth.store";
 import "../login/login.css";
 
 export default function RegisterPage() {
@@ -36,7 +37,11 @@ export default function RegisterPage() {
         },
     });
 
-    const onSubmit = (data: RegisterFormValues) => {
+    const setGlobalLoading = useAuthStore((s) => s.setLoading);
+    const isGlobalLoading = useAuthStore((s) => s.loading);
+    const navigate = useNavigate();
+
+    const onSubmit = async (data: RegisterFormValues) => {
         const { identifier, month, day, year, ...rest } = data;
         const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(identifier);
 
@@ -55,15 +60,23 @@ export default function RegisterPage() {
             dob,
         };
 
-        toast("Registration initiated", {
-            description: `Username: ${payload.username}`,
-        });
+        try {
+            setGlobalLoading(true);
+            const response = await authService.register(payload);
 
-        // Backend call preparation (for logging as requested)
-        console.log("👉 [API Call Register]: POST /api/auth/register");
-        console.log("👉 Payload:", payload);
-
-        // await axiosClient.post("/api/auth/register", payload);
+            if (response.code === 1000) {
+                toast.success("Đăng ký thành công! Vui lòng đăng nhập.");
+                navigate("/auth/login");
+            } else {
+                toast.error(response.message || "Đăng ký thất bại");
+            }
+        } catch (error: any) {
+            console.error("Register error:", error);
+            const msg = error.response?.data?.message || "Đã có lỗi xảy ra";
+            toast.error(msg);
+        } finally {
+            setGlobalLoading(false);
+        }
     };
 
     return (
@@ -424,9 +437,17 @@ export default function RegisterPage() {
 
                         <button
                             type="submit"
-                            className="w-full cursor-pointer rounded-full border-none bg-brand py-3.5 text-[15px] font-bold text-white transition-all duration-300 hover:scale-[1.02] hover:bg-brand-hover active:scale-[0.99]"
+                            disabled={isGlobalLoading}
+                            className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-full border-none bg-brand py-3.5 text-[15px] font-bold text-white transition-all duration-300 hover:scale-[1.02] hover:bg-brand-hover active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-70"
                         >
-                            Create Account
+                            {isGlobalLoading ? (
+                                <div className="h-5 w-5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                            ) : (
+                                <>
+                                    <span>Tạo tài khoản</span>
+                                    <ArrowRight size={18} />
+                                </>
+                            )}
                         </button>
 
                         <Link

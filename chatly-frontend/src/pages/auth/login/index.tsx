@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
-import { Mail, Lock, Eye, EyeOff, Sun, Moon } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { Mail, Lock, Eye, EyeOff, Sun, Moon, ArrowRight } from "lucide-react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";
@@ -26,7 +26,8 @@ import {
     InputGroupInput,
     InputGroupButton,
 } from "@/components/ui/input-group";
-import axiosClient from "@/lib/axiosClient";
+import { authService } from "@/services/auth.service";
+import { useAuthStore } from "@/store/auth.store";
 import "./login.css";
 
 export default function LoginPage() {
@@ -46,14 +47,16 @@ export default function LoginPage() {
         },
     });
 
-    const onSubmit = (data: LoginFormValues) => {
+    const setAuth = useAuthStore((s) => s.setAuth);
+    const setGlobalLoading = useAuthStore((s) => s.setLoading);
+    const isGlobalLoading = useAuthStore((s) => s.loading);
+    const navigate = useNavigate();
+
+    const onSubmit = async (data: LoginFormValues) => {
         if (loginMethod === "sms") {
-            return toast(
-                "Xin lỗi, tính năng đang trong giai đoạn thử nghiệm và phát triển",
-                {
-                    description: "SMS login is not available yet",
-                },
-            );
+            return toast.info("Tính năng đang phát triển", {
+                description: "Đăng nhập bằng SMS sẽ sớm ra mắt!",
+            });
         }
 
         const payload = {
@@ -61,17 +64,24 @@ export default function LoginPage() {
             password: data.password || "",
         };
 
-        toast("Login initiated", {
-            description: `${loginMethod === "password" ? "Password" : "SMS"} - Identifier: ${data.identifier}`,
-        });
+        try {
+            setGlobalLoading(true);
+            const response = await authService.login(payload);
 
-        // Backend call preparation (for logging as requested)
-        console.log(
-            `👉 [API Call Login - Method: ${loginMethod}]: POST /api/auth/login`,
-        );
-        console.log("👉 Payload:", payload);
-
-        // await axiosClient.post("/api/auth/login", payload);
+            if (response.code === 1000) {
+                setAuth(response.result);
+                toast.success("Đăng nhập thành công!");
+                navigate("/");
+            } else {
+                toast.error(response.message || "Đăng nhập thất bại");
+            }
+        } catch (error: any) {
+            console.error("Login error:", error);
+            const msg = error.response?.data?.message || "Đã có lỗi xảy ra";
+            toast.error(msg);
+        } finally {
+            setGlobalLoading(false);
+        }
     };
 
     return (
@@ -270,11 +280,21 @@ export default function LoginPage() {
                         {/* Submit */}
                         <button
                             type="submit"
-                            className="mt-1 w-full cursor-pointer rounded-full border-none bg-brand py-3 text-[15px] font-semibold text-white transition-all duration-300 hover:scale-[1.02] hover:bg-brand-hover active:scale-[0.99]"
+                            disabled={isGlobalLoading}
+                            className="mt-1 flex w-full cursor-pointer items-center justify-center gap-2 rounded-full border-none bg-brand py-3 text-[15px] font-semibold text-white transition-all duration-300 hover:scale-[1.02] hover:bg-brand-hover active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-70"
                         >
-                            {loginMethod === "password"
-                                ? "Log In"
-                                : "Send OTP via SMS"}
+                            {isGlobalLoading ? (
+                                <div className="h-5 w-5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                            ) : (
+                                <>
+                                    <span>
+                                        {loginMethod === "password"
+                                            ? "Đăng nhập"
+                                            : "Gửi mã OTP"}
+                                    </span>
+                                    <ArrowRight size={18} />
+                                </>
+                            )}
                         </button>
 
                         <div className="flex items-center justify-between text-[13px]">
