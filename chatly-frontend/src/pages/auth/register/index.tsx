@@ -25,7 +25,7 @@ export default function RegisterPage() {
     const form = useForm<RegisterFormValues>({
         resolver: zodResolver(registerSchema),
         defaultValues: {
-            email: "",
+            identifier: "",
             displayName: "",
             username: "",
             password: "",
@@ -37,10 +37,28 @@ export default function RegisterPage() {
     });
 
     const onSubmit = (data: RegisterFormValues) => {
+        const { identifier, month, day, year, ...rest } = data;
+        const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(identifier);
+
+        // Construct Date of Birth as ISO Instant string
+        const dobDate = new Date(
+            parseInt(year),
+            parseInt(month) - 1,
+            parseInt(day),
+        );
+        const dob = dobDate.toISOString();
+
+        const payload = {
+            ...rest,
+            email: isEmail ? identifier : null,
+            phone: !isEmail ? identifier : null,
+            dob,
+        };
+
         toast("Registration initiated", {
-            description: `Username: ${data.username}`,
+            description: `Username: ${payload.username}`,
         });
-        console.log("Register payload:", data);
+        console.log("Register payload:", payload);
     };
 
     return (
@@ -100,19 +118,29 @@ export default function RegisterPage() {
                     <FieldGroup>
                         {/* Email */}
                         <Controller
-                            name="email"
+                            name="identifier"
                             control={form.control}
                             render={({ field, fieldState }) => (
                                 <Field data-invalid={fieldState.invalid}>
                                     <FieldLabel className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-[#b0b3bc]">
-                                        Email{" "}
+                                        Email or Phone{" "}
                                         <span className="text-red-400">*</span>
                                     </FieldLabel>
                                     <Input
-                                        {...field}
-                                        type="email"
+                                        id="register-identifier"
+                                        name={field.name}
+                                        value={
+                                            typeof field.value === "string"
+                                                ? field.value
+                                                : ""
+                                        }
+                                        onChange={field.onChange}
+                                        onBlur={field.onBlur}
+                                        ref={field.ref}
+                                        type="text"
+                                        placeholder="Enter your email or phone"
                                         aria-invalid={fieldState.invalid}
-                                        className="h-auto w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-[15px] text-gray-900 outline-none transition-all duration-200 focus:border-brand focus:shadow-[0_0_0_3px_rgba(0,113,227,0.15)] dark:border-white/8 dark:bg-[#1a1c23] dark:text-white dark:focus:shadow-[0_0_0_3px_rgba(0,113,227,0.2)] focus-visible:ring-0 focus-visible:ring-offset-0"
+                                        className="h-auto w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-[15px] text-gray-900 outline-none transition-all duration-200 focus:border-brand focus:shadow-[0_0_0_3px_rgba(0,113_227,0.15)] dark:border-white/8 dark:bg-[#1a1c23] dark:text-white dark:focus:shadow-[0_0_0_3px_rgba(0,113_227,0.2)] focus-visible:ring-0 focus-visible:ring-offset-0"
                                     />
                                     {fieldState.invalid && (
                                         <FieldError

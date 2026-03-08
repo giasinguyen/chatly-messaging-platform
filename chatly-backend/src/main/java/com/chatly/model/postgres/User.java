@@ -2,6 +2,7 @@ package com.chatly.model.postgres;
 
 import com.chatly.model.enums.UserStatus;
 import jakarta.persistence.*;
+import jakarta.validation.constraints.AssertTrue;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
@@ -22,7 +23,7 @@ public class User {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @Column(nullable = false, unique = true)
+    @Column(unique = true)
     private String email;
 
     @Column(nullable = false)
@@ -49,4 +50,17 @@ public class User {
 
     @UpdateTimestamp
     private Instant updatedAt;
+
+    @PrePersist
+    @PreUpdate
+    private void validateEmailOrPhone() {
+        if (!isEmailOrPhoneProvided()) {
+            throw new IllegalStateException("Either email or phone must be provided");
+        }
+    }
+
+    @AssertTrue(message = "Either email or phone must be provided")
+    private boolean isEmailOrPhoneProvided() {
+        return (email != null && !email.isBlank()) || (phone != null && !phone.isBlank());
+    }
 }

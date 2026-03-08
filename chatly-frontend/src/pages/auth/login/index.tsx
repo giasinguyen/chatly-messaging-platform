@@ -40,7 +40,7 @@ export default function LoginPage() {
             loginMethod === "password" ? loginSchema : smsLoginSchema,
         ),
         defaultValues: {
-            email: "",
+            identifier: "",
             password: "",
         },
     });
@@ -55,10 +55,20 @@ export default function LoginPage() {
             );
         }
 
+        const { identifier, ...rest } = data;
+        const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(identifier);
+
+        const payload = {
+            ...rest,
+            email: isEmail ? identifier : null,
+            phone: !isEmail ? identifier : null,
+            method: loginMethod,
+        };
+
         toast("Login initiated", {
-            description: `${loginMethod === "password" ? "Password" : "SMS"} - Email: ${data.email}`,
+            description: `${loginMethod === "password" ? "Password" : "SMS"} - Identifier: ${identifier}`,
         });
-        console.log("Login Payload:", { ...data, method: loginMethod });
+        console.log("Login Payload:", payload);
     };
 
     return (
@@ -123,12 +133,12 @@ export default function LoginPage() {
                         <FieldGroup>
                             {/* Email */}
                             <Controller
-                                name="email"
+                                name="identifier"
                                 control={form.control}
                                 render={({ field, fieldState }) => (
                                     <Field data-invalid={fieldState.invalid}>
                                         <FieldLabel
-                                            htmlFor="login-email"
+                                            htmlFor="login-identifier"
                                             className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-[#b0b3bc]"
                                         >
                                             Email or Phone Number{" "}
@@ -144,10 +154,20 @@ export default function LoginPage() {
                                                 />
                                             </InputGroupAddon>
                                             <InputGroupInput
-                                                {...field}
-                                                id="login-email"
+                                                id="login-identifier"
+                                                name={field.name}
+                                                value={
+                                                    typeof field.value ===
+                                                    "string"
+                                                        ? field.value
+                                                        : ""
+                                                }
+                                                onChange={field.onChange}
+                                                onBlur={field.onBlur}
+                                                ref={field.ref}
                                                 type="text"
-                                                autoComplete="email"
+                                                placeholder="Enter your email or phone"
+                                                autoComplete="username"
                                                 aria-invalid={
                                                     fieldState.invalid
                                                 }
@@ -228,7 +248,9 @@ export default function LoginPage() {
                                                 />
                                             )}
                                             <ForgotPasswordDialog
-                                                email={form.getValues("email")}
+                                                email={form.getValues(
+                                                    "identifier",
+                                                )}
                                             />
                                         </Field>
                                     )}
