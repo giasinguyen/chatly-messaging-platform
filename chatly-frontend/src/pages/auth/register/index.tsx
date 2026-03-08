@@ -32,7 +32,6 @@ export default function RegisterPage() {
             month: "",
             day: "",
             year: "",
-            promo: false,
         },
     });
 
@@ -396,42 +395,6 @@ export default function RegisterPage() {
                                 />
                             ) : null}
                         </div>
-
-                        {/* Promo Checkbox */}
-                        <Controller
-                            name="promo"
-                            control={form.control}
-                            render={({ field }) => (
-                                <label className="mt-1 flex cursor-pointer items-start gap-3">
-                                    <div className="relative flex h-5 w-5 shrink-0 items-center justify-center">
-                                        <input
-                                            type="checkbox"
-                                            className="peer h-5 w-5 cursor-pointer appearance-none rounded-[6px] border border-gray-300 bg-white transition-all checked:border-brand checked:bg-brand dark:border-white/20 dark:bg-black/20 dark:checked:border-brand dark:checked:bg-brand"
-                                            checked={field.value}
-                                            onChange={(e) =>
-                                                field.onChange(e.target.checked)
-                                            }
-                                        />
-                                        <svg
-                                            className="pointer-events-none absolute hidden h-3.5 w-3.5 text-white peer-checked:block"
-                                            viewBox="0 0 24 24"
-                                            fill="none"
-                                            stroke="currentColor"
-                                            strokeWidth="3"
-                                            strokeLinecap="round"
-                                            strokeLinejoin="round"
-                                        >
-                                            <polyline points="20 6 9 17 4 12"></polyline>
-                                        </svg>
-                                    </div>
-                                    <span className="text-[12px] leading-snug text-gray-500 dark:text-[#a0a3ab]">
-                                        (Optional) It's okay to send me emails
-                                        with Chatly updates, tips, and special
-                                        offers. You can opt out at any time.
-                                    </span>
-                                </label>
-                            )}
-                        />
                     </FieldGroup>
 
                     {/* Terms and Submit */}
