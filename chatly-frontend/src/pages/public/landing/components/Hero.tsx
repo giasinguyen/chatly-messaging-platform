@@ -1,6 +1,9 @@
 import cogImage from "@/assets/landing/68407334ccf9aeca71903bab_home-new.webp";
 import cylinderImage from "@/assets/landing/cylinder.png";
 import noodleImage from "@/assets/landing/noodle.png";
+import appStoreImg from "@/assets/landing/appstore.png";
+import googlePlayImg from "@/assets/landing/google_play_transparent.png";
+import qrFake from "@/mocks/images/QR-fake.png";
 import { motion, useScroll, useTransform } from "framer-motion";
 import { useRef } from "react";
 import { useNavigate } from "react-router-dom";
@@ -54,13 +57,38 @@ export const Hero = () => {
                             Your AI-Powered, messaging, storage and
                             collaboration platform
                         </p>
-                        <div className="flex gap-1 items-center mt-[30px]">
-                            <button className="btn btn-primary" onClick={() => navigate("/auth/login")}>
-                                Try now
-                            </button>
-                            <button className="btn btn-text gap-1" onClick={() => navigate("/auth/register")}>
-                                <span>Learn more</span>
-                            </button>
+
+                        {/* Download section */}
+                        <div className="mt-8 flex items-center gap-5 mt-15">
+                            {/* QR code */}
+                            <div className="flex-shrink-0 rounded-xl bg-white p-2 shadow-md">
+                                <img
+                                    src={qrFake}
+                                    alt="Scan to download Chatly"
+                                    className="h-[72px] w-[72px] rounded object-contain"
+                                />
+                            </div>
+                            <div className="flex flex-col gap-2">
+                                <p className="text-xs font-semibold uppercase tracking-widest text-gray-500 dark:text-gray-400">
+                                    Scan to download
+                                </p>
+                                <div className="flex flex-row gap-5 justify-center">
+                                    <a href="#" onClick={(e) => e.preventDefault()}>
+                                        <img
+                                            src={googlePlayImg}
+                                            alt="Get it on Google Play"
+                                            className="h-9 w-auto object-contain"
+                                        />
+                                    </a>
+                                    <a href="#" onClick={(e) => e.preventDefault()}>
+                                        <img
+                                            src={appStoreImg}
+                                            alt="Download on the App Store"
+                                            className="h-9 w-auto object-contain"
+                                        />
+                                    </a>
+                                </div>
+                            </div>
                         </div>
                     </div>
                     <div className="mt-20 md:mt-0 md:h-[580px] md:w-[580px] md:flex-shrink-0 relative">
