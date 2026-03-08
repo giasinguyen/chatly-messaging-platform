@@ -1,3 +1,4 @@
+@import url("https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&display=swap");
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
@@ -92,7 +93,13 @@
     --brand-light: #34aadc;
     --brand-dark: #0d3b7a;
     --brand-deep: #0a1628;
-    --gradient-brand: linear-gradient(135deg, #dbeafe 0%, #93c5fd 30%, #3b82f6 70%, #0071e3 100%);
+    --gradient-brand: linear-gradient(
+        135deg,
+        #dbeafe 0%,
+        #93c5fd 30%,
+        #3b82f6 70%,
+        #0071e3 100%
+    );
 }
 
 .dark {
@@ -134,14 +141,55 @@
     --brand-light: #34aadc;
     --brand-dark: #0d3b7a;
     --brand-deep: #0a1628;
-    --gradient-brand: linear-gradient(135deg, #0a1628 0%, #0d3b7a 40%, #0071e3 70%, #34aadc 100%);
+    --gradient-brand: linear-gradient(
+        135deg,
+        #0a1628 0%,
+        #0d3b7a 40%,
+        #0071e3 70%,
+        #34aadc 100%
+    );
 }
 
 @layer base {
-  * {
-    @apply border-border outline-ring/50;
+    * {
+        @apply border-border outline-ring/50;
     }
-  body {
-    @apply bg-background text-foreground;
+    body {
+        @apply bg-background text-foreground;
+    }
+}
+
+/* Landing page components (from light-saas-landing-page-nextjs) */
+@layer components {
+    .btn {
+        @apply px-4 py-2 rounded-lg font-medium inline-flex items-center justify-center tracking-tighter;
+    }
+    .btn-primary {
+        @apply bg-black text-white;
+    }
+    .btn-text {
+        @apply text-black bg-transparent;
+    }
+    .logo-ticker-image {
+        @apply h-8 w-auto;
+    }
+    .tag {
+        @apply text-sm inline-flex border border-[#222]/10 px-3 py-1 rounded-lg tracking-tight;
+    }
+    .section-title {
+        @apply text-center text-3xl md:text-[54px] md:leading-[60px] font-bold tracking-tighter bg-gradient-to-b from-black to-[#001E80] bg-clip-text text-transparent;
+    }
+    .section-description {
+        @apply text-center text-[22px] leading-[30px] tracking-tight text-[#010D3E];
+    }
+    .section-heading {
+        @apply max-w-[540px] mx-auto;
+    }
+    .card {
+        @apply p-10 border border-[#222222]/10 rounded-3xl shadow-[0_7px_14px_#EAEAEA] w-full max-w-xs;
+    }
+    /* Landing container: center + padding (match Next.js light-saas config) */
+    .container {
+        @apply mx-auto w-full max-w-[1200px] px-5 lg:px-20;
     }
 }
