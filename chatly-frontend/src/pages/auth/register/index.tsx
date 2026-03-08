@@ -408,7 +408,7 @@ export default function RegisterPage() {
                                     errors={[
                                         {
                                             message:
-                                                "Please specify complete Date of Birth",
+                                                "Vui lòng ghi rõ ngày sinh đầy đủ.",
                                         },
                                     ]}
                                 />

@@ -20,7 +20,7 @@ export const publicRoutes: RouteObject[] = [
             </LazyWrapper>
         ),
         children: [
-            { index: true, element: <LandingPage /> },
+            { path: "welcome", element: <LandingPage /> },
             { path: "about", element: <AboutPage /> },
             { path: "ai", element: <AIPage /> },
             { path: "careers", element: <CareersPage /> },

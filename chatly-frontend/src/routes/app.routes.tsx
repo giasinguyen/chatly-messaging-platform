@@ -1,5 +1,5 @@
 import { lazy } from "react";
-import { Navigate, Outlet, type RouteObject } from "react-router-dom";
+import { Outlet, type RouteObject } from "react-router-dom";
 import { LazyWrapper } from "@/components/customize/LazyWrapper";
 import { ProtectedRoute } from "@/components/customize/ProtectedRoute";
 
@@ -10,7 +10,7 @@ const SettingsPage = lazy(() => import("@/pages/app/settings"));
 
 export const appRoutes: RouteObject[] = [
     {
-        path: "/app",
+        path: "/",
         element: (
             <ProtectedRoute>
                 <LazyWrapper>
@@ -19,12 +19,10 @@ export const appRoutes: RouteObject[] = [
             </ProtectedRoute>
         ),
         children: [
-            { index: true, element: <Navigate to="chat" replace /> },
-            { path: "chat", element: <ChatPage /> },
+            { index: true, element: <ChatPage /> },
             { path: "cloud", element: <CloudPage /> },
             { path: "contact", element: <ContactPage /> },
             { path: "settings", element: <SettingsPage /> },
         ],
     },
 ];
-
