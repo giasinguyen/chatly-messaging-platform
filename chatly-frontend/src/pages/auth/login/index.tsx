@@ -110,7 +110,10 @@ export default function LoginPage() {
             </div>
 
             {/* Logo top-left */}
-            <div className="absolute top-7 left-8 z-10 flex items-center gap-2.5">
+            <div
+                className="absolute top-7 left-8 z-10 flex items-center gap-2.5"
+                onClick={() => navigate("/welcome")}
+            >
                 <img
                     src={chatlyLogo}
                     alt="Chatly"

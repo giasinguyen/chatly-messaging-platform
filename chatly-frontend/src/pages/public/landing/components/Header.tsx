@@ -1,8 +1,9 @@
 import Logo from "@/assets/brand/chatly-logo-transparent.png";
 import MenuIcon from "@/assets/landing/menu.svg";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 export const Header = () => {
+    const navigate = useNavigate();
     return (
         <header className="sticky top-0 backdrop-blur-sm z-20">
             <div className="py-5">
@@ -13,6 +14,8 @@ export const Header = () => {
                             alt="Saas logo"
                             height={40}
                             width={40}
+                            className="cursor-pointer"
+                            onClick={() => navigate("/welcome")}
                         />
                         <img
                             src={MenuIcon}
