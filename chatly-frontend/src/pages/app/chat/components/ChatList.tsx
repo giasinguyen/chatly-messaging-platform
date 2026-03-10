@@ -1,32 +1,48 @@
+import { NavLink } from "react-router-dom";
 import { Search, UserPlus, UsersRound, ChevronLeft } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { chatList, type ChatSnippet } from "@/mocks/chat";
+import { cn } from "@/lib/utils";
 
 export function ChatList() {
     // Combine chats since we removed the tabs
     const allChats = [...chatList];
 
     const renderChatItem = (chat: ChatSnippet) => (
-        <div
+        <NavLink
             key={chat.id}
-            className="flex items-center gap-3 px-4 py-3 hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer transition-colors relative"
+            to={`/chat/${chat.id}`}
+            className={({ isActive }) =>
+                cn(
+                    "flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors relative border-l-2",
+                    isActive
+                        ? "bg-brand/10 border-brand"
+                        : "hover:bg-muted/50 border-transparent",
+                )
+            }
         >
-            <div className="relative">
+            <div className="relative shrink-0">
                 <Avatar className="h-12 w-12 border border-border/50">
                     <AvatarImage src={chat.user.avatar} />
                     <AvatarFallback>{chat.user.name.charAt(0)}</AvatarFallback>
                 </Avatar>
                 {chat.user.status === "online" && (
-                    <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-card bg-green-500" />
+                    <span className="absolute bottom-0.5 right-0.5 h-3 w-3 rounded-full border-2 border-background bg-green-500" />
                 )}
             </div>
 
             <div className="flex-1 overflow-hidden">
                 <div className="flex items-center justify-between mb-0.5">
-                    <span className="font-medium text-foreground truncate block text-sm">
+                    <span
+                        className={cn(
+                            "font-medium truncate block text-sm",
+                            "text-foreground",
+                        )}
+                    >
                         {chat.user.name}
                     </span>
                     <span className="text-[11px] text-muted-foreground whitespace-nowrap ml-2">
@@ -47,11 +63,11 @@ export function ChatList() {
                     )}
                 </div>
             </div>
-        </div>
+        </NavLink>
     );
 
     return (
-        <aside className="w-[340px] flex flex-col border-r border-border bg-card shrink-0 z-10">
+        <aside className="w-[340px] flex flex-col border-r border-border bg-card shrink-0 h-full overflow-hidden">
             {/* Search Header */}
             <div className="px-4 py-4 flex items-center gap-2 border-b border-border/50">
                 <div className="relative flex-1">
@@ -62,22 +78,33 @@ export function ChatList() {
                     />
                 </div>
                 <div className="flex items-center gap-1">
-                    <button className="h-8 w-8 flex items-center justify-center rounded-full hover:bg-muted text-foreground transition-colors">
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 rounded-full"
+                    >
                         <UserPlus size={16} />
-                    </button>
-                    <button className="h-8 w-8 flex items-center justify-center rounded-full hover:bg-muted text-foreground transition-colors">
+                    </Button>
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 rounded-full"
+                    >
                         <UsersRound size={16} />
-                    </button>
+                    </Button>
                 </div>
             </div>
 
             {/* Filter Header (No Tabs) */}
             <div className="px-4 py-2 flex items-center justify-between border-b border-border/50 h-10">
                 <div className="flex items-center gap-2">
-                    <button className="h-6 flex items-center justify-center text-xs font-medium text-muted-foreground hover:text-foreground">
+                    <Button
+                        variant="ghost"
+                        className="h-6 px-2 text-xs font-medium text-muted-foreground hover:text-foreground"
+                    >
                         Phân loại{" "}
                         <ChevronLeft className="h-3 w-3 ml-1 -rotate-90" />
-                    </button>
+                    </Button>
                 </div>
             </div>
 

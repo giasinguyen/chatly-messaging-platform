@@ -2,6 +2,7 @@ import { Search, ListFilter, MoreHorizontal, UsersRound } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
 import {
     Select,
     SelectContent,
@@ -144,12 +145,13 @@ export function ContactDetails() {
                                                     {friend.name}
                                                 </span>
                                             </div>
-                                            <button className="opacity-0 group-hover:opacity-100 h-8 w-8 flex items-center justify-center rounded-full hover:bg-muted transition-all">
-                                                <MoreHorizontal
-                                                    size={18}
-                                                    className="text-muted-foreground"
-                                                />
-                                            </button>
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="opacity-0 group-hover:opacity-100 h-8 w-8 rounded-full text-muted-foreground transition-all"
+                                            >
+                                                <MoreHorizontal size={18} />
+                                            </Button>
                                         </div>
                                     ))}
                                 </div>

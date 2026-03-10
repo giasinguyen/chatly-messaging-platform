@@ -14,6 +14,89 @@ export interface ChatSnippet {
     isPriority: boolean;
 }
 
+export interface Message {
+    id: string;
+    senderId: string;
+    text: string;
+    timestamp: string;
+    status: "sent" | "delivered" | "read";
+    type: "text" | "image" | "file";
+    fileUrl?: string;
+}
+
+export const mockMessages: Record<string, Message[]> = {
+    c1: [
+        {
+            id: "m1",
+            senderId: "u1",
+            text: "Xin chào!",
+            timestamp: "10:30",
+            status: "read",
+            type: "text",
+        },
+        {
+            id: "m2",
+            senderId: "me",
+            text: "Chào bạn, mình có thể giúp gì?",
+            timestamp: "10:31",
+            status: "read",
+            type: "text",
+        },
+        {
+            id: "m3",
+            senderId: "u1",
+            text: "Anh: chờ mời 2 người thì chả thấy cả...",
+            timestamp: "10:32",
+            status: "read",
+            type: "text",
+        },
+    ],
+    c2: [
+        {
+            id: "m1",
+            senderId: "u2",
+            text: "Bạn ơi check giúp mình bài tập này với",
+            timestamp: "09:00",
+            status: "read",
+            type: "text",
+        },
+        {
+            id: "m2",
+            senderId: "me",
+            text: "Ok gửi qua đây nhé",
+            timestamp: "09:05",
+            status: "read",
+            type: "text",
+        },
+        {
+            id: "m3",
+            senderId: "u2",
+            text: "Gia Sĩ IUH: [Sticker]",
+            timestamp: "09:06",
+            status: "read",
+            type: "text",
+        },
+    ],
+    c3: [
+        {
+            id: "m1",
+            senderId: "u3",
+            text: "Remote Tech Jobs: Frontend Developer (React)",
+            timestamp: "08:00",
+            status: "read",
+            type: "text",
+        },
+        {
+            id: "m2",
+            senderId: "u3",
+            text: "Diễm Quỳnh: REMOTE TECH JOBS – 0...",
+            timestamp: "08:01",
+            status: "read",
+            type: "text",
+        },
+    ],
+};
+
 const mockUsers: Record<string, User> = {
     u1: {
         id: "u1",

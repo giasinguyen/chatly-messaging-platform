@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 export function ContactList() {
@@ -34,33 +35,42 @@ export function ContactList() {
                     />
                 </div>
                 <div className="flex items-center gap-1">
-                    <button className="h-8 w-8 flex items-center justify-center rounded-full hover:bg-muted text-foreground transition-colors">
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 rounded-full"
+                    >
                         <UserPlus size={16} />
-                    </button>
-                    <button className="h-8 w-8 flex items-center justify-center rounded-full hover:bg-muted text-foreground transition-colors">
+                    </Button>
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 rounded-full"
+                    >
                         <UsersRound size={16} />
-                    </button>
+                    </Button>
                 </div>
             </div>
 
             {/* Contact Categories */}
             <div className="flex-1 overflow-hidden">
                 <ScrollArea className="h-full">
-                    <div className="flex flex-col py-2 px-2">
+                    <div className="flex flex-col py-2 px-2 gap-1">
                         {categories.map((cat) => (
-                            <button
+                            <Button
                                 key={cat.id}
+                                variant={
+                                    cat.id === "friends" ? "secondary" : "ghost"
+                                }
                                 className={cn(
-                                    "flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-muted transition-colors text-left",
+                                    "w-full justify-start h-auto py-3 px-3",
                                     cat.id === "friends" &&
-                                        "bg-brand/10 text-brand",
+                                        "bg-brand/10 text-brand hover:bg-brand/15",
                                 )}
                             >
-                                <cat.icon className="h-5 w-5" />
-                                <span className="text-sm font-medium">
-                                    {cat.label}
-                                </span>
-                            </button>
+                                <cat.icon className="h-5 w-5 mr-2" />
+                                <span className="font-medium">{cat.label}</span>
+                            </Button>
                         ))}
                     </div>
                 </ScrollArea>

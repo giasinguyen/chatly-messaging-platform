@@ -21,6 +21,7 @@ export const appRoutes: RouteObject[] = [
         ),
         children: [
             { path: "chat", element: <ChatPage /> },
+            { path: "chat/:id", element: <ChatPage /> },
             { path: "cloud", element: <CloudPage /> },
             { path: "contact", element: <ContactPage /> },
             { path: "settings", element: <SettingsPage /> },

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Settings, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { SettingsSidebar } from "./components/SettingsSidebar";
@@ -11,6 +11,10 @@ export default function SettingPage() {
     const handleClose = () => {
         navigate(-1);
     };
+
+    useEffect(() => {
+        alert("UI Test only, Development in progress...");
+    }, []);
 
     return (
         <div className="flex h-full w-full overflow-hidden animate-in fade-in duration-300">
