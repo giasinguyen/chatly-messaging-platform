@@ -56,7 +56,7 @@ export const Header = () => {
                                     />
                                 </button>
 
-                                <button className="bg-black text-white dark:bg-white dark:text-black px-5 py-2 rounded-lg font-medium transition-all hover:scale-105 active:scale-95 shadow-sm tracking-tight">
+                                <button className="bg-brand hover:bg-brand-hover text-white px-5 py-2 rounded-lg font-medium transition-all hover:scale-105 active:scale-95 shadow-sm tracking-tight">
                                     <Link to="/auth/login">Login</Link>
                                 </button>
                             </div>

@@ -270,7 +270,6 @@ export default function LoginPage() {
                                             ? "Đăng nhập"
                                             : "Gửi mã OTP"}
                                     </span>
-                                    <ArrowRight size={18} />
                                 </>
                             )}
                         </button>

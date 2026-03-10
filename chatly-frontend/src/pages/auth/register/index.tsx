@@ -422,7 +422,6 @@ export default function RegisterPage() {
                             ) : (
                                 <>
                                     <span>Tạo tài khoản</span>
-                                    <ArrowRight size={18} />
                                 </>
                             )}
                         </button>

@@ -16,7 +16,7 @@ export const CallToAction = () => {
     return (
         <section
             ref={sectionRef}
-            className="overflow-x-clip bg-gradient-to-b from-white to-[#D2DCFF] py-24"
+            className="overflow-x-clip bg-gradient-to-b from-white to-[#D2DCFF] dark:from-[#1a1c23] dark:to-brand-dark/20 py-24"
         >
             <div className="container">
                 <div className="section-heading relative">
@@ -45,7 +45,12 @@ export const CallToAction = () => {
                     />
                 </div>
                 <div className="mt-10 flex justify-center gap-2">
-                    <button onClick={() => navigate("/auth/register")} className="btn btn-primary">Sign up now</button>
+                    <button
+                        onClick={() => navigate("/auth/register")}
+                        className="btn btn-primary"
+                    >
+                        Sign up now
+                    </button>
                 </div>
             </div>
         </section>

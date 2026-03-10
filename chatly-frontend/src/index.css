@@ -177,16 +177,16 @@
         @apply text-sm inline-flex border border-[#222]/10 dark:border-white/20 px-3 py-1 rounded-lg tracking-tight text-gray-700 dark:text-gray-200;
     }
     .section-title {
-        @apply text-center text-3xl md:text-[54px] md:leading-[60px] font-bold tracking-tighter bg-gradient-to-b from-black to-[#0071e3] bg-clip-text text-transparent;
+        @apply text-center text-3xl md:text-[54px] md:leading-[60px] font-bold tracking-tighter bg-gradient-to-b from-black to-brand dark:from-white dark:to-brand-light bg-clip-text text-transparent;
     }
     .section-description {
-        @apply text-center text-[22px] leading-[30px] tracking-tight text-[#1d1d1f];
+        @apply text-center text-[22px] leading-[30px] tracking-tight text-[#010D3E] dark:text-white/70;
     }
     .section-heading {
         @apply max-w-[540px] mx-auto;
     }
     .card {
-        @apply p-10 border border-[#222222]/10 rounded-3xl shadow-[0_7px_14px_#EAEAEA] w-full max-w-xs;
+        @apply p-10 border border-[#222222]/10 dark:border-white/10 rounded-3xl shadow-[0_7px_14px_#EAEAEA] dark:shadow-none w-full max-w-xs dark:bg-[#1a1c23]/50;
     }
     /* Landing container: center + padding (match Next.js light-saas config) */
     .container {
