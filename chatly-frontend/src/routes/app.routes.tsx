@@ -2,6 +2,7 @@ import { lazy } from "react";
 import { Outlet, type RouteObject } from "react-router-dom";
 import { LazyWrapper } from "@/components/customize/LazyWrapper";
 import { ProtectedRoute } from "@/components/customize/ProtectedRoute";
+import ChatLayout from "@/layouts/chat";
 
 const ChatPage = lazy(() => import("@/pages/app/chat"));
 const CloudPage = lazy(() => import("@/pages/app/cloud"));
@@ -14,7 +15,7 @@ export const appRoutes: RouteObject[] = [
         element: (
             <ProtectedRoute>
                 <LazyWrapper>
-                    <Outlet />
+                    <ChatLayout />
                 </LazyWrapper>
             </ProtectedRoute>
         ),

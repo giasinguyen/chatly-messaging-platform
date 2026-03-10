@@ -5,7 +5,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { priorityChats, otherChats, type ChatSnippet } from "@/mocks/chat";
 
-export function ChatListSide() {
+export function ChatList() {
     // Combine chats since we removed the tabs
     const allChats = [...priorityChats, ...otherChats];
 

@@ -1,13 +1,12 @@
 import { MessageCircle, Users, Settings, Cloud } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-
 import type { UserResponse } from "@/types/auth";
 
-interface SidebarNavProps {
+interface SidebarProps {
     user: UserResponse | null;
 }
 
-export function SidebarNav({ user }: SidebarNavProps) {
+export function Sidebar({ user }: SidebarProps) {
     return (
         <nav className="w-16 bg-brand flex flex-col items-center py-6 justify-between shrink-0 z-20 shadow-md">
             <div className="flex flex-col items-center gap-6 w-full">
