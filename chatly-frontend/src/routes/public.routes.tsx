@@ -16,8 +16,8 @@ export const publicRoutes: RouteObject[] = [
             </LazyWrapper>
         ),
         children: [
-            { path: "welcome", element: <LandingPage /> },
-            { path: "home", element: <Navigate to="/welcome" replace /> },
+            { index: true, element: <LandingPage /> },
+            { path: "home", element: <Navigate to="/" replace /> },
             { path: "terms", element: <TermsPage /> },
             { path: "privacy", element: <PrivacyPage /> },
         ],

@@ -19,7 +19,7 @@ export const appRoutes: RouteObject[] = [
             </ProtectedRoute>
         ),
         children: [
-            { index: true, element: <ChatPage /> },
+            { path: "chat", element: <ChatPage /> },
             { path: "cloud", element: <CloudPage /> },
             { path: "contact", element: <ContactPage /> },
             { path: "settings", element: <SettingsPage /> },

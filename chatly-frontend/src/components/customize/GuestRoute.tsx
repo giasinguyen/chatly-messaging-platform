@@ -13,7 +13,7 @@ interface GuestRouteProps {
  * Chỉ cho phép người dùng CHƯA đăng nhập.
  * Nếu đã đăng nhập, sẽ đẩy về trang chủ (mặc định /).
  */
-export const GuestRoute = ({ children, to = "/" }: GuestRouteProps) => {
+export const GuestRoute = ({ children, to = "/chat" }: GuestRouteProps) => {
     const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
 
     if (isAuthenticated) {
@@ -22,4 +22,3 @@ export const GuestRoute = ({ children, to = "/" }: GuestRouteProps) => {
 
     return <>{children}</>;
 };
-

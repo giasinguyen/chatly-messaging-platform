@@ -4,9 +4,12 @@ import { Link, useNavigate } from "react-router-dom";
 import { useThemeStore } from "@/store/theme.store";
 import { Sun, Moon } from "lucide-react";
 
+import { useAuthStore } from "@/store/auth.store";
+
 export const Header = () => {
     const navigate = useNavigate();
     const toggleTheme = useThemeStore((s) => s.toggleTheme);
+    const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
 
     return (
         <header className="fixed top-0 backdrop-blur-sm z-20 w-full">
@@ -19,7 +22,7 @@ export const Header = () => {
                             height={40}
                             width={40}
                             className="cursor-pointer hover:opacity-80 transition-opacity"
-                            onClick={() => navigate("/welcome")}
+                            onClick={() => navigate("/")}
                         />
                         <img
                             src={MenuIcon}
@@ -31,7 +34,7 @@ export const Header = () => {
                                 to="/terms"
                                 className="hover:text-black dark:hover:text-white transition-colors"
                             >
-                                Tearms
+                                Terms
                             </Link>
                             <Link
                                 to="/privacy"
@@ -57,7 +60,15 @@ export const Header = () => {
                                 </button>
 
                                 <button className="bg-brand hover:bg-brand-hover text-white px-5 py-2 rounded-lg font-medium transition-all hover:scale-105 active:scale-95 shadow-sm tracking-tight">
-                                    <Link to="/auth/login">Login</Link>
+                                    <Link
+                                        to={
+                                            isAuthenticated
+                                                ? "/chat"
+                                                : "/auth/login"
+                                        }
+                                    >
+                                        Login
+                                    </Link>
                                 </button>
                             </div>
                         </nav>
