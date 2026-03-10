@@ -1,6 +1,7 @@
 import { lazy } from "react";
-import { Navigate, Outlet, type RouteObject } from "react-router-dom";
+import { Navigate, type RouteObject } from "react-router-dom";
 import { LazyWrapper } from "@/components/customize/LazyWrapper";
+import PublicLayout from "@/layouts/PublicLayout";
 import TermsPage from "@/pages/public/terms";
 import PrivacyPage from "@/pages/public/privacy";
 
@@ -11,7 +12,7 @@ export const publicRoutes: RouteObject[] = [
         path: "/",
         element: (
             <LazyWrapper>
-                <Outlet />
+                <PublicLayout />
             </LazyWrapper>
         ),
         children: [

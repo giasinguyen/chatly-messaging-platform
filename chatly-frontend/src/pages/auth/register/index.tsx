@@ -1,11 +1,9 @@
 import { Link, useNavigate } from "react-router-dom";
-import { Sun, Moon, ArrowRight } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";
 
-import chatlyLogo from "@/assets/brand/chatly-logo-transparent.png";
-import { useThemeStore } from "@/store/theme.store";
 import {
     registerSchema,
     type RegisterFormValues,
@@ -22,8 +20,6 @@ import { useAuthStore } from "@/store/auth.store";
 import "../login/login.css";
 
 export default function RegisterPage() {
-    const toggleTheme = useThemeStore((s) => s.toggleTheme);
-
     const form = useForm<RegisterFormValues>({
         resolver: zodResolver(registerSchema),
         defaultValues: {
@@ -104,27 +100,8 @@ export default function RegisterPage() {
                 ))}
             </div>
 
-            {/* Logo top-left */}
-            <div className="absolute top-7 left-8 z-10 flex items-center gap-2.5">
-                <img
-                    src={chatlyLogo}
-                    alt="Chatly"
-                    className="h-16 w-auto drop-shadow-[0_2px_8px_rgba(0,0,0,0.25)]"
-                />
-            </div>
-
-            {/* Theme toggle top-right */}
-            <button
-                onClick={toggleTheme}
-                className="absolute top-7 right-8 z-10 flex h-10 w-10 cursor-pointer items-center justify-center rounded-full border border-white/20 bg-white/10 text-white backdrop-blur-sm transition-all duration-200 hover:scale-105 hover:bg-white/20 dark:border-white/10 dark:bg-white/5 dark:hover:bg-white/10"
-                aria-label="Toggle theme"
-            >
-                <Sun size={18} className="block dark:hidden" />
-                <Moon size={18} className="hidden dark:block" />
-            </button>
-
             {/* Center card */}
-            <div className="login-card-enter relative z-5 flex w-[90%] max-w-[480px] flex-col overflow-hidden rounded-[20px] border border-black/10 bg-white/90 p-8 shadow-[0_4px_20px_rgba(0,0,0,0.08)] backdrop-blur-[20px] dark:border-white/8 dark:bg-[rgba(30,33,40,0.92)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.4)]">
+            <div className="login-card-enter mt-10 relative z-5 flex w-[90%] max-w-[480px] flex-col overflow-hidden rounded-[20px] border border-black/10 bg-white/90 p-8 shadow-[0_4px_20px_rgba(0,0,0,0.08)] backdrop-blur-[20px] dark:border-white/8 dark:bg-[rgba(30,33,40,0.92)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.4)]">
                 <h1 className="mb-6 text-center text-[22px] font-bold tracking-tight text-gray-900 dark:text-white">
                     Create an account
                 </h1>

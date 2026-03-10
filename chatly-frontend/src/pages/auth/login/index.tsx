@@ -1,13 +1,11 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Mail, Lock, Eye, EyeOff, Sun, Moon, ArrowRight } from "lucide-react";
+import { Mail, Lock, Eye, EyeOff, ArrowRight } from "lucide-react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";
 
-import chatlyLogo from "@/assets/brand/chatly-logo-transparent.png";
 import qrCode from "@/mocks/images/QR-fake.png";
-import { useThemeStore } from "@/store/theme.store";
 import { ForgotPasswordDialog } from "./components/ForgotPasswordDialog";
 import {
     loginSchema,
@@ -35,7 +33,6 @@ export default function LoginPage() {
     const [loginMethod, setLoginMethod] = useState<"password" | "sms">(
         "password",
     );
-    const toggleTheme = useThemeStore((s) => s.toggleTheme);
 
     const form = useForm<LoginFormValues>({
         resolver: zodResolver(
@@ -109,30 +106,8 @@ export default function LoginPage() {
                 ))}
             </div>
 
-            {/* Logo top-left */}
-            <div
-                className="absolute top-7 left-8 z-10 flex items-center gap-2.5"
-                onClick={() => navigate("/welcome")}
-            >
-                <img
-                    src={chatlyLogo}
-                    alt="Chatly"
-                    className="h-16 w-auto drop-shadow-[0_2px_8px_rgba(0,0,0,0.25)]"
-                />
-            </div>
-
-            {/* Theme toggle top-right */}
-            <button
-                onClick={toggleTheme}
-                className="absolute top-7 right-8 z-10 flex h-10 w-10 cursor-pointer items-center justify-center rounded-full border border-white/20 bg-white/10 text-white backdrop-blur-sm transition-all duration-200 hover:scale-105 hover:bg-white/20 dark:border-white/10 dark:bg-white/5 dark:hover:bg-white/10"
-                aria-label="Toggle theme"
-            >
-                <Sun size={18} className="block dark:hidden" />
-                <Moon size={18} className="hidden dark:block" />
-            </button>
-
             {/* Center card */}
-            <div className="login-card-enter relative z-5 flex w-[90%] max-w-[780px] overflow-hidden rounded-[20px] border border-black/10 bg-white/90 shadow-[0_4px_20px_rgba(0,0,0,0.08)] backdrop-blur-[20px] dark:border-white/8 dark:bg-[rgba(30,33,40,0.92)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.4)]">
+            <div className="login-card-enter mt-10 relative z-5 flex w-[90%] max-w-[780px] overflow-hidden rounded-[20px] border border-black/10 bg-white/90 shadow-[0_4px_20px_rgba(0,0,0,0.08)] backdrop-blur-[20px] dark:border-white/8 dark:bg-[rgba(30,33,40,0.92)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.4)]">
                 {/* Left — form */}
                 <div className="flex-1 p-9 pb-8">
                     <h1 className="mb-1.5 text-center text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
@@ -242,7 +217,7 @@ export default function LoginPage() {
                                                     aria-invalid={
                                                         fieldState.invalid
                                                     }
-                                                    className="py-2.5 text-[15px] !text-gray-900 dark:!text-white pr-0"
+                                                    className="py-2.5 text-[15px] text-gray-900! dark:text-white! pr-0"
                                                 />
                                                 <InputGroupAddon align="inline-end">
                                                     <InputGroupButton

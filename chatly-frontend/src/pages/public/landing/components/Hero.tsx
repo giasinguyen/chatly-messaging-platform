@@ -6,12 +6,9 @@ import googlePlayImg from "@/assets/landing/google_play_transparent.png";
 import qrFake from "@/mocks/images/QR-fake.png";
 import { motion, useScroll, useTransform } from "framer-motion";
 import { useRef } from "react";
-import { useNavigate } from "react-router-dom";
 import "./hero.css";
 
 export const Hero = () => {
-    const navigate = useNavigate();
-
     const heroRef = useRef(null);
     const { scrollYProgress } = useScroll({
         target: heroRef,
@@ -22,7 +19,7 @@ export const Hero = () => {
     return (
         <section
             ref={heroRef}
-            className="hero-section relative pt-8 pb-20 md:pt-5 md:pb-10 overflow-x-clip"
+            className="hero-section relative pt-20 pb-20 md:pb-10 overflow-x-clip"
         >
             {/* Blobs */}
             <div className="hero-blob absolute -top-[10%] -left-[5%] h-[400px] w-[400px] rounded-full bg-brand-light opacity-35 blur-[80px]" />
@@ -73,14 +70,20 @@ export const Hero = () => {
                                     Scan to download
                                 </p>
                                 <div className="flex flex-row gap-5 justify-center">
-                                    <a href="#" onClick={(e) => e.preventDefault()}>
+                                    <a
+                                        href="#"
+                                        onClick={(e) => e.preventDefault()}
+                                    >
                                         <img
                                             src={googlePlayImg}
                                             alt="Get it on Google Play"
                                             className="h-9 w-auto object-contain"
                                         />
                                     </a>
-                                    <a href="#" onClick={(e) => e.preventDefault()}>
+                                    <a
+                                        href="#"
+                                        onClick={(e) => e.preventDefault()}
+                                    >
                                         <img
                                             src={appStoreImg}
                                             alt="Download on the App Store"

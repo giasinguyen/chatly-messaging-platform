@@ -1,7 +1,8 @@
 import { lazy } from "react";
-import { Navigate, Outlet, type RouteObject } from "react-router-dom";
+import { Navigate, type RouteObject } from "react-router-dom";
 import { LazyWrapper } from "@/components/customize/LazyWrapper";
 import { GuestRoute } from "@/components/customize/GuestRoute";
+import PublicLayout from "@/layouts/PublicLayout";
 
 const LoginPage = lazy(() => import("@/pages/auth/login"));
 const RegisterPage = lazy(() => import("@/pages/auth/register"));
@@ -12,7 +13,7 @@ export const authRoutes: RouteObject[] = [
         element: (
             <GuestRoute>
                 <LazyWrapper>
-                    <Outlet />
+                    <PublicLayout />
                 </LazyWrapper>
             </GuestRoute>
         ),
