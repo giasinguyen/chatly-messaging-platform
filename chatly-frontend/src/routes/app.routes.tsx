@@ -1,8 +1,8 @@
 import { lazy } from "react";
-import { Outlet, type RouteObject } from "react-router-dom";
+import { type RouteObject } from "react-router-dom";
 import { LazyWrapper } from "@/components/customize/LazyWrapper";
 import { ProtectedRoute } from "@/components/customize/ProtectedRoute";
-import ChatLayout from "@/layouts/chat";
+import ChatLayout from "@/layouts/app";
 
 const ChatPage = lazy(() => import("@/pages/app/chat"));
 const CloudPage = lazy(() => import("@/pages/app/cloud"));

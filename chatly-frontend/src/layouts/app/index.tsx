@@ -2,7 +2,7 @@ import { Outlet } from "react-router-dom";
 import { useAuthStore } from "@/store/auth.store";
 import { Sidebar } from "./Sidebar";
 
-export default function ChatLayout() {
+export default function AppLayout() {
     const { user } = useAuthStore();
 
     return (
