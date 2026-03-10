@@ -17,9 +17,10 @@ export const publicRoutes: RouteObject[] = [
         ),
         children: [
             { index: true, element: <LandingPage /> },
-            { path: "home", element: <Navigate to="/" replace /> },
             { path: "terms", element: <TermsPage /> },
             { path: "privacy", element: <PrivacyPage /> },
         ],
     },
+    // fallback routes
+    { path: "home", element: <Navigate to="/" replace /> },
 ];

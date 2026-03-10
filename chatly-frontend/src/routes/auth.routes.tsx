@@ -23,6 +23,7 @@ export const authRoutes: RouteObject[] = [
             { path: "register", element: <RegisterPage /> },
         ],
     },
+    // fallback routes
     { path: "login", element: <Navigate to="/auth/login" replace /> },
     { path: "register", element: <Navigate to="/auth/register" replace /> },
 ];

@@ -3,11 +3,11 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { priorityChats, otherChats, type ChatSnippet } from "@/mocks/chat";
+import { chatList, type ChatSnippet } from "@/mocks/chat";
 
 export function ChatList() {
     // Combine chats since we removed the tabs
-    const allChats = [...priorityChats, ...otherChats];
+    const allChats = [...chatList];
 
     const renderChatItem = (chat: ChatSnippet) => (
         <div
