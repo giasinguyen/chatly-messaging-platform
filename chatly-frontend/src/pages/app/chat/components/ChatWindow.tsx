@@ -25,9 +25,6 @@ export function ChatWindow({ id }: ChatWindowProps) {
             <ChatHeader user={chat.user} />
 
             <div className="bg-brand/5 border-b border-border py-2 px-4 flex items-center gap-3">
-                <div className="h-8 w-8 rounded-full bg-brand/10 flex items-center justify-center text-brand shrink-0">
-                    <span className="text-xs font-bold">PT</span>
-                </div>
                 <p className="text-xs text-muted-foreground flex-1">
                     Gửi yêu cầu kết bạn tới người này
                 </p>
@@ -54,4 +51,3 @@ export function ChatWindow({ id }: ChatWindowProps) {
         </div>
     );
 }
-
