@@ -68,12 +68,14 @@ public class ContactService {
         return contactMapper.toResponse(contactRepository.save(contact));
     }
 
+    @Transactional(readOnly = true)
     public List<ContactResponse> getContacts(UUID userId, ContactStatus status) {
         return contactRepository.findByUserIdAndStatus(userId, status).stream()
                 .map(contactMapper::toResponse)
                 .toList();
     }
 
+    @Transactional(readOnly = true)
     public List<ContactResponse> getAllContacts(UUID userId) {
         return contactRepository.findByUserIdOrContactId(userId, userId).stream()
                 .map(contactMapper::toResponse)

@@ -401,17 +401,16 @@
               "raw": "{\n    \"contactId\": \"{{targetUserId}}\"\n}"
             },
             "url": {
-              "raw": "{{baseUrl}}/api/contacts/{{userId}}",
+              "raw": "{{baseUrl}}/api/contacts",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
                 "api",
-                "contacts",
-                "{{userId}}"
+                "contacts"
               ]
             },
-            "description": "Send a contact request from userId to another user (contactId). Status will be PENDING. Requires authentication."
+            "description": "Send a contact request to another user. Sender is determined from JWT token (no userId in URL). Status will be PENDING. Requires authentication."
           },
           "response": []
         },
@@ -481,18 +480,16 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/api/contacts/user/{{userId}}",
+              "raw": "{{baseUrl}}/api/contacts",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
                 "api",
-                "contacts",
-                "user",
-                "{{userId}}"
+                "contacts"
               ]
             },
-            "description": "Get all contacts for a specific user regardless of status. Requires authentication."
+            "description": "Get all contacts of the authenticated user regardless of status. userId is read from JWT token."
           },
           "response": []
         },
@@ -508,20 +505,18 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/api/contacts/user/{{userId}}/status/PENDING",
+              "raw": "{{baseUrl}}/api/contacts/status/PENDING",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
                 "api",
                 "contacts",
-                "user",
-                "{{userId}}",
                 "status",
                 "PENDING"
               ]
             },
-            "description": "Get all contacts with PENDING status for a user. Requires authentication."
+            "description": "Get all contacts with PENDING status for the authenticated user. userId is read from JWT token."
           },
           "response": []
         },
@@ -537,20 +532,18 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/api/contacts/user/{{userId}}/status/ACCEPTED",
+              "raw": "{{baseUrl}}/api/contacts/status/ACCEPTED",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
                 "api",
                 "contacts",
-                "user",
-                "{{userId}}",
                 "status",
                 "ACCEPTED"
               ]
             },
-            "description": "Get all contacts with ACCEPTED status for a user. Requires authentication."
+            "description": "Get all contacts with ACCEPTED status for the authenticated user. userId is read from JWT token."
           },
           "response": []
         },
@@ -566,20 +559,18 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/api/contacts/user/{{userId}}/status/BLOCKED",
+              "raw": "{{baseUrl}}/api/contacts/status/BLOCKED",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
                 "api",
                 "contacts",
-                "user",
-                "{{userId}}",
                 "status",
                 "BLOCKED"
               ]
             },
-            "description": "Get all contacts with BLOCKED status for a user. Requires authentication."
+            "description": "Get all contacts with BLOCKED status for the authenticated user. userId is read from JWT token."
           },
           "response": []
         },
