@@ -40,7 +40,7 @@ logging:
 app:
     jwt:
         secret: Y2hhdGx5LXNlY3JldC1rZXktZm9yLWp3dC10b2tlbi1nZW5lcmF0aW9uLTIwMjY=
-        expiration-ms: 60000 # 60s
+        expiration-ms: 86400000 # 1d
         refresh-expiration-ms: 86400000 # 1d
     cors:
         allowed-origins: http://localhost:3000, http://localhost:5174
