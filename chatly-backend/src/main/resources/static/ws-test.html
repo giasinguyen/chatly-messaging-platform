@@ -160,7 +160,14 @@
                 var data = JSON.parse(msg.body);
                 log('⌨  TYPING event: userId=' + data.userId + ' typing=' + data.typing, 'recv');
             });
-            log('✅ Subscribed (messages + typing)', 'success');
+
+            // Subscribe to personal error queue (requires JwtHandshakeHandler to set Principal)
+            stompClient.subscribe('/user/queue/errors', function(msg) {
+                var err = JSON.parse(msg.body);
+                log('🚨 SERVER ERROR [' + err.code + ']: ' + err.message, 'error');
+            });
+
+            log('✅ Subscribed (messages + typing + errors)', 'success');
         }
 
         function unsubscribe() {
@@ -173,7 +180,7 @@
             var content  = document.getElementById('msgContent').value.trim();
             if (!convId || !content) { log('⚠ Fill in conversation ID and message', 'error'); return; }
 
-            var payload = JSON.stringify({ conversationId: convId, content: content, messageType: 'TEXT' });
+            var payload = JSON.stringify({ conversationId: convId, content: content, type: 'TEXT' });
             stompClient.send('/app/chat.send', {}, payload);
             log('📤 SENT /app/chat.send: ' + payload, 'info');
         }

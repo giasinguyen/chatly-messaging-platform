@@ -7,6 +7,8 @@ import com.chatly.model.enums.ContactStatus;
 import com.chatly.service.ContactService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -19,12 +21,11 @@ public class ContactController {
 
     private final ContactService contactService;
 
-    @PostMapping("/{userId}")
-    ApiResponse<ContactResponse> sendRequest(
-            @PathVariable UUID userId,
-            @RequestBody @Valid ContactRequest request) {
+    // Gửi lời mời kết bạn (userId lấy từ JWT, không nhận từ URL)
+    @PostMapping
+    ApiResponse<ContactResponse> sendRequest(@RequestBody @Valid ContactRequest request) {
         return ApiResponse.<ContactResponse>builder()
-                .result(contactService.sendRequest(userId, request))
+                .result(contactService.sendRequest(getAuthenticatedUserId(), request))
                 .build();
     }
 
@@ -42,19 +43,19 @@ public class ContactController {
                 .build();
     }
 
-    @GetMapping("/user/{userId}")
-    ApiResponse<List<ContactResponse>> getAll(@PathVariable UUID userId) {
+    // Lấy tất cả contact của user đang đăng nhập
+    @GetMapping
+    ApiResponse<List<ContactResponse>> getAll() {
         return ApiResponse.<List<ContactResponse>>builder()
-                .result(contactService.getAllContacts(userId))
+                .result(contactService.getAllContacts(getAuthenticatedUserId()))
                 .build();
     }
 
-    @GetMapping("/user/{userId}/status/{status}")
-    ApiResponse<List<ContactResponse>> getByStatus(
-            @PathVariable UUID userId,
-            @PathVariable ContactStatus status) {
+    // Lọc theo trạng thái
+    @GetMapping("/status/{status}")
+    ApiResponse<List<ContactResponse>> getByStatus(@PathVariable ContactStatus status) {
         return ApiResponse.<List<ContactResponse>>builder()
-                .result(contactService.getContacts(userId, status))
+                .result(contactService.getContacts(getAuthenticatedUserId(), status))
                 .build();
     }
 
@@ -64,5 +65,10 @@ public class ContactController {
         return ApiResponse.<Void>builder()
                 .message("Contact deleted successfully")
                 .build();
+    }
+
+    private UUID getAuthenticatedUserId() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        return UUID.fromString(authentication.getPrincipal().toString());
     }
 }
