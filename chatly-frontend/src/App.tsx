@@ -39,11 +39,9 @@ function SessionBootstrap() {
 }
 
 /**
- * APP INNER
  * Chứa logic khởi tạo Interceptor và Router.
  */
 function AppInit() {
-    // const isUnsupportedViewport = useIsUnsupportedViewport(); // Đã tắt chặn mobile
     const setAuth = useAuthStore((s) => s.setAuth);
     const clearAuth = useAuthStore((s) => s.clearAuth);
     const theme = useThemeStore((s) => s.theme);

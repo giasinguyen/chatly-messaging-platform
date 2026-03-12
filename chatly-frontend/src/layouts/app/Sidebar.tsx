@@ -1,14 +1,33 @@
-import { MessageCircle, Users, Settings, Cloud } from "lucide-react";
+import { MessageCircle, Users, Settings, Cloud, LogOut } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { NavLink } from "react-router-dom";
+import { NavLink, useNavigate } from "react-router-dom";
 import type { UserResponse } from "@/types/auth";
 import { cn } from "@/lib/utils";
+import { useAuthStore } from "@/store/auth.store";
+import { authService } from "@/services/auth.service";
+import { toast } from "sonner";
 
 interface SidebarProps {
     user: UserResponse | null;
 }
 
 export function Sidebar({ user }: SidebarProps) {
+    const clearAuth = useAuthStore((s) => s.clearAuth);
+    const navigate = useNavigate();
+
+    const handleLogout = async () => {
+        try {
+            await authService.logout();
+            clearAuth();
+            toast.success("Đã đăng xuất thành công");
+            navigate("/auth/login");
+        } catch (error) {
+            console.error("Logout error", error);
+            clearAuth();
+            navigate("/auth/login");
+        }
+    };
+
     const navItems = [
         { to: "/chat", icon: MessageCircle, label: "Chat" },
         { to: "/contact", icon: Users, label: "Contacts" },
@@ -95,6 +114,15 @@ export function Sidebar({ user }: SidebarProps) {
                         </>
                     )}
                 </NavLink>
+
+                {/* Logout Button */}
+                <button
+                    onClick={handleLogout}
+                    title="Đăng xuất"
+                    className="w-full flex justify-center py-3 relative transition-colors hover:bg-black/10 text-white/70 hover:text-red-400 group"
+                >
+                    <LogOut className="h-6 w-6 transition-colors group-hover:scale-110" />
+                </button>
             </div>
         </nav>
     );

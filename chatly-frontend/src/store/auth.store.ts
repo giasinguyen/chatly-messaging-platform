@@ -1,11 +1,10 @@
 import { create } from "zustand";
-import { persist, createJSONStorage } from "zustand/middleware";
 import type { UserResponse, AuthResponse } from "@/types/auth";
 
 /**
  * AUTH STORE (Zustand)
  * Quản lý trạng thái đăng nhập và thông tin người dùng toàn cục.
- * Tự động đồng bộ (persist) vào localStorage để giữ trạng thái khi reload trang.
+ * Phục hồi trạng thái gốc bằng access_token lưu dưới localStorage.
  */
 interface AuthState {
     user: UserResponse | null;
@@ -19,50 +18,41 @@ interface AuthState {
     setLoading: (loading: boolean) => void;
 }
 
-export const useAuthStore = create<AuthState>()(
-    persist(
-        (set) => ({
+export const useAuthStore = create<AuthState>((set) => ({
+    user: null,
+    // Khởi tạo isAuthenticated dựa trên việc có token trong localStorage hay không
+    isAuthenticated: !!localStorage.getItem("access_token"),
+    loading: false,
+
+    setAuth: (payload) => {
+        // Lưu token vào localStorage để axiosClient có thể sử dụng
+        localStorage.setItem("access_token", payload.token);
+        localStorage.setItem("refresh_token", payload.refreshToken);
+
+        set({
+            user: payload.user,
+            isAuthenticated: true,
+        });
+    },
+
+    clearAuth: () => {
+        // Xóa cả trong store và trong localStorage (tokens)
+        localStorage.removeItem("access_token");
+        localStorage.removeItem("refresh_token");
+        // Remove left-over zustand persistence key
+        localStorage.removeItem("chatly-auth-storage");
+
+        set({
             user: null,
             isAuthenticated: false,
-            loading: false,
+        });
+    },
 
-            setAuth: (payload) => {
-                // Lưu token vào localStorage để axiosClient có thể sử dụng
-                localStorage.setItem("access_token", payload.token);
-                localStorage.setItem("refresh_token", payload.refreshToken);
+    updateUser: (user) => {
+        set({ user });
+    },
 
-                set({
-                    user: payload.user,
-                    isAuthenticated: true,
-                });
-            },
-
-            clearAuth: () => {
-                // Xóa cả trong store và trong localStorage (tokens)
-                localStorage.removeItem("access_token");
-                localStorage.removeItem("refresh_token");
-                set({
-                    user: null,
-                    isAuthenticated: false,
-                });
-            },
-
-            updateUser: (user) => {
-                set({ user });
-            },
-
-            setLoading: (loading) => {
-                set({ loading });
-            },
-        }),
-        {
-            name: "chatly-auth-storage", // Tên key lưu trong localStorage
-            storage: createJSONStorage(() => localStorage),
-            partialize: (state) => ({
-                user: state.user,
-                isAuthenticated: state.isAuthenticated,
-            }), // Chỉ lưu user và auth status, không lưu loading
-        },
-    ),
-);
-
+    setLoading: (loading) => {
+        set({ loading });
+    },
+}));

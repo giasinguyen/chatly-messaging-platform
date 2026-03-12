@@ -34,11 +34,22 @@ export const authService = {
 
     /**
      * Đăng xuất
-     * (Thường là xóa token ở client, nếu backend có API revoke thì gọi thêm)
+     * Gọi backend API để xóa session/token ở server
      */
     logout: async () => {
-        // Có thể gọi backend API để xóa session/token ở server nếu cần
-        // await axiosClient.post("/api/auth/logout");
+        const token = localStorage.getItem("access_token");
+        const refreshToken = localStorage.getItem("refresh_token");
+
+        if (token) {
+            try {
+                await axiosClient.post("/api/auth/logout", {
+                    token,
+                    refreshToken,
+                });
+            } catch (error) {
+                console.error("Failed to call logout API", error);
+            }
+        }
 
         localStorage.removeItem("access_token");
         localStorage.removeItem("refresh_token");
