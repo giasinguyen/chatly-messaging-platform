@@ -21,6 +21,7 @@ import org.springframework.web.socket.config.annotation.WebSocketTransportRegist
 public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     private final WebSocketAuthInterceptor webSocketAuthInterceptor;
+    private final JwtHandshakeHandler jwtHandshakeHandler;
 
     @Override
     public void configureMessageBroker(MessageBrokerRegistry registry) {
@@ -35,12 +36,14 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
         registry.addEndpoint("/ws")
                 .setAllowedOriginPatterns("*")
                 .addInterceptors(webSocketAuthInterceptor)
+                .setHandshakeHandler(jwtHandshakeHandler)
                 .withSockJS();
 
         // Raw WebSocket endpoint (cho test / mobile)
         registry.addEndpoint("/ws-raw")
                 .setAllowedOriginPatterns("*")
-                .addInterceptors(webSocketAuthInterceptor);
+                .addInterceptors(webSocketAuthInterceptor)
+                .setHandshakeHandler(jwtHandshakeHandler);
     }
 
     @Override

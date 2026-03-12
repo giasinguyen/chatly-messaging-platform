@@ -363,10 +363,12 @@
         var stompClient = null;
         var subscription = null;
         var typingSubscription = null;
+        var errorsSubscription = null;
         var conversationId = null;
         var currentUserId = null;
         var typingTimeout = null;
         var isTyping = false;
+        var typingUsers = new Set(); // track who is currently typing (group support)
 
         // Auto-resize textarea
         const messageInput = document.getElementById('messageInput');
@@ -430,9 +432,20 @@
                 // Subscribe to typing indicator
                 typingSubscription = stompClient.subscribe('/topic/conversation.' + conversationId + '.typing', function(message) {
                     const data = JSON.parse(message.body);
-                    if (data.userId !== currentUserId) {
-                        showTypingIndicator(data.typing);
+                    // Ignore own typing events
+                    if (data.userId === currentUserId) return;
+                    if (data.typing) {
+                        typingUsers.add(data.userId);
+                    } else {
+                        typingUsers.delete(data.userId);
                     }
+                    showTypingIndicator(typingUsers.size > 0);
+                });
+
+                // Subscribe to personal error channel
+                errorsSubscription = stompClient.subscribe('/user/queue/errors', function(message) {
+                    const err = JSON.parse(message.body);
+                    addSystemMessage('⚠️ Error [' + err.code + ']: ' + err.message);
                 });
 
                 addSystemMessage('✅ Connected successfully');
@@ -457,6 +470,7 @@
                     document.getElementById('chatPanel').style.display = 'none';
                     document.getElementById('loginPanel').style.display = 'flex';
                     showError('');
+                    typingUsers.clear();
                 });
                 stompClient = null;
                 subscription = null;
@@ -476,7 +490,7 @@
             const payload = {
                 conversationId: conversationId,
                 content: content,
-                messageType: 'TEXT'
+                type: 'TEXT'
             };
 
             stompClient.send('/app/chat.send', {}, JSON.stringify(payload));
