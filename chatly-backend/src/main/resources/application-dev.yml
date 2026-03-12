@@ -34,8 +34,14 @@ server:
 
 logging:
     level:
-        org.springframework.web.socket: DEBUG
-        org.springframework.messaging: DEBUG
+        root: INFO
+        com.chatly: DEBUG
+        # Spring WebSocket/Messaging framework internals — DEBUG floods logs with
+        # every STOMP heartbeat/frame; keep at WARN in dev to avoid drowning traces
+        org.springframework.web.socket: WARN
+        org.springframework.messaging: WARN
+        org.springframework.security: WARN
+        org.hibernate.SQL: WARN
 
 app:
     jwt:
