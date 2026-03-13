@@ -25,6 +25,7 @@ import org.springframework.stereotype.Service;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -76,12 +77,12 @@ public class MessageService {
                 .toList();
     }
 
-    public MessageResponse markAsSeen(String messageId, String userId) {
+    public Optional<MessageResponse> markAsSeen(String messageId, String userId) {
         Message message = messageRepository.findById(messageId)
                 .orElseThrow(() -> new AppException(ErrorCode.MESSAGE_NOT_FOUND));
 
         if (message.getSenderId().equals(userId)) {
-            return messageMapper.toResponse(message);
+            return Optional.empty();
         }
 
         boolean alreadySeen = message.getReadBy().stream()
@@ -104,9 +105,10 @@ public class MessageService {
 
             message.getReadBy().add(receipt);
             message.setStatus(MessageStatus.READ);
+            return Optional.of(messageMapper.toResponse(message));
         }
 
-        return messageMapper.toResponse(message);
+        return Optional.empty();
     }
 
     public void delete(String messageId, String senderId) {

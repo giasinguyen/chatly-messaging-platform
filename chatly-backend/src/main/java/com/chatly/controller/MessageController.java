@@ -39,7 +39,7 @@ public class MessageController {
     @PutMapping("/{messageId}/seen")
     ApiResponse<MessageResponse> markAsSeen(@PathVariable String messageId) {
         return ApiResponse.<MessageResponse>builder()
-                .result(messageService.markAsSeen(messageId, getAuthenticatedUserId()))
+                .result(messageService.markAsSeen(messageId, getAuthenticatedUserId()).orElse(null))
                 .build();
     }
 

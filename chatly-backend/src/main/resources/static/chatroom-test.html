@@ -1,16 +1,22 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <title>Chatly - Chatroom Test</title>
     <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
     <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { 
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            background: #0d1117; 
-            color: #c9d1d9; 
+            background: #0d1117;
+            color: #c9d1d9;
             height: 100vh;
             display: flex;
             flex-direction: column;
@@ -24,20 +30,23 @@
             height: 100vh;
             background: linear-gradient(135deg, #1a1f2e 0%, #0d1117 100%);
         }
+
         .login-box {
             background: #161b22;
             border: 1px solid #30363d;
             border-radius: 12px;
             padding: 32px;
             width: 420px;
-            box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
         }
+
         .login-box h1 {
             color: #58a6ff;
             margin-bottom: 24px;
             text-align: center;
             font-size: 28px;
         }
+
         .login-box label {
             display: block;
             color: #8b949e;
@@ -47,6 +56,7 @@
             text-transform: uppercase;
             letter-spacing: 0.5px;
         }
+
         .login-box input {
             width: 100%;
             padding: 10px 12px;
@@ -58,10 +68,12 @@
             font-size: 14px;
             font-family: monospace;
         }
+
         .login-box input:focus {
             outline: none;
             border-color: #58a6ff;
         }
+
         .login-box button {
             width: 100%;
             padding: 12px;
@@ -74,9 +86,11 @@
             cursor: pointer;
             transition: background 0.2s;
         }
+
         .login-box button:hover {
             background: #2ea043;
         }
+
         .login-box #conversationNote {
             color: #8b949e;
             text-align: center;
@@ -84,6 +98,7 @@
             margin-top: 8px;
             margin-bottom: 16px;
         }
+
         .login-box .error {
             color: #f85149;
             font-size: 13px;
@@ -107,6 +122,7 @@
             align-items: center;
             justify-content: space-between;
         }
+
         .chat-header h2 {
             color: #58a6ff;
             font-size: 18px;
@@ -114,6 +130,7 @@
             align-items: center;
             gap: 10px;
         }
+
         .status-dot {
             width: 10px;
             height: 10px;
@@ -121,6 +138,7 @@
             background: #3fb950;
             display: inline-block;
         }
+
         .chat-header button {
             padding: 8px 16px;
             background: #21262d;
@@ -131,6 +149,7 @@
             font-size: 13px;
             transition: background 0.2s;
         }
+
         .chat-header button:hover {
             background: #30363d;
         }
@@ -145,12 +164,15 @@
             flex-direction: column;
             gap: 12px;
         }
+
         .messages-container::-webkit-scrollbar {
             width: 8px;
         }
+
         .messages-container::-webkit-scrollbar-track {
             background: #161b22;
         }
+
         .messages-container::-webkit-scrollbar-thumb {
             background: #30363d;
             border-radius: 4px;
@@ -163,32 +185,46 @@
             max-width: 70%;
             animation: slideIn 0.2s ease-out;
         }
+
         @keyframes slideIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
+
         .message.sent {
             align-self: flex-end;
         }
+
         .message.received {
             align-self: flex-start;
         }
+
         .message-bubble {
             padding: 10px 14px;
             border-radius: 12px;
             word-wrap: break-word;
             position: relative;
         }
+
         .message.sent .message-bubble {
             background: #1f6feb;
             color: white;
             border-bottom-right-radius: 4px;
         }
+
         .message.received .message-bubble {
             background: #21262d;
             color: #c9d1d9;
             border-bottom-left-radius: 4px;
         }
+
         .message-info {
             display: flex;
             align-items: center;
@@ -197,21 +233,33 @@
             font-size: 11px;
             color: #8b949e;
         }
+
         .message.sent .message-info {
             justify-content: flex-end;
         }
+
         .message-status {
             display: flex;
             align-items: center;
             gap: 4px;
         }
+
         .message-status svg {
             width: 14px;
             height: 14px;
         }
-        .status-sent { color: #8b949e; }
-        .status-delivered { color: #58a6ff; }
-        .status-seen { color: #3fb950; }
+
+        .status-sent {
+            color: #8b949e;
+        }
+
+        .status-delivered {
+            color: #58a6ff;
+        }
+
+        .status-seen {
+            color: #3fb950;
+        }
 
         /* Typing Indicator */
         .typing-indicator {
@@ -222,14 +270,17 @@
             width: fit-content;
             margin-left: 0;
         }
+
         .typing-indicator.active {
             display: block;
             animation: slideIn 0.2s ease-out;
         }
+
         .typing-dots {
             display: flex;
             gap: 4px;
         }
+
         .typing-dots span {
             width: 8px;
             height: 8px;
@@ -237,11 +288,28 @@
             border-radius: 50%;
             animation: typing 1.4s infinite;
         }
-        .typing-dots span:nth-child(2) { animation-delay: 0.2s; }
-        .typing-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+        .typing-dots span:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+
+        .typing-dots span:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+
         @keyframes typing {
-            0%, 60%, 100% { transform: translateY(0); opacity: 0.7; }
-            30% { transform: translateY(-10px); opacity: 1; }
+
+            0%,
+            60%,
+            100% {
+                transform: translateY(0);
+                opacity: 0.7;
+            }
+
+            30% {
+                transform: translateY(-10px);
+                opacity: 1;
+            }
         }
 
         /* Input Area */
@@ -253,10 +321,12 @@
             gap: 12px;
             align-items: flex-end;
         }
+
         .input-wrapper {
             flex: 1;
             position: relative;
         }
+
         .input-area textarea {
             width: 100%;
             padding: 10px 14px;
@@ -270,10 +340,12 @@
             max-height: 120px;
             min-height: 44px;
         }
+
         .input-area textarea:focus {
             outline: none;
             border-color: #58a6ff;
         }
+
         .input-area button {
             padding: 10px 20px;
             background: #238636;
@@ -286,9 +358,11 @@
             height: 44px;
             transition: background 0.2s;
         }
+
         .input-area button:hover:not(:disabled) {
             background: #2ea043;
         }
+
         .input-area button:disabled {
             opacity: 0.5;
             cursor: not-allowed;
@@ -304,9 +378,12 @@
         }
 
         /* Utilities */
-        .hidden { display: none !important; }
+        .hidden {
+            display: none !important;
+        }
     </style>
 </head>
+
 <body>
 
     <!-- Login Panel -->
@@ -315,10 +392,10 @@
             <h1>💬 Chatly Chatroom</h1>
             <label>JWT Token</label>
             <input type="text" id="tokenInput" placeholder="Paste your JWT token here">
-            
+
             <label>Conversation ID</label>
             <input type="text" id="conversationInput" placeholder="Enter conversation ID">
-            
+
             <button onclick="connectToChat()">Join Chat</button>
             <small id="conversationNote">(Create Conversation Room -> /api/conversations)</small>
             <div id="loginError" class="error"></div>
@@ -348,11 +425,7 @@
 
         <div class="input-area">
             <div class="input-wrapper">
-                <textarea 
-                    id="messageInput" 
-                    placeholder="Type a message..." 
-                    rows="1"
-                    onkeydown="handleKeyDown(event)"
+                <textarea id="messageInput" placeholder="Type a message..." rows="1" onkeydown="handleKeyDown(event)"
                     oninput="handleTyping()"></textarea>
             </div>
             <button onclick="sendMessage()" id="sendBtn">Send</button>
@@ -364,16 +437,34 @@
         var subscription = null;
         var typingSubscription = null;
         var errorsSubscription = null;
+        var readSubscription = null;
         var conversationId = null;
         var currentUserId = null;
-        var typingTimeout = null;
-        var isTyping = false;
-        var typingUsers = new Set(); // track who is currently typing (group support)
+        var typingUsers = new Set();
+        var seenMessageIds = new Set(); // guard: chỉ gửi seen 1 lần / message
+
+        // ── Debounce typing state ────────────────────────────────────────────────
+        // Vấn đề cũ: mỗi khi user gõ lại sau khoảng ngừng 2s, `typing=true` được
+        // gửi ngay lập tức → nếu user gõ → dừng → gõ → dừng nhiều lần thì server
+        // bị spam sự kiện typing on/off liên tục.
+        //
+        // Giải pháp: áp dụng debounce hai chiều:
+        //   • typing=true  chỉ gửi sau TYPING_START_DELAY ms kể từ lần gõ đầu tiên
+        //                  trong một "phiên gõ" mới (tránh trigger khi gõ 1 ký tự rồi xoá)
+        //   • typing=false chỉ gửi sau TYPING_STOP_DELAY ms kể từ lần gõ CUỐI CÙNG
+        //                  (nếu user gõ tiếp trong thời gian đó, timer reset, không gửi)
+        // Kết quả: dù user gõ kiểu nào, mỗi "phiên gõ" chỉ tạo đúng 1 lần on + 1 lần off.
+        // ────────────────────────────────────────────────────────────────────────
+        var isTyping = false;          // trạng thái đã gửi lên server
+        var typingStartTimer = null;   // timer debounce gửi typing=true
+        var typingStopTimer = null;   // timer debounce gửi typing=false
+        var TYPING_START_DELAY = 300;  // ms – delay trước khi gửi typing=true
+        var TYPING_STOP_DELAY = 2000; // ms – delay sau lần gõ cuối để gửi typing=false
 
         // Auto-resize textarea
         const messageInput = document.getElementById('messageInput');
         if (messageInput) {
-            messageInput.addEventListener('input', function() {
+            messageInput.addEventListener('input', function () {
                 this.style.height = 'auto';
                 this.style.height = Math.min(this.scrollHeight, 120) + 'px';
             });
@@ -386,53 +477,49 @@
         function connectToChat() {
             const token = document.getElementById('tokenInput').value.trim();
             const convId = document.getElementById('conversationInput').value.trim();
+            const reconnectAttempts = 0;
+            const MAX_RECONNECT = 5;
 
-            if (!token) {
-                showError('⚠️ Please enter JWT token');
-                return;
-            }
-            if (!convId) {
-                showError('⚠️ Please enter conversation ID');
-                return;
-            }
+            if (!token) { showError('⚠️ Please enter JWT token'); return; }
+            if (!convId) { showError('⚠️ Please enter conversation ID'); return; }
 
             showError('Connecting...');
             conversationId = convId;
 
-            // Parse JWT to get user ID (basic decode)
             try {
                 const payload = JSON.parse(atob(token.split('.')[1]));
                 currentUserId = payload.sub || payload.userId || payload.id;
-            } catch(e) {
+            } catch (e) {
                 console.warn('Could not parse user ID from token');
             }
 
-            // Connect via SockJS
             const socket = new SockJS('http://localhost:8080/ws?token=' + token);
             stompClient = Stomp.over(socket);
-            stompClient.debug = null; // suppress logs
+            stompClient.debug = null;
+            
 
-            stompClient.connect({}, function(frame) {
-                // Successfully connected
+            stompClient.connect({}, function (frame) {
                 document.getElementById('loginPanel').style.display = 'none';
                 document.getElementById('chatPanel').style.display = 'flex';
                 document.getElementById('currentConvId').textContent = conversationId;
 
-                // Subscribe to messages
-                subscription = stompClient.subscribe('/topic/conversation.' + conversationId, function(message) {
+                subscription = stompClient.subscribe('/topic/conversation.' + conversationId, function (message) {
                     const msg = JSON.parse(message.body);
                     displayMessage(msg);
-                    
-                    // Auto-send seen for received messages
-                    if (msg.senderId !== currentUserId && msg.id) {
+                    if (msg.senderId !== currentUserId && msg.id && !seenMessageIds.has(msg.id)) {
+                        seenMessageIds.add(msg.id);
                         setTimeout(() => sendSeen(msg.id), 500);
                     }
                 });
 
-                // Subscribe to typing indicator
-                typingSubscription = stompClient.subscribe('/topic/conversation.' + conversationId + '.typing', function(message) {
+                // Kênh riêng cho read-receipt — KHÔNG gọi sendSeen ở đây để tránh cascade
+                readSubscription = stompClient.subscribe('/topic/conversation.' + conversationId + '.read', function (message) {
+                    const msg = JSON.parse(message.body);
+                    updateMessageStatus(msg);
+                });
+
+                typingSubscription = stompClient.subscribe('/topic/conversation.' + conversationId + '.typing', function (message) {
                     const data = JSON.parse(message.body);
-                    // Ignore own typing events
                     if (data.userId === currentUserId) return;
                     if (data.typing) {
                         typingUsers.add(data.userId);
@@ -442,64 +529,69 @@
                     showTypingIndicator(typingUsers.size > 0);
                 });
 
-                // Subscribe to personal error channel
-                errorsSubscription = stompClient.subscribe('/user/queue/errors', function(message) {
+                errorsSubscription = stompClient.subscribe('/user/queue/errors', function (message) {
                     const err = JSON.parse(message.body);
                     addSystemMessage('⚠️ Error [' + err.code + ']: ' + err.message);
                 });
 
                 addSystemMessage('✅ Connected successfully');
-            }, function(error) {
+            }, function (error) {
                 showError('❌ Connection failed: ' + error);
-                console.error('STOMP error:', error);
             });
 
-            socket.onclose = function(e) {
+            socket.onclose = function () {
                 addSystemMessage('❌ Connection closed');
-                setTimeout(() => {
+                if (reconnectAttempts < MAX_RECONNECT) {
+                    reconnectAttempts++;
+                    var delay = Math.min(1000 * reconnectAttempts, 5000); // backoff 1s, 2s, 3s...
+                    addSystemMessage('🔄 Reconnecting in ' + (delay / 1000) + 's... (' + reconnectAttempts + '/' + MAX_RECONNECT + ')');
+                    setTimeout(() => connectToChat(), delay);
+                } else {
+                    // Hiển thị lại login panel sau khi hết retry
                     document.getElementById('chatPanel').style.display = 'none';
                     document.getElementById('loginPanel').style.display = 'flex';
-                    showError('Connection closed. Please reconnect.');
-                }, 1000);
+                    showError('Connection lost. Please reconnect manually.');
+                }
             };
         }
 
         function disconnect() {
             if (stompClient) {
-                stompClient.disconnect(function() {
+                // Đảm bảo gửi typing=false trước khi ngắt kết nối
+                cancelTypingDebounce();
+                if (isTyping) sendTypingStatus(false);
+
+                stompClient.disconnect(function () {
                     document.getElementById('chatPanel').style.display = 'none';
                     document.getElementById('loginPanel').style.display = 'flex';
                     showError('');
                     typingUsers.clear();
+                    seenMessageIds.clear();
                 });
                 stompClient = null;
                 subscription = null;
                 typingSubscription = null;
+                readSubscription = null;
             }
         }
 
         function sendMessage() {
-            if (!stompClient || !stompClient.connected) {
-                alert('Not connected');
-                return;
-            }
+            if (!stompClient || !stompClient.connected) { alert('Not connected'); return; }
 
             const content = document.getElementById('messageInput').value.trim();
             if (!content) return;
 
-            const payload = {
+            stompClient.send('/app/chat.send', {}, JSON.stringify({
                 conversationId: conversationId,
                 content: content,
                 type: 'TEXT'
-            };
+            }));
 
-            stompClient.send('/app/chat.send', {}, JSON.stringify(payload));
-            
-            // Clear input
             document.getElementById('messageInput').value = '';
             document.getElementById('messageInput').style.height = 'auto';
 
-            // Stop typing indicator
+            // Huỷ debounce và reset trạng thái typing ngay khi gửi tin
+            cancelTypingDebounce();
             if (isTyping) {
                 sendTypingStatus(false);
                 isTyping = false;
@@ -513,54 +605,65 @@
             }
         }
 
+        // ── handleTyping với debounce hai chiều ─────────────────────────────────
         function handleTyping() {
             if (!stompClient || !stompClient.connected) return;
 
-            // Send typing=true if not already typing
-            if (!isTyping) {
-                sendTypingStatus(true);
-                isTyping = true;
-            }
+            // [1] Reset timer stop mỗi khi có keystroke mới
+            //     → typing=false chỉ gửi khi thực sự ngừng gõ TYPING_STOP_DELAY ms
+            clearTimeout(typingStopTimer);
+            typingStopTimer = setTimeout(function () {
+                if (isTyping) {
+                    sendTypingStatus(false);
+                    isTyping = false;
+                }
+            }, TYPING_STOP_DELAY);
 
-            // Reset timeout
-            clearTimeout(typingTimeout);
-            typingTimeout = setTimeout(() => {
-                sendTypingStatus(false);
-                isTyping = false;
-            }, 2000);
+            // [2] Nếu chưa đang typing, debounce trước khi gửi typing=true
+            //     → tránh gửi khi user chỉ gõ rất nhanh rồi xoá ngay
+            if (!isTyping && typingStartTimer === null) {
+                typingStartTimer = setTimeout(function () {
+                    typingStartTimer = null;
+                    // Kiểm tra lại: input có thực sự còn nội dung không
+                    if (document.getElementById('messageInput').value.trim().length > 0) {
+                        sendTypingStatus(true);
+                        isTyping = true;
+                    }
+                }, TYPING_START_DELAY);
+            }
         }
+
+        // Huỷ toàn bộ timer debounce (dùng khi send/disconnect)
+        function cancelTypingDebounce() {
+            clearTimeout(typingStartTimer);
+            clearTimeout(typingStopTimer);
+            typingStartTimer = null;
+            typingStopTimer = null;
+        }
+        // ────────────────────────────────────────────────────────────────────────
 
         function sendTypingStatus(typing) {
             if (!stompClient || !stompClient.connected) return;
-            
-            const payload = {
+            stompClient.send('/app/chat.typing', {}, JSON.stringify({
                 conversationId: conversationId,
                 typing: typing
-            };
-            stompClient.send('/app/chat.typing', {}, JSON.stringify(payload));
+            }));
         }
 
         function sendSeen(messageId) {
             if (!stompClient || !stompClient.connected) return;
-            
-            const payload = { messageId: messageId };
-            stompClient.send('/app/chat.seen', {}, JSON.stringify(payload));
+            stompClient.send('/app/chat.seen', {}, JSON.stringify({ messageId: messageId }));
         }
 
         function displayMessage(msg) {
             const container = document.getElementById('messagesContainer');
             const typingIndicator = document.getElementById('typingIndicator');
-            
-            // Check if message already exists (avoid duplicates)
-            if (msg.id && document.getElementById('msg-' + msg.id)) {
-                return;
-            }
+
+            if (msg.id && document.getElementById('msg-' + msg.id)) return;
 
             const messageDiv = document.createElement('div');
             messageDiv.className = 'message ' + (msg.senderId === currentUserId ? 'sent' : 'received');
-            if (msg.id) {
-                messageDiv.id = 'msg-' + msg.id;
-            }
+            if (msg.id) messageDiv.id = 'msg-' + msg.id;
 
             const bubble = document.createElement('div');
             bubble.className = 'message-bubble';
@@ -569,13 +672,11 @@
             const info = document.createElement('div');
             info.className = 'message-info';
 
-            // Time
             const time = document.createElement('span');
             const msgDate = msg.createdAt ? new Date(msg.createdAt) : new Date();
             time.textContent = msgDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
             info.appendChild(time);
 
-            // Status (only for sent messages)
             if (msg.senderId === currentUserId) {
                 const status = document.createElement('span');
                 status.className = 'message-status';
@@ -585,12 +686,18 @@
 
             messageDiv.appendChild(bubble);
             messageDiv.appendChild(info);
-
-            // Insert before typing indicator
             container.insertBefore(messageDiv, typingIndicator);
-            
-            // Scroll to bottom
             container.scrollTop = container.scrollHeight;
+        }
+
+        function updateMessageStatus(msg) {
+            if (!msg.id) return;
+            const msgEl = document.getElementById('msg-' + msg.id);
+            if (!msgEl) return;
+            const statusEl = msgEl.querySelector('.message-status');
+            if (statusEl) {
+                statusEl.innerHTML = getStatusIcon(msg.status || 'READ');
+            }
         }
 
         function getStatusIcon(status) {
@@ -605,7 +712,6 @@
         function showTypingIndicator(show) {
             const indicator = document.getElementById('typingIndicator');
             const container = document.getElementById('messagesContainer');
-            
             if (show) {
                 indicator.classList.add('active');
                 container.scrollTop = container.scrollHeight;
@@ -624,11 +730,11 @@
             container.scrollTop = container.scrollHeight;
         }
 
-        // Allow Enter to submit on login
-        document.getElementById('conversationInput')?.addEventListener('keypress', function(e) {
+        document.getElementById('conversationInput')?.addEventListener('keypress', function (e) {
             if (e.key === 'Enter') connectToChat();
         });
     </script>
 
 </body>
+
 </html>
