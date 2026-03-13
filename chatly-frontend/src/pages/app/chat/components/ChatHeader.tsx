@@ -7,13 +7,27 @@ import {
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import type { User } from "@/mocks/chat";
 
 interface ChatHeaderProps {
     user: User;
+    isFriend: boolean;
 }
 
-export function ChatHeader({ user }: ChatHeaderProps) {
+const statusLabel: Record<User["status"], string> = {
+    online: "Đang hoạt động",
+    offline: "Không hoạt động",
+    away: "Vắng mặt",
+};
+
+const statusColor: Record<User["status"], string> = {
+    online: "bg-green-500",
+    offline: "bg-muted-foreground/40",
+    away: "bg-yellow-400",
+};
+
+export function ChatHeader({ user, isFriend }: ChatHeaderProps) {
     return (
         <header className="h-16 border-b border-border flex items-center justify-between px-4 shrink-0 bg-background/80 backdrop-blur-sm z-20">
             <div className="flex items-center gap-3">
@@ -22,20 +36,24 @@ export function ChatHeader({ user }: ChatHeaderProps) {
                         <AvatarImage src={user.avatar} />
                         <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
                     </Avatar>
-                    {user.status === "online" && (
-                        <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-background bg-green-500" />
-                    )}
+                    {/* Status dot */}
+                    <span
+                        className={cn(
+                            "absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-background",
+                            statusColor[user.status],
+                        )}
+                    />
                 </div>
                 <div className="flex flex-col">
-                    <h3 className="text-sm font-semibold text-foreground line-clamp-1">
-                        {user.name}
-                    </h3>
+                    <h3 className="text-sm font-semibold text-foreground line-clamp-1">{user.name}</h3>
                     <div className="flex items-center gap-1.5">
-                        <span className="text-[10px] bg-muted px-1 rounded text-muted-foreground uppercase font-bold tracking-tight">
-                            Người lạ
-                        </span>
+                        {!isFriend && (
+                            <span className="text-[10px] bg-muted px-1 rounded text-muted-foreground uppercase font-bold tracking-tight">
+                                Người lạ
+                            </span>
+                        )}
                         <span className="text-[11px] text-muted-foreground flex items-center gap-1">
-                            Không có nhóm chung
+                            {isFriend ? statusLabel[user.status] : "Không có nhóm chung"}
                         </span>
                     </div>
                 </div>
@@ -65,4 +83,3 @@ export function ChatHeader({ user }: ChatHeaderProps) {
         </header>
     );
 }
-

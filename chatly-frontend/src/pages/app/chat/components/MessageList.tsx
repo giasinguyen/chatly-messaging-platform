@@ -1,23 +1,86 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useCallback } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Check, CheckCheck } from "lucide-react";
+import { Check, CheckCheck, Reply } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Message, User } from "@/mocks/chat";
+import { ReplyPreview } from "./ReplyPreview";
 
 interface MessageListProps {
     messages: Message[];
     participant: User;
+    onReply: (msg: Message) => void;
+    onLoadMore: () => void;
+    isLoadingMore: boolean;
+    hasMore: boolean;
 }
 
-export function MessageList({ messages, participant }: MessageListProps) {
+export function MessageList({
+    messages,
+    participant,
+    onReply,
+    onLoadMore,
+    isLoadingMore,
+    hasMore,
+}: MessageListProps) {
     const scrollEndRef = useRef<HTMLDivElement>(null);
+    const sentinelRef = useRef<HTMLDivElement>(null);
+    const containerRef = useRef<HTMLDivElement>(null);
+    const prevScrollHeightRef = useRef<number>(0);
+    const isFirstMount = useRef(true);
+
+    // Auto scroll to bottom only on first mount or new messages from bottom
+    useEffect(() => {
+        if (isFirstMount.current) {
+            scrollEndRef.current?.scrollIntoView({ behavior: "instant" });
+            isFirstMount.current = false;
+        } else {
+            scrollEndRef.current?.scrollIntoView({ behavior: "smooth" });
+        }
+    }, [messages.length]);
+
+    // Restore scroll position after loading more messages at top
+    useEffect(() => {
+        if (!isLoadingMore && containerRef.current && prevScrollHeightRef.current > 0) {
+            const newScrollHeight = containerRef.current.scrollHeight;
+            containerRef.current.scrollTop = newScrollHeight - prevScrollHeightRef.current;
+            prevScrollHeightRef.current = 0;
+        }
+    }, [isLoadingMore, messages]);
+
+    // IntersectionObserver for lazy load
+    const handleSentinelIntersect = useCallback(
+        (entries: IntersectionObserverEntry[]) => {
+            const entry = entries[0];
+            if (entry.isIntersecting && hasMore && !isLoadingMore) {
+                if (containerRef.current) {
+                    prevScrollHeightRef.current = containerRef.current.scrollHeight;
+                }
+                onLoadMore();
+            }
+        },
+        [hasMore, isLoadingMore, onLoadMore],
+    );
 
     useEffect(() => {
-        scrollEndRef.current?.scrollIntoView({ behavior: "smooth" });
-    }, [messages]);
+        const sentinel = sentinelRef.current;
+        if (!sentinel) return;
+        const observer = new IntersectionObserver(handleSentinelIntersect, {
+            root: containerRef.current,
+            threshold: 0.1,
+        });
+        observer.observe(sentinel);
+        return () => observer.disconnect();
+    }, [handleSentinelIntersect]);
+
+    const getStatusIcon = (status: Message["status"]) => {
+        if (status === "read") return <CheckCheck size={12} className="text-brand" />;
+        if (status === "delivered") return <CheckCheck size={12} className="text-muted-foreground/60" />;
+        return <Check size={12} className="text-muted-foreground/60" />;
+    };
 
     const renderMessage = (msg: Message) => {
         const isMe = msg.senderId === "me";
+        const repliedMsg = msg.replyTo ? messages.find((m) => m.id === msg.replyTo) : null;
 
         return (
             <div
@@ -28,20 +91,14 @@ export function MessageList({ messages, participant }: MessageListProps) {
                 )}
             >
                 {!isMe && (
-                    <Avatar className="h-8 w-8 mb-1 border border-border/30">
+                    <Avatar className="h-8 w-8 mb-1 border border-border/30 shrink-0">
                         <AvatarImage src={participant.avatar} />
-                        <AvatarFallback>
-                            {participant.name.charAt(0)}
-                        </AvatarFallback>
+                        <AvatarFallback>{participant.name.charAt(0)}</AvatarFallback>
                     </Avatar>
                 )}
 
-                <div
-                    className={cn(
-                        "flex flex-col max-w-[70%]",
-                        isMe ? "items-end" : "items-start",
-                    )}
-                >
+                <div className={cn("flex flex-col max-w-[70%]", isMe ? "items-end" : "items-start")}>
+                    {/* Bubble */}
                     <div
                         className={cn(
                             "px-3 py-2 rounded-2xl text-sm shadow-sm transition-all",
@@ -50,36 +107,54 @@ export function MessageList({ messages, participant }: MessageListProps) {
                                 : "bg-card border border-border/50 rounded-bl-none text-foreground",
                         )}
                     >
+                        {repliedMsg && (
+                            <ReplyPreview replyMessage={repliedMsg} participant={participant} isMe={isMe} />
+                        )}
                         {msg.text}
                     </div>
 
+                    {/* Time + status */}
                     <div
                         className={cn(
                             "flex items-center gap-1 mt-1 opacity-0 group-hover:opacity-100 transition-opacity px-1",
                         )}
                     >
-                        <span className="text-[10px] text-muted-foreground">
-                            {msg.timestamp}
-                        </span>
-                        {isMe && (
-                            <span className="text-brand">
-                                {msg.status === "read" ? (
-                                    <CheckCheck size={12} />
-                                ) : (
-                                    <Check size={12} />
-                                )}
-                            </span>
-                        )}
+                        <span className="text-[10px] text-muted-foreground">{msg.timestamp}</span>
+                        {isMe && <span>{getStatusIcon(msg.status)}</span>}
                     </div>
                 </div>
+
+                {/* Reply button (on hover) */}
+                <button
+                    onClick={() => onReply(msg)}
+                    className={cn(
+                        "opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground shrink-0",
+                        isMe ? "mr-1" : "ml-1",
+                    )}
+                    title="Reply"
+                >
+                    <Reply size={14} />
+                </button>
             </div>
         );
     };
 
     return (
-        <div className="flex-1 overflow-y-auto bg-muted/20">
+        <div ref={containerRef} className="flex-1 overflow-y-auto bg-muted/20">
             <div className="py-6 flex flex-col min-h-full">
-                {/* Date separator example */}
+                {/* Lazy load sentinel */}
+                <div ref={sentinelRef} className="flex justify-center h-8 items-center">
+                    {isLoadingMore && (
+                        <span className="text-[11px] text-muted-foreground animate-pulse">
+                            Đang tải tin nhắn cũ hơn...
+                        </span>
+                    )}
+                    {!isLoadingMore && hasMore && (
+                        <span className="text-[11px] text-muted-foreground/50">↑ Kéo lên để xem thêm</span>
+                    )}
+                </div>
+
+                {/* Date separator */}
                 <div className="flex justify-center mb-6">
                     <span className="px-3 py-1 bg-black/10 dark:bg-white/10 rounded-full text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
                         Hôm qua
@@ -92,4 +167,3 @@ export function MessageList({ messages, participant }: MessageListProps) {
         </div>
     );
 }
-

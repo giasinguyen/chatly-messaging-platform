@@ -12,6 +12,7 @@ export interface ChatSnippet {
     timestamp: string;
     unreadCount?: number;
     isPriority: boolean;
+    isFriend: boolean;
 }
 
 export interface Message {
@@ -22,7 +23,53 @@ export interface Message {
     status: "sent" | "delivered" | "read";
     type: "text" | "image" | "file";
     fileUrl?: string;
+    replyTo?: string; // id của message được reply
 }
+
+export const mockMessagesPage2: Record<string, Message[]> = {
+    c1: [
+        {
+            id: "m_old1",
+            senderId: "u1",
+            text: "Ê bạn ơi, hôm qua mình gửi file chưa?",
+            timestamp: "Hôm qua 09:00",
+            status: "read",
+            type: "text",
+        },
+        {
+            id: "m_old2",
+            senderId: "me",
+            text: "Rồi, mình gửi qua email rồi nhé",
+            timestamp: "Hôm qua 09:05",
+            status: "read",
+            type: "text",
+        },
+        {
+            id: "m_old3",
+            senderId: "u1",
+            text: "Ok cảm ơn bạn nhiều!",
+            timestamp: "Hôm qua 09:06",
+            status: "read",
+            type: "text",
+        },
+        {
+            id: "m_old4",
+            senderId: "me",
+            text: "Không có gì, cần gì cứ nhắn mình nhé",
+            timestamp: "Hôm qua 09:08",
+            status: "read",
+            type: "text",
+        },
+        {
+            id: "m_old5",
+            senderId: "u1",
+            text: "Bạn có rảnh hôm nay không? Mình muốn hỏi thêm vài thứ",
+            timestamp: "Hôm qua 09:10",
+            status: "read",
+            type: "text",
+        },
+    ],
+};
 
 export const mockMessages: Record<string, Message[]> = {
     c1: [
@@ -65,14 +112,31 @@ export const mockMessages: Record<string, Message[]> = {
             senderId: "me",
             text: "Ok gửi qua đây nhé",
             timestamp: "09:05",
-            status: "read",
+            status: "delivered",
             type: "text",
         },
         {
             id: "m3",
             senderId: "u2",
-            text: "Gia Sĩ IUH: [Sticker]",
+            text: "Cảm ơn bạn nha! Mình đang xem",
             timestamp: "09:06",
+            status: "read",
+            type: "text",
+        },
+        {
+            id: "m4",
+            senderId: "me",
+            text: "Không có gì, hỏi thêm mình nhé",
+            timestamp: "09:10",
+            status: "read",
+            type: "text",
+            replyTo: "m3", // reply vào "Cảm ơn bạn nha!"
+        },
+        {
+            id: "m5",
+            senderId: "u2",
+            text: "Gia Sĩ IUH: [Sticker]",
+            timestamp: "09:12",
             status: "read",
             type: "text",
         },
@@ -125,6 +189,7 @@ export const chatList: ChatSnippet[] = [
         lastMessage: "Anh: chờ mời 2 người thì chả thấy cả...",
         timestamp: "12 phút",
         isPriority: true,
+        isFriend: false,
     },
     {
         id: "c2",
@@ -132,6 +197,7 @@ export const chatList: ChatSnippet[] = [
         lastMessage: "Gia Sĩ IUH: [Sticker]",
         timestamp: "1 giờ",
         isPriority: true,
+        isFriend: true,
     },
     {
         id: "c3",
@@ -139,6 +205,6 @@ export const chatList: ChatSnippet[] = [
         lastMessage: "Diễm Quỳnh: REMOTE TECH JOBS – 0...",
         timestamp: "3 giờ",
         isPriority: true,
+        isFriend: true,
     },
 ];
-
