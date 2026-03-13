@@ -49,11 +49,11 @@ public class ChatMessageController {
     public void markAsSeen(@Payload SeenRequest request, SimpMessageHeaderAccessor headerAccessor) {
         String userId = (String) headerAccessor.getSessionAttributes().get("userId");
 
-        MessageResponse response = messageService.markAsSeen(request.messageId(), userId);
-
-        messagingTemplate.convertAndSend(
-                "/topic/conversation." + response.getConversationId(),
-                response
+        messageService.markAsSeen(request.messageId(), userId).ifPresent(response ->
+                messagingTemplate.convertAndSend(
+                        "/topic/conversation." + response.getConversationId() + ".read",
+                        response
+                )
         );
     }
 
