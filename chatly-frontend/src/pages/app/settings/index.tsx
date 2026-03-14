@@ -3,6 +3,7 @@ import { Settings, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { SettingsSidebar } from "./components/SettingsSidebar";
 import { GeneralSettings } from "./components/GeneralSettings";
+import { toast } from "sonner";
 
 export default function SettingPage() {
     const [activeCategory, setActiveCategory] = useState("general");
@@ -13,7 +14,7 @@ export default function SettingPage() {
     };
 
     useEffect(() => {
-        alert("UI Test only, Development in progress...");
+        toast.info("UI Test only, Development in progress...");
     }, []);
 
     return (

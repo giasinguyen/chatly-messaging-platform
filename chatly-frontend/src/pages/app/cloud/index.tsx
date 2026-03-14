@@ -1,8 +1,9 @@
 import { useEffect } from "react";
+import { toast } from "sonner";
 
 export default function CloudPage() {
     useEffect(() => {
-        alert("UI Test only, Development in progress...");
+        toast.info("UI Test only, Development in progress...");
     }, []);
 
     return <div>Coding ...</div>;
