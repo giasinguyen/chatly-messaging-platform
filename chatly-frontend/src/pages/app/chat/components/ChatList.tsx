@@ -142,10 +142,10 @@ export function ChatList() {
                             to={`/chat/${conv.id}`}
                             className={({ isActive }) =>
                                 cn(
-                                    "flex items-center gap-3 px-4 py-3 cursor-pointer select-none transition-colors w-full",
+                                    "flex items-center gap-3 px-4 py-3 cursor-pointer select-none transition-colors w-full rounded-lg mx-2",
                                     isActive
-                                        ? "bg-brand/10"
-                                        : "hover:bg-muted/50",
+                                        ? "bg-brand/20 border border-brand/30"
+                                        : "hover:bg-muted/40",
                                 )
                             }
                         >
@@ -285,16 +285,16 @@ export function ChatList() {
     };
 
     return (
-        <aside className="w-[340px] flex flex-col border-r border-border bg-card shrink-0 h-full overflow-hidden">
+        <aside className="w-[340px] flex flex-col border-r border-border shrink-0 h-full overflow-hidden" style={{ background: '#1b1c1d' }}>
             {/* Search Header */}
-            <div className="px-4 py-4 flex items-center gap-2 border-b border-border/50">
+            <div className="px-4 py-4 flex items-center gap-2 border-b border-border/50 bg-muted/10">
                 <div className="relative flex-1">
                     <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
                         placeholder="Tìm kiếm"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        className="h-8 pl-8 bg-muted/50 border-transparent focus-visible:ring-1 focus-visible:ring-brand focus-visible:border-brand rounded-full text-sm"
+                        className="h-8 pl-8 bg-muted/30 border-border/40 focus-visible:ring-1 focus-visible:ring-brand focus-visible:border-brand rounded-full text-sm"
                     />
                 </div>
                 <div className="flex items-center gap-1">

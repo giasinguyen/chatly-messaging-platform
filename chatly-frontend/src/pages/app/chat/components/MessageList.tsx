@@ -100,12 +100,12 @@ export function MessageList({
             <div
                 key={msg.id}
                 className={cn(
-                    "flex items-end gap-2 mb-4 group px-4",
+                    "flex gap-2 mb-4 group px-4",
                     isMe ? "flex-row-reverse" : "flex-row",
                 )}
             >
                 {!isMe && (
-                    <Avatar className="h-8 w-8 mb-1 border border-border/30 shrink-0">
+                    <Avatar className="h-8 w-8 align-bottom border border-border/30 shrink-0">
                         <AvatarImage src={participant.avatarUrl} />
                         <AvatarFallback>
                             {participant.displayName.charAt(0)}
@@ -119,30 +119,50 @@ export function MessageList({
                         isMe ? "items-end" : "items-start",
                     )}
                 >
-                    {/* Bubble */}
+                    {/* Bubble + Reply button */}
                     <div
                         className={cn(
-                            "px-3 py-2 rounded-2xl text-sm shadow-sm transition-all",
-                            isMe
-                                ? "bg-brand text-white rounded-br-none"
-                                : "bg-card border border-border/50 rounded-bl-none text-foreground",
+                            "flex items-end gap-1",
+                            isMe ? "flex-row-reverse" : "flex-row",
                         )}
                     >
-                        {repliedMsg && (
-                            <ReplyPreview
-                                replyMessage={repliedMsg}
-                                participant={participant}
-                                currentUserId={currentUserId}
-                                isMe={isMe}
-                            />
-                        )}
-                        {msg.content}
+                        {/* Bubble */}
+                        <div
+                            className={cn(
+                                "px-3 py-2 rounded-2xl text-sm shadow-sm transition-all",
+                                isMe
+                                    ? "bg-brand text-white rounded-br-none"
+                                    : "bg-muted/75 border border-border/60 rounded-bl-none text-foreground dark:bg-zinc-800/90 dark:border-zinc-700",
+                            )}
+                        >
+                            {repliedMsg && (
+                                <ReplyPreview
+                                    replyMessage={repliedMsg}
+                                    participant={participant}
+                                    currentUserId={currentUserId}
+                                    isMe={isMe}
+                                />
+                            )}
+                            {msg.content}
+                        </div>
+
+                        {/* Reply button (on hover) */}
+                        <button
+                            onClick={() => onReply(msg)}
+                            className={cn(
+                                "opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground shrink-0",
+                            )}
+                            title="Reply"
+                        >
+                            <Reply size={14} />
+                        </button>
                     </div>
 
                     {/* Time + status */}
                     <div
                         className={cn(
                             "flex items-center gap-1 mt-1 opacity-0 group-hover:opacity-100 transition-opacity px-1",
+                            isMe ? "flex-row-reverse" : "flex-row",
                         )}
                     >
                         <span className="text-[10px] text-muted-foreground">
@@ -154,18 +174,6 @@ export function MessageList({
                         {isMe && <span>{getStatusIcon(msg.status)}</span>}
                     </div>
                 </div>
-
-                {/* Reply button (on hover) */}
-                <button
-                    onClick={() => onReply(msg)}
-                    className={cn(
-                        "opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground shrink-0",
-                        isMe ? "mr-1" : "ml-1",
-                    )}
-                    title="Reply"
-                >
-                    <Reply size={14} />
-                </button>
             </div>
         );
     };

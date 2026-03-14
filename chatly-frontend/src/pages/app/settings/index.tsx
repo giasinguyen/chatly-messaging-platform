@@ -1,21 +1,36 @@
-import { useEffect, useState } from "react";
-import { Settings, X } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useMemo, useState } from "react";
 import { SettingsSidebar } from "./components/SettingsSidebar";
 import { GeneralSettings } from "./components/GeneralSettings";
-import { toast } from "sonner";
+import { PrivacySettings } from "./components/PrivacySettings";
+import { SyncSettings } from "./components/SyncSettings";
+import { AppearanceSettings } from "./components/AppearanceSettings";
+import { NotificationsSettings } from "./components/NotificationsSettings";
+import { MessagesSettings } from "./components/MessagesSettings";
+import { UtilitiesSettings } from "./components/UtilitiesSettings";
 
 export default function SettingPage() {
     const [activeCategory, setActiveCategory] = useState("general");
-    const navigate = useNavigate();
 
-    const handleClose = () => {
-        navigate(-1);
-    };
-
-    useEffect(() => {
-        toast.info("Development in progress...");
-    }, []);
+    const content = useMemo(() => {
+        switch (activeCategory) {
+            case "general":
+                return <GeneralSettings />;
+            case "privacy":
+                return <PrivacySettings />;
+            case "sync":
+                return <SyncSettings />;
+            case "appearance":
+                return <AppearanceSettings />;
+            case "notifications":
+                return <NotificationsSettings />;
+            case "messages":
+                return <MessagesSettings />;
+            case "utilities":
+                return <UtilitiesSettings />;
+            default:
+                return <GeneralSettings />;
+        }
+    }, [activeCategory]);
 
     return (
         <div className="flex h-full w-full overflow-hidden animate-in fade-in duration-300">
@@ -25,24 +40,7 @@ export default function SettingPage() {
             />
 
             <main className="flex-1 flex flex-col bg-muted/5 relative overflow-hidden">
-                {activeCategory === "general" && <GeneralSettings />}
-
-                {activeCategory !== "general" && (
-                    <div className="flex-1 flex flex-col items-center justify-center text-center p-8 gap-4">
-                        <div className="h-20 w-20 rounded-full bg-brand/10 flex items-center justify-center text-brand">
-                            <Settings size={40} className="animate-pulse" />
-                        </div>
-                        <div>
-                            <h3 className="text-xl font-semibold mb-2">
-                                Tính năng đang phát triển
-                            </h3>
-                            <p className="text-muted-foreground text-sm max-w-xs">
-                                Mục này sẽ sớm được hoàn thiện để mang đến cho
-                                bạn trải nghiệm tốt nhất.
-                            </p>
-                        </div>
-                    </div>
-                )}
+                {content}
             </main>
         </div>
     );
