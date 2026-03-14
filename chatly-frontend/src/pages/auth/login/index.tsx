@@ -51,9 +51,7 @@ export default function LoginPage() {
 
     const onSubmit = async (data: LoginFormValues) => {
         if (loginMethod === "sms") {
-            return toast.info("Tính năng đang phát triển", {
-                description: "Đăng nhập bằng SMS sẽ sớm ra mắt!",
-            });
+            return toast.info("Development in progress...");
         }
 
         const payload = {

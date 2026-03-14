@@ -5,7 +5,7 @@ import { toast } from "sonner";
 
 export default function ContactPage() {
     useEffect(() => {
-        toast.info("UI Test only, Development in progress...");
+        toast.info("Development in progress...");
     }, []);
     return (
         <div className="flex h-full w-full overflow-hidden">

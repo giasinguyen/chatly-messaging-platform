@@ -30,7 +30,7 @@ export function ChatHeader({ user }: ChatHeaderProps) {
             <div className="flex items-center gap-1 text-muted-foreground">
                 <Button
                     onClick={() => {
-                        toast.info("Tính năng gọi video sẽ sớm ra mắt!");
+                        toast.info("Development in progress...");
                     }}
                     variant="ghost"
                     size="icon"
@@ -40,7 +40,7 @@ export function ChatHeader({ user }: ChatHeaderProps) {
                 </Button>
                 <Button
                     onClick={() => {
-                        toast.info("Tính năng gọi thoại sẽ sớm ra mắt!");
+                        toast.info("Development in progress...");
                     }}
                     variant="ghost"
                     size="icon"

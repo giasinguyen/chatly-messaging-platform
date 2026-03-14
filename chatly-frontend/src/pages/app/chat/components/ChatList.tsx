@@ -15,10 +15,13 @@ import {
 } from "@/utils/conversation";
 import type { ConversationResponse } from "@/types/conversation";
 import type { UserResponse } from "@/types/auth";
+import { toast } from "sonner";
 
 export function ChatList() {
     const { user: currentUser } = useAuthStore();
-    const [conversations, setConversations] = useState<ConversationResponse[]>([]);
+    const [conversations, setConversations] = useState<ConversationResponse[]>(
+        [],
+    );
     const [users, setUsers] = useState<UserResponse[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState("");
@@ -91,7 +94,10 @@ export function ChatList() {
                         <AvatarImage src={avatarUrl} />
                         <AvatarFallback>
                             {isGroup ? (
-                                <Users size={20} className="text-muted-foreground" />
+                                <Users
+                                    size={20}
+                                    className="text-muted-foreground"
+                                />
                             ) : (
                                 initials
                             )}
@@ -112,10 +118,13 @@ export function ChatList() {
                         </span>
                         {conv.updatedAt && (
                             <span className="text-[11px] text-muted-foreground whitespace-nowrap ml-2">
-                                {new Date(conv.updatedAt).toLocaleDateString("vi-VN", {
-                                    hour: "2-digit",
-                                    minute: "2-digit",
-                                })}
+                                {new Date(conv.updatedAt).toLocaleDateString(
+                                    "vi-VN",
+                                    {
+                                        hour: "2-digit",
+                                        minute: "2-digit",
+                                    },
+                                )}
                             </span>
                         )}
                     </div>
@@ -151,10 +160,20 @@ export function ChatList() {
                     />
                 </div>
                 <div className="flex items-center gap-1">
-                    <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full">
+                    <Button
+                        onClick={() => toast.info("Development in progress...")}
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 rounded-full"
+                    >
                         <UserPlus size={16} />
                     </Button>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full">
+                    <Button
+                        onClick={() => toast.info("Development in progress...")}
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 rounded-full"
+                    >
                         <UsersRound size={16} />
                     </Button>
                 </div>
@@ -169,7 +188,9 @@ export function ChatList() {
                         ) : filteredConversations.length === 0 ? (
                             <div className="flex flex-col items-center justify-center py-12 gap-2 text-muted-foreground">
                                 <UsersRound size={36} className="opacity-30" />
-                                <p className="text-sm">Chưa có cuộc trò chuyện nào</p>
+                                <p className="text-sm">
+                                    Chưa có cuộc trò chuyện nào
+                                </p>
                             </div>
                         ) : (
                             filteredConversations.map(renderConversationItem)

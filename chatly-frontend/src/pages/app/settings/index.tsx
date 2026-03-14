@@ -14,7 +14,7 @@ export default function SettingPage() {
     };
 
     useEffect(() => {
-        toast.info("UI Test only, Development in progress...");
+        toast.info("Development in progress...");
     }, []);
 
     return (
