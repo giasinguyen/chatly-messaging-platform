@@ -27,6 +27,14 @@ export const conversationService = {
         return response.data;
     },
 
+    create: async (payload: { type: string; participantIds: string[] }): Promise<ApiResponse<ConversationResponse>> => {
+        const response = await axiosClient.post<ApiResponse<ConversationResponse>>(
+            "/api/conversations",
+            payload
+        );
+        return response.data;
+    },
+
     delete: async (id: string): Promise<ApiResponse<void>> => {
         const response = await axiosClient.delete<ApiResponse<void>>(`/api/conversations/${id}`);
         return response.data;
