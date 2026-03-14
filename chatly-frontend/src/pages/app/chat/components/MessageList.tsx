@@ -42,9 +42,14 @@ export function MessageList({
 
     // Restore scroll position after loading more messages at top
     useEffect(() => {
-        if (!isLoadingMore && containerRef.current && prevScrollHeightRef.current > 0) {
+        if (
+            !isLoadingMore &&
+            containerRef.current &&
+            prevScrollHeightRef.current > 0
+        ) {
             const newScrollHeight = containerRef.current.scrollHeight;
-            containerRef.current.scrollTop = newScrollHeight - prevScrollHeightRef.current;
+            containerRef.current.scrollTop =
+                newScrollHeight - prevScrollHeightRef.current;
             prevScrollHeightRef.current = 0;
         }
     }, [isLoadingMore, messages]);
@@ -55,7 +60,8 @@ export function MessageList({
             const entry = entries[0];
             if (entry.isIntersecting && hasMore && !isLoadingMore) {
                 if (containerRef.current) {
-                    prevScrollHeightRef.current = containerRef.current.scrollHeight;
+                    prevScrollHeightRef.current =
+                        containerRef.current.scrollHeight;
                 }
                 onLoadMore();
             }
@@ -75,14 +81,20 @@ export function MessageList({
     }, [handleSentinelIntersect]);
 
     const getStatusIcon = (status: Message["status"]) => {
-        if (status === "READ") return <CheckCheck size={12} className="text-brand" />;
-        if (status === "DELIVERED") return <CheckCheck size={12} className="text-muted-foreground/60" />;
+        if (status === "READ")
+            return <CheckCheck size={12} className="text-brand" />;
+        if (status === "DELIVERED")
+            return (
+                <CheckCheck size={12} className="text-muted-foreground/60" />
+            );
         return <Check size={12} className="text-muted-foreground/60" />;
     };
 
     const renderMessage = (msg: Message) => {
         const isMe = msg.senderId === currentUserId;
-        const repliedMsg = msg.replyToId ? messages.find((m) => m.id === msg.replyToId) : null;
+        const repliedMsg = msg.replyToId
+            ? messages.find((m) => m.id === msg.replyToId)
+            : null;
 
         return (
             <div
@@ -95,11 +107,18 @@ export function MessageList({
                 {!isMe && (
                     <Avatar className="h-8 w-8 mb-1 border border-border/30 shrink-0">
                         <AvatarImage src={participant.avatarUrl} />
-                        <AvatarFallback>{participant.displayName.charAt(0)}</AvatarFallback>
+                        <AvatarFallback>
+                            {participant.displayName.charAt(0)}
+                        </AvatarFallback>
                     </Avatar>
                 )}
 
-                <div className={cn("flex flex-col max-w-[70%]", isMe ? "items-end" : "items-start")}>
+                <div
+                    className={cn(
+                        "flex flex-col max-w-[70%]",
+                        isMe ? "items-end" : "items-start",
+                    )}
+                >
                     {/* Bubble */}
                     <div
                         className={cn(
@@ -126,7 +145,12 @@ export function MessageList({
                             "flex items-center gap-1 mt-1 opacity-0 group-hover:opacity-100 transition-opacity px-1",
                         )}
                     >
-                        <span className="text-[10px] text-muted-foreground">{new Date(msg.createdAt).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}</span>
+                        <span className="text-[10px] text-muted-foreground">
+                            {new Date(msg.createdAt).toLocaleTimeString(
+                                "vi-VN",
+                                { hour: "2-digit", minute: "2-digit" },
+                            )}
+                        </span>
                         {isMe && <span>{getStatusIcon(msg.status)}</span>}
                     </div>
                 </div>
@@ -150,22 +174,20 @@ export function MessageList({
         <div ref={containerRef} className="flex-1 overflow-y-auto bg-muted/20">
             <div className="py-6 flex flex-col min-h-full">
                 {/* Lazy load sentinel */}
-                <div ref={sentinelRef} className="flex justify-center h-8 items-center">
+                <div
+                    ref={sentinelRef}
+                    className="flex justify-center h-8 items-center"
+                >
                     {isLoadingMore && (
                         <span className="text-[11px] text-muted-foreground animate-pulse">
                             Đang tải tin nhắn cũ hơn...
                         </span>
                     )}
                     {!isLoadingMore && hasMore && (
-                        <span className="text-[11px] text-muted-foreground/50">↑ Kéo lên để xem thêm</span>
+                        <span className="text-[11px] text-muted-foreground/50">
+                            ↑ Kéo lên để xem thêm
+                        </span>
                     )}
-                </div>
-
-                {/* Date separator */}
-                <div className="flex justify-center mb-6">
-                    <span className="px-3 py-1 bg-black/10 dark:bg-white/10 rounded-full text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
-                        Hôm qua
-                    </span>
                 </div>
 
                 {messages.map(renderMessage)}
