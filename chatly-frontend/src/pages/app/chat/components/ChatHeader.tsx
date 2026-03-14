@@ -6,12 +6,17 @@ import { toast } from "sonner";
 
 interface ChatHeaderProps {
     user: ChatUser;
+    onOpenProfile: () => void;
 }
 
-export function ChatHeader({ user }: ChatHeaderProps) {
+export function ChatHeader({ user, onOpenProfile }: ChatHeaderProps) {
     return (
-        <header className="h-16 border-b border-border flex items-center justify-between px-4 shrink-0 bg-background/80 backdrop-blur-sm z-20">
-            <div className="flex items-center gap-3">
+        <header className="h-16 border-b border-border flex items-center justify-between px-4 shrink-0" style={{ background: '#1b1c1d' }}>
+            <button
+                type="button"
+                onClick={onOpenProfile}
+                className="flex items-center gap-3 rounded-md px-1 py-1 text-left transition hover:bg-muted/60"
+            >
                 <div className="relative">
                     <Avatar className="h-10 w-10 border border-border/50">
                         <AvatarImage src={user.avatarUrl} />
@@ -25,7 +30,7 @@ export function ChatHeader({ user }: ChatHeaderProps) {
                         {user.displayName}
                     </h3>
                 </div>
-            </div>
+            </button>
 
             <div className="flex items-center gap-1 text-muted-foreground">
                 <Button

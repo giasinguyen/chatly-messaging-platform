@@ -38,7 +38,11 @@ export function Sidebar({ user }: SidebarProps) {
         <nav className="w-16 bg-brand flex flex-col items-center py-6 justify-between shrink-0 z-20 shadow-md">
             <div className="flex flex-col items-center gap-6 w-full">
                 {/* User Avatar */}
-                <div className="relative mb-2 cursor-pointer transition-transform hover:scale-105">
+                <NavLink
+                    to="/profile"
+                    className="relative mb-2 transition-transform hover:scale-105"
+                    title="Hồ sơ cá nhân"
+                >
                     <Avatar className="h-11 w-11 border-2 border-blue-400">
                         <AvatarImage
                             src={user?.avatarUrl}
@@ -49,7 +53,7 @@ export function Sidebar({ user }: SidebarProps) {
                         </AvatarFallback>
                     </Avatar>
                     <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-brand bg-green-500" />
-                </div>
+                </NavLink>
 
                 {/* Nav Icons */}
                 <div className="flex flex-col items-center gap-1 w-full">

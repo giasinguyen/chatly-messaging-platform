@@ -7,6 +7,7 @@ import ChatLayout from "@/layouts/app";
 const ChatPage = lazy(() => import("@/pages/app/chat"));
 const CloudPage = lazy(() => import("@/pages/app/cloud"));
 const ContactPage = lazy(() => import("@/pages/app/contact"));
+const ProfilePage = lazy(() => import("@/pages/app/profile"));
 const SettingsPage = lazy(() => import("@/pages/app/settings"));
 
 export const appRoutes: RouteObject[] = [
@@ -24,6 +25,7 @@ export const appRoutes: RouteObject[] = [
             { path: "chat/:id", element: <ChatPage /> },
             { path: "cloud", element: <CloudPage /> },
             { path: "contact", element: <ContactPage /> },
+            { path: "profile", element: <ProfilePage /> },
             { path: "settings", element: <SettingsPage /> },
         ],
     },

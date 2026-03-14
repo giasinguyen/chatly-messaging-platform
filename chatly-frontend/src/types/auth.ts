@@ -5,6 +5,22 @@ export interface UserResponse {
     email?: string;
     phone?: string;
     avatarUrl?: string;
+    dob?: string;
+    bio?: string;
+    createdAt?: string;
+    updatedAt?: string;
+    status?: string;
+    lastSeen?: string;
+}
+
+export interface UserUpdateRequest {
+    username?: string;
+    email?: string;
+    phone?: string;
+    displayName?: string;
+    avatarUrl?: string;
+    dob?: string;
+    bio?: string;
 }
 
 export interface AuthResponse {

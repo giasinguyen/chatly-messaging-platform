@@ -40,4 +40,10 @@ export interface ChatUser {
     displayName: string;
     username: string;
     avatarUrl?: string;
+    phone?: string;
+    dob?: string;
+    privacy?: {
+        showPhone?: boolean;
+        showDob?: boolean;
+    };
 }

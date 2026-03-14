@@ -3,18 +3,84 @@ import { ChatHeader } from "./ChatHeader";
 import { MessageList } from "./MessageList";
 import { ChatInput } from "./ChatInput";
 import { conversationService } from "@/services/conversation.service";
+import { contactService } from "@/services/contact.service";
 import { messageService } from "@/services/message.service";
 import { userService } from "@/services/user.service";
 import { useAuthStore } from "@/store/auth.store";
 import { useChatSocket } from "@/hooks/useChatSocket";
 import { getOtherParticipantId } from "@/utils/conversation";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
+import { CalendarDays, Loader2, Phone, UserPlus } from "lucide-react";
+import { toast } from "sonner";
 import type { Message, ChatUser } from "@/types/message";
+import type { ContactStatus } from "@/types/contact";
 import type { ConversationResponse } from "@/types/conversation";
 
 const PAGE_SIZE = 20;
 
 interface ChatWindowProps {
     id: string;
+}
+
+function getPrivacyFlag(user: Record<string, unknown>, field: "phone" | "dob") {
+    const privacy = user.privacy as Record<string, unknown> | undefined;
+    const normalizeVisibility = (value: unknown) => {
+        if (typeof value === "boolean") return value;
+        if (typeof value !== "string") return undefined;
+
+        const normalized = value.toLowerCase();
+        if (normalized === "hidden" || normalized === "none" || normalized === "private") {
+            return false;
+        }
+        if (normalized === "everyone" || normalized === "public" || normalized === "friends") {
+            return true;
+        }
+        return undefined;
+    };
+
+    if (field === "phone") {
+        const direct = normalizeVisibility(user.showPhone);
+        const nested = normalizeVisibility(privacy?.showPhone);
+        const directVisibility = normalizeVisibility(user.phoneVisibility);
+        const nestedVisibility = normalizeVisibility(privacy?.phoneVisibility);
+
+        if (typeof direct === "boolean") return direct;
+        if (typeof nested === "boolean") return nested;
+        if (typeof directVisibility === "boolean") return directVisibility;
+        if (typeof nestedVisibility === "boolean") return nestedVisibility;
+    }
+
+    const direct = normalizeVisibility(user.showDob);
+    const nested = normalizeVisibility(privacy?.showDob);
+    const directVisibility = normalizeVisibility(user.dobVisibility);
+    const nestedVisibility = normalizeVisibility(privacy?.dobVisibility);
+
+    if (typeof direct === "boolean") return direct;
+    if (typeof nested === "boolean") return nested;
+    if (typeof directVisibility === "boolean") return directVisibility;
+    if (typeof nestedVisibility === "boolean") return nestedVisibility;
+    return true;
+}
+
+function formatDob(dob?: string) {
+    if (!dob) return "Chưa cập nhật";
+    const parsed = new Date(dob);
+    if (Number.isNaN(parsed.getTime())) return "Chưa cập nhật";
+    return new Intl.DateTimeFormat("vi-VN", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+    }).format(parsed);
 }
 
 export function ChatWindow({ id }: ChatWindowProps) {
@@ -34,6 +100,9 @@ export function ChatWindow({ id }: ChatWindowProps) {
     const [isLoadingMore, setIsLoadingMore] = useState(false);
     const [hasMore, setHasMore] = useState(false);
     const currentPageRef = useRef(0);
+    const [showProfileDialog, setShowProfileDialog] = useState(false);
+    const [contactStatus, setContactStatus] = useState<ContactStatus | null>(null);
+    const [sendingContact, setSendingContact] = useState(false);
 
     // ----------------------------------------------------------------
     // 1. WebSocket Hook Integration
@@ -93,9 +162,10 @@ export function ChatWindow({ id }: ChatWindowProps) {
                 setHasMore(false);
 
                 // Fetch conversation detail và tất cả users song song
-                const [convRes, usersRes] = await Promise.all([
+                const [convRes, usersRes, contactsRes] = await Promise.all([
                     conversationService.getById(id),
                     userService.getAll(),
+                    contactService.getAll().catch(() => ({ result: [] })),
                 ]);
                 if (cancelled) return;
 
@@ -104,9 +174,12 @@ export function ChatWindow({ id }: ChatWindowProps) {
 
                 // Lấy thông tin participant hiển thị
                 const allUsers = usersRes.result ?? [];
+                const allContacts = contactsRes.result ?? [];
                 if (conv.type === "PRIVATE") {
                     const otherId = getOtherParticipantId(conv, currentUser.id);
                     const other = allUsers.find((u) => u.id === otherId);
+                    const otherRecord = (other ?? {}) as Record<string, unknown>;
+
                     setParticipant(
                         other
                             ? {
@@ -114,6 +187,12 @@ export function ChatWindow({ id }: ChatWindowProps) {
                                   displayName: other.displayName,
                                   username: other.username,
                                   avatarUrl: other.avatarUrl,
+                                  phone: other.phone,
+                                  dob: other.dob,
+                                  privacy: {
+                                      showPhone: getPrivacyFlag(otherRecord, "phone"),
+                                      showDob: getPrivacyFlag(otherRecord, "dob"),
+                                  },
                               }
                             : {
                                   id: otherId ?? "",
@@ -121,6 +200,13 @@ export function ChatWindow({ id }: ChatWindowProps) {
                                   username: "",
                               },
                     );
+
+                    const relation = allContacts.find(
+                        (c) =>
+                            (c.user.id === currentUser.id && c.contact.id === otherId) ||
+                            (c.user.id === otherId && c.contact.id === currentUser.id),
+                    );
+                    setContactStatus(relation?.status ?? null);
                 } else {
                     setParticipant({
                         id: conv.id,
@@ -128,6 +214,7 @@ export function ChatWindow({ id }: ChatWindowProps) {
                         username: "group",
                         avatarUrl: conv.avatarUrl ?? undefined,
                     });
+                    setContactStatus(null);
                 }
 
                 // Fetch trang đầu messages
@@ -191,6 +278,22 @@ export function ChatWindow({ id }: ChatWindowProps) {
     const handleReply = useCallback((msg: Message) => setReplyingTo(msg), []);
     const handleCancelReply = useCallback(() => setReplyingTo(null), []);
 
+    const handleSendFriendRequest = useCallback(async () => {
+        if (!participant || conversation?.type !== "PRIVATE") return;
+        if (contactStatus === "ACCEPTED" || contactStatus === "PENDING") return;
+
+        try {
+            setSendingContact(true);
+            await contactService.sendRequest(participant.id);
+            setContactStatus("PENDING");
+            toast.success("Đã gửi lời mời kết bạn");
+        } catch (error) {
+            toast.error("Không thể gửi lời mời kết bạn");
+        } finally {
+            setSendingContact(false);
+        }
+    }, [participant, conversation?.type, contactStatus]);
+
     // ----------------------------------------------------------------
     // Render states
     // ----------------------------------------------------------------
@@ -220,10 +323,20 @@ export function ChatWindow({ id }: ChatWindowProps) {
             : participant.displayName.split(" ").slice(-1)[0];
 
     const isTyping = typingUserIds.size > 0;
+    const showPhone = participant.privacy?.showPhone !== false;
+    const showDob = participant.privacy?.showDob !== false;
+    const canAddFriend =
+        conversation.type === "PRIVATE" &&
+        participant.id &&
+        participant.id !== currentUser?.id &&
+        !["ACCEPTED", "PENDING"].includes(contactStatus ?? "");
 
     return (
         <div className="flex-1 flex flex-col overflow-hidden bg-background relative">
-            <ChatHeader user={participant} />
+            <ChatHeader
+                user={participant}
+                onOpenProfile={() => setShowProfileDialog(true)}
+            />
 
             <MessageList
                 messages={messages}
@@ -257,6 +370,93 @@ export function ChatWindow({ id }: ChatWindowProps) {
                 onSendMessage={handleSendMessage}
                 onTyping={sendTyping}
             />
+
+            <Dialog open={showProfileDialog} onOpenChange={setShowProfileDialog}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>Thông tin người dùng</DialogTitle>
+                        <DialogDescription>
+                            Hồ sơ hiển thị theo quyền riêng tư của người này.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="space-y-4">
+                        <div className="flex items-center gap-3">
+                            <Avatar className="h-14 w-14 border border-border/60">
+                                <AvatarImage src={participant.avatarUrl} />
+                                <AvatarFallback>
+                                    {participant.displayName.charAt(0)}
+                                </AvatarFallback>
+                            </Avatar>
+                            <div className="min-w-0">
+                                <p className="text-base font-semibold text-foreground truncate">
+                                    {participant.displayName}
+                                </p>
+                                <p className="text-sm text-muted-foreground truncate">
+                                    @{participant.username || "unknown"}
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="space-y-2 rounded-lg border border-border bg-muted/30 p-3">
+                            <div className="flex items-center justify-between gap-2 text-sm">
+                                <span className="inline-flex items-center gap-1 text-muted-foreground">
+                                    <Phone size={14} />
+                                    Số điện thoại
+                                </span>
+                                <span className="font-medium text-foreground">
+                                    {showPhone
+                                        ? participant.phone || "Chưa cập nhật"
+                                        : "Đã ẩn"}
+                                </span>
+                            </div>
+
+                            <div className="flex items-center justify-between gap-2 text-sm">
+                                <span className="inline-flex items-center gap-1 text-muted-foreground">
+                                    <CalendarDays size={14} />
+                                    Ngày sinh
+                                </span>
+                                <span className="font-medium text-foreground">
+                                    {showDob ? formatDob(participant.dob) : "Đã ẩn"}
+                                </span>
+                            </div>
+                        </div>
+
+                        {conversation.type === "PRIVATE" && (
+                            <div className="flex items-center gap-2">
+                                {contactStatus === "ACCEPTED" && (
+                                    <Badge variant="secondary">Đã là bạn bè</Badge>
+                                )}
+                                {contactStatus === "PENDING" && (
+                                    <Badge variant="outline">Đã gửi lời mời</Badge>
+                                )}
+                            </div>
+                        )}
+                    </div>
+
+                    <DialogFooter>
+                        {canAddFriend && (
+                            <Button
+                                onClick={handleSendFriendRequest}
+                                disabled={sendingContact}
+                                className="w-full sm:w-auto"
+                            >
+                                {sendingContact ? (
+                                    <>
+                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                        Đang gửi...
+                                    </>
+                                ) : (
+                                    <>
+                                        <UserPlus className="mr-2 h-4 w-4" />
+                                        Kết bạn
+                                    </>
+                                )}
+                            </Button>
+                        )}
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }
