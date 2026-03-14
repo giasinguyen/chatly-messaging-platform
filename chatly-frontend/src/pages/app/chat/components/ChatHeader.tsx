@@ -2,6 +2,7 @@ import { Phone, Video } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import type { ChatUser } from "@/types/message";
+import { toast } from "sonner";
 
 interface ChatHeaderProps {
     user: ChatUser;
@@ -14,7 +15,9 @@ export function ChatHeader({ user }: ChatHeaderProps) {
                 <div className="relative">
                     <Avatar className="h-10 w-10 border border-border/50">
                         <AvatarImage src={user.avatarUrl} />
-                        <AvatarFallback>{user.displayName.charAt(0)}</AvatarFallback>
+                        <AvatarFallback>
+                            {user.displayName.charAt(0)}
+                        </AvatarFallback>
                     </Avatar>
                 </div>
                 <div className="flex flex-col">
@@ -25,10 +28,24 @@ export function ChatHeader({ user }: ChatHeaderProps) {
             </div>
 
             <div className="flex items-center gap-1 text-muted-foreground">
-                <Button variant="ghost" size="icon" className="h-9 w-9">
+                <Button
+                    onClick={() => {
+                        toast.info("Tính năng gọi video sẽ sớm ra mắt!");
+                    }}
+                    variant="ghost"
+                    size="icon"
+                    className="h-9 w-9"
+                >
                     <Video size={18} />
                 </Button>
-                <Button variant="ghost" size="icon" className="h-9 w-9">
+                <Button
+                    onClick={() => {
+                        toast.info("Tính năng gọi thoại sẽ sớm ra mắt!");
+                    }}
+                    variant="ghost"
+                    size="icon"
+                    className="h-9 w-9"
+                >
                     <Phone size={18} />
                 </Button>
             </div>
