@@ -1,10 +1,11 @@
 package com.chatly.dto.request;
 
-import com.chatly.configuration.CustomInstantDeserializer;
 import tools.jackson.databind.annotation.JsonDeserialize;
 import lombok.*;
 
 import java.time.Instant;
+
+import com.chatly.config.CustomInstantDeserializer;
 
 @Getter
 @Setter

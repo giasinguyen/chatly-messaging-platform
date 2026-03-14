@@ -1,4 +1,4 @@
-package com.chatly.configuration;
+package com.chatly.config;
 
 import java.time.Instant;
 import java.time.LocalDate;

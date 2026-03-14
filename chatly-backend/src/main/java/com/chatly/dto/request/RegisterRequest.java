@@ -1,6 +1,5 @@
 package com.chatly.dto.request;
 
-import com.chatly.configuration.CustomInstantDeserializer;
 import tools.jackson.databind.annotation.JsonDeserialize;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
@@ -8,6 +7,8 @@ import jakarta.validation.constraints.Size;
 import lombok.*;
 
 import java.time.Instant;
+
+import com.chatly.config.CustomInstantDeserializer;
 
 @Getter
 @Setter
