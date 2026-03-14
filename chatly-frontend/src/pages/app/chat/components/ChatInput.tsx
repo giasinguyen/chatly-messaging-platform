@@ -1,12 +1,7 @@
+import { useState } from "react";
+import type { KeyboardEvent } from "react";
 import {
-    Smile,
-    Image as ImageIcon,
-    Paperclip,
-    AtSign,
-    CaseSensitive,
-    MessageSquareQuote,
     SendHorizontal,
-    ThumbsUp,
     X,
     CornerUpLeft,
 } from "lucide-react";
@@ -18,15 +13,32 @@ interface ChatInputProps {
     replyingTo?: Message | null;
     senderName?: string;
     onCancelReply: () => void;
+    onSendMessage: (content: string) => void;
 }
 
 export function ChatInput({
     replyingTo,
     senderName,
     onCancelReply,
+    onSendMessage,
 }: ChatInputProps) {
+    const [content, setContent] = useState("");
+
+    const handleSend = () => {
+        if (!content.trim()) return;
+        onSendMessage(content.trim());
+        setContent("");
+    };
+
+    const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+        if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault();
+            handleSend();
+        }
+    };
+
     return (
-        <div className="border-t border-border bg-background">
+        <div className="border-t border-border bg-background font-inter">
             {/* Reply preview bar */}
             {replyingTo && (
                 <div className="flex items-center gap-2 px-4 pt-2.5 pb-1.5 bg-muted/30 border-b border-border/50">
@@ -50,18 +62,25 @@ export function ChatInput({
                 </div>
             )}
 
-            <div className="p-4">
+            <div className="p-4 px-6">
                 <div className="flex items-center gap-3">
                     <div className="flex-1 relative">
                         <Input
-                            placeholder="Nhập @, tin nhắn tới người này"
-                            className="bg-transparent border-transparent focus-visible:ring-0 focus-visible:border-transparent p-0 h-10 text-sm shadow-none"
+                            placeholder="Nhập tin nhắn tới người này"
+                            value={content}
+                            onChange={(e) => setContent(e.target.value)}
+                            onKeyDown={handleKeyDown}
+                            className="bg-transparent border-transparent focus-visible:ring-0 focus-visible:border-transparent p-0 h-10 text-[15px] shadow-none placeholder:text-muted-foreground/50"
                         />
                     </div>
                     <div className="flex items-center gap-2">
-                        <Button className="h-9 px-4 bg-brand text-white hover:bg-brand/90 shadow-lg shadow-brand/20">
+                        <Button 
+                            onClick={handleSend}
+                            disabled={!content.trim()}
+                            className="h-10 px-6 bg-brand text-white hover:bg-brand/90 transition-all active:scale-95 disabled:opacity-50 disabled:scale-100"
+                        >
                             <SendHorizontal size={18} className="mr-2" />
-                            Gửi
+                            <span className="font-medium text-sm">Gửi</span>
                         </Button>
                     </div>
                 </div>

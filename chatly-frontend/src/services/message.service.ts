@@ -53,4 +53,14 @@ export const messageService = {
         );
         return response.data;
     },
+
+    /**
+     * Xoá tin nhắn.
+     */
+    delete: async (messageId: string): Promise<ApiResponse<void>> => {
+        const response = await axiosClient.delete<ApiResponse<void>>(
+            `/api/messages/${messageId}`,
+        );
+        return response.data;
+    },
 };

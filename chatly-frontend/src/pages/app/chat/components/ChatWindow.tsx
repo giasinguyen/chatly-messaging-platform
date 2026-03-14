@@ -131,8 +131,29 @@ export function ChatWindow({ id }: ChatWindowProps) {
     }, [id, isLoadingMore, hasMore]);
 
     // ----------------------------------------------------------------
-    // 3. Reply handlers
+    // 3. Handlers: Gửi tin nhắn, Reply
     // ----------------------------------------------------------------
+    const handleSendMessage = useCallback(async (content: string) => {
+        if (!id || !currentUser) return;
+        try {
+            const res = await messageService.send({
+                conversationId: id,
+                content: content,
+                type: "TEXT",
+                replyToId: replyingTo?.id ?? null,
+            });
+
+            if (res.result) {
+                // Append message mới vào cuối danh sách
+                setMessages((prev) => [...prev, res.result]);
+                // Xoá trạng thái reply sau khi gửi
+                setReplyingTo(null);
+            }
+        } catch (err) {
+            console.error("Lỗi khi gửi tin nhắn:", err);
+        }
+    }, [id, currentUser, replyingTo]);
+
     const handleReply = useCallback((msg: Message) => setReplyingTo(msg), []);
     const handleCancelReply = useCallback(() => setReplyingTo(null), []);
 
@@ -182,6 +203,7 @@ export function ChatWindow({ id }: ChatWindowProps) {
                 replyingTo={replyingTo}
                 senderName={replyingSenderName}
                 onCancelReply={handleCancelReply}
+                onSendMessage={handleSendMessage}
             />
         </div>
     );

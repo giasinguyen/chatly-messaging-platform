@@ -30,7 +30,6 @@ import { conversationService } from "@/services/conversation.service";
 import { userService } from "@/services/user.service";
 import { useAuthStore } from "@/store/auth.store";
 import {
-    getOtherParticipantId,
     getConversationDisplayName,
     getConversationAvatar,
 } from "@/utils/conversation";
@@ -167,7 +166,7 @@ export function ChatList() {
                                     </AvatarFallback>
                                 </Avatar>
                                 {isGroup && (
-                                    <span className="absolute -bottom-0.5 -right-0.5 h-[18px] w-[18px] rounded-full bg-brand flex items-center justify-center ring-[2px] ring-background">
+                                    <span className="absolute -bottom-0.5 -right-0.5 h-[18px] w-[18px] rounded-full bg-brand flex items-center justify-center ring-2 ring-background">
                                         <Users
                                             size={10}
                                             className="text-white"
