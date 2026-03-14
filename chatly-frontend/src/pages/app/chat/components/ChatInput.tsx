@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import type { KeyboardEvent } from "react";
 import {
     SendHorizontal,
@@ -14,18 +14,61 @@ interface ChatInputProps {
     senderName?: string;
     onCancelReply: () => void;
     onSendMessage: (content: string) => void;
+    onTyping?: (typing: boolean) => void;
 }
+
+const TYPING_STOP_DELAY = 2000;
 
 export function ChatInput({
     replyingTo,
     senderName,
     onCancelReply,
     onSendMessage,
+    onTyping,
 }: ChatInputProps) {
     const [content, setContent] = useState("");
+    const [isTyping, setIsTyping] = useState(false);
+    const typingTimerRef = useRef<any>(null);
+
+    // ----------------------------------------------------------------
+    // Typing Logic
+    // ----------------------------------------------------------------
+    const stopTyping = useCallback(() => {
+        if (isTyping) {
+            setIsTyping(false);
+            onTyping?.(false);
+        }
+    }, [isTyping, onTyping]);
+
+    const handleContentChange = (newVal: string) => {
+        setContent(newVal);
+
+        if (!isTyping && newVal.trim().length > 0) {
+            setIsTyping(true);
+            onTyping?.(true);
+        }
+
+        // Reset stop timer
+        if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
+        typingTimerRef.current = setTimeout(() => {
+            stopTyping();
+        }, TYPING_STOP_DELAY);
+    };
+
+    // Clean up timer on unmount
+    useEffect(() => {
+        return () => {
+            if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
+        };
+    }, []);
 
     const handleSend = () => {
         if (!content.trim()) return;
+        
+        // Ngừng typing ngay khi gửi
+        if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
+        stopTyping();
+        
         onSendMessage(content.trim());
         setContent("");
     };
@@ -68,7 +111,7 @@ export function ChatInput({
                         <Input
                             placeholder="Nhập tin nhắn tới người này"
                             value={content}
-                            onChange={(e) => setContent(e.target.value)}
+                            onChange={(e) => handleContentChange(e.target.value)}
                             onKeyDown={handleKeyDown}
                             className="bg-transparent border-transparent focus-visible:ring-0 focus-visible:border-transparent p-0 h-10 text-[15px] shadow-none placeholder:text-muted-foreground/50"
                         />

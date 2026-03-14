@@ -96,7 +96,6 @@ export function ChatList() {
 
     const filteredConversations = conversations.filter((conv) => {
         if (!searchQuery.trim()) return true;
-        toast.info("Development in progress...");
         const displayName = currentUser
             ? getConversationDisplayName(conv, currentUser.id, users)
             : "";

@@ -6,6 +6,7 @@ import { conversationService } from "@/services/conversation.service";
 import { messageService } from "@/services/message.service";
 import { userService } from "@/services/user.service";
 import { useAuthStore } from "@/store/auth.store";
+import { useChatSocket } from "@/hooks/useChatSocket";
 import { getOtherParticipantId } from "@/utils/conversation";
 import type { Message, ChatUser } from "@/types/message";
 import type { ConversationResponse } from "@/types/conversation";
@@ -25,6 +26,9 @@ export function ChatWindow({ id }: ChatWindowProps) {
     const [replyingTo, setReplyingTo] = useState<Message | null>(null);
     const [loading, setLoading] = useState(true);
     const [notFound, setNotFound] = useState(false);
+    
+    // Typing indicators
+    const [typingUserIds, setTypingUserIds] = useState<Set<string>>(new Set());
 
     // Phân trang load-more
     const [isLoadingMore, setIsLoadingMore] = useState(false);
@@ -32,7 +36,46 @@ export function ChatWindow({ id }: ChatWindowProps) {
     const currentPageRef = useRef(0);
 
     // ----------------------------------------------------------------
-    // 1. Khi chuyển sang conversation mới: fetch info + messages trang đầu
+    // 1. WebSocket Hook Integration
+    // ----------------------------------------------------------------
+    const onMessage = useCallback((msg: Message) => {
+        setMessages((prev) => {
+            // Tránh duplicate nếu message đã có (do API send trả về hoặc fetch)
+            if (prev.some(m => m.id === msg.id)) return prev;
+            return [...prev, msg];
+        });
+        
+        // Gửi seen nếu tin nhắn từ người khác
+        if (msg.senderId !== currentUser?.id) {
+            sendSeen(msg.id);
+        }
+    }, [currentUser?.id]);
+
+    const onTyping = useCallback((data: { userId: string; typing: boolean }) => {
+        if (data.userId === currentUser?.id) return;
+        setTypingUserIds((prev) => {
+            const next = new Set(prev);
+            if (data.typing) next.add(data.userId);
+            else next.delete(data.userId);
+            return next;
+        });
+    }, [currentUser?.id]);
+
+    const onRead = useCallback((msg: Message) => {
+        setMessages((prev) => 
+            prev.map(m => m.id === msg.id ? { ...m, status: msg.status, readBy: msg.readBy } : m)
+        );
+    }, []);
+
+    const { sendMessage, sendTyping, sendSeen } = useChatSocket({
+        conversationId: id,
+        onMessage,
+        onTyping,
+        onRead
+    });
+
+    // ----------------------------------------------------------------
+    // 2. Fetch initial data
     // ----------------------------------------------------------------
     useEffect(() => {
         if (!currentUser || !id) return;
@@ -45,6 +88,7 @@ export function ChatWindow({ id }: ChatWindowProps) {
                 setNotFound(false);
                 setMessages([]);
                 setReplyingTo(null);
+                setTypingUserIds(new Set());
                 currentPageRef.current = 0;
                 setHasMore(false);
 
@@ -91,9 +135,15 @@ export function ChatWindow({ id }: ChatWindowProps) {
                 if (cancelled) return;
 
                 const fetched = msgRes.result ?? [];
-                // API trả về mới nhất trước → reverse để render cũ → mới
                 setMessages([...fetched].reverse());
                 setHasMore(fetched.length === PAGE_SIZE);
+                
+                // Đánh dấu các tin nhắn chưa đọc là seen
+                fetched.forEach(m => {
+                    if (m.senderId !== currentUser.id && m.status !== "READ") {
+                        sendSeen(m.id);
+                    }
+                });
             } catch (err) {
                 console.error("Lỗi load conversation:", err);
                 if (!cancelled) setNotFound(true);
@@ -106,10 +156,10 @@ export function ChatWindow({ id }: ChatWindowProps) {
         return () => {
             cancelled = true;
         };
-    }, [id, currentUser]);
+    }, [id, currentUser, sendSeen]);
 
     // ----------------------------------------------------------------
-    // 2. Load thêm tin nhắn cũ khi kéo lên trên
+    // 3. Load thêm tin nhắn cũ khi kéo lên trên
     // ----------------------------------------------------------------
     const handleLoadMore = useCallback(async () => {
         if (isLoadingMore || !hasMore) return;
@@ -119,7 +169,6 @@ export function ChatWindow({ id }: ChatWindowProps) {
             const res = await messageService.getByConversation(id, nextPage, PAGE_SIZE);
             const fetched = res.result ?? [];
 
-            // Prepend các tin nhắn cũ hơn (cũng cần reverse)
             setMessages((prev) => [...[...fetched].reverse(), ...prev]);
             currentPageRef.current = nextPage;
             setHasMore(fetched.length === PAGE_SIZE);
@@ -131,28 +180,13 @@ export function ChatWindow({ id }: ChatWindowProps) {
     }, [id, isLoadingMore, hasMore]);
 
     // ----------------------------------------------------------------
-    // 3. Handlers: Gửi tin nhắn, Reply
+    // 4. Handlers: Gửi tin nhắn, Reply
     // ----------------------------------------------------------------
-    const handleSendMessage = useCallback(async (content: string) => {
+    const handleSendMessage = useCallback((content: string) => {
         if (!id || !currentUser) return;
-        try {
-            const res = await messageService.send({
-                conversationId: id,
-                content: content,
-                type: "TEXT",
-                replyToId: replyingTo?.id ?? null,
-            });
-
-            if (res.result) {
-                // Append message mới vào cuối danh sách
-                setMessages((prev) => [...prev, res.result]);
-                // Xoá trạng thái reply sau khi gửi
-                setReplyingTo(null);
-            }
-        } catch (err) {
-            console.error("Lỗi khi gửi tin nhắn:", err);
-        }
-    }, [id, currentUser, replyingTo]);
+        sendMessage(content, replyingTo?.id ?? null);
+        setReplyingTo(null);
+    }, [id, currentUser, replyingTo, sendMessage]);
 
     const handleReply = useCallback((msg: Message) => setReplyingTo(msg), []);
     const handleCancelReply = useCallback(() => setReplyingTo(null), []);
@@ -185,6 +219,8 @@ export function ChatWindow({ id }: ChatWindowProps) {
             ? "Bạn"
             : participant.displayName.split(" ").slice(-1)[0];
 
+    const isTyping = typingUserIds.size > 0;
+
     return (
         <div className="flex-1 flex flex-col overflow-hidden bg-background relative">
             <ChatHeader user={participant} />
@@ -199,11 +235,27 @@ export function ChatWindow({ id }: ChatWindowProps) {
                 hasMore={hasMore}
             />
 
+            {isTyping && (
+                <div className="absolute bottom-24 left-6 z-10 animate-in fade-in slide-in-from-bottom-2">
+                    <div className="flex items-center gap-2 bg-muted/80 backdrop-blur-sm px-3 py-1.5 rounded-full border border-border shadow-sm">
+                        <div className="flex gap-1">
+                            <span className="w-1.5 h-1.5 bg-brand rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                            <span className="w-1.5 h-1.5 bg-brand rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                            <span className="w-1.5 h-1.5 bg-brand rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                        </div>
+                        <span className="text-[11px] font-medium text-muted-foreground italic">
+                            {participant.displayName.split(" ").slice(-1)[0]} đang soạn tin...
+                        </span>
+                    </div>
+                </div>
+            )}
+
             <ChatInput
                 replyingTo={replyingTo}
                 senderName={replyingSenderName}
                 onCancelReply={handleCancelReply}
                 onSendMessage={handleSendMessage}
+                onTyping={sendTyping}
             />
         </div>
     );
