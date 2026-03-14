@@ -95,19 +95,6 @@ export function ChatList() {
                 </div>
             </div>
 
-            {/* Filter Header (No Tabs) */}
-            <div className="px-4 py-2 flex items-center justify-between border-b border-border/50 h-10">
-                <div className="flex items-center gap-2">
-                    <Button
-                        variant="ghost"
-                        className="h-6 px-2 text-xs font-medium text-muted-foreground hover:text-foreground"
-                    >
-                        Phân loại{" "}
-                        <ChevronLeft className="h-3 w-3 ml-1 -rotate-90" />
-                    </Button>
-                </div>
-            </div>
-
             {/* Chat List */}
             <div className="flex-1 overflow-hidden">
                 <ScrollArea className="h-full">
@@ -119,4 +106,3 @@ export function ChatList() {
         </aside>
     );
 }
-
