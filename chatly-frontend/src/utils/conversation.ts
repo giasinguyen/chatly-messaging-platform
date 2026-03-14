@@ -70,3 +70,4 @@ export function getConversationAvatar(
     }
     return conversation.avatarUrl ?? undefined;
 }
+
