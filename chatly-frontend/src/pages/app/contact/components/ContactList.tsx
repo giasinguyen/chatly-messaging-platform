@@ -16,11 +16,6 @@ export function ContactList() {
         { id: "friends", label: "Danh sách bạn bè", icon: UserCircle },
         { id: "groups", label: "Danh sách nhóm và cộng đồng", icon: Users },
         { id: "requests", label: "Lời mời kết bạn", icon: UserPlus },
-        {
-            id: "group-invites",
-            label: "Lời mời vào nhóm và cộng đồng",
-            icon: Bell,
-        },
     ];
 
     return (
@@ -78,4 +73,3 @@ export function ContactList() {
         </aside>
     );
 }
-

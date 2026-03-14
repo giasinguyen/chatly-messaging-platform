@@ -2,12 +2,13 @@ import { useEffect, useRef, useCallback } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Check, CheckCheck, Reply } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { Message, User } from "@/mocks/chat";
+import type { Message, ChatUser } from "@/types/message";
 import { ReplyPreview } from "./ReplyPreview";
 
 interface MessageListProps {
     messages: Message[];
-    participant: User;
+    participant: ChatUser;
+    currentUserId: string;
     onReply: (msg: Message) => void;
     onLoadMore: () => void;
     isLoadingMore: boolean;
@@ -17,6 +18,7 @@ interface MessageListProps {
 export function MessageList({
     messages,
     participant,
+    currentUserId,
     onReply,
     onLoadMore,
     isLoadingMore,
@@ -73,14 +75,14 @@ export function MessageList({
     }, [handleSentinelIntersect]);
 
     const getStatusIcon = (status: Message["status"]) => {
-        if (status === "read") return <CheckCheck size={12} className="text-brand" />;
-        if (status === "delivered") return <CheckCheck size={12} className="text-muted-foreground/60" />;
+        if (status === "READ") return <CheckCheck size={12} className="text-brand" />;
+        if (status === "DELIVERED") return <CheckCheck size={12} className="text-muted-foreground/60" />;
         return <Check size={12} className="text-muted-foreground/60" />;
     };
 
     const renderMessage = (msg: Message) => {
-        const isMe = msg.senderId === "me";
-        const repliedMsg = msg.replyTo ? messages.find((m) => m.id === msg.replyTo) : null;
+        const isMe = msg.senderId === currentUserId;
+        const repliedMsg = msg.replyToId ? messages.find((m) => m.id === msg.replyToId) : null;
 
         return (
             <div
@@ -93,7 +95,7 @@ export function MessageList({
                 {!isMe && (
                     <Avatar className="h-8 w-8 mb-1 border border-border/30 shrink-0">
                         <AvatarImage src={participant.avatar} />
-                        <AvatarFallback>{participant.name.charAt(0)}</AvatarFallback>
+                        <AvatarFallback>{participant.displayName.charAt(0)}</AvatarFallback>
                     </Avatar>
                 )}
 
@@ -108,9 +110,14 @@ export function MessageList({
                         )}
                     >
                         {repliedMsg && (
-                            <ReplyPreview replyMessage={repliedMsg} participant={participant} isMe={isMe} />
+                            <ReplyPreview
+                                replyMessage={repliedMsg}
+                                participant={participant}
+                                currentUserId={currentUserId}
+                                isMe={isMe}
+                            />
                         )}
-                        {msg.text}
+                        {msg.content}
                     </div>
 
                     {/* Time + status */}
@@ -119,7 +126,7 @@ export function MessageList({
                             "flex items-center gap-1 mt-1 opacity-0 group-hover:opacity-100 transition-opacity px-1",
                         )}
                     >
-                        <span className="text-[10px] text-muted-foreground">{msg.timestamp}</span>
+                        <span className="text-[10px] text-muted-foreground">{new Date(msg.createdAt).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}</span>
                         {isMe && <span>{getStatusIcon(msg.status)}</span>}
                     </div>
                 </div>

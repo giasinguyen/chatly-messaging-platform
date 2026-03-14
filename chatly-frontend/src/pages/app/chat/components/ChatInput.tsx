@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import type { Message } from "@/mocks/chat";
+import type { Message } from "@/types/message";
 
 interface ChatInputProps {
     replyingTo?: Message | null;
@@ -29,7 +29,7 @@ export function ChatInput({ replyingTo, senderName, onCancelReply }: ChatInputPr
                     <CornerUpLeft size={14} className="text-brand shrink-0" />
                     <div className="flex-1 min-w-0">
                         <p className="text-[10px] font-semibold text-brand">{senderName ?? "Bạn"}</p>
-                        <p className="text-[11px] text-muted-foreground truncate">{replyingTo.text}</p>
+                        <p className="text-[11px] text-muted-foreground truncate">{replyingTo.content}</p>
                     </div>
                     <Button
                         variant="ghost"
