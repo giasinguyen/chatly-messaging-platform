@@ -1,12 +1,38 @@
 {
   "info": {
-    "_postman_id": "349fe04e-9503-4ed5-b7af-9ac2cba5342a",
+    "_postman_id": "8a9c8096-2ba1-41e2-b2c8-e5370b939e59",
     "name": "Chatly API",
     "description": "Complete API collection for Chatly messaging platform including Auth, Users, Contacts, Conversations, and Messages endpoints",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
     "_exporter_id": "40740215"
   },
   "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/health",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "health"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
     {
       "name": "Auth",
       "item": [
@@ -45,7 +71,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "    {\n        \"phone\": \"0353999999\",\n        \"displayName\": \"Cristino Ronaldo\",\n        \"username\": \"ronaldo\",\n        \"password\": \"123456789\",\n        \"dob\": \"2005-01-01\"\n    }"
+              "raw": "    {\n        \"phone\": \"0353999991\",\n        \"displayName\": \"Cristino Ronaldo\",\n        \"username\": \"ronaldo1\",\n        \"password\": \"123456789\",\n        \"dob\": \"2005-01-01\"\n    }"
             },
             "url": {
               "raw": "{{baseUrl}}/api/auth/register",
@@ -107,7 +133,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n    \"identifier\": \"0353999999\",\n    \"password\": \"123456789\"\n}"
+              "raw": "{\n    \"identifier\": \"0353999991\",\n    \"password\": \"123456789\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/api/auth/login",
@@ -214,6 +240,45 @@
             "description": "Logout and blacklist both access token and refresh token. Tokens will be added to Redis blacklist."
           },
           "response": []
+        },
+        {
+          "name": "Introspect",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text",
+                "disabled": true
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"token\": \"{{accessToken}}\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/introspect",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "introspect"
+              ]
+            }
+          },
+          "response": []
         }
       ],
       "description": "Authentication endpoints for registration, login, and token refresh"
@@ -244,31 +309,6 @@
               ]
             },
             "description": "Get the current authenticated user's information. Requires valid JWT access token."
-          },
-          "response": []
-        },
-        {
-          "name": "Get All Users",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{accessToken}}",
-                "type": "text"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/api/users",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "users"
-              ]
-            },
-            "description": "Get a list of all users in the system. Requires authentication."
           },
           "response": []
         },
@@ -355,6 +395,31 @@
               ]
             },
             "description": "Delete a user account by UUID. Requires authentication."
+          },
+          "response": []
+        },
+        {
+          "name": "Get All Users",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/users",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "users"
+              ]
+            },
+            "description": "Get a list of all users in the system. Requires authentication."
           },
           "response": []
         }
@@ -621,7 +686,9 @@
                   "    }",
                   "}"
                 ],
-                "type": "text/javascript"
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
               }
             }
           ],
@@ -671,7 +738,9 @@
                   "    }",
                   "}"
                 ],
-                "type": "text/javascript"
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
               }
             }
           ],
@@ -690,7 +759,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n    \"type\": \"GROUP\",\n    \"name\": \"Project Team Chat\",\n    \"participantIds\": [\"{{targetUserId}}\", \"{{anotherUserId}}\"]\n}"
+              "raw": "{\n    \"type\": \"GROUP\",\n    \"name\": \"Project Team Chat\",\n    \"participantIds\": [\"{{targetUserId}}\", \"{{anotherUserId}}\", \"de3f5806-11a2-417e-b897-583c5ba9b96d\", \"70c595f8-dac4-4873-8ac7-8fd9bb75a5c5\"]\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/api/conversations",
@@ -804,7 +873,9 @@
                   "    }",
                   "}"
                 ],
-                "type": "text/javascript"
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
               }
             }
           ],
@@ -988,6 +1059,7 @@
       "listen": "prerequest",
       "script": {
         "type": "text/javascript",
+        "requests": {},
         "exec": [
           ""
         ]
@@ -997,6 +1069,7 @@
       "listen": "test",
       "script": {
         "type": "text/javascript",
+        "requests": {},
         "exec": [
           ""
         ]
@@ -1006,48 +1079,39 @@
   "variable": [
     {
       "key": "baseUrl",
-      "value": "http://localhost:8080",
-      "type": "string"
+      "value": "http://localhost:8080"
     },
     {
       "key": "accessToken",
-      "value": "",
-      "type": "string"
+      "value": ""
     },
     {
       "key": "refreshToken",
-      "value": "",
-      "type": "string"
+      "value": ""
     },
     {
       "key": "userId",
-      "value": "",
-      "type": "string"
+      "value": ""
     },
     {
       "key": "targetUserId",
-      "value": "",
-      "type": "string"
+      "value": ""
     },
     {
       "key": "anotherUserId",
-      "value": "",
-      "type": "string"
+      "value": ""
     },
     {
       "key": "contactId",
-      "value": "",
-      "type": "string"
+      "value": ""
     },
     {
       "key": "conversationId",
-      "value": "",
-      "type": "string"
+      "value": ""
     },
     {
       "key": "messageId",
-      "value": "",
-      "type": "string"
+      "value": ""
     }
   ]
 }

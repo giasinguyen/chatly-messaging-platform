@@ -4,8 +4,10 @@ import com.chatly.dto.request.LoginRequest;
 import com.chatly.dto.request.LogoutRequest;
 import com.chatly.dto.request.RefreshTokenRequest;
 import com.chatly.dto.request.RegisterRequest;
+import com.chatly.dto.request.IntrospectRequest;
 import com.chatly.dto.response.ApiResponse;
 import com.chatly.dto.response.AuthResponse;
+import com.chatly.dto.response.IntrospectResponse;
 import com.chatly.service.AuthService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -47,6 +49,13 @@ public class AuthController {
         authService.logout(request);
         return ApiResponse.<Void>builder()
             .message("Logout successful")
+            .build();
+    }
+
+    @PostMapping("/introspect")
+    ApiResponse<IntrospectResponse> introspect(@RequestBody @Valid IntrospectRequest request) {
+        return ApiResponse.<IntrospectResponse>builder()
+            .result(authService.introspect(request))
             .build();
     }
 }

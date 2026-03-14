@@ -4,8 +4,10 @@ import com.chatly.dto.request.LoginRequest;
 import com.chatly.dto.request.LogoutRequest;
 import com.chatly.dto.request.RefreshTokenRequest;
 import com.chatly.dto.request.RegisterRequest;
+import com.chatly.dto.request.IntrospectRequest;
 import com.chatly.dto.response.AuthResponse;
 import com.chatly.dto.response.UserResponse;
+import com.chatly.dto.response.IntrospectResponse;
 import com.chatly.exception.AppException;
 import com.chatly.exception.ErrorCode;
 import com.chatly.mapper.UserMapper;
@@ -135,5 +137,20 @@ public class AuthService {
                 tokenBlacklistService.blacklistToken(refreshToken, expirationTime);
             }
         }
+    }
+
+    public IntrospectResponse introspect(IntrospectRequest request) {
+        String token = request.getToken();
+        boolean isValid = true;
+        
+        try {
+            isValid = jwtProvider.validateToken(token) && !tokenBlacklistService.isTokenBlacklisted(token);
+        } catch (Exception e) {
+            isValid = false;
+        }
+
+        return IntrospectResponse.builder()
+            .valid(isValid)
+            .build();
     }
 }

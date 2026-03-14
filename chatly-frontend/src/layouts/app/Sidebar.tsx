@@ -41,13 +41,11 @@ export function Sidebar({ user }: SidebarProps) {
                 <div className="relative mb-2 cursor-pointer transition-transform hover:scale-105">
                     <Avatar className="h-11 w-11 border-2 border-blue-400">
                         <AvatarImage
-                            src={
-                                user?.avatarUrl ||
-                                "https://ava-grp-talk.zadn.vn/8/0/f/0/28/360/c0bfc26e478416e3b5b298dc612d5447.jpg"
-                            }
+                            src={user?.avatarUrl}
+                            className="object-cover"
                         />
-                        <AvatarFallback>
-                            {user?.displayName?.charAt(0) || "U"}
+                        <AvatarFallback className="bg-muted text-lg text-muted-foreground font-medium">
+                            {user?.displayName?.charAt(0)?.toUpperCase() || "U"}
                         </AvatarFallback>
                     </Avatar>
                     <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-brand bg-green-500" />

@@ -1,6 +1,7 @@
 package com.chatly.security;
 
 import lombok.RequiredArgsConstructor;
+import jakarta.servlet.DispatcherType;
 
 import java.util.Arrays;
 
@@ -32,7 +33,9 @@ public class WebSecurityConfig {
             "/ws/**",
             "/ws-raw/**",
             "/ws-test.html",
-            "/chatroom-test.html"
+            "/chatroom-test.html",
+            "/",
+            "/api/health"
     };
 
     @Bean
@@ -41,6 +44,7 @@ public class WebSecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
+                        .dispatcherTypeMatchers(DispatcherType.FORWARD, DispatcherType.ERROR).permitAll()
                         .requestMatchers(PUBLIC_ENDPOINTS).permitAll()
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
