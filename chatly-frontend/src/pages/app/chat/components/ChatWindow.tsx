@@ -1,16 +1,16 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { ChatHeader } from "./ChatHeader";
 import { MessageList } from "./MessageList";
 import { ChatInput } from "./ChatInput";
 import { conversationService } from "@/services/conversation.service";
+import { messageService } from "@/services/message.service";
 import { userService } from "@/services/user.service";
 import { useAuthStore } from "@/store/auth.store";
-import {
-    getOtherParticipantId,
-} from "@/utils/conversation";
-import type { Message } from "@/types/message";
-import type { ChatUser } from "@/types/message";
+import { getOtherParticipantId } from "@/utils/conversation";
+import type { Message, ChatUser } from "@/types/message";
 import type { ConversationResponse } from "@/types/conversation";
+
+const PAGE_SIZE = 20;
 
 interface ChatWindowProps {
     id: string;
@@ -26,82 +26,135 @@ export function ChatWindow({ id }: ChatWindowProps) {
     const [loading, setLoading] = useState(true);
     const [notFound, setNotFound] = useState(false);
 
+    // Phân trang load-more
+    const [isLoadingMore, setIsLoadingMore] = useState(false);
+    const [hasMore, setHasMore] = useState(false);
+    const currentPageRef = useRef(0);
+
+    // ----------------------------------------------------------------
+    // 1. Khi chuyển sang conversation mới: fetch info + messages trang đầu
+    // ----------------------------------------------------------------
     useEffect(() => {
         if (!currentUser || !id) return;
 
-        const fetchConversation = async () => {
+        let cancelled = false;
+
+        const init = async () => {
             try {
                 setLoading(true);
                 setNotFound(false);
+                setMessages([]);
+                setReplyingTo(null);
+                currentPageRef.current = 0;
+                setHasMore(false);
 
-                // Lấy chi tiết conversation
-                const convRes = await conversationService.getById(id);
+                // Fetch conversation detail và tất cả users song song
+                const [convRes, usersRes] = await Promise.all([
+                    conversationService.getById(id),
+                    userService.getAll(),
+                ]);
+                if (cancelled) return;
+
                 const conv = convRes.result;
                 setConversation(conv);
 
-                // Với PRIVATE: lấy thông tin người đối phương
+                // Lấy thông tin participant hiển thị
+                const allUsers = usersRes.result ?? [];
                 if (conv.type === "PRIVATE") {
                     const otherId = getOtherParticipantId(conv, currentUser.id);
-                    if (otherId) {
-                        const usersRes = await userService.getAll();
-                        const other = usersRes.result?.find((u) => u.id === otherId);
-                        if (other) {
-                            setParticipant({
-                                id: other.id,
-                                displayName: other.displayName,
-                                username: other.username,
-                                avatar: other.avatar,
-                            });
-                        }
-                    }
+                    const other = allUsers.find((u) => u.id === otherId);
+                    setParticipant(
+                        other
+                            ? {
+                                  id: other.id,
+                                  displayName: other.displayName,
+                                  username: other.username,
+                                  avatarUrl: other.avatarUrl,
+                              }
+                            : {
+                                  id: otherId ?? "",
+                                  displayName: "Người dùng",
+                                  username: "",
+                              },
+                    );
                 } else {
-                    // GROUP: dùng tên nhóm
                     setParticipant({
                         id: conv.id,
                         displayName: conv.name ?? "Nhóm chat",
-                        username: conv.name ?? "group",
-                        avatar: conv.avatarUrl ?? undefined,
+                        username: "group",
+                        avatarUrl: conv.avatarUrl ?? undefined,
                     });
                 }
+
+                // Fetch trang đầu messages
+                const msgRes = await messageService.getByConversation(id, 0, PAGE_SIZE);
+                if (cancelled) return;
+
+                const fetched = msgRes.result ?? [];
+                // API trả về mới nhất trước → reverse để render cũ → mới
+                setMessages([...fetched].reverse());
+                setHasMore(fetched.length === PAGE_SIZE);
             } catch (err) {
                 console.error("Lỗi load conversation:", err);
-                setNotFound(true);
+                if (!cancelled) setNotFound(true);
             } finally {
-                setLoading(false);
+                if (!cancelled) setLoading(false);
             }
         };
 
-        fetchConversation();
-        // Reset messages khi chuyển sang conversation khác
-        setMessages([]);
-        setReplyingTo(null);
+        init();
+        return () => {
+            cancelled = true;
+        };
     }, [id, currentUser]);
 
-    const handleReply = useCallback((msg: Message) => {
-        setReplyingTo(msg);
-    }, []);
+    // ----------------------------------------------------------------
+    // 2. Load thêm tin nhắn cũ khi kéo lên trên
+    // ----------------------------------------------------------------
+    const handleLoadMore = useCallback(async () => {
+        if (isLoadingMore || !hasMore) return;
+        try {
+            setIsLoadingMore(true);
+            const nextPage = currentPageRef.current + 1;
+            const res = await messageService.getByConversation(id, nextPage, PAGE_SIZE);
+            const fetched = res.result ?? [];
 
-    const handleCancelReply = useCallback(() => {
-        setReplyingTo(null);
-    }, []);
+            // Prepend các tin nhắn cũ hơn (cũng cần reverse)
+            setMessages((prev) => [...[...fetched].reverse(), ...prev]);
+            currentPageRef.current = nextPage;
+            setHasMore(fetched.length === PAGE_SIZE);
+        } catch (err) {
+            console.error("Lỗi load thêm tin nhắn:", err);
+        } finally {
+            setIsLoadingMore(false);
+        }
+    }, [id, isLoadingMore, hasMore]);
 
-    const handleLoadMore = useCallback(() => {
-        // TODO: fetch older messages from API
-    }, []);
+    // ----------------------------------------------------------------
+    // 3. Reply handlers
+    // ----------------------------------------------------------------
+    const handleReply = useCallback((msg: Message) => setReplyingTo(msg), []);
+    const handleCancelReply = useCallback(() => setReplyingTo(null), []);
 
+    // ----------------------------------------------------------------
+    // Render states
+    // ----------------------------------------------------------------
     if (loading) {
         return (
             <div className="flex-1 flex flex-col items-center justify-center bg-muted/10 gap-3">
-                <div className="h-10 w-10 rounded-full bg-muted/60 animate-pulse" />
-                <div className="h-3 w-32 rounded bg-muted/60 animate-pulse" />
+                <div className="h-12 w-12 rounded-full bg-muted/60 animate-pulse" />
+                <div className="space-y-2 flex flex-col items-center">
+                    <div className="h-3 w-32 rounded bg-muted/60 animate-pulse" />
+                    <div className="h-3 w-20 rounded bg-muted/40 animate-pulse" />
+                </div>
             </div>
         );
     }
 
     if (notFound || !conversation || !participant) {
         return (
-            <div className="flex-1 flex flex-col items-center justify-center bg-muted/10 text-muted-foreground">
-                Hội thoại không tồn tại hoặc bạn không có quyền truy cập.
+            <div className="flex-1 flex flex-col items-center justify-center bg-muted/10 text-muted-foreground gap-2">
+                <p className="text-sm">Hội thoại không tồn tại hoặc bạn không có quyền truy cập.</p>
             </div>
         );
     }
@@ -121,8 +174,8 @@ export function ChatWindow({ id }: ChatWindowProps) {
                 currentUserId={currentUser?.id ?? ""}
                 onReply={handleReply}
                 onLoadMore={handleLoadMore}
-                isLoadingMore={false}
-                hasMore={false}
+                isLoadingMore={isLoadingMore}
+                hasMore={hasMore}
             />
 
             <ChatInput

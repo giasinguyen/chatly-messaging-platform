@@ -66,7 +66,7 @@ export function getConversationAvatar(
     if (conversation.type === "PRIVATE") {
         const otherId = getOtherParticipantId(conversation, currentUserId);
         const other = findUserById(users, otherId);
-        return other?.avatar;
+        return other?.avatarUrl;
     }
     return conversation.avatarUrl ?? undefined;
 }

@@ -4,7 +4,7 @@ export interface UserResponse {
     displayName: string;
     email?: string;
     phone?: string;
-    avatar?: string;
+    avatarUrl?: string;
 }
 
 export interface AuthResponse {

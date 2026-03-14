@@ -42,7 +42,7 @@ export function Sidebar({ user }: SidebarProps) {
                     <Avatar className="h-11 w-11 border-2 border-blue-400">
                         <AvatarImage
                             src={
-                                user?.avatar ||
+                                user?.avatarUrl ||
                                 "https://ava-grp-talk.zadn.vn/8/0/f/0/28/360/c0bfc26e478416e3b5b298dc612d5447.jpg"
                             }
                         />

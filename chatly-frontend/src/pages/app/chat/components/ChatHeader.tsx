@@ -13,7 +13,7 @@ export function ChatHeader({ user }: ChatHeaderProps) {
             <div className="flex items-center gap-3">
                 <div className="relative">
                     <Avatar className="h-10 w-10 border border-border/50">
-                        <AvatarImage src={user.avatar} />
+                        <AvatarImage src={user.avatarUrl} />
                         <AvatarFallback>{user.displayName.charAt(0)}</AvatarFallback>
                     </Avatar>
                 </div>

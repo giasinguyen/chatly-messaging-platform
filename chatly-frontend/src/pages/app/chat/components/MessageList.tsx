@@ -94,7 +94,7 @@ export function MessageList({
             >
                 {!isMe && (
                     <Avatar className="h-8 w-8 mb-1 border border-border/30 shrink-0">
-                        <AvatarImage src={participant.avatar} />
+                        <AvatarImage src={participant.avatarUrl} />
                         <AvatarFallback>{participant.displayName.charAt(0)}</AvatarFallback>
                     </Avatar>
                 )}
