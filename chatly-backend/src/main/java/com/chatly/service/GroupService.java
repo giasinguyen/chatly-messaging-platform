@@ -150,6 +150,7 @@ public class GroupService {
     /**
      * Get all members of a group conversation.
      */
+    @Transactional(readOnly = true)
     public List<GroupMemberResponse> getMembers(String conversationId, String requesterId) {
         getGroupConversation(conversationId);
 
