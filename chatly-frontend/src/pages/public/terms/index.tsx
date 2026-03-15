@@ -1,41 +1,8 @@
 import { Link } from "react-router-dom";
-import chatlyLogo from "@/assets/brand/chatly-logo-transparent.png";
-import { useThemeStore } from "@/store/theme.store";
-import { Sun, Moon } from "lucide-react";
 
 export default function TermsPage() {
-    const toggleTheme = useThemeStore((s) => s.toggleTheme);
-
     return (
         <div className="min-h-screen bg-white font-[Inter,-apple-system,BlinkMacSystemFont,sans-serif] dark:bg-[#1a1c23]">
-            {/* Minimal Header */}
-            <header className="sticky top-0 z-50 border-b border-gray-100 bg-white/80 backdrop-blur-md dark:border-white/5 dark:bg-[#1a1c23]/80">
-                <div className="mx-auto flex h-16 max-w-5xl items-center justify-between px-6">
-                    <Link to="/" className="flex items-center gap-2">
-                        <img
-                            src={chatlyLogo}
-                            alt="Chatly"
-                            className="h-8 w-auto"
-                        />
-                    </Link>
-                    <div className="flex items-center gap-4">
-                        <button
-                            onClick={toggleTheme}
-                            className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-full bg-gray-100 text-gray-600 transition-colors hover:text-gray-900 dark:bg-white/10 dark:text-gray-300 dark:hover:text-white"
-                        >
-                            <Sun size={18} className="block dark:hidden" />
-                            <Moon size={18} className="hidden dark:block" />
-                        </button>
-                        <Link
-                            to="/auth/login"
-                            className="rounded-full bg-brand px-5 py-2 text-[13px] font-semibold text-white transition-all hover:scale-105 hover:bg-brand-hover"
-                        >
-                            Đăng nhập
-                        </Link>
-                    </div>
-                </div>
-            </header>
-
             {/* Content */}
             <main className="mx-auto max-w-[800px] px-6 py-16 sm:py-24">
                 <div className="mb-4">

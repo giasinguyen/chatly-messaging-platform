@@ -23,17 +23,30 @@ spring:
             data-locations: classpath:db/seed-data.sql
 
     data:
-        mongodb:
-            uri: mongodb://localhost:27017/chatly
         redis:
             host: localhost
             port: 6379
+    mongodb:
+        uri: mongodb://localhost:27017/chatly
 
 server:
     port: 8080
 
+logging:
+    level:
+        root: INFO
+        com.chatly: DEBUG
+        # Spring WebSocket/Messaging framework internals — DEBUG floods logs with
+        # every STOMP heartbeat/frame; keep at WARN in dev to avoid drowning traces
+        org.springframework.web.socket: WARN
+        org.springframework.messaging: WARN
+        org.springframework.security: WARN
+        org.hibernate.SQL: WARN
+
 app:
     jwt:
         secret: Y2hhdGx5LXNlY3JldC1rZXktZm9yLWp3dC10b2tlbi1nZW5lcmF0aW9uLTIwMjY=
-        expiration-ms: 86400000
-        refresh-expiration-ms: 604800000
+        expiration-ms: 86400000 # 1d
+        refresh-expiration-ms: 86400000 # 1d
+    cors:
+        allowed-origins: http://localhost:3000, http://localhost:5174

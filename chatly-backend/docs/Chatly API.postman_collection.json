@@ -1,12 +1,38 @@
 {
   "info": {
-    "_postman_id": "349fe04e-9503-4ed5-b7af-9ac2cba5342a",
+    "_postman_id": "8a9c8096-2ba1-41e2-b2c8-e5370b939e59",
     "name": "Chatly API",
-    "description": "Complete API collection for Chatly messaging platform including Auth, Users, Contacts, and Conversations endpoints",
+    "description": "Complete API collection for Chatly messaging platform including Auth, Users, Contacts, Conversations, and Messages endpoints",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
     "_exporter_id": "40740215"
   },
   "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/health",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "health"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
     {
       "name": "Auth",
       "item": [
@@ -45,7 +71,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "    {\n        \"phone\": \"0353999999\",\n        \"displayName\": \"Cristino Ronaldo\",\n        \"username\": \"ronaldo\",\n        \"password\": \"123456789\",\n        \"dob\": \"2005-01-01\"\n    }"
+              "raw": "    {\n        \"phone\": \"0353999991\",\n        \"displayName\": \"Cristino Ronaldo\",\n        \"username\": \"ronaldo1\",\n        \"password\": \"123456789\",\n        \"dob\": \"2005-01-01\"\n    }"
             },
             "url": {
               "raw": "{{baseUrl}}/api/auth/register",
@@ -107,7 +133,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n    \"identifier\": \"0353999999\",\n    \"password\": \"123456789\"\n}"
+              "raw": "{\n    \"identifier\": \"0353999991\",\n    \"password\": \"123456789\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/api/auth/login",
@@ -170,6 +196,89 @@
             "description": "Refresh access token using refresh token. Returns new access token and refresh token."
           },
           "response": []
+        },
+        {
+          "name": "Logout",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    pm.collectionVariables.set('accessToken', '');",
+                  "    pm.collectionVariables.set('refreshToken', '');",
+                  "    console.log('Logged out successfully. Tokens cleared from collection variables.');",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"token\": \"{{accessToken}}\",\n    \"refreshToken\": \"{{refreshToken}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/logout",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "logout"
+              ]
+            },
+            "description": "Logout and blacklist both access token and refresh token. Tokens will be added to Redis blacklist."
+          },
+          "response": []
+        },
+        {
+          "name": "Introspect",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text",
+                "disabled": true
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"token\": \"{{accessToken}}\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/introspect",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "introspect"
+              ]
+            }
+          },
+          "response": []
         }
       ],
       "description": "Authentication endpoints for registration, login, and token refresh"
@@ -200,31 +309,6 @@
               ]
             },
             "description": "Get the current authenticated user's information. Requires valid JWT access token."
-          },
-          "response": []
-        },
-        {
-          "name": "Get All Users",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{accessToken}}",
-                "type": "text"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/api/users",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "users"
-              ]
-            },
-            "description": "Get a list of all users in the system. Requires authentication."
           },
           "response": []
         },
@@ -313,6 +397,31 @@
             "description": "Delete a user account by UUID. Requires authentication."
           },
           "response": []
+        },
+        {
+          "name": "Get All Users",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/users",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "users"
+              ]
+            },
+            "description": "Get a list of all users in the system. Requires authentication."
+          },
+          "response": []
         }
       ],
       "description": "User management endpoints for profile operations"
@@ -357,17 +466,16 @@
               "raw": "{\n    \"contactId\": \"{{targetUserId}}\"\n}"
             },
             "url": {
-              "raw": "{{baseUrl}}/api/contacts/{{userId}}",
+              "raw": "{{baseUrl}}/api/contacts",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
                 "api",
-                "contacts",
-                "{{userId}}"
+                "contacts"
               ]
             },
-            "description": "Send a contact request from userId to another user (contactId). Status will be PENDING. Requires authentication."
+            "description": "Send a contact request to another user. Sender is determined from JWT token (no userId in URL). Status will be PENDING. Requires authentication."
           },
           "response": []
         },
@@ -437,18 +545,16 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/api/contacts/user/{{userId}}",
+              "raw": "{{baseUrl}}/api/contacts",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
                 "api",
-                "contacts",
-                "user",
-                "{{userId}}"
+                "contacts"
               ]
             },
-            "description": "Get all contacts for a specific user regardless of status. Requires authentication."
+            "description": "Get all contacts of the authenticated user regardless of status. userId is read from JWT token."
           },
           "response": []
         },
@@ -464,20 +570,18 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/api/contacts/user/{{userId}}/status/PENDING",
+              "raw": "{{baseUrl}}/api/contacts/status/PENDING",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
                 "api",
                 "contacts",
-                "user",
-                "{{userId}}",
                 "status",
                 "PENDING"
               ]
             },
-            "description": "Get all contacts with PENDING status for a user. Requires authentication."
+            "description": "Get all contacts with PENDING status for the authenticated user. userId is read from JWT token."
           },
           "response": []
         },
@@ -493,20 +597,18 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/api/contacts/user/{{userId}}/status/ACCEPTED",
+              "raw": "{{baseUrl}}/api/contacts/status/ACCEPTED",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
                 "api",
                 "contacts",
-                "user",
-                "{{userId}}",
                 "status",
                 "ACCEPTED"
               ]
             },
-            "description": "Get all contacts with ACCEPTED status for a user. Requires authentication."
+            "description": "Get all contacts with ACCEPTED status for the authenticated user. userId is read from JWT token."
           },
           "response": []
         },
@@ -522,20 +624,18 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/api/contacts/user/{{userId}}/status/BLOCKED",
+              "raw": "{{baseUrl}}/api/contacts/status/BLOCKED",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
                 "api",
                 "contacts",
-                "user",
-                "{{userId}}",
                 "status",
                 "BLOCKED"
               ]
             },
-            "description": "Get all contacts with BLOCKED status for a user. Requires authentication."
+            "description": "Get all contacts with BLOCKED status for the authenticated user. userId is read from JWT token."
           },
           "response": []
         },
@@ -586,7 +686,9 @@
                   "    }",
                   "}"
                 ],
-                "type": "text/javascript"
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
               }
             }
           ],
@@ -608,17 +710,16 @@
               "raw": "{\n    \"type\": \"PRIVATE\",\n    \"participantIds\": [\"{{targetUserId}}\"]\n}"
             },
             "url": {
-              "raw": "{{baseUrl}}/api/conversations/{{userId}}",
+              "raw": "{{baseUrl}}/api/conversations",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
                 "api",
-                "conversations",
-                "{{userId}}"
+                "conversations"
               ]
             },
-            "description": "Create a new private conversation between two users. Type must be PRIVATE or GROUP. Requires authentication."
+            "description": "Create a new private conversation. Creator is determined from JWT token. Type must be PRIVATE or GROUP."
           },
           "response": []
         },
@@ -634,6 +735,193 @@
                   "    if (jsonData.result && jsonData.result.id) {",
                   "        pm.collectionVariables.set('conversationId', jsonData.result.id);",
                   "        console.log('Group Conversation ID saved: ' + jsonData.result.id);",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"type\": \"GROUP\",\n    \"name\": \"Project Team Chat\",\n    \"participantIds\": [\"{{targetUserId}}\", \"{{anotherUserId}}\", \"de3f5806-11a2-417e-b897-583c5ba9b96d\", \"70c595f8-dac4-4873-8ac7-8fd9bb75a5c5\"]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/conversations",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "conversations"
+              ]
+            },
+            "description": "Create a new group conversation. Creator is determined from JWT token. Name field is recommended for groups."
+          },
+          "response": []
+        },
+        {
+          "name": "Get My Conversations",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/conversations",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "conversations"
+              ]
+            },
+            "description": "Get all conversations for the authenticated user. Returns both private and group conversations sorted by last updated."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Conversation by ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/conversations/{{conversationId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "conversations",
+                "{{conversationId}}"
+              ]
+            },
+            "description": "Get details of a specific conversation. Only accessible by participants."
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Conversation",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/conversations/{{conversationId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "conversations",
+                "{{conversationId}}"
+              ]
+            },
+            "description": "Delete a conversation. Only the creator can delete."
+          },
+          "response": []
+        }
+      ],
+      "description": "Conversation management endpoints for private and group chats"
+    },
+    {
+      "name": "Messages",
+      "item": [
+        {
+          "name": "Send Message",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const jsonData = pm.response.json();",
+                  "    if (jsonData.result && jsonData.result.id) {",
+                  "        pm.collectionVariables.set('messageId', jsonData.result.id);",
+                  "        console.log('Message ID saved: ' + jsonData.result.id);",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"conversationId\": \"{{conversationId}}\",\n    \"content\": \"Hello! This is a test message.\",\n    \"type\": \"TEXT\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/messages",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "messages"
+              ]
+            },
+            "description": "Send a message to a conversation. Sender is determined from JWT token. Must be a participant of the conversation."
+          },
+          "response": []
+        },
+        {
+          "name": "Send Reply Message",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const jsonData = pm.response.json();",
+                  "    if (jsonData.result && jsonData.result.id) {",
+                  "        pm.collectionVariables.set('messageId', jsonData.result.id);",
+                  "        console.log('Reply Message ID saved: ' + jsonData.result.id);",
                   "    }",
                   "}"
                 ],
@@ -656,25 +944,24 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n    \"type\": \"GROUP\",\n    \"name\": \"Project Team Chat\",\n    \"participantIds\": [\"{{targetUserId}}\", \"{{anotherUserId}}\"]\n}"
+              "raw": "{\n    \"conversationId\": \"{{conversationId}}\",\n    \"content\": \"This is a reply message.\",\n    \"type\": \"TEXT\",\n    \"replyToId\": \"{{messageId}}\"\n}"
             },
             "url": {
-              "raw": "{{baseUrl}}/api/conversations/{{userId}}",
+              "raw": "{{baseUrl}}/api/messages",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
                 "api",
-                "conversations",
-                "{{userId}}"
+                "messages"
               ]
             },
-            "description": "Create a new group conversation. Type must be GROUP and name field is optional but recommended. Requires authentication."
+            "description": "Send a reply to an existing message. Include replyToId to reference the original message."
           },
           "response": []
         },
         {
-          "name": "Get Conversation by ID",
+          "name": "Get Messages by Conversation",
           "request": {
             "method": "GET",
             "header": [
@@ -685,26 +972,35 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/api/conversations/{{conversationId}}/user/{{userId}}",
+              "raw": "{{baseUrl}}/api/messages/conversation/{{conversationId}}?page=0&size=20",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
                 "api",
-                "conversations",
-                "{{conversationId}}",
-                "user",
-                "{{userId}}"
+                "messages",
+                "conversation",
+                "{{conversationId}}"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "0"
+                },
+                {
+                  "key": "size",
+                  "value": "20"
+                }
               ]
             },
-            "description": "Get details of a specific conversation by ID for a given user. Requires authentication."
+            "description": "Get message history for a conversation with pagination. Only accessible by participants. Sorted by newest first."
           },
           "response": []
         },
         {
-          "name": "Get User Conversations",
+          "name": "Mark Message as Seen",
           "request": {
-            "method": "GET",
+            "method": "PUT",
             "header": [
               {
                 "key": "Authorization",
@@ -713,23 +1009,23 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/api/conversations/user/{{userId}}",
+              "raw": "{{baseUrl}}/api/messages/{{messageId}}/seen",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
                 "api",
-                "conversations",
-                "user",
-                "{{userId}}"
+                "messages",
+                "{{messageId}}",
+                "seen"
               ]
             },
-            "description": "Get all conversations for a specific user. Returns both private and group conversations. Requires authentication."
+            "description": "Mark a message as seen by the authenticated user. Updates message status to READ and adds a read receipt."
           },
           "response": []
         },
         {
-          "name": "Delete Conversation",
+          "name": "Delete Message",
           "request": {
             "method": "DELETE",
             "header": [
@@ -740,24 +1036,249 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/api/conversations/{{conversationId}}/user/{{userId}}",
+              "raw": "{{baseUrl}}/api/messages/{{messageId}}",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
                 "api",
-                "conversations",
-                "{{conversationId}}",
-                "user",
-                "{{userId}}"
+                "messages",
+                "{{messageId}}"
               ]
             },
-            "description": "Delete a conversation for a specific user. Requires authentication."
+            "description": "Delete a message. Only the sender can delete their own message."
           },
           "response": []
         }
       ],
-      "description": "Conversation management endpoints for private and group chats"
+      "description": "Message endpoints for sending, retrieving, and managing messages within conversations"
+    },
+    {
+      "name": "Group Management",
+      "item": [
+        {
+          "name": "Add Member to Group",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"userId\": \"{{targetUserId}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/groups/{{conversationId}}/members",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "groups",
+                "{{conversationId}}",
+                "members"
+              ]
+            },
+            "description": "Add a user to a group conversation. Only OWNER or ADMIN can add members. Returns the new group member info."
+          },
+          "response": [
+            {
+              "name": "Success",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n    \"code\": 1000,\n    \"result\": {\n        \"userId\": \"uuid-here\",\n        \"username\": \"john\",\n        \"displayName\": \"John Doe\",\n        \"avatar\": \"https://example.com/avatar.jpg\",\n        \"role\": \"MEMBER\",\n        \"joinedAt\": \"2026-03-15T10:00:00Z\"\n    }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Remove Member from Group",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/groups/{{conversationId}}/members/{{targetUserId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "groups",
+                "{{conversationId}}",
+                "members",
+                "{{targetUserId}}"
+              ]
+            },
+            "description": "Remove a member from a group conversation. Only OWNER or ADMIN can remove members. ADMIN cannot remove OWNER or other ADMINs."
+          },
+          "response": [
+            {
+              "name": "Success",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n    \"code\": 1000,\n    \"message\": \"Member removed successfully\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Update Member Role",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"role\": \"ADMIN\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/groups/{{conversationId}}/members/{{targetUserId}}/role",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "groups",
+                "{{conversationId}}",
+                "members",
+                "{{targetUserId}}",
+                "role"
+              ]
+            },
+            "description": "Change the role of a group member. OWNER can assign ADMIN or transfer OWNER. ADMIN cannot assign OWNER. Valid roles: OWNER, ADMIN, MEMBER."
+          },
+          "response": [
+            {
+              "name": "Success",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n    \"code\": 1000,\n    \"result\": {\n        \"userId\": \"uuid-here\",\n        \"username\": \"john\",\n        \"displayName\": \"John Doe\",\n        \"avatar\": \"https://example.com/avatar.jpg\",\n        \"role\": \"ADMIN\",\n        \"joinedAt\": \"2026-03-15T10:00:00Z\"\n    }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Update Group Info",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"name\": \"New Group Name\",\n    \"avatar\": \"https://example.com/group-avatar.jpg\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/groups/{{conversationId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "groups",
+                "{{conversationId}}"
+              ]
+            },
+            "description": "Update group conversation name and/or avatar. Only OWNER or ADMIN can update group info."
+          },
+          "response": [
+            {
+              "name": "Success",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n    \"code\": 1000,\n    \"result\": {\n        \"id\": \"conversation-id\",\n        \"type\": \"GROUP\",\n        \"name\": \"New Group Name\",\n        \"avatarUrl\": \"https://example.com/group-avatar.jpg\",\n        \"creatorId\": \"uuid-here\",\n        \"participantIds\": [\"uuid-1\", \"uuid-2\"],\n        \"lastMessage\": null,\n        \"createdAt\": \"2026-03-15T10:00:00Z\",\n        \"updatedAt\": \"2026-03-15T12:00:00Z\"\n    }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Get Group Members",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/groups/{{conversationId}}/members",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "groups",
+                "{{conversationId}}",
+                "members"
+              ]
+            },
+            "description": "Get all members of a group conversation with their roles. Requester must be a participant of the group."
+          },
+          "response": [
+            {
+              "name": "Success",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n    \"code\": 1000,\n    \"result\": [\n        {\n            \"userId\": \"uuid-1\",\n            \"username\": \"owner_user\",\n            \"displayName\": \"Owner\",\n            \"avatar\": \"https://example.com/avatar1.jpg\",\n            \"role\": \"OWNER\",\n            \"joinedAt\": \"2026-03-15T10:00:00Z\"\n        },\n        {\n            \"userId\": \"uuid-2\",\n            \"username\": \"member_user\",\n            \"displayName\": \"Member\",\n            \"avatar\": \"https://example.com/avatar2.jpg\",\n            \"role\": \"MEMBER\",\n            \"joinedAt\": \"2026-03-15T10:05:00Z\"\n        }\n    ]\n}"
+            }
+          ]
+        }
+      ],
+      "description": "Group management endpoints for adding/removing members, changing roles, and updating group info. Only applicable to GROUP conversations."
+    },
+    {
+      "name": "Presence",
+      "item": [
+        {
+          "name": "WebSocket Presence Info",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/health",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "health"
+              ]
+            },
+            "description": "Presence is managed via WebSocket events (not REST API).\n\n**How it works:**\n- When a user connects via WebSocket → status = ONLINE\n- When a user disconnects → status = OFFLINE, lastSeen = current timestamp\n\n**Subscribe to presence updates:**\nTopic: `/topic/presence`\n\n**Payload example:**\n```json\n{\n    \"userId\": \"uuid-here\",\n    \"status\": \"ONLINE\",\n    \"lastSeen\": null\n}\n```\n\n**Disconnect payload:**\n```json\n{\n    \"userId\": \"uuid-here\",\n    \"status\": \"OFFLINE\",\n    \"lastSeen\": \"2026-03-15T12:30:00Z\"\n}\n```\n\nUser status is also included in the GET /api/users/me and GET /api/users/{id} responses (status and lastSeen fields)."
+          },
+          "response": []
+        }
+      ],
+      "description": "User presence (online/offline) is tracked via WebSocket session events and broadcast on /topic/presence. User status and lastSeen are also available in user API responses."
     }
   ],
   "event": [
@@ -765,6 +1286,7 @@
       "listen": "prerequest",
       "script": {
         "type": "text/javascript",
+        "requests": {},
         "exec": [
           ""
         ]
@@ -774,6 +1296,7 @@
       "listen": "test",
       "script": {
         "type": "text/javascript",
+        "requests": {},
         "exec": [
           ""
         ]
@@ -783,43 +1306,39 @@
   "variable": [
     {
       "key": "baseUrl",
-      "value": "http://localhost:8080",
-      "type": "string"
+      "value": "http://localhost:8080"
     },
     {
       "key": "accessToken",
-      "value": "",
-      "type": "string"
+      "value": ""
     },
     {
       "key": "refreshToken",
-      "value": "",
-      "type": "string"
+      "value": ""
     },
     {
       "key": "userId",
-      "value": "",
-      "type": "string"
+      "value": ""
     },
     {
       "key": "targetUserId",
-      "value": "",
-      "type": "string"
+      "value": ""
     },
     {
       "key": "anotherUserId",
-      "value": "",
-      "type": "string"
+      "value": ""
     },
     {
       "key": "contactId",
-      "value": "",
-      "type": "string"
+      "value": ""
     },
     {
       "key": "conversationId",
-      "value": "",
-      "type": "string"
+      "value": ""
+    },
+    {
+      "key": "messageId",
+      "value": ""
     }
   ]
 }

@@ -5,6 +5,7 @@ import com.chatly.dto.response.MessageResponse;
 import com.chatly.exception.AppException;
 import com.chatly.exception.ErrorCode;
 import com.chatly.mapper.MessageMapper;
+import com.chatly.model.enums.MessageStatus;
 import com.chatly.model.enums.MessageType;
 import com.chatly.model.mongo.Conversation;
 import com.chatly.model.mongo.LastMessage;
@@ -15,11 +16,16 @@ import com.chatly.repository.mongo.MessageRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
+import org.springframework.data.mongodb.core.query.Update;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -28,6 +34,7 @@ public class MessageService {
     private final MessageRepository messageRepository;
     private final ConversationRepository conversationRepository;
     private final MessageMapper messageMapper;
+    private final MongoTemplate mongoTemplate;
 
     public MessageResponse send(String senderId, MessageRequest request) {
         Conversation conversation = conversationRepository.findById(request.getConversationId())
@@ -48,7 +55,8 @@ public class MessageService {
 
         message = messageRepository.save(message);
 
-        updateLastMessage(conversation, message);
+        // Partial update — chỉ ghi lastMessage + updatedAt, không load/save toàn bộ document
+        updateLastMessage(request.getConversationId(), message);
 
         return messageMapper.toResponse(message);
     }
@@ -69,24 +77,38 @@ public class MessageService {
                 .toList();
     }
 
-    public MessageResponse markAsRead(String messageId, String userId) {
+    public Optional<MessageResponse> markAsSeen(String messageId, String userId) {
         Message message = messageRepository.findById(messageId)
                 .orElseThrow(() -> new AppException(ErrorCode.MESSAGE_NOT_FOUND));
 
-        boolean alreadyRead = message.getReadBy().stream()
-                .anyMatch(r -> r.getUserId().equals(userId));
-
-        if (!alreadyRead) {
-            message.getReadBy().add(
-                    ReadReceipt.builder()
-                            .userId(userId)
-                            .readAt(Instant.now())
-                            .build()
-            );
-            message = messageRepository.save(message);
+        if (message.getSenderId().equals(userId)) {
+            return Optional.empty();
         }
 
-        return messageMapper.toResponse(message);
+        boolean alreadySeen = message.getReadBy().stream()
+                .anyMatch(r -> r.getUserId().equals(userId));
+
+        if (!alreadySeen) {
+            ReadReceipt receipt = ReadReceipt.builder()
+                    .userId(userId)
+                    .readAt(Instant.now())
+                    .build();
+
+            // Push vào array + set status trong 1 query — không load lại toàn document
+            mongoTemplate.updateFirst(
+                    Query.query(Criteria.where("_id").is(messageId)),
+                    new Update()
+                            .push("readBy", receipt)
+                            .set("status", MessageStatus.READ),
+                    Message.class
+            );
+
+            message.getReadBy().add(receipt);
+            message.setStatus(MessageStatus.READ);
+            return Optional.of(messageMapper.toResponse(message));
+        }
+
+        return Optional.empty();
     }
 
     public void delete(String messageId, String senderId) {
@@ -100,7 +122,8 @@ public class MessageService {
         messageRepository.deleteById(messageId);
     }
 
-    private void updateLastMessage(Conversation conversation, Message message) {
+    // Partial update: chỉ set lastMessage + updatedAt trên Conversation document
+    private void updateLastMessage(String conversationId, Message message) {
         LastMessage lastMessage = LastMessage.builder()
                 .senderId(message.getSenderId())
                 .content(message.getContent())
@@ -108,7 +131,12 @@ public class MessageService {
                 .timestamp(message.getCreatedAt() != null ? message.getCreatedAt() : Instant.now())
                 .build();
 
-        conversation.setLastMessage(lastMessage);
-        conversationRepository.save(conversation);
+        mongoTemplate.updateFirst(
+                Query.query(Criteria.where("_id").is(conversationId)),
+                new Update()
+                        .set("lastMessage", lastMessage)
+                        .set("updatedAt", Instant.now()),
+                Conversation.class
+        );
     }
 }

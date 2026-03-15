@@ -1,13 +1,11 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
-import { Mail, Lock, Eye, EyeOff, Sun, Moon } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { Mail, Lock, Eye, EyeOff } from "lucide-react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";
 
-import chatlyLogo from "@/assets/brand/chatly-logo-transparent.png";
 import qrCode from "@/mocks/images/QR-fake.png";
-import { useThemeStore } from "@/store/theme.store";
 import { ForgotPasswordDialog } from "./components/ForgotPasswordDialog";
 import {
     loginSchema,
@@ -26,6 +24,8 @@ import {
     InputGroupInput,
     InputGroupButton,
 } from "@/components/ui/input-group";
+import { authService } from "@/services/auth.service";
+import { useAuthStore } from "@/store/auth.store";
 import "./login.css";
 
 export default function LoginPage() {
@@ -33,42 +33,50 @@ export default function LoginPage() {
     const [loginMethod, setLoginMethod] = useState<"password" | "sms">(
         "password",
     );
-    const toggleTheme = useThemeStore((s) => s.toggleTheme);
 
     const form = useForm<LoginFormValues>({
         resolver: zodResolver(
             loginMethod === "password" ? loginSchema : smsLoginSchema,
-        ),
+        ) as any,
         defaultValues: {
             identifier: "",
             password: "",
         },
     });
 
-    const onSubmit = (data: LoginFormValues) => {
+    const setAuth = useAuthStore((s) => s.setAuth);
+    const setGlobalLoading = useAuthStore((s) => s.setLoading);
+    const isGlobalLoading = useAuthStore((s) => s.loading);
+    const navigate = useNavigate();
+
+    const onSubmit = async (data: LoginFormValues) => {
         if (loginMethod === "sms") {
-            return toast(
-                "Xin lỗi, tính năng đang trong giai đoạn thử nghiệm và phát triển",
-                {
-                    description: "SMS login is not available yet",
-                },
-            );
+            return toast.info("Development in progress...");
         }
 
-        const { identifier, ...rest } = data;
-        const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(identifier);
-
         const payload = {
-            ...rest,
-            email: isEmail ? identifier : null,
-            phone: !isEmail ? identifier : null,
-            method: loginMethod,
+            identifier: data.identifier,
+            password: data.password || "",
         };
 
-        toast("Login initiated", {
-            description: `${loginMethod === "password" ? "Password" : "SMS"} - Identifier: ${identifier}`,
-        });
-        console.log("Login Payload:", payload);
+        try {
+            setGlobalLoading(true);
+            const response = await authService.login(payload);
+
+            if (response.code === 1000) {
+                setAuth(response.result);
+                toast.success("Đăng nhập thành công!");
+                navigate("/");
+            } else {
+                toast.error(response.message || "Đăng nhập thất bại");
+            }
+        } catch (error: any) {
+            console.error("Login error:", error);
+            const msg = error.response?.data?.message || "Đã có lỗi xảy ra";
+            toast.error(msg);
+        } finally {
+            setGlobalLoading(false);
+        }
     };
 
     return (
@@ -96,27 +104,8 @@ export default function LoginPage() {
                 ))}
             </div>
 
-            {/* Logo top-left */}
-            <div className="absolute top-7 left-8 z-10 flex items-center gap-2.5">
-                <img
-                    src={chatlyLogo}
-                    alt="Chatly"
-                    className="h-16 w-auto drop-shadow-[0_2px_8px_rgba(0,0,0,0.25)]"
-                />
-            </div>
-
-            {/* Theme toggle top-right */}
-            <button
-                onClick={toggleTheme}
-                className="absolute top-7 right-8 z-10 flex h-10 w-10 cursor-pointer items-center justify-center rounded-full border border-white/20 bg-white/10 text-white backdrop-blur-sm transition-all duration-200 hover:scale-105 hover:bg-white/20 dark:border-white/10 dark:bg-white/5 dark:hover:bg-white/10"
-                aria-label="Toggle theme"
-            >
-                <Sun size={18} className="block dark:hidden" />
-                <Moon size={18} className="hidden dark:block" />
-            </button>
-
             {/* Center card */}
-            <div className="login-card-enter relative z-5 flex w-[90%] max-w-[780px] overflow-hidden rounded-[20px] border border-black/10 bg-white/90 shadow-[0_4px_20px_rgba(0,0,0,0.08)] backdrop-blur-[20px] dark:border-white/8 dark:bg-[rgba(30,33,40,0.92)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.4)]">
+            <div className="login-card-enter mt-10 relative z-5 flex w-[90%] max-w-[780px] overflow-hidden rounded-[20px] border border-black/10 bg-white/90 shadow-[0_4px_20px_rgba(0,0,0,0.08)] backdrop-blur-[20px] dark:border-white/8 dark:bg-[rgba(30,33,40,0.92)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.4)]">
                 {/* Left — form */}
                 <div className="flex-1 p-9 pb-8">
                     <h1 className="mb-1.5 text-center text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
@@ -141,7 +130,9 @@ export default function LoginPage() {
                                             htmlFor="login-identifier"
                                             className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-[#b0b3bc]"
                                         >
-                                            Email or Phone Number{" "}
+                                            {loginMethod === "password"
+                                                ? "Email, Phone or Username"
+                                                : "Phone Number"}{" "}
                                             <span className="text-red-400">
                                                 *
                                             </span>
@@ -166,7 +157,11 @@ export default function LoginPage() {
                                                 onBlur={field.onBlur}
                                                 ref={field.ref}
                                                 type="text"
-                                                placeholder="Enter your email or phone"
+                                                placeholder={
+                                                    loginMethod === "password"
+                                                        ? "Enter email, phone or username"
+                                                        : "Enter your phone number"
+                                                }
                                                 autoComplete="username"
                                                 aria-invalid={
                                                     fieldState.invalid
@@ -220,7 +215,7 @@ export default function LoginPage() {
                                                     aria-invalid={
                                                         fieldState.invalid
                                                     }
-                                                    className="py-2.5 text-[15px] !text-gray-900 dark:!text-white pr-0"
+                                                    className="py-2.5 text-[15px] text-gray-900! dark:text-white! pr-0"
                                                 />
                                                 <InputGroupAddon align="inline-end">
                                                     <InputGroupButton
@@ -261,11 +256,20 @@ export default function LoginPage() {
                         {/* Submit */}
                         <button
                             type="submit"
-                            className="mt-1 w-full cursor-pointer rounded-full border-none bg-brand py-3 text-[15px] font-semibold text-white transition-all duration-300 hover:scale-[1.02] hover:bg-brand-hover active:scale-[0.99]"
+                            disabled={isGlobalLoading}
+                            className="mt-1 flex w-full cursor-pointer items-center justify-center gap-2 rounded-full border-none bg-brand py-3 text-[15px] font-semibold text-white transition-all duration-300 hover:scale-[1.02] hover:bg-brand-hover active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-70"
                         >
-                            {loginMethod === "password"
-                                ? "Log In"
-                                : "Send OTP via SMS"}
+                            {isGlobalLoading ? (
+                                <div className="h-5 w-5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                            ) : (
+                                <>
+                                    <span>
+                                        {loginMethod === "password"
+                                            ? "Đăng nhập"
+                                            : "Gửi mã OTP"}
+                                    </span>
+                                </>
+                            )}
                         </button>
 
                         <div className="flex items-center justify-between text-[13px]">

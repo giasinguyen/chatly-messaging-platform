@@ -1,0 +1,49 @@
+import type { MessageType } from "@/types/conversation";
+
+export type MessageStatus = "SENT" | "DELIVERED" | "READ";
+
+export interface ReadReceipt {
+    userId: string;
+    readAt: string;
+}
+
+export interface Attachment {
+    url: string;
+    name?: string;
+    type?: string;
+    size?: number;
+}
+
+/**
+ * Message trả về từ API – khớp 100% với MessageResponse.java.
+ * Thứ tự API trả về: mới nhất trước (descending), cần reverse trước khi render.
+ */
+export interface Message {
+    id: string;
+    conversationId: string;
+    senderId: string;
+    content: string;
+    type: MessageType;
+    status: MessageStatus;
+    replyToId: string | null;
+    attachments: Attachment[];
+    readBy: ReadReceipt[];
+    createdAt: string;
+    updatedAt: string;
+}
+
+/**
+ * ChatUser – thông tin hiển thị của một participant trong cuộc trò chuyện.
+ */
+export interface ChatUser {
+    id: string;
+    displayName: string;
+    username: string;
+    avatarUrl?: string;
+    phone?: string;
+    dob?: string;
+    privacy?: {
+        showPhone?: boolean;
+        showDob?: boolean;
+    };
+}

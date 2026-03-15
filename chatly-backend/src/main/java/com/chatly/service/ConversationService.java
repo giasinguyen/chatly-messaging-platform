@@ -33,6 +33,8 @@ public class ConversationService {
     @Transactional
     public ConversationResponse create(String creatorId, ConversationRequest request) {
         List<String> participantIds = new ArrayList<>(request.getParticipantIds());
+        participantIds.removeIf(id -> id == null || id.isBlank());
+
         if (!participantIds.contains(creatorId)) {
             participantIds.add(creatorId);
         }

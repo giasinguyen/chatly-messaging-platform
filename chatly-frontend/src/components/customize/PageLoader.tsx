@@ -7,11 +7,11 @@ interface IPageLoader {
 }
 
 export default function PageLoader({
-    type = "pulse",
+    type = "dots",
     message,
     className,
 }: IPageLoader) {
-    const displayMessage = message || "loading...";
+    const displayMessage = message || "Loading...";
 
     return (
         <div

@@ -1,0 +1,14 @@
+package com.chatly.dto.request;
+
+import lombok.*;
+
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class GroupUpdateRequest {
+
+    private String name;
+    private String avatar;
+}

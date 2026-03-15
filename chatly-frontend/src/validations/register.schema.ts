@@ -20,7 +20,6 @@ export const registerSchema = z.object({
     month: z.string().min(1, "Vui lòng chọn tháng"),
     day: z.string().min(1, "Vui lòng chọn ngày"),
     year: z.string().min(4, "Vui lòng chọn năm"),
-    promo: z.boolean().optional(),
 });
 
 export type RegisterFormValues = z.infer<typeof registerSchema>;
