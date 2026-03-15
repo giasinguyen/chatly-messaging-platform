@@ -14,7 +14,9 @@ import { getOtherParticipantId } from "@/utils/conversation";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { PresenceIndicator } from "@/components/customize/PresenceIndicator";
+
 import {
     Dialog,
     DialogContent,
@@ -23,7 +25,16 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
-import { CalendarDays, Loader2, Phone, UserPlus } from "lucide-react";
+import {
+    CalendarDays,
+    Copy,
+    Loader2,
+    LogOut,
+    Pencil,
+    Phone,
+    Settings,
+    UserPlus,
+} from "lucide-react";
 import { toast } from "sonner";
 import type { Message, ChatUser } from "@/types/message";
 import type { ContactStatus } from "@/types/contact";
@@ -91,6 +102,7 @@ export function ChatWindow({ id }: ChatWindowProps) {
 
     const [conversation, setConversation] = useState<ConversationResponse | null>(null);
     const [participant, setParticipant] = useState<ChatUser | null>(null);
+    const [participantDirectory, setParticipantDirectory] = useState<Record<string, ChatUser>>({});
     const [messages, setMessages] = useState<Message[]>([]);
     const [replyingTo, setReplyingTo] = useState<Message | null>(null);
     const [loading, setLoading] = useState(true);
@@ -106,10 +118,14 @@ export function ChatWindow({ id }: ChatWindowProps) {
     const [showProfileDialog, setShowProfileDialog] = useState(false);
     const [contactStatus, setContactStatus] = useState<ContactStatus | null>(null);
     const [sendingContact, setSendingContact] = useState(false);
+    const [isEditingGroup, setIsEditingGroup] = useState(false);
+    const [groupNameDraft, setGroupNameDraft] = useState("");
+    const [groupAvatarDraft, setGroupAvatarDraft] = useState("");
     const [showGroupPanel, setShowGroupPanel] = useState(false);
-
+    const [selectedProfileUser, setSelectedProfileUser] = useState<ChatUser | null>(null);
     // Presence tracking
     const [presenceMap, setPresenceMap] = useState<Record<string, { status: string; lastSeen: string | null }>>({});
+
 
     // ----------------------------------------------------------------
     // 1. WebSocket Hook Integration
@@ -174,7 +190,9 @@ export function ChatWindow({ id }: ChatWindowProps) {
                 setNotFound(false);
                 setMessages([]);
                 setReplyingTo(null);
+                setSelectedProfileUser(null);
                 setTypingUserIds(new Set());
+                setParticipantDirectory({});
                 currentPageRef.current = 0;
                 setHasMore(false);
 
@@ -192,6 +210,28 @@ export function ChatWindow({ id }: ChatWindowProps) {
                 // Lấy thông tin participant hiển thị
                 const allUsers = usersRes.result ?? [];
                 const allContacts = contactsRes.result ?? [];
+                const directory = Object.fromEntries(
+                    conv.participantIds.map((participantId) => {
+                        const foundUser = allUsers.find((u) => u.id === participantId);
+                        const mapped: ChatUser = foundUser
+                            ? {
+                                  id: foundUser.id,
+                                  displayName: foundUser.displayName,
+                                  username: foundUser.username,
+                                  avatarUrl: foundUser.avatarUrl,
+                                  phone: foundUser.phone,
+                                  dob: foundUser.dob,
+                              }
+                            : {
+                                  id: participantId,
+                                  displayName: "Người dùng",
+                                  username: "",
+                              };
+                        return [participantId, mapped];
+                    }),
+                );
+                setParticipantDirectory(directory);
+
                 if (conv.type === "PRIVATE") {
                     const otherId = getOtherParticipantId(conv, currentUser.id);
                     const other = allUsers.find((u) => u.id === otherId);
@@ -236,11 +276,15 @@ export function ChatWindow({ id }: ChatWindowProps) {
                         }));
                     }
                 } else {
+                    const firstMemberWithAvatar = conv.participantIds
+                        .map((participantId) => directory[participantId])
+                        .find((member) => member?.avatarUrl);
+
                     setParticipant({
                         id: conv.id,
                         displayName: conv.name ?? "Nhóm chat",
                         username: "group",
-                        avatarUrl: conv.avatarUrl ?? undefined,
+                        avatarUrl: conv.avatarUrl ?? firstMemberWithAvatar?.avatarUrl,
                     });
                     setContactStatus(null);
                 }
@@ -305,14 +349,25 @@ export function ChatWindow({ id }: ChatWindowProps) {
 
     const handleReply = useCallback((msg: Message) => setReplyingTo(msg), []);
     const handleCancelReply = useCallback(() => setReplyingTo(null), []);
+    const handleOpenSenderProfile = useCallback(
+        (senderId: string) => {
+            const user = participantDirectory[senderId];
+            if (!user) return;
+            setSelectedProfileUser(user);
+            setShowProfileDialog(true);
+        },
+        [participantDirectory],
+    );
 
     const handleSendFriendRequest = useCallback(async () => {
-        if (!participant || conversation?.type !== "PRIVATE") return;
+        const targetUser =
+            selectedProfileUser ?? (conversation?.type === "PRIVATE" ? participant : null);
+        if (!targetUser) return;
         if (contactStatus === "ACCEPTED" || contactStatus === "PENDING") return;
 
         try {
             setSendingContact(true);
-            await contactService.sendRequest({ contactId: participant.id });
+            await contactService.sendRequest({ contactId: targetUser.id });
             setContactStatus("PENDING");
             toast.success("Đã gửi lời mời kết bạn");
         } catch (error) {
@@ -320,7 +375,52 @@ export function ChatWindow({ id }: ChatWindowProps) {
         } finally {
             setSendingContact(false);
         }
-    }, [participant, conversation?.type, contactStatus]);
+    }, [selectedProfileUser, conversation?.type, participant, contactStatus]);
+
+    useEffect(() => {
+        if (!showProfileDialog || conversation?.type !== "GROUP" || !participant) {
+            setIsEditingGroup(false);
+            return;
+        }
+
+        setGroupNameDraft(participant.displayName || conversation.name || "Nhóm chat");
+        setGroupAvatarDraft(participant.avatarUrl || conversation.avatarUrl || "");
+    }, [showProfileDialog, conversation?.type, conversation?.name, conversation?.avatarUrl, participant?.displayName, participant?.avatarUrl]);
+
+    const handleSaveGroupProfile = useCallback(() => {
+        if (conversation?.type !== "GROUP") return;
+
+        const nextName = groupNameDraft.trim();
+        if (!nextName) {
+            toast.error("Tên nhóm không được để trống");
+            return;
+        }
+
+        const nextAvatar = groupAvatarDraft.trim();
+
+        setParticipant((prev) =>
+            prev
+                ? {
+                      ...prev,
+                      displayName: nextName,
+                      avatarUrl: nextAvatar || undefined,
+                  }
+                : prev,
+        );
+
+        setConversation((prev) =>
+            prev
+                ? {
+                      ...prev,
+                      name: nextName,
+                      avatarUrl: nextAvatar || null,
+                  }
+                : prev,
+        );
+
+        setIsEditingGroup(false);
+        toast.success("Đã cập nhật thông tin nhóm");
+    }, [conversation?.type, groupAvatarDraft, groupNameDraft]);
 
     // ----------------------------------------------------------------
     // Render states
@@ -348,15 +448,31 @@ export function ChatWindow({ id }: ChatWindowProps) {
     const replyingSenderName =
         replyingTo?.senderId === currentUser?.id
             ? "Bạn"
-            : participant.displayName.split(" ").slice(-1)[0];
+            : (
+                  participantDirectory[replyingTo?.senderId ?? ""]?.displayName ||
+                  participant.displayName
+              )
+                  .split(" ")
+                  .slice(-1)[0];
 
     const isTyping = typingUserIds.size > 0;
-    const showPhone = participant.privacy?.showPhone !== false;
-    const showDob = participant.privacy?.showDob !== false;
+    const typingUserId = Array.from(typingUserIds)[0];
+    const typingDisplayName = typingUserId
+        ? (
+              participantDirectory[typingUserId]?.displayName ||
+              participant.displayName
+          )
+              .split(" ")
+              .slice(-1)[0]
+        : participant.displayName.split(" ").slice(-1)[0];
+    const profileUser = selectedProfileUser ?? (conversation.type === "PRIVATE" ? participant : null);
+    const showPhone = profileUser?.privacy?.showPhone !== false;
+    const showDob = profileUser?.privacy?.showDob !== false;
+    const groupMembers = Object.values(participantDirectory);
+    const inviteLink = `https://chatly.app/group/${conversation.id}`;
     const canAddFriend =
-        conversation.type === "PRIVATE" &&
-        participant.id &&
-        participant.id !== currentUser?.id &&
+        !!profileUser?.id &&
+        profileUser.id !== currentUser?.id &&
         !["ACCEPTED", "PENDING"].includes(contactStatus ?? "");
 
     // Determine presence status for the other participant
@@ -369,7 +485,10 @@ export function ChatWindow({ id }: ChatWindowProps) {
         <div className="flex-1 flex flex-col overflow-hidden bg-background relative">
             <ChatHeader
                 user={participant}
-                onOpenProfile={() => setShowProfileDialog(true)}
+                onOpenProfile={() => {
+                    setSelectedProfileUser(null);
+                    setShowProfileDialog(true);
+                }}
                 isGroup={isGroup}
                 onOpenGroupPanel={isGroup ? () => setShowGroupPanel(true) : undefined}
                 presenceStatus={participantPresence?.status}
@@ -379,8 +498,11 @@ export function ChatWindow({ id }: ChatWindowProps) {
             <MessageList
                 messages={messages}
                 participant={participant}
+                conversationType={conversation.type}
+                participantDirectory={participantDirectory}
                 currentUserId={currentUser?.id ?? ""}
                 onReply={handleReply}
+                onOpenSenderProfile={handleOpenSenderProfile}
                 onLoadMore={handleLoadMore}
                 isLoadingMore={isLoadingMore}
                 hasMore={hasMore}
@@ -395,7 +517,7 @@ export function ChatWindow({ id }: ChatWindowProps) {
                             <span className="w-1.5 h-1.5 bg-brand rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
                         </div>
                         <span className="text-[11px] font-medium text-muted-foreground italic">
-                            {participant.displayName.split(" ").slice(-1)[0]} đang soạn tin...
+                            {typingDisplayName} đang soạn tin...
                         </span>
                     </div>
                 </div>
@@ -409,31 +531,44 @@ export function ChatWindow({ id }: ChatWindowProps) {
                 onTyping={sendTyping}
             />
 
-            <Dialog open={showProfileDialog} onOpenChange={setShowProfileDialog}>
-                <DialogContent className="sm:max-w-md">
-                    <DialogHeader>
-                        <DialogTitle>Thông tin người dùng</DialogTitle>
-                        <DialogDescription>
-                            Hồ sơ hiển thị theo quyền riêng tư của người này.
-                        </DialogDescription>
-                    </DialogHeader>
-
+            <Dialog
+                open={showProfileDialog}
+                onOpenChange={(open) => {
+                    setShowProfileDialog(open);
+                    if (!open) setSelectedProfileUser(null);
+                }}
+            >
+                <DialogContent
+                    className={
+                        conversation.type === "GROUP"
+                            ? "sm:max-w-md border-border/70 bg-background dark:bg-[#1b1c1d]"
+                            : "sm:max-w-md border-border/70"
+                    }
+                >
+                    {profileUser ? (
+                        <>
+                            <DialogHeader>
+                                <DialogTitle>Thông tin người dùng</DialogTitle>
+                                <DialogDescription>
+                                    Hồ sơ hiển thị theo quyền riêng tư của người này.
+                                </DialogDescription>
+                            </DialogHeader>
                     <div className="space-y-4">
                         <div className="flex items-center gap-3">
                             <Avatar className="h-14 w-14 border border-border/60">
-                                <AvatarImage src={participant.avatarUrl} />
+                                <AvatarImage src={profileUser.avatarUrl} />
                                 <AvatarFallback>
-                                    {participant.displayName.charAt(0)}
+                                    {profileUser.displayName.charAt(0)}
                                 </AvatarFallback>
                             </Avatar>
                             <div className="min-w-0">
                                 <p className="text-base font-semibold text-foreground truncate">
-                                    {participant.displayName}
+                                    {profileUser.displayName}
                                 </p>
                                 <p className="text-sm text-muted-foreground truncate">
-                                    @{participant.username || "unknown"}
+                                    @{profileUser.username || "unknown"}
                                 </p>
-                                {!isGroup && participantPresence && (
+                                {profileUser.id === participant.id && !isGroup && participantPresence && (
                                     <PresenceIndicator
                                         status={participantPresence.status}
                                         lastSeen={participantPresence.lastSeen}
@@ -443,64 +578,218 @@ export function ChatWindow({ id }: ChatWindowProps) {
                                 )}
                             </div>
                         </div>
+                                <div className="space-y-2 rounded-lg border border-border bg-muted/30 p-3">
+                                    <div className="flex items-center justify-between gap-2 text-sm">
+                                        <span className="inline-flex items-center gap-1 text-muted-foreground">
+                                            <Phone size={14} />
+                                            Số điện thoại
+                                        </span>
+                                        <span className="font-medium text-foreground">
+                                            {showPhone
+                                                ? profileUser.phone || "Chưa cập nhật"
+                                                : "Đã ẩn"}
+                                        </span>
+                                    </div>
 
-                        <div className="space-y-2 rounded-lg border border-border bg-muted/30 p-3">
-                            <div className="flex items-center justify-between gap-2 text-sm">
-                                <span className="inline-flex items-center gap-1 text-muted-foreground">
-                                    <Phone size={14} />
-                                    Số điện thoại
-                                </span>
-                                <span className="font-medium text-foreground">
-                                    {showPhone
-                                        ? participant.phone || "Chưa cập nhật"
-                                        : "Đã ẩn"}
-                                </span>
+                                    <div className="flex items-center justify-between gap-2 text-sm">
+                                        <span className="inline-flex items-center gap-1 text-muted-foreground">
+                                            <CalendarDays size={14} />
+                                            Ngày sinh
+                                        </span>
+                                        <span className="font-medium text-foreground">
+                                            {showDob ? formatDob(profileUser.dob) : "Đã ẩn"}
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <div className="flex items-center gap-2">
+                                    {contactStatus === "ACCEPTED" && (
+                                        <Badge variant="secondary">Đã là bạn bè</Badge>
+                                    )}
+                                    {contactStatus === "PENDING" && (
+                                        <Badge variant="outline">Đã gửi lời mời</Badge>
+                                    )}
+                                </div>
                             </div>
 
-                            <div className="flex items-center justify-between gap-2 text-sm">
-                                <span className="inline-flex items-center gap-1 text-muted-foreground">
-                                    <CalendarDays size={14} />
-                                    Ngày sinh
-                                </span>
-                                <span className="font-medium text-foreground">
-                                    {showDob ? formatDob(participant.dob) : "Đã ẩn"}
-                                </span>
-                            </div>
-                        </div>
+                            <DialogFooter>
+                                {canAddFriend && (
+                                    <Button
+                                        onClick={handleSendFriendRequest}
+                                        disabled={sendingContact}
+                                        className="w-full sm:w-auto"
+                                    >
+                                        {sendingContact ? (
+                                            <>
+                                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                                Đang gửi...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <UserPlus className="mr-2 h-4 w-4" />
+                                                Kết bạn
+                                            </>
+                                        )}
+                                    </Button>
+                                )}
+                            </DialogFooter>
+                        </>
+                    ) : (
+                        <>
+                            <DialogHeader>
+                                <DialogTitle>Thông tin nhóm</DialogTitle>
+                                <DialogDescription>
+                                    Quản lý nhanh thông tin và thành viên nhóm.
+                                </DialogDescription>
+                            </DialogHeader>
 
-                        {conversation.type === "PRIVATE" && (
-                            <div className="flex items-center gap-2">
-                                {contactStatus === "ACCEPTED" && (
-                                    <Badge variant="secondary">Đã là bạn bè</Badge>
-                                )}
-                                {contactStatus === "PENDING" && (
-                                    <Badge variant="outline">Đã gửi lời mời</Badge>
-                                )}
-                            </div>
-                        )}
-                    </div>
+                            <div className="space-y-4">
+                                <div className="rounded-xl border border-border bg-muted/25 p-4">
+                                    <div className="flex items-center justify-between gap-3">
+                                        <div className="flex items-center gap-3 min-w-0">
+                                            <Avatar className="h-14 w-14 border border-border/60">
+                                                <AvatarImage
+                                                    src={isEditingGroup ? groupAvatarDraft || participant.avatarUrl : participant.avatarUrl}
+                                                />
+                                                <AvatarFallback>
+                                                    {(isEditingGroup ? groupNameDraft : participant.displayName)
+                                                        .charAt(0)
+                                                        .toUpperCase() || "N"}
+                                                </AvatarFallback>
+                                            </Avatar>
+                                            <div className="min-w-0">
+                                                {isEditingGroup ? (
+                                                    <Input
+                                                        value={groupNameDraft}
+                                                        onChange={(e) => setGroupNameDraft(e.target.value)}
+                                                        placeholder="Tên nhóm"
+                                                        className="h-8"
+                                                    />
+                                                ) : (
+                                                    <p className="text-base font-semibold text-foreground truncate">
+                                                        {participant.displayName}
+                                                    </p>
+                                                )}
+                                                <p className="text-xs text-muted-foreground">
+                                                    Nhóm chat • {groupMembers.length} thành viên
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-8 w-8"
+                                            onClick={() => setIsEditingGroup((prev) => !prev)}
+                                        >
+                                            <Pencil size={14} />
+                                        </Button>
+                                    </div>
 
-                    <DialogFooter>
-                        {canAddFriend && (
-                            <Button
-                                onClick={handleSendFriendRequest}
-                                disabled={sendingContact}
-                                className="w-full sm:w-auto"
-                            >
-                                {sendingContact ? (
-                                    <>
-                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                        Đang gửi...
-                                    </>
-                                ) : (
-                                    <>
-                                        <UserPlus className="mr-2 h-4 w-4" />
-                                        Kết bạn
-                                    </>
-                                )}
-                            </Button>
-                        )}
-                    </DialogFooter>
+                                    {isEditingGroup && (
+                                        <div className="mt-3 space-y-2">
+                                            <Input
+                                                value={groupAvatarDraft}
+                                                onChange={(e) => setGroupAvatarDraft(e.target.value)}
+                                                placeholder="URL ảnh nhóm"
+                                            />
+                                            <div className="flex items-center justify-end gap-2">
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    onClick={() => {
+                                                        setIsEditingGroup(false);
+                                                        setGroupNameDraft(participant.displayName || conversation.name || "Nhóm chat");
+                                                        setGroupAvatarDraft(participant.avatarUrl || conversation.avatarUrl || "");
+                                                    }}
+                                                >
+                                                    Huỷ
+                                                </Button>
+                                                <Button size="sm" onClick={handleSaveGroupProfile}>
+                                                    Lưu
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div className="rounded-lg border border-border bg-muted/20 p-3 space-y-3">
+                                    <p className="text-sm font-semibold text-foreground">
+                                        Thành viên ({groupMembers.length})
+                                    </p>
+                                    <div className="flex items-center -space-x-2">
+                                        {groupMembers.slice(0, 6).map((member) => (
+                                            <Avatar
+                                                key={member.id}
+                                                className="h-9 w-9 border-2 border-background"
+                                                title={member.displayName}
+                                            >
+                                                <AvatarImage src={member.avatarUrl} />
+                                                <AvatarFallback>
+                                                    {member.displayName.charAt(0)}
+                                                </AvatarFallback>
+                                            </Avatar>
+                                        ))}
+                                        {groupMembers.length > 6 && (
+                                            <div className="h-9 w-9 rounded-full border-2 border-background bg-muted flex items-center justify-center text-[11px] text-muted-foreground font-semibold">
+                                                +{groupMembers.length - 6}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+
+                                <div className="rounded-lg border border-border bg-muted/20 p-3">
+                                    <p className="text-sm font-medium text-foreground">Link tham gia nhóm</p>
+                                    <div className="mt-2 flex items-center gap-2">
+                                        <a
+                                            href={inviteLink}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            className="text-sm text-brand hover:underline truncate"
+                                        >
+                                            {inviteLink}
+                                        </a>
+                                        <Button
+                                            variant="outline"
+                                            size="icon"
+                                            className="h-8 w-8 shrink-0"
+                                            onClick={async () => {
+                                                try {
+                                                    await navigator.clipboard.writeText(inviteLink);
+                                                    toast.success("Đã sao chép link nhóm");
+                                                } catch {
+                                                    toast.error("Không thể sao chép link");
+                                                }
+                                            }}
+                                        >
+                                            <Copy size={14} />
+                                        </Button>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-1">
+                                    <Button
+                                        variant="ghost"
+                                        className="w-full justify-start"
+                                        onClick={() => {
+                                            setShowProfileDialog(false);
+                                            setShowGroupPanel(true);
+                                        }}
+                                    >
+                                        <Settings className="mr-2 h-4 w-4" />
+                                        Quản lý nhóm
+                                    </Button>
+                                    <Button
+                                        variant="ghost"
+                                        className="w-full justify-start text-red-500 hover:text-red-600 hover:bg-red-500/10"
+                                        onClick={() => toast.info("Development in progress...")}
+                                    >
+                                        <LogOut className="mr-2 h-4 w-4" />
+                                        Rời nhóm
+                                    </Button>
+                                </div>
+                            </div>
+                        </>
+                    )}
                 </DialogContent>
             </Dialog>
 
