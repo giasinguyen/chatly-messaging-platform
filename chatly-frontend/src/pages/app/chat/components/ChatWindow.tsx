@@ -2,16 +2,19 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import { ChatHeader } from "./ChatHeader";
 import { MessageList } from "./MessageList";
 import { ChatInput } from "./ChatInput";
+import { GroupManagementPanel } from "./GroupManagementPanel";
 import { conversationService } from "@/services/conversation.service";
 import { contactService } from "@/services/contact.service";
 import { messageService } from "@/services/message.service";
 import { userService } from "@/services/user.service";
 import { useAuthStore } from "@/store/auth.store";
 import { useChatSocket } from "@/hooks/useChatSocket";
+import { usePresenceSocket, type PresenceEvent } from "@/hooks/usePresenceSocket";
 import { getOtherParticipantId } from "@/utils/conversation";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { PresenceIndicator } from "@/components/customize/PresenceIndicator";
 import {
     Dialog,
     DialogContent,
@@ -103,6 +106,10 @@ export function ChatWindow({ id }: ChatWindowProps) {
     const [showProfileDialog, setShowProfileDialog] = useState(false);
     const [contactStatus, setContactStatus] = useState<ContactStatus | null>(null);
     const [sendingContact, setSendingContact] = useState(false);
+    const [showGroupPanel, setShowGroupPanel] = useState(false);
+
+    // Presence tracking
+    const [presenceMap, setPresenceMap] = useState<Record<string, { status: string; lastSeen: string | null }>>({});
 
     // ----------------------------------------------------------------
     // 1. WebSocket Hook Integration
@@ -142,6 +149,16 @@ export function ChatWindow({ id }: ChatWindowProps) {
         onTyping,
         onRead
     });
+
+    // Presence socket hook
+    const onPresenceChange = useCallback((event: PresenceEvent) => {
+        setPresenceMap((prev) => ({
+            ...prev,
+            [event.userId]: { status: event.status, lastSeen: event.lastSeen },
+        }));
+    }, []);
+
+    usePresenceSocket({ onPresenceChange });
 
     // ----------------------------------------------------------------
     // 2. Fetch initial data
@@ -207,6 +224,17 @@ export function ChatWindow({ id }: ChatWindowProps) {
                             (c.user.id === otherId && c.contact.id === currentUser.id),
                     );
                     setContactStatus(relation?.status ?? null);
+
+                    // Initialize presence from fetched user data
+                    if (other && otherId) {
+                        setPresenceMap((prev) => ({
+                            ...prev,
+                            [otherId]: {
+                                status: other.status ?? "OFFLINE",
+                                lastSeen: other.lastSeen ?? null,
+                            },
+                        }));
+                    }
                 } else {
                     setParticipant({
                         id: conv.id,
@@ -284,7 +312,7 @@ export function ChatWindow({ id }: ChatWindowProps) {
 
         try {
             setSendingContact(true);
-            await contactService.sendRequest(participant.id);
+            await contactService.sendRequest({ contactId: participant.id });
             setContactStatus("PENDING");
             toast.success("Đã gửi lời mời kết bạn");
         } catch (error) {
@@ -331,11 +359,21 @@ export function ChatWindow({ id }: ChatWindowProps) {
         participant.id !== currentUser?.id &&
         !["ACCEPTED", "PENDING"].includes(contactStatus ?? "");
 
+    // Determine presence status for the other participant
+    const isGroup = conversation.type === "GROUP";
+    const participantPresence = !isGroup
+        ? presenceMap[participant.id] ?? undefined
+        : undefined;
+
     return (
         <div className="flex-1 flex flex-col overflow-hidden bg-background relative">
             <ChatHeader
                 user={participant}
                 onOpenProfile={() => setShowProfileDialog(true)}
+                isGroup={isGroup}
+                onOpenGroupPanel={isGroup ? () => setShowGroupPanel(true) : undefined}
+                presenceStatus={participantPresence?.status}
+                lastSeen={participantPresence?.lastSeen}
             />
 
             <MessageList
@@ -395,6 +433,14 @@ export function ChatWindow({ id }: ChatWindowProps) {
                                 <p className="text-sm text-muted-foreground truncate">
                                     @{participant.username || "unknown"}
                                 </p>
+                                {!isGroup && participantPresence && (
+                                    <PresenceIndicator
+                                        status={participantPresence.status}
+                                        lastSeen={participantPresence.lastSeen}
+                                        showLabel
+                                        className="mt-1"
+                                    />
+                                )}
                             </div>
                         </div>
 
@@ -457,6 +503,15 @@ export function ChatWindow({ id }: ChatWindowProps) {
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+
+            {/* Group Management Panel */}
+            {isGroup && (
+                <GroupManagementPanel
+                    conversationId={id}
+                    open={showGroupPanel}
+                    onOpenChange={setShowGroupPanel}
+                />
+            )}
         </div>
     );
 }
