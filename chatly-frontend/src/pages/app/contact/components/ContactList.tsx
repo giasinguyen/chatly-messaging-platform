@@ -1,21 +1,30 @@
+import { useState } from "react";
 import {
     Search,
     UserPlus,
     UsersRound,
     UserCircle,
-    Users,
-    Bell,
+    UserMinus,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import type { ContactTab } from "../index";
+import { AddFriendDialog } from "./AddFriendDialog";
 
-export function ContactList() {
-    const categories = [
+interface ContactListProps {
+    activeTab: ContactTab;
+    onTabChange: (tab: ContactTab) => void;
+}
+
+export function ContactList({ activeTab, onTabChange }: ContactListProps) {
+    const [isAddFriendOpen, setIsAddFriendOpen] = useState(false);
+
+    const categories: { id: ContactTab; label: string; icon: any }[] = [
         { id: "friends", label: "Danh sách bạn bè", icon: UserCircle },
-        { id: "groups", label: "Danh sách nhóm và cộng đồng", icon: Users },
         { id: "requests", label: "Lời mời kết bạn", icon: UserPlus },
+        { id: "blocked", label: "Đã chặn", icon: UserMinus },
     ];
 
     return (
@@ -31,9 +40,11 @@ export function ContactList() {
                 </div>
                 <div className="flex items-center gap-1">
                     <Button
+                        onClick={() => setIsAddFriendOpen(true)}
                         variant="ghost"
                         size="icon"
                         className="h-8 w-8 rounded-full"
+                        title="Thêm bạn bè"
                     >
                         <UserPlus size={16} />
                     </Button>
@@ -54,12 +65,13 @@ export function ContactList() {
                         {categories.map((cat) => (
                             <Button
                                 key={cat.id}
+                                onClick={() => onTabChange(cat.id)}
                                 variant={
-                                    cat.id === "friends" ? "secondary" : "ghost"
+                                    activeTab === cat.id ? "secondary" : "ghost"
                                 }
                                 className={cn(
                                     "w-full justify-start h-auto py-3 px-3",
-                                    cat.id === "friends" &&
+                                    activeTab === cat.id &&
                                         "bg-brand/10 text-brand hover:bg-brand/15",
                                 )}
                             >
@@ -70,6 +82,11 @@ export function ContactList() {
                     </div>
                 </ScrollArea>
             </div>
+
+            <AddFriendDialog
+                open={isAddFriendOpen}
+                onOpenChange={setIsAddFriendOpen}
+            />
         </aside>
     );
 }

@@ -1,16 +1,16 @@
+import { useState } from "react";
 import { ContactList } from "./components/ContactList";
 import { ContactDetails } from "./components/ContactDetails";
-import { useEffect } from "react";
-import { toast } from "sonner";
+
+export type ContactTab = "friends" | "requests" | "blocked";
 
 export default function ContactPage() {
-    useEffect(() => {
-        toast.info("Development in progress...");
-    }, []);
+    const [activeTab, setActiveTab] = useState<ContactTab>("friends");
+
     return (
         <div className="flex h-full w-full overflow-hidden">
-            <ContactList />
-            <ContactDetails />
+            <ContactList activeTab={activeTab} onTabChange={setActiveTab} />
+            <ContactDetails activeTab={activeTab} />
         </div>
     );
 }
