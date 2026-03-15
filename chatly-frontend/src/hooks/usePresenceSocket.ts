@@ -1,4 +1,4 @@
-import { useEffect, useCallback, useRef } from "react";
+import { useEffect, useRef } from "react";
 import { socketService } from "@/services/socket.service";
 import { useAuthStore } from "@/store/auth.store";
 
@@ -35,7 +35,7 @@ export function usePresenceSocket({ onPresenceChange }: UsePresenceSocketProps) 
 
             if (!client || !isMounted) return;
 
-            const sub = client.subscribe("/topic/presence", (payload) => {
+            const sub = client.subscribe("/topic/presence", (payload: { body: string }) => {
                 const event: PresenceEvent = JSON.parse(payload.body);
                 callbackRef.current(event);
             });

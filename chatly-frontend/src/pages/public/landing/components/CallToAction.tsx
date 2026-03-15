@@ -1,4 +1,3 @@
-import ArrowRightIcon from "@/assets/landing/arrow-right.svg";
 import starImage from "@/assets/landing/star.png";
 import springImage from "@/assets/landing/spring.png";
 import { motion, useScroll, useTransform } from "framer-motion";
