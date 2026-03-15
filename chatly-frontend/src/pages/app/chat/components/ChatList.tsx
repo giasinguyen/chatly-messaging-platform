@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { NavLink } from "react-router-dom";
 import {
     Search,
@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/context-menu";
 import { cn } from "@/lib/utils";
 import { conversationService } from "@/services/conversation.service";
+import { socketService } from "@/services/socket.service";
 import { userService } from "@/services/user.service";
 import { useAuthStore } from "@/store/auth.store";
 import {
@@ -34,6 +35,7 @@ import {
     getConversationAvatar,
 } from "@/utils/conversation";
 import type { ConversationResponse } from "@/types/conversation";
+import type { Message } from "@/types/message";
 import type { UserResponse } from "@/types/auth";
 import { toast } from "sonner";
 
@@ -70,9 +72,14 @@ export function ChatList() {
     const [conversations, setConversations] = useState<ConversationResponse[]>(
         [],
     );
+    const subscriptionsRef = useRef<Array<{ unsubscribe: () => void }>>([]);
     const [users, setUsers] = useState<UserResponse[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState("");
+    const conversationIdsKey = [...conversations]
+        .map((conv) => conv.id)
+        .sort()
+        .join("|");
 
     useEffect(() => {
         const fetchData = async () => {
@@ -93,6 +100,71 @@ export function ChatList() {
         };
         fetchData();
     }, [currentUser]);
+
+    useEffect(() => {
+        if (!currentUser?.id || conversations.length === 0) return;
+
+        let disposed = false;
+
+        const setup = async () => {
+            try {
+                const token = localStorage.getItem("access_token");
+                if (!token) return;
+
+                await socketService.connect(token);
+                if (disposed) return;
+
+                const client = socketService.getClient();
+                if (!client) return;
+
+                subscriptionsRef.current.forEach((sub) => sub.unsubscribe());
+                subscriptionsRef.current = conversations.map((conv) =>
+                    client.subscribe(`/topic/conversation.${conv.id}`, (payload) => {
+                        const message = JSON.parse(payload.body) as Message;
+
+                        setConversations((prev) => {
+                            const target = prev.find(
+                                (item) => item.id === message.conversationId,
+                            );
+                            if (!target) return prev;
+
+                            const updatedConversation: ConversationResponse = {
+                                ...target,
+                                lastMessage: {
+                                    senderId: message.senderId,
+                                    content: message.content,
+                                    type: message.type,
+                                    timestamp: message.createdAt,
+                                },
+                                updatedAt: message.createdAt,
+                            };
+
+                            return [
+                                updatedConversation,
+                                ...prev.filter(
+                                    (item) => item.id !== message.conversationId,
+                                ),
+                            ];
+                        });
+                    }),
+                );
+            } catch (error) {
+                console.error("Không thể subscribe realtime conversations:", error);
+            }
+        };
+
+        setup();
+
+        return () => {
+            disposed = true;
+            subscriptionsRef.current.forEach((sub) => sub.unsubscribe());
+            subscriptionsRef.current = [];
+        };
+    }, [
+        currentUser?.id,
+        conversations.length,
+        conversationIdsKey,
+    ]);
 
     const filteredConversations = conversations.filter((conv) => {
         if (!searchQuery.trim()) return true;

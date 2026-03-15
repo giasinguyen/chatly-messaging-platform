@@ -29,6 +29,7 @@ export function ChatInput({
     const [content, setContent] = useState("");
     const [isTyping, setIsTyping] = useState(false);
     const typingTimerRef = useRef<any>(null);
+    const inputRef = useRef<HTMLInputElement>(null);
 
     // ----------------------------------------------------------------
     // Typing Logic
@@ -61,6 +62,13 @@ export function ChatInput({
             if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
         };
     }, []);
+
+    // Focus input when replying
+    useEffect(() => {
+        if (replyingTo && inputRef.current) {
+            inputRef.current.focus();
+        }
+    }, [replyingTo]);
 
     const handleSend = () => {
         if (!content.trim()) return;
@@ -109,6 +117,7 @@ export function ChatInput({
                 <div className="flex items-center gap-3">
                     <div className="flex-1 relative">
                         <Input
+                            ref={inputRef}
                             placeholder="Nhập tin nhắn tới người này"
                             value={content}
                             onChange={(e) => handleContentChange(e.target.value)}

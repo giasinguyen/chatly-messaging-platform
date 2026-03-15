@@ -5,12 +5,17 @@ interface ReplyPreviewProps {
     replyMessage: Message;
     participant: ChatUser;
     currentUserId: string;
+    senderName?: string;
     /** nếu là tin nhắn của mình thì màu sẽ đảo ngược */
     isMe?: boolean;
 }
 
-export function ReplyPreview({ replyMessage, participant, currentUserId, isMe }: ReplyPreviewProps) {
-    const senderName = replyMessage.senderId === currentUserId ? "Bạn" : participant.displayName.split(" ").slice(-1)[0];
+export function ReplyPreview({ replyMessage, participant, currentUserId, senderName, isMe }: ReplyPreviewProps) {
+    const resolvedSenderName =
+        senderName ??
+        (replyMessage.senderId === currentUserId
+            ? "Bạn"
+            : participant.displayName.split(" ").slice(-1)[0]);
 
     return (
         <div
@@ -22,7 +27,7 @@ export function ReplyPreview({ replyMessage, participant, currentUserId, isMe }:
             )}
         >
             <p className={cn("font-semibold text-[10px] mb-0.5", isMe ? "text-white/90" : "text-brand")}>
-                {senderName}
+                {resolvedSenderName}
             </p>
             <p className="line-clamp-1 text-[11px]">{replyMessage.content}</p>
         </div>
