@@ -2,17 +2,21 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import { ChatHeader } from "./ChatHeader";
 import { MessageList } from "./MessageList";
 import { ChatInput } from "./ChatInput";
+import { GroupManagementPanel } from "./GroupManagementPanel";
 import { conversationService } from "@/services/conversation.service";
 import { contactService } from "@/services/contact.service";
 import { messageService } from "@/services/message.service";
 import { userService } from "@/services/user.service";
 import { useAuthStore } from "@/store/auth.store";
 import { useChatSocket } from "@/hooks/useChatSocket";
+import { usePresenceSocket, type PresenceEvent } from "@/hooks/usePresenceSocket";
 import { getOtherParticipantId } from "@/utils/conversation";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PresenceIndicator } from "@/components/customize/PresenceIndicator";
+
 import {
     Dialog,
     DialogContent,
@@ -117,6 +121,10 @@ export function ChatWindow({ id }: ChatWindowProps) {
     const [isEditingGroup, setIsEditingGroup] = useState(false);
     const [groupNameDraft, setGroupNameDraft] = useState("");
     const [groupAvatarDraft, setGroupAvatarDraft] = useState("");
+    const [showGroupPanel, setShowGroupPanel] = useState(false);
+    // Presence tracking
+    const [presenceMap, setPresenceMap] = useState<Record<string, { status: string; lastSeen: string | null }>>({});
+
 
     // ----------------------------------------------------------------
     // 1. WebSocket Hook Integration
@@ -156,6 +164,16 @@ export function ChatWindow({ id }: ChatWindowProps) {
         onTyping,
         onRead
     });
+
+    // Presence socket hook
+    const onPresenceChange = useCallback((event: PresenceEvent) => {
+        setPresenceMap((prev) => ({
+            ...prev,
+            [event.userId]: { status: event.status, lastSeen: event.lastSeen },
+        }));
+    }, []);
+
+    usePresenceSocket({ onPresenceChange });
 
     // ----------------------------------------------------------------
     // 2. Fetch initial data
@@ -244,6 +262,17 @@ export function ChatWindow({ id }: ChatWindowProps) {
                             (c.user.id === otherId && c.contact.id === currentUser.id),
                     );
                     setContactStatus(relation?.status ?? null);
+
+                    // Initialize presence from fetched user data
+                    if (other && otherId) {
+                        setPresenceMap((prev) => ({
+                            ...prev,
+                            [otherId]: {
+                                status: other.status ?? "OFFLINE",
+                                lastSeen: other.lastSeen ?? null,
+                            },
+                        }));
+                    }
                 } else {
                     const firstMemberWithAvatar = conv.participantIds
                         .map((participantId) => directory[participantId])
@@ -325,7 +354,7 @@ export function ChatWindow({ id }: ChatWindowProps) {
 
         try {
             setSendingContact(true);
-            await contactService.sendRequest(participant.id);
+            await contactService.sendRequest({ contactId: participant.id });
             setContactStatus("PENDING");
             toast.success("Đã gửi lời mời kết bạn");
         } catch (error) {
@@ -433,11 +462,21 @@ export function ChatWindow({ id }: ChatWindowProps) {
         participant.id !== currentUser?.id &&
         !["ACCEPTED", "PENDING"].includes(contactStatus ?? "");
 
+    // Determine presence status for the other participant
+    const isGroup = conversation.type === "GROUP";
+    const participantPresence = !isGroup
+        ? presenceMap[participant.id] ?? undefined
+        : undefined;
+
     return (
         <div className="flex-1 flex flex-col overflow-hidden bg-background relative">
             <ChatHeader
                 user={participant}
                 onOpenProfile={() => setShowProfileDialog(true)}
+                isGroup={isGroup}
+                onOpenGroupPanel={isGroup ? () => setShowGroupPanel(true) : undefined}
+                presenceStatus={participantPresence?.status}
+                lastSeen={participantPresence?.lastSeen}
             />
 
             <MessageList
@@ -488,25 +527,31 @@ export function ChatWindow({ id }: ChatWindowProps) {
                                     Hồ sơ hiển thị theo quyền riêng tư của người này.
                                 </DialogDescription>
                             </DialogHeader>
-
-                            <div className="space-y-4">
-                                <div className="flex items-center gap-3">
-                                    <Avatar className="h-14 w-14 border border-border/60">
-                                        <AvatarImage src={participant.avatarUrl} />
-                                        <AvatarFallback>
-                                            {participant.displayName.charAt(0)}
-                                        </AvatarFallback>
-                                    </Avatar>
-                                    <div className="min-w-0">
-                                        <p className="text-base font-semibold text-foreground truncate">
-                                            {participant.displayName}
-                                        </p>
-                                        <p className="text-sm text-muted-foreground truncate">
-                                            @{participant.username || "unknown"}
-                                        </p>
-                                    </div>
-                                </div>
-
+                    <div className="space-y-4">
+                        <div className="flex items-center gap-3">
+                            <Avatar className="h-14 w-14 border border-border/60">
+                                <AvatarImage src={participant.avatarUrl} />
+                                <AvatarFallback>
+                                    {participant.displayName.charAt(0)}
+                                </AvatarFallback>
+                            </Avatar>
+                            <div className="min-w-0">
+                                <p className="text-base font-semibold text-foreground truncate">
+                                    {participant.displayName}
+                                </p>
+                                <p className="text-sm text-muted-foreground truncate">
+                                    @{participant.username || "unknown"}
+                                </p>
+                                {!isGroup && participantPresence && (
+                                    <PresenceIndicator
+                                        status={participantPresence.status}
+                                        lastSeen={participantPresence.lastSeen}
+                                        showLabel
+                                        className="mt-1"
+                                    />
+                                )}
+                            </div>
+                        </div>
                                 <div className="space-y-2 rounded-lg border border-border bg-muted/30 p-3">
                                     <div className="flex items-center justify-between gap-2 text-sm">
                                         <span className="inline-flex items-center gap-1 text-muted-foreground">
@@ -718,6 +763,15 @@ export function ChatWindow({ id }: ChatWindowProps) {
                     )}
                 </DialogContent>
             </Dialog>
+
+            {/* Group Management Panel */}
+            {isGroup && (
+                <GroupManagementPanel
+                    conversationId={id}
+                    open={showGroupPanel}
+                    onOpenChange={setShowGroupPanel}
+                />
+            )}
         </div>
     );
 }
