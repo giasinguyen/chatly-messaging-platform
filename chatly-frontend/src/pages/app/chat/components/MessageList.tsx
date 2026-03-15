@@ -13,6 +13,7 @@ interface MessageListProps {
     participantDirectory: Record<string, ChatUser>;
     currentUserId: string;
     onReply: (msg: Message) => void;
+    onOpenSenderProfile?: (userId: string) => void;
     onLoadMore: () => void;
     isLoadingMore: boolean;
     hasMore: boolean;
@@ -25,6 +26,7 @@ export function MessageList({
     participantDirectory,
     currentUserId,
     onReply,
+    onOpenSenderProfile,
     onLoadMore,
     isLoadingMore,
     hasMore,
@@ -172,12 +174,19 @@ export function MessageList({
                 )}
             >
                 {!isMe && shouldShowAvatar(msg, index) && (
+                    <button
+                        type="button"
+                        onClick={() => onOpenSenderProfile?.(msg.senderId)}
+                        className="shrink-0"
+                        title="Xem thông tin người dùng"
+                    >
                     <Avatar className="h-8 w-8 align-bottom border border-border/30 shrink-0">
                         <AvatarImage src={sender.avatarUrl} />
                         <AvatarFallback>
                             {sender.displayName.charAt(0)}
                         </AvatarFallback>
                     </Avatar>
+                    </button>
                 )}
                 {!isMe && !shouldShowAvatar(msg, index) && (
                     <div className="h-8 w-8 shrink-0" />
@@ -190,9 +199,14 @@ export function MessageList({
                     )}
                 >
                     {!isMe && conversationType === "GROUP" && shouldShowAvatar(msg, index) && (
-                        <span className="text-[11px] text-muted-foreground mb-1 px-1">
+                        <button
+                            type="button"
+                            onClick={() => onOpenSenderProfile?.(msg.senderId)}
+                            className="text-[11px] text-muted-foreground mb-1 px-1 hover:text-foreground transition-colors"
+                            title="Xem thông tin người dùng"
+                        >
                             {senderShortName}
-                        </span>
+                        </button>
                     )}
 
                     {/* Bubble + Reply button */}

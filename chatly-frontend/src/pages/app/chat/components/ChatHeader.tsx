@@ -16,7 +16,7 @@ interface ChatHeaderProps {
 
 export function ChatHeader({ user, onOpenProfile, isGroup, onOpenGroupPanel, presenceStatus, lastSeen }: ChatHeaderProps) {
     return (
-        <header className="h-16 border-b border-border flex items-center justify-between px-4 shrink-0" style={{ background: '#1b1c1d' }}>
+        <header className="h-16 border-b border-border flex items-center justify-between px-4 shrink-0 bg-background">
             <button
                 type="button"
                 onClick={onOpenProfile}

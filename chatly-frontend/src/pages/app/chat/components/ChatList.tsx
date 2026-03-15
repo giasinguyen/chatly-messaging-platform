@@ -357,7 +357,7 @@ export function ChatList() {
     };
 
     return (
-        <aside className="w-[340px] flex flex-col border-r border-border shrink-0 h-full overflow-hidden" style={{ background: '#1b1c1d' }}>
+        <aside className="w-[340px] flex flex-col border-r border-border shrink-0 h-full overflow-hidden bg-background">
             {/* Search Header */}
             <div className="px-4 py-4 flex items-center gap-2 border-b border-border/50 bg-muted/10">
                 <div className="relative flex-1">

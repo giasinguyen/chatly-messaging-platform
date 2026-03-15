@@ -122,6 +122,7 @@ export function ChatWindow({ id }: ChatWindowProps) {
     const [groupNameDraft, setGroupNameDraft] = useState("");
     const [groupAvatarDraft, setGroupAvatarDraft] = useState("");
     const [showGroupPanel, setShowGroupPanel] = useState(false);
+    const [selectedProfileUser, setSelectedProfileUser] = useState<ChatUser | null>(null);
     // Presence tracking
     const [presenceMap, setPresenceMap] = useState<Record<string, { status: string; lastSeen: string | null }>>({});
 
@@ -189,6 +190,7 @@ export function ChatWindow({ id }: ChatWindowProps) {
                 setNotFound(false);
                 setMessages([]);
                 setReplyingTo(null);
+                setSelectedProfileUser(null);
                 setTypingUserIds(new Set());
                 setParticipantDirectory({});
                 currentPageRef.current = 0;
@@ -347,14 +349,25 @@ export function ChatWindow({ id }: ChatWindowProps) {
 
     const handleReply = useCallback((msg: Message) => setReplyingTo(msg), []);
     const handleCancelReply = useCallback(() => setReplyingTo(null), []);
+    const handleOpenSenderProfile = useCallback(
+        (senderId: string) => {
+            const user = participantDirectory[senderId];
+            if (!user) return;
+            setSelectedProfileUser(user);
+            setShowProfileDialog(true);
+        },
+        [participantDirectory],
+    );
 
     const handleSendFriendRequest = useCallback(async () => {
-        if (!participant || conversation?.type !== "PRIVATE") return;
+        const targetUser =
+            selectedProfileUser ?? (conversation?.type === "PRIVATE" ? participant : null);
+        if (!targetUser) return;
         if (contactStatus === "ACCEPTED" || contactStatus === "PENDING") return;
 
         try {
             setSendingContact(true);
-            await contactService.sendRequest({ contactId: participant.id });
+            await contactService.sendRequest({ contactId: targetUser.id });
             setContactStatus("PENDING");
             toast.success("Đã gửi lời mời kết bạn");
         } catch (error) {
@@ -362,7 +375,7 @@ export function ChatWindow({ id }: ChatWindowProps) {
         } finally {
             setSendingContact(false);
         }
-    }, [participant, conversation?.type, contactStatus]);
+    }, [selectedProfileUser, conversation?.type, participant, contactStatus]);
 
     useEffect(() => {
         if (!showProfileDialog || conversation?.type !== "GROUP" || !participant) {
@@ -452,14 +465,14 @@ export function ChatWindow({ id }: ChatWindowProps) {
               .split(" ")
               .slice(-1)[0]
         : participant.displayName.split(" ").slice(-1)[0];
-    const showPhone = participant.privacy?.showPhone !== false;
-    const showDob = participant.privacy?.showDob !== false;
+    const profileUser = selectedProfileUser ?? (conversation.type === "PRIVATE" ? participant : null);
+    const showPhone = profileUser?.privacy?.showPhone !== false;
+    const showDob = profileUser?.privacy?.showDob !== false;
     const groupMembers = Object.values(participantDirectory);
     const inviteLink = `https://chatly.app/group/${conversation.id}`;
     const canAddFriend =
-        conversation.type === "PRIVATE" &&
-        participant.id &&
-        participant.id !== currentUser?.id &&
+        !!profileUser?.id &&
+        profileUser.id !== currentUser?.id &&
         !["ACCEPTED", "PENDING"].includes(contactStatus ?? "");
 
     // Determine presence status for the other participant
@@ -472,7 +485,10 @@ export function ChatWindow({ id }: ChatWindowProps) {
         <div className="flex-1 flex flex-col overflow-hidden bg-background relative">
             <ChatHeader
                 user={participant}
-                onOpenProfile={() => setShowProfileDialog(true)}
+                onOpenProfile={() => {
+                    setSelectedProfileUser(null);
+                    setShowProfileDialog(true);
+                }}
                 isGroup={isGroup}
                 onOpenGroupPanel={isGroup ? () => setShowGroupPanel(true) : undefined}
                 presenceStatus={participantPresence?.status}
@@ -486,6 +502,7 @@ export function ChatWindow({ id }: ChatWindowProps) {
                 participantDirectory={participantDirectory}
                 currentUserId={currentUser?.id ?? ""}
                 onReply={handleReply}
+                onOpenSenderProfile={handleOpenSenderProfile}
                 onLoadMore={handleLoadMore}
                 isLoadingMore={isLoadingMore}
                 hasMore={hasMore}
@@ -514,12 +531,21 @@ export function ChatWindow({ id }: ChatWindowProps) {
                 onTyping={sendTyping}
             />
 
-            <Dialog open={showProfileDialog} onOpenChange={setShowProfileDialog}>
+            <Dialog
+                open={showProfileDialog}
+                onOpenChange={(open) => {
+                    setShowProfileDialog(open);
+                    if (!open) setSelectedProfileUser(null);
+                }}
+            >
                 <DialogContent
-                    className="sm:max-w-md border-border/70"
-                    style={conversation.type === "GROUP" ? { backgroundColor: "#1b1c1d" } : undefined}
+                    className={
+                        conversation.type === "GROUP"
+                            ? "sm:max-w-md border-border/70 bg-background dark:bg-[#1b1c1d]"
+                            : "sm:max-w-md border-border/70"
+                    }
                 >
-                    {conversation.type === "PRIVATE" ? (
+                    {profileUser ? (
                         <>
                             <DialogHeader>
                                 <DialogTitle>Thông tin người dùng</DialogTitle>
@@ -530,19 +556,19 @@ export function ChatWindow({ id }: ChatWindowProps) {
                     <div className="space-y-4">
                         <div className="flex items-center gap-3">
                             <Avatar className="h-14 w-14 border border-border/60">
-                                <AvatarImage src={participant.avatarUrl} />
+                                <AvatarImage src={profileUser.avatarUrl} />
                                 <AvatarFallback>
-                                    {participant.displayName.charAt(0)}
+                                    {profileUser.displayName.charAt(0)}
                                 </AvatarFallback>
                             </Avatar>
                             <div className="min-w-0">
                                 <p className="text-base font-semibold text-foreground truncate">
-                                    {participant.displayName}
+                                    {profileUser.displayName}
                                 </p>
                                 <p className="text-sm text-muted-foreground truncate">
-                                    @{participant.username || "unknown"}
+                                    @{profileUser.username || "unknown"}
                                 </p>
-                                {!isGroup && participantPresence && (
+                                {profileUser.id === participant.id && !isGroup && participantPresence && (
                                     <PresenceIndicator
                                         status={participantPresence.status}
                                         lastSeen={participantPresence.lastSeen}
@@ -560,7 +586,7 @@ export function ChatWindow({ id }: ChatWindowProps) {
                                         </span>
                                         <span className="font-medium text-foreground">
                                             {showPhone
-                                                ? participant.phone || "Chưa cập nhật"
+                                                ? profileUser.phone || "Chưa cập nhật"
                                                 : "Đã ẩn"}
                                         </span>
                                     </div>
@@ -571,7 +597,7 @@ export function ChatWindow({ id }: ChatWindowProps) {
                                             Ngày sinh
                                         </span>
                                         <span className="font-medium text-foreground">
-                                            {showDob ? formatDob(participant.dob) : "Đã ẩn"}
+                                            {showDob ? formatDob(profileUser.dob) : "Đã ẩn"}
                                         </span>
                                     </div>
                                 </div>
@@ -744,7 +770,10 @@ export function ChatWindow({ id }: ChatWindowProps) {
                                     <Button
                                         variant="ghost"
                                         className="w-full justify-start"
-                                        onClick={() => toast.info("Development in progress...")}
+                                        onClick={() => {
+                                            setShowProfileDialog(false);
+                                            setShowGroupPanel(true);
+                                        }}
                                     >
                                         <Settings className="mr-2 h-4 w-4" />
                                         Quản lý nhóm
