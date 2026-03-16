@@ -2,6 +2,7 @@ package com.chatly.service;
 
 import com.chatly.dto.request.ConversationRequest;
 import com.chatly.dto.response.ConversationResponse;
+import com.chatly.dto.response.PagedResponse;
 import com.chatly.exception.AppException;
 import com.chatly.exception.ErrorCode;
 import com.chatly.mapper.ConversationMapper;
@@ -14,12 +15,21 @@ import com.chatly.repository.mongo.ConversationRepository;
 import com.chatly.repository.postgres.GroupMemberRepository;
 import com.chatly.repository.postgres.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.regex.Pattern;
 
 @Service
 @RequiredArgsConstructor
@@ -29,6 +39,7 @@ public class ConversationService {
     private final GroupMemberRepository groupMemberRepository;
     private final UserRepository userRepository;
     private final ConversationMapper conversationMapper;
+    private final MongoTemplate mongoTemplate;
 
     @Transactional
     public ConversationResponse create(String creatorId, ConversationRequest request) {
@@ -75,6 +86,46 @@ public class ConversationService {
                 .stream()
                 .map(conversationMapper::toResponse)
                 .toList();
+    }
+
+    public PagedResponse<ConversationResponse> search(String userId, String keyword, int page, int size) {
+        Pageable pageable = PageRequest.of(page, size);
+        Query query = new Query();
+
+        if (keyword != null && !keyword.isBlank()) {
+            Pattern safePattern = Pattern.compile(Pattern.quote(keyword.trim()), Pattern.CASE_INSENSITIVE);
+
+            List<String> matchedParticipantIds = userRepository.searchIdsByKeyword(keyword.trim())
+                    .stream()
+                    .map(UUID::toString)
+                    .toList();
+
+            List<Criteria> searchableCriteria = new ArrayList<>();
+            searchableCriteria.add(Criteria.where("name").regex(safePattern));
+
+            if (!matchedParticipantIds.isEmpty()) {
+                searchableCriteria.add(Criteria.where("participantIds").in(matchedParticipantIds));
+            }
+
+            query.addCriteria(new Criteria().andOperator(
+                    Criteria.where("participantIds").in(userId),
+                    new Criteria().orOperator(searchableCriteria.toArray(new Criteria[0]))
+            ));
+        } else {
+            query.addCriteria(Criteria.where("participantIds").in(userId));
+        }
+
+        long total = mongoTemplate.count(query, Conversation.class);
+
+        query.with(Sort.by(Sort.Direction.DESC, "updatedAt"));
+        query.with(pageable);
+
+        List<ConversationResponse> items = mongoTemplate.find(query, Conversation.class)
+                .stream()
+                .map(conversationMapper::toResponse)
+                .toList();
+
+        return PagedResponse.from(new PageImpl<>(items, pageable, total));
     }
 
     @Transactional

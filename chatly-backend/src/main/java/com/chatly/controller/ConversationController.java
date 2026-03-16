@@ -3,6 +3,7 @@ package com.chatly.controller;
 import com.chatly.dto.request.ConversationRequest;
 import com.chatly.dto.response.ApiResponse;
 import com.chatly.dto.response.ConversationResponse;
+import com.chatly.dto.response.PagedResponse;
 import com.chatly.service.ConversationService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -37,6 +38,16 @@ public class ConversationController {
     ApiResponse<List<ConversationResponse>> getByUser() {
         return ApiResponse.<List<ConversationResponse>>builder()
                 .result(conversationService.getByUserId(getAuthenticatedUserId()))
+                .build();
+    }
+
+    @GetMapping("/search")
+    ApiResponse<PagedResponse<ConversationResponse>> search(
+            @RequestParam("q") String keyword,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return ApiResponse.<PagedResponse<ConversationResponse>>builder()
+                .result(conversationService.search(getAuthenticatedUserId(), keyword, page, size))
                 .build();
     }
 

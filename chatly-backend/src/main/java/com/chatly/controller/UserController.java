@@ -2,6 +2,7 @@ package com.chatly.controller;
 
 import com.chatly.dto.request.UserUpdateRequest;
 import com.chatly.dto.response.ApiResponse;
+import com.chatly.dto.response.PagedResponse;
 import com.chatly.dto.response.UserResponse;
 import com.chatly.service.UserService;
 import lombok.RequiredArgsConstructor;
@@ -28,6 +29,16 @@ public class UserController {
     ApiResponse<List<UserResponse>> getAll() {
         return ApiResponse.<List<UserResponse>>builder()
                 .result(userService.getAll())
+                .build();
+    }
+
+    @GetMapping("/search")
+    ApiResponse<PagedResponse<UserResponse>> search(
+            @RequestParam("q") String keyword,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return ApiResponse.<PagedResponse<UserResponse>>builder()
+                .result(userService.search(keyword, page, size))
                 .build();
     }
 
