@@ -1,8 +1,13 @@
 package com.chatly.repository.postgres;
 
 import com.chatly.model.postgres.User;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -15,6 +20,26 @@ public interface UserRepository extends JpaRepository<User, UUID> {
     Optional<User> findByUsername(String username);
 
     Optional<User> findByUsernameOrEmailOrPhone(String username, String email, String phone);
+
+        @Query("""
+            SELECT u
+            FROM User u
+            WHERE LOWER(COALESCE(u.displayName, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
+               OR LOWER(COALESCE(u.username, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
+               OR LOWER(COALESCE(u.email, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
+               OR LOWER(COALESCE(u.phone, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
+            """)
+        Page<User> searchByKeyword(@Param("keyword") String keyword, Pageable pageable);
+
+        @Query("""
+            SELECT u.id
+            FROM User u
+            WHERE LOWER(COALESCE(u.displayName, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
+               OR LOWER(COALESCE(u.username, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
+               OR LOWER(COALESCE(u.email, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
+               OR LOWER(COALESCE(u.phone, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
+            """)
+        List<UUID> searchIdsByKeyword(@Param("keyword") String keyword);
 
     boolean existsByEmail(String email);
 
