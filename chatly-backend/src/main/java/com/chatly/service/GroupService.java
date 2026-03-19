@@ -152,11 +152,10 @@ public class GroupService {
      */
     @Transactional(readOnly = true)
     public List<GroupMemberResponse> getMembers(String conversationId, String requesterId) {
-        getGroupConversation(conversationId);
+        Conversation conversation = getGroupConversation(conversationId);
 
-        // Verify requester is a participant
-        UUID requesterUid = UUID.fromString(requesterId);
-        if (!groupMemberRepository.existsByConversationIdAndUserId(conversationId, requesterUid)) {
+        // Verify requester is a participant via MongoDB participantIds (source of truth)
+        if (!conversation.getParticipantIds().contains(requesterId)) {
             throw new AppException(ErrorCode.NOT_CONVERSATION_PARTICIPANT);
         }
 

@@ -3,6 +3,7 @@ import type {
     ApiResponse,
     UserResponse,
     UserUpdateRequest,
+    PagedResponse,
 } from "@/types/auth";
 
 /**
@@ -25,6 +26,22 @@ export const userService = {
     getAll: async (): Promise<ApiResponse<UserResponse[]>> => {
         const response =
             await axiosClient.get<ApiResponse<UserResponse[]>>("/api/users");
+        return response.data;
+    },
+
+    /**
+     * Tìm kiếm người dùng theo từ khóa (displayName, username, email, phone)
+     */
+    search: async (
+        q: string,
+        page = 0,
+        size = 20,
+    ): Promise<ApiResponse<PagedResponse<UserResponse>>> => {
+        const response = await axiosClient.get<
+            ApiResponse<PagedResponse<UserResponse>>
+        >(
+            `/api/users/search?q=${encodeURIComponent(q)}&page=${page}&size=${size}`,
+        );
         return response.data;
     },
 
