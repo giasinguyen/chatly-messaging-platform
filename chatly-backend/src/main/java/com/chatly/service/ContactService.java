@@ -70,7 +70,7 @@ public class ContactService {
 
     @Transactional(readOnly = true)
     public List<ContactResponse> getContacts(UUID userId, ContactStatus status) {
-        return contactRepository.findByUserIdAndStatus(userId, status).stream()
+        return contactRepository.findByParticipantIdAndStatus(userId, status).stream()
                 .map(contactMapper::toResponse)
                 .toList();
     }

@@ -799,6 +799,8 @@ export function ChatWindow({ id }: ChatWindowProps) {
                     conversationId={id}
                     open={showGroupPanel}
                     onOpenChange={setShowGroupPanel}
+                    initialGroupName={conversation?.name ?? ""}
+                    initialGroupAvatar={conversation?.avatarUrl ?? ""}
                 />
             )}
         </div>
