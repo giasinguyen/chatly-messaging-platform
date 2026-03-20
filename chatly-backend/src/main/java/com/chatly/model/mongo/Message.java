@@ -45,6 +45,20 @@ public class Message {
     @Builder.Default
     private List<ReadReceipt> readBy = new ArrayList<>();
 
+    // Recall fields
+    @Builder.Default
+    private boolean recalled = false;
+    private Instant recalledAt;
+    private String recalledBy;
+
+    // Edit fields
+    @Builder.Default
+    private boolean edited = false;
+    private Instant editedAt;
+
+    @Builder.Default
+    private List<EditHistory> editHistory = new ArrayList<>();
+
     @CreatedDate
     private Instant createdAt;
 

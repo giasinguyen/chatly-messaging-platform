@@ -29,6 +29,13 @@ public enum ErrorCode {
     NOT_CONVERSATION_PARTICIPANT(1303, "You are not a participant of this conversation", HttpStatus.FORBIDDEN),
 
     MESSAGE_NOT_FOUND(1400, "Message not found", HttpStatus.NOT_FOUND),
+    MESSAGE_ALREADY_RECALLED(1401, "Message has already been recalled", HttpStatus.CONFLICT),
+    CANNOT_RECALL_OTHERS_MESSAGE(1402, "You can only recall your own messages", HttpStatus.FORBIDDEN),
+    RECALL_TIME_EXCEEDED(1403, "Recall time limit (24 hours) has been exceeded", HttpStatus.UNPROCESSABLE_ENTITY),
+    CANNOT_EDIT_OTHERS_MESSAGE(1404, "You can only edit your own messages", HttpStatus.FORBIDDEN),
+    EDIT_TIME_EXCEEDED(1405, "Edit time limit (15 minutes) has been exceeded", HttpStatus.UNPROCESSABLE_ENTITY),
+    CANNOT_EDIT_NON_TEXT(1406, "Only text messages can be edited", HttpStatus.BAD_REQUEST),
+    CANNOT_RECALL_SYSTEM_MESSAGE(1407, "System messages cannot be recalled", HttpStatus.BAD_REQUEST),
 
     GROUP_MEMBER_NOT_FOUND(1500, "Group member not found", HttpStatus.NOT_FOUND),
     GROUP_MEMBER_ALREADY_EXISTS(1501, "User is already a member of this group", HttpStatus.CONFLICT),

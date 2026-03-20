@@ -1,7 +1,7 @@
 import { useEffect, useCallback } from "react";
 import { socketService } from "@/services/socket.service";
 import { useAuthStore } from "@/store/auth.store";
-import type { Message } from "@/types/message";
+import type { Message, ChatEvent } from "@/types/message";
 
 interface TypingData {
     userId: string;
@@ -10,14 +10,14 @@ interface TypingData {
 
 interface UseChatSocketProps {
     conversationId: string;
-    onMessage: (message: Message) => void;
+    onEvent: (event: ChatEvent) => void;
     onTyping: (data: TypingData) => void;
     onRead: (message: Message) => void;
 }
 
 export function useChatSocket({
     conversationId,
-    onMessage,
+    onEvent,
     onTyping,
     onRead,
 }: UseChatSocketProps) {
@@ -37,12 +37,12 @@ export function useChatSocket({
 
             if (!client || !isMounted) return;
 
-            // 1. Subscribe to new messages
-            const messageSub = client.subscribe(
+            // 1. Subscribe to chat events (SEND, EDIT, RECALL, DELETE)
+            const eventSub = client.subscribe(
                 `/topic/conversation.${conversationId}`,
                 (payload) => {
-                    const msg = JSON.parse(payload.body);
-                    onMessage(msg);
+                    const event = JSON.parse(payload.body) as ChatEvent;
+                    onEvent(event);
                 }
             );
 
@@ -65,7 +65,7 @@ export function useChatSocket({
             );
 
             return () => {
-                messageSub.unsubscribe();
+                eventSub.unsubscribe();
                 typingSub.unsubscribe();
                 readSub.unsubscribe();
             };
@@ -79,11 +79,8 @@ export function useChatSocket({
                 if (cleanup) cleanup();
             });
         };
-    }, [conversationId, user, onMessage, onTyping, onRead]);
+    }, [conversationId, user, onEvent, onTyping, onRead]);
 
-    /**
-     * Gửi tin nhắn qua WebSocket
-     */
     const sendMessage = useCallback(
         (content: string, replyToId: string | null = null) => {
             const client = socketService.getClient();
@@ -102,9 +99,6 @@ export function useChatSocket({
         [conversationId]
     );
 
-    /**
-     * Gửi trạng thái đang gõ
-     */
     const sendTyping = useCallback(
         (isTyping: boolean) => {
             const client = socketService.getClient();
@@ -121,9 +115,6 @@ export function useChatSocket({
         [conversationId]
     );
 
-    /**
-     * Đánh dấu đã xem
-     */
     const sendSeen = useCallback((messageId: string) => {
         const client = socketService.getClient();
         if (client?.connected) {

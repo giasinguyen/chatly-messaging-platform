@@ -36,7 +36,7 @@ import {
     UserPlus,
 } from "lucide-react";
 import { toast } from "sonner";
-import type { Message, ChatUser } from "@/types/message";
+import type { Message, ChatUser, ChatEvent } from "@/types/message";
 import type { ContactStatus } from "@/types/contact";
 import type { ConversationResponse } from "@/types/conversation";
 
@@ -130,16 +130,23 @@ export function ChatWindow({ id }: ChatWindowProps) {
     // ----------------------------------------------------------------
     // 1. WebSocket Hook Integration
     // ----------------------------------------------------------------
-    const onMessage = useCallback((msg: Message) => {
-        setMessages((prev) => {
-            // Tránh duplicate nếu message đã có (do API send trả về hoặc fetch)
-            if (prev.some(m => m.id === msg.id)) return prev;
-            return [...prev, msg];
-        });
-        
-        // Gửi seen nếu tin nhắn từ người khác
-        if (msg.senderId !== currentUser?.id) {
-            sendSeen(msg.id);
+    const onEvent = useCallback((event: ChatEvent) => {
+        const { action, message: msg } = event;
+
+        if (action === "SEND") {
+            setMessages((prev) => {
+                if (prev.some(m => m.id === msg.id)) return prev;
+                return [...prev, msg];
+            });
+            if (msg.senderId !== currentUser?.id) {
+                sendSeen(msg.id);
+            }
+        } else if (action === "EDIT" || action === "RECALL") {
+            setMessages((prev) =>
+                prev.map(m => m.id === msg.id ? { ...m, ...msg } : m)
+            );
+        } else if (action === "DELETE") {
+            setMessages((prev) => prev.filter(m => m.id !== msg.id));
         }
     }, [currentUser?.id]);
 
@@ -161,7 +168,7 @@ export function ChatWindow({ id }: ChatWindowProps) {
 
     const { sendMessage, sendTyping, sendSeen } = useChatSocket({
         conversationId: id,
-        onMessage,
+        onEvent,
         onTyping,
         onRead
     });
@@ -339,7 +346,7 @@ export function ChatWindow({ id }: ChatWindowProps) {
     }, [id, isLoadingMore, hasMore]);
 
     // ----------------------------------------------------------------
-    // 4. Handlers: Gửi tin nhắn, Reply
+    // 4. Handlers: Gửi tin nhắn, Reply, Recall, Edit
     // ----------------------------------------------------------------
     const handleSendMessage = useCallback((content: string) => {
         if (!id || !currentUser) return;
@@ -349,6 +356,41 @@ export function ChatWindow({ id }: ChatWindowProps) {
 
     const handleReply = useCallback((msg: Message) => setReplyingTo(msg), []);
     const handleCancelReply = useCallback(() => setReplyingTo(null), []);
+
+    const handleRecall = useCallback(async (messageId: string) => {
+        try {
+            await messageService.recall(messageId);
+            // Optimistic update (WebSocket will also broadcast it)
+            setMessages((prev) =>
+                prev.map(m =>
+                    m.id === messageId
+                        ? { ...m, recalled: true, recalledAt: new Date().toISOString(), recalledBy: currentUser?.id ?? null }
+                        : m
+                )
+            );
+        } catch (err: any) {
+            const msg = err?.response?.data?.message ?? "Không thể thu hồi tin nhắn";
+            toast.error(msg);
+        }
+    }, [currentUser?.id]);
+
+    const handleEdit = useCallback(async (messageId: string, newContent: string) => {
+        try {
+            await messageService.edit(messageId, newContent);
+            // Optimistic update (WebSocket will also broadcast it)
+            setMessages((prev) =>
+                prev.map(m =>
+                    m.id === messageId
+                        ? { ...m, content: newContent, edited: true, editedAt: new Date().toISOString() }
+                        : m
+                )
+            );
+        } catch (err: any) {
+            const msg = err?.response?.data?.message ?? "Không thể chỉnh sửa tin nhắn";
+            toast.error(msg);
+        }
+    }, []);
+
     const handleOpenSenderProfile = useCallback(
         (senderId: string) => {
             const user = participantDirectory[senderId];
@@ -502,6 +544,8 @@ export function ChatWindow({ id }: ChatWindowProps) {
                 participantDirectory={participantDirectory}
                 currentUserId={currentUser?.id ?? ""}
                 onReply={handleReply}
+                onRecall={handleRecall}
+                onEdit={handleEdit}
                 onOpenSenderProfile={handleOpenSenderProfile}
                 onLoadMore={handleLoadMore}
                 isLoadingMore={isLoadingMore}

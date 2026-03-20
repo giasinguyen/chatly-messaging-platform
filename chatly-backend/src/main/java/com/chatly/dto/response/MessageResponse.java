@@ -3,6 +3,7 @@ package com.chatly.dto.response;
 import com.chatly.model.enums.MessageStatus;
 import com.chatly.model.enums.MessageType;
 import com.chatly.model.mongo.Attachment;
+import com.chatly.model.mongo.EditHistory;
 import com.chatly.model.mongo.ReadReceipt;
 import lombok.*;
 
@@ -25,6 +26,17 @@ public class MessageResponse {
     private String replyToId;
     private List<Attachment> attachments;
     private List<ReadReceipt> readBy;
+
+    // Recall fields
+    private boolean recalled;
+    private Instant recalledAt;
+    private String recalledBy;
+
+    // Edit fields
+    private boolean edited;
+    private Instant editedAt;
+    private List<EditHistory> editHistory;
+
     private Instant createdAt;
     private Instant updatedAt;
 }
