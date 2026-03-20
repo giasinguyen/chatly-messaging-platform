@@ -14,6 +14,11 @@ export interface Attachment {
     size?: number;
 }
 
+export interface EditHistoryEntry {
+    content: string;
+    editedAt: string;
+}
+
 /**
  * Message trả về từ API – khớp 100% với MessageResponse.java.
  * Thứ tự API trả về: mới nhất trước (descending), cần reverse trước khi render.
@@ -28,8 +33,29 @@ export interface Message {
     replyToId: string | null;
     attachments: Attachment[];
     readBy: ReadReceipt[];
+
+    // Recall fields
+    recalled: boolean;
+    recalledAt: string | null;
+    recalledBy: string | null;
+
+    // Edit fields
+    edited: boolean;
+    editedAt: string | null;
+    editHistory: EditHistoryEntry[];
+
     createdAt: string;
     updatedAt: string;
+}
+
+/**
+ * ChatEvent – wrapper for all realtime message events from WebSocket.
+ */
+export type ChatAction = "SEND" | "EDIT" | "RECALL" | "DELETE";
+
+export interface ChatEvent {
+    action: ChatAction;
+    message: Message;
 }
 
 /**

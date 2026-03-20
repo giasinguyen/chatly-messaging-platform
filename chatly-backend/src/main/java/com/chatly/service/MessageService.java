@@ -8,11 +8,13 @@ import com.chatly.mapper.MessageMapper;
 import com.chatly.model.enums.MessageStatus;
 import com.chatly.model.enums.MessageType;
 import com.chatly.model.mongo.Conversation;
+import com.chatly.model.mongo.EditHistory;
 import com.chatly.model.mongo.LastMessage;
 import com.chatly.model.mongo.Message;
 import com.chatly.model.mongo.ReadReceipt;
 import com.chatly.repository.mongo.ConversationRepository;
 import com.chatly.repository.mongo.MessageRepository;
+import com.chatly.websocket.ChatEvent;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -20,8 +22,10 @@ import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.mongodb.core.query.Update;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -35,6 +39,10 @@ public class MessageService {
     private final ConversationRepository conversationRepository;
     private final MessageMapper messageMapper;
     private final MongoTemplate mongoTemplate;
+    private final SimpMessagingTemplate messagingTemplate;
+
+    private static final long RECALL_LIMIT_HOURS = 24;
+    private static final long EDIT_LIMIT_MINUTES = 15;
 
     public MessageResponse send(String senderId, MessageRequest request) {
         Conversation conversation = conversationRepository.findById(request.getConversationId())
@@ -54,10 +62,7 @@ public class MessageService {
                 .build();
 
         message = messageRepository.save(message);
-
-        // Partial update — chỉ ghi lastMessage + updatedAt, không load/save toàn bộ document
         updateLastMessage(request.getConversationId(), message);
-
         return messageMapper.toResponse(message);
     }
 
@@ -81,9 +86,7 @@ public class MessageService {
         Message message = messageRepository.findById(messageId)
                 .orElseThrow(() -> new AppException(ErrorCode.MESSAGE_NOT_FOUND));
 
-        if (message.getSenderId().equals(userId)) {
-            return Optional.empty();
-        }
+        if (message.getSenderId().equals(userId)) return Optional.empty();
 
         boolean alreadySeen = message.getReadBy().stream()
                 .anyMatch(r -> r.getUserId().equals(userId));
@@ -94,12 +97,9 @@ public class MessageService {
                     .readAt(Instant.now())
                     .build();
 
-            // Push vào array + set status trong 1 query — không load lại toàn document
             mongoTemplate.updateFirst(
                     Query.query(Criteria.where("_id").is(messageId)),
-                    new Update()
-                            .push("readBy", receipt)
-                            .set("status", MessageStatus.READ),
+                    new Update().push("readBy", receipt).set("status", MessageStatus.READ),
                     Message.class
             );
 
@@ -107,8 +107,101 @@ public class MessageService {
             message.setStatus(MessageStatus.READ);
             return Optional.of(messageMapper.toResponse(message));
         }
-
         return Optional.empty();
+    }
+
+    public MessageResponse recall(String messageId, String userId) {
+        Message message = messageRepository.findById(messageId)
+                .orElseThrow(() -> new AppException(ErrorCode.MESSAGE_NOT_FOUND));
+
+        if (!message.getSenderId().equals(userId)) {
+            throw new AppException(ErrorCode.CANNOT_RECALL_OTHERS_MESSAGE);
+        }
+
+        if (message.getType() == MessageType.SYSTEM) {
+            throw new AppException(ErrorCode.CANNOT_RECALL_SYSTEM_MESSAGE);
+        }
+
+        if (message.isRecalled()) {
+            throw new AppException(ErrorCode.MESSAGE_ALREADY_RECALLED);
+        }
+
+        Instant now = Instant.now();
+        if (message.getCreatedAt() != null &&
+                Duration.between(message.getCreatedAt(), now).toHours() >= RECALL_LIMIT_HOURS) {
+            throw new AppException(ErrorCode.RECALL_TIME_EXCEEDED);
+        }
+
+        // Atomic conditional update to handle race conditions
+        var result = mongoTemplate.updateFirst(
+                Query.query(Criteria.where("_id").is(messageId).and("recalled").is(false)),
+                new Update().set("recalled", true).set("recalledAt", now).set("recalledBy", userId),
+                Message.class
+        );
+
+        if (result.getMatchedCount() == 0) {
+            throw new AppException(ErrorCode.MESSAGE_ALREADY_RECALLED);
+        }
+
+        message.setRecalled(true);
+        message.setRecalledAt(now);
+        message.setRecalledBy(userId);
+
+        MessageResponse response = messageMapper.toResponse(message);
+        broadcastEvent(message.getConversationId(), ChatEvent.ChatAction.RECALL, response);
+        return response;
+    }
+
+    public MessageResponse edit(String messageId, String userId, String newContent) {
+        Message message = messageRepository.findById(messageId)
+                .orElseThrow(() -> new AppException(ErrorCode.MESSAGE_NOT_FOUND));
+
+        if (!message.getSenderId().equals(userId)) {
+            throw new AppException(ErrorCode.CANNOT_EDIT_OTHERS_MESSAGE);
+        }
+
+        if (message.getType() != MessageType.TEXT) {
+            throw new AppException(ErrorCode.CANNOT_EDIT_NON_TEXT);
+        }
+
+        if (message.isRecalled()) {
+            throw new AppException(ErrorCode.MESSAGE_ALREADY_RECALLED);
+        }
+
+        Instant now = Instant.now();
+        if (message.getCreatedAt() != null &&
+                Duration.between(message.getCreatedAt(), now).toMinutes() >= EDIT_LIMIT_MINUTES) {
+            throw new AppException(ErrorCode.EDIT_TIME_EXCEEDED);
+        }
+
+        EditHistory history = EditHistory.builder()
+                .content(message.getContent())
+                .editedAt(now)
+                .build();
+
+        // Atomic conditional update (cannot edit recalled messages – race condition guard)
+        var result = mongoTemplate.updateFirst(
+                Query.query(Criteria.where("_id").is(messageId).and("recalled").is(false)),
+                new Update()
+                        .set("content", newContent)
+                        .set("edited", true)
+                        .set("editedAt", now)
+                        .push("editHistory", history),
+                Message.class
+        );
+
+        if (result.getMatchedCount() == 0) {
+            throw new AppException(ErrorCode.MESSAGE_ALREADY_RECALLED);
+        }
+
+        message.setContent(newContent);
+        message.setEdited(true);
+        message.setEditedAt(now);
+        message.getEditHistory().add(history);
+
+        MessageResponse response = messageMapper.toResponse(message);
+        broadcastEvent(message.getConversationId(), ChatEvent.ChatAction.EDIT, response);
+        return response;
     }
 
     public void delete(String messageId, String senderId) {
@@ -119,10 +212,18 @@ public class MessageService {
             throw new AppException(ErrorCode.GROUP_PERMISSION_DENIED);
         }
 
+        MessageResponse response = messageMapper.toResponse(message);
         messageRepository.deleteById(messageId);
+        broadcastEvent(message.getConversationId(), ChatEvent.ChatAction.DELETE, response);
     }
 
-    // Partial update: chỉ set lastMessage + updatedAt trên Conversation document
+    private void broadcastEvent(String conversationId, ChatEvent.ChatAction action, MessageResponse message) {
+        messagingTemplate.convertAndSend(
+                "/topic/conversation." + conversationId,
+                ChatEvent.builder().action(action).message(message).build()
+        );
+    }
+
     private void updateLastMessage(String conversationId, Message message) {
         LastMessage lastMessage = LastMessage.builder()
                 .senderId(message.getSenderId())
@@ -133,9 +234,7 @@ public class MessageService {
 
         mongoTemplate.updateFirst(
                 Query.query(Criteria.where("_id").is(conversationId)),
-                new Update()
-                        .set("lastMessage", lastMessage)
-                        .set("updatedAt", Instant.now()),
+                new Update().set("lastMessage", lastMessage).set("updatedAt", Instant.now()),
                 Conversation.class
         );
     }

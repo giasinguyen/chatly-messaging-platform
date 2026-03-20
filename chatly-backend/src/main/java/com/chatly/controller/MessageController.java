@@ -1,5 +1,6 @@
 package com.chatly.controller;
 
+import com.chatly.dto.request.EditMessageRequest;
 import com.chatly.dto.request.MessageRequest;
 import com.chatly.dto.response.ApiResponse;
 import com.chatly.dto.response.MessageResponse;
@@ -40,6 +41,22 @@ public class MessageController {
     ApiResponse<MessageResponse> markAsSeen(@PathVariable String messageId) {
         return ApiResponse.<MessageResponse>builder()
                 .result(messageService.markAsSeen(messageId, getAuthenticatedUserId()).orElse(null))
+                .build();
+    }
+
+    @PutMapping("/{messageId}/recall")
+    ApiResponse<MessageResponse> recall(@PathVariable String messageId) {
+        return ApiResponse.<MessageResponse>builder()
+                .result(messageService.recall(messageId, getAuthenticatedUserId()))
+                .build();
+    }
+
+    @PutMapping("/{messageId}/edit")
+    ApiResponse<MessageResponse> edit(
+            @PathVariable String messageId,
+            @RequestBody @Valid EditMessageRequest request) {
+        return ApiResponse.<MessageResponse>builder()
+                .result(messageService.edit(messageId, getAuthenticatedUserId(), request.getContent()))
                 .build();
     }
 

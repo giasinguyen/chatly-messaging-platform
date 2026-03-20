@@ -35,7 +35,7 @@ import {
     getConversationAvatar,
 } from "@/utils/conversation";
 import type { ConversationResponse } from "@/types/conversation";
-import type { Message } from "@/types/message";
+import type { Message, ChatEvent } from "@/types/message";
 import type { UserResponse } from "@/types/auth";
 import { toast } from "sonner";
 
@@ -120,7 +120,11 @@ export function ChatList() {
                 subscriptionsRef.current.forEach((sub) => sub.unsubscribe());
                 subscriptionsRef.current = conversations.map((conv) =>
                     client.subscribe(`/topic/conversation.${conv.id}`, (payload) => {
-                        const message = JSON.parse(payload.body) as Message;
+                        const event = JSON.parse(payload.body) as ChatEvent;
+
+                        // Only update sidebar last-message preview for SEND actions
+                        if (event.action !== "SEND") return;
+                        const message = event.message;
 
                         setConversations((prev) => {
                             const target = prev.find(
