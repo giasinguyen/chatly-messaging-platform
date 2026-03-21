@@ -6,6 +6,7 @@ import com.chatly.exception.AppException;
 import com.chatly.exception.ErrorCode;
 import com.chatly.mapper.ContactMapper;
 import com.chatly.model.enums.ContactStatus;
+import com.chatly.model.enums.NotificationType;
 import com.chatly.model.postgres.Contact;
 import com.chatly.model.postgres.User;
 import com.chatly.repository.postgres.ContactRepository;
@@ -24,6 +25,7 @@ public class ContactService {
     private final ContactRepository contactRepository;
     private final UserRepository userRepository;
     private final ContactMapper contactMapper;
+    private final NotificationService notificationService;
 
     @Transactional
     public ContactResponse sendRequest(UUID userId, ContactRequest request) {
@@ -47,7 +49,17 @@ public class ContactService {
                 .contact(contact)
                 .build();
 
-        return contactMapper.toResponse(contactRepository.save(newContact));
+        ContactResponse response = contactMapper.toResponse(contactRepository.save(newContact));
+
+        notificationService.createAndPush(
+                NotificationType.FRIEND_REQUEST,
+                userId.toString(),
+                contactId.toString(),
+                user.getDisplayName() + " đã gửi cho bạn một lời mời kết bạn",
+                userId.toString()
+        );
+
+        return response;
     }
 
     @Transactional

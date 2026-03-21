@@ -27,7 +27,7 @@ export const conversationService = {
         return response.data;
     },
 
-    create: async (payload: { type: string; participantIds: string[] }): Promise<ApiResponse<ConversationResponse>> => {
+    create: async (payload: { type: string; participantIds: string[]; name?: string }): Promise<ApiResponse<ConversationResponse>> => {
         const response = await axiosClient.post<ApiResponse<ConversationResponse>>(
             "/api/conversations",
             payload

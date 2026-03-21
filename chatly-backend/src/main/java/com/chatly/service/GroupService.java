@@ -9,6 +9,7 @@ import com.chatly.exception.ErrorCode;
 import com.chatly.mapper.ConversationMapper;
 import com.chatly.model.enums.ConversationType;
 import com.chatly.model.enums.GroupRole;
+import com.chatly.model.enums.NotificationType;
 import com.chatly.model.mongo.Conversation;
 import com.chatly.model.postgres.GroupMember;
 import com.chatly.model.postgres.User;
@@ -30,6 +31,7 @@ public class GroupService {
     private final GroupMemberRepository groupMemberRepository;
     private final UserRepository userRepository;
     private final ConversationMapper conversationMapper;
+    private final NotificationService notificationService;
 
     /**
      * Add a member to a group conversation.
@@ -60,6 +62,14 @@ public class GroupService {
         // Update participantIds in MongoDB conversation
         conversation.getParticipantIds().add(targetUserId);
         conversationRepository.save(conversation);
+
+        notificationService.createAndPush(
+                NotificationType.GROUP_INVITE,
+                requesterId,
+                targetUserId,
+                "Bạn đã được thêm vào nhóm " + (conversation.getName() != null ? conversation.getName() : "chat"),
+                conversationId
+        );
 
         return toMemberResponse(member);
     }

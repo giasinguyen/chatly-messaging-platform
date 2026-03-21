@@ -6,6 +6,8 @@ import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/store/auth.store";
 import { authService } from "@/services/auth.service";
 import { toast } from "sonner";
+import { NotificationBell } from "@/components/customize/NotificationBell";
+import { useNotificationStore } from "@/store/notification.store";
 
 interface SidebarProps {
     user: UserResponse | null;
@@ -14,6 +16,9 @@ interface SidebarProps {
 export function Sidebar({ user }: SidebarProps) {
     const clearAuth = useAuthStore((s) => s.clearAuth);
     const navigate = useNavigate();
+    const msgUnreadCount = useNotificationStore(
+        (s) => s.notifications.filter((n) => n.type === "NEW_MESSAGE" && !n.read).length,
+    );
 
     const handleLogout = async () => {
         try {
@@ -29,9 +34,9 @@ export function Sidebar({ user }: SidebarProps) {
     };
 
     const navItems = [
-        { to: "/chat", icon: MessageCircle, label: "Chat" },
-        { to: "/contact", icon: Users, label: "Contacts" },
-        { to: "/cloud", icon: Cloud, label: "Cloud" },
+        { to: "/chat", icon: MessageCircle, label: "Chat", badge: msgUnreadCount },
+        { to: "/contact", icon: Users, label: "Contacts", badge: 0 },
+        { to: "/cloud", icon: Cloud, label: "Cloud", badge: 0 },
     ];
 
     return (
@@ -83,10 +88,18 @@ export function Sidebar({ user }: SidebarProps) {
                                                 : "text-white/70",
                                         )}
                                     />
+                                    {item.badge > 0 && (
+                                        <span className="absolute top-2 right-2 min-w-4.5 h-4.5 flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-bold px-1 leading-none">
+                                            {item.badge > 99 ? "99+" : item.badge}
+                                        </span>
+                                    )}
                                 </>
                             )}
                         </NavLink>
                     ))}
+
+                    {/* Notification Bell */}
+                    <NotificationBell />
                 </div>
             </div>
 
