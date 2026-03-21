@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from "react";
-import { NavLink } from "react-router-dom";
+import { NavLink, useNavigate } from "react-router-dom";
 import {
     Search,
     UserPlus,
@@ -38,6 +38,7 @@ import type { ConversationResponse } from "@/types/conversation";
 import type { Message, ChatEvent } from "@/types/message";
 import type { UserResponse } from "@/types/auth";
 import { toast } from "sonner";
+import { CreateGroupDialog } from "./CreateGroupDialog";
 
 function formatZaloTime(dateString: string) {
     const date = new Date(dateString);
@@ -69,9 +70,11 @@ function formatZaloTime(dateString: string) {
 
 export function ChatList() {
     const { user: currentUser } = useAuthStore();
+    const navigate = useNavigate();
     const [conversations, setConversations] = useState<ConversationResponse[]>(
         [],
     );
+    const [createGroupOpen, setCreateGroupOpen] = useState(false);
     const subscriptionsRef = useRef<Array<{ unsubscribe: () => void }>>([]);
     const [users, setUsers] = useState<UserResponse[]>([]);
     const [loading, setLoading] = useState(true);
@@ -119,41 +122,50 @@ export function ChatList() {
 
                 subscriptionsRef.current.forEach((sub) => sub.unsubscribe());
                 subscriptionsRef.current = conversations.map((conv) =>
-                    client.subscribe(`/topic/conversation.${conv.id}`, (payload) => {
-                        const event = JSON.parse(payload.body) as ChatEvent;
+                    client.subscribe(
+                        `/topic/conversation.${conv.id}`,
+                        (payload) => {
+                            const event = JSON.parse(payload.body) as ChatEvent;
 
-                        // Only update sidebar last-message preview for SEND actions
-                        if (event.action !== "SEND") return;
-                        const message = event.message;
+                            // Only update sidebar last-message preview for SEND actions
+                            if (event.action !== "SEND") return;
+                            const message = event.message;
 
-                        setConversations((prev) => {
-                            const target = prev.find(
-                                (item) => item.id === message.conversationId,
-                            );
-                            if (!target) return prev;
+                            setConversations((prev) => {
+                                const target = prev.find(
+                                    (item) =>
+                                        item.id === message.conversationId,
+                                );
+                                if (!target) return prev;
 
-                            const updatedConversation: ConversationResponse = {
-                                ...target,
-                                lastMessage: {
-                                    senderId: message.senderId,
-                                    content: message.content,
-                                    type: message.type,
-                                    timestamp: message.createdAt,
-                                },
-                                updatedAt: message.createdAt,
-                            };
+                                const updatedConversation: ConversationResponse =
+                                    {
+                                        ...target,
+                                        lastMessage: {
+                                            senderId: message.senderId,
+                                            content: message.content,
+                                            type: message.type,
+                                            timestamp: message.createdAt,
+                                        },
+                                        updatedAt: message.createdAt,
+                                    };
 
-                            return [
-                                updatedConversation,
-                                ...prev.filter(
-                                    (item) => item.id !== message.conversationId,
-                                ),
-                            ];
-                        });
-                    }),
+                                return [
+                                    updatedConversation,
+                                    ...prev.filter(
+                                        (item) =>
+                                            item.id !== message.conversationId,
+                                    ),
+                                ];
+                            });
+                        },
+                    ),
                 );
             } catch (error) {
-                console.error("Không thể subscribe realtime conversations:", error);
+                console.error(
+                    "Không thể subscribe realtime conversations:",
+                    error,
+                );
             }
         };
 
@@ -164,11 +176,7 @@ export function ChatList() {
             subscriptionsRef.current.forEach((sub) => sub.unsubscribe());
             subscriptionsRef.current = [];
         };
-    }, [
-        currentUser?.id,
-        conversations.length,
-        conversationIdsKey,
-    ]);
+    }, [currentUser?.id, conversations.length, conversationIdsKey]);
 
     const filteredConversations = conversations.filter((conv) => {
         if (!searchQuery.trim()) return true;
@@ -227,7 +235,7 @@ export function ChatList() {
                         >
                             {/* Avatar */}
                             <div className="relative shrink-0">
-                                <Avatar className="h-[48px] w-[48px]">
+                                <Avatar className="h-12 w-12">
                                     <AvatarImage
                                         src={avatarUrl}
                                         className="object-cover"
@@ -241,7 +249,7 @@ export function ChatList() {
                                     </AvatarFallback>
                                 </Avatar>
                                 {isGroup && (
-                                    <span className="absolute -bottom-0.5 -right-0.5 h-[18px] w-[18px] rounded-full bg-brand flex items-center justify-center ring-2 ring-background">
+                                    <span className="absolute -bottom-0.5 -right-0.5 h-4.5 w-4.5 rounded-full bg-brand flex items-center justify-center ring-2 ring-background">
                                         <Users
                                             size={10}
                                             className="text-white"
@@ -361,57 +369,78 @@ export function ChatList() {
     };
 
     return (
-        <aside className="w-[340px] flex flex-col border-r border-border shrink-0 h-full overflow-hidden bg-background">
-            {/* Search Header */}
-            <div className="px-4 py-4 flex items-center gap-2 border-b border-border/50 bg-muted/10">
-                <div className="relative flex-1">
-                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                        placeholder="Tìm kiếm"
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        className="h-8 pl-8 bg-muted/30 border-border/40 focus-visible:ring-1 focus-visible:ring-brand focus-visible:border-brand rounded-full text-sm"
-                    />
-                </div>
-                <div className="flex items-center gap-1">
-                    <Button
-                        onClick={() => toast.info("Development in progress...")}
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 rounded-full"
-                    >
-                        <UserPlus size={16} />
-                    </Button>
-                    <Button
-                        onClick={() => toast.info("Development in progress...")}
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 rounded-full"
-                    >
-                        <UsersRound size={16} />
-                    </Button>
-                </div>
-            </div>
-
-            {/* Chat List */}
-            <div className="flex-1 overflow-hidden">
-                <ScrollArea className="h-full">
-                    <div className="flex flex-col py-1">
-                        {loading ? (
-                            renderSkeleton()
-                        ) : filteredConversations.length === 0 ? (
-                            <div className="flex flex-col items-center justify-center py-12 gap-2 text-muted-foreground">
-                                <UsersRound size={36} className="opacity-30" />
-                                <p className="text-sm">
-                                    Chưa có cuộc trò chuyện nào
-                                </p>
-                            </div>
-                        ) : (
-                            filteredConversations.map(renderConversationItem)
-                        )}
+        <>
+            <aside className="w-85 flex flex-col border-r border-border shrink-0 h-full overflow-hidden bg-background">
+                {/* Search Header */}
+                <div className="px-4 py-4 flex items-center gap-2 border-b border-border/50 bg-muted/10">
+                    <div className="relative flex-1">
+                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input
+                            placeholder="Tìm kiếm"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="h-8 pl-8 bg-muted/30 border-border/40 focus-visible:ring-1 focus-visible:ring-brand focus-visible:border-brand rounded-full text-sm"
+                        />
                     </div>
-                </ScrollArea>
-            </div>
-        </aside>
+                    <div className="flex items-center gap-1">
+                        <Button
+                            onClick={() =>
+                                toast.info("Development in progress...")
+                            }
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 rounded-full"
+                        >
+                            <UserPlus size={16} />
+                        </Button>
+                        <Button
+                            onClick={() => setCreateGroupOpen(true)}
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 rounded-full"
+                            title="Tạo nhóm chat"
+                        >
+                            <UsersRound size={16} />
+                        </Button>
+                    </div>
+                </div>
+
+                {/* Chat List */}
+                <div className="flex-1 overflow-hidden">
+                    <ScrollArea className="h-full">
+                        <div className="flex flex-col py-1">
+                            {loading ? (
+                                renderSkeleton()
+                            ) : filteredConversations.length === 0 ? (
+                                <div className="flex flex-col items-center justify-center py-12 gap-2 text-muted-foreground">
+                                    <UsersRound
+                                        size={36}
+                                        className="opacity-30"
+                                    />
+                                    <p className="text-sm">
+                                        Chưa có cuộc trò chuyện nào
+                                    </p>
+                                </div>
+                            ) : (
+                                filteredConversations.map(
+                                    renderConversationItem,
+                                )
+                            )}
+                        </div>
+                    </ScrollArea>
+                </div>
+            </aside>
+            <CreateGroupDialog
+                open={createGroupOpen}
+                onOpenChange={setCreateGroupOpen}
+                onCreated={(conv) => {
+                    setConversations((prev) => {
+                        if (prev.some((c) => c.id === conv.id)) return prev;
+                        return [conv, ...prev];
+                    });
+                    navigate(`/chat/${conv.id}`);
+                }}
+            />
+        </>
     );
 }

@@ -7,6 +7,7 @@ import com.chatly.exception.ErrorCode;
 import com.chatly.mapper.MessageMapper;
 import com.chatly.model.enums.MessageStatus;
 import com.chatly.model.enums.MessageType;
+import com.chatly.model.enums.NotificationType;
 import com.chatly.model.mongo.Conversation;
 import com.chatly.model.mongo.EditHistory;
 import com.chatly.model.mongo.LastMessage;
@@ -40,6 +41,7 @@ public class MessageService {
     private final MessageMapper messageMapper;
     private final MongoTemplate mongoTemplate;
     private final SimpMessagingTemplate messagingTemplate;
+    private final NotificationService notificationService;
 
     private static final long RECALL_LIMIT_HOURS = 24;
     private static final long EDIT_LIMIT_MINUTES = 15;
@@ -63,6 +65,22 @@ public class MessageService {
 
         message = messageRepository.save(message);
         updateLastMessage(request.getConversationId(), message);
+
+        // Notify all conversation participants except the sender
+        final Message savedMessage = message;
+        String notifContent = savedMessage.getContent() != null && savedMessage.getContent().length() > 100
+                ? savedMessage.getContent().substring(0, 100) + "..."
+                : savedMessage.getContent();
+        conversation.getParticipantIds().stream()
+                .filter(pid -> !pid.equals(senderId))
+                .forEach(receiverId -> notificationService.createAndPush(
+                        NotificationType.NEW_MESSAGE,
+                        senderId,
+                        receiverId,
+                        notifContent,
+                        savedMessage.getConversationId()
+                ));
+
         return messageMapper.toResponse(message);
     }
 

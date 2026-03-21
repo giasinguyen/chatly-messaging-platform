@@ -41,6 +41,8 @@ public enum ErrorCode {
     GROUP_MEMBER_ALREADY_EXISTS(1501, "User is already a member of this group", HttpStatus.CONFLICT),
     GROUP_PERMISSION_DENIED(1502, "You do not have permission for this action", HttpStatus.FORBIDDEN),
 
+    NOTIFICATION_NOT_FOUND(1700, "Notification not found", HttpStatus.NOT_FOUND),
+
     UNAUTHORIZED(1600, "You do not have permission", HttpStatus.FORBIDDEN),
     UNAUTHENTICATED(1601, "Unauthenticated", HttpStatus.UNAUTHORIZED),
     INVALID_TOKEN(1602, "Invalid or expired token", HttpStatus.UNAUTHORIZED);

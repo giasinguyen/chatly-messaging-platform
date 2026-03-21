@@ -6,8 +6,10 @@ import { GroupManagementPanel } from "./GroupManagementPanel";
 import { conversationService } from "@/services/conversation.service";
 import { contactService } from "@/services/contact.service";
 import { messageService } from "@/services/message.service";
+import { notificationService } from "@/services/notification.service";
 import { userService } from "@/services/user.service";
 import { useAuthStore } from "@/store/auth.store";
+import { useNotificationStore } from "@/store/notification.store";
 import { useChatSocket } from "@/hooks/useChatSocket";
 import { usePresenceSocket, type PresenceEvent } from "@/hooks/usePresenceSocket";
 import { getOtherParticipantId } from "@/utils/conversation";
@@ -99,6 +101,19 @@ function formatDob(dob?: string) {
 
 export function ChatWindow({ id }: ChatWindowProps) {
     const { user: currentUser } = useAuthStore();
+    const markMsgNotificationsRead = useNotificationStore((s) => s.markMsgNotificationsRead);
+    // Watchdog: whenever msg notifications accumulate while user is in this ChatWindow, clear them
+    const unreadMsgCount = useNotificationStore(
+        (s) => s.notifications.filter((n) => n.type === "NEW_MESSAGE" && !n.read).length,
+    );
+    useEffect(() => {
+        if (unreadMsgCount === 0) return;
+        const unread = useNotificationStore
+            .getState()
+            .notifications.filter((n) => n.type === "NEW_MESSAGE" && !n.read);
+        markMsgNotificationsRead();
+        Promise.all(unread.map((n) => notificationService.markAsRead(n.id))).catch(() => {});
+    }, [unreadMsgCount, markMsgNotificationsRead]);
 
     const [conversation, setConversation] = useState<ConversationResponse | null>(null);
     const [participant, setParticipant] = useState<ChatUser | null>(null);

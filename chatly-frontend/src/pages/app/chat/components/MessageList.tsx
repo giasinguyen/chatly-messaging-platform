@@ -1,4 +1,4 @@
-﻿import { useEffect, useRef, useCallback, useState } from "react";
+﻿import { useEffect, useRef, useCallback, useState, useMemo } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Check, CheckCheck, Reply, RotateCcw, Pencil, X, Send } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -67,6 +67,33 @@ export function MessageList({
 
     // Recall confirm dialog state
     const [recallConfirmId, setRecallConfirmId] = useState<string | null>(null);
+
+    // Find the last message sent by me that has been seen by others
+    const lastSeenByOthersIdx = useMemo(() => {
+        for (let i = messages.length - 1; i >= 0; i--) {
+            const msg = messages[i];
+            if (
+                msg.senderId === currentUserId &&
+                !msg.recalled &&
+                msg.readBy &&
+                msg.readBy.some((r) => r.userId !== currentUserId)
+            ) {
+                return i;
+            }
+        }
+        return -1;
+    }, [messages, currentUserId]);
+
+    const formatSeenTime = (readAt: string): string => {
+        const diff = Date.now() - new Date(readAt).getTime();
+        const minutes = Math.floor(diff / 60000);
+        if (minutes < 1) return "vừa xem";
+        if (minutes < 60) return `${minutes} phút trước`;
+        const hours = Math.floor(minutes / 60);
+        if (hours < 24) return `${hours} giờ trước`;
+        const days = Math.floor(hours / 24);
+        return `${days} ngày trước`;
+    };
 
     // Auto scroll to bottom only on first mount or new messages from bottom
     useEffect(() => {
@@ -351,6 +378,57 @@ export function MessageList({
                             {isMe && !msg.recalled && <span>{getStatusIcon(msg.status)}</span>}
                         </div>
                     )}
+
+                    {/* Seen indicator — only on the last message seen by others */}
+                    {isMe && index === lastSeenByOthersIdx && !msg.recalled && (() => {
+                        const readers = msg.readBy.filter((r) => r.userId !== currentUserId);
+                        if (readers.length === 0) return null;
+
+                        if (conversationType === "PRIVATE") {
+                            const receipt = readers[0];
+                            const reader = participantDirectory[receipt.userId];
+                            return (
+                                <div className="flex items-center gap-1 px-1 mt-0.5 justify-end">
+                                    {reader?.avatarUrl && (
+                                        <Avatar className="h-3.5 w-3.5">
+                                            <AvatarImage src={reader.avatarUrl} />
+                                            <AvatarFallback className="text-[8px]">
+                                                {reader.displayName.charAt(0)}
+                                            </AvatarFallback>
+                                        </Avatar>
+                                    )}
+                                    <span className="text-[10px] text-muted-foreground">
+                                        Đã xem {formatSeenTime(receipt.readAt)}
+                                    </span>
+                                </div>
+                            );
+                        }
+
+                        // GROUP: show up to 3 reader avatars + overflow count
+                        return (
+                            <div className="flex items-center gap-0.5 px-1 mt-0.5 justify-end">
+                                <span className="text-[10px] text-muted-foreground mr-1">
+                                    Đã xem
+                                </span>
+                                {readers.slice(0, 3).map((r) => {
+                                    const reader = participantDirectory[r.userId];
+                                    return (
+                                        <Avatar key={r.userId} className="h-3.5 w-3.5">
+                                            <AvatarImage src={reader?.avatarUrl} />
+                                            <AvatarFallback className="text-[8px]">
+                                                {reader?.displayName?.charAt(0) ?? "?"}
+                                            </AvatarFallback>
+                                        </Avatar>
+                                    );
+                                })}
+                                {readers.length > 3 && (
+                                    <span className="text-[10px] text-muted-foreground">
+                                        +{readers.length - 3}
+                                    </span>
+                                )}
+                            </div>
+                        );
+                    })()}
                 </div>
             </div>
         );
