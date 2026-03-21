@@ -43,6 +43,12 @@ public enum ErrorCode {
 
     NOTIFICATION_NOT_FOUND(1700, "Notification not found", HttpStatus.NOT_FOUND),
 
+    FILE_NOT_FOUND(1800, "File not found", HttpStatus.NOT_FOUND),
+    FILE_UPLOAD_FAILED(1801, "File upload failed", HttpStatus.INTERNAL_SERVER_ERROR),
+    FILE_TYPE_NOT_ALLOWED(1802, "File type is not allowed", HttpStatus.UNSUPPORTED_MEDIA_TYPE),
+    FILE_SIZE_EXCEEDED(1803, "File size exceeds the maximum allowed limit", HttpStatus.PAYLOAD_TOO_LARGE),
+    FILE_DELETE_DENIED(1804, "You do not have permission to delete this file", HttpStatus.FORBIDDEN),
+
     UNAUTHORIZED(1600, "You do not have permission", HttpStatus.FORBIDDEN),
     UNAUTHENTICATED(1601, "Unauthenticated", HttpStatus.UNAUTHORIZED),
     INVALID_TOKEN(1602, "Invalid or expired token", HttpStatus.UNAUTHORIZED);

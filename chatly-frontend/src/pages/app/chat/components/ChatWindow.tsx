@@ -363,9 +363,9 @@ export function ChatWindow({ id }: ChatWindowProps) {
     // ----------------------------------------------------------------
     // 4. Handlers: Gửi tin nhắn, Reply, Recall, Edit
     // ----------------------------------------------------------------
-    const handleSendMessage = useCallback((content: string) => {
+    const handleSendMessage = useCallback((content: string, attachments?: import("@/types/message").Attachment[]) => {
         if (!id || !currentUser) return;
-        sendMessage(content, replyingTo?.id ?? null);
+        sendMessage(content, replyingTo?.id ?? null, attachments);
         setReplyingTo(null);
     }, [id, currentUser, replyingTo, sendMessage]);
 
@@ -583,6 +583,7 @@ export function ChatWindow({ id }: ChatWindowProps) {
             )}
 
             <ChatInput
+                conversationId={id}
                 replyingTo={replyingTo}
                 senderName={replyingSenderName}
                 onCancelReply={handleCancelReply}

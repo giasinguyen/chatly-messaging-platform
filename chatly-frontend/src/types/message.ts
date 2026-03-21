@@ -8,6 +8,7 @@ export interface ReadReceipt {
 }
 
 export interface Attachment {
+    fileId?: string;
     url: string;
     name?: string;
     type?: string;
