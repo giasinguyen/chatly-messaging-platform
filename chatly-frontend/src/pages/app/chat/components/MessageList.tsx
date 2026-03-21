@@ -1,6 +1,6 @@
 ﻿import { useEffect, useRef, useCallback, useState, useMemo } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Check, CheckCheck, Reply, RotateCcw, Pencil, X, Send } from "lucide-react";
+import { Check, CheckCheck, Reply, RotateCcw, Pencil, X, Send, FileText, Download } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Message, ChatUser } from "@/types/message";
 import type { ConversationType } from "@/types/conversation";
@@ -342,6 +342,48 @@ export function MessageList({
                                     />
                                 )}
                                 {msg.content}
+                                {/* Attachments */}
+                                {msg.attachments && msg.attachments.length > 0 && (
+                                    <div className={cn("flex flex-col gap-2", msg.content ? "mt-2" : "")}>
+                                        {msg.attachments.map((att, i) => {
+                                            const isImage = att.type?.startsWith("image/");
+                                            if (isImage) {
+                                                return (
+                                                    <a
+                                                        key={i}
+                                                        href={att.url}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="block"
+                                                    >
+                                                        <img
+                                                            src={att.url}
+                                                            alt={att.name ?? "image"}
+                                                            className="max-w-60 max-h-60 rounded-xl object-cover"
+                                                        />
+                                                    </a>
+                                                );
+                                            }
+                                            return (
+                                                <a
+                                                    key={i}
+                                                    href={att.url}
+                                                    download={att.name}
+                                                    className={cn(
+                                                        "flex items-center gap-2 rounded-xl px-3 py-2 text-xs no-underline",
+                                                        isMe
+                                                            ? "bg-white/20 text-white hover:bg-white/30"
+                                                            : "bg-muted/60 text-foreground hover:bg-muted border border-border/50",
+                                                    )}
+                                                >
+                                                    <FileText size={18} className="shrink-0" />
+                                                    <span className="flex-1 truncate max-w-40">{att.name ?? "File"}</span>
+                                                    <Download size={14} className="shrink-0 opacity-60" />
+                                                </a>
+                                            );
+                                        })}
+                                    </div>
+                                )}
                                 {msg.edited && (
                                     <span className={cn("ml-1.5 text-[10px] opacity-60")}>
                                         (đã chỉnh sửa)

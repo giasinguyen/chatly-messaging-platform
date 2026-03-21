@@ -1,7 +1,7 @@
 import { useEffect, useCallback } from "react";
 import { socketService } from "@/services/socket.service";
 import { useAuthStore } from "@/store/auth.store";
-import type { Message, ChatEvent } from "@/types/message";
+import type { Message, ChatEvent, Attachment } from "@/types/message";
 
 interface TypingData {
     userId: string;
@@ -82,16 +82,18 @@ export function useChatSocket({
     }, [conversationId, user, onEvent, onTyping, onRead]);
 
     const sendMessage = useCallback(
-        (content: string, replyToId: string | null = null) => {
+        (content: string, replyToId: string | null = null, attachments?: Attachment[]) => {
             const client = socketService.getClient();
             if (client?.connected) {
+                const hasAttachments = attachments && attachments.length > 0;
                 client.publish({
                     destination: "/app/chat.send",
                     body: JSON.stringify({
                         conversationId,
                         content,
-                        type: "TEXT",
+                        type: hasAttachments ? resolveMessageType(attachments![0].type) : "TEXT",
                         replyToId,
+                        attachments: hasAttachments ? attachments : undefined,
                     }),
                 });
             }
@@ -131,4 +133,12 @@ export function useChatSocket({
         sendSeen,
         isConnected: socketService.isConnected(),
     };
+}
+
+function resolveMessageType(mimeType?: string): string {
+    if (!mimeType) return "FILE";
+    if (mimeType.startsWith("image/")) return "IMAGE";
+    if (mimeType.startsWith("video/")) return "VIDEO";
+    if (mimeType.startsWith("audio/")) return "AUDIO";
+    return "FILE";
 }

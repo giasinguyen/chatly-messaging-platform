@@ -1,4 +1,4 @@
-package com.chatly.model.mongo;
+package com.chatly.dto.response;
 
 import lombok.*;
 
@@ -7,12 +7,13 @@ import lombok.*;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class Attachment {
+public class FileUploadResponse {
 
     private String fileId;
-
+    private String provider;
+    private String url;
     private String fileName;
-    private String fileUrl;
     private String fileType;
     private Long fileSize;
+    private String conversationId;
 }
