@@ -11,7 +11,10 @@ import { userService } from "@/services/user.service";
 import { useAuthStore } from "@/store/auth.store";
 import { useNotificationStore } from "@/store/notification.store";
 import { useChatSocket } from "@/hooks/useChatSocket";
-import { usePresenceSocket, type PresenceEvent } from "@/hooks/usePresenceSocket";
+import {
+    usePresenceSocket,
+    type PresenceEvent,
+} from "@/hooks/usePresenceSocket";
 import { getOtherParticipantId } from "@/utils/conversation";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -55,10 +58,18 @@ function getPrivacyFlag(user: Record<string, unknown>, field: "phone" | "dob") {
         if (typeof value !== "string") return undefined;
 
         const normalized = value.toLowerCase();
-        if (normalized === "hidden" || normalized === "none" || normalized === "private") {
+        if (
+            normalized === "hidden" ||
+            normalized === "none" ||
+            normalized === "private"
+        ) {
             return false;
         }
-        if (normalized === "everyone" || normalized === "public" || normalized === "friends") {
+        if (
+            normalized === "everyone" ||
+            normalized === "public" ||
+            normalized === "friends"
+        ) {
             return true;
         }
         return undefined;
@@ -101,28 +112,37 @@ function formatDob(dob?: string) {
 
 export function ChatWindow({ id }: ChatWindowProps) {
     const { user: currentUser } = useAuthStore();
-    const markMsgNotificationsRead = useNotificationStore((s) => s.markMsgNotificationsRead);
+    const markConvMessagesRead = useNotificationStore(
+        (s) => s.markConvMessagesRead,
+    );
     // Watchdog: whenever msg notifications accumulate while user is in this ChatWindow, clear them
-    const unreadMsgCount = useNotificationStore(
-        (s) => s.notifications.filter((n) => n.type === "NEW_MESSAGE" && !n.read).length,
+    const unreadMsgCountForConv = useNotificationStore(
+        (s) =>
+            s.notifications.filter((n) => n.type === "NEW_MESSAGE" && n.referenceId === id && !n.read)
+                .length,
     );
     useEffect(() => {
-        if (unreadMsgCount === 0) return;
+        if (unreadMsgCountForConv === 0) return;
         const unread = useNotificationStore
             .getState()
-            .notifications.filter((n) => n.type === "NEW_MESSAGE" && !n.read);
-        markMsgNotificationsRead();
-        Promise.all(unread.map((n) => notificationService.markAsRead(n.id))).catch(() => {});
-    }, [unreadMsgCount, markMsgNotificationsRead]);
+            .notifications.filter((n) => n.type === "NEW_MESSAGE" && n.referenceId === id && !n.read);
+        markConvMessagesRead(id);
+        Promise.all(
+            unread.map((n) => notificationService.markAsRead(n.id)),
+        ).catch(() => {});
+    }, [id, unreadMsgCountForConv, markConvMessagesRead]);
 
-    const [conversation, setConversation] = useState<ConversationResponse | null>(null);
+    const [conversation, setConversation] =
+        useState<ConversationResponse | null>(null);
     const [participant, setParticipant] = useState<ChatUser | null>(null);
-    const [participantDirectory, setParticipantDirectory] = useState<Record<string, ChatUser>>({});
+    const [participantDirectory, setParticipantDirectory] = useState<
+        Record<string, ChatUser>
+    >({});
     const [messages, setMessages] = useState<Message[]>([]);
     const [replyingTo, setReplyingTo] = useState<Message | null>(null);
     const [loading, setLoading] = useState(true);
     const [notFound, setNotFound] = useState(false);
-    
+
     // Typing indicators
     const [typingUserIds, setTypingUserIds] = useState<Set<string>>(new Set());
 
@@ -131,53 +151,67 @@ export function ChatWindow({ id }: ChatWindowProps) {
     const [hasMore, setHasMore] = useState(false);
     const currentPageRef = useRef(0);
     const [showProfileDialog, setShowProfileDialog] = useState(false);
-    const [contactStatus, setContactStatus] = useState<ContactStatus | null>(null);
+    const [contactStatus, setContactStatus] = useState<ContactStatus | null>(
+        null,
+    );
     const [sendingContact, setSendingContact] = useState(false);
     const [isEditingGroup, setIsEditingGroup] = useState(false);
     const [groupNameDraft, setGroupNameDraft] = useState("");
     const [groupAvatarDraft, setGroupAvatarDraft] = useState("");
     const [showGroupPanel, setShowGroupPanel] = useState(false);
-    const [selectedProfileUser, setSelectedProfileUser] = useState<ChatUser | null>(null);
+    const [selectedProfileUser, setSelectedProfileUser] =
+        useState<ChatUser | null>(null);
     // Presence tracking
-    const [presenceMap, setPresenceMap] = useState<Record<string, { status: string; lastSeen: string | null }>>({});
-
+    const [presenceMap, setPresenceMap] = useState<
+        Record<string, { status: string; lastSeen: string | null }>
+    >({});
 
     // ----------------------------------------------------------------
     // 1. WebSocket Hook Integration
     // ----------------------------------------------------------------
-    const onEvent = useCallback((event: ChatEvent) => {
-        const { action, message: msg } = event;
+    const onEvent = useCallback(
+        (event: ChatEvent) => {
+            const { action, message: msg } = event;
 
-        if (action === "SEND") {
-            setMessages((prev) => {
-                if (prev.some(m => m.id === msg.id)) return prev;
-                return [...prev, msg];
-            });
-            if (msg.senderId !== currentUser?.id) {
-                sendSeen(msg.id);
+            if (action === "SEND") {
+                setMessages((prev) => {
+                    if (prev.some((m) => m.id === msg.id)) return prev;
+                    return [...prev, msg];
+                });
+                if (msg.senderId !== currentUser?.id) {
+                    sendSeen(msg.id);
+                }
+            } else if (action === "EDIT" || action === "RECALL") {
+                setMessages((prev) =>
+                    prev.map((m) => (m.id === msg.id ? { ...m, ...msg } : m)),
+                );
+            } else if (action === "DELETE") {
+                setMessages((prev) => prev.filter((m) => m.id !== msg.id));
             }
-        } else if (action === "EDIT" || action === "RECALL") {
-            setMessages((prev) =>
-                prev.map(m => m.id === msg.id ? { ...m, ...msg } : m)
-            );
-        } else if (action === "DELETE") {
-            setMessages((prev) => prev.filter(m => m.id !== msg.id));
-        }
-    }, [currentUser?.id]);
+        },
+        [currentUser?.id],
+    );
 
-    const onTyping = useCallback((data: { userId: string; typing: boolean }) => {
-        if (data.userId === currentUser?.id) return;
-        setTypingUserIds((prev) => {
-            const next = new Set(prev);
-            if (data.typing) next.add(data.userId);
-            else next.delete(data.userId);
-            return next;
-        });
-    }, [currentUser?.id]);
+    const onTyping = useCallback(
+        (data: { userId: string; typing: boolean }) => {
+            if (data.userId === currentUser?.id) return;
+            setTypingUserIds((prev) => {
+                const next = new Set(prev);
+                if (data.typing) next.add(data.userId);
+                else next.delete(data.userId);
+                return next;
+            });
+        },
+        [currentUser?.id],
+    );
 
     const onRead = useCallback((msg: Message) => {
-        setMessages((prev) => 
-            prev.map(m => m.id === msg.id ? { ...m, status: msg.status, readBy: msg.readBy } : m)
+        setMessages((prev) =>
+            prev.map((m) =>
+                m.id === msg.id
+                    ? { ...m, status: msg.status, readBy: msg.readBy }
+                    : m,
+            ),
         );
     }, []);
 
@@ -185,7 +219,7 @@ export function ChatWindow({ id }: ChatWindowProps) {
         conversationId: id,
         onEvent,
         onTyping,
-        onRead
+        onRead,
     });
 
     // Presence socket hook
@@ -234,7 +268,9 @@ export function ChatWindow({ id }: ChatWindowProps) {
                 const allContacts = contactsRes.result ?? [];
                 const directory = Object.fromEntries(
                     conv.participantIds.map((participantId) => {
-                        const foundUser = allUsers.find((u) => u.id === participantId);
+                        const foundUser = allUsers.find(
+                            (u) => u.id === participantId,
+                        );
                         const mapped: ChatUser = foundUser
                             ? {
                                   id: foundUser.id,
@@ -257,7 +293,10 @@ export function ChatWindow({ id }: ChatWindowProps) {
                 if (conv.type === "PRIVATE") {
                     const otherId = getOtherParticipantId(conv, currentUser.id);
                     const other = allUsers.find((u) => u.id === otherId);
-                    const otherRecord = (other ?? {}) as Record<string, unknown>;
+                    const otherRecord = (other ?? {}) as Record<
+                        string,
+                        unknown
+                    >;
 
                     setParticipant(
                         other
@@ -269,8 +308,14 @@ export function ChatWindow({ id }: ChatWindowProps) {
                                   phone: other.phone,
                                   dob: other.dob,
                                   privacy: {
-                                      showPhone: getPrivacyFlag(otherRecord, "phone"),
-                                      showDob: getPrivacyFlag(otherRecord, "dob"),
+                                      showPhone: getPrivacyFlag(
+                                          otherRecord,
+                                          "phone",
+                                      ),
+                                      showDob: getPrivacyFlag(
+                                          otherRecord,
+                                          "dob",
+                                      ),
                                   },
                               }
                             : {
@@ -282,8 +327,10 @@ export function ChatWindow({ id }: ChatWindowProps) {
 
                     const relation = allContacts.find(
                         (c) =>
-                            (c.user.id === currentUser.id && c.contact.id === otherId) ||
-                            (c.user.id === otherId && c.contact.id === currentUser.id),
+                            (c.user.id === currentUser.id &&
+                                c.contact.id === otherId) ||
+                            (c.user.id === otherId &&
+                                c.contact.id === currentUser.id),
                     );
                     setContactStatus(relation?.status ?? null);
 
@@ -306,21 +353,26 @@ export function ChatWindow({ id }: ChatWindowProps) {
                         id: conv.id,
                         displayName: conv.name ?? "Nhóm chat",
                         username: "group",
-                        avatarUrl: conv.avatarUrl ?? firstMemberWithAvatar?.avatarUrl,
+                        avatarUrl:
+                            conv.avatarUrl ?? firstMemberWithAvatar?.avatarUrl,
                     });
                     setContactStatus(null);
                 }
 
                 // Fetch trang đầu messages
-                const msgRes = await messageService.getByConversation(id, 0, PAGE_SIZE);
+                const msgRes = await messageService.getByConversation(
+                    id,
+                    0,
+                    PAGE_SIZE,
+                );
                 if (cancelled) return;
 
                 const fetched = msgRes.result ?? [];
                 setMessages([...fetched].reverse());
                 setHasMore(fetched.length === PAGE_SIZE);
-                
+
                 // Đánh dấu các tin nhắn chưa đọc là seen
-                fetched.forEach(m => {
+                fetched.forEach((m) => {
                     if (m.senderId !== currentUser.id && m.status !== "READ") {
                         sendSeen(m.id);
                     }
@@ -347,7 +399,11 @@ export function ChatWindow({ id }: ChatWindowProps) {
         try {
             setIsLoadingMore(true);
             const nextPage = currentPageRef.current + 1;
-            const res = await messageService.getByConversation(id, nextPage, PAGE_SIZE);
+            const res = await messageService.getByConversation(
+                id,
+                nextPage,
+                PAGE_SIZE,
+            );
             const fetched = res.result ?? [];
 
             setMessages((prev) => [...[...fetched].reverse(), ...prev]);
@@ -363,48 +419,74 @@ export function ChatWindow({ id }: ChatWindowProps) {
     // ----------------------------------------------------------------
     // 4. Handlers: Gửi tin nhắn, Reply, Recall, Edit
     // ----------------------------------------------------------------
-    const handleSendMessage = useCallback((content: string, attachments?: import("@/types/message").Attachment[]) => {
-        if (!id || !currentUser) return;
-        sendMessage(content, replyingTo?.id ?? null, attachments);
-        setReplyingTo(null);
-    }, [id, currentUser, replyingTo, sendMessage]);
+    const handleSendMessage = useCallback(
+        (
+            content: string,
+            attachments?: import("@/types/message").Attachment[],
+        ) => {
+            if (!id || !currentUser) return;
+            sendMessage(content, replyingTo?.id ?? null, attachments);
+            setReplyingTo(null);
+        },
+        [id, currentUser, replyingTo, sendMessage],
+    );
 
     const handleReply = useCallback((msg: Message) => setReplyingTo(msg), []);
     const handleCancelReply = useCallback(() => setReplyingTo(null), []);
 
-    const handleRecall = useCallback(async (messageId: string) => {
-        try {
-            await messageService.recall(messageId);
-            // Optimistic update (WebSocket will also broadcast it)
-            setMessages((prev) =>
-                prev.map(m =>
-                    m.id === messageId
-                        ? { ...m, recalled: true, recalledAt: new Date().toISOString(), recalledBy: currentUser?.id ?? null }
-                        : m
-                )
-            );
-        } catch (err: any) {
-            const msg = err?.response?.data?.message ?? "Không thể thu hồi tin nhắn";
-            toast.error(msg);
-        }
-    }, [currentUser?.id]);
+    const handleRecall = useCallback(
+        async (messageId: string) => {
+            try {
+                await messageService.recall(messageId);
+                // Optimistic update (WebSocket will also broadcast it)
+                setMessages((prev) =>
+                    prev.map((m) =>
+                        m.id === messageId
+                            ? {
+                                  ...m,
+                                  recalled: true,
+                                  recalledAt: new Date().toISOString(),
+                                  recalledBy: currentUser?.id ?? null,
+                              }
+                            : m,
+                    ),
+                );
+            } catch (err: any) {
+                const msg =
+                    err?.response?.data?.message ??
+                    "Không thể thu hồi tin nhắn";
+                toast.error(msg);
+            }
+        },
+        [currentUser?.id],
+    );
 
-    const handleEdit = useCallback(async (messageId: string, newContent: string) => {
-        try {
-            await messageService.edit(messageId, newContent);
-            // Optimistic update (WebSocket will also broadcast it)
-            setMessages((prev) =>
-                prev.map(m =>
-                    m.id === messageId
-                        ? { ...m, content: newContent, edited: true, editedAt: new Date().toISOString() }
-                        : m
-                )
-            );
-        } catch (err: any) {
-            const msg = err?.response?.data?.message ?? "Không thể chỉnh sửa tin nhắn";
-            toast.error(msg);
-        }
-    }, []);
+    const handleEdit = useCallback(
+        async (messageId: string, newContent: string) => {
+            try {
+                await messageService.edit(messageId, newContent);
+                // Optimistic update (WebSocket will also broadcast it)
+                setMessages((prev) =>
+                    prev.map((m) =>
+                        m.id === messageId
+                            ? {
+                                  ...m,
+                                  content: newContent,
+                                  edited: true,
+                                  editedAt: new Date().toISOString(),
+                              }
+                            : m,
+                    ),
+                );
+            } catch (err: any) {
+                const msg =
+                    err?.response?.data?.message ??
+                    "Không thể chỉnh sửa tin nhắn";
+                toast.error(msg);
+            }
+        },
+        [],
+    );
 
     const handleOpenSenderProfile = useCallback(
         (senderId: string) => {
@@ -418,7 +500,8 @@ export function ChatWindow({ id }: ChatWindowProps) {
 
     const handleSendFriendRequest = useCallback(async () => {
         const targetUser =
-            selectedProfileUser ?? (conversation?.type === "PRIVATE" ? participant : null);
+            selectedProfileUser ??
+            (conversation?.type === "PRIVATE" ? participant : null);
         if (!targetUser) return;
         if (contactStatus === "ACCEPTED" || contactStatus === "PENDING") return;
 
@@ -435,14 +518,29 @@ export function ChatWindow({ id }: ChatWindowProps) {
     }, [selectedProfileUser, conversation?.type, participant, contactStatus]);
 
     useEffect(() => {
-        if (!showProfileDialog || conversation?.type !== "GROUP" || !participant) {
+        if (
+            !showProfileDialog ||
+            conversation?.type !== "GROUP" ||
+            !participant
+        ) {
             setIsEditingGroup(false);
             return;
         }
 
-        setGroupNameDraft(participant.displayName || conversation.name || "Nhóm chat");
-        setGroupAvatarDraft(participant.avatarUrl || conversation.avatarUrl || "");
-    }, [showProfileDialog, conversation?.type, conversation?.name, conversation?.avatarUrl, participant?.displayName, participant?.avatarUrl]);
+        setGroupNameDraft(
+            participant.displayName || conversation.name || "Nhóm chat",
+        );
+        setGroupAvatarDraft(
+            participant.avatarUrl || conversation.avatarUrl || "",
+        );
+    }, [
+        showProfileDialog,
+        conversation?.type,
+        conversation?.name,
+        conversation?.avatarUrl,
+        participant?.displayName,
+        participant?.avatarUrl,
+    ]);
 
     const handleSaveGroupProfile = useCallback(() => {
         if (conversation?.type !== "GROUP") return;
@@ -497,7 +595,9 @@ export function ChatWindow({ id }: ChatWindowProps) {
     if (notFound || !conversation || !participant) {
         return (
             <div className="flex-1 flex flex-col items-center justify-center bg-muted/10 text-muted-foreground gap-2">
-                <p className="text-sm">Hội thoại không tồn tại hoặc bạn không có quyền truy cập.</p>
+                <p className="text-sm">
+                    Hội thoại không tồn tại hoặc bạn không có quyền truy cập.
+                </p>
             </div>
         );
     }
@@ -506,8 +606,8 @@ export function ChatWindow({ id }: ChatWindowProps) {
         replyingTo?.senderId === currentUser?.id
             ? "Bạn"
             : (
-                  participantDirectory[replyingTo?.senderId ?? ""]?.displayName ||
-                  participant.displayName
+                  participantDirectory[replyingTo?.senderId ?? ""]
+                      ?.displayName || participant.displayName
               )
                   .split(" ")
                   .slice(-1)[0];
@@ -522,7 +622,9 @@ export function ChatWindow({ id }: ChatWindowProps) {
               .split(" ")
               .slice(-1)[0]
         : participant.displayName.split(" ").slice(-1)[0];
-    const profileUser = selectedProfileUser ?? (conversation.type === "PRIVATE" ? participant : null);
+    const profileUser =
+        selectedProfileUser ??
+        (conversation.type === "PRIVATE" ? participant : null);
     const showPhone = profileUser?.privacy?.showPhone !== false;
     const showDob = profileUser?.privacy?.showDob !== false;
     const groupMembers = Object.values(participantDirectory);
@@ -535,7 +637,7 @@ export function ChatWindow({ id }: ChatWindowProps) {
     // Determine presence status for the other participant
     const isGroup = conversation.type === "GROUP";
     const participantPresence = !isGroup
-        ? presenceMap[participant.id] ?? undefined
+        ? (presenceMap[participant.id] ?? undefined)
         : undefined;
 
     return (
@@ -547,7 +649,9 @@ export function ChatWindow({ id }: ChatWindowProps) {
                     setShowProfileDialog(true);
                 }}
                 isGroup={isGroup}
-                onOpenGroupPanel={isGroup ? () => setShowGroupPanel(true) : undefined}
+                onOpenGroupPanel={
+                    isGroup ? () => setShowGroupPanel(true) : undefined
+                }
                 presenceStatus={participantPresence?.status}
                 lastSeen={participantPresence?.lastSeen}
             />
@@ -571,9 +675,18 @@ export function ChatWindow({ id }: ChatWindowProps) {
                 <div className="absolute bottom-24 left-6 z-10 animate-in fade-in slide-in-from-bottom-2">
                     <div className="flex items-center gap-2 bg-muted/80 backdrop-blur-sm px-3 py-1.5 rounded-full border border-border shadow-sm">
                         <div className="flex gap-1">
-                            <span className="w-1.5 h-1.5 bg-brand rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                            <span className="w-1.5 h-1.5 bg-brand rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                            <span className="w-1.5 h-1.5 bg-brand rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                            <span
+                                className="w-1.5 h-1.5 bg-brand rounded-full animate-bounce"
+                                style={{ animationDelay: "0ms" }}
+                            />
+                            <span
+                                className="w-1.5 h-1.5 bg-brand rounded-full animate-bounce"
+                                style={{ animationDelay: "150ms" }}
+                            />
+                            <span
+                                className="w-1.5 h-1.5 bg-brand rounded-full animate-bounce"
+                                style={{ animationDelay: "300ms" }}
+                            />
                         </div>
                         <span className="text-[11px] font-medium text-muted-foreground italic">
                             {typingDisplayName} đang soạn tin...
@@ -610,34 +723,43 @@ export function ChatWindow({ id }: ChatWindowProps) {
                             <DialogHeader>
                                 <DialogTitle>Thông tin người dùng</DialogTitle>
                                 <DialogDescription>
-                                    Hồ sơ hiển thị theo quyền riêng tư của người này.
+                                    Hồ sơ hiển thị theo quyền riêng tư của người
+                                    này.
                                 </DialogDescription>
                             </DialogHeader>
-                    <div className="space-y-4">
-                        <div className="flex items-center gap-3">
-                            <Avatar className="h-14 w-14 border border-border/60">
-                                <AvatarImage src={profileUser.avatarUrl} />
-                                <AvatarFallback>
-                                    {profileUser.displayName.charAt(0)}
-                                </AvatarFallback>
-                            </Avatar>
-                            <div className="min-w-0">
-                                <p className="text-base font-semibold text-foreground truncate">
-                                    {profileUser.displayName}
-                                </p>
-                                <p className="text-sm text-muted-foreground truncate">
-                                    @{profileUser.username || "unknown"}
-                                </p>
-                                {profileUser.id === participant.id && !isGroup && participantPresence && (
-                                    <PresenceIndicator
-                                        status={participantPresence.status}
-                                        lastSeen={participantPresence.lastSeen}
-                                        showLabel
-                                        className="mt-1"
-                                    />
-                                )}
-                            </div>
-                        </div>
+                            <div className="space-y-4">
+                                <div className="flex items-center gap-3">
+                                    <Avatar className="h-14 w-14 border border-border/60">
+                                        <AvatarImage
+                                            src={profileUser.avatarUrl}
+                                        />
+                                        <AvatarFallback>
+                                            {profileUser.displayName.charAt(0)}
+                                        </AvatarFallback>
+                                    </Avatar>
+                                    <div className="min-w-0">
+                                        <p className="text-base font-semibold text-foreground truncate">
+                                            {profileUser.displayName}
+                                        </p>
+                                        <p className="text-sm text-muted-foreground truncate">
+                                            @{profileUser.username || "unknown"}
+                                        </p>
+                                        {profileUser.id === participant.id &&
+                                            !isGroup &&
+                                            participantPresence && (
+                                                <PresenceIndicator
+                                                    status={
+                                                        participantPresence.status
+                                                    }
+                                                    lastSeen={
+                                                        participantPresence.lastSeen
+                                                    }
+                                                    showLabel
+                                                    className="mt-1"
+                                                />
+                                            )}
+                                    </div>
+                                </div>
                                 <div className="space-y-2 rounded-lg border border-border bg-muted/30 p-3">
                                     <div className="flex items-center justify-between gap-2 text-sm">
                                         <span className="inline-flex items-center gap-1 text-muted-foreground">
@@ -646,7 +768,8 @@ export function ChatWindow({ id }: ChatWindowProps) {
                                         </span>
                                         <span className="font-medium text-foreground">
                                             {showPhone
-                                                ? profileUser.phone || "Chưa cập nhật"
+                                                ? profileUser.phone ||
+                                                  "Chưa cập nhật"
                                                 : "Đã ẩn"}
                                         </span>
                                     </div>
@@ -657,17 +780,23 @@ export function ChatWindow({ id }: ChatWindowProps) {
                                             Ngày sinh
                                         </span>
                                         <span className="font-medium text-foreground">
-                                            {showDob ? formatDob(profileUser.dob) : "Đã ẩn"}
+                                            {showDob
+                                                ? formatDob(profileUser.dob)
+                                                : "Đã ẩn"}
                                         </span>
                                     </div>
                                 </div>
 
                                 <div className="flex items-center gap-2">
                                     {contactStatus === "ACCEPTED" && (
-                                        <Badge variant="secondary">Đã là bạn bè</Badge>
+                                        <Badge variant="secondary">
+                                            Đã là bạn bè
+                                        </Badge>
                                     )}
                                     {contactStatus === "PENDING" && (
-                                        <Badge variant="outline">Đã gửi lời mời</Badge>
+                                        <Badge variant="outline">
+                                            Đã gửi lời mời
+                                        </Badge>
                                     )}
                                 </div>
                             </div>
@@ -709,10 +838,18 @@ export function ChatWindow({ id }: ChatWindowProps) {
                                         <div className="flex items-center gap-3 min-w-0">
                                             <Avatar className="h-14 w-14 border border-border/60">
                                                 <AvatarImage
-                                                    src={isEditingGroup ? groupAvatarDraft || participant.avatarUrl : participant.avatarUrl}
+                                                    src={
+                                                        isEditingGroup
+                                                            ? groupAvatarDraft ||
+                                                              participant.avatarUrl
+                                                            : participant.avatarUrl
+                                                    }
                                                 />
                                                 <AvatarFallback>
-                                                    {(isEditingGroup ? groupNameDraft : participant.displayName)
+                                                    {(isEditingGroup
+                                                        ? groupNameDraft
+                                                        : participant.displayName
+                                                    )
                                                         .charAt(0)
                                                         .toUpperCase() || "N"}
                                                 </AvatarFallback>
@@ -721,17 +858,25 @@ export function ChatWindow({ id }: ChatWindowProps) {
                                                 {isEditingGroup ? (
                                                     <Input
                                                         value={groupNameDraft}
-                                                        onChange={(e) => setGroupNameDraft(e.target.value)}
+                                                        onChange={(e) =>
+                                                            setGroupNameDraft(
+                                                                e.target.value,
+                                                            )
+                                                        }
                                                         placeholder="Tên nhóm"
                                                         className="h-8"
                                                     />
                                                 ) : (
                                                     <p className="text-base font-semibold text-foreground truncate">
-                                                        {participant.displayName}
+                                                        {
+                                                            participant.displayName
+                                                        }
                                                     </p>
                                                 )}
                                                 <p className="text-xs text-muted-foreground">
-                                                    Nhóm chat • {groupMembers.length} thành viên
+                                                    Nhóm chat •{" "}
+                                                    {groupMembers.length} thành
+                                                    viên
                                                 </p>
                                             </div>
                                         </div>
@@ -739,7 +884,11 @@ export function ChatWindow({ id }: ChatWindowProps) {
                                             variant="ghost"
                                             size="icon"
                                             className="h-8 w-8"
-                                            onClick={() => setIsEditingGroup((prev) => !prev)}
+                                            onClick={() =>
+                                                setIsEditingGroup(
+                                                    (prev) => !prev,
+                                                )
+                                            }
                                         >
                                             <Pencil size={14} />
                                         </Button>
@@ -749,7 +898,11 @@ export function ChatWindow({ id }: ChatWindowProps) {
                                         <div className="mt-3 space-y-2">
                                             <Input
                                                 value={groupAvatarDraft}
-                                                onChange={(e) => setGroupAvatarDraft(e.target.value)}
+                                                onChange={(e) =>
+                                                    setGroupAvatarDraft(
+                                                        e.target.value,
+                                                    )
+                                                }
                                                 placeholder="URL ảnh nhóm"
                                             />
                                             <div className="flex items-center justify-end gap-2">
@@ -757,14 +910,29 @@ export function ChatWindow({ id }: ChatWindowProps) {
                                                     variant="ghost"
                                                     size="sm"
                                                     onClick={() => {
-                                                        setIsEditingGroup(false);
-                                                        setGroupNameDraft(participant.displayName || conversation.name || "Nhóm chat");
-                                                        setGroupAvatarDraft(participant.avatarUrl || conversation.avatarUrl || "");
+                                                        setIsEditingGroup(
+                                                            false,
+                                                        );
+                                                        setGroupNameDraft(
+                                                            participant.displayName ||
+                                                                conversation.name ||
+                                                                "Nhóm chat",
+                                                        );
+                                                        setGroupAvatarDraft(
+                                                            participant.avatarUrl ||
+                                                                conversation.avatarUrl ||
+                                                                "",
+                                                        );
                                                     }}
                                                 >
                                                     Huỷ
                                                 </Button>
-                                                <Button size="sm" onClick={handleSaveGroupProfile}>
+                                                <Button
+                                                    size="sm"
+                                                    onClick={
+                                                        handleSaveGroupProfile
+                                                    }
+                                                >
                                                     Lưu
                                                 </Button>
                                             </div>
@@ -777,18 +945,24 @@ export function ChatWindow({ id }: ChatWindowProps) {
                                         Thành viên ({groupMembers.length})
                                     </p>
                                     <div className="flex items-center -space-x-2">
-                                        {groupMembers.slice(0, 6).map((member) => (
-                                            <Avatar
-                                                key={member.id}
-                                                className="h-9 w-9 border-2 border-background"
-                                                title={member.displayName}
-                                            >
-                                                <AvatarImage src={member.avatarUrl} />
-                                                <AvatarFallback>
-                                                    {member.displayName.charAt(0)}
-                                                </AvatarFallback>
-                                            </Avatar>
-                                        ))}
+                                        {groupMembers
+                                            .slice(0, 6)
+                                            .map((member) => (
+                                                <Avatar
+                                                    key={member.id}
+                                                    className="h-9 w-9 border-2 border-background"
+                                                    title={member.displayName}
+                                                >
+                                                    <AvatarImage
+                                                        src={member.avatarUrl}
+                                                    />
+                                                    <AvatarFallback>
+                                                        {member.displayName.charAt(
+                                                            0,
+                                                        )}
+                                                    </AvatarFallback>
+                                                </Avatar>
+                                            ))}
                                         {groupMembers.length > 6 && (
                                             <div className="h-9 w-9 rounded-full border-2 border-background bg-muted flex items-center justify-center text-[11px] text-muted-foreground font-semibold">
                                                 +{groupMembers.length - 6}
@@ -798,7 +972,9 @@ export function ChatWindow({ id }: ChatWindowProps) {
                                 </div>
 
                                 <div className="rounded-lg border border-border bg-muted/20 p-3">
-                                    <p className="text-sm font-medium text-foreground">Link tham gia nhóm</p>
+                                    <p className="text-sm font-medium text-foreground">
+                                        Link tham gia nhóm
+                                    </p>
                                     <div className="mt-2 flex items-center gap-2">
                                         <a
                                             href={inviteLink}
@@ -814,10 +990,16 @@ export function ChatWindow({ id }: ChatWindowProps) {
                                             className="h-8 w-8 shrink-0"
                                             onClick={async () => {
                                                 try {
-                                                    await navigator.clipboard.writeText(inviteLink);
-                                                    toast.success("Đã sao chép link nhóm");
+                                                    await navigator.clipboard.writeText(
+                                                        inviteLink,
+                                                    );
+                                                    toast.success(
+                                                        "Đã sao chép link nhóm",
+                                                    );
                                                 } catch {
-                                                    toast.error("Không thể sao chép link");
+                                                    toast.error(
+                                                        "Không thể sao chép link",
+                                                    );
                                                 }
                                             }}
                                         >
@@ -841,7 +1023,11 @@ export function ChatWindow({ id }: ChatWindowProps) {
                                     <Button
                                         variant="ghost"
                                         className="w-full justify-start text-red-500 hover:text-red-600 hover:bg-red-500/10"
-                                        onClick={() => toast.info("Development in progress...")}
+                                        onClick={() =>
+                                            toast.info(
+                                                "Development in progress...",
+                                            )
+                                        }
                                     >
                                         <LogOut className="mr-2 h-4 w-4" />
                                         Rời nhóm

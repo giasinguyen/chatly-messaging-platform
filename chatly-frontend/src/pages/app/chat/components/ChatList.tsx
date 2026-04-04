@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useMemo } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import {
     Search,
@@ -35,10 +35,11 @@ import {
     getConversationAvatar,
 } from "@/utils/conversation";
 import type { ConversationResponse } from "@/types/conversation";
-import type { Message, ChatEvent } from "@/types/message";
+import type { ChatEvent } from "@/types/message";
 import type { UserResponse } from "@/types/auth";
 import { toast } from "sonner";
 import { CreateGroupDialog } from "./CreateGroupDialog";
+import { useNotificationStore } from "@/store/notification.store";
 
 function formatZaloTime(dateString: string) {
     const date = new Date(dateString);
@@ -79,6 +80,10 @@ export function ChatList() {
     const [users, setUsers] = useState<UserResponse[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState("");
+    const notifications = useNotificationStore((s) => s.notifications);
+    const unreadMsgNotifications = useMemo(() => 
+        notifications.filter((n) => n.type === "NEW_MESSAGE" && !n.read),
+    [notifications]);
     const conversationIdsKey = [...conversations]
         .map((conv) => conv.id)
         .sort()
@@ -217,6 +222,9 @@ export function ChatList() {
             : undefined;
         const initials = displayName.charAt(0).toUpperCase();
         const isGroup = conv.type === "GROUP";
+        const unreadCount = unreadMsgNotifications.filter(
+            (n) => n.referenceId === conv.id
+        ).length;
 
         return (
             <ContextMenu key={conv.id}>
@@ -295,6 +303,11 @@ export function ChatList() {
                                             "Chưa có tin nhắn"
                                         )}
                                     </span>
+                                    {unreadCount > 0 && (
+                                        <span className="min-w-[18px] h-[18px] shrink-0 text-[10px] font-bold bg-red-500 text-white rounded-full flex items-center justify-center px-1 ml-2">
+                                            {unreadCount > 99 ? '99+' : unreadCount}
+                                        </span>
+                                    )}
                                 </div>
                             </div>
                         </NavLink>

@@ -10,6 +10,7 @@ interface NotificationStore {
     markOneRead: (id: string) => void;
     markAllRead: () => void;
     markMsgNotificationsRead: () => void;
+    markConvMessagesRead: (conversationId: string) => void;
 }
 
 export const useNotificationStore = create<NotificationStore>((set) => ({
@@ -22,7 +23,8 @@ export const useNotificationStore = create<NotificationStore>((set) => ({
 
     addNotification: (notification) =>
         set((state) => {
-            if (state.notifications.some((n) => n.id === notification.id)) return state;
+            if (state.notifications.some((n) => n.id === notification.id))
+                return state;
             return { notifications: [notification, ...state.notifications] };
         }),
 
@@ -35,13 +37,24 @@ export const useNotificationStore = create<NotificationStore>((set) => ({
 
     markAllRead: () =>
         set((state) => ({
-            notifications: state.notifications.map((n) => ({ ...n, read: true })),
+            notifications: state.notifications.map((n) => ({
+                ...n,
+                read: true,
+            })),
         })),
 
     markMsgNotificationsRead: () =>
         set((state) => ({
             notifications: state.notifications.map((n) =>
                 n.type === "NEW_MESSAGE" ? { ...n, read: true } : n,
+            ),
+        })),
+
+    markConvMessagesRead: (conversationId) =>
+        set((state) => ({
+            notifications: state.notifications.map((n) =>
+                n.type === "NEW_MESSAGE" && n.referenceId === conversationId
+                    ? { ...n, read: true } : n,
             ),
         })),
 }));
