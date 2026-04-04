@@ -1,7 +1,7 @@
-﻿import { useEffect, useRef, useCallback, useState, useMemo } from "react";
+import { useEffect, useRef, useCallback, useState, useMemo } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Check, CheckCheck, Reply, RotateCcw, Pencil, X, Send, FileText, Download } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ChevronLeft, ChevronRight, Check, CheckCheck, Reply, RotateCcw, Pencil, X, Send, FileText, Download } from "lucide-react";
 import type { Message, ChatUser } from "@/types/message";
 import type { ConversationType } from "@/types/conversation";
 import { ReplyPreview } from "./ReplyPreview";
@@ -61,12 +61,28 @@ export function MessageList({
     const prevScrollHeightRef = useRef<number>(0);
     const isFirstMount = useRef(true);
 
-    // Edit inline state
     const [editingId, setEditingId] = useState<string | null>(null);
     const [editDraft, setEditDraft] = useState("");
 
     // Recall confirm dialog state
     const [recallConfirmId, setRecallConfirmId] = useState<string | null>(null);
+
+    // Lightbox state
+    const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+
+    const allImages = useMemo(() => {
+        const images: { id: string; url: string; name: string }[] = [];
+        messages.forEach(msg => {
+            if (msg.attachments) {
+                msg.attachments.forEach((att, i) => {
+                    if (att.type?.startsWith("image/")) {
+                        images.push({ id: `${msg.id}-${i}`, url: att.url, name: att.name ?? "image" });
+                    }
+                });
+            }
+        });
+        return images;
+    }, [messages]);
 
     // Find the last message sent by me that has been seen by others
     const lastSeenByOthersIdx = useMemo(() => {
@@ -348,20 +364,20 @@ export function MessageList({
                                         {msg.attachments.map((att, i) => {
                                             const isImage = att.type?.startsWith("image/");
                                             if (isImage) {
+                                                const id = `${msg.id}-${i}`;
                                                 return (
-                                                    <a
+                                                    <button
+                                                        type="button"
                                                         key={i}
-                                                        href={att.url}
-                                                        target="_blank"
-                                                        rel="noopener noreferrer"
-                                                        className="block"
+                                                        onClick={() => setLightboxIndex(allImages.findIndex(img => img.id === id))}
+                                                        className="block text-left transition-opacity hover:opacity-90"
                                                     >
                                                         <img
                                                             src={att.url}
                                                             alt={att.name ?? "image"}
                                                             className="max-w-60 max-h-60 rounded-xl object-cover"
                                                         />
-                                                    </a>
+                                                    </button>
                                                 );
                                             }
                                             return (
@@ -571,6 +587,70 @@ export function MessageList({
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+
+            {/* Lightbox Gallery Overlay */}
+            {lightboxIndex !== null && allImages[lightboxIndex] && (
+                <div 
+                    className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-md flex items-center justify-center pointer-events-auto outline-none animate-in fade-in duration-200"
+                    tabIndex={-1}
+                    onKeyDown={(e) => {
+                        if (e.key === "Escape") setLightboxIndex(null);
+                        if (e.key === "ArrowLeft" && lightboxIndex > 0) setLightboxIndex(lightboxIndex - 1);
+                        if (e.key === "ArrowRight" && lightboxIndex < allImages.length - 1) setLightboxIndex(lightboxIndex + 1);
+                    }}
+                    autoFocus
+                >
+                    {/* Top bar */}
+                    <div className="absolute top-0 inset-x-0 p-4 flex items-center justify-between text-white/70">
+                        <span className="text-sm">
+                            {lightboxIndex + 1} / {allImages.length}
+                        </span>
+                        <div className="flex items-center gap-4">
+                            <a 
+                                href={allImages[lightboxIndex].url}
+                                download={allImages[lightboxIndex].name}
+                                target="_blank" 
+                                rel="noreferrer"
+                                className="hover:text-white transition-colors"
+                                title="Tải xuống"
+                            >
+                                <Download size={20} />
+                            </a>
+                            <button 
+                                onClick={() => setLightboxIndex(null)}
+                                className="hover:text-white transition-colors"
+                            >
+                                <X size={24} />
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Prev/Next */}
+                    {lightboxIndex > 0 && (
+                        <button 
+                            className="absolute left-4 p-2 text-white/50 hover:text-white bg-black/20 hover:bg-black/50 rounded-full transition-all"
+                            onClick={() => setLightboxIndex(lightboxIndex - 1)}
+                        >
+                            <ChevronLeft size={36} />
+                        </button>
+                    )}
+                    {lightboxIndex < allImages.length - 1 && (
+                        <button 
+                            className="absolute right-4 p-2 text-white/50 hover:text-white bg-black/20 hover:bg-black/50 rounded-full transition-all"
+                            onClick={() => setLightboxIndex(lightboxIndex + 1)}
+                        >
+                            <ChevronRight size={36} />
+                        </button>
+                    )}
+
+                    {/* Main Image */}
+                    <img 
+                        src={allImages[lightboxIndex].url} 
+                        alt={allImages[lightboxIndex].name} 
+                        className="max-h-[90vh] max-w-[90vw] object-contain select-none"
+                    />
+                </div>
+            )}
         </>
     );
 }

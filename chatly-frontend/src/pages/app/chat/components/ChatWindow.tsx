@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import { ChatHeader } from "./ChatHeader";
 import { MessageList } from "./MessageList";
 import { ChatInput } from "./ChatInput";
+import type { ChatInputRef } from "./ChatInput";
 import { GroupManagementPanel } from "./GroupManagementPanel";
 import { conversationService } from "@/services/conversation.service";
 import { contactService } from "@/services/contact.service";
@@ -39,6 +40,7 @@ import {
     Phone,
     Settings,
     UserPlus,
+    Upload,
 } from "lucide-react";
 import { toast } from "sonner";
 import type { Message, ChatUser, ChatEvent } from "@/types/message";
@@ -165,6 +167,39 @@ export function ChatWindow({ id }: ChatWindowProps) {
     const [presenceMap, setPresenceMap] = useState<
         Record<string, { status: string; lastSeen: string | null }>
     >({});
+
+    // Drag Drop state
+    const chatInputRef = useRef<ChatInputRef>(null);
+    const [isDragging, setIsDragging] = useState(false);
+
+    const handleDragEnter = (e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDragging(true);
+    };
+
+    const handleDragLeave = (e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (e.relatedTarget === null || !e.currentTarget.contains(e.relatedTarget as Node)) {
+            setIsDragging(false);
+        }
+    };
+
+    const handleDragOver = (e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+    };
+
+    const handleDrop = (e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDragging(false);
+        const files = Array.from(e.dataTransfer.files);
+        if (files.length > 0) {
+            chatInputRef.current?.addFiles(files);
+        }
+    };
 
     // ----------------------------------------------------------------
     // 1. WebSocket Hook Integration
@@ -641,7 +676,24 @@ export function ChatWindow({ id }: ChatWindowProps) {
         : undefined;
 
     return (
-        <div className="flex-1 flex flex-col overflow-hidden bg-background relative">
+        <div 
+            className="flex-1 flex flex-col overflow-hidden bg-background relative"
+            onDragEnter={handleDragEnter}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+        >
+            {/* Drag drop overlay */}
+            {isDragging && (
+                <div className="absolute inset-0 z-50 bg-background/80 backdrop-blur-sm flex items-center justify-center border-4 border-dashed border-brand m-2 rounded-xl transition-all pointer-events-none">
+                    <div className="flex flex-col items-center gap-4 text-brand">
+                        <Upload size={48} className="animate-bounce" />
+                        <h3 className="text-2xl font-bold tracking-tight">Kéo thả file vào đây</h3>
+                        <p className="text-muted-foreground">Hỗ trợ hình ảnh, video và tài liệu</p>
+                    </div>
+                </div>
+            )}
+
             <ChatHeader
                 user={participant}
                 onOpenProfile={() => {
@@ -696,6 +748,7 @@ export function ChatWindow({ id }: ChatWindowProps) {
             )}
 
             <ChatInput
+                ref={chatInputRef}
                 conversationId={id}
                 replyingTo={replyingTo}
                 senderName={replyingSenderName}

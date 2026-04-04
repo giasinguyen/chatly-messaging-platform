@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useRef, forwardRef, useImperativeHandle } from "react";
 import type { KeyboardEvent } from "react";
 import {
     SendHorizontal,
@@ -31,18 +31,22 @@ interface PendingFile {
     error?: string;
 }
 
+export interface ChatInputRef {
+    addFiles: (files: File[]) => void;
+}
+
 const TYPING_STOP_DELAY = 2000;
 const ACCEPTED_TYPES =
     "image/*,video/*,audio/*,application/pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip";
 
-export function ChatInput({
+export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
     conversationId,
     replyingTo,
     senderName,
     onCancelReply,
     onSendMessage,
     onTyping,
-}: ChatInputProps) {
+}, ref) => {
     const [content, setContent] = useState("");
     const [isTyping, setIsTyping] = useState(false);
     const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([]);
@@ -89,12 +93,8 @@ export function ChatInput({
     // ----------------------------------------------------------------
     // File Upload Logic
     // ----------------------------------------------------------------
-    const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const files = Array.from(e.target.files ?? []);
+    const processFiles = async (files: File[]) => {
         if (!files.length) return;
-
-        // Reset input so the same file can be re-selected
-        e.target.value = "";
 
         for (const file of files) {
             const localId = `${Date.now()}-${Math.random()}`;
@@ -130,6 +130,40 @@ export function ChatInput({
                     ),
                 );
             }
+        }
+    };
+
+    useImperativeHandle(ref, () => ({
+        addFiles: (files: File[]) => processFiles(files),
+    }));
+
+    const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const files = Array.from(e.target.files ?? []);
+        processFiles(files);
+        e.target.value = "";
+    };
+
+    const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+        const items = Array.from(e.clipboardData.items);
+        const files: File[] = [];
+        for (const item of items) {
+            if (item.kind === "file") {
+                const file = item.getAsFile();
+                if (file) {
+                    const isAccepted = ACCEPTED_TYPES.split(",").some(type => {
+                        const cleanType = type.trim();
+                        if (cleanType.endsWith("/*")) return file.type.startsWith(cleanType.replace("/*", ""));
+                        if (cleanType.startsWith(".")) return file.name.endsWith(cleanType);
+                        return file.type === cleanType;
+                    }) || file.type.startsWith("image/");
+                    
+                    if (isAccepted) files.push(file);
+                }
+            }
+        }
+        if (files.length > 0) {
+            e.preventDefault();
+            processFiles(files);
         }
     };
 
@@ -268,6 +302,7 @@ export function ChatInput({
                             value={content}
                             onChange={(e) => handleContentChange(e.target.value)}
                             onKeyDown={handleKeyDown}
+                            onPaste={handlePaste}
                             className="bg-transparent border-transparent focus-visible:ring-0 focus-visible:border-transparent p-0 h-10 text-[15px] shadow-none placeholder:text-muted-foreground/50"
                         />
                     </div>
@@ -289,5 +324,4 @@ export function ChatInput({
             </div>
         </div>
     );
-}
-
+});
