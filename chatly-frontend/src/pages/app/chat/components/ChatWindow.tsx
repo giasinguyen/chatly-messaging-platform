@@ -523,6 +523,23 @@ export function ChatWindow({ id }: ChatWindowProps) {
         [],
     );
 
+    const handleDelete = useCallback(
+        async (messageId: string) => {
+            try {
+                await messageService.delete(messageId);
+                // Optimistic update
+                setMessages((prev) => prev.filter((m) => m.id !== messageId));
+                toast.success("Đã xóa tin nhắn");
+            } catch (err: any) {
+                const msg =
+                    err?.response?.data?.message ??
+                    "Không thể xóa tin nhắn";
+                toast.error(msg);
+            }
+        },
+        [],
+    );
+
     const handleOpenSenderProfile = useCallback(
         (senderId: string) => {
             const user = participantDirectory[senderId];
@@ -717,6 +734,7 @@ export function ChatWindow({ id }: ChatWindowProps) {
                 onReply={handleReply}
                 onRecall={handleRecall}
                 onEdit={handleEdit}
+                onDelete={handleDelete}
                 onOpenSenderProfile={handleOpenSenderProfile}
                 onLoadMore={handleLoadMore}
                 isLoadingMore={isLoadingMore}

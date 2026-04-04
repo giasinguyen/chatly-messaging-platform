@@ -1,7 +1,8 @@
 import { useEffect, useRef, useCallback, useState, useMemo } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
-import { ChevronLeft, ChevronRight, Check, CheckCheck, Reply, RotateCcw, Pencil, X, Send, FileText, Download } from "lucide-react";
+import { ChevronLeft, ChevronRight, Check, CheckCheck, Reply, RotateCcw, Pencil, X, Send, FileText, Download, Copy, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 import type { Message, ChatUser } from "@/types/message";
 import type { ConversationType } from "@/types/conversation";
 import { ReplyPreview } from "./ReplyPreview";
@@ -22,6 +23,12 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface MessageListProps {
     messages: Message[];
@@ -32,6 +39,7 @@ interface MessageListProps {
     onReply: (msg: Message) => void;
     onRecall: (messageId: string) => void;
     onEdit: (messageId: string, newContent: string) => void;
+    onDelete: (messageId: string) => void;
     onOpenSenderProfile?: (userId: string) => void;
     onLoadMore: () => void;
     isLoadingMore: boolean;
@@ -50,6 +58,7 @@ export function MessageList({
     onReply,
     onRecall,
     onEdit,
+    onDelete,
     onOpenSenderProfile,
     onLoadMore,
     isLoadingMore,
@@ -66,6 +75,7 @@ export function MessageList({
 
     // Recall confirm dialog state
     const [recallConfirmId, setRecallConfirmId] = useState<string | null>(null);
+    const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
     // Lightbox state
     const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
@@ -401,9 +411,16 @@ export function MessageList({
                                     </div>
                                 )}
                                 {msg.edited && (
-                                    <span className={cn("ml-1.5 text-[10px] opacity-60")}>
-                                        (đã chỉnh sửa)
-                                    </span>
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <span className={cn("ml-1.5 text-[10px] opacity-70 cursor-help")}>
+                                                (đã chỉnh sửa)
+                                            </span>
+                                        </TooltipTrigger>
+                                        <TooltipContent side="top">
+                                            {msg.editedAt && `Sửa lúc: ${new Date(msg.editedAt).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}, ${new Date(msg.editedAt).toLocaleDateString("vi-VN")}`}
+                                        </TooltipContent>
+                                    </Tooltip>
                                 )}
                             </div>
                         )}
@@ -491,20 +508,34 @@ export function MessageList({
             </div>
         );
 
-        /* Wrap mine messages in context menu for recall/edit */
-        if (!isMe || msg.recalled || isBeingEdited) return bubble;
+        /* Wrap messages in context menu */
+        if (isBeingEdited) return bubble;
 
         return (
             <ContextMenu>
                 <ContextMenuTrigger asChild>{bubble}</ContextMenuTrigger>
-                <ContextMenuContent className="w-44">
-                    <ContextMenuItem
-                        onClick={() => onReply(msg)}
-                        className="gap-2"
-                    >
-                        <Reply size={14} />
-                        Trả lời
-                    </ContextMenuItem>
+                <ContextMenuContent className="w-56">
+                    {!msg.recalled && (
+                        <ContextMenuItem
+                            onClick={() => onReply(msg)}
+                            className="gap-2"
+                        >
+                            <Reply size={14} />
+                            Trả lời
+                        </ContextMenuItem>
+                    )}
+                    {msg.type === "TEXT" && !msg.recalled && (
+                        <ContextMenuItem
+                            onClick={() => {
+                                navigator.clipboard.writeText(msg.content);
+                                toast.success("Đã copy tin nhắn");
+                            }}
+                            className="gap-2"
+                        >
+                            <Copy size={14} />
+                            Copy tin nhắn
+                        </ContextMenuItem>
+                    )}
                     {canEdit(msg) && (
                         <ContextMenuItem
                             onClick={() => startEdit(msg)}
@@ -526,13 +557,21 @@ export function MessageList({
                             </ContextMenuItem>
                         </>
                     )}
+                    <ContextMenuSeparator />
+                    <ContextMenuItem
+                        onClick={() => setDeleteConfirmId(msg.id)}
+                        className="gap-2 text-destructive focus:text-destructive"
+                    >
+                        <Trash2 size={14} />
+                        Xóa chỉ ở phía tôi
+                    </ContextMenuItem>
                 </ContextMenuContent>
             </ContextMenu>
         );
     };
 
     return (
-        <>
+        <TooltipProvider>
             <div ref={containerRef} className="flex-1 overflow-y-auto bg-muted/20">
                 <div className="py-6 flex flex-col min-h-full">
                     {/* Lazy load sentinel */}
@@ -583,6 +622,32 @@ export function MessageList({
                             }}
                         >
                             Thu hồi
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Delete confirmation dialog */}
+            <Dialog open={!!deleteConfirmId} onOpenChange={open => !open && setDeleteConfirmId(null)}>
+                <DialogContent className="sm:max-w-xs">
+                    <DialogHeader>
+                        <DialogTitle>Xóa tin nhắn?</DialogTitle>
+                        <DialogDescription>
+                            Tin nhắn sẽ bị xóa khỏi giao diện của bạn. Người khác vẫn có thể thấy tin nhắn này. Hành động này không thể hoàn tác.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter className="gap-2 sm:gap-0">
+                        <Button variant="ghost" onClick={() => setDeleteConfirmId(null)}>
+                            Hủy
+                        </Button>
+                        <Button
+                            variant="destructive"
+                            onClick={() => {
+                                if (deleteConfirmId) onDelete(deleteConfirmId);
+                                setDeleteConfirmId(null);
+                            }}
+                        >
+                            Xóa
                         </Button>
                     </DialogFooter>
                 </DialogContent>
@@ -651,6 +716,6 @@ export function MessageList({
                     />
                 </div>
             )}
-        </>
+        </TooltipProvider>
     );
 }
