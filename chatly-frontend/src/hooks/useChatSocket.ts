@@ -82,7 +82,7 @@ export function useChatSocket({
     }, [conversationId, user, onEvent, onTyping, onRead]);
 
     const sendMessage = useCallback(
-        (content: string, replyToId: string | null = null, attachments?: Attachment[]) => {
+        (content: string, replyToId: string | null = null, attachments?: Attachment[]): boolean => {
             const client = socketService.getClient();
             if (client?.connected) {
                 const hasAttachments = attachments && attachments.length > 0;
@@ -96,7 +96,9 @@ export function useChatSocket({
                         attachments: hasAttachments ? attachments : undefined,
                     }),
                 });
+                return true;
             }
+            return false;
         },
         [conversationId]
     );

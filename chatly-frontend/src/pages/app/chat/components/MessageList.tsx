@@ -1,7 +1,7 @@
 import { useEffect, useRef, useCallback, useState, useMemo } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
-import { ChevronLeft, ChevronRight, Check, CheckCheck, Reply, RotateCcw, Pencil, X, Send, FileText, Download, Copy, Trash2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Check, CheckCheck, Reply, RotateCcw, Pencil, X, Send, FileText, Download, Copy, Trash2, AlertCircle, RefreshCcw } from "lucide-react";
 import { toast } from "sonner";
 import type { Message, ChatUser } from "@/types/message";
 import type { ConversationType } from "@/types/conversation";
@@ -44,6 +44,9 @@ interface MessageListProps {
     onLoadMore: () => void;
     isLoadingMore: boolean;
     hasMore: boolean;
+    failedMessages?: Array<{ id: string, content: string, attachments?: any, replyToId?: string | null }>;
+    onRetryMessage?: (id: string) => void;
+    onRemoveFailedMessage?: (id: string) => void;
 }
 
 const RECALL_LIMIT_MS = 24 * 60 * 60 * 1000;
@@ -63,6 +66,9 @@ export function MessageList({
     onLoadMore,
     isLoadingMore,
     hasMore,
+    failedMessages = [],
+    onRetryMessage,
+    onRemoveFailedMessage,
 }: MessageListProps) {
     const scrollEndRef = useRef<HTMLDivElement>(null);
     const sentinelRef = useRef<HTMLDivElement>(null);
@@ -597,6 +603,30 @@ export function MessageList({
                             {renderMessage(msg, index)}
                         </div>
                     ))}
+
+                    {/* Render failed messages */}
+                    {failedMessages.map((fmsg) => (
+                        <div key={fmsg.id} className="flex flex-col mb-4 items-end slide-in-from-right-2 animate-in duration-300">
+                            <div className="flex max-w-[75%] gap-2 items-center">
+                                <span className="text-xs text-destructive flex items-center bg-destructive/10 px-2 py-1 rounded-full gap-1">
+                                    <AlertCircle size={12} /> Lỗi gửi
+                                </span>
+                                <div className="bg-destructive/20 text-foreground px-4 py-2.5 rounded-2xl rounded-tr-sm border border-destructive/20 opacity-80 break-words select-text">
+                                    {fmsg.content || (fmsg.attachments?.length ? "[Đính kèm]" : "")}
+                                </div>
+                            </div>
+                            <div className="flex gap-2 items-center text-xs mt-1 mr-1 text-muted-foreground">
+                                <button onClick={() => onRetryMessage?.(fmsg.id)} className="flex items-center gap-1 hover:text-brand transition cursor-pointer">
+                                    <RefreshCcw size={12} /> Thử lại
+                                </button>
+                                <span>•</span>
+                                <button onClick={() => onRemoveFailedMessage?.(fmsg.id)} className="flex items-center gap-1 hover:text-destructive transition cursor-pointer">
+                                    <Trash2 size={12} /> Xoá
+                                </button>
+                            </div>
+                        </div>
+                    ))}
+
                     <div ref={scrollEndRef} />
                 </div>
             </div>

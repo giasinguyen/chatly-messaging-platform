@@ -10,6 +10,7 @@ import {
     Flag,
     Trash2,
     Pin,
+    Menu,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -40,6 +41,7 @@ import type { UserResponse } from "@/types/auth";
 import { toast } from "sonner";
 import { CreateGroupDialog } from "./CreateGroupDialog";
 import { useNotificationStore } from "@/store/notification.store";
+import { useUiStore } from "@/store/ui.store";
 
 function formatZaloTime(dateString: string) {
     const date = new Date(dateString);
@@ -80,6 +82,7 @@ export function ChatList() {
     const [users, setUsers] = useState<UserResponse[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState("");
+    const toggleMobileDrawer = useUiStore((s) => s.toggleMobileDrawer);
     const notifications = useNotificationStore((s) => s.notifications);
     const unreadMsgNotifications = useMemo(() => 
         notifications.filter((n) => n.type === "NEW_MESSAGE" && !n.read),
@@ -192,12 +195,12 @@ export function ChatList() {
     });
 
     const renderSkeleton = () =>
-        Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="flex items-center gap-3 px-4 py-3">
-                <div className="h-12 w-12 rounded-full bg-muted/60 animate-pulse shrink-0" />
+        Array.from({ length: 6 }).map((_, i) => (
+            <div key={`skeleton-${i}`} className="flex items-center gap-3 px-4 py-3 opacity-60">
+                <div className="h-12 w-12 rounded-full bg-border animate-pulse shrink-0" />
                 <div className="flex-1 space-y-2">
-                    <div className="h-3 w-32 rounded bg-muted/60 animate-pulse" />
-                    <div className="h-3 w-48 rounded bg-muted/40 animate-pulse" />
+                    <div className="h-4 w-[60%] rounded bg-border animate-pulse" />
+                    <div className="h-3 w-[80%] rounded bg-border/60 animate-pulse" />
                 </div>
             </div>
         ));
@@ -383,9 +386,18 @@ export function ChatList() {
 
     return (
         <>
-            <aside className="w-85 flex flex-col border-r border-border shrink-0 h-full overflow-hidden bg-background">
+            <aside className="w-full md:w-85 lg:w-[350px] flex flex-col border-r border-border shrink-0 h-full overflow-hidden bg-background">
                 {/* Search Header */}
                 <div className="px-4 py-4 flex items-center gap-2 border-b border-border/50 bg-muted/10">
+                    <Button
+                        onClick={toggleMobileDrawer}
+                        variant="ghost"
+                        size="icon"
+                        className="md:hidden h-8 w-8 rounded-full shrink-0 -ml-2"
+                        title="Mở menu"
+                    >
+                        <Menu size={18} />
+                    </Button>
                     <div className="relative flex-1">
                         <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                         <Input
@@ -425,13 +437,19 @@ export function ChatList() {
                             {loading ? (
                                 renderSkeleton()
                             ) : filteredConversations.length === 0 ? (
-                                <div className="flex flex-col items-center justify-center py-12 gap-2 text-muted-foreground">
-                                    <UsersRound
-                                        size={36}
-                                        className="opacity-30"
-                                    />
-                                    <p className="text-sm">
+                                <div className="flex flex-col items-center justify-center py-16 gap-4 text-muted-foreground">
+                                    <div className="h-20 w-20 rounded-full bg-primary/5 flex items-center justify-center mb-2">
+                                        <UsersRound
+                                            size={40}
+                                            strokeWidth={1.5}
+                                            className="text-primary/40"
+                                        />
+                                    </div>
+                                    <p className="text-[14px] font-medium text-foreground/70">
                                         Chưa có cuộc trò chuyện nào
+                                    </p>
+                                    <p className="text-[12px] text-center max-w-[200px] text-muted-foreground/80">
+                                        Hãy tìm kiếm hoặc tạo nhóm để bắt đầu nhắn tin nhé.
                                     </p>
                                 </div>
                             ) : (

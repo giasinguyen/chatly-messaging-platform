@@ -1,4 +1,4 @@
-import { Phone, Video, Users } from "lucide-react";
+import { Phone, Video, Users, ChevronLeft } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { PresenceIndicator } from "@/components/customize/PresenceIndicator";
@@ -12,17 +12,29 @@ interface ChatHeaderProps {
     onOpenGroupPanel?: () => void;
     presenceStatus?: "ONLINE" | "OFFLINE" | string;
     lastSeen?: string | null;
+    onBack?: () => void;
 }
 
-export function ChatHeader({ user, onOpenProfile, isGroup, onOpenGroupPanel, presenceStatus, lastSeen }: ChatHeaderProps) {
+export function ChatHeader({ user, onOpenProfile, isGroup, onOpenGroupPanel, presenceStatus, lastSeen, onBack }: ChatHeaderProps) {
     return (
-        <header className="h-16 border-b border-border flex items-center justify-between px-4 shrink-0 bg-background">
-            <button
-                type="button"
-                onClick={onOpenProfile}
-                className="flex items-center gap-3 rounded-md px-1 py-1 text-left transition hover:bg-muted/60"
-            >
-                <div className="relative">
+        <header className="h-16 border-b border-border flex items-center justify-between px-2 sm:px-4 shrink-0 bg-background">
+            <div className="flex items-center">
+                {onBack && (
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={onBack}
+                        className="md:hidden h-9 w-9 mr-1"
+                    >
+                        <ChevronLeft size={24} />
+                    </Button>
+                )}
+                <button
+                    type="button"
+                    onClick={onOpenProfile}
+                    className="flex items-center gap-3 rounded-md px-2 py-1 text-left transition hover:bg-muted/60"
+                >
+                    <div className="relative">
                     <Avatar className="h-10 w-10 border border-border/50">
                         <AvatarImage src={user.avatarUrl} />
                         <AvatarFallback>
@@ -49,6 +61,7 @@ export function ChatHeader({ user, onOpenProfile, isGroup, onOpenGroupPanel, pre
                     )}
                 </div>
             </button>
+            </div>
 
             <div className="flex items-center gap-1 text-muted-foreground">
                 {isGroup && onOpenGroupPanel && (

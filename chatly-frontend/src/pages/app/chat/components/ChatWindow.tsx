@@ -1,4 +1,5 @@
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useRef, memo } from "react";
+import { useNavigate } from "react-router-dom";
 import { ChatHeader } from "./ChatHeader";
 import { MessageList } from "./MessageList";
 import { ChatInput } from "./ChatInput";
@@ -112,8 +113,10 @@ function formatDob(dob?: string) {
     }).format(parsed);
 }
 
-export function ChatWindow({ id }: ChatWindowProps) {
-    const { user: currentUser } = useAuthStore();
+export const ChatWindow = memo(({ id }: ChatWindowProps) => {
+    const navigate = useNavigate();
+    const currentUser = useAuthStore((s) => s.user);
+    const [failedMessages, setFailedMessages] = useState<Array<{ id: string, content: string, attachments?: import("@/types/message").Attachment[], replyToId?: string | null }>>([]);
     const markConvMessagesRead = useNotificationStore(
         (s) => s.markConvMessagesRead,
     );
@@ -460,11 +463,29 @@ export function ChatWindow({ id }: ChatWindowProps) {
             attachments?: import("@/types/message").Attachment[],
         ) => {
             if (!id || !currentUser) return;
-            sendMessage(content, replyingTo?.id ?? null, attachments);
+            const success = sendMessage(content, replyingTo?.id ?? null, attachments);
+            if (!success) {
+                toast.error("Mất kết nối! Không thể gửi tin nhắn.");
+                setFailedMessages((prev) => [
+                    ...prev,
+                    { id: `failed-${Date.now()}`, content, attachments, replyToId: replyingTo?.id },
+                ]);
+            }
             setReplyingTo(null);
         },
         [id, currentUser, replyingTo, sendMessage],
     );
+
+    const handleRetryMessage = useCallback((failedId: string) => {
+        const msg = failedMessages.find(m => m.id === failedId);
+        if (!msg) return;
+        const success = sendMessage(msg.content, msg.replyToId ?? null, msg.attachments);
+        if (success) {
+            setFailedMessages(prev => prev.filter(m => m.id !== failedId));
+        } else {
+            toast.error("Vui lòng thử lại sau.");
+        }
+    }, [failedMessages, sendMessage]);
 
     const handleReply = useCallback((msg: Message) => setReplyingTo(msg), []);
     const handleCancelReply = useCallback(() => setReplyingTo(null), []);
@@ -634,11 +655,20 @@ export function ChatWindow({ id }: ChatWindowProps) {
     // ----------------------------------------------------------------
     if (loading) {
         return (
-            <div className="flex-1 flex flex-col items-center justify-center bg-muted/10 gap-3">
-                <div className="h-12 w-12 rounded-full bg-muted/60 animate-pulse" />
-                <div className="space-y-2 flex flex-col items-center">
-                    <div className="h-3 w-32 rounded bg-muted/60 animate-pulse" />
-                    <div className="h-3 w-20 rounded bg-muted/40 animate-pulse" />
+            <div className="flex-1 flex flex-col bg-muted/20 p-4 sm:p-6 gap-6 overflow-hidden">
+                <div className="flex w-full items-end gap-2 justify-end opacity-50">
+                    <div className="w-[60%] max-w-[300px] h-12 bg-brand/30 rounded-2xl rounded-br-sm animate-pulse" />
+                </div>
+                <div className="flex w-full items-end gap-2 justify-start opacity-50">
+                    <div className="w-8 h-8 rounded-full bg-border animate-pulse shrink-0" />
+                    <div className="w-[50%] max-w-[250px] h-16 bg-background border border-border/50 rounded-2xl rounded-bl-sm animate-pulse" />
+                </div>
+                <div className="flex w-full items-end gap-2 justify-start opacity-50">
+                    <div className="w-8 h-8 rounded-full bg-border animate-pulse shrink-0" />
+                    <div className="w-[40%] max-w-[200px] h-10 bg-background border border-border/50 rounded-2xl rounded-bl-sm animate-pulse" />
+                </div>
+                <div className="flex w-full items-end gap-2 justify-end opacity-50">
+                    <div className="w-[70%] max-w-[350px] h-20 bg-brand/30 rounded-2xl rounded-br-sm animate-pulse" />
                 </div>
             </div>
         );
@@ -723,6 +753,7 @@ export function ChatWindow({ id }: ChatWindowProps) {
                 }
                 presenceStatus={participantPresence?.status}
                 lastSeen={participantPresence?.lastSeen}
+                onBack={() => navigate("/chat")}
             />
 
             <MessageList
@@ -739,6 +770,9 @@ export function ChatWindow({ id }: ChatWindowProps) {
                 onLoadMore={handleLoadMore}
                 isLoadingMore={isLoadingMore}
                 hasMore={hasMore}
+                failedMessages={failedMessages}
+                onRetryMessage={handleRetryMessage}
+                onRemoveFailedMessage={(fid) => setFailedMessages((p) => p.filter(m => m.id !== fid))}
             />
 
             {isTyping && (
@@ -1122,4 +1156,4 @@ export function ChatWindow({ id }: ChatWindowProps) {
             )}
         </div>
     );
-}
+});
