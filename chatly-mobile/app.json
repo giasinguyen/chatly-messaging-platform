@@ -5,10 +5,10 @@
     "version": "1.0.0",
 
     "scheme": "chatly-mobile",
-    "platforms": ["ios", "android"],
+    "platforms": ["ios", "android", "web"],
     "web": {
       "bundler": "metro",
-      "output": "static",
+      "output": "single",
       "favicon": "./assets/favicon.png"
     },
     "plugins": ["expo-router"],

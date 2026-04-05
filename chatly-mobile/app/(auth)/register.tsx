@@ -15,6 +15,7 @@ import { AuthInput } from '@/components/ui/AuthInput';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { authService } from '@/services/auth.service';
 import { useAuthStore } from '@/store/auth.store';
+import { getApiErrorMessage } from '@/utils/errorHandler';
 import { Colors } from '@/constants/theme';
 
 interface FormErrors {
@@ -82,9 +83,8 @@ export default function RegisterScreen() {
       await setAuth(response.result);
       router.replace('/(tabs)/chats');
     } catch (error: any) {
-      const message =
-        error?.response?.data?.message || 'Đăng ký thất bại. Vui lòng thử lại.';
-      Alert.alert('Lỗi đăng ký', message);
+      const message = getApiErrorMessage(error, 'Đăng ký thất bại. Vui lòng thử lại.');
+      Alert.alert('Đăng ký thất bại', message);
     } finally {
       setLoading(false);
     }

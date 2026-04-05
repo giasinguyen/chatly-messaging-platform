@@ -15,6 +15,7 @@ import { AuthInput } from '@/components/ui/AuthInput';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { authService } from '@/services/auth.service';
 import { useAuthStore } from '@/store/auth.store';
+import { getApiErrorMessage } from '@/utils/errorHandler';
 import { Colors } from '@/constants/theme';
 
 export default function LoginScreen() {
@@ -54,9 +55,8 @@ export default function LoginScreen() {
       await setAuth(response.result);
       router.replace('/(tabs)/chats');
     } catch (error: any) {
-      const message =
-        error?.response?.data?.message || 'Đăng nhập thất bại. Vui lòng thử lại.';
-      Alert.alert('Lỗi đăng nhập', message);
+      const message = getApiErrorMessage(error, 'Đăng nhập thất bại. Vui lòng thử lại.');
+      Alert.alert('Đăng nhập thất bại', message);
     } finally {
       setLoading(false);
     }
