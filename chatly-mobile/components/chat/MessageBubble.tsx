@@ -1,0 +1,171 @@
+import { View, Text, TouchableOpacity, Image } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { Colors } from '@/constants/theme';
+import { formatMessageTime } from '@/utils/format';
+import type { Message } from '@/types/message';
+
+interface MessageBubbleProps {
+  message: Message;
+  isMe: boolean;
+  showAvatar?: boolean;
+  senderName?: string;
+  onLongPress?: () => void;
+}
+
+export function MessageBubble({
+  message,
+  isMe,
+  showAvatar = false,
+  senderName,
+  onLongPress,
+}: MessageBubbleProps) {
+  const { content, type, recalled, edited, createdAt, readBy, attachments } = message;
+
+  // Recalled message
+  if (recalled) {
+    return (
+      <View className={`my-0.5 flex-row px-4 ${isMe ? 'justify-end' : 'justify-start'}`}>
+        <View
+          className="rounded-2xl px-4 py-2.5"
+          style={{
+            backgroundColor: isMe ? Colors.bubbleSender : Colors.bubbleReceiver,
+            opacity: 0.5,
+            maxWidth: '75%',
+          }}
+        >
+          <Text
+            className="text-sm italic"
+            style={{ color: isMe ? Colors.bubbleSenderText : Colors.bubbleReceiverText }}
+          >
+            Tin nhắn đã được thu hồi
+          </Text>
+        </View>
+      </View>
+    );
+  }
+
+  // Image message
+  const renderImageContent = () => {
+    const imageUrl = attachments?.[0]?.url;
+    if (!imageUrl) return null;
+    return (
+      <Image
+        source={{ uri: imageUrl }}
+        style={{
+          width: 200,
+          height: 200,
+          borderRadius: 12,
+        }}
+        resizeMode="cover"
+      />
+    );
+  };
+
+  // File message
+  const renderFileContent = () => {
+    const file = attachments?.[0];
+    if (!file) return null;
+    return (
+      <View className="flex-row items-center">
+        <Ionicons
+          name="document-outline"
+          size={20}
+          color={isMe ? Colors.bubbleSenderText : Colors.cta}
+        />
+        <Text
+          className="ml-2 text-sm"
+          style={{ color: isMe ? Colors.bubbleSenderText : Colors.cta }}
+          numberOfLines={1}
+        >
+          {file.name ?? 'Tệp đính kèm'}
+        </Text>
+      </View>
+    );
+  };
+
+  const renderContent = () => {
+    switch (type) {
+      case 'IMAGE':
+        return renderImageContent();
+      case 'FILE':
+        return renderFileContent();
+      case 'SYSTEM':
+        return (
+          <View className="my-1 items-center">
+            <Text className="rounded-lg px-3 py-1 text-xs" style={{ color: Colors.textMuted, backgroundColor: Colors.bg }}>
+              {content}
+            </Text>
+          </View>
+        );
+      default:
+        return (
+          <Text
+            className="text-[15px] leading-5"
+            style={{ color: isMe ? Colors.bubbleSenderText : Colors.bubbleReceiverText }}
+          >
+            {content}
+          </Text>
+        );
+    }
+  };
+
+  // System messages are centered
+  if (type === 'SYSTEM') {
+    return renderContent();
+  }
+
+  return (
+    <View className={`my-0.5 px-4 ${isMe ? 'items-end' : 'items-start'}`}>
+      {/* Sender name for group chats */}
+      {!isMe && showAvatar && senderName && (
+        <Text className="mb-0.5 ml-1 text-xs" style={{ color: Colors.textMuted }}>
+          {senderName}
+        </Text>
+      )}
+
+      <TouchableOpacity
+        activeOpacity={0.8}
+        onLongPress={onLongPress}
+        delayLongPress={300}
+        style={{ maxWidth: '78%' }}
+      >
+        <View
+          className="rounded-2xl px-4 py-2.5"
+          style={{
+            backgroundColor: isMe ? Colors.bubbleSender : Colors.bubbleReceiver,
+            borderBottomRightRadius: isMe ? 6 : 20,
+            borderBottomLeftRadius: isMe ? 20 : 6,
+          }}
+        >
+          {renderContent()}
+
+          {/* Time + status */}
+          <View className="mt-1 flex-row items-center justify-end">
+            {edited && (
+              <Text
+                className="mr-1 text-[10px]"
+                style={{ color: isMe ? 'rgba(255,255,255,0.6)' : Colors.textLight }}
+              >
+                đã chỉnh sửa
+              </Text>
+            )}
+            <Text
+              className="text-[10px]"
+              style={{ color: isMe ? 'rgba(255,255,255,0.6)' : Colors.textLight }}
+            >
+              {formatMessageTime(createdAt)}
+            </Text>
+            {isMe && (
+              <Ionicons
+                name={readBy && readBy.length > 0 ? 'checkmark-done' : 'checkmark'}
+                size={14}
+                color={readBy && readBy.length > 0 ? '#60D4F2' : 'rgba(255,255,255,0.6)'}
+                style={{ marginLeft: 3 }}
+              />
+            )}
+          </View>
+        </View>
+      </TouchableOpacity>
+    </View>
+  );
+}
