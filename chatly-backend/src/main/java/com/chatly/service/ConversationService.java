@@ -133,7 +133,7 @@ public class ConversationService {
         Conversation conversation = conversationRepository.findById(id)
                 .orElseThrow(() -> new AppException(ErrorCode.CONVERSATION_NOT_FOUND));
 
-        if (!conversation.getCreatorId().equals(userId)) {
+        if (!conversation.getParticipantIds().contains(userId)) {
             throw new AppException(ErrorCode.GROUP_PERMISSION_DENIED);
         }
 

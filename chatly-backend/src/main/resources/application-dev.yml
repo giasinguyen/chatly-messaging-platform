@@ -28,8 +28,7 @@ spring:
             port: ${REDIS_PORT:6379}
             password: ${REDIS_PASSWORD:admin}
     mongodb:
-        uri: ${SPRING_DATA_MONGODB_URI:mongodb://admin:admin@localhost:27017/chatly?authSource=admin}
-
+        uri: ${SPRING_DATA_MONGODB_URI:mongodb://localhost:27017/chatly}
     servlet:
         multipart:
             enabled: true
@@ -56,7 +55,7 @@ app:
         expiration-ms: ${APP_JWT_EXPIRATION_MS:86400000} # 1d
         refresh-expiration-ms: ${APP_JWT_REFRESH_EXPIRATION_MS:86400000} # 1d
     cors:
-        allowed-origins: ${APP_CORS_ALLOWED_ORIGINS:http://localhost:3000, http://localhost:5174}
+        allowed-origins: ${APP_CORS_ALLOWED_ORIGINS:http://localhost:3000, http://localhost:5174, http://localhost:8081}
 
 # ── File Storage ──────────────────────────────────────────────────────────────
 storage:
