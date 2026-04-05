@@ -10,6 +10,7 @@ interface MessageBubbleProps {
   showAvatar?: boolean;
   senderName?: string;
   onLongPress?: () => void;
+  replyToMessage?: Message | null;
 }
 
 export function MessageBubble({
@@ -18,6 +19,7 @@ export function MessageBubble({
   showAvatar = false,
   senderName,
   onLongPress,
+  replyToMessage,
 }: MessageBubbleProps) {
   const { content, type, recalled, edited, createdAt, readBy, attachments } = message;
 
@@ -137,6 +139,41 @@ export function MessageBubble({
             borderBottomLeftRadius: isMe ? 20 : 6,
           }}
         >
+          {/* Reply preview */}
+          {replyToMessage && (
+            <View
+              className="mb-2 rounded-xl px-3 py-2"
+              style={{
+                backgroundColor: isMe
+                  ? 'rgba(0,0,0,0.15)'
+                  : 'rgba(0,0,0,0.07)',
+                borderLeftWidth: 3,
+                borderLeftColor: isMe ? 'rgba(255,255,255,0.6)' : Colors.cta,
+              }}
+            >
+              <Text
+                className="mb-0.5 text-[11px] font-semibold"
+                style={{ color: isMe ? 'rgba(255,255,255,0.75)' : Colors.cta }}
+                numberOfLines={1}
+              >
+                {replyToMessage.recalled ? 'Tin nhắn đã thu hồi' : ''}
+              </Text>
+              <Text
+                className="text-[12px]"
+                style={{ color: isMe ? 'rgba(255,255,255,0.65)' : Colors.textMuted }}
+                numberOfLines={2}
+              >
+                {replyToMessage.recalled
+                  ? 'Tin nhắn đã được thu hồi'
+                  : replyToMessage.type === 'IMAGE'
+                  ? '🖼 Hình ảnh'
+                  : replyToMessage.type === 'FILE'
+                  ? '📎 Tệp đính kèm'
+                  : replyToMessage.content}
+              </Text>
+            </View>
+          )}
+
           {renderContent()}
 
           {/* Time + status */}

@@ -21,6 +21,7 @@ import { userService } from '@/services/user.service';
 import { useMessageStore } from '@/store/message.store';
 import { useAuthStore } from '@/store/auth.store';
 import { useChatSocket } from '@/hooks/useChatSocket';
+import { usePresenceSocket } from '@/hooks/usePresenceSocket';
 import { Colors } from '@/constants/theme';
 import { formatDateSeparator } from '@/utils/format';
 import type { Message, ChatEvent } from '@/types/message';
@@ -55,6 +56,8 @@ export default function ChatScreen() {
   const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
   const [actionsVisible, setActionsVisible] = useState(false);
   const [typingUsers, setTypingUsers] = useState<Set<string>>(new Set());
+  const [replyingTo, setReplyingTo] = useState<Message | null>(null);
+  const [otherUserOnline, setOtherUserOnline] = useState(false);
 
   const messages = messagesByConversation[conversationId ?? ''] ?? [];
   const currentPage = page[conversationId ?? ''] ?? 0;
@@ -106,6 +109,20 @@ export default function ChatScreen() {
     },
     [conversationId, updateMessage],
   );
+
+  // Presence tracking for 1-1 chats
+  const otherUserId = useMemo(() => {
+    if (!conversation || conversation.type === 'GROUP') return null;
+    return conversation.participantIds.find((pid) => pid !== user?.id) ?? null;
+  }, [conversation, user?.id]);
+
+  usePresenceSocket({
+    onPresenceChange: (event) => {
+      if (event.userId === otherUserId) {
+        setOtherUserOnline(event.status === 'ONLINE');
+      }
+    },
+  });
 
   const { sendMessage: wsSendMessage, sendTyping, sendSeen } = useChatSocket({
     conversationId: conversationId ?? '',
@@ -182,14 +199,23 @@ export default function ChatScreen() {
     }
   }, [conversationId, canLoadMore, loadingMessages, currentPage, appendOlderMessages, setPage, setHasMore, setLoadingMessages]);
 
+  // Build message lookup map for reply previews
+  const messageById = useMemo(() => {
+    const map: Record<string, Message> = {};
+    messages.forEach((m) => { map[m.id] = m; });
+    return map;
+  }, [messages]);
+
   // Send message (try WebSocket, fallback to REST)
   const handleSend = useCallback(
     async (text: string) => {
       if (!conversationId || !user) return;
+      const replyToId = replyingTo?.id ?? null;
 
       // Try WebSocket first
-      const sent = wsSendMessage(text);
+      const sent = wsSendMessage(text, replyToId);
       if (sent) {
+        setReplyingTo(null);
         setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
         return;
       }
@@ -200,14 +226,16 @@ export default function ChatScreen() {
           conversationId,
           content: text,
           type: 'TEXT',
+          replyToId,
         });
         addMessage(conversationId, res.result);
+        setReplyingTo(null);
         setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
       } catch (error) {
         Alert.alert('Lỗi', 'Không thể gửi tin nhắn. Vui lòng thử lại.');
       }
     },
-    [conversationId, user, wsSendMessage, addMessage],
+    [conversationId, user, replyingTo, wsSendMessage, addMessage],
   );
 
   // Message actions
@@ -322,6 +350,7 @@ export default function ChatScreen() {
         avatarUrl={chatAvatar}
         isGroup={isGroup}
         memberCount={conversation?.participantIds.length}
+        isOnline={!isGroup && otherUserOnline}
       />
 
       {/* Messages */}
@@ -351,6 +380,7 @@ export default function ChatScreen() {
                   showAvatar={isGroup}
                   senderName={sender?.displayName}
                   onLongPress={() => handleLongPress(msg)}
+                  replyToMessage={msg.replyToId ? (messageById[msg.replyToId] ?? null) : null}
                 />
               );
             }}
@@ -391,7 +421,12 @@ export default function ChatScreen() {
 
       {/* Input */}
       <View style={{ paddingBottom: insets.bottom }}>
-        <ChatInput onSend={handleSend} onTyping={sendTyping} />
+        <ChatInput
+          onSend={handleSend}
+          onTyping={sendTyping}
+          replyingTo={replyingTo}
+          onCancelReply={() => setReplyingTo(null)}
+        />
       </View>
 
       {/* Message Actions Bottom Sheet */}
@@ -401,7 +436,8 @@ export default function ChatScreen() {
         isMe={selectedMessage?.senderId === user?.id}
         onClose={() => setActionsVisible(false)}
         onReply={() => {
-          // TODO: implement reply
+          if (selectedMessage) setReplyingTo(selectedMessage);
+          setActionsVisible(false);
         }}
         onCopy={handleCopy}
         onEdit={handleEdit}

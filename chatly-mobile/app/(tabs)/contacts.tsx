@@ -15,6 +15,7 @@ import { contactService } from '@/services/contact.service';
 import { userService } from '@/services/user.service';
 import { conversationService } from '@/services/conversation.service';
 import { useAuthStore } from '@/store/auth.store';
+import { useConversationStore } from '@/store/conversation.store';
 import { Avatar } from '@/components/ui/Avatar';
 import { Colors } from '@/constants/theme';
 import { useRouter } from 'expo-router';
@@ -26,6 +27,7 @@ type Tab = 'friends' | 'pending' | 'search';
 export default function ContactsScreen() {
   const insets = useSafeAreaInsets();
   const user = useAuthStore((s) => s.user);
+  const conversations = useConversationStore((s) => s.conversations);
   const router = useRouter();
 
   const [activeTab, setActiveTab] = useState<Tab>('friends');
@@ -114,8 +116,19 @@ export default function ContactsScreen() {
     }
   };
 
-  // Chat with contact
+  // Chat with contact — navigate to existing conversation if one exists
   const handleChat = async (contactUser: { id: string }) => {
+    // First look for an existing PRIVATE conversation with this user
+    const existing = conversations.find(
+      (c) =>
+        c.type === 'PRIVATE' &&
+        c.participantIds.includes(contactUser.id) &&
+        c.participantIds.includes(user!.id),
+    );
+    if (existing) {
+      router.push(`/chat/${existing.id}`);
+      return;
+    }
     try {
       const res = await conversationService.create({
         type: 'PRIVATE',
