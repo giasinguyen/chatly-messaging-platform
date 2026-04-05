@@ -8,6 +8,7 @@ interface ConversationItemProps {
   conversation: ConversationResponse;
   currentUserId: string;
   onPress: () => void;
+  onLongPress?: () => void;
   participantNames?: Record<string, string>;
   participantAvatars?: Record<string, string | undefined>;
 }
@@ -16,6 +17,7 @@ export function ConversationItem({
   conversation,
   currentUserId,
   onPress,
+  onLongPress,
   participantNames = {},
   participantAvatars = {},
 }: ConversationItemProps) {
@@ -66,6 +68,7 @@ export function ConversationItem({
   return (
     <TouchableOpacity
       onPress={onPress}
+      onLongPress={onLongPress}
       activeOpacity={0.7}
       className="flex-row items-center px-4 py-3"
       style={{

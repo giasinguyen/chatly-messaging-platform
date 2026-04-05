@@ -7,6 +7,7 @@ import {
   TextInput,
   TouchableOpacity,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -24,7 +25,7 @@ export default function ChatsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const user = useAuthStore((s) => s.user);
-  const { conversations, setConversations, loading, setLoading } = useConversationStore();
+  const { conversations, setConversations, removeConversation, loading, setLoading } = useConversationStore();
 
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -88,6 +89,31 @@ export default function ChatsScreen() {
   const handleConversationPress = (conversation: ConversationResponse) => {
     router.push(`/chat/${conversation.id}`);
   };
+
+  const handleDeleteConversation = useCallback((conversation: ConversationResponse) => {
+    const name = conversation.type === 'PRIVATE'
+      ? (participantMap[conversation.participantIds.find((id) => id !== user?.id) ?? '']?.displayName ?? 'cuộc trò chuyện này')
+      : (conversation.name ?? 'nhóm này');
+    Alert.alert(
+      'Xoá hội thoại',
+      `Bạn có chắc muốn xoá "${name}"?`,
+      [
+        { text: 'Huỷ', style: 'cancel' },
+        {
+          text: 'Xoá',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await conversationService.delete(conversation.id);
+              removeConversation(conversation.id);
+            } catch (error: any) {
+              Alert.alert('Lỗi', error?.response?.data?.message ?? 'Không thể xoá hội thoại.');
+            }
+          },
+        },
+      ],
+    );
+  }, [participantMap, removeConversation, user?.id]);
 
   return (
     <View className="flex-1" style={{ backgroundColor: Colors.bg }}>
@@ -166,6 +192,7 @@ export default function ChatsScreen() {
               participantNames={participantNames}
               participantAvatars={participantAvatars}
               onPress={() => handleConversationPress(item)}
+              onLongPress={() => handleDeleteConversation(item)}
             />
           )}
           refreshControl={

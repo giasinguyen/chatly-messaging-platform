@@ -116,6 +116,13 @@ export default function ChatScreen() {
     return conversation.participantIds.find((pid) => pid !== user?.id) ?? null;
   }, [conversation, user?.id]);
 
+  // Initialize online status from fetched participant data
+  useEffect(() => {
+    if (otherUserId && participantMap[otherUserId]) {
+      setOtherUserOnline(participantMap[otherUserId].status === 'ONLINE');
+    }
+  }, [otherUserId, participantMap]);
+
   usePresenceSocket({
     onPresenceChange: (event) => {
       if (event.userId === otherUserId) {
