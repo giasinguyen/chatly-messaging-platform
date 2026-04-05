@@ -28,8 +28,7 @@ spring:
             port: ${REDIS_PORT:6379}
             password: ${REDIS_PASSWORD:admin}
     mongodb:
-        uri: ${SPRING_DATA_MONGODB_URI:mongodb://admin:admin@localhost:27017/chatly?authSource=admin}
-
+        uri: ${SPRING_DATA_MONGODB_URI:mongodb://localhost:27017/chatly}
     servlet:
         multipart:
             enabled: true
