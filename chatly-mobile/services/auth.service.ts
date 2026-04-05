@@ -18,8 +18,7 @@ export const authService = {
   },
 
   login: async (payload: {
-    email?: string;
-    phone?: string;
+    identifier: string;
     password: string;
   }): Promise<ApiResponse<AuthResponse>> => {
     const response = await axiosClient.post<ApiResponse<AuthResponse>>(
