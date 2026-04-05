@@ -1,10 +1,13 @@
 import '../global.css';
-import { useEffect } from 'react';
+import { useEffect, useCallback } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Slot, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useAuthStore } from '@/store/auth.store';
 import { setupAxiosInterceptors } from '@/lib/axiosClient';
+import { socketService } from '@/services/socket.service';
+import { usePresenceSocket, PresenceEvent } from '@/hooks/usePresenceSocket';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { View, ActivityIndicator } from 'react-native';
 import { Colors } from '@/constants/theme';
 
@@ -25,6 +28,31 @@ function AuthGate({ children }: { children: React.ReactNode }) {
       onLogout: () => clearAuth(),
     });
   }, [setAuth, clearAuth]);
+
+  // Connect/disconnect WebSocket based on auth state
+  useEffect(() => {
+    if (!hydrated) return;
+
+    if (isAuthenticated) {
+      AsyncStorage.getItem('access_token').then((token) => {
+        if (token) socketService.connect(token).catch(console.error);
+      });
+    } else {
+      socketService.disconnect();
+    }
+
+    return () => {
+      // Don't disconnect on unmount - layout persists
+    };
+  }, [isAuthenticated, hydrated]);
+
+  // Subscribe to presence events
+  const handlePresenceChange = useCallback((event: PresenceEvent) => {
+    // Store presence in a simple way - components can check this
+    if (__DEV__) console.log('Presence:', event.userId, event.status);
+  }, []);
+
+  usePresenceSocket({ onPresenceChange: handlePresenceChange });
 
   // Handle navigation based on auth state
   useEffect(() => {

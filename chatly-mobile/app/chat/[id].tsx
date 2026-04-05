@@ -14,14 +14,16 @@ import { MessageBubble } from '@/components/chat/MessageBubble';
 import { ChatInput } from '@/components/chat/ChatInput';
 import { DateSeparator } from '@/components/chat/DateSeparator';
 import { MessageActions } from '@/components/chat/MessageActions';
+import { TypingIndicator } from '@/components/chat/TypingIndicator';
 import { messageService } from '@/services/message.service';
 import { conversationService } from '@/services/conversation.service';
 import { userService } from '@/services/user.service';
 import { useMessageStore } from '@/store/message.store';
 import { useAuthStore } from '@/store/auth.store';
+import { useChatSocket } from '@/hooks/useChatSocket';
 import { Colors } from '@/constants/theme';
 import { formatDateSeparator } from '@/utils/format';
-import type { Message } from '@/types/message';
+import type { Message, ChatEvent } from '@/types/message';
 import type { ConversationResponse } from '@/types/conversation';
 import type { UserResponse } from '@/types/auth';
 
@@ -52,10 +54,65 @@ export default function ChatScreen() {
   const [participantMap, setParticipantMap] = useState<Record<string, UserResponse>>({});
   const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
   const [actionsVisible, setActionsVisible] = useState(false);
+  const [typingUsers, setTypingUsers] = useState<Set<string>>(new Set());
 
   const messages = messagesByConversation[conversationId ?? ''] ?? [];
   const currentPage = page[conversationId ?? ''] ?? 0;
   const canLoadMore = hasMore[conversationId ?? ''] ?? true;
+
+  // WebSocket realtime
+  const handleChatEvent = useCallback(
+    (event: ChatEvent) => {
+      if (!conversationId) return;
+      switch (event.action) {
+        case 'SEND':
+          addMessage(conversationId, event.message);
+          setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
+          break;
+        case 'EDIT':
+          updateMessage(conversationId, event.message.id, event.message);
+          break;
+        case 'RECALL':
+          updateMessage(conversationId, event.message.id, event.message);
+          break;
+        case 'DELETE':
+          removeMessage(conversationId, event.message.id);
+          break;
+      }
+    },
+    [conversationId, addMessage, updateMessage, removeMessage],
+  );
+
+  const handleTyping = useCallback(
+    (data: { userId: string; typing: boolean }) => {
+      if (data.userId === user?.id) return;
+      setTypingUsers((prev) => {
+        const next = new Set(prev);
+        if (data.typing) {
+          next.add(data.userId);
+        } else {
+          next.delete(data.userId);
+        }
+        return next;
+      });
+    },
+    [user?.id],
+  );
+
+  const handleRead = useCallback(
+    (msg: Message) => {
+      if (!conversationId) return;
+      updateMessage(conversationId, msg.id, msg);
+    },
+    [conversationId, updateMessage],
+  );
+
+  const { sendMessage: wsSendMessage, sendTyping, sendSeen } = useChatSocket({
+    conversationId: conversationId ?? '',
+    onEvent: handleChatEvent,
+    onTyping: handleTyping,
+    onRead: handleRead,
+  });
 
   // Fetch conversation details
   useEffect(() => {
@@ -125,11 +182,19 @@ export default function ChatScreen() {
     }
   }, [conversationId, canLoadMore, loadingMessages, currentPage, appendOlderMessages, setPage, setHasMore, setLoadingMessages]);
 
-  // Send message
+  // Send message (try WebSocket, fallback to REST)
   const handleSend = useCallback(
     async (text: string) => {
       if (!conversationId || !user) return;
 
+      // Try WebSocket first
+      const sent = wsSendMessage(text);
+      if (sent) {
+        setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
+        return;
+      }
+
+      // Fallback to REST
       try {
         const res = await messageService.send({
           conversationId,
@@ -137,16 +202,12 @@ export default function ChatScreen() {
           type: 'TEXT',
         });
         addMessage(conversationId, res.result);
-
-        // Scroll to bottom
-        setTimeout(() => {
-          flatListRef.current?.scrollToEnd({ animated: true });
-        }, 100);
+        setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
       } catch (error) {
         Alert.alert('Lỗi', 'Không thể gửi tin nhắn. Vui lòng thử lại.');
       }
     },
-    [conversationId, user, addMessage],
+    [conversationId, user, wsSendMessage, addMessage],
   );
 
   // Message actions
@@ -317,9 +378,20 @@ export default function ChatScreen() {
         )}
       </View>
 
+      {/* Typing indicator */}
+      {typingUsers.size > 0 && (
+        <TypingIndicator
+          name={
+            typingUsers.size === 1
+              ? participantMap[Array.from(typingUsers)[0]]?.displayName
+              : undefined
+          }
+        />
+      )}
+
       {/* Input */}
       <View style={{ paddingBottom: insets.bottom }}>
-        <ChatInput onSend={handleSend} />
+        <ChatInput onSend={handleSend} onTyping={sendTyping} />
       </View>
 
       {/* Message Actions Bottom Sheet */}
