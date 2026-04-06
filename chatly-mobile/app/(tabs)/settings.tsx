@@ -6,12 +6,15 @@ import {
   TouchableOpacity,
   Alert,
   TextInput,
+  ActivityIndicator,
 } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthStore } from '@/store/auth.store';
 import { authService } from '@/services/auth.service';
 import { userService } from '@/services/user.service';
+import { fileService } from '@/services/file.service';
 import { socketService } from '@/services/socket.service';
 import { Avatar } from '@/components/ui/Avatar';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
@@ -24,6 +27,7 @@ export default function SettingsScreen() {
   const [editing, setEditing] = useState(false);
   const [displayName, setDisplayName] = useState(user?.displayName ?? '');
   const [saving, setSaving] = useState(false);
+  const [localAvatarUri, setLocalAvatarUri] = useState<string | null>(null);
 
   const handleLogout = useCallback(async () => {
     Alert.alert('Đăng xuất', 'Bạn có chắc muốn đăng xuất?', [
@@ -44,13 +48,45 @@ export default function SettingsScreen() {
     ]);
   }, [clearAuth]);
 
+  const handlePickAvatar = useCallback(async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Cần quyền truy cập', 'Vui lòng cấp quyền truy cập thư viện ảnh.');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets[0]) {
+      setLocalAvatarUri(result.assets[0].uri);
+      setEditing(true);
+    }
+  }, []);
+
   const handleSaveProfile = useCallback(async () => {
     if (!user || !displayName.trim()) return;
 
     setSaving(true);
     try {
+      let avatarUrl = user.avatarUrl;
+
+      // Nếu đã chọn ảnh mới, upload lên S3 trước
+      if (localAvatarUri) {
+        const fileName = localAvatarUri.split('/').pop() ?? 'avatar.jpg';
+        const mimeType = fileName.endsWith('.png') ? 'image/png' : 'image/jpeg';
+        const uploaded = await fileService.upload(localAvatarUri, fileName, mimeType);
+        avatarUrl = uploaded.url;
+        setLocalAvatarUri(null);
+      }
+
       const res = await userService.update(user.id, {
         displayName: displayName.trim(),
+        avatarUrl: avatarUrl ?? undefined,
       });
       updateUser(res.result);
       setEditing(false);
@@ -60,7 +96,7 @@ export default function SettingsScreen() {
     } finally {
       setSaving(false);
     }
-  }, [user, displayName, updateUser]);
+  }, [user, displayName, localAvatarUri, updateUser]);
 
   const settingsItems = [
     {
@@ -109,7 +145,36 @@ export default function SettingsScreen() {
       {/* Profile Card */}
       <View className="mx-4 mt-4 rounded-2xl p-4" style={{ backgroundColor: Colors.white }}>
         <View className="flex-row items-center">
-          <Avatar uri={user?.avatarUrl} name={user?.displayName ?? 'U'} size={64} />
+          <TouchableOpacity onPress={handlePickAvatar} disabled={saving}>
+            <View style={{ position: 'relative' }}>
+              <Avatar
+                uri={localAvatarUri ?? user?.avatarUrl}
+                name={user?.displayName ?? 'U'}
+                size={64}
+              />
+              <View
+                style={{
+                  position: 'absolute',
+                  bottom: 0,
+                  right: 0,
+                  backgroundColor: Colors.cta,
+                  borderRadius: 12,
+                  width: 24,
+                  height: 24,
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  borderWidth: 2,
+                  borderColor: Colors.white,
+                }}
+              >
+                {saving && localAvatarUri ? (
+                  <ActivityIndicator size={12} color={Colors.white} />
+                ) : (
+                  <Ionicons name="camera" size={13} color={Colors.white} />
+                )}
+              </View>
+            </View>
+          </TouchableOpacity>
           <View className="ml-4 flex-1">
             {editing ? (
               <TextInput
@@ -151,6 +216,7 @@ export default function SettingsScreen() {
               onPress={() => {
                 setEditing(false);
                 setDisplayName(user?.displayName ?? '');
+                setLocalAvatarUri(null);
               }}
             >
               <Text style={{ color: Colors.textLight }}>Huỷ</Text>
