@@ -34,6 +34,15 @@ public class EmailVerificationMailService {
         sendHtmlEmail(user.getEmail(), "Chatly - Verify your email", htmlBody);
     }
 
+    public void sendNewPassword(User user, String rawPassword) {
+        Context context = new Context();
+        context.setVariable("displayName", user.getDisplayName());
+        context.setVariable("newPassword", rawPassword);
+
+        String htmlBody = templateEngine.process("forgot-password-new-password", context);
+        sendHtmlEmail(user.getEmail(), "Chatly - Your new password", htmlBody);
+    }
+
     private void sendHtmlEmail(String to, String subject, String htmlBody) {
         try {
             MimeMessage message = mailSender.createMimeMessage();

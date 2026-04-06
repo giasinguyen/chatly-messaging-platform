@@ -32,6 +32,14 @@ export const authService = {
         return response.data;
     },
 
+    forgotPassword: async (email: string): Promise<ApiResponse<null>> => {
+        const response = await axiosClient.post<ApiResponse<null>>(
+            "/api/auth/forgot-password",
+            { email },
+        );
+        return response.data;
+    },
+
     /**
      * Đăng xuất
      * Gọi backend API để xóa session/token ở server

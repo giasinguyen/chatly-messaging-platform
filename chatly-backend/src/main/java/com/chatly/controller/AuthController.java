@@ -1,6 +1,7 @@
 package com.chatly.controller;
 
 import com.chatly.dto.request.LoginRequest;
+import com.chatly.dto.request.ForgotPasswordRequest;
 import com.chatly.dto.request.LogoutRequest;
 import com.chatly.dto.request.RefreshTokenRequest;
 import com.chatly.dto.request.RegisterRequest;
@@ -44,6 +45,14 @@ public class AuthController {
         authService.resendVerification(request);
         return ApiResponse.<Void>builder()
             .message("Verification link resent successfully")
+            .build();
+    }
+
+    @PostMapping("/forgot-password")
+    ApiResponse<Void> forgotPassword(@RequestBody @Valid ForgotPasswordRequest request) {
+        authService.forgotPassword(request);
+        return ApiResponse.<Void>builder()
+            .message("If the email exists, a new password has been sent.")
             .build();
     }
 

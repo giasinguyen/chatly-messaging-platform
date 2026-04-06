@@ -1,6 +1,7 @@
 package com.chatly.service;
 
 import com.chatly.dto.request.LoginRequest;
+import com.chatly.dto.request.ForgotPasswordRequest;
 import com.chatly.dto.request.LogoutRequest;
 import com.chatly.dto.request.RefreshTokenRequest;
 import com.chatly.dto.request.RegisterRequest;
@@ -29,6 +30,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
+import java.security.SecureRandom;
 
 @Service
 @RequiredArgsConstructor
@@ -50,6 +52,9 @@ public class AuthService {
 
     @Value("${app.auth.verification-link-base-url:http://localhost:8080/api/auth/verify-email}")
     private String verificationLinkBaseUrl;
+    private static final String RANDOM_PASSWORD_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%^&*";
+    private static final int RANDOM_PASSWORD_LENGTH = 12;
+    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
     @Transactional
     public RegisterResponse register(RegisterRequest request) {
@@ -107,6 +112,16 @@ public class AuthService {
         }
 
         return generateAuthResponse(user);
+    }
+
+    @Transactional
+    public void forgotPassword(ForgotPasswordRequest request) {
+        userRepository.findByEmail(request.getEmail()).ifPresent(user -> {
+            String newPassword = generateRandomPassword();
+            user.setPassword(passwordEncoder.encode(newPassword));
+            userRepository.save(user);
+            emailVerificationMailService.sendNewPassword(user, newPassword);
+        });
     }
 
     @Transactional
@@ -230,5 +245,14 @@ public class AuthService {
             .refreshToken(refreshToken)
             .user(userResponse)
             .build();
+    }
+
+    private String generateRandomPassword() {
+        StringBuilder password = new StringBuilder(RANDOM_PASSWORD_LENGTH);
+        for (int i = 0; i < RANDOM_PASSWORD_LENGTH; i++) {
+            int index = SECURE_RANDOM.nextInt(RANDOM_PASSWORD_CHARS.length());
+            password.append(RANDOM_PASSWORD_CHARS.charAt(index));
+        }
+        return password.toString();
     }
 }
