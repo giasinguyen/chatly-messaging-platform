@@ -23,7 +23,7 @@ export const fileService = {
         }
 
         const { data } = await axiosClient.post<{ result: FileUploadResponse }>(
-            "/files/upload",
+            "/api/files/upload",
             formData,
             {
                 headers: { "Content-Type": "multipart/form-data" },
@@ -38,6 +38,6 @@ export const fileService = {
     },
 
     async deleteFile(fileId: string): Promise<void> {
-        await axiosClient.delete(`/files/${fileId}`);
+        await axiosClient.delete(`/api/files/${fileId}`);
     },
 };
