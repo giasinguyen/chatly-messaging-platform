@@ -17,6 +17,7 @@ import com.chatly.config.CustomInstantDeserializer;
 @Builder
 public class RegisterRequest {
 
+    @NotBlank(message = "INVALID_KEY")
     @Email(message = "INVALID_EMAIL")
     private String email;
 

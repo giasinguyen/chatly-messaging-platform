@@ -17,6 +17,10 @@ public enum ErrorCode {
     USERNAME_ALREADY_EXISTS(1106, "Username already exists", HttpStatus.CONFLICT),
     INVALID_CREDENTIALS(1104, "Invalid username, email, phone or password", HttpStatus.UNAUTHORIZED),
     PASSWORD_TOO_SHORT(1105, "Password must be at least 6 characters", HttpStatus.BAD_REQUEST),
+    EMAIL_REQUIRED(1107, "Email is required for registration", HttpStatus.BAD_REQUEST),
+    EMAIL_NOT_VERIFIED(1108, "Email is not verified", HttpStatus.FORBIDDEN),
+    EMAIL_VERIFICATION_TOKEN_INVALID(1109, "Invalid or expired email verification link", HttpStatus.BAD_REQUEST),
+    EMAIL_VERIFICATION_RESEND_TOO_SOON(1110, "Please wait before requesting another verification link", HttpStatus.TOO_MANY_REQUESTS),
 
     CONTACT_NOT_FOUND(1200, "Contact not found", HttpStatus.NOT_FOUND),
     CONTACT_ALREADY_EXISTS(1201, "Contact relationship already exists", HttpStatus.CONFLICT),
