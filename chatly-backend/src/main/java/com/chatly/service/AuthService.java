@@ -1,6 +1,7 @@
 package com.chatly.service;
 
 import com.chatly.dto.request.LoginRequest;
+import com.chatly.dto.request.ChangePasswordRequest;
 import com.chatly.dto.request.ForgotPasswordRequest;
 import com.chatly.dto.request.LogoutRequest;
 import com.chatly.dto.request.RefreshTokenRequest;
@@ -22,6 +23,8 @@ import com.chatly.security.JwtProvider;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -112,6 +115,29 @@ public class AuthService {
         }
 
         return generateAuthResponse(user);
+    }
+
+    @Transactional
+    public void changePassword(ChangePasswordRequest request) {
+        if (!request.getNewPassword().equals(request.getConfirmPassword())) {
+            throw new AppException(ErrorCode.PASSWORD_CONFIRM_MISMATCH);
+        }
+
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()) {
+            throw new AppException(ErrorCode.UNAUTHENTICATED);
+        }
+
+        String userId = authentication.getPrincipal().toString();
+        User user = userRepository.findById(UUID.fromString(userId))
+            .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+
+        if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPassword())) {
+            throw new AppException(ErrorCode.CURRENT_PASSWORD_INCORRECT);
+        }
+
+        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        userRepository.save(user);
     }
 
     @Transactional

@@ -6,6 +6,7 @@ import {
     Bell,
     MessageSquare,
     LayoutGrid,
+    KeyRound,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -25,6 +26,7 @@ export function SettingsSidebar({
         { id: "appearance", label: "Giao diện", icon: Palette },
         { id: "notifications", label: "Thông báo", icon: Bell },
         { id: "messages", label: "Tin nhắn", icon: MessageSquare },
+        { id: "change-password", label: "Đổi mật khẩu", icon: KeyRound },
         { id: "utilities", label: "Tiện ích", icon: LayoutGrid },
     ];
 

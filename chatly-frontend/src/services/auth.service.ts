@@ -40,6 +40,18 @@ export const authService = {
         return response.data;
     },
 
+    changePassword: async (payload: {
+        currentPassword: string;
+        newPassword: string;
+        confirmPassword: string;
+    }): Promise<ApiResponse<null>> => {
+        const response = await axiosClient.post<ApiResponse<null>>(
+            "/api/auth/change-password",
+            payload,
+        );
+        return response.data;
+    },
+
     /**
      * Đăng xuất
      * Gọi backend API để xóa session/token ở server
