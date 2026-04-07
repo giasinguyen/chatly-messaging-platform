@@ -17,6 +17,12 @@ public enum ErrorCode {
     USERNAME_ALREADY_EXISTS(1106, "Username already exists", HttpStatus.CONFLICT),
     INVALID_CREDENTIALS(1104, "Invalid username, email, phone or password", HttpStatus.UNAUTHORIZED),
     PASSWORD_TOO_SHORT(1105, "Password must be at least 6 characters", HttpStatus.BAD_REQUEST),
+    CURRENT_PASSWORD_INCORRECT(1111, "Current password is incorrect", HttpStatus.BAD_REQUEST),
+    PASSWORD_CONFIRM_MISMATCH(1112, "Confirm password does not match", HttpStatus.BAD_REQUEST),
+    EMAIL_REQUIRED(1107, "Email is required for registration", HttpStatus.BAD_REQUEST),
+    EMAIL_NOT_VERIFIED(1108, "Email is not verified", HttpStatus.FORBIDDEN),
+    EMAIL_VERIFICATION_TOKEN_INVALID(1109, "Invalid or expired email verification link", HttpStatus.BAD_REQUEST),
+    EMAIL_VERIFICATION_RESEND_TOO_SOON(1110, "Please wait before requesting another verification link", HttpStatus.TOO_MANY_REQUESTS),
 
     CONTACT_NOT_FOUND(1200, "Contact not found", HttpStatus.NOT_FOUND),
     CONTACT_ALREADY_EXISTS(1201, "Contact relationship already exists", HttpStatus.CONFLICT),
@@ -29,10 +35,25 @@ public enum ErrorCode {
     NOT_CONVERSATION_PARTICIPANT(1303, "You are not a participant of this conversation", HttpStatus.FORBIDDEN),
 
     MESSAGE_NOT_FOUND(1400, "Message not found", HttpStatus.NOT_FOUND),
+    MESSAGE_ALREADY_RECALLED(1401, "Message has already been recalled", HttpStatus.CONFLICT),
+    CANNOT_RECALL_OTHERS_MESSAGE(1402, "You can only recall your own messages", HttpStatus.FORBIDDEN),
+    RECALL_TIME_EXCEEDED(1403, "Recall time limit (24 hours) has been exceeded", HttpStatus.UNPROCESSABLE_ENTITY),
+    CANNOT_EDIT_OTHERS_MESSAGE(1404, "You can only edit your own messages", HttpStatus.FORBIDDEN),
+    EDIT_TIME_EXCEEDED(1405, "Edit time limit (15 minutes) has been exceeded", HttpStatus.UNPROCESSABLE_ENTITY),
+    CANNOT_EDIT_NON_TEXT(1406, "Only text messages can be edited", HttpStatus.BAD_REQUEST),
+    CANNOT_RECALL_SYSTEM_MESSAGE(1407, "System messages cannot be recalled", HttpStatus.BAD_REQUEST),
 
     GROUP_MEMBER_NOT_FOUND(1500, "Group member not found", HttpStatus.NOT_FOUND),
     GROUP_MEMBER_ALREADY_EXISTS(1501, "User is already a member of this group", HttpStatus.CONFLICT),
     GROUP_PERMISSION_DENIED(1502, "You do not have permission for this action", HttpStatus.FORBIDDEN),
+
+    NOTIFICATION_NOT_FOUND(1700, "Notification not found", HttpStatus.NOT_FOUND),
+
+    FILE_NOT_FOUND(1800, "File not found", HttpStatus.NOT_FOUND),
+    FILE_UPLOAD_FAILED(1801, "File upload failed", HttpStatus.INTERNAL_SERVER_ERROR),
+    FILE_TYPE_NOT_ALLOWED(1802, "File type is not allowed", HttpStatus.UNSUPPORTED_MEDIA_TYPE),
+    FILE_SIZE_EXCEEDED(1803, "File size exceeds the maximum allowed limit", HttpStatus.PAYLOAD_TOO_LARGE),
+    FILE_DELETE_DENIED(1804, "You do not have permission to delete this file", HttpStatus.FORBIDDEN),
 
     UNAUTHORIZED(1600, "You do not have permission", HttpStatus.FORBIDDEN),
     UNAUTHENTICATED(1601, "Unauthenticated", HttpStatus.UNAUTHORIZED),

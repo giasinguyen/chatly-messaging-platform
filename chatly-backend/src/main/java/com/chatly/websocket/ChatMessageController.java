@@ -41,7 +41,7 @@ public class ChatMessageController {
 
         messagingTemplate.convertAndSend(
                 "/topic/conversation." + request.getConversationId(),
-                response
+                ChatEvent.builder().action(ChatEvent.ChatAction.SEND).message(response).build()
         );
     }
 
@@ -67,28 +67,18 @@ public class ChatMessageController {
         );
     }
 
-    // ── Error handling ────────────────────────────────────────────────────────
-    // Trả lỗi về đúng user đang thao tác (qua /user/queue/errors)
-    // Cần JwtHandshakeHandler để Principal được gán vào session.
-
     @MessageExceptionHandler(AppException.class)
     @SendToUser("/queue/errors")
     public Map<String, Object> handleAppException(AppException ex) {
         log.warn("WebSocket AppException: code={} message={}", ex.getErrorCode().getCode(), ex.getMessage());
-        return Map.of(
-                "code", ex.getErrorCode().getCode(),
-                "message", ex.getMessage()
-        );
+        return Map.of("code", ex.getErrorCode().getCode(), "message", ex.getMessage());
     }
 
     @MessageExceptionHandler(Exception.class)
     @SendToUser("/queue/errors")
     public Map<String, Object> handleGenericException(Exception ex) {
         log.error("WebSocket unhandled exception: {}", ex.getMessage(), ex);
-        return Map.of(
-                "code", 9999,
-                "message", "Internal server error"
-        );
+        return Map.of("code", 9999, "message", "Internal server error");
     }
 
     public record SeenRequest(String messageId) {}

@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { NavLink } from "react-router-dom";
+import { useEffect, useState, useRef, useMemo } from "react";
+import { NavLink, useNavigate } from "react-router-dom";
 import {
     Search,
     UserPlus,
@@ -10,6 +10,7 @@ import {
     Flag,
     Trash2,
     Pin,
+    Menu,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -27,6 +28,7 @@ import {
 } from "@/components/ui/context-menu";
 import { cn } from "@/lib/utils";
 import { conversationService } from "@/services/conversation.service";
+import { socketService } from "@/services/socket.service";
 import { userService } from "@/services/user.service";
 import { useAuthStore } from "@/store/auth.store";
 import {
@@ -34,8 +36,12 @@ import {
     getConversationAvatar,
 } from "@/utils/conversation";
 import type { ConversationResponse } from "@/types/conversation";
+import type { ChatEvent } from "@/types/message";
 import type { UserResponse } from "@/types/auth";
 import { toast } from "sonner";
+import { CreateGroupDialog } from "./CreateGroupDialog";
+import { useNotificationStore } from "@/store/notification.store";
+import { useUiStore } from "@/store/ui.store";
 
 function formatZaloTime(dateString: string) {
     const date = new Date(dateString);
@@ -67,12 +73,24 @@ function formatZaloTime(dateString: string) {
 
 export function ChatList() {
     const { user: currentUser } = useAuthStore();
+    const navigate = useNavigate();
     const [conversations, setConversations] = useState<ConversationResponse[]>(
         [],
     );
+    const [createGroupOpen, setCreateGroupOpen] = useState(false);
+    const subscriptionsRef = useRef<Array<{ unsubscribe: () => void }>>([]);
     const [users, setUsers] = useState<UserResponse[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState("");
+    const toggleMobileDrawer = useUiStore((s) => s.toggleMobileDrawer);
+    const notifications = useNotificationStore((s) => s.notifications);
+    const unreadMsgNotifications = useMemo(() => 
+        notifications.filter((n) => n.type === "NEW_MESSAGE" && !n.read),
+    [notifications]);
+    const conversationIdsKey = [...conversations]
+        .map((conv) => conv.id)
+        .sort()
+        .join("|");
 
     useEffect(() => {
         const fetchData = async () => {
@@ -94,6 +112,80 @@ export function ChatList() {
         fetchData();
     }, [currentUser]);
 
+    useEffect(() => {
+        if (!currentUser?.id || conversations.length === 0) return;
+
+        let disposed = false;
+
+        const setup = async () => {
+            try {
+                const token = localStorage.getItem("access_token");
+                if (!token) return;
+
+                await socketService.connect(token);
+                if (disposed) return;
+
+                const client = socketService.getClient();
+                if (!client) return;
+
+                subscriptionsRef.current.forEach((sub) => sub.unsubscribe());
+                subscriptionsRef.current = conversations.map((conv) =>
+                    client.subscribe(
+                        `/topic/conversation.${conv.id}`,
+                        (payload) => {
+                            const event = JSON.parse(payload.body) as ChatEvent;
+
+                            // Only update sidebar last-message preview for SEND actions
+                            if (event.action !== "SEND") return;
+                            const message = event.message;
+
+                            setConversations((prev) => {
+                                const target = prev.find(
+                                    (item) =>
+                                        item.id === message.conversationId,
+                                );
+                                if (!target) return prev;
+
+                                const updatedConversation: ConversationResponse =
+                                    {
+                                        ...target,
+                                        lastMessage: {
+                                            senderId: message.senderId,
+                                            content: message.content,
+                                            type: message.type,
+                                            timestamp: message.createdAt,
+                                        },
+                                        updatedAt: message.createdAt,
+                                    };
+
+                                return [
+                                    updatedConversation,
+                                    ...prev.filter(
+                                        (item) =>
+                                            item.id !== message.conversationId,
+                                    ),
+                                ];
+                            });
+                        },
+                    ),
+                );
+            } catch (error) {
+                console.error(
+                    "Không thể subscribe realtime conversations:",
+                    error,
+                );
+            }
+        };
+
+        setup();
+
+        return () => {
+            disposed = true;
+            subscriptionsRef.current.forEach((sub) => sub.unsubscribe());
+            subscriptionsRef.current = [];
+        };
+    }, [currentUser?.id, conversations.length, conversationIdsKey]);
+
     const filteredConversations = conversations.filter((conv) => {
         if (!searchQuery.trim()) return true;
         const displayName = currentUser
@@ -103,12 +195,12 @@ export function ChatList() {
     });
 
     const renderSkeleton = () =>
-        Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="flex items-center gap-3 px-4 py-3">
-                <div className="h-12 w-12 rounded-full bg-muted/60 animate-pulse shrink-0" />
+        Array.from({ length: 6 }).map((_, i) => (
+            <div key={`skeleton-${i}`} className="flex items-center gap-3 px-4 py-3 opacity-60">
+                <div className="h-12 w-12 rounded-full bg-border animate-pulse shrink-0" />
                 <div className="flex-1 space-y-2">
-                    <div className="h-3 w-32 rounded bg-muted/60 animate-pulse" />
-                    <div className="h-3 w-48 rounded bg-muted/40 animate-pulse" />
+                    <div className="h-4 w-[60%] rounded bg-border animate-pulse" />
+                    <div className="h-3 w-[80%] rounded bg-border/60 animate-pulse" />
                 </div>
             </div>
         ));
@@ -133,6 +225,9 @@ export function ChatList() {
             : undefined;
         const initials = displayName.charAt(0).toUpperCase();
         const isGroup = conv.type === "GROUP";
+        const unreadCount = unreadMsgNotifications.filter(
+            (n) => n.referenceId === conv.id
+        ).length;
 
         return (
             <ContextMenu key={conv.id}>
@@ -151,7 +246,7 @@ export function ChatList() {
                         >
                             {/* Avatar */}
                             <div className="relative shrink-0">
-                                <Avatar className="h-[48px] w-[48px]">
+                                <Avatar className="h-12 w-12">
                                     <AvatarImage
                                         src={avatarUrl}
                                         className="object-cover"
@@ -165,7 +260,7 @@ export function ChatList() {
                                     </AvatarFallback>
                                 </Avatar>
                                 {isGroup && (
-                                    <span className="absolute -bottom-0.5 -right-0.5 h-[18px] w-[18px] rounded-full bg-brand flex items-center justify-center ring-2 ring-background">
+                                    <span className="absolute -bottom-0.5 -right-0.5 h-4.5 w-4.5 rounded-full bg-brand flex items-center justify-center ring-2 ring-background">
                                         <Users
                                             size={10}
                                             className="text-white"
@@ -211,6 +306,11 @@ export function ChatList() {
                                             "Chưa có tin nhắn"
                                         )}
                                     </span>
+                                    {unreadCount > 0 && (
+                                        <span className="min-w-[18px] h-[18px] shrink-0 text-[10px] font-bold bg-red-500 text-white rounded-full flex items-center justify-center px-1 ml-2">
+                                            {unreadCount > 99 ? '99+' : unreadCount}
+                                        </span>
+                                    )}
                                 </div>
                             </div>
                         </NavLink>
@@ -285,57 +385,93 @@ export function ChatList() {
     };
 
     return (
-        <aside className="w-[340px] flex flex-col border-r border-border shrink-0 h-full overflow-hidden" style={{ background: '#1b1c1d' }}>
-            {/* Search Header */}
-            <div className="px-4 py-4 flex items-center gap-2 border-b border-border/50 bg-muted/10">
-                <div className="relative flex-1">
-                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                        placeholder="Tìm kiếm"
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        className="h-8 pl-8 bg-muted/30 border-border/40 focus-visible:ring-1 focus-visible:ring-brand focus-visible:border-brand rounded-full text-sm"
-                    />
-                </div>
-                <div className="flex items-center gap-1">
+        <>
+            <aside className="w-full md:w-85 lg:w-[350px] flex flex-col border-r border-border shrink-0 h-full overflow-hidden bg-background">
+                {/* Search Header */}
+                <div className="px-4 py-4 flex items-center gap-2 border-b border-border/50 bg-muted/10">
                     <Button
-                        onClick={() => toast.info("Development in progress...")}
+                        onClick={toggleMobileDrawer}
                         variant="ghost"
                         size="icon"
-                        className="h-8 w-8 rounded-full"
+                        className="md:hidden h-8 w-8 rounded-full shrink-0 -ml-2"
+                        title="Mở menu"
                     >
-                        <UserPlus size={16} />
+                        <Menu size={18} />
                     </Button>
-                    <Button
-                        onClick={() => toast.info("Development in progress...")}
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 rounded-full"
-                    >
-                        <UsersRound size={16} />
-                    </Button>
-                </div>
-            </div>
-
-            {/* Chat List */}
-            <div className="flex-1 overflow-hidden">
-                <ScrollArea className="h-full">
-                    <div className="flex flex-col py-1">
-                        {loading ? (
-                            renderSkeleton()
-                        ) : filteredConversations.length === 0 ? (
-                            <div className="flex flex-col items-center justify-center py-12 gap-2 text-muted-foreground">
-                                <UsersRound size={36} className="opacity-30" />
-                                <p className="text-sm">
-                                    Chưa có cuộc trò chuyện nào
-                                </p>
-                            </div>
-                        ) : (
-                            filteredConversations.map(renderConversationItem)
-                        )}
+                    <div className="relative flex-1">
+                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input
+                            placeholder="Tìm kiếm"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="h-8 pl-8 bg-muted/30 border-border/40 focus-visible:ring-1 focus-visible:ring-brand focus-visible:border-brand rounded-full text-sm"
+                        />
                     </div>
-                </ScrollArea>
-            </div>
-        </aside>
+                    <div className="flex items-center gap-1">
+                        <Button
+                            onClick={() =>
+                                toast.info("Development in progress...")
+                            }
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 rounded-full"
+                        >
+                            <UserPlus size={16} />
+                        </Button>
+                        <Button
+                            onClick={() => setCreateGroupOpen(true)}
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 rounded-full"
+                            title="Tạo nhóm chat"
+                        >
+                            <UsersRound size={16} />
+                        </Button>
+                    </div>
+                </div>
+
+                {/* Chat List */}
+                <div className="flex-1 overflow-hidden">
+                    <ScrollArea className="h-full">
+                        <div className="flex flex-col py-1">
+                            {loading ? (
+                                renderSkeleton()
+                            ) : filteredConversations.length === 0 ? (
+                                <div className="flex flex-col items-center justify-center py-16 gap-4 text-muted-foreground">
+                                    <div className="h-20 w-20 rounded-full bg-primary/5 flex items-center justify-center mb-2">
+                                        <UsersRound
+                                            size={40}
+                                            strokeWidth={1.5}
+                                            className="text-primary/40"
+                                        />
+                                    </div>
+                                    <p className="text-[14px] font-medium text-foreground/70">
+                                        Chưa có cuộc trò chuyện nào
+                                    </p>
+                                    <p className="text-[12px] text-center max-w-[200px] text-muted-foreground/80">
+                                        Hãy tìm kiếm hoặc tạo nhóm để bắt đầu nhắn tin nhé.
+                                    </p>
+                                </div>
+                            ) : (
+                                filteredConversations.map(
+                                    renderConversationItem,
+                                )
+                            )}
+                        </div>
+                    </ScrollArea>
+                </div>
+            </aside>
+            <CreateGroupDialog
+                open={createGroupOpen}
+                onOpenChange={setCreateGroupOpen}
+                onCreated={(conv) => {
+                    setConversations((prev) => {
+                        if (prev.some((c) => c.id === conv.id)) return prev;
+                        return [conv, ...prev];
+                    });
+                    navigate(`/chat/${conv.id}`);
+                }}
+            />
+        </>
     );
 }

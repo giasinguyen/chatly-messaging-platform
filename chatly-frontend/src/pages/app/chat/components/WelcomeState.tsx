@@ -29,10 +29,10 @@ export function WelcomeState() {
     return (
         <main className="flex-1 bg-[#F5F5F7] dark:bg-[#1D1D1F] flex flex-col items-center justify-center p-8 overflow-hidden relative">
             <div className="max-w-[480px] w-full flex flex-col items-center justify-center">
-                <h2 className="text-2xl font-semibold mb-12 text-foreground text-center">
+                <h2 className="text-2xl md:text-3xl font-semibold mb-12 text-foreground text-center">
                     Chào mừng đến với{" "}
-                    <span className="font-bold text-foreground">
-                        Chatly PC!
+                    <span className="font-bold text-brand">
+                        Chatly!
                     </span>
                 </h2>
 

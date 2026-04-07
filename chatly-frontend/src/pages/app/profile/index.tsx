@@ -31,6 +31,7 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
+import { fileService } from "@/services/file.service";
 import { userService } from "@/services/user.service";
 import { useAuthStore } from "@/store/auth.store";
 import type { UserResponse } from "@/types/auth";
@@ -93,7 +94,9 @@ export default function ProfilePage() {
     const [initialForm, setInitialForm] = useState<ProfileFormData>(emptyForm);
     const [loading, setLoading] = useState(!user);
     const [saving, setSaving] = useState(false);
+    const [uploadingAvatar, setUploadingAvatar] = useState(false);
     const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+    const [selectedAvatarFile, setSelectedAvatarFile] = useState<File | null>(null);
     const fileInputRef = useRef<HTMLInputElement | null>(null);
 
     const isDirty = useMemo(
@@ -211,6 +214,10 @@ export default function ProfilePage() {
             return;
         }
 
+        event.target.value = "";
+
+        setSelectedAvatarFile(file);
+
         const reader = new FileReader();
         reader.onload = () => {
             const dataUrl = reader.result;
@@ -222,8 +229,6 @@ export default function ProfilePage() {
             toast.error("Không thể đọc file ảnh");
         };
         reader.readAsDataURL(file);
-
-        event.target.value = "";
     };
 
     const onReset = () => {
@@ -243,6 +248,23 @@ export default function ProfilePage() {
 
         try {
             setSaving(true);
+            let avatarUrl = form.avatarUrl;
+
+            // Nếu chọn ảnh mới (là data URL), upload lên S3 trước
+            if (selectedAvatarFile && avatarUrl?.startsWith("data:")) {
+                setUploadingAvatar(true);
+                try {
+                    const uploaded = await fileService.upload(selectedAvatarFile);
+                    avatarUrl = uploaded.url;
+                    setSelectedAvatarFile(null);
+                } catch {
+                    toast.error("Không thể tải ảnh lên, vui lòng thử lại");
+                    return;
+                } finally {
+                    setUploadingAvatar(false);
+                }
+            }
+
             const response = await userService.update(user.id, {
                 displayName: form.displayName.trim(),
                 username: form.username.trim(),
@@ -250,7 +272,7 @@ export default function ProfilePage() {
                 phone: form.phone.trim() || undefined,
                 bio: form.bio.trim() || undefined,
                 dob: form.dob || undefined,
-                avatarUrl: form.avatarUrl || undefined,
+                avatarUrl: avatarUrl || undefined,
             });
 
             updateUser(response.result);
@@ -297,11 +319,16 @@ export default function ProfilePage() {
                                 </Avatar>
                                 <button
                                     type="button"
-                                    className="absolute -bottom-1 -right-1 rounded-full border border-white bg-brand p-2 text-white shadow-md transition hover:scale-105 hover:bg-brand-hover"
+                                    className="absolute -bottom-1 -right-1 rounded-full border border-white bg-brand p-2 text-white shadow-md transition hover:scale-105 hover:bg-brand-hover disabled:opacity-60 disabled:cursor-not-allowed"
                                     aria-label="Đổi ảnh đại diện"
                                     onClick={onPickAvatar}
+                                    disabled={uploadingAvatar || saving}
                                 >
-                                    <Camera size={14} />
+                                    {uploadingAvatar ? (
+                                        <Loader2 size={14} className="animate-spin" />
+                                    ) : (
+                                        <Camera size={14} />
+                                    )}
                                 </button>
                                 <input
                                     ref={fileInputRef}

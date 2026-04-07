@@ -85,16 +85,28 @@ export function ContactDetails({ activeTab }: ContactDetailsProps) {
 
     const handleMessage = async (friendId: string) => {
         try {
-            // Initiate a 1-1 conversation. The backend should return the existing one if it exists.
+            // Check for an existing private conversation with this friend first
+            const convsRes = await conversationService.getMyConversations();
+            const existing = convsRes.result?.find(
+                (c) =>
+                    c.type === "PRIVATE" &&
+                    c.participantIds.includes(friendId) &&
+                    c.participantIds.includes(currentUser!.id),
+            );
+            if (existing) {
+                navigate(`/chat/${existing.id}`);
+                return;
+            }
+            // No existing conversation — create one
             const res = await conversationService.create({
-                 type: "PRIVATE",
-                 participantIds: [friendId]
+                type: "PRIVATE",
+                participantIds: [friendId],
             });
             if (res.result) {
-                 navigate(`/chat/${res.result.id}`);
+                navigate(`/chat/${res.result.id}`);
             }
         } catch (error) {
-             toast.error("Không thể tạo cuộc trò chuyện");
+            toast.error("Không thể tạo cuộc trò chuyện");
         }
     };
 

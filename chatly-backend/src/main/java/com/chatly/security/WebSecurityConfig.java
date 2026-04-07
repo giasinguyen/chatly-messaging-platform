@@ -36,7 +36,8 @@ public class WebSecurityConfig {
             "/ws-test.html",
             "/chatroom-test.html",
             "/",
-            "/api/health"
+            "/api/health",
+            "/uploads/**"
     };
 
     @Bean
@@ -47,6 +48,7 @@ public class WebSecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .dispatcherTypeMatchers(DispatcherType.FORWARD, DispatcherType.ERROR).permitAll()
                         .requestMatchers(PUBLIC_ENDPOINTS).permitAll()
+                        .requestMatchers("/api/files/**").authenticated()
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();

@@ -1,13 +1,17 @@
 package com.chatly.controller;
 
 import com.chatly.dto.request.LoginRequest;
+import com.chatly.dto.request.ChangePasswordRequest;
+import com.chatly.dto.request.ForgotPasswordRequest;
 import com.chatly.dto.request.LogoutRequest;
 import com.chatly.dto.request.RefreshTokenRequest;
 import com.chatly.dto.request.RegisterRequest;
+import com.chatly.dto.request.ResendVerificationRequest;
 import com.chatly.dto.request.IntrospectRequest;
 import com.chatly.dto.response.ApiResponse;
 import com.chatly.dto.response.AuthResponse;
 import com.chatly.dto.response.IntrospectResponse;
+import com.chatly.dto.response.RegisterResponse;
 import com.chatly.service.AuthService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -24,8 +28,8 @@ public class AuthController {
     private final AuthService authService;
 
     @PostMapping("/register")
-    ApiResponse<AuthResponse> register(@RequestBody @Valid RegisterRequest request) {
-        return ApiResponse.<AuthResponse>builder()
+    ApiResponse<RegisterResponse> register(@RequestBody @Valid RegisterRequest request) {
+        return ApiResponse.<RegisterResponse>builder()
             .result(authService.register(request))
             .build();
     }
@@ -34,6 +38,30 @@ public class AuthController {
     ApiResponse<AuthResponse> login(@RequestBody @Valid LoginRequest request) {
         return ApiResponse.<AuthResponse>builder()
             .result(authService.login(request))
+            .build();
+    }
+
+    @PostMapping("/resend-verification")
+    ApiResponse<Void> resendVerification(@RequestBody @Valid ResendVerificationRequest request) {
+        authService.resendVerification(request);
+        return ApiResponse.<Void>builder()
+            .message("Verification link resent successfully")
+            .build();
+    }
+
+    @PostMapping("/forgot-password")
+    ApiResponse<Void> forgotPassword(@RequestBody @Valid ForgotPasswordRequest request) {
+        authService.forgotPassword(request);
+        return ApiResponse.<Void>builder()
+            .message("If the email exists, a new password has been sent.")
+            .build();
+    }
+
+    @PostMapping("/change-password")
+    ApiResponse<Void> changePassword(@RequestBody @Valid ChangePasswordRequest request) {
+        authService.changePassword(request);
+        return ApiResponse.<Void>builder()
+            .message("Password changed successfully")
             .build();
     }
 

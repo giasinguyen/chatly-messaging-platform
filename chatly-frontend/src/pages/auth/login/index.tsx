@@ -242,11 +242,7 @@ export default function LoginPage() {
                                                     errors={[fieldState.error]}
                                                 />
                                             )}
-                                            <ForgotPasswordDialog
-                                                email={form.getValues(
-                                                    "identifier",
-                                                )}
-                                            />
+                                            <ForgotPasswordDialog />
                                         </Field>
                                     )}
                                 />

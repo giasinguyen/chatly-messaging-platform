@@ -22,6 +22,17 @@ spring:
     redis:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
+  mail:
+    host: ${SPRING_MAIL_HOST:smtp.gmail.com}
+    port: ${SPRING_MAIL_PORT:587}
+    username: ${SPRING_MAIL_USERNAME}
+    password: ${SPRING_MAIL_PASSWORD}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
 
 server:
   port: ${SERVER_PORT:8080}
@@ -31,3 +42,10 @@ app:
     secret: ${JWT_SECRET}
     expiration-ms: ${JWT_EXPIRATION_MS:86400000}
     refresh-expiration-ms: ${JWT_REFRESH_EXPIRATION_MS:604800000}
+  auth:
+    verification:
+      expiration-minutes: ${APP_AUTH_VERIFICATION_EXPIRATION_MINUTES:15}
+      resend-cooldown-seconds: ${APP_AUTH_VERIFICATION_RESEND_COOLDOWN_SECONDS:60}
+    verification-link-base-url: ${APP_AUTH_VERIFICATION_LINK_BASE_URL:https://api.chatly.app/api/auth/verify-email}
+  mail:
+    from: ${APP_MAIL_FROM:${SPRING_MAIL_USERNAME}}

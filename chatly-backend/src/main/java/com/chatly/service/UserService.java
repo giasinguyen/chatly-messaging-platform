@@ -1,6 +1,7 @@
 package com.chatly.service;
 
 import com.chatly.dto.request.UserUpdateRequest;
+import com.chatly.dto.response.PagedResponse;
 import com.chatly.dto.response.UserResponse;
 import com.chatly.exception.AppException;
 import com.chatly.exception.ErrorCode;
@@ -8,6 +9,8 @@ import com.chatly.mapper.UserMapper;
 import com.chatly.model.postgres.User;
 import com.chatly.repository.postgres.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -51,6 +54,20 @@ public class UserService {
         return userRepository.findAll().stream()
                 .map(userMapper::toResponse)
                 .toList();
+    }
+
+    public PagedResponse<UserResponse> search(String keyword, int page, int size) {
+        PageRequest pageable = PageRequest.of(page, size);
+        Page<UserResponse> userPage;
+
+        if (keyword == null || keyword.isBlank()) {
+            userPage = userRepository.findAll(pageable).map(userMapper::toResponse);
+        } else {
+            userPage = userRepository.searchByKeyword(keyword.trim(), pageable)
+                    .map(userMapper::toResponse);
+        }
+
+        return PagedResponse.from(userPage);
     }
 
     @Transactional

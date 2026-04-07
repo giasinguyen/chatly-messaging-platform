@@ -11,10 +11,6 @@ export const messageService = {
      * Lấy danh sách tin nhắn trong một conversation, có phân trang.
      * API trả về theo thứ tự mới nhất trước (descending).
      * Cần reverse() trước khi render để hiển thị cũ → mới.
-     *
-     * @param conversationId - ID của conversation
-     * @param page           - Số trang, bắt đầu từ 0
-     * @param size           - Số message mỗi trang
      */
     getByConversation: async (
         conversationId: string,
@@ -50,6 +46,30 @@ export const messageService = {
     markAsSeen: async (messageId: string): Promise<ApiResponse<Message>> => {
         const response = await axiosClient.put<ApiResponse<Message>>(
             `/api/messages/${messageId}/seen`,
+        );
+        return response.data;
+    },
+
+    /**
+     * Thu hồi tin nhắn (chỉ trong vòng 24 giờ, không thu hồi của người khác).
+     */
+    recall: async (messageId: string): Promise<ApiResponse<Message>> => {
+        const response = await axiosClient.put<ApiResponse<Message>>(
+            `/api/messages/${messageId}/recall`,
+        );
+        return response.data;
+    },
+
+    /**
+     * Chỉnh sửa nội dung tin nhắn (chỉ TEXT, trong vòng 15 phút, không chỉnh sửa của người khác).
+     */
+    edit: async (
+        messageId: string,
+        content: string,
+    ): Promise<ApiResponse<Message>> => {
+        const response = await axiosClient.put<ApiResponse<Message>>(
+            `/api/messages/${messageId}/edit`,
+            { content },
         );
         return response.data;
     },

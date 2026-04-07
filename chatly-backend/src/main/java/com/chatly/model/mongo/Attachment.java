@@ -9,6 +9,8 @@ import lombok.*;
 @Builder
 public class Attachment {
 
+    private String fileId;
+
     private String fileName;
     private String fileUrl;
     private String fileType;

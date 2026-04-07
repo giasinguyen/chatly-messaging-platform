@@ -99,9 +99,10 @@ axiosClient.interceptors.response.use(
             _retry?: boolean;
         };
 
-        // 1. Kiểm tra nếu lỗi là 401 (Unauthorized) hoặc 403 (Forbidden/Expired)
+        // 1. Chỉ retry khi lỗi là 401 (Unauthorized / token hết hạn)
+        // 403 là lỗi authorization (không có quyền), KHÔNG phải auth failure → không retry
         const status = error.response?.status;
-        const isUnauthorized = status === 401 || status === 403;
+        const isUnauthorized = status === 401;
 
         // Nếu không phải 401 hoặc request này đã từng thử refresh rồi thì thôi
         if (!isUnauthorized || !originalRequest || originalRequest._retry) {

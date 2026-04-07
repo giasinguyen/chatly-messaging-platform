@@ -8,10 +8,16 @@ export interface ReadReceipt {
 }
 
 export interface Attachment {
+    fileId?: string;
     url: string;
     name?: string;
     type?: string;
     size?: number;
+}
+
+export interface EditHistoryEntry {
+    content: string;
+    editedAt: string;
 }
 
 /**
@@ -28,8 +34,29 @@ export interface Message {
     replyToId: string | null;
     attachments: Attachment[];
     readBy: ReadReceipt[];
+
+    // Recall fields
+    recalled: boolean;
+    recalledAt: string | null;
+    recalledBy: string | null;
+
+    // Edit fields
+    edited: boolean;
+    editedAt: string | null;
+    editHistory: EditHistoryEntry[];
+
     createdAt: string;
     updatedAt: string;
+}
+
+/**
+ * ChatEvent – wrapper for all realtime message events from WebSocket.
+ */
+export type ChatAction = "SEND" | "EDIT" | "RECALL" | "DELETE";
+
+export interface ChatEvent {
+    action: ChatAction;
+    message: Message;
 }
 
 /**
