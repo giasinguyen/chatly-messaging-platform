@@ -425,14 +425,11 @@ export default function ChatScreen() {
         isGroup={isGroup}
         memberCount={conversation?.participantIds.length}
         isOnline={!isGroup && otherUserOnline}
-<<<<<<< HEAD
         onToggleSearch={() => {
           setShowSearch((prev) => !prev);
           if (showSearch) setHighlightedMessageId(null);
         }}
-=======
         onPressInfo={isGroup ? () => router.push(`/chat/${conversationId}/info`) : undefined}
->>>>>>> van-minh
       />
 
       {showSearch && conversationId && (

@@ -11,11 +11,8 @@ interface ChatHeaderProps {
   isOnline?: boolean;
   memberCount?: number;
   isGroup?: boolean;
-<<<<<<< HEAD
   onToggleSearch?: () => void;
-=======
   onPressInfo?: () => void;
->>>>>>> van-minh
 }
 
 export function ChatHeader({
@@ -24,11 +21,8 @@ export function ChatHeader({
   isOnline = false,
   memberCount,
   isGroup = false,
-<<<<<<< HEAD
   onToggleSearch,
-=======
   onPressInfo,
->>>>>>> van-minh
 }: ChatHeaderProps) {
   const router = useRouter();
   const insets = useSafeAreaInsets();

@@ -11,19 +11,20 @@ export interface FileUploadResponse {
 }
 
 export const fileService = {
-<<<<<<< HEAD
   /**
    * Upload a file (image, video, etc.) to the server.
    * @param uri      local file URI from expo-image-picker / expo-document-picker
    * @param fileName original file name
    * @param mimeType MIME type, e.g. "image/jpeg"
    * @param conversationId optional, required for chat attachments
+   * @param onProgress optional callback for upload progress
    */
   async upload(
     uri: string,
     fileName: string,
     mimeType: string,
     conversationId?: string,
+    onProgress?: (percent: number) => void,
   ): Promise<FileUploadResponse> {
     const formData = new FormData();
 
@@ -42,6 +43,11 @@ export const fileService = {
       formData,
       {
         headers: { 'Content-Type': 'multipart/form-data' },
+        onUploadProgress: (event) => {
+          if (onProgress && event.total) {
+            onProgress(Math.round((event.loaded * 100) / event.total));
+          }
+        },
       },
     );
 
@@ -50,28 +56,5 @@ export const fileService = {
 
   async deleteFile(fileId: string): Promise<void> {
     await axiosClient.delete(`/api/files/${fileId}`);
-=======
-  async upload(
-    formData: FormData,
-    onProgress?: (percent: number) => void,
-  ): Promise<{ result: FileUploadResponse }> {
-    const { data } = await axiosClient.post<{ result: FileUploadResponse }>(
-      '/files/upload',
-      formData,
-      {
-        headers: { 'Content-Type': 'multipart/form-data' },
-        onUploadProgress: (event) => {
-          if (onProgress && event.total) {
-            onProgress(Math.round((event.loaded * 100) / event.total));
-          }
-        },
-      },
-    );
-    return data;
-  },
-
-  async deleteFile(fileId: string): Promise<void> {
-    await axiosClient.delete(`/files/${fileId}`);
->>>>>>> van-minh
   },
 };
