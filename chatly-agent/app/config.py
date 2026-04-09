@@ -37,8 +37,3 @@ class Settings(BaseSettings):
 
 
 settings = Settings()  # ty:ignore[missing-argument]
-
-
-def get_settings() -> Settings:
-    """FastAPI dependency — returns singleton settings."""
-    return settings

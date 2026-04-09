@@ -35,11 +35,9 @@
 | `langchain-groq` | latest | Groq LLM integration |
 | `langchain-huggingface` | latest | Hugging Face Inference API embeddings |
 | `huggingface-hub` | latest | Hugging Face API auth + transport |
-| `motor` | 3.x | MongoDB async driver (thay Supabase) |
+| `motor` | 3.x | MongoDB async driver |
 | `pymongo` | 4.x | MongoDB sync utils, ObjectId |
 | `minio` | latest | S3-compatible object storage client (file binary) |
-| `python-jose[cryptography]` | latest | JWT encode/decode (thay Supabase Auth) |
-| `passlib[bcrypt]` | latest | Password hashing |
 | `pydantic` | v2 | Validation — KHÔNG dùng v1 |
 | `pytest` | 8.x | Testing |
 | `pytest-asyncio` | 0.23+ | Async test support |
@@ -59,7 +57,7 @@ agent-server/
 ├── uv.lock
 ├── .env.example
 ├── Makefile
-├── agents.md                   # file này
+├── AGENTS.md                   # file này
 │
 ├── app/
 │   ├── main.py                 # FastAPI entry point
@@ -70,26 +68,19 @@ agent-server/
 │   ├── agents/
 │   │   ├── base.py             # AbstractBaseAgent
 │   │   ├── chatbot_agent.py    # Conversational Chatbot
-│   │   ├── rag_agent.py        # RAG Agent
-│   │   └── tool_agent.py       # Tool-calling Agent
+│   │   └── unified_agent.py    # ReAct agent (tools + RAG via create_react_agent)
 │   │
 │   ├── graphs/
 │   │   ├── chatbot_graph.py
-│   │   ├── rag_graph.py
-│   │   ├── tool_graph.py
 │   │   └── nodes/              # Mỗi node là một module riêng
-│   │       ├── llm_node.py
-│   │       ├── retriever_node.py
-│   │       ├── tool_executor_node.py
-│   │       └── router_node.py
+│   │       └── llm_node.py
 │   │
 │   ├── tools/
-│   │   ├── base.py
-│   │   ├── search_tool.py
+│   │   ├── retriever_tool.py   # search_documents — session-scoped Qdrant retrieval
+│   │   ├── web_search_tool.py
 │   │   └── mcp_tool.py
 │   │
 │   ├── routers/
-│   │   ├── auth.py
 │   │   ├── chat.py
 │   │   ├── files.py
 │   │   ├── mcp.py
@@ -97,7 +88,6 @@ agent-server/
 │   │   └── health.py
 │   │
 │   ├── services/
-│   │   ├── auth_service.py
 │   │   ├── chat_service.py
 │   │   ├── file_service.py
 │   │   ├── mcp_service.py
@@ -123,35 +113,31 @@ agent-server/
 │   │   └── minio.py            # MinIO client singleton + object helpers
 │   │
 │   ├── models/                 # Pydantic schemas (request/response)
-│   │   ├── auth.py
 │   │   ├── chat.py
+│   │   ├── context.py
 │   │   ├── document.py
 │   │   ├── mcp.py
 │   │   └── session.py
 │   │
-│   ├── prompts/                # Prompt templates
-│   │   ├── chatbot.py
-│   │   ├── rag.py
-│   │   └── tool.py
+│   ├── prompts/                # LangChain prompt templates
+│   │   └── chatbot.py
 │   │
 │   └── utils/
 │       ├── llm.py              # LLM factory
 │       ├── embeddings.py       # Embedding helpers
-│       └── security.py         # JWT helpers
+│       └── security.py         # API key verification
 │
 └── tests/
     ├── conftest.py             # Shared fixtures
     ├── unit/
     │   ├── agents/
     │   │   ├── test_chatbot_agent.py
-    │   │   ├── test_rag_agent.py
-    │   │   └── test_tool_agent.py
+    │   │   └── test_unified_agent.py
     │   ├── graphs/
-    │   │   └── nodes/
+    │   │   └── test_chatbot_graph.py
     │   ├── services/
     │   └── repositories/
     └── integration/
-        ├── test_auth_api.py
         ├── test_chat_api.py
         ├── test_files_api.py
         └── test_sessions_api.py
@@ -307,7 +293,6 @@ import uuid
 class ChatInput(BaseModel):
     message: str = Field(..., min_length=1, max_length=8192)
     session_id: str
-    agent_type: str = Field(default="chatbot", pattern="^(chatbot|rag|tool)$")
     use_web_search: bool = False
     mcp_server_ids: list[str] = []
 
@@ -317,9 +302,14 @@ class ChatInput(BaseModel):
 class ChatOutput(BaseModel):
     content: str
     session_id: str
+    agent_type: str
+
+
+class ChatResponse(BaseModel):
+    content: str
+    session_id: str
     message_id: str
     agent_type: str
-    usage: dict[str, int] | None = None
 ```
 
 ---
@@ -350,10 +340,11 @@ def test_find_by_id_returns_none_when_invalid_object_id(): ...
 ### 4.3 Test Structure — Arrange / Act / Assert
 
 ```python
-# tests/unit/agents/test_rag_agent.py
+# tests/unit/agents/test_unified_agent.py
 import pytest
-from unittest.mock import AsyncMock
-from app.agents.rag_agent import RagAgent
+from unittest.mock import AsyncMock, MagicMock, patch
+from langchain_core.tools import tool
+from app.agents.unified_agent import UnifiedAgent
 from app.models.chat import ChatInput
 
 
@@ -363,30 +354,42 @@ def chat_input() -> ChatInput:
 
 
 @pytest.fixture
-def rag_agent(mock_llm, mock_vector_service) -> RagAgent:
-    return RagAgent(llm=mock_llm, vector_service=mock_vector_service)
+def mock_tool():
+    @tool
+    async def dummy_tool(query: str) -> str:
+        """A dummy tool for testing."""
+        return "result"
+    return dummy_tool
 
 
-class TestRagAgentInvoke:
+@pytest.fixture
+def unified_agent(mock_llm, mock_tool) -> UnifiedAgent:
+    with patch("app.agents.unified_agent.create_react_agent") as mock_create:
+        mock_graph = MagicMock()
+        mock_create.return_value = mock_graph
+        agent = UnifiedAgent(llm=mock_llm, tools=[mock_tool])
+        agent._graph = mock_graph
+        return agent
+
+
+class TestUnifiedAgentInvoke:
     """Nhóm tests theo method/behavior, không theo input."""
 
-    async def test_invoke_returns_answer_when_docs_found(
-        self, rag_agent: RagAgent, chat_input: ChatInput
+    async def test_invoke_returns_answer(
+        self, unified_agent: UnifiedAgent, chat_input: ChatInput
     ) -> None:
-        # Arrange — đã setup qua fixture
+        # Arrange
+        from langchain_core.messages import AIMessage
+        unified_agent._graph.ainvoke = AsyncMock(
+            return_value={"messages": [AIMessage(content="LangGraph answer")]}
+        )
 
         # Act
-        result = await rag_agent.ainvoke(chat_input)
+        result = await unified_agent.ainvoke(chat_input)
 
         # Assert
-        assert result.content != ""
-        assert result.session_id == chat_input.session_id
-
-    async def test_invoke_calls_vector_service_once(
-        self, rag_agent: RagAgent, chat_input: ChatInput
-    ) -> None:
-        await rag_agent.ainvoke(chat_input)
-        rag_agent._vector_service.similarity_search.assert_called_once()
+        assert result.content == "LangGraph answer"
+        assert result.agent_type == "unified"
 
     async def test_invoke_raises_value_error_when_empty_message(self) -> None:
         with pytest.raises(ValueError):
@@ -636,39 +639,16 @@ from app.config import settings
 def get_llm(
     model: str = settings.groq_model,
     temperature: float = 0.0,
-    streaming: bool = False,
 ) -> ChatGroq:
     """Singleton per (model, temperature) — tái sử dụng thay vì tạo mới mỗi request."""
     return ChatGroq(
         model=model,
         api_key=settings.groq_api_key,
         temperature=temperature,
-        streaming=streaming,
     )
 ```
 
-### 5.5 Prompt Templates — không hardcode trong agent
-
-```python
-# app/prompts/rag.py
-from langchain_core.prompts import ChatPromptTemplate
-
-RAG_SYSTEM = (
-    "You are a helpful assistant. "
-    "Answer using the context extracted from the user's uploaded files when relevant.\n\n"
-    "<context>\n{context}\n</context>\n\n"
-    "If the context doesn't contain enough information, answer from general knowledge "
-    "but mention the files didn't cover it."
-)
-
-RAG_PROMPT = ChatPromptTemplate.from_messages([
-    ("system", RAG_SYSTEM),
-    ("placeholder", "{history}"),
-    ("human", "{question}"),
-])
-```
-
-### 5.6 FastAPI Dependencies — không repeat DI logic
+### 5.5 FastAPI Dependencies — không repeat DI logic
 
 ```python
 # app/dependencies.py
@@ -718,6 +698,7 @@ class ChatbotAgent(BaseAgent):
 
     def __init__(self, llm: ChatGroq) -> None:
         self._graph = build_chatbot_graph(llm)
+        self.agent_type: str = "chatbot"
 
     async def ainvoke(self, input: ChatInput) -> ChatOutput:
         config = self._build_run_config(input.session_id)
@@ -728,8 +709,52 @@ class ChatbotAgent(BaseAgent):
         return ChatOutput(
             content=result["messages"][-1].content,
             session_id=input.session_id,
-            message_id="",   # set bởi service sau khi lưu vào MongoDB
-            agent_type="chatbot",
+            agent_type=self.agent_type,
+        )
+
+    async def astream(self, input: ChatInput) -> AsyncIterator[str]:
+        config = self._build_run_config(input.session_id)
+        async for chunk in self._llm.astream(
+            [*history, ("human", input.message)]
+        ):
+            if chunk.content:
+                yield chunk.content
+```
+
+### 6.2 UnifiedAgent (ReAct — Tools + RAG)
+
+```python
+# app/agents/unified_agent.py
+import logging
+from typing import AsyncIterator
+from langchain_groq import ChatGroq
+from langchain_core.tools import BaseTool
+from langchain_core.messages import AIMessageChunk
+from langgraph.prebuilt import create_react_agent
+from langgraph.checkpoint.memory import MemorySaver
+from app.agents.base import BaseAgent
+from app.models.chat import ChatInput, ChatOutput
+
+logger = logging.getLogger(__name__)
+
+
+class UnifiedAgent(BaseAgent):
+    """ReAct agent — handles any combination of MCP tools, web search, and RAG."""
+
+    def __init__(self, llm: ChatGroq, tools: list[BaseTool]) -> None:
+        self._graph = create_react_agent(llm, tools, checkpointer=MemorySaver())
+        self.agent_type: str = "unified"
+
+    async def ainvoke(self, input: ChatInput) -> ChatOutput:
+        config = self._build_run_config(input.session_id)
+        result = await self._graph.ainvoke(
+            {"messages": [("human", input.message)]},
+            config=config,
+        )
+        return ChatOutput(
+            content=result["messages"][-1].content,
+            session_id=input.session_id,
+            agent_type=self.agent_type,
         )
 
     async def astream(self, input: ChatInput) -> AsyncIterator[str]:
@@ -739,71 +764,34 @@ class ChatbotAgent(BaseAgent):
             config=config,
             stream_mode="values",
         ):
-            if chunk.get("messages"):
-                yield chunk["messages"][-1].content
+            msg = chunk["messages"][-1]
+            if isinstance(msg, AIMessageChunk) and msg.content:
+                yield msg.content
 ```
 
-### 6.2 RAG Agent
+### 6.3 Retriever Tool — RAG as a LangChain tool
 
 ```python
-# app/agents/rag_agent.py
-from langchain_groq import ChatGroq
-from app.agents.base import BaseAgent
-from app.graphs.rag_graph import build_rag_graph
+# app/tools/retriever_tool.py
+from langchain_core.tools import tool
 from app.services.vector_service import VectorService
-from app.models.chat import ChatInput, ChatOutput
 
 
-class RagAgent(BaseAgent):
-    """Agent trả lời dựa trên tài liệu từ MongoDB Atlas Vector Search."""
+def create_retriever_tool(vector_service: VectorService, session_id: str):
+    """Factory — returns a session-scoped @tool for Qdrant similarity search."""
 
-    def __init__(self, llm: ChatGroq, vector_service: VectorService) -> None:
-        self._graph = build_rag_graph(llm, vector_service)
+    @tool
+    async def search_documents(query: str) -> str:
+        """Search uploaded documents for relevant context."""
+        results = await vector_service.similarity_search(query, session_id)
+        if not results:
+            return "No relevant documents found."
+        return "\n\n".join(r["content"] for r in results)
 
-    async def ainvoke(self, input: ChatInput) -> ChatOutput:
-        config = self._build_run_config(input.session_id)
-        result = await self._graph.ainvoke(
-            {"query": input.message, "messages": [], "context": [], "session_id": input.session_id},
-            config=config,
-        )
-        return ChatOutput(
-            content=result["messages"][-1].content,
-            session_id=input.session_id,
-            message_id="",
-            agent_type="rag",
-        )
+    return search_documents
 ```
 
-### 6.3 Tool-calling Agent
-
-```python
-# app/agents/tool_agent.py
-from langchain_groq import ChatGroq
-from langchain_core.tools import BaseTool
-from app.agents.base import BaseAgent
-from app.graphs.tool_graph import build_tool_graph
-from app.models.chat import ChatInput, ChatOutput
-
-
-class ToolAgent(BaseAgent):
-    """Agent có khả năng gọi external tools (MCP + web search)."""
-
-    def __init__(self, llm: ChatGroq, tools: list[BaseTool]) -> None:
-        self._graph = build_tool_graph(llm, tools)
-
-    async def ainvoke(self, input: ChatInput) -> ChatOutput:
-        config = self._build_run_config(input.session_id)
-        result = await self._graph.ainvoke(
-            {"messages": [("human", input.message)]},
-            config=config,
-        )
-        return ChatOutput(
-            content=result["messages"][-1].content,
-            session_id=input.session_id,
-            message_id="",
-            agent_type="tool",
-        )
-```
+The `search_documents` tool is created fresh per request and passed to `UnifiedAgent` when the session has uploaded files. It runs inside the ReAct loop alongside MCP and web search tools with no separate graph needed.
 
 ---
 
@@ -813,46 +801,30 @@ class ToolAgent(BaseAgent):
 
 ```python
 # ✅ Node nhận state, trả dict update — không có side effects ngoài state
-from app.graphs.rag_graph import RagState
-from app.prompts.rag import RAG_PROMPT
+from app.graphs.chatbot_graph import ChatbotState
 from langchain_groq import ChatGroq
 
 
-async def generate_node(state: RagState, llm: ChatGroq) -> dict:
-    """Generate answer từ context đã retrieve."""
-    context = "\n\n".join(state["context"])
-    messages = RAG_PROMPT.format_messages(
-        context=context,
-        question=state["query"],
-        history=state.get("messages", []),
-    )
-    response = await llm.ainvoke(messages)
+async def llm_node(state: ChatbotState, llm: ChatGroq) -> dict:
+    """Invoke LLM with full message history."""
+    response = await llm.ainvoke(state["messages"])
     return {"messages": [response]}
 ```
 
 ### 7.2 State Definition
 
 ```python
-# app/graphs/rag_graph.py
+# app/graphs/chatbot_graph.py
 from typing import TypedDict, Annotated
 from langgraph.graph.message import add_messages
 from langchain_core.messages import BaseMessage
 
 
-class RagState(TypedDict):
-    query: str
-    session_id: str
-    context: list[str]
-    messages: Annotated[list[BaseMessage], add_messages]
-
-
 class ChatbotState(TypedDict):
     messages: Annotated[list[BaseMessage], add_messages]
-
-
-class ToolState(TypedDict):
-    messages: Annotated[list[BaseMessage], add_messages]
 ```
+
+The `UnifiedAgent` uses `create_react_agent` which manages its own internal state — no custom `TypedDict` needed.
 
 ### 7.3 Graph Builder Pattern
 
@@ -862,17 +834,12 @@ from langgraph.graph import StateGraph, END
 from langgraph.checkpoint.memory import MemorySaver
 
 
-def build_rag_graph(llm: ChatGroq, vector_service: VectorService):
+def build_chatbot_graph(llm: ChatGroq) -> CompiledStateGraph:
     """Factory — gọi một lần khi app khởi động."""
-    graph = StateGraph(RagState)
-
-    graph.add_node("retrieve", partial(retrieve_node, vector_service=vector_service))
-    graph.add_node("generate", partial(generate_node, llm=llm))
-
-    graph.set_entry_point("retrieve")
-    graph.add_edge("retrieve", "generate")
-    graph.add_edge("generate", END)
-
+    graph = StateGraph(ChatbotState)
+    graph.add_node("llm", partial(llm_node, llm=llm))
+    graph.set_entry_point("llm")
+    graph.add_edge("llm", END)
     return graph.compile(checkpointer=MemorySaver())
 ```
 
@@ -884,7 +851,6 @@ def build_rag_graph(llm: ChatGroq, vector_service: VectorService):
 
 | Collection | Mô tả | Managed by |
 |---|---|---|
-| `users` | User accounts + hashed passwords | `UserRepository` |
 | `sessions` | Chat sessions per user | `SessionRepository` |
 | `messages` | Messages per session | `MessageRepository` |
 | `files` | Uploaded file metadata | `FileRepository` |
@@ -892,75 +858,24 @@ def build_rag_graph(llm: ChatGroq, vector_service: VectorService):
 | `mcp_servers` | MCP server configs per user | `MCPRepository` |
 | MinIO bucket (`uploads`) | Raw file binary storage | `app/storage/minio.py` |
 
-### 8.2 Auth — JWT tự quản lý
+### 8.2 Auth — Internal API Key
 
-Không dùng Supabase Auth. Auth được implement tự bằng `python-jose` + `passlib`:
+Không dùng JWT. Auth được implement bằng shared secret giữa `chatly-backend` và `agent-server`:
 
 ```python
 # app/utils/security.py
-from datetime import datetime, timedelta, timezone
-from jose import JWTError, jwt
-from passlib.context import CryptContext
+import hmac
 from app.config import settings
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-
-def hash_password(plain: str) -> str:
-    return pwd_context.hash(plain)
-
-
-def verify_password(plain: str, hashed: str) -> bool:
-    return pwd_context.verify(plain, hashed)
-
-
-def create_access_token(user_id: str) -> str:
-    """Tạo JWT access token với expiry."""
-    expire = datetime.now(timezone.utc) + timedelta(minutes=settings.jwt_expire_minutes)
-    payload = {"sub": user_id, "exp": expire}
-    return jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)
-
-
-def decode_token(token: str) -> str:
-    """Decode JWT, trả về user_id. Raise JWTError nếu invalid/expired."""
-    payload = jwt.decode(token, settings.jwt_secret, algorithms=[settings.jwt_algorithm])
-    user_id: str | None = payload.get("sub")
-    if user_id is None:
-        raise JWTError("Missing subject")
-    return user_id
+def verify_api_key(api_key: str) -> bool:
+    """Constant-time comparison để tránh timing attacks."""
+    return hmac.compare_digest(api_key, settings.internal_api_key)
 ```
 
-### 8.3 Auth Middleware
+`chatly-backend` forward `X-User-Id` header sau khi đã xác thực user. `agent-server` tin tưởng giá trị này sau khi API key được verify.
 
-```python
-# app/middleware/auth.py
-from fastapi import Depends, HTTPException, Security
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from jose import JWTError
-from app.utils.security import decode_token
-from app.repositories.user_repo import UserRepository
-from app.dependencies import get_user_repo
-
-security = HTTPBearer()
-
-
-async def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Security(security),
-    user_repo: UserRepository = Depends(get_user_repo),
-) -> dict:
-    """Validate JWT Bearer token — dùng làm dependency trong protected routes."""
-    try:
-        user_id = decode_token(credentials.credentials)
-    except JWTError as e:
-        raise HTTPException(status_code=401, detail="Invalid or expired token") from e
-
-    user = await user_repo.find_by_id(user_id)
-    if not user:
-        raise HTTPException(status_code=401, detail="User not found")
-    return user
-```
-
-### 8.4 Repository — layer duy nhất gọi Motor trực tiếp
+### 8.3 Repository — layer duy nhất gọi Motor trực tiếp
 
 ```python
 # app/repositories/message_repo.py
@@ -986,14 +901,12 @@ class MessageRepository(BaseRepository[dict]):
         session_id: str,
         role: str,
         content: str,
-        tool_calls: dict | None = None,
     ) -> dict:
         """Insert một message mới vào collection."""
         doc = {
             "session_id": session_id,
             "role": role,
             "content": content,
-            "tool_calls": tool_calls,
             "created_at": datetime.now(timezone.utc),
         }
         return await self.create(doc)
@@ -1186,36 +1099,20 @@ class AgentServerError(Exception):
     """Base exception."""
 
 
-class AgentError(AgentServerError):
-    """Lỗi khi chạy agent."""
-
-
 class SessionNotFoundError(AgentServerError):
     """Session không tồn tại hoặc không thuộc về user."""
 
 
-class UserNotFoundError(AgentServerError):
-    """User không tồn tại."""
+class MCPConnectionError(AgentServerError):
+    """Không kết nối được tới MCP server."""
 
 
-class InvalidCredentialsError(AgentServerError):
-    """Email/password không đúng."""
-
-
-class VectorSearchError(AgentServerError):
-    """Lỗi MongoDB vector search."""
-
-
-class LLMRateLimitError(AgentServerError):
-    """Groq API rate limit."""
+class MCPServerNotFoundError(AgentServerError):
+    """MCP server không tồn tại hoặc không thuộc về user."""
 
 
 class FileProcessingError(AgentServerError):
     """Lỗi khi xử lý file upload."""
-
-
-class MCPConnectionError(AgentServerError):
-    """Không kết nối được tới MCP server."""
 ```
 
 ### 10.2 Exception → HTTP Mapping
@@ -1226,17 +1123,13 @@ class MCPConnectionError(AgentServerError):
 async def session_not_found_handler(request, exc):
     return JSONResponse(status_code=404, content={"detail": str(exc)})
 
-@app.exception_handler(InvalidCredentialsError)
-async def invalid_credentials_handler(request, exc):
-    return JSONResponse(status_code=401, content={"detail": "Invalid email or password"})
-
-@app.exception_handler(LLMRateLimitError)
-async def rate_limit_handler(request, exc):
-    return JSONResponse(status_code=429, content={"detail": "Rate limit exceeded. Retry later."})
-
 @app.exception_handler(MCPConnectionError)
 async def mcp_connection_handler(request, exc):
     return JSONResponse(status_code=400, content={"detail": str(exc)})
+
+@app.exception_handler(MCPServerNotFoundError)
+async def mcp_server_not_found_handler(request, exc):
+    return JSONResponse(status_code=404, content={"detail": str(exc)})
 
 @app.exception_handler(ValueError)
 async def value_error_handler(request, exc):
@@ -1247,17 +1140,14 @@ async def value_error_handler(request, exc):
 
 ```python
 import groq
-from app.exceptions import LLMRateLimitError, AgentError
 
 
 async def _call_llm(self, messages: list) -> str:
     try:
         response = await self._llm.ainvoke(messages)
         return response.content
-    except groq.RateLimitError as e:
-        raise LLMRateLimitError("Groq API rate limit exceeded") from e
     except groq.APIError as e:
-        raise AgentError(f"LLM call failed: {e}") from e
+        raise AgentServerError(f"LLM call failed: {e}") from e
 ```
 
 ---

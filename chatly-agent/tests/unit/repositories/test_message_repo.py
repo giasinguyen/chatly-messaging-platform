@@ -22,7 +22,6 @@ async def test_find_by_session_returns_messages_sorted(
             "session_id": "s1",
             "role": "assistant",
             "content": "later",
-            "tool_calls": None,
             "created_at": datetime(2026, 1, 1, 1, 0, tzinfo=UTC),
         }
     )
@@ -31,7 +30,6 @@ async def test_find_by_session_returns_messages_sorted(
             "session_id": "s1",
             "role": "user",
             "content": "earlier",
-            "tool_calls": None,
             "created_at": datetime(2026, 1, 1, 0, 0, tzinfo=UTC),
         }
     )

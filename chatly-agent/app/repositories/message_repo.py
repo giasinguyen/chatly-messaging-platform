@@ -24,14 +24,12 @@ class MessageRepository(BaseRepository[dict[str, Any]]):
         session_id: str,
         role: str,
         content: str,
-        tool_calls: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Create a message row for a session."""
         payload: dict[str, Any] = {
             "session_id": session_id,
             "role": role,
             "content": content,
-            "tool_calls": tool_calls,
             "created_at": datetime.now(UTC),
         }
         return await self.create(payload)

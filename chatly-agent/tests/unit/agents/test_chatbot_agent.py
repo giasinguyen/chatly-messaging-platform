@@ -1,5 +1,5 @@
 from collections.abc import AsyncIterator
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from langchain_core.messages import AIMessage
@@ -44,8 +44,8 @@ async def test_astream_yields_tokens(monkeypatch: pytest.MonkeyPatch) -> None:
 
     monkeypatch.setattr("app.agents.chatbot_agent.build_chatbot_graph", _build_graph)
 
-    llm = AsyncMock()
-    llm.astream.return_value = _iter_tokens()
+    llm = MagicMock()
+    llm.astream = MagicMock(return_value=_iter_tokens())
     agent = ChatbotAgent(llm)
 
     chunks = [

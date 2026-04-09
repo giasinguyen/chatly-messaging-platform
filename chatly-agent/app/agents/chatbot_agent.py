@@ -1,4 +1,3 @@
-import inspect
 from collections.abc import AsyncIterator
 from typing import Any
 
@@ -15,6 +14,7 @@ class ChatbotAgent:
     def __init__(self, llm: ChatGroq) -> None:
         self._llm = llm
         self._graph = build_chatbot_graph(llm)
+        self.agent_type: str = "chatbot"
 
     def _build_run_config(self, session_id: str) -> dict[str, dict[str, str]]:
         """Build per-session LangGraph runtime config."""
@@ -31,17 +31,13 @@ class ChatbotAgent:
         return ChatOutput(
             content=content,
             session_id=input.session_id,
-            message_id="",
-            agent_type="chatbot",
+            agent_type=self.agent_type,
         )
 
     async def astream(self, input: ChatInput) -> AsyncIterator[str]:
         """Stream assistant response as token chunks."""
         messages: list[Any] = [*input.history, HumanMessage(content=input.message)]
-        stream = self._llm.astream(messages)
-        if inspect.isawaitable(stream):
-            stream = await stream
-        async for chunk in stream:  # ty:ignore[not-iterable]
+        async for chunk in self._llm.astream(messages):
             if isinstance(chunk, AIMessageChunk) and chunk.content:
                 yield str(chunk.content)
                 continue

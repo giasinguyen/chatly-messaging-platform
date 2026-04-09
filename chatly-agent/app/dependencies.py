@@ -4,7 +4,6 @@ from fastapi import Depends, Header
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from app.agents.chatbot_agent import ChatbotAgent
-from app.agents.rag_agent import RagAgent
 from app.db.mongo import get_db
 from app.repositories.mcp_repo import MCPRepository
 from app.services.mcp_service import MCPService
@@ -19,7 +18,7 @@ from app.services.file_service import FileService
 from app.services.session_service import SessionService
 from app.services.tool_service import ToolService
 from app.services.vector_service import VectorService
-from app.storage.minio import ensure_bucket_exists, get_bucket_name, get_minio_client
+from app.storage.minio import get_bucket_name, get_minio_client
 from app.utils.embeddings import get_embedder
 from app.utils.llm import get_llm
 from app.models.context import RequestContext
@@ -64,10 +63,9 @@ def get_qdrant_repository() -> QdrantRepository:
     return QdrantRepository(client=get_qdrant_client())
 
 
-
 def get_chatbot_agent() -> ChatbotAgent:
     """Build chatbot agent dependency."""
-    return ChatbotAgent(llm=get_llm(streaming=True))
+    return ChatbotAgent(llm=get_llm())
 
 
 def get_vector_service(
@@ -80,13 +78,6 @@ def get_vector_service(
         qdrant_repo=qdrant_repo,
         embedder=get_embedder(),
     )
-
-
-def get_rag_agent(
-    vector_service: VectorService = Depends(get_vector_service),  # noqa: B008
-) -> RagAgent:
-    """Build rag agent dependency."""
-    return RagAgent(llm=get_llm(streaming=True), vector_service=vector_service)
 
 
 def get_session_service(
@@ -122,7 +113,6 @@ def get_chat_service(
     session_service: SessionService = Depends(get_session_service),  # noqa: B008
     message_repo: MessageRepository = Depends(get_message_repository),  # noqa: B008
     chatbot_agent: ChatbotAgent = Depends(get_chatbot_agent),  # noqa: B008
-    rag_agent: RagAgent = Depends(get_rag_agent),  # noqa: B008
     vector_service: VectorService = Depends(get_vector_service),  # noqa: B008
     tool_service: ToolService = Depends(get_tool_service),  # noqa: B008
 ) -> ChatService:
@@ -131,10 +121,9 @@ def get_chat_service(
         session_service=session_service,
         message_repo=message_repo,
         chatbot_agent=chatbot_agent,
-        rag_agent=rag_agent,
         vector_service=vector_service,
         tool_service=tool_service,
-        llm=get_llm(streaming=True),
+        llm=get_llm(),
     )
 
 
@@ -145,28 +134,23 @@ def get_file_service(
     vector_service: VectorService = Depends(get_vector_service),  # noqa: B008
 ) -> FileService:
     """Build file service dependency."""
-    minio_client = get_minio_client()
-    bucket_name = get_bucket_name()
-    ensure_bucket_exists(minio_client, bucket_name)
-
     return FileService(
         session_service=session_service,
         file_repo=file_repo,
         chunk_repo=chunk_repo,
         vector_service=vector_service,
         embedder=get_embedder(),
-        minio_client=minio_client,
-        bucket_name=bucket_name,
+        minio_client=get_minio_client(),
+        bucket_name=get_bucket_name(),
     )
 
 
 async def get_request_context(
     _: None = Depends(verify_api_key),  # noqa: B008
     x_user_id: str = Header(..., alias="X-User-Id"),  # noqa: B008
-    x_user_role: str = Header("user", alias="X-User-Role"),  # noqa: B008
 ) -> RequestContext:
     """
     Primary dependency for all protected endpoints.
     Replaces the old get_current_user() JWT-based dependency.
     """
-    return RequestContext(user_id=x_user_id, user_role=x_user_role)
+    return RequestContext(user_id=x_user_id)

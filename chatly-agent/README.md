@@ -6,10 +6,10 @@ A production-ready FastAPI backend for multi-agent AI chat with RAG, tool-callin
 
 ## Features
 
-- **JWT Authentication** — register, login, token-based access (python-jose + bcrypt)
+- **Internal API Key Authentication** — all endpoints protected by `X-Internal-API-Key` + `X-User-Id` headers forwarded by `chatly-backend`
 - **Session Management** — multi-session chat with per-session history in MongoDB
-- **Three Agent Modes** — automatic routing between Chatbot, RAG, and Tool-calling agents
-- **File Upload & RAG** — PDF, DOCX, TXT, MD, CSV, JSON → chunked → embedded → vector search
+- **Two Agent Modes** — automatic routing between `ChatbotAgent` (conversation) and `UnifiedAgent` (RAG + tool-calling)
+- **File Upload & RAG** — PDF, DOCX, TXT, MD, CSV, JSON → chunked → embedded → vector search via a `search_documents` retriever tool
 - **MCP Server Integration** — connect any JSON-RPC 2.0 MCP server, expose its tools to the agent
 - **Web Search** — Tavily integration, opt-in per request
 - **SSE Streaming** — real-time token streaming via Server-Sent Events
@@ -28,7 +28,6 @@ A production-ready FastAPI backend for multi-agent AI chat with RAG, tool-callin
 | Vector DB | Qdrant |
 | Document DB | MongoDB (Motor async driver) |
 | File Storage | MinIO (S3-compatible) |
-| Auth | python-jose (JWT HS256) + passlib (bcrypt) |
 | Web Search | Tavily |
 | Package Manager | `uv` |
 | Testing | pytest, pytest-asyncio, mongomock-motor, respx |
@@ -53,7 +52,7 @@ cd agent-server
 
 # 2. Create your environment file
 cp .env.example .env
-# Edit .env — set GROQ_API_KEY and JWT_SECRET at minimum
+# Edit .env — set GROQ_API_KEY and INTERNAL_API_KEY at minimum
 
 # 3. Start all infrastructure services + app
 docker compose up -d --build
@@ -122,10 +121,8 @@ MINIO_SECRET_KEY=minioadmin
 MINIO_SECURE=false
 MINIO_BUCKET_NAME=uploads
 
-# JWT (required — use a long random string in production)
-JWT_SECRET_KEY=change-me-use-a-long-random-string
-JWT_ALGORITHM=HS256
-ACCESS_TOKEN_EXPIRE_MINUTES=60
+# Internal API key (required — shared secret with chatly-backend)
+INTERNAL_API_KEY=change-me-use-a-long-random-string
 
 # Tavily web search (optional)
 TAVILY_API_KEY=tvly-...
@@ -143,12 +140,12 @@ MAX_FILE_SIZE_MB=5
 
 Interactive docs available at `http://localhost:8000/docs` when the server is running.
 
-### Authentication
+All protected endpoints require two headers forwarded by `chatly-backend`:
 
-| Method | Endpoint | Description |
-|---|---|---|
-| `POST` | `/auth/register` | Register a new user |
-| `POST` | `/auth/login` | Login, receive JWT Bearer token |
+```
+X-Internal-API-Key: <INTERNAL_API_KEY>
+X-User-Id: <user_id>
+```
 
 ### Sessions
 
@@ -172,20 +169,34 @@ Interactive docs available at `http://localhost:8000/docs` when the server is ru
 ```json
 {
   "message": "Explain LangGraph in simple terms",
-  "agent_type": "chatbot",
   "use_web_search": false,
   "mcp_server_ids": []
 }
 ```
 
-`agent_type` can be `"chatbot"`, `"rag"`, or `"tool"`. The server also auto-routes based on context (files uploaded → RAG; tools available → Tool agent).
+Agent selection is **automatic**:
+- MCP server IDs provided **or** `use_web_search=true` → `UnifiedAgent` with tool set
+- Session has uploaded files → `UnifiedAgent` with `search_documents` retriever tool
+- Tools + context can coexist in the same `UnifiedAgent` instance
+- No files and no tools → `ChatbotAgent`
+
+**Blocking response:**
+
+```json
+{
+  "content": "LangGraph is ...",
+  "session_id": "...",
+  "message_id": "...",
+  "agent_type": "chatbot"
+}
+```
 
 **SSE stream format:**
 
 ```
 data: {"token": "Lang"}\n\n
 data: {"token": "Graph"}\n\n
-data: [DONE]\n\n
+data: {"done": true, "agent_type": "unified"}\n\n
 ```
 
 ### Files
@@ -222,12 +233,13 @@ agent-server supports connecting any JSON-RPC 2.0 MCP server over HTTP. Register
 
 ```bash
 curl -X POST http://localhost:8000/mcp/servers \
-  -H "Authorization: Bearer <token>" \
+  -H "X-Internal-API-Key: <key>" \
+  -H "X-User-Id: <user_id>" \
   -H "Content-Type: application/json" \
   -d '{"name": "My Math Server", "url": "http://localhost:8001/mcp", "headers": {}}'
 ```
 
-Then pass its ID in chat requests via `mcp_server_ids`. The agent will automatically discover and call its tools.
+Then pass its ID in chat requests via `mcp_server_ids`. The agent will automatically discover and call its tools alongside any retriever tool from uploaded documents.
 
 Sample MCP servers are included in `mcp-servers/`:
 - `mcp-servers/math/` — arithmetic tools (add, subtract, multiply, divide)
@@ -249,14 +261,22 @@ agent-server/
 │   ├── config.py            # pydantic-settings (all env vars)
 │   ├── dependencies.py      # FastAPI Depends() factories
 │   ├── exceptions.py        # Custom exception hierarchy
-│   ├── agents/              # ChatbotAgent, RagAgent, ToolAgent
-│   ├── graphs/              # LangGraph state machines + nodes
+│   ├── agents/
+│   │   ├── chatbot_agent.py # Conversational agent (LangGraph chatbot graph)
+│   │   └── unified_agent.py # ReAct agent for tools + RAG (create_react_agent)
+│   ├── graphs/
+│   │   ├── chatbot_graph.py # START → llm_node → END
+│   │   └── nodes/
+│   │       └── llm_node.py
+│   ├── tools/
+│   │   ├── retriever_tool.py  # search_documents — session-scoped Qdrant retrieval
+│   │   ├── mcp_tool.py
+│   │   └── web_search_tool.py
 │   ├── routers/             # HTTP handlers (thin layer only)
 │   ├── services/            # Business logic
 │   ├── repositories/        # MongoDB + Qdrant data access
 │   ├── models/              # Pydantic request/response schemas
-│   ├── tools/               # LangChain tool wrappers (MCP, web search)
-│   ├── middleware/          # Auth, RequestID
+│   ├── middleware/          # RequestID
 │   ├── db/                  # Motor + Qdrant client singletons
 │   ├── storage/             # MinIO client singleton
 │   ├── prompts/             # LangChain prompt templates

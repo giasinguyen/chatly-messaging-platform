@@ -22,17 +22,16 @@
 
 ```mermaid
 graph TB
-    Client["Client (Browser / API)"]
+    Client["Client (chatly-backend)"] 
 
     subgraph agent-server ["agent-server (FastAPI)"]
-        Auth["JWT Auth Middleware"]
+        Auth["API Key Auth\n(X-Internal-API-Key + X-User-Id)"]
         Router["API Router"]
         Service["Service Layer"]
 
         subgraph Agents["Agent Layer (LangGraph)"]
             CB["ChatbotAgent"]
-            RAG["RagAgent"]
-            TOOL["ToolAgent"]
+            UA["UnifiedAgent\n(ReAct — tools + RAG)"]
         end
 
         Embed["HuggingFace Embeddings\n(BAAI/bge-base-en-v1.5)"]
@@ -44,12 +43,12 @@ graph TB
     MCP["External MCP Servers\n(JSON-RPC 2.0 over HTTP)"]
 
     subgraph Infra["Infrastructure"]
-        Mongo["MongoDB\n(documents, sessions, messages)"]
+        Mongo["MongoDB\n(sessions, messages, files)"]
         Qdrant["Qdrant\n(vector embeddings)"]
         MinIO["MinIO\n(file binaries)"]
     end
 
-    Client -->|"HTTPS Bearer JWT"| Auth
+    Client -->|"X-Internal-API-Key header"| Auth
     Auth --> Router
     Router --> Service
     Service --> Agents
@@ -91,11 +90,11 @@ graph LR
     subgraph AgentLayer ["Agents + Graphs"]
         BaseAgent["BaseAgent (ABC)"]
         ChatbotAgent["ChatbotAgent"]
-        RagAgent["RagAgent"]
-        ToolAgent["ToolAgent"]
+        UnifiedAgent["UnifiedAgent\n(create_react_agent)"]
         ChatbotGraph["chatbot_graph\nSTART → llm_node → END"]
-        RagGraph["rag_graph\nSTART → retrieve → generate → END"]
-        ToolGraph["tool_graph\nReAct (prebuilt)"]
+        RetrieverTool["retriever_tool\nsearch_documents()"]
+        MCPTool["mcp_tool"]
+        WebSearchTool["web_search_tool"]
     end
 
     subgraph Repos ["Repositories (Data Access)"]
@@ -118,10 +117,9 @@ graph LR
     Services --> AgentLayer
     Services --> Repos
     AgentLayer --> BaseAgent
-    BaseAgent --> ChatbotAgent & RagAgent & ToolAgent
+    BaseAgent --> ChatbotAgent & UnifiedAgent
     ChatbotAgent --> ChatbotGraph
-    RagAgent --> RagGraph
-    ToolAgent --> ToolGraph
+    UnifiedAgent --> RetrieverTool & MCPTool & WebSearchTool
     Repos --> DBClients
 ```
 
@@ -133,7 +131,7 @@ graph LR
 
 ```mermaid
 sequenceDiagram
-    participant C as Client
+    participant C as chatly-backend
     participant MW as Middleware
     participant R as Router
     participant CS as ChatService
@@ -142,8 +140,8 @@ sequenceDiagram
     participant LLM as Groq API
     participant DB as MongoDB
 
-    C->>MW: POST /sessions/{id}/chat + Bearer token
-    MW->>MW: Validate JWT → resolve user
+    C->>MW: POST /sessions/{id}/chat + X-Internal-API-Key + X-User-Id
+    MW->>MW: verify_api_key() → resolved user_id
     MW->>R: Forward authenticated request
     R->>CS: chat(user_id, session_id, request)
     CS->>SS: verify session ownership
@@ -152,15 +150,15 @@ sequenceDiagram
     SS-->>CS: confirmed
     CS->>DB: MessageRepository.find_by_session()
     DB-->>CS: history messages
-    CS->>CS: _select_agent() → pick ChatbotAgent / RagAgent / ToolAgent
+    CS->>CS: _select_agent() → ChatbotAgent or UnifiedAgent
     CS->>DB: MessageRepository.create_message(role=user)
     CS->>A: ainvoke(ChatInput)
     A->>LLM: ChatGroq.ainvoke(messages)
     LLM-->>A: AIMessage
-    A-->>CS: ChatOutput
+    A-->>CS: ChatOutput(content, session_id, agent_type)
     CS->>DB: MessageRepository.create_message(role=assistant)
     CS-->>R: ChatResponse
-    R-->>C: 200 {"content": "...", "message_id": "..."}
+    R-->>C: 200 {"content": "...", "message_id": "...", "agent_type": "..."}
 ```
 
 ### SSE Streaming Request
@@ -183,7 +181,7 @@ sequenceDiagram
         CS-->>C: data: {"token": "..."}\n\n
     end
     CS->>DB: persist full assistant message
-    CS-->>C: data: [DONE]\n\n
+    CS-->>C: data: {"done": true, "agent_type": "..."}\n\n
 ```
 
 ---
@@ -195,20 +193,24 @@ sequenceDiagram
 ```mermaid
 flowchart TD
     Start([Chat Request])
-    CheckTools{MCP server IDs\nprovided OR\nuse_web_search=true?}
-    CheckContext{session has\nuploaded files?\nVectorService.has_context}
-    ToolAgent["ToolAgent\n(ReAct + tools)"]
-    RagAgent["RagAgent\n(RAG graph)"]
+    AssembleTools["assemble_tools()\nMCP + web search tools"]
+    CheckHasContext{"VectorService.has_context\n(session has files?)"}
+    BuildRetriever["create_retriever_tool()\nsession-scoped Qdrant search"]
+    CheckNeedUnified{"tools list non-empty\nOR has_context?"}
+    UnifiedAgent["UnifiedAgent\n(create_react_agent\n+ all tools)"]
     ChatbotAgent["ChatbotAgent\n(conversation graph)"]
 
-    Start --> CheckTools
-    CheckTools -->|Yes| ToolAgent
-    CheckTools -->|No| CheckContext
-    CheckContext -->|Yes| RagAgent
-    CheckContext -->|No| ChatbotAgent
+    Start --> AssembleTools --> CheckHasContext
+    CheckHasContext -->|Yes| BuildRetriever
+    CheckHasContext -->|No| CheckNeedUnified
+    BuildRetriever --> CheckNeedUnified
+    CheckNeedUnified -->|Yes| UnifiedAgent
+    CheckNeedUnified -->|No| ChatbotAgent
 ```
 
-Priority: **Tool > RAG > Chatbot**
+Priority: **UnifiedAgent (tools + RAG combined) > ChatbotAgent**
+
+The `UnifiedAgent` can handle tools and context simultaneously — RAG retrieval is just another tool (`search_documents`) in the same ReAct loop.
 
 ---
 
@@ -299,26 +301,9 @@ stateDiagram-v2
     end note
 ```
 
-### RAG Graph
+Used by `ChatbotAgent` — pure conversation with no external tools.
 
-```mermaid
-stateDiagram-v2
-    [*] --> retrieve_node : {query, session_id, context: [], messages}
-    retrieve_node --> generate_node : {context: ["chunk1", "chunk2", ...]}
-    generate_node --> [*] : {messages: [AIMessage]}
-
-    note right of retrieve_node
-        VectorService.similarity_search()
-        → populates context field
-    end note
-
-    note right of generate_node
-        RAG_PROMPT.format(context, question, history)
-        → ChatGroq.ainvoke()
-    end note
-```
-
-### Tool Graph (ReAct)
+### UnifiedAgent (create_react_agent)
 
 ```mermaid
 stateDiagram-v2
@@ -329,10 +314,20 @@ stateDiagram-v2
 
     note right of agent
         LangGraph prebuilt create_react_agent
-        LLM decides when to call tools
+        LLM decides which tools to call
         Loops until final answer
+        Checkpointer: MemorySaver
+    end note
+
+    note right of tools
+        Any combination of:
+        • search_documents (Qdrant retriever)
+        • mcp_tool (external MCP servers)
+        • web_search_tool (Tavily)
     end note
 ```
+
+Each `UnifiedAgent` instance is built fresh per request by `_select_agent()` and receives only the tools relevant to that request. RAG retrieval is exposed as a LangChain `@tool` — no separate graph is needed.
 
 ---
 
@@ -364,7 +359,6 @@ erDiagram
         string session_id FK
         string role
         string content
-        dict tool_calls
         datetime created_at
     }
 
@@ -434,24 +428,23 @@ flowchart TD
     CORS["CORSMiddleware\nCheck Origin"]
     Route["Route Handler"]
     Protected{Protected\nroute?}
-    Bearer["Extract Bearer token\nHTTPBearer()"]
-    Decode["decode_token()\npython-jose JWT verify\nHS256 + expiry"]
-    UserLookup["UserRepository.find_by_id()\nConfirm user exists + active"]
+    APIKey["verify_api_key()\nConstant-time compare\nX-Internal-API-Key header"]
+    UserID["Extract X-User-Id header\n(forwarded by chatly-backend)"]
     Ownership["Service-level\nownership check\nuser_id == doc.user_id"]
     Business["Business Logic"]
-    Public["Public Handler\n(health, auth)"]
+    Public["Public Handler\n(health)"]
 
     Request --> RID --> CORS --> Route
     Route --> Protected
-    Protected -->|Yes| Bearer --> Decode --> UserLookup --> Ownership --> Business
+    Protected -->|Yes| APIKey --> UserID --> Ownership --> Business
     Protected -->|No| Public
 ```
 
 **Key security properties:**
 
-- Passwords hashed with **bcrypt** (passlib), never stored in plaintext
-- JWTs signed with **HS256**, configurable expiry (default 60 min)
-- **Ownership enforced** at the service layer for every session/file/MCP operation — no row-level security, explicit `user_id` checks
+- **Internal API key** (`INTERNAL_API_KEY` env var) verified with constant-time comparison — shared secret between `chatly-backend` and `agent-server`
+- `X-User-Id` header forwarded by `chatly-backend` — agent-server trusts it after API key validation
+- **Ownership enforced** at the service layer for every session/file/MCP operation — explicit `user_id` checks
 - File uploads validated: MIME type, size limit (default 5 MB), file count per session (max 4)
 - Rate limiting on chat endpoints: 30 requests / minute (SlowAPI)
 - CORS origins explicitly configured via `CORS_ORIGINS` env var
@@ -483,7 +476,8 @@ graph TB
 **Startup sequence in `app/main.py` lifespan:**
 1. Ping MongoDB: `admin.command("ping")`
 2. Ping Qdrant: `get_collections()`
-3. Skip both when `APP_ENV=test`
+3. Ensure MinIO bucket exists: `ensure_bucket_exists(minio_client, bucket_name)`
+4. All three steps skipped when `APP_ENV=test`
 
 **Shutdown sequence:**
 1. `close_client()` — MongoDB Motor client

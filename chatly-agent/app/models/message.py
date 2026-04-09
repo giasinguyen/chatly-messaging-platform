@@ -1,5 +1,4 @@
 from datetime import datetime
-from typing import Any
 
 from pydantic import BaseModel
 
@@ -11,7 +10,6 @@ class MessageResponse(BaseModel):
     session_id: str
     role: str
     content: str
-    tool_calls: dict[str, Any] | None = None
     created_at: datetime
 
 
