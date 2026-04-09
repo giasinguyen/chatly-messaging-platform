@@ -8,34 +8,68 @@ import { useAuthStore } from "@/store/auth.store";
 import { setupAxiosInterceptors } from "@/lib/axiosClient";
 import { userService } from "@/services/user.service";
 import { AlertTriangle, Loader2 } from "lucide-react";
-import axios from "axios";
+import axios, { isAxiosError } from "axios";
 
 /**
  * SESSION BOOTSTRAP
  * Thành phần đảm bảo đồng bộ thông tin User từ backend khi ứng dụng khởi chạy
  * nếu đã có token (isAuthenticated = true).
  */
+/** Error codes that mean the user no longer exists / session is dead */
+const FATAL_BUSINESS_CODES = new Set([1100, 1006, 1001]);
+
+/**
+ * HTTP status codes from /me that definitively mean "this user no longer exists".
+ * 404 = user deleted from DB (drop table / delete row)
+ * 403 = account banned/deactivated by admin
+ * 410 = resource permanently gone
+ */
+const FATAL_HTTP_STATUSES = new Set([403, 404, 410]);
+
 function SessionBootstrap() {
-    const { isAuthenticated, updateUser } = useAuthStore();
+    const { isAuthenticated, updateUser, clearAuth } = useAuthStore();
 
     useEffect(() => {
         const syncSession = async () => {
             const token = localStorage.getItem("access_token");
-            if (isAuthenticated && token) {
-                try {
-                    const response = await userService.getMe();
-                    if (response.code === 1000) {
-                        updateUser(response.result);
-                    }
-                } catch (error) {
-                    console.error("Session sync failed:", error);
-                    // Có thể cân nhắc logout nếu getMe lỗi nghiêm trọng
+            if (!isAuthenticated || !token) return;
+
+            try {
+                const response = await userService.getMe();
+
+                if (response.code === 1000) {
+                    // ✅ Happy path: user exists, update store
+                    updateUser(response.result);
+                } else if (FATAL_BUSINESS_CODES.has(response.code)) {
+                    // ⚠️ Backend trả HTTP 200 nhưng business code báo lỗi nghiêm trọng
+                    console.warn("[SessionBootstrap] Fatal business code", response.code);
+                    clearAuth();
+                    toast.error("Tài khoản không tồn tại hoặc đã bị xóa. Vui lòng đăng nhập lại.");
                 }
+            } catch (error) {
+                if (isAxiosError(error)) {
+                    const status = error.response?.status;
+
+                    if (status && FATAL_HTTP_STATUSES.has(status)) {
+                        // ❌ Backend drop DB / xóa user → /me trả 404 → token vô nghĩa
+                        // Phải xóa hết token và đẩy về trang login
+                        console.warn(
+                            `[SessionBootstrap] /me returned HTTP ${status} – user no longer exists. Forcing logout.`,
+                        );
+                        clearAuth();
+                        toast.error(
+                            "Tài khoản không tồn tại hoặc đã bị xóa. Vui lòng đăng nhập lại.",
+                        );
+                        return;
+                    }
+                }
+                // Lỗi khác (network timeout, 500...) → không logout, có thể server đang restart
+                console.error("[SessionBootstrap] Session sync failed (non-fatal):", error);
             }
         };
 
         syncSession();
-    }, [isAuthenticated, updateUser]);
+    }, [isAuthenticated, updateUser, clearAuth]);
 
     return null;
 }
