@@ -146,37 +146,53 @@ export const ChatList = forwardRef(function ChatListComponent(_, ref) {
                         (payload) => {
                             const event = JSON.parse(payload.body) as ChatEvent;
 
-                            // Only update sidebar last-message preview for SEND actions
-                            if (event.action !== "SEND") return;
-                            const message = event.message;
+                            // Handle SEND actions - update last message preview
+                            if (event.action === "SEND") {
+                                const message = event.message;
+                                if (!message) return;
 
-                            setConversations((prev) => {
-                                const target = prev.find(
-                                    (item) =>
-                                        item.id === message.conversationId,
-                                );
-                                if (!target) return prev;
-
-                                const updatedConversation: ConversationResponse =
-                                    {
-                                        ...target,
-                                        lastMessage: {
-                                            senderId: message.senderId,
-                                            content: message.content,
-                                            type: message.type,
-                                            timestamp: message.createdAt,
-                                        },
-                                        updatedAt: message.createdAt,
-                                    };
-
-                                return [
-                                    updatedConversation,
-                                    ...prev.filter(
+                                setConversations((prev) => {
+                                    const target = prev.find(
                                         (item) =>
-                                            item.id !== message.conversationId,
-                                    ),
-                                ];
-                            });
+                                            item.id === message.conversationId,
+                                    );
+                                    if (!target) return prev;
+
+                                    const updatedConversation: ConversationResponse =
+                                        {
+                                            ...target,
+                                            lastMessage: {
+                                                senderId: message.senderId,
+                                                content: message.content,
+                                                type: message.type,
+                                                timestamp: message.createdAt,
+                                            },
+                                            updatedAt: message.createdAt,
+                                        };
+
+                                    return [
+                                        updatedConversation,
+                                        ...prev.filter(
+                                            (item) =>
+                                                item.id !== message.conversationId,
+                                        ),
+                                    ];
+                                });
+                                return;
+                            }
+
+                            // Handle GROUP_UPDATE actions - update group info (name, avatar, etc)
+                            if (event.action === "GROUP_UPDATE") {
+                                const updatedConv = event.conversationData;
+                                if (!updatedConv) return;
+                                
+                                setConversations((prev) =>
+                                    prev.map((conv) =>
+                                        conv.id === updatedConv.id ? updatedConv : conv
+                                    )
+                                );
+                                return;
+                            }
                         },
                     ),
                 );

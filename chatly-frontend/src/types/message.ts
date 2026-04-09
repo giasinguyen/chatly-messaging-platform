@@ -1,4 +1,4 @@
-import type { MessageType } from "@/types/conversation";
+import type { MessageType, ConversationResponse } from "@/types/conversation";
 
 export type MessageStatus = "SENT" | "DELIVERED" | "READ";
 
@@ -50,13 +50,14 @@ export interface Message {
 }
 
 /**
- * ChatEvent – wrapper for all realtime message events from WebSocket.
+ * ChatEvent – wrapper for all realtime message and group update events from WebSocket.
  */
-export type ChatAction = "SEND" | "EDIT" | "RECALL" | "DELETE";
+export type ChatAction = "SEND" | "EDIT" | "RECALL" | "DELETE" | "GROUP_UPDATE";
 
 export interface ChatEvent {
     action: ChatAction;
-    message: Message;
+    message?: Message;
+    conversationData?: ConversationResponse;
 }
 
 /**

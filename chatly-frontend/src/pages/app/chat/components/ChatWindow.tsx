@@ -223,6 +223,12 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
         (event: ChatEvent) => {
             const { action, message: msg } = event;
 
+            // Ignore GROUP_UPDATE events in ChatWindow message handler
+            if (action === "GROUP_UPDATE") return;
+
+            // Guard: msg should be defined for message actions
+            if (!msg) return;
+
             if (action === "SEND") {
                 setMessages((prev) => {
                     if (prev.some((m) => m.id === msg.id)) return prev;
