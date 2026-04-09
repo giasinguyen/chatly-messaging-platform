@@ -92,13 +92,28 @@ export function ConversationItem({
             {timeStr}
           </Text>
         </View>
-        <Text
-          className="mt-0.5 text-sm"
-          style={{ color: Colors.textMuted }}
-          numberOfLines={1}
-        >
-          {truncateText(preview, 40)}
-        </Text>
+        <View className="flex-row items-center justify-between mt-0.5">
+          <Text
+            className="flex-1 text-sm"
+            style={{ 
+              color: conversation.unreadCount > 0 ? Colors.text : Colors.textMuted,
+              fontWeight: conversation.unreadCount > 0 ? '600' : 'normal'
+            }}
+            numberOfLines={1}
+          >
+            {truncateText(preview, 35)}
+          </Text>
+          {conversation.unreadCount > 0 && (
+            <View 
+              className="ml-2 h-5 min-w-[20px] items-center justify-center rounded-full px-1.5"
+              style={{ backgroundColor: Colors.cta }}
+            >
+              <Text className="text-[10px] font-bold text-white">
+                {conversation.unreadCount > 99 ? '99+' : conversation.unreadCount}
+              </Text>
+            </View>
+          )}
+        </View>
       </View>
     </TouchableOpacity>
   );

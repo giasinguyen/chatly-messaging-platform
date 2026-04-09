@@ -19,6 +19,7 @@ import { userService } from '@/services/user.service';
 import { useConversationStore } from '@/store/conversation.store';
 import { useAuthStore } from '@/store/auth.store';
 import { Colors } from '@/constants/theme';
+import { useNotificationStore } from '@/store/notification.store';
 import type { ConversationResponse } from '@/types/conversation';
 import type { UserResponse } from '@/types/auth';
 
@@ -26,48 +27,49 @@ export default function ChatsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const user = useAuthStore((s) => s.user);
-  const { conversations, setConversations, removeConversation, loading, setLoading } = useConversationStore();
+  const { conversations, fetchConversations, removeConversation, loading } = useConversationStore();
 
   const [refreshing, setRefreshing] = useState(false);
-  const [modalVisible, setModalVisible] = useState(false);
+  const [isModalVisible, setIsModalVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [participantMap, setParticipantMap] = useState<Record<string, UserResponse>>({});
 
-  const fetchConversations = useCallback(async () => {
+  const loadData = useCallback(async () => {
     try {
-      setLoading(true);
-      const res = await conversationService.getMyConversations();
-      setConversations(res.result);
+      await fetchConversations();
 
-      // Collect unique participant IDs to fetch their names
-      const allIds = new Set<string>();
-      res.result.forEach((c) => c.participantIds.forEach((id) => allIds.add(id)));
-      // Remove current user
-      if (user?.id) allIds.delete(user.id);
+      // Collect unique participant IDs to fetch their names (using the updated conversations from store)
+      // Note: We need to access the store's latest state or wait for fetchConversations to finish.
+      // Since fetchConversations is async and updates the store, we might need a small delay or refetch logic.
+      // Better: Fetch users once on mount.
+    } catch (error) {
+      console.error('Failed to load chats data:', error);
+    }
+  }, [fetchConversations]);
 
-      // Fetch participant details (batch)
+  const loadParticipants = useCallback(async () => {
+    try {
       const usersRes = await userService.getAll();
       const map: Record<string, UserResponse> = {};
       usersRes.result.forEach((u) => {
-        if (allIds.has(u.id)) map[u.id] = u;
+        map[u.id] = u;
       });
       setParticipantMap(map);
     } catch (error) {
-      console.error('Failed to fetch conversations:', error);
-    } finally {
-      setLoading(false);
+      console.error('Failed to fetch participants:', error);
     }
-  }, [setConversations, setLoading, user?.id]);
+  }, []);
 
   useEffect(() => {
     fetchConversations();
-  }, [fetchConversations]);
+    loadParticipants();
+  }, [fetchConversations, loadParticipants]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await fetchConversations();
+    await Promise.all([fetchConversations(), loadParticipants()]);
     setRefreshing(false);
-  }, [fetchConversations]);
+  }, [fetchConversations, loadParticipants]);
 
   // Filter conversations by search query
   const filtered = searchQuery.trim()
@@ -117,62 +119,70 @@ export default function ChatsScreen() {
     );
   }, [participantMap, removeConversation, user?.id]);
 
+  const unreadCount = useNotificationStore((s) => s.unreadCount);
+
   return (
     <View className="flex-1" style={{ backgroundColor: Colors.bg }}>
       {/* Header */}
       <View
         style={{
-          paddingTop: insets.top + 8,
-          paddingHorizontal: 16,
-          paddingBottom: 8,
+          paddingTop: insets.top,
           backgroundColor: Colors.white,
           borderBottomWidth: 0.5,
           borderBottomColor: Colors.borderLight,
         }}
       >
-        <View className="mb-3 flex-row items-center justify-between">
+        <View className="flex-row items-center justify-between px-4 py-3">
           <Text className="text-2xl font-bold" style={{ color: Colors.text }}>
             Tin nhắn
           </Text>
-          <TouchableOpacity
-            onPress={() => setModalVisible(true)}
-            style={{
-              width: 36,
-              height: 36,
-              borderRadius: 18,
-              backgroundColor: Colors.ctaLight,
-              justifyContent: 'center',
-              alignItems: 'center',
-            }}
-          >
-            <Ionicons name="create-outline" size={20} color={Colors.cta} />
-          </TouchableOpacity>
+          <View className="flex-row items-center">
+            <TouchableOpacity 
+              onPress={() => router.push('/notifications')}
+              className="mr-2 p-2 relative"
+            >
+              <Ionicons name="notifications-outline" size={24} color={Colors.text} />
+              {unreadCount > 0 && (
+                <View 
+                  className="absolute top-1.5 right-1.5 w-2.5 h-2.5 rounded-full border-2 border-white"
+                  style={{ backgroundColor: Colors.error }}
+                />
+              )}
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => setIsModalVisible(true)} className="p-2 mr-1">
+              <Ionicons name="add-circle-outline" size={26} color={Colors.cta} />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => fetchConversations()} className="p-2">
+              <Ionicons name="refresh" size={24} color={Colors.text} />
+            </TouchableOpacity>
+          </View>
         </View>
 
-        {/* Search Bar */}
-        <View
-          className="flex-row items-center rounded-xl px-3"
-          style={{
-            backgroundColor: Colors.bg,
-            height: 38,
-            marginBottom: 4,
-          }}
-        >
-          <Ionicons name="search-outline" size={18} color={Colors.textMuted} />
-          <TextInput
-            className="ml-2 flex-1 text-sm"
-            placeholder="Tìm kiếm cuộc trò chuyện..."
-            placeholderTextColor={Colors.textLight}
-            style={{ color: Colors.text }}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            autoCapitalize="none"
-          />
-          {searchQuery.length > 0 && (
-            <TouchableOpacity onPress={() => setSearchQuery('')}>
-              <Ionicons name="close-circle" size={18} color={Colors.textMuted} />
-            </TouchableOpacity>
-          )}
+        {/* Search Bar - moved inside header container */}
+        <View className="px-4 pb-2">
+          <View
+            className="flex-row items-center rounded-xl px-3"
+            style={{
+              backgroundColor: Colors.bg,
+              height: 38,
+            }}
+          >
+            <Ionicons name="search-outline" size={18} color={Colors.textMuted} />
+            <TextInput
+              className="ml-2 flex-1 text-sm"
+              placeholder="Tìm kiếm cuộc trò chuyện..."
+              placeholderTextColor={Colors.textLight}
+              style={{ color: Colors.text }}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              autoCapitalize="none"
+            />
+            {searchQuery.length > 0 && (
+              <TouchableOpacity onPress={() => setSearchQuery('')}>
+                <Ionicons name="close-circle" size={18} color={Colors.textMuted} />
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
       </View>
 
@@ -222,8 +232,8 @@ export default function ChatsScreen() {
       )}
 
       <CreateConversationModal
-        visible={modalVisible}
-        onClose={() => setModalVisible(false)}
+        visible={isModalVisible}
+        onClose={() => setIsModalVisible(false)}
       />
     </View>
   );

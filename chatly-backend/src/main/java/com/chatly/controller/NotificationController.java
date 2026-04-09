@@ -28,8 +28,9 @@ public class NotificationController {
 
     @GetMapping("/unread-count")
     ApiResponse<Long> getUnreadCount() {
+        String userId = getAuthenticatedUserId();
         return ApiResponse.<Long>builder()
-                .result(notificationService.getUnreadCount(getAuthenticatedUserId()))
+                .result(notificationService.getUnreadCount(userId))
                 .build();
     }
 
@@ -48,6 +49,9 @@ public class NotificationController {
 
     private String getAuthenticatedUserId() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || authentication.getPrincipal() == null) {
+            throw new RuntimeException("User not authenticated");
+        }
         return authentication.getPrincipal().toString();
     }
 }

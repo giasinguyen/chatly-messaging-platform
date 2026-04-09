@@ -8,6 +8,8 @@ import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.Instant;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.UUID;
 
 @Entity
@@ -53,6 +55,12 @@ public class User {
     private UserStatus status = UserStatus.OFFLINE;
 
     private Instant lastSeen;
+
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "user_device_tokens", joinColumns = @JoinColumn(name = "user_id"))
+    @Column(name = "token")
+    @Builder.Default
+    private Set<String> deviceTokens = new HashSet<>();
 
     @CreationTimestamp
     private Instant createdAt;

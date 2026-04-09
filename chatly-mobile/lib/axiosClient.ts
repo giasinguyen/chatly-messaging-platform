@@ -73,6 +73,12 @@ axiosClient.interceptors.response.use(
     const status = error.response?.status;
     const isUnauthorized = status === 401;
 
+    // Log diagnostic info for Network Errors or other failures
+    console.error(`AXIOS ERROR: [${status || 'NETWORK'}] [${originalRequest?.method?.toUpperCase()}] [${originalRequest?.url}] - ${error.message}`);
+    if (!status && error.message === 'Network Error') {
+      console.warn('Network Error detected. Check Dev Tunnel status and URL:', API_BASE_URL);
+    }
+
     if (!isUnauthorized || !originalRequest || originalRequest._retry) {
       return Promise.reject(error);
     }

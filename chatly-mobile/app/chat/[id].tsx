@@ -20,6 +20,7 @@ import { conversationService } from '@/services/conversation.service';
 import { userService } from '@/services/user.service';
 import { useMessageStore } from '@/store/message.store';
 import { useAuthStore } from '@/store/auth.store';
+import { useConversationStore } from '@/store/conversation.store';
 import { useChatSocket } from '@/hooks/useChatSocket';
 import { usePresenceSocket } from '@/hooks/usePresenceSocket';
 import { Colors } from '@/constants/theme';
@@ -64,13 +65,25 @@ export default function ChatScreen() {
   const currentPage = page[conversationId ?? ''] ?? 0;
   const canLoadMore = hasMore[conversationId ?? ''] ?? true;
 
-  // WebSocket realtime
+  const { updateConversation } = useConversationStore();
+
   const handleChatEvent = useCallback(
     (event: ChatEvent) => {
       if (!conversationId) return;
       switch (event.action) {
         case 'SEND':
           addMessage(conversationId, event.message);
+          
+          // Update conversation list preview
+          updateConversation(conversationId, {
+            lastMessage: {
+              senderId: event.message.senderId,
+              content: event.message.content,
+              type: event.message.type,
+              timestamp: event.message.createdAt,
+            },
+          });
+
           setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
           break;
         case 'EDIT':
@@ -84,7 +97,7 @@ export default function ChatScreen() {
           break;
       }
     },
-    [conversationId, addMessage, updateMessage, removeMessage],
+    [conversationId, addMessage, updateMessage, removeMessage, updateConversation],
   );
 
   const handleTyping = useCallback(
@@ -139,9 +152,13 @@ export default function ChatScreen() {
     onRead: handleRead,
   });
 
+  const { setActiveConversation } = useConversationStore();
+
   // Fetch conversation details
   useEffect(() => {
     if (!conversationId) return;
+
+    setActiveConversation(conversationId);
 
     const fetchDetails = async () => {
       try {
@@ -163,7 +180,11 @@ export default function ChatScreen() {
     };
 
     fetchDetails();
-  }, [conversationId]);
+
+    return () => {
+      setActiveConversation(null);
+    };
+  }, [conversationId, setActiveConversation]);
 
   // Fetch initial messages
   useEffect(() => {
@@ -220,9 +241,17 @@ export default function ChatScreen() {
       if (!conversationId || !user) return;
       const replyToId = replyingTo?.id ?? null;
 
+      const optimisticLastMsg = {
+        senderId: user.id,
+        content: text,
+        type: 'TEXT' as const,
+        timestamp: new Date().toISOString(),
+      };
+
       // Try WebSocket first
       const sent = wsSendMessage(text, replyToId);
       if (sent) {
+        updateConversation(conversationId, { lastMessage: optimisticLastMsg });
         setReplyingTo(null);
         setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
         return;
@@ -237,13 +266,21 @@ export default function ChatScreen() {
           replyToId,
         });
         addMessage(conversationId, res.result);
+        updateConversation(conversationId, { 
+          lastMessage: {
+            senderId: res.result.senderId,
+            content: res.result.content,
+            type: res.result.type,
+            timestamp: res.result.createdAt,
+          } 
+        });
         setReplyingTo(null);
         setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
       } catch (error) {
         Alert.alert('Lỗi', 'Không thể gửi tin nhắn. Vui lòng thử lại.');
       }
     },
-    [conversationId, user, replyingTo, wsSendMessage, addMessage],
+    [conversationId, user, replyingTo, wsSendMessage, addMessage, updateConversation],
   );
 
   // Message actions

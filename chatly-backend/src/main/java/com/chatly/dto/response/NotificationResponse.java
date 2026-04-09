@@ -15,6 +15,8 @@ public class NotificationResponse {
     private String id;
     private NotificationType type;
     private String senderId;
+    private String senderName;
+    private String senderAvatar;
     private String receiverId;
     private String referenceId;
     private String content;
