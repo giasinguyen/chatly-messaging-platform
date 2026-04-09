@@ -1,3 +1,4 @@
+from datetime import UTC, datetime
 from typing import Any, cast
 
 from motor.motor_asyncio import AsyncIOMotorCollection
@@ -31,6 +32,7 @@ class MessageRepository(BaseRepository[dict[str, Any]]):
             "role": role,
             "content": content,
             "tool_calls": tool_calls,
+            "created_at": datetime.now(UTC),
         }
         return await self.create(payload)
 

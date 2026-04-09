@@ -4,9 +4,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.MediaType;
+import org.springframework.http.client.MultipartBodyBuilder;
 import org.springframework.stereotype.Component;
-import org.springframework.util.LinkedMultiValueMap;
-import org.springframework.util.MultiValueMap;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.reactive.function.client.ClientResponse;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -85,22 +84,26 @@ public class AgentClient {
             String sessionId, MultipartFile file, String userId, String userRole
     ) throws IOException {
         byte[] bytes = file.getBytes();
-        String filename = file.getOriginalFilename();
+        String filename = file.getOriginalFilename() != null ? file.getOriginalFilename() : "upload";
+        String contentType = file.getContentType() != null ? file.getContentType() : MediaType.APPLICATION_OCTET_STREAM_VALUE;
 
-        MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
-        body.add("file", new ByteArrayResource(bytes) {
+        ByteArrayResource resource = new ByteArrayResource(bytes) {
             @Override
             public String getFilename() {
                 return filename;
             }
-        });
+        };
+
+        MultipartBodyBuilder builder = new MultipartBodyBuilder();
+        builder.part("file", resource)
+                .filename(filename)
+                .contentType(MediaType.parseMediaType(contentType));
 
         return webClient.post()
                 .uri("/sessions/{id}/files", sessionId)
                 .header("X-User-Id", userId)
                 .header("X-User-Role", userRole)
-                .contentType(MediaType.MULTIPART_FORM_DATA)
-                .bodyValue(body)
+                .bodyValue(builder.build())
                 .retrieve()
                 .onStatus(status -> status.isError(), this::handleError)
                 .bodyToMono(AgentFileResponse.class)
