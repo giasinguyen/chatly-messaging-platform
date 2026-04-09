@@ -15,6 +15,7 @@ import { ChatInput } from '@/components/chat/ChatInput';
 import { DateSeparator } from '@/components/chat/DateSeparator';
 import { MessageActions } from '@/components/chat/MessageActions';
 import { TypingIndicator } from '@/components/chat/TypingIndicator';
+import { MessageSearch } from '@/components/chat/MessageSearch';
 import { messageService } from '@/services/message.service';
 import { conversationService } from '@/services/conversation.service';
 import { userService } from '@/services/user.service';
@@ -58,6 +59,8 @@ export default function ChatScreen() {
   const [typingUsers, setTypingUsers] = useState<Set<string>>(new Set());
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
   const [otherUserOnline, setOtherUserOnline] = useState(false);
+  const [showSearch, setShowSearch] = useState(false);
+  const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
 
   const messages = messagesByConversation[conversationId ?? ''] ?? [];
   const currentPage = page[conversationId ?? ''] ?? 0;
@@ -344,6 +347,20 @@ export default function ChatScreen() {
     return items;
   }, [messages]);
 
+  const handleNavigateToMessage = useCallback(
+    (messageId: string) => {
+      setHighlightedMessageId(messageId);
+      const idx = displayData.findIndex(
+        (item) => item.type === 'message' && item.data.id === messageId,
+      );
+      if (idx >= 0) {
+        flatListRef.current?.scrollToIndex({ index: idx, animated: true, viewPosition: 0.5 });
+      }
+      setTimeout(() => setHighlightedMessageId(null), 2000);
+    },
+    [displayData],
+  );
+
   // Resolve chat header info
   const isGroup = conversation?.type === 'GROUP';
   let chatName = conversation?.name ?? 'Cuộc trò chuyện';
@@ -370,7 +387,22 @@ export default function ChatScreen() {
         isGroup={isGroup}
         memberCount={conversation?.participantIds.length}
         isOnline={!isGroup && otherUserOnline}
+        onToggleSearch={() => {
+          setShowSearch((prev) => !prev);
+          if (showSearch) setHighlightedMessageId(null);
+        }}
       />
+
+      {showSearch && conversationId && (
+        <MessageSearch
+          conversationId={conversationId}
+          onClose={() => {
+            setShowSearch(false);
+            setHighlightedMessageId(null);
+          }}
+          onNavigateToMessage={handleNavigateToMessage}
+        />
+      )}
 
       {/* Messages */}
       <View className="flex-1" style={{ backgroundColor: Colors.bg }}>
@@ -392,17 +424,20 @@ export default function ChatScreen() {
               const msg = item.data;
               const isMe = msg.senderId === user?.id;
               const sender = participantMap[msg.senderId];
+              const isHighlighted = highlightedMessageId === msg.id;
               return (
-                <MessageBubble
-                  message={msg}
-                  isMe={isMe}
-                  showAvatar={isGroup}
-                  senderName={sender?.displayName}
-                  currentUserId={user?.id}
-                  onLongPress={() => handleLongPress(msg)}
-                  onReact={handleReact}
-                  replyToMessage={msg.replyToId ? (messageById[msg.replyToId] ?? null) : null}
-                />
+                <View style={isHighlighted ? { backgroundColor: 'rgba(234,179,8,0.15)', borderRadius: 12 } : undefined}>
+                  <MessageBubble
+                    message={msg}
+                    isMe={isMe}
+                    showAvatar={isGroup}
+                    senderName={sender?.displayName}
+                    currentUserId={user?.id}
+                    onLongPress={() => handleLongPress(msg)}
+                    onReact={handleReact}
+                    replyToMessage={msg.replyToId ? (messageById[msg.replyToId] ?? null) : null}
+                  />
+                </View>
               );
             }}
             onEndReached={loadMore}

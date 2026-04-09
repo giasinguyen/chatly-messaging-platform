@@ -78,6 +78,17 @@ public class MessageController {
                 .build();
     }
 
+    @GetMapping("/conversation/{conversationId}/search")
+    ApiResponse<List<MessageResponse>> search(
+            @PathVariable String conversationId,
+            @RequestParam String keyword,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return ApiResponse.<List<MessageResponse>>builder()
+                .result(messageService.search(conversationId, getAuthenticatedUserId(), keyword, page, size))
+                .build();
+    }
+
     private String getAuthenticatedUserId() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         return authentication.getPrincipal().toString();

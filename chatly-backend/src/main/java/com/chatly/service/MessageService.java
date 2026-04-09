@@ -282,6 +282,30 @@ public class MessageService {
         return response;
     }
 
+    public List<MessageResponse> search(String conversationId, String userId, String keyword, int page, int size) {
+        Conversation conversation = conversationRepository.findById(conversationId)
+                .orElseThrow(() -> new AppException(ErrorCode.CONVERSATION_NOT_FOUND));
+
+        if (!conversation.getParticipantIds().contains(userId)) {
+            throw new AppException(ErrorCode.NOT_CONVERSATION_PARTICIPANT);
+        }
+
+        String escapedKeyword = java.util.regex.Pattern.quote(keyword);
+
+        Query query = new Query(
+                Criteria.where("conversationId").is(conversationId)
+                        .and("recalled").is(false)
+                        .and("content").regex(escapedKeyword, "i")
+        )
+                .with(org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC, "createdAt"))
+                .skip((long) page * size)
+                .limit(size);
+
+        return mongoTemplate.find(query, Message.class).stream()
+                .map(messageMapper::toResponse)
+                .toList();
+    }
+
     private void broadcastEvent(String conversationId, ChatEvent.ChatAction action, MessageResponse message) {
         messagingTemplate.convertAndSend(
                 "/topic/conversation." + conversationId,

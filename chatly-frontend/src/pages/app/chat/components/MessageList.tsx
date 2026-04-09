@@ -48,6 +48,7 @@ interface MessageListProps {
     failedMessages?: Array<{ id: string, content: string, attachments?: any, replyToId?: string | null }>;
     onRetryMessage?: (id: string) => void;
     onRemoveFailedMessage?: (id: string) => void;
+    highlightedMessageId?: string | null;
 }
 
 const RECALL_LIMIT_MS = 24 * 60 * 60 * 1000;
@@ -72,6 +73,7 @@ export function MessageList({
     failedMessages = [],
     onRetryMessage,
     onRemoveFailedMessage,
+    highlightedMessageId,
 }: MessageListProps) {
     const scrollEndRef = useRef<HTMLDivElement>(null);
     const sentinelRef = useRef<HTMLDivElement>(null);
@@ -153,6 +155,18 @@ export function MessageList({
             prevScrollHeightRef.current = 0;
         }
     }, [isLoadingMore, messages]);
+
+    // Scroll to highlighted search result
+    useEffect(() => {
+        if (!highlightedMessageId || !containerRef.current) return;
+        const el = containerRef.current.querySelector(`[data-message-id="${highlightedMessageId}"]`);
+        if (el) {
+            el.scrollIntoView({ behavior: "smooth", block: "center" });
+            el.classList.add("search-highlight");
+            const timer = setTimeout(() => el.classList.remove("search-highlight"), 2000);
+            return () => clearTimeout(timer);
+        }
+    }, [highlightedMessageId]);
 
     // IntersectionObserver for lazy load
     const handleSentinelIntersect = useCallback(
@@ -278,8 +292,9 @@ export function MessageList({
 
         const bubble = (
             <div
+                data-message-id={msg.id}
                 className={cn(
-                    "flex gap-2 group px-4",
+                    "flex gap-2 group px-4 transition-colors duration-500",
                     isLastInGroup(msg, index) ? "mb-3" : "mb-0.5",
                     isMe ? "flex-row-reverse" : "flex-row",
                 )}

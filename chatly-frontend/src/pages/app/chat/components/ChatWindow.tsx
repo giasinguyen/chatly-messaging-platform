@@ -4,6 +4,7 @@ import { ChatHeader } from "./ChatHeader";
 import { MessageList } from "./MessageList";
 import { ChatInput } from "./ChatInput";
 import type { ChatInputRef } from "./ChatInput";
+import { MessageSearch } from "./MessageSearch";
 import { GroupManagementPanel } from "./GroupManagementPanel";
 import { conversationService } from "@/services/conversation.service";
 import { contactService } from "@/services/contact.service";
@@ -164,6 +165,8 @@ export const ChatWindow = memo(({ id }: ChatWindowProps) => {
     const [groupNameDraft, setGroupNameDraft] = useState("");
     const [groupAvatarDraft, setGroupAvatarDraft] = useState("");
     const [showGroupPanel, setShowGroupPanel] = useState(false);
+    const [showSearch, setShowSearch] = useState(false);
+    const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
     const [selectedProfileUser, setSelectedProfileUser] =
         useState<ChatUser | null>(null);
     // Presence tracking
@@ -772,10 +775,25 @@ export const ChatWindow = memo(({ id }: ChatWindowProps) => {
                 onOpenGroupPanel={
                     isGroup ? () => setShowGroupPanel(true) : undefined
                 }
+                onToggleSearch={() => {
+                    setShowSearch((prev) => !prev);
+                    if (showSearch) setHighlightedMessageId(null);
+                }}
                 presenceStatus={participantPresence?.status}
                 lastSeen={participantPresence?.lastSeen}
                 onBack={() => navigate("/chat")}
             />
+
+            {showSearch && (
+                <MessageSearch
+                    conversationId={id}
+                    onClose={() => {
+                        setShowSearch(false);
+                        setHighlightedMessageId(null);
+                    }}
+                    onNavigateToMessage={setHighlightedMessageId}
+                />
+            )}
 
             <MessageList
                 messages={messages}
@@ -795,6 +813,7 @@ export const ChatWindow = memo(({ id }: ChatWindowProps) => {
                 failedMessages={failedMessages}
                 onRetryMessage={handleRetryMessage}
                 onRemoveFailedMessage={(fid) => setFailedMessages((p) => p.filter(m => m.id !== fid))}
+                highlightedMessageId={highlightedMessageId}
             />
 
             {isTyping && (

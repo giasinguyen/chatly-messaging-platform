@@ -59,4 +59,17 @@ export const messageService = {
     );
     return response.data;
   },
+
+  search: async (
+    conversationId: string,
+    keyword: string,
+    page = 0,
+    size = 20,
+  ): Promise<ApiResponse<Message[]>> => {
+    const response = await axiosClient.get<ApiResponse<Message[]>>(
+      `/api/messages/conversation/${conversationId}/search`,
+      { params: { keyword, page, size } },
+    );
+    return response.data;
+  },
 };

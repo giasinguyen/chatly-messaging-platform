@@ -185,6 +185,10 @@
     .section-heading {
         @apply max-w-[540px] mx-auto;
     }
+    .search-highlight {
+        @apply bg-yellow-200/40 dark:bg-yellow-500/20 rounded-lg;
+    }
+    }
     .card {
         @apply p-10 border border-[#222222]/10 dark:border-white/10 rounded-3xl shadow-[0_7px_14px_#EAEAEA] dark:shadow-none w-full max-w-xs dark:bg-[#1a1c23]/50;
     }
