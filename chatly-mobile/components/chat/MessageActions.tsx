@@ -10,6 +10,7 @@ interface MessageActionsProps {
   onClose: () => void;
   onReply: () => void;
   onCopy: () => void;
+  onReact?: (emoji: string) => void;
   onEdit?: () => void;
   onRecall?: () => void;
   onDelete?: () => void;
@@ -29,6 +30,7 @@ export function MessageActions({
   onClose,
   onReply,
   onCopy,
+  onReact,
   onEdit,
   onRecall,
   onDelete,
@@ -81,6 +83,30 @@ export function MessageActions({
             className="mb-4 self-center rounded-full"
             style={{ width: 36, height: 4, backgroundColor: Colors.borderLight }}
           />
+
+          {/* Quick emoji reactions */}
+          {!message.recalled && onReact && (
+            <View className="mb-3 flex-row justify-center gap-2 px-6">
+              {['👍', '❤️', '😂', '😮', '😢', '😡'].map((emoji) => (
+                <TouchableOpacity
+                  key={emoji}
+                  onPress={() => {
+                    onReact(emoji);
+                    onClose();
+                  }}
+                  activeOpacity={0.7}
+                  className="items-center justify-center rounded-full"
+                  style={{
+                    width: 44,
+                    height: 44,
+                    backgroundColor: Colors.bg,
+                  }}
+                >
+                  <Text className="text-2xl">{emoji}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
 
           {actions.map((action, index) => (
             <TouchableOpacity

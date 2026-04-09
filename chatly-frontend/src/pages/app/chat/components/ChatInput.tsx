@@ -7,7 +7,10 @@ import {
     Paperclip,
     FileText,
     Loader2,
+    Smile,
 } from "lucide-react";
+import Picker from "@emoji-mart/react";
+import data from "@emoji-mart/data";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { fileService } from "@/services/file.service";
@@ -50,9 +53,11 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
     const [content, setContent] = useState("");
     const [isTyping, setIsTyping] = useState(false);
     const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([]);
+    const [showEmojiPicker, setShowEmojiPicker] = useState(false);
     const typingTimerRef = useRef<any>(null);
     const inputRef = useRef<HTMLInputElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const emojiPickerRef = useRef<HTMLDivElement>(null);
 
     // ----------------------------------------------------------------
     // Typing Logic
@@ -89,6 +94,23 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
             inputRef.current.focus();
         }
     }, [replyingTo]);
+
+    // Close emoji picker on outside click
+    useEffect(() => {
+        if (!showEmojiPicker) return;
+        const handler = (e: MouseEvent) => {
+            if (emojiPickerRef.current && !emojiPickerRef.current.contains(e.target as Node)) {
+                setShowEmojiPicker(false);
+            }
+        };
+        document.addEventListener("mousedown", handler);
+        return () => document.removeEventListener("mousedown", handler);
+    }, [showEmojiPicker]);
+
+    const handleEmojiSelect = (emoji: { native: string }) => {
+        setContent((prev) => prev + emoji.native);
+        inputRef.current?.focus();
+    };
 
     // ----------------------------------------------------------------
     // File Upload Logic
@@ -294,6 +316,32 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
                     >
                         <Paperclip size={18} />
                     </Button>
+
+                    {/* Emoji picker */}
+                    <div className="relative" ref={emojiPickerRef}>
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-9 w-9 shrink-0 text-muted-foreground hover:text-foreground"
+                            onClick={() => setShowEmojiPicker((prev) => !prev)}
+                            title="Chọn emoji"
+                        >
+                            <Smile size={18} />
+                        </Button>
+                        {showEmojiPicker && (
+                            <div className="absolute bottom-full mb-2 left-0 z-50">
+                                <Picker
+                                    data={data}
+                                    onEmojiSelect={handleEmojiSelect}
+                                    theme="auto"
+                                    locale="vi"
+                                    previewPosition="none"
+                                    skinTonePosition="search"
+                                    maxFrequentRows={2}
+                                />
+                            </div>
+                        )}
+                    </div>
 
                     <div className="flex-1 relative">
                         <Input

@@ -12,6 +12,7 @@ import com.chatly.model.mongo.Conversation;
 import com.chatly.model.mongo.EditHistory;
 import com.chatly.model.mongo.LastMessage;
 import com.chatly.model.mongo.Message;
+import com.chatly.model.mongo.Reaction;
 import com.chatly.model.mongo.ReadReceipt;
 import com.chatly.repository.mongo.ConversationRepository;
 import com.chatly.repository.mongo.MessageRepository;
@@ -31,6 +32,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -45,6 +47,7 @@ public class MessageService {
 
     private static final long RECALL_LIMIT_HOURS = 24;
     private static final long EDIT_LIMIT_MINUTES = 15;
+    private static final Set<String> ALLOWED_EMOJIS = Set.of("👍", "❤️", "😂", "😮", "😢", "😡", "🔥", "👏");
 
     public MessageResponse send(String senderId, MessageRequest request) {
         Conversation conversation = conversationRepository.findById(request.getConversationId())
@@ -233,6 +236,74 @@ public class MessageService {
         MessageResponse response = messageMapper.toResponse(message);
         messageRepository.deleteById(messageId);
         broadcastEvent(message.getConversationId(), ChatEvent.ChatAction.DELETE, response);
+    }
+
+    public MessageResponse react(String messageId, String userId, String emoji) {
+        if (!ALLOWED_EMOJIS.contains(emoji)) {
+            throw new AppException(ErrorCode.INVALID_EMOJI);
+        }
+
+        Message message = messageRepository.findById(messageId)
+                .orElseThrow(() -> new AppException(ErrorCode.MESSAGE_NOT_FOUND));
+
+        if (message.isRecalled()) {
+            throw new AppException(ErrorCode.CANNOT_REACT_RECALLED_MESSAGE);
+        }
+
+        Conversation conversation = conversationRepository.findById(message.getConversationId())
+                .orElseThrow(() -> new AppException(ErrorCode.CONVERSATION_NOT_FOUND));
+
+        if (!conversation.getParticipantIds().contains(userId)) {
+            throw new AppException(ErrorCode.NOT_CONVERSATION_PARTICIPANT);
+        }
+
+        // Toggle: remove if same emoji exists, otherwise add/replace
+        boolean removed = message.getReactions().removeIf(
+                r -> r.getUserId().equals(userId) && r.getEmoji().equals(emoji));
+
+        if (!removed) {
+            // Remove any existing reaction by this user (1 reaction per user)
+            message.getReactions().removeIf(r -> r.getUserId().equals(userId));
+            message.getReactions().add(Reaction.builder()
+                    .userId(userId)
+                    .emoji(emoji)
+                    .createdAt(Instant.now())
+                    .build());
+        }
+
+        mongoTemplate.updateFirst(
+                Query.query(Criteria.where("_id").is(messageId)),
+                new Update().set("reactions", message.getReactions()),
+                Message.class
+        );
+
+        MessageResponse response = messageMapper.toResponse(message);
+        broadcastEvent(message.getConversationId(), ChatEvent.ChatAction.REACT, response);
+        return response;
+    }
+
+    public List<MessageResponse> search(String conversationId, String userId, String keyword, int page, int size) {
+        Conversation conversation = conversationRepository.findById(conversationId)
+                .orElseThrow(() -> new AppException(ErrorCode.CONVERSATION_NOT_FOUND));
+
+        if (!conversation.getParticipantIds().contains(userId)) {
+            throw new AppException(ErrorCode.NOT_CONVERSATION_PARTICIPANT);
+        }
+
+        String escapedKeyword = java.util.regex.Pattern.quote(keyword);
+
+        Query query = new Query(
+                Criteria.where("conversationId").is(conversationId)
+                        .and("recalled").is(false)
+                        .and("content").regex(escapedKeyword, "i")
+        )
+                .with(org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC, "createdAt"))
+                .skip((long) page * size)
+                .limit(size);
+
+        return mongoTemplate.find(query, Message.class).stream()
+                .map(messageMapper::toResponse)
+                .toList();
     }
 
     private void broadcastEvent(String conversationId, ChatEvent.ChatAction action, MessageResponse message) {

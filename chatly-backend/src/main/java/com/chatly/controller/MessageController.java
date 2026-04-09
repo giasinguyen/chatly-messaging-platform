@@ -2,6 +2,7 @@ package com.chatly.controller;
 
 import com.chatly.dto.request.EditMessageRequest;
 import com.chatly.dto.request.MessageRequest;
+import com.chatly.dto.request.ReactRequest;
 import com.chatly.dto.response.ApiResponse;
 import com.chatly.dto.response.MessageResponse;
 import com.chatly.service.MessageService;
@@ -65,6 +66,26 @@ public class MessageController {
         messageService.delete(messageId, getAuthenticatedUserId());
         return ApiResponse.<Void>builder()
                 .message("Message deleted successfully")
+                .build();
+    }
+
+    @PutMapping("/{messageId}/react")
+    ApiResponse<MessageResponse> react(
+            @PathVariable String messageId,
+            @RequestBody @Valid ReactRequest request) {
+        return ApiResponse.<MessageResponse>builder()
+                .result(messageService.react(messageId, getAuthenticatedUserId(), request.getEmoji()))
+                .build();
+    }
+
+    @GetMapping("/conversation/{conversationId}/search")
+    ApiResponse<List<MessageResponse>> search(
+            @PathVariable String conversationId,
+            @RequestParam String keyword,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return ApiResponse.<List<MessageResponse>>builder()
+                .result(messageService.search(conversationId, getAuthenticatedUserId(), keyword, page, size))
                 .build();
     }
 

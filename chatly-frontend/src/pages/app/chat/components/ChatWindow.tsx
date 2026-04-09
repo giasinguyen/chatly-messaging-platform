@@ -4,6 +4,7 @@ import { ChatHeader } from "./ChatHeader";
 import { MessageList } from "./MessageList";
 import { ChatInput } from "./ChatInput";
 import type { ChatInputRef } from "./ChatInput";
+import { MessageSearch } from "./MessageSearch";
 import { GroupManagementPanel } from "./GroupManagementPanel";
 import { ConversationInfoPanel } from "./ConversationInfoPanel";
 import { CreateGroupDialog } from "./CreateGroupDialog";
@@ -173,9 +174,12 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
     const [groupAvatarUploading, setGroupAvatarUploading] = useState(false);
     const [groupProfileSaving, setGroupProfileSaving] = useState(false);
     const [showGroupPanel, setShowGroupPanel] = useState(false);
+    const [showSearch, setShowSearch] = useState(false);
+    const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
     const [groupPanelDefaultTab, setGroupPanelDefaultTab] = useState<"members" | "settings">("members");
     const [createGroupFromPrivateOpen, setCreateGroupFromPrivateOpen] = useState(false);
     const groupAvatarInputRef = useRef<HTMLInputElement>(null);
+
     const [selectedProfileUser, setSelectedProfileUser] =
         useState<ChatUser | null>(null);
     // Presence tracking
@@ -236,8 +240,9 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
                 });
                 if (msg.senderId !== currentUser?.id) {
                     sendSeen(msg.id);
+                    new Audio("/sounds/message_ting_ting.mp3").play().catch(() => {});
                 }
-            } else if (action === "EDIT" || action === "RECALL") {
+            } else if (action === "EDIT" || action === "RECALL" || action === "REACT") {
                 setMessages((prev) =>
                     prev.map((m) => (m.id === msg.id ? { ...m, ...msg } : m)),
                 );
@@ -579,6 +584,27 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
         [],
     );
 
+    const handleReact = useCallback(
+        async (messageId: string, emoji: string) => {
+            try {
+                const res = await messageService.react(messageId, emoji);
+                setMessages((prev) =>
+                    prev.map((m) =>
+                        m.id === messageId
+                            ? { ...m, reactions: res.result.reactions }
+                            : m,
+                    ),
+                );
+            } catch (err: any) {
+                const msg =
+                    err?.response?.data?.message ??
+                    "Không thể react tin nhắn";
+                toast.error(msg);
+            }
+        },
+        [],
+    );
+
     const handleOpenSenderProfile = useCallback(
         (senderId: string) => {
             const user = participantDirectory[senderId];
@@ -788,6 +814,10 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
                 onOpenGroupPanel={
                     isGroup ? () => setShowGroupPanel(true) : undefined
                 }
+                onToggleSearch={() => {
+                    setShowSearch((prev) => !prev);
+                    if (showSearch) setHighlightedMessageId(null);
+                }}
                 presenceStatus={participantPresence?.status}
                 lastSeen={participantPresence?.lastSeen}
                 onBack={() => navigate("/chat")}
@@ -795,6 +825,17 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
                 isMuted={isMuted}
                 nickname={nickname}
             />
+
+            {showSearch && (
+                <MessageSearch
+                    conversationId={id}
+                    onClose={() => {
+                        setShowSearch(false);
+                        setHighlightedMessageId(null);
+                    }}
+                    onNavigateToMessage={setHighlightedMessageId}
+                />
+            )}
 
             <MessageList
                 messages={messages}
@@ -806,6 +847,7 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
                 onRecall={handleRecall}
                 onEdit={handleEdit}
                 onDelete={handleDelete}
+                onReact={handleReact}
                 onOpenSenderProfile={handleOpenSenderProfile}
                 onLoadMore={handleLoadMore}
                 isLoadingMore={isLoadingMore}
@@ -813,6 +855,7 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
                 failedMessages={failedMessages}
                 onRetryMessage={handleRetryMessage}
                 onRemoveFailedMessage={(fid) => setFailedMessages((p) => p.filter(m => m.id !== fid))}
+                highlightedMessageId={highlightedMessageId}
             />
 
             {isTyping && (
