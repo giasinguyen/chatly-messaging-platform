@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { View, TextInput, TouchableOpacity, Text } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import EmojiPicker from 'rn-emoji-keyboard';
+import type { EmojiType } from 'rn-emoji-keyboard';
 import { Colors } from '@/constants/theme';
 import type { Message } from '@/types/message';
 
@@ -14,6 +16,7 @@ interface ChatInputProps {
 export function ChatInput({ onSend, onTyping, replyingTo, onCancelReply }: ChatInputProps) {
   const [text, setText] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
 
   const handleChangeText = (value: string) => {
     setText(value);
@@ -37,6 +40,10 @@ export function ChatInput({ onSend, onTyping, replyingTo, onCancelReply }: ChatI
     setIsTyping(false);
     onTyping?.(false);
     onCancelReply?.();
+  };
+
+  const handleEmojiPick = (emoji: EmojiType) => {
+    setText((prev) => prev + emoji.emoji);
   };
 
   return (
@@ -93,6 +100,15 @@ export function ChatInput({ onSend, onTyping, replyingTo, onCancelReply }: ChatI
           <Ionicons name="add-circle-outline" size={26} color={Colors.cta} />
         </TouchableOpacity>
 
+        {/* Emoji picker button */}
+        <TouchableOpacity
+          onPress={() => setShowEmojiPicker(true)}
+          className="items-center justify-center pb-1"
+          style={{ width: 36, height: 36 }}
+        >
+          <Ionicons name="happy-outline" size={24} color={Colors.cta} />
+        </TouchableOpacity>
+
         {/* Text input */}
         <View
           className="mx-2 flex-1 rounded-2xl px-4 py-2"
@@ -128,6 +144,14 @@ export function ChatInput({ onSend, onTyping, replyingTo, onCancelReply }: ChatI
           />
         </TouchableOpacity>
       </View>
+
+      <EmojiPicker
+        onEmojiSelected={handleEmojiPick}
+        open={showEmojiPicker}
+        onClose={() => setShowEmojiPicker(false)}
+        enableSearchBar
+        enableRecentlyUsed
+      />
     </View>
   );
 }

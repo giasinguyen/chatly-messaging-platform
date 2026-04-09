@@ -2,14 +2,16 @@ import { View, Text, TouchableOpacity, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/theme';
 import { formatMessageTime } from '@/utils/format';
-import type { Message } from '@/types/message';
+import type { Message, Reaction } from '@/types/message';
 
 interface MessageBubbleProps {
   message: Message;
   isMe: boolean;
   showAvatar?: boolean;
   senderName?: string;
+  currentUserId?: string;
   onLongPress?: () => void;
+  onReact?: (messageId: string, emoji: string) => void;
   replyToMessage?: Message | null;
 }
 
@@ -18,7 +20,9 @@ export function MessageBubble({
   isMe,
   showAvatar = false,
   senderName,
+  currentUserId,
   onLongPress,
+  onReact,
   replyToMessage,
 }: MessageBubbleProps) {
   const { content, type, recalled, edited, createdAt, readBy, attachments } = message;
@@ -203,6 +207,41 @@ export function MessageBubble({
           </View>
         </View>
       </TouchableOpacity>
+
+      {/* Reaction badges */}
+      {message.reactions && message.reactions.length > 0 && (
+        <View className={`mt-1 flex-row flex-wrap gap-1 ${isMe ? 'justify-end' : 'justify-start'}`}>
+          {Object.entries(
+            message.reactions.reduce<Record<string, string[]>>((acc, r) => {
+              (acc[r.emoji] ??= []).push(r.userId);
+              return acc;
+            }, {}),
+          ).map(([emoji, userIds]) => (
+            <TouchableOpacity
+              key={emoji}
+              onPress={() => onReact?.(message.id, emoji)}
+              activeOpacity={0.7}
+              className="flex-row items-center rounded-full px-1.5 py-0.5"
+              style={{
+                backgroundColor: currentUserId && userIds.includes(currentUserId)
+                  ? 'rgba(99,102,241,0.15)'
+                  : 'rgba(0,0,0,0.06)',
+                borderWidth: 1,
+                borderColor: currentUserId && userIds.includes(currentUserId)
+                  ? 'rgba(99,102,241,0.4)'
+                  : 'rgba(0,0,0,0.08)',
+              }}
+            >
+              <Text className="text-xs">{emoji}</Text>
+              {userIds.length > 1 && (
+                <Text className="ml-0.5 text-[10px]" style={{ color: Colors.textMuted }}>
+                  {userIds.length}
+                </Text>
+              )}
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
     </View>
   );
 }

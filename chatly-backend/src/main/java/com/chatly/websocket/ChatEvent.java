@@ -14,6 +14,6 @@ public class ChatEvent {
     private MessageResponse message;
 
     public enum ChatAction {
-        SEND, EDIT, RECALL, DELETE
+        SEND, EDIT, RECALL, DELETE, REACT
     }
 }

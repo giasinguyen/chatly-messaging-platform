@@ -50,6 +50,11 @@ export function useNotificationSocket({ onEvent }: UseNotificationSocketProps) {
                         const notif = new window.Notification(title, options);
                         notif.onclick = () => {
                             window.focus();
+                            if (event.notification.type === "FRIEND_REQUEST") {
+                                window.location.href = "/contact?tab=requests";
+                            } else if (event.notification.referenceId) {
+                                window.location.href = `/chat/${event.notification.referenceId}`;
+                            }
                             notif.close();
                         };
                     }

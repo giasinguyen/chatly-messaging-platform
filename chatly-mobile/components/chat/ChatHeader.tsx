@@ -11,6 +11,7 @@ interface ChatHeaderProps {
   isOnline?: boolean;
   memberCount?: number;
   isGroup?: boolean;
+  onToggleSearch?: () => void;
 }
 
 export function ChatHeader({
@@ -19,6 +20,7 @@ export function ChatHeader({
   isOnline = false,
   memberCount,
   isGroup = false,
+  onToggleSearch,
 }: ChatHeaderProps) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -73,6 +75,9 @@ export function ChatHeader({
         </View>
 
         {/* Action buttons */}
+        <TouchableOpacity onPress={onToggleSearch} className="mx-1 p-2">
+          <Ionicons name="search-outline" size={22} color={Colors.cta} />
+        </TouchableOpacity>
         <TouchableOpacity className="mx-1 p-2">
           <Ionicons name="call-outline" size={22} color={Colors.cta} />
         </TouchableOpacity>

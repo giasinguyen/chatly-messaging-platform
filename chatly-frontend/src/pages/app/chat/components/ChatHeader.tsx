@@ -1,4 +1,4 @@
-import { Phone, Video, Users, ChevronLeft } from "lucide-react";
+import { Phone, Video, Users, ChevronLeft, Search } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { PresenceIndicator } from "@/components/customize/PresenceIndicator";
@@ -10,12 +10,13 @@ interface ChatHeaderProps {
     onOpenProfile: () => void;
     isGroup?: boolean;
     onOpenGroupPanel?: () => void;
+    onToggleSearch?: () => void;
     presenceStatus?: "ONLINE" | "OFFLINE" | string;
     lastSeen?: string | null;
     onBack?: () => void;
 }
 
-export function ChatHeader({ user, onOpenProfile, isGroup, onOpenGroupPanel, presenceStatus, lastSeen, onBack }: ChatHeaderProps) {
+export function ChatHeader({ user, onOpenProfile, isGroup, onOpenGroupPanel, onToggleSearch, presenceStatus, lastSeen, onBack }: ChatHeaderProps) {
     return (
         <header className="h-16 border-b border-border flex items-center justify-between px-2 sm:px-4 shrink-0 bg-background">
             <div className="flex items-center">
@@ -75,6 +76,15 @@ export function ChatHeader({ user, onOpenProfile, isGroup, onOpenGroupPanel, pre
                         <Users size={18} />
                     </Button>
                 )}
+                <Button
+                    onClick={onToggleSearch}
+                    variant="ghost"
+                    size="icon"
+                    className="h-9 w-9"
+                    title="Tìm kiếm tin nhắn"
+                >
+                    <Search size={18} />
+                </Button>
                 <Button
                     onClick={() => {
                         toast.info("Development in progress...");
