@@ -214,12 +214,10 @@ export function MessageList({
         if (timeDiff < TIME_GAP_THRESHOLD) return null;
 
         return (
-            <div key={`time-sep-${msg.id}`} className="flex items-center gap-3 px-4 py-2">
-                <div className="flex-1 h-px bg-border/30" />
+            <div key={`time-sep-${msg.id}`} className="px-4 py-2 text-center">
                 <span className="text-[11px] text-muted-foreground/70 whitespace-nowrap">
                     {new Date(msg.createdAt).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}
                 </span>
-                <div className="flex-1 h-px bg-border/30" />
             </div>
         );
     };

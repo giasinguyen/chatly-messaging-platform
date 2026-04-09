@@ -1,4 +1,4 @@
-import { Phone, Video, Users, ChevronLeft } from "lucide-react";
+import { Phone, Video, Users, ChevronLeft, Pin, BellOff } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { PresenceIndicator } from "@/components/customize/PresenceIndicator";
@@ -13,11 +13,14 @@ interface ChatHeaderProps {
     presenceStatus?: "ONLINE" | "OFFLINE" | string;
     lastSeen?: string | null;
     onBack?: () => void;
+    isPinned?: boolean;
+    isMuted?: boolean;
+    nickname?: string | null;
 }
 
-export function ChatHeader({ user, onOpenProfile, isGroup, onOpenGroupPanel, presenceStatus, lastSeen, onBack }: ChatHeaderProps) {
+export function ChatHeader({ user, onOpenProfile, isGroup, onOpenGroupPanel, presenceStatus, lastSeen, onBack, isPinned, isMuted, nickname }: ChatHeaderProps) {
     return (
-        <header className="h-16 border-b border-border flex items-center justify-between px-2 sm:px-4 shrink-0 bg-background">
+        <header className="h-16 border-b border-border flex items-center justify-between px-2 sm:px-4 shrink-0 bg-background dark:bg-[#22252b]">
             <div className="flex items-center">
                 {onBack && (
                     <Button
@@ -48,9 +51,13 @@ export function ChatHeader({ user, onOpenProfile, isGroup, onOpenGroupPanel, pre
                     )}
                 </div>
                 <div className="flex flex-col">
-                    <h3 className="text-sm font-semibold text-foreground line-clamp-1">
-                        {user.displayName}
-                    </h3>
+                    <div className="flex items-center gap-2">
+                        <h3 className="text-sm font-semibold text-foreground line-clamp-1">
+                            {nickname || user.displayName}
+                        </h3>
+                        {isPinned && <Pin size={14} className="text-brand shrink-0" />}
+                        {isMuted && <BellOff size={14} className="text-muted-foreground shrink-0" />}
+                    </div>
                     {!isGroup && presenceStatus && (
                         <PresenceIndicator
                             status={presenceStatus}

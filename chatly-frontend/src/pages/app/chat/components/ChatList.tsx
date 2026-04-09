@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useMemo } from "react";
+import { useEffect, useState, useRef, useMemo, forwardRef, useImperativeHandle } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import {
     Search,
@@ -31,6 +31,7 @@ import { conversationService } from "@/services/conversation.service";
 import { socketService } from "@/services/socket.service";
 import { userService } from "@/services/user.service";
 import { useAuthStore } from "@/store/auth.store";
+import { useConversationPrefsStore } from "@/store/conversationPrefs.store";
 import {
     getConversationDisplayName,
     getConversationAvatar,
@@ -71,7 +72,7 @@ function formatZaloTime(dateString: string) {
     return `${day}/${month}`;
 }
 
-export function ChatList() {
+export const ChatList = forwardRef(function ChatListComponent(_, ref) {
     const { user: currentUser } = useAuthStore();
     const navigate = useNavigate();
     const [conversations, setConversations] = useState<ConversationResponse[]>(
@@ -87,10 +88,20 @@ export function ChatList() {
     const unreadMsgNotifications = useMemo(() => 
         notifications.filter((n) => n.type === "NEW_MESSAGE" && !n.read),
     [notifications]);
+    const convPrefs = useConversationPrefsStore((s) => s.prefs);
+    const { setPin: storeSetPin, setMute: storeSetMute } = useConversationPrefsStore();
     const conversationIdsKey = [...conversations]
         .map((conv) => conv.id)
         .sort()
         .join("|");
+
+    useImperativeHandle(ref, () => ({
+        updateConversation: (updated: ConversationResponse) => {
+            setConversations((prev) =>
+                prev.map((conv) => (conv.id === updated.id ? updated : conv))
+            );
+        },
+    }));
 
     useEffect(() => {
         const fetchData = async () => {
@@ -186,13 +197,27 @@ export function ChatList() {
         };
     }, [currentUser?.id, conversations.length, conversationIdsKey]);
 
-    const filteredConversations = conversations.filter((conv) => {
-        if (!searchQuery.trim()) return true;
-        const displayName = currentUser
-            ? getConversationDisplayName(conv, currentUser.id, users)
-            : "";
-        return displayName.toLowerCase().includes(searchQuery.toLowerCase());
-    });
+    const filteredConversations = useMemo(() => {
+        let result = conversations.filter((conv) => {
+            if (!searchQuery.trim()) return true;
+            const prefs = convPrefs[conv.id] ?? {};
+            const baseName = currentUser
+                ? getConversationDisplayName(conv, currentUser.id, users)
+                : "";
+            const displayName = prefs.nickname || baseName;
+            return displayName.toLowerCase().includes(searchQuery.toLowerCase());
+        });
+
+        // Sort by local pinned status (pinned first), then by updatedAt
+        result.sort((a, b) => {
+            const aPinned = (convPrefs[a.id]?.isPinned ?? a.isPinned) ? 1 : 0;
+            const bPinned = (convPrefs[b.id]?.isPinned ?? b.isPinned) ? 1 : 0;
+            if (aPinned !== bPinned) return bPinned - aPinned;
+            return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+        });
+
+        return result;
+    }, [conversations, searchQuery, currentUser, users, convPrefs]);
 
     const renderSkeleton = () =>
         Array.from({ length: 6 }).map((_, i) => (
@@ -217,9 +242,12 @@ export function ChatList() {
     };
 
     const renderConversationItem = (conv: ConversationResponse) => {
-        const displayName = currentUser
+        const prefs = convPrefs[conv.id] ?? {};
+        const baseName = currentUser
             ? getConversationDisplayName(conv, currentUser.id, users)
             : "...";
+        // Use nickname from local prefs, then server, then original name
+        const displayName = prefs.nickname ?? conv.nickname ?? baseName;
         const avatarUrl = currentUser
             ? getConversationAvatar(conv, currentUser.id, users)
             : undefined;
@@ -228,6 +256,8 @@ export function ChatList() {
         const unreadCount = unreadMsgNotifications.filter(
             (n) => n.referenceId === conv.id
         ).length;
+        const isPinned = prefs.isPinned ?? conv.isPinned ?? false;
+        const isMuted = prefs.isMuted ?? conv.isMuted ?? false;
 
         return (
             <ContextMenu key={conv.id}>
@@ -272,9 +302,13 @@ export function ChatList() {
                             {/* Info */}
                             <div className="flex-1 overflow-hidden">
                                 <div className="flex items-center justify-between mb-0.5">
-                                    <span className="font-normal truncate block text-[15px] text-foreground">
-                                        {displayName}
-                                    </span>
+                                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                                        <span className="font-normal truncate block text-[15px] text-foreground">
+                                            {displayName}
+                                        </span>
+                                        {isPinned && <Pin size={14} className="text-brand shrink-0" />}
+                                        {isMuted && <BellOff size={14} className="text-muted-foreground shrink-0" />}
+                                    </div>
                                     {conv.updatedAt && (
                                         <span className="text-[12px] text-muted-foreground/80 whitespace-nowrap ml-2">
                                             {formatZaloTime(conv.updatedAt)}
@@ -318,10 +352,18 @@ export function ChatList() {
                 </ContextMenuTrigger>
                 <ContextMenuContent className="w-56">
                     <ContextMenuItem
-                        onClick={() => toast.info("Development in progress...")}
+                        onClick={() => {
+                            const pinnedCount = Object.values(convPrefs).filter((p) => p.isPinned).length;
+                            if (!isPinned && pinnedCount >= 5) {
+                                toast.warning("Chỉ có thể ghim tối đa 5 hội thoại");
+                                return;
+                            }
+                            storeSetPin(conv.id, !isPinned);
+                            toast.success(isPinned ? "Đã bỏ ghim hội thoại" : "Đã ghim hội thoại");
+                        }}
                     >
                         <Pin className="mr-2 h-4 w-4" />
-                        <span>Ghim</span>
+                        <span>{isPinned ? "Bỏ ghim" : "Ghim"}</span>
                     </ContextMenuItem>
 
                     <ContextMenuSub>
@@ -355,10 +397,13 @@ export function ChatList() {
                     </ContextMenuSub>
 
                     <ContextMenuItem
-                        onClick={() => toast.info("Development in progress...")}
+                        onClick={() => {
+                            storeSetMute(conv.id, !isMuted);
+                            toast.success(isMuted ? "Đã bật thông báo" : "Đã tắt thông báo");
+                        }}
                     >
                         <BellOff className="mr-2 h-4 w-4" />
-                        <span>Tắt thông báo</span>
+                        <span>{isMuted ? "Bật thông báo" : "Tắt thông báo"}</span>
                     </ContextMenuItem>
 
                     <ContextMenuSeparator />
@@ -386,7 +431,7 @@ export function ChatList() {
 
     return (
         <>
-            <aside className="w-full md:w-85 lg:w-[350px] flex flex-col border-r border-border shrink-0 h-full overflow-hidden bg-background">
+            <aside className="w-full md:w-85 lg:w-[350px] flex flex-col border-r border-border shrink-0 h-full overflow-hidden bg-background dark:bg-[#22252b]">
                 {/* Search Header */}
                 <div className="px-4 py-4 flex items-center gap-2 border-b border-border/50 bg-muted/10">
                     <Button
@@ -474,4 +519,4 @@ export function ChatList() {
             />
         </>
     );
-}
+});
