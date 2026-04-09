@@ -461,10 +461,11 @@ export function MessageList({
                                     </button>
                                     <div
                                         className={cn(
-                                            "absolute bottom-full mb-1 hidden group-hover/react:flex items-center gap-0.5 bg-popover border border-border rounded-full px-1 py-0.5 shadow-lg z-50",
+                                            "absolute bottom-full pb-2 hidden group-hover/react:flex flex-col items-center z-50",
                                             isMe ? "right-0" : "left-0",
                                         )}
                                     >
+                                    <div className="flex items-center gap-0.5 bg-popover border border-border rounded-full px-1 py-0.5 shadow-lg">
                                         {QUICK_EMOJIS.map((emoji) => (
                                             <button
                                                 key={emoji}
@@ -474,6 +475,7 @@ export function MessageList({
                                                 {emoji}
                                             </button>
                                         ))}
+                                    </div>
                                     </div>
                                 </div>
                                 <button

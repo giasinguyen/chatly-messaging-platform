@@ -221,6 +221,7 @@ export const ChatWindow = memo(({ id }: ChatWindowProps) => {
                 });
                 if (msg.senderId !== currentUser?.id) {
                     sendSeen(msg.id);
+                    new Audio("/sounds/message_ting_ting.mp3").play().catch(() => {});
                 }
             } else if (action === "EDIT" || action === "RECALL" || action === "REACT") {
                 setMessages((prev) =>
