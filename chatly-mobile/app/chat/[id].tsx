@@ -7,7 +7,7 @@ import {
   ActivityIndicator,
   Alert,
 } from 'react-native';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ChatHeader } from '@/components/chat/ChatHeader';
 import { MessageBubble } from '@/components/chat/MessageBubble';
@@ -32,6 +32,7 @@ const PAGE_SIZE = 20;
 
 export default function ChatScreen() {
   const { id: conversationId } = useLocalSearchParams<{ id: string }>();
+  const router = useRouter();
   const insets = useSafeAreaInsets();
   const user = useAuthStore((s) => s.user);
   const flatListRef = useRef<FlatList>(null);
@@ -358,6 +359,7 @@ export default function ChatScreen() {
         isGroup={isGroup}
         memberCount={conversation?.participantIds.length}
         isOnline={!isGroup && otherUserOnline}
+        onPressInfo={isGroup ? () => router.push(`/chat/${conversationId}/info`) : undefined}
       />
 
       {/* Messages */}
