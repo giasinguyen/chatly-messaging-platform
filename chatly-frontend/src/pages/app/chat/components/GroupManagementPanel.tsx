@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { groupService } from "@/services/group.service";
-import { userService } from "@/services/user.service";
+import { fileService } from "@/services/file.service";
 import { useAuthStore } from "@/store/auth.store";
+import { AddMembersDialog } from "./AddMembersDialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,11 +28,11 @@ import {
     X,
     Loader2,
     Save,
+    Upload,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import type { GroupMemberResponse, GroupRole } from "@/types/group";
-import type { UserResponse } from "@/types/auth";
 
 interface GroupManagementPanelProps {
     conversationId: string;
@@ -39,6 +40,8 @@ interface GroupManagementPanelProps {
     onOpenChange: (open: boolean) => void;
     initialGroupName?: string;
     initialGroupAvatar?: string;
+    onGroupUpdated?: (name: string, avatarUrl?: string) => void;
+    defaultTab?: "members" | "settings";
 }
 
 const ROLE_CONFIG: Record<
@@ -87,6 +90,8 @@ export function GroupManagementPanel({
     onOpenChange,
     initialGroupName = "",
     initialGroupAvatar = "",
+    onGroupUpdated,
+    defaultTab = "members",
 }: GroupManagementPanelProps) {
     const { user: currentUser } = useAuthStore();
 
@@ -96,18 +101,16 @@ export function GroupManagementPanel({
     // Member list filter
     const [memberSearch, setMemberSearch] = useState("");
 
-    // Add member search
-    const [addSearchQuery, setAddSearchQuery] = useState("");
-    const [addSearchResults, setAddSearchResults] = useState<UserResponse[]>([]);
-    const [addSearchLoading, setAddSearchLoading] = useState(false);
-    const [selectedToAdd, setSelectedToAdd] = useState<UserResponse | null>(null);
-    const [addSubmitting, setAddSubmitting] = useState(false);
-    const addSearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+    // Add members dialog
+    const [showAddMembersDialog, setShowAddMembersDialog] = useState(false);
 
     // Group settings
     const [groupName, setGroupName] = useState(initialGroupName);
     const [groupAvatar, setGroupAvatar] = useState(initialGroupAvatar);
     const [settingsSaving, setSettingsSaving] = useState(false);
+    const [avatarUploading, setAvatarUploading] = useState(false);
+    const [allowMembersUpdate, setAllowMembersUpdate] = useState(true);
+    const avatarInputRef = useRef<HTMLInputElement>(null);
 
     // Inline role dropdown
     const [roleMenuOpenFor, setRoleMenuOpenFor] = useState<string | null>(null);
@@ -145,57 +148,27 @@ export function GroupManagementPanel({
         if (open) {
             fetchMembers();
             setMemberSearch("");
-            setAddSearchQuery("");
-            setAddSearchResults([]);
-            setSelectedToAdd(null);
             setGroupName(initialGroupName);
             setGroupAvatar(initialGroupAvatar);
         }
     }, [open, fetchMembers, initialGroupName, initialGroupAvatar]);
 
-    // Debounced user search for adding members
-    useEffect(() => {
-        if (addSearchTimer.current) clearTimeout(addSearchTimer.current);
-        if (!addSearchQuery.trim()) {
-            setAddSearchResults([]);
-            setAddSearchLoading(false);
-            return;
-        }
-        setAddSearchLoading(true);
-        addSearchTimer.current = setTimeout(async () => {
-            try {
-                const res = await userService.search(addSearchQuery.trim(), 0, 10);
-                const items = res.result?.items ?? [];
-                setAddSearchResults(
-                    items.filter(
-                        (u) =>
-                            u.id !== currentUser?.id &&
-                            !members.some((m) => m.userId === u.id),
-                    ),
-                );
-            } catch {
-                // silently ignore
-            } finally {
-                setAddSearchLoading(false);
-            }
-        }, 300);
-    }, [addSearchQuery, members, currentUser?.id]);
-
     // ── Actions ───────────────────────────────────────────────────────
-    const handleAddMember = async () => {
-        if (!selectedToAdd) return;
-        setAddSubmitting(true);
+    const handleAvatarFileChange = async (
+        e: React.ChangeEvent<HTMLInputElement>,
+    ) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        setAvatarUploading(true);
         try {
-            await groupService.addMember(conversationId, { userId: selectedToAdd.id });
-            toast.success(`Đã thêm ${selectedToAdd.displayName} vào nhóm`);
-            setSelectedToAdd(null);
-            setAddSearchQuery("");
-            setAddSearchResults([]);
-            fetchMembers();
+            const res = await fileService.upload(file);
+            setGroupAvatar(res.url);
+            toast.success("Đã tải ảnh lên");
         } catch {
-            toast.error("Không thể thêm thành viên");
+            toast.error("Không thể tải ảnh lên");
         } finally {
-            setAddSubmitting(false);
+            setAvatarUploading(false);
+            if (avatarInputRef.current) avatarInputRef.current.value = "";
         }
     };
 
@@ -230,8 +203,10 @@ export function GroupManagementPanel({
             await groupService.updateGroup(conversationId, {
                 name: groupName.trim(),
                 avatar: groupAvatar.trim() || undefined,
+                allowMembersUpdateInfo: allowMembersUpdate,
             });
             toast.success("Đã lưu thông tin nhóm");
+            onGroupUpdated?.(groupName.trim(), groupAvatar.trim() || undefined);
         } catch {
             toast.error("Không thể cập nhật nhóm");
         } finally {
@@ -248,6 +223,7 @@ export function GroupManagementPanel({
     };
 
     return (
+        <>
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-md p-0 gap-0 overflow-hidden max-h-[85vh] flex flex-col">
                 {/* Header */}
@@ -263,7 +239,7 @@ export function GroupManagementPanel({
                     </p>
                 </DialogHeader>
 
-                <Tabs defaultValue="members" className="flex flex-1 min-h-0 flex-col">
+                <Tabs defaultValue={defaultTab} className="flex flex-1 min-h-0 flex-col">
                     <div className="px-5 shrink-0">
                         <TabsList className="h-9 w-full bg-muted/50">
                             <TabsTrigger value="members" className="flex-1 gap-1.5 text-xs">
@@ -303,130 +279,13 @@ export function GroupManagementPanel({
                                     size="sm"
                                     variant="outline"
                                     className="h-8 shrink-0 gap-1.5 border-brand/30 text-brand text-xs hover:bg-brand/10 hover:text-brand"
-                                    onClick={() => {
-                                        setSelectedToAdd(null);
-                                        setAddSearchQuery("");
-                                    }}
+                                    onClick={() => setShowAddMembersDialog(true)}
                                 >
                                     <UserPlus size={13} />
                                     Thêm
                                 </Button>
                             )}
                         </div>
-
-                        {/* Add-member search panel (always visible for admins) */}
-                        {isOwnerOrAdmin && (
-                            <div className="mb-3 shrink-0 space-y-2 rounded-lg border border-border/70 bg-muted/20 p-3">
-                                <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                                    Thêm thành viên mới
-                                </p>
-                                <div className="relative">
-                                    <Search
-                                        size={13}
-                                        className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground"
-                                    />
-                                    <Input
-                                        placeholder="Tìm theo tên, username..."
-                                        value={addSearchQuery}
-                                        onChange={(e) => {
-                                            setAddSearchQuery(e.target.value);
-                                            setSelectedToAdd(null);
-                                        }}
-                                        className="h-8 pl-8 text-sm"
-                                    />
-                                    {addSearchLoading && (
-                                        <Loader2
-                                            size={13}
-                                            className="absolute right-2.5 top-1/2 -translate-y-1/2 animate-spin text-muted-foreground"
-                                        />
-                                    )}
-                                </div>
-
-                                {/* Results */}
-                                {addSearchResults.length > 0 && (
-                                    <div className="max-h-36 divide-y divide-border/50 overflow-y-auto rounded-md border border-border bg-background">
-                                        {addSearchResults.map((u) => (
-                                            <button
-                                                type="button"
-                                                key={u.id}
-                                                onClick={() =>
-                                                    setSelectedToAdd((prev) =>
-                                                        prev?.id === u.id ? null : u,
-                                                    )
-                                                }
-                                                className={cn(
-                                                    "flex w-full items-center gap-2.5 px-3 py-2 text-left transition-colors hover:bg-muted/50",
-                                                    selectedToAdd?.id === u.id &&
-                                                        "bg-brand/10 hover:bg-brand/15",
-                                                )}
-                                            >
-                                                <Avatar className="h-7 w-7 shrink-0">
-                                                    <AvatarImage src={u.avatarUrl} />
-                                                    <AvatarFallback className="text-[11px]">
-                                                        {u.displayName.charAt(0)}
-                                                    </AvatarFallback>
-                                                </Avatar>
-                                                <div className="min-w-0 flex-1">
-                                                    <p className="truncate text-xs font-medium">
-                                                        {u.displayName}
-                                                    </p>
-                                                    <p className="truncate text-[10px] text-muted-foreground">
-                                                        @{u.username}
-                                                    </p>
-                                                </div>
-                                                {selectedToAdd?.id === u.id && (
-                                                    <Check size={13} className="shrink-0 text-brand" />
-                                                )}
-                                            </button>
-                                        ))}
-                                    </div>
-                                )}
-
-                                {addSearchQuery.trim() &&
-                                    !addSearchLoading &&
-                                    addSearchResults.length === 0 && (
-                                        <p className="py-1 text-center text-[11px] text-muted-foreground">
-                                            Không tìm thấy người dùng
-                                        </p>
-                                    )}
-
-                                {selectedToAdd && (
-                                    <div className="flex items-center justify-between gap-2 pt-1">
-                                        <p className="truncate text-xs text-muted-foreground">
-                                            Thêm{" "}
-                                            <span className="font-medium text-foreground">
-                                                {selectedToAdd.displayName}
-                                            </span>
-                                        </p>
-                                        <div className="flex shrink-0 gap-1.5">
-                                            <Button
-                                                size="sm"
-                                                variant="ghost"
-                                                className="h-7 w-7 p-0"
-                                                onClick={() => {
-                                                    setSelectedToAdd(null);
-                                                    setAddSearchQuery("");
-                                                }}
-                                            >
-                                                <X size={13} />
-                                            </Button>
-                                            <Button
-                                                size="sm"
-                                                className="h-7 px-3 text-xs"
-                                                disabled={addSubmitting}
-                                                onClick={handleAddMember}
-                                            >
-                                                {addSubmitting ? (
-                                                    <Loader2 size={12} className="animate-spin" />
-                                                ) : (
-                                                    "Xác nhận"
-                                                )}
-                                            </Button>
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                        )}
 
                         {/* Member list */}
                         <ScrollArea className="-mx-1 flex-1 min-h-0 px-1">
@@ -487,28 +346,81 @@ export function GroupManagementPanel({
 
                                 <div className="space-y-1.5">
                                     <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                                        Ảnh đại diện (URL)
+                                        Ảnh đại diện nhóm
                                     </label>
-                                    <Input
-                                        value={groupAvatar}
-                                        onChange={(e) => setGroupAvatar(e.target.value)}
-                                        placeholder="https://..."
-                                        className="h-9 text-sm"
-                                    />
-                                    {groupAvatar.trim() && (
-                                        <div className="flex items-center gap-2 pt-1">
-                                            <Avatar className="h-9 w-9">
-                                                <AvatarImage src={groupAvatar} />
-                                                <AvatarFallback>?</AvatarFallback>
-                                            </Avatar>
-                                            <span className="text-xs text-muted-foreground">
-                                                Xem trước
-                                            </span>
+                                    <div className="flex items-center gap-3">
+                                        <Avatar className="h-14 w-14 shrink-0">
+                                            <AvatarImage src={groupAvatar} />
+                                            <AvatarFallback className="text-xl font-semibold">
+                                                {groupName.charAt(0).toUpperCase() || "?"}
+                                            </AvatarFallback>
+                                        </Avatar>
+                                        <div className="flex flex-col gap-2">
+                                            <input
+                                                ref={avatarInputRef}
+                                                type="file"
+                                                accept="image/*"
+                                                className="hidden"
+                                                onChange={handleAvatarFileChange}
+                                            />
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => avatarInputRef.current?.click()}
+                                                disabled={avatarUploading}
+                                                className="h-8 text-xs gap-1.5"
+                                            >
+                                                {avatarUploading ? (
+                                                    <Loader2 size={12} className="animate-spin" />
+                                                ) : (
+                                                    <Upload size={12} />
+                                                )}
+                                                {avatarUploading ? "Đang tải..." : "Chọn ảnh"}
+                                            </Button>
+                                            {groupAvatar && (
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    onClick={() => setGroupAvatar("")}
+                                                    className="h-8 text-xs gap-1.5 text-muted-foreground hover:text-destructive"
+                                                >
+                                                    <X size={12} />
+                                                    Xóa ảnh
+                                                </Button>
+                                            )}
                                         </div>
-                                    )}
+                                    </div>
                                 </div>
 
                                 <Separator />
+
+                                <div className="flex items-center justify-between gap-3 rounded-lg border border-border/50 bg-muted/20 px-3 py-2.5">
+                                    <div className="flex-1 min-w-0">
+                                        <p className="text-sm font-medium text-foreground">
+                                            Cho phép thành viên cập nhật
+                                        </p>
+                                        <p className="mt-1 text-xs text-muted-foreground">
+                                            Nếu bật, tất cả thành viên có thể thay đổi tên và ảnh nhóm
+                                        </p>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => setAllowMembersUpdate(!allowMembersUpdate)}
+                                        className={cn(
+                                            "relative h-6 w-10 shrink-0 rounded-full transition-colors",
+                                            allowMembersUpdate ? "bg-brand" : "bg-muted/40"
+                                        )}
+                                    >
+                                        <div
+                                            className={cn(
+                                                "absolute top-1 h-4 w-4 rounded-full bg-white transition-transform",
+                                                allowMembersUpdate ? "translate-x-5" : "translate-x-1"
+                                            )}
+                                        />
+                                    </button>
+                                </div>
 
                                 <Button
                                     onClick={handleSaveSettings}
@@ -529,6 +441,16 @@ export function GroupManagementPanel({
                 </Tabs>
             </DialogContent>
         </Dialog>
+
+        {/* Add Members Dialog */}
+        <AddMembersDialog
+            open={showAddMembersDialog}
+            onOpenChange={setShowAddMembersDialog}
+            conversationId={conversationId}
+            existingMemberIds={members.map((m) => m.userId)}
+            onAdded={fetchMembers}
+        />
+        </>
     );
 }
 

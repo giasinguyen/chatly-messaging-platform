@@ -6,12 +6,17 @@ import { ChatInput } from "./ChatInput";
 import type { ChatInputRef } from "./ChatInput";
 import { MessageSearch } from "./MessageSearch";
 import { GroupManagementPanel } from "./GroupManagementPanel";
+import { ConversationInfoPanel } from "./ConversationInfoPanel";
+import { CreateGroupDialog } from "./CreateGroupDialog";
 import { conversationService } from "@/services/conversation.service";
 import { contactService } from "@/services/contact.service";
 import { messageService } from "@/services/message.service";
 import { notificationService } from "@/services/notification.service";
 import { userService } from "@/services/user.service";
+import { groupService } from "@/services/group.service";
+import { fileService } from "@/services/file.service";
 import { useAuthStore } from "@/store/auth.store";
+import { useConversationPrefsStore } from "@/store/conversationPrefs.store";
 import { useNotificationStore } from "@/store/notification.store";
 import { useChatSocket } from "@/hooks/useChatSocket";
 import {
@@ -53,6 +58,7 @@ const PAGE_SIZE = 20;
 
 interface ChatWindowProps {
     id: string;
+    onConversationUpdated?: (updated: ConversationResponse) => void;
 }
 
 function getPrivacyFlag(user: Record<string, unknown>, field: "phone" | "dob") {
@@ -114,9 +120,10 @@ function formatDob(dob?: string) {
     }).format(parsed);
 }
 
-export const ChatWindow = memo(({ id }: ChatWindowProps) => {
+export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) => {
     const navigate = useNavigate();
     const currentUser = useAuthStore((s) => s.user);
+    const { getPrefs } = useConversationPrefsStore();
     const [failedMessages, setFailedMessages] = useState<Array<{ id: string, content: string, attachments?: import("@/types/message").Attachment[], replyToId?: string | null }>>([]);
     const markConvMessagesRead = useNotificationStore(
         (s) => s.markConvMessagesRead,
@@ -164,9 +171,15 @@ export const ChatWindow = memo(({ id }: ChatWindowProps) => {
     const [isEditingGroup, setIsEditingGroup] = useState(false);
     const [groupNameDraft, setGroupNameDraft] = useState("");
     const [groupAvatarDraft, setGroupAvatarDraft] = useState("");
+    const [groupAvatarUploading, setGroupAvatarUploading] = useState(false);
+    const [groupProfileSaving, setGroupProfileSaving] = useState(false);
     const [showGroupPanel, setShowGroupPanel] = useState(false);
     const [showSearch, setShowSearch] = useState(false);
     const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
+    const [groupPanelDefaultTab, setGroupPanelDefaultTab] = useState<"members" | "settings">("members");
+    const [createGroupFromPrivateOpen, setCreateGroupFromPrivateOpen] = useState(false);
+    const groupAvatarInputRef = useRef<HTMLInputElement>(null);
+
     const [selectedProfileUser, setSelectedProfileUser] =
         useState<ChatUser | null>(null);
     // Presence tracking
@@ -213,6 +226,12 @@ export const ChatWindow = memo(({ id }: ChatWindowProps) => {
     const onEvent = useCallback(
         (event: ChatEvent) => {
             const { action, message: msg } = event;
+
+            // Ignore GROUP_UPDATE events in ChatWindow message handler
+            if (action === "GROUP_UPDATE") return;
+
+            // Guard: msg should be defined for message actions
+            if (!msg) return;
 
             if (action === "SEND") {
                 setMessages((prev) => {
@@ -640,8 +659,24 @@ export const ChatWindow = memo(({ id }: ChatWindowProps) => {
         participant?.avatarUrl,
     ]);
 
-    const handleSaveGroupProfile = useCallback(() => {
-        if (conversation?.type !== "GROUP") return;
+    const handleGroupAvatarFileChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        setGroupAvatarUploading(true);
+        try {
+            const res = await fileService.upload(file);
+            setGroupAvatarDraft(res.url);
+            toast.success("Đã tải ảnh lên");
+        } catch {
+            toast.error("Không thể tải ảnh lên");
+        } finally {
+            setGroupAvatarUploading(false);
+            if (groupAvatarInputRef.current) groupAvatarInputRef.current.value = "";
+        }
+    }, []);
+
+    const handleSaveGroupProfile = useCallback(async () => {
+        if (conversation?.type !== "GROUP" || !conversation?.id) return;
 
         const nextName = groupNameDraft.trim();
         if (!nextName) {
@@ -650,30 +685,26 @@ export const ChatWindow = memo(({ id }: ChatWindowProps) => {
         }
 
         const nextAvatar = groupAvatarDraft.trim();
-
-        setParticipant((prev) =>
-            prev
-                ? {
-                      ...prev,
-                      displayName: nextName,
-                      avatarUrl: nextAvatar || undefined,
-                  }
-                : prev,
-        );
-
-        setConversation((prev) =>
-            prev
-                ? {
-                      ...prev,
-                      name: nextName,
-                      avatarUrl: nextAvatar || null,
-                  }
-                : prev,
-        );
-
-        setIsEditingGroup(false);
-        toast.success("Đã cập nhật thông tin nhóm");
-    }, [conversation?.type, groupAvatarDraft, groupNameDraft]);
+        setGroupProfileSaving(true);
+        try {
+            await groupService.updateGroup(conversation.id, {
+                name: nextName,
+                avatar: nextAvatar || undefined,
+            });
+            setParticipant((prev) =>
+                prev ? { ...prev, displayName: nextName, avatarUrl: nextAvatar || prev.avatarUrl } : prev,
+            );
+            setConversation((prev) =>
+                prev ? { ...prev, name: nextName, avatarUrl: nextAvatar || prev.avatarUrl } : prev,
+            );
+            setIsEditingGroup(false);
+            toast.success("Đã cập nhật thông tin nhóm");
+        } catch {
+            toast.error("Không thể cập nhật thông tin nhóm");
+        } finally {
+            setGroupProfileSaving(false);
+        }
+    }, [conversation?.type, conversation?.id, groupAvatarDraft, groupNameDraft]);
 
     // ----------------------------------------------------------------
     // Render states
@@ -747,9 +778,16 @@ export const ChatWindow = memo(({ id }: ChatWindowProps) => {
         ? (presenceMap[participant.id] ?? undefined)
         : undefined;
 
+    // Get local prefs (pin/mute status)
+    const prefs = getPrefs(id);
+    const isPinned = prefs.isPinned ?? conversation.isPinned ?? false;
+    const isMuted = prefs.isMuted ?? conversation.isMuted ?? false;
+    const nickname = prefs.nickname ?? conversation.nickname;
+
     return (
+        <div className="flex-1 flex flex-row overflow-hidden">
         <div 
-            className="flex-1 flex flex-col overflow-hidden bg-background relative"
+            className="flex-1 flex flex-col overflow-hidden bg-background dark:bg-[#16191f] relative min-w-0"
             onDragEnter={handleDragEnter}
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
@@ -783,6 +821,9 @@ export const ChatWindow = memo(({ id }: ChatWindowProps) => {
                 presenceStatus={participantPresence?.status}
                 lastSeen={participantPresence?.lastSeen}
                 onBack={() => navigate("/chat")}
+                isPinned={isPinned}
+                isMuted={isMuted}
+                nickname={nickname}
             />
 
             {showSearch && (
@@ -1043,23 +1084,33 @@ export const ChatWindow = memo(({ id }: ChatWindowProps) => {
 
                                     {isEditingGroup && (
                                         <div className="mt-3 space-y-2">
-                                            <Input
-                                                value={groupAvatarDraft}
-                                                onChange={(e) =>
-                                                    setGroupAvatarDraft(
-                                                        e.target.value,
-                                                    )
-                                                }
-                                                placeholder="URL ảnh nhóm"
+                                            <input
+                                                ref={groupAvatarInputRef}
+                                                type="file"
+                                                accept="image/*"
+                                                className="hidden"
+                                                onChange={handleGroupAvatarFileChange}
                                             />
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                className="w-full"
+                                                disabled={groupAvatarUploading}
+                                                onClick={() => groupAvatarInputRef.current?.click()}
+                                            >
+                                                {groupAvatarUploading ? (
+                                                    <><Loader2 size={14} className="mr-2 animate-spin" />Đang tải ảnh...</>
+                                                ) : (
+                                                    <><Upload size={14} className="mr-2" />{groupAvatarDraft ? "Đổi ảnh nhóm" : "Chọn ảnh nhóm"}</>
+                                                )}
+                                            </Button>
                                             <div className="flex items-center justify-end gap-2">
                                                 <Button
                                                     variant="ghost"
                                                     size="sm"
+                                                    disabled={groupProfileSaving}
                                                     onClick={() => {
-                                                        setIsEditingGroup(
-                                                            false,
-                                                        );
+                                                        setIsEditingGroup(false);
                                                         setGroupNameDraft(
                                                             participant.displayName ||
                                                                 conversation.name ||
@@ -1076,11 +1127,10 @@ export const ChatWindow = memo(({ id }: ChatWindowProps) => {
                                                 </Button>
                                                 <Button
                                                     size="sm"
-                                                    onClick={
-                                                        handleSaveGroupProfile
-                                                    }
+                                                    disabled={groupProfileSaving || groupAvatarUploading}
+                                                    onClick={handleSaveGroupProfile}
                                                 >
-                                                    Lưu
+                                                    {groupProfileSaving ? <><Loader2 size={14} className="mr-1 animate-spin" />Lưu...</> : "Lưu"}
                                                 </Button>
                                             </div>
                                         </div>
@@ -1194,8 +1244,52 @@ export const ChatWindow = memo(({ id }: ChatWindowProps) => {
                     onOpenChange={setShowGroupPanel}
                     initialGroupName={conversation?.name ?? ""}
                     initialGroupAvatar={conversation?.avatarUrl ?? ""}
+                    defaultTab={groupPanelDefaultTab}
+                    onGroupUpdated={(name, avatarUrl) => {
+                        setConversation((prev) =>
+                            prev ? { ...prev, name, avatarUrl: avatarUrl ?? prev.avatarUrl } : prev,
+                        );
+                        setParticipant((prev) =>
+                            prev ? { ...prev, displayName: name, avatarUrl: avatarUrl ?? prev.avatarUrl } : prev,
+                        );
+                    }}
                 />
             )}
+
+            {/* Create Group from private conversation */}
+            <CreateGroupDialog
+                open={createGroupFromPrivateOpen}
+                onOpenChange={setCreateGroupFromPrivateOpen}
+                onCreated={(conv) => {
+                    navigate(`/chat/${conv.id}`);
+                }}
+            />
+        </div>
+
+            {/* Conversation Info Panel (right sidebar - always visible on lg+) */}
+            <ConversationInfoPanel
+                conversation={conversation}
+                participant={participant}
+                currentUserId={currentUser?.id ?? ""}
+                onDeleteConversation={() => navigate("/chat")}
+                onOpenGroupPanel={isGroup ? () => { setGroupPanelDefaultTab("members"); setShowGroupPanel(true); } : undefined}
+                onCreateGroup={!isGroup ? () => setCreateGroupFromPrivateOpen(true) : undefined}
+                onNicknameChange={(nickname) => {
+                    setParticipant((prev) => prev ? { ...prev, displayName: nickname } : prev);
+                }}
+                onGroupUpdated={(name, avatarUrl) => {
+                    setConversation((prev) =>
+                        prev ? { ...prev, name, avatarUrl: avatarUrl ?? prev.avatarUrl } : prev,
+                    );
+                    setParticipant((prev) =>
+                        prev ? { ...prev, displayName: name, avatarUrl: avatarUrl ?? prev.avatarUrl } : prev,
+                    );
+                }}
+                onConversationUpdate={(updated) => {
+                    setConversation(updated);
+                    onConversationUpdated?.(updated);
+                }}
+            />
         </div>
     );
 });

@@ -42,4 +42,7 @@ public class Conversation {
 
     @LastModifiedDate
     private Instant updatedAt;
+
+    @Builder.Default
+    private Boolean allowMembersUpdateInfo = true;
 }

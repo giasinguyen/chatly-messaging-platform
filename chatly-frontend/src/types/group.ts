@@ -20,4 +20,5 @@ export interface UpdateRoleRequest {
 export interface GroupUpdateRequest {
     name?: string;
     avatar?: string;
+    allowMembersUpdateInfo?: boolean;
 }

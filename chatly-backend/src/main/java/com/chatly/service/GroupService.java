@@ -16,7 +16,9 @@ import com.chatly.model.postgres.User;
 import com.chatly.repository.mongo.ConversationRepository;
 import com.chatly.repository.postgres.GroupMemberRepository;
 import com.chatly.repository.postgres.UserRepository;
+import com.chatly.websocket.ChatEvent;
 import lombok.RequiredArgsConstructor;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,6 +34,7 @@ public class GroupService {
     private final UserRepository userRepository;
     private final ConversationMapper conversationMapper;
     private final NotificationService notificationService;
+    private final SimpMessagingTemplate messagingTemplate;
 
     /**
      * Add a member to a group conversation.
@@ -139,12 +142,21 @@ public class GroupService {
     }
 
     /**
-     * Update group conversation info (name, avatar).
+     * Update group conversation info (name, avatar, permissions).
      */
     @Transactional
     public ConversationResponse updateGroup(String conversationId, GroupUpdateRequest request, String requesterId) {
         Conversation conversation = getGroupConversation(conversationId);
-        requireOwnerOrAdmin(conversationId, requesterId);
+        
+        // Check permission: only owner/admin can always update; members can update only if allowMembersUpdateInfo is true
+        // Treat null as true (field didn't exist for older groups; default is "allowed")
+        GroupMember requester = requireGroupMember(conversationId, requesterId);
+        boolean isOwnerOrAdmin = requester.getRole() == GroupRole.OWNER || requester.getRole() == GroupRole.ADMIN;
+        boolean canUpdate = isOwnerOrAdmin || !Boolean.FALSE.equals(conversation.getAllowMembersUpdateInfo());
+        
+        if (!canUpdate) {
+            throw new AppException(ErrorCode.GROUP_PERMISSION_DENIED);
+        }
 
         if (request.getName() != null) {
             conversation.setName(request.getName());
@@ -152,9 +164,18 @@ public class GroupService {
         if (request.getAvatar() != null) {
             conversation.setAvatarUrl(request.getAvatar());
         }
+        if (request.getAllowMembersUpdateInfo() != null && isOwnerOrAdmin) {
+            // Only owner/admin can change this setting
+            conversation.setAllowMembersUpdateInfo(request.getAllowMembersUpdateInfo());
+        }
 
         conversation = conversationRepository.save(conversation);
-        return conversationMapper.toResponse(conversation);
+        ConversationResponse response = conversationMapper.toResponse(conversation);
+        
+        // Broadcast GROUP_UPDATE event to all participants
+        broadcastGroupUpdate(conversationId, response);
+        
+        return response;
     }
 
     /**
@@ -200,6 +221,12 @@ public class GroupService {
         return member;
     }
 
+    private GroupMember requireGroupMember(String conversationId, String userId) {
+        UUID uid = UUID.fromString(userId);
+        return groupMemberRepository.findByConversationIdAndUserId(conversationId, uid)
+                .orElseThrow(() -> new AppException(ErrorCode.GROUP_MEMBER_NOT_FOUND));
+    }
+
     private GroupMemberResponse toMemberResponse(GroupMember member) {
         User user = member.getUser();
         return GroupMemberResponse.builder()
@@ -210,5 +237,20 @@ public class GroupService {
                 .role(member.getRole())
                 .joinedAt(member.getJoinedAt())
                 .build();
+    }
+
+    private void broadcastGroupUpdate(String conversationId, ConversationResponse updatedConversation) {
+        try {
+            messagingTemplate.convertAndSend(
+                    "/topic/conversation." + conversationId,
+                    ChatEvent.builder()
+                            .action(ChatEvent.ChatAction.GROUP_UPDATE)
+                            .conversationData(updatedConversation)
+                            .build()
+            );
+        } catch (Exception e) {
+            // Log but don't throw - broadcast failure shouldn't break the update
+            System.err.println("Failed to broadcast group update: " + e.getMessage());
+        }
     }
 }
