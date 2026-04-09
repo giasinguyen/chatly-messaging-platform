@@ -139,18 +139,30 @@ public class GroupService {
     }
 
     /**
-     * Update group conversation info (name, avatar).
+     * Update group conversation info (name, avatar, permissions).
      */
     @Transactional
     public ConversationResponse updateGroup(String conversationId, GroupUpdateRequest request, String requesterId) {
         Conversation conversation = getGroupConversation(conversationId);
-        requireOwnerOrAdmin(conversationId, requesterId);
+        
+        // Check permission: only owner/admin can always update; members can update only if allowMembersUpdateInfo is true
+        GroupMember requester = requireGroupMember(conversationId, requesterId);
+        boolean isOwnerOrAdmin = requester.getRole() == GroupRole.OWNER || requester.getRole() == GroupRole.ADMIN;
+        boolean canUpdate = isOwnerOrAdmin || (conversation.getAllowMembersUpdateInfo() != null && conversation.getAllowMembersUpdateInfo());
+        
+        if (!canUpdate) {
+            throw new AppException(ErrorCode.GROUP_PERMISSION_DENIED);
+        }
 
         if (request.getName() != null) {
             conversation.setName(request.getName());
         }
         if (request.getAvatar() != null) {
             conversation.setAvatarUrl(request.getAvatar());
+        }
+        if (request.getAllowMembersUpdateInfo() != null && isOwnerOrAdmin) {
+            // Only owner/admin can change this setting
+            conversation.setAllowMembersUpdateInfo(request.getAllowMembersUpdateInfo());
         }
 
         conversation = conversationRepository.save(conversation);
@@ -198,6 +210,12 @@ public class GroupService {
         }
 
         return member;
+    }
+
+    private GroupMember requireGroupMember(String conversationId, String userId) {
+        UUID uid = UUID.fromString(userId);
+        return groupMemberRepository.findByConversationIdAndUserId(conversationId, uid)
+                .orElseThrow(() -> new AppException(ErrorCode.GROUP_MEMBER_NOT_FOUND));
     }
 
     private GroupMemberResponse toMemberResponse(GroupMember member) {
