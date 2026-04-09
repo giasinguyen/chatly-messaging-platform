@@ -269,7 +269,7 @@ public class AgentClient {
             String serverId, AgentMcpServerUpdateRequest request, String userId, String userRole
     ) {
         return webClient.patch()
-                .uri("/mcp/servers/{id}", serverId)
+                .uri("/mcp/servers/{id}/toggle", serverId)
                 .header("X-User-Id", userId)
                 .header("X-User-Role", userRole)
                 .contentType(MediaType.APPLICATION_JSON)

@@ -117,7 +117,7 @@ class MCPService:
         record = await self._repo.find_by_user_and_id(user_id, server_id)
         if record is None:
             raise MCPServerNotFoundError(f"MCP server {server_id!r} not found")
-        await self._repo.delete_by_id(server_id)
+        await self._repo.delete(server_id)
 
     async def toggle_server(
         self, user_id: str, server_id: str, is_active: bool
