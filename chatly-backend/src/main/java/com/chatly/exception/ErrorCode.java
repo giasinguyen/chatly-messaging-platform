@@ -57,7 +57,10 @@ public enum ErrorCode {
 
     UNAUTHORIZED(1600, "You do not have permission", HttpStatus.FORBIDDEN),
     UNAUTHENTICATED(1601, "Unauthenticated", HttpStatus.UNAUTHORIZED),
-    INVALID_TOKEN(1602, "Invalid or expired token", HttpStatus.UNAUTHORIZED);
+    INVALID_TOKEN(1602, "Invalid or expired token", HttpStatus.UNAUTHORIZED),
+
+    AGENT_SERVICE_ERROR(2000, "AI service temporarily unavailable", HttpStatus.BAD_GATEWAY),
+    AGENT_BAD_REQUEST(2001, "Invalid AI service request", HttpStatus.BAD_REQUEST);
 
     private final int code;
     private final String message;

@@ -1436,6 +1436,406 @@
       "description": "Group management endpoints for adding/removing members, changing roles, and updating group info. Only applicable to GROUP conversations."
     },
     {
+      "name": "AI Agent",
+      "description": "AI chat, session management, file upload for RAG, and MCP server management. All endpoints require JWT authentication — backend handles auth and forwards user context to the internal agent service.",
+      "item": [
+        {
+          "name": "Sessions",
+          "description": "Manage AI chat sessions. Each session has independent message history and RAG context.",
+          "item": [
+            {
+              "name": "Create AI Session",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "if (pm.response.code === 201) {",
+                      "    const jsonData = pm.response.json();",
+                      "    if (jsonData.result && jsonData.result.id) {",
+                      "        pm.collectionVariables.set('aiSessionId', jsonData.result.id);",
+                      "        console.log('AI Session ID saved: ' + jsonData.result.id);",
+                      "    }",
+                      "}"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{accessToken}}", "type": "text" },
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"title\": \"My AI Chat Session\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/ai/sessions",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "ai", "sessions"]
+                },
+                "description": "Create a new AI chat session. Returns session metadata including id, title, userId, createdAt."
+              },
+              "response": []
+            },
+            {
+              "name": "List AI Sessions",
+              "request": {
+                "method": "GET",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{accessToken}}", "type": "text" }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/ai/sessions",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "ai", "sessions"]
+                },
+                "description": "List all AI chat sessions belonging to the current user."
+              },
+              "response": []
+            },
+            {
+              "name": "Get AI Session",
+              "request": {
+                "method": "GET",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{accessToken}}", "type": "text" }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/ai/sessions/{{aiSessionId}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "ai", "sessions", "{{aiSessionId}}"]
+                },
+                "description": "Get one AI session by ID. Returns 404 if not found or not owned by current user."
+              },
+              "response": []
+            },
+            {
+              "name": "Get Message History",
+              "request": {
+                "method": "GET",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{accessToken}}", "type": "text" }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/ai/sessions/{{aiSessionId}}/messages",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "ai", "sessions", "{{aiSessionId}}", "messages"]
+                },
+                "description": "Return all messages in a session sorted oldest-first. Each message has role (user/assistant), content, and createdAt."
+              },
+              "response": []
+            },
+            {
+              "name": "Delete AI Session",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{accessToken}}", "type": "text" }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/ai/sessions/{{aiSessionId}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "ai", "sessions", "{{aiSessionId}}"]
+                },
+                "description": "Delete a session and all its messages. Returns 204 No Content."
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Chat",
+          "description": "Send messages to the AI agent. Supports blocking (full response) and SSE streaming modes. agentType: chatbot | rag | tool",
+          "item": [
+            {
+              "name": "Send Chat Message (Blocking)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{accessToken}}", "type": "text" },
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"message\": \"Hello! What can you help me with?\",\n    \"agentType\": \"chatbot\",\n    \"useWebSearch\": false,\n    \"mcpServerIds\": []\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/ai/sessions/{{aiSessionId}}/chat",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "ai", "sessions", "{{aiSessionId}}", "chat"]
+                },
+                "description": "Send a message and wait for the full response. Returns content, sessionId, messageId. agentType: chatbot (default), rag (uses uploaded files), tool (uses MCP servers + web search)."
+              },
+              "response": []
+            },
+            {
+              "name": "Send Chat Message (RAG)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{accessToken}}", "type": "text" },
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"message\": \"Summarize the documents I uploaded.\",\n    \"agentType\": \"rag\",\n    \"useWebSearch\": false,\n    \"mcpServerIds\": []\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/ai/sessions/{{aiSessionId}}/chat",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "ai", "sessions", "{{aiSessionId}}", "chat"]
+                },
+                "description": "Use RAG agent — queries against uploaded documents in the session via vector search."
+              },
+              "response": []
+            },
+            {
+              "name": "Send Chat Message (Tool + Web Search)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{accessToken}}", "type": "text" },
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"message\": \"What is the latest news about AI in 2026?\",\n    \"agentType\": \"tool\",\n    \"useWebSearch\": true,\n    \"mcpServerIds\": []\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/ai/sessions/{{aiSessionId}}/chat",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "ai", "sessions", "{{aiSessionId}}", "chat"]
+                },
+                "description": "Use tool agent with web search enabled via Tavily."
+              },
+              "response": []
+            },
+            {
+              "name": "Stream Chat Message (SSE)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{accessToken}}", "type": "text" },
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "Accept", "value": "text/event-stream" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"message\": \"Tell me a short story.\",\n    \"agentType\": \"chatbot\",\n    \"useWebSearch\": false,\n    \"mcpServerIds\": []\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/ai/sessions/{{aiSessionId}}/chat/stream",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "ai", "sessions", "{{aiSessionId}}", "chat", "stream"]
+                },
+                "description": "Stream the AI response token-by-token as Server-Sent Events. Response format: data: {\"token\": \"...\"} terminated by data: [DONE]. Use EventSource or curl -N in browser/CLI."
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Files (RAG)",
+          "description": "Upload documents to a session for use by the RAG agent. Supported types: PDF, DOCX, TXT, MD, CSV, JSON. Max 5 MB per file.",
+          "item": [
+            {
+              "name": "Upload File",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "if (pm.response.code === 201) {",
+                      "    const jsonData = pm.response.json();",
+                      "    if (jsonData.result && jsonData.result.id) {",
+                      "        pm.collectionVariables.set('aiFileId', jsonData.result.id);",
+                      "        console.log('AI File ID saved: ' + jsonData.result.id);",
+                      "    }",
+                      "}"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{accessToken}}", "type": "text" }
+                ],
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "file",
+                      "type": "file",
+                      "src": "",
+                      "description": "File to upload (PDF, DOCX, TXT, MD, CSV, JSON)"
+                    }
+                  ]
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/ai/sessions/{{aiSessionId}}/files",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "ai", "sessions", "{{aiSessionId}}", "files"]
+                },
+                "description": "Upload a file. Backend forwards multipart to the agent which stores in MinIO and indexes chunks in Qdrant for RAG queries."
+              },
+              "response": []
+            },
+            {
+              "name": "List Files",
+              "request": {
+                "method": "GET",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{accessToken}}", "type": "text" }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/ai/sessions/{{aiSessionId}}/files",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "ai", "sessions", "{{aiSessionId}}", "files"]
+                },
+                "description": "List all files uploaded to this session."
+              },
+              "response": []
+            },
+            {
+              "name": "Delete File",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{accessToken}}", "type": "text" }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/ai/sessions/{{aiSessionId}}/files/{{aiFileId}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "ai", "sessions", "{{aiSessionId}}", "files", "{{aiFileId}}"]
+                },
+                "description": "Delete a file and all its associated vector chunks from Qdrant. Returns 204."
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "MCP Servers",
+          "description": "Register and manage MCP (Model Context Protocol) servers for the tool agent. Each server exposes tools callable by the LLM.",
+          "item": [
+            {
+              "name": "Register MCP Server",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "if (pm.response.code === 201) {",
+                      "    const jsonData = pm.response.json();",
+                      "    if (jsonData.result && jsonData.result.id) {",
+                      "        pm.collectionVariables.set('aiMcpServerId', jsonData.result.id);",
+                      "        console.log('MCP Server ID saved: ' + jsonData.result.id);",
+                      "    }",
+                      "}"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{accessToken}}", "type": "text" },
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"name\": \"Math Tools\",\n    \"url\": \"http://localhost:3001/sse\",\n    \"headers\": {}\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/ai/mcp/servers",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "ai", "mcp", "servers"]
+                },
+                "description": "Register a new MCP server. Agent will verify live connectivity to the URL before persisting. Returns 400 if server is unreachable."
+              },
+              "response": []
+            },
+            {
+              "name": "List MCP Servers",
+              "request": {
+                "method": "GET",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{accessToken}}", "type": "text" }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/ai/mcp/servers",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "ai", "mcp", "servers"]
+                },
+                "description": "List all MCP servers registered by the current user."
+              },
+              "response": []
+            },
+            {
+              "name": "Get MCP Server",
+              "request": {
+                "method": "GET",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{accessToken}}", "type": "text" }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/ai/mcp/servers/{{aiMcpServerId}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "ai", "mcp", "servers", "{{aiMcpServerId}}"]
+                },
+                "description": "Get details for a single MCP server. Returns 404 if not found or not owned."
+              },
+              "response": []
+            },
+            {
+              "name": "Toggle MCP Server (Active/Inactive)",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{accessToken}}", "type": "text" },
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"is_active\": false\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/ai/mcp/servers/{{aiMcpServerId}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "ai", "mcp", "servers", "{{aiMcpServerId}}"]
+                },
+                "description": "Toggle MCP server active state. Inactive servers are not invoked by the tool agent."
+              },
+              "response": []
+            },
+            {
+              "name": "Delete MCP Server",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{accessToken}}", "type": "text" }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/ai/mcp/servers/{{aiMcpServerId}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "ai", "mcp", "servers", "{{aiMcpServerId}}"]
+                },
+                "description": "Delete an MCP server configuration. Returns 204."
+              },
+              "response": []
+            }
+          ]
+        }
+      ]
+    },
+    {
       "name": "Presence",
       "item": [
         {
@@ -1518,6 +1918,18 @@
     },
     {
       "key": "messageId",
+      "value": ""
+    },
+    {
+      "key": "aiSessionId",
+      "value": ""
+    },
+    {
+      "key": "aiFileId",
+      "value": ""
+    },
+    {
+      "key": "aiMcpServerId",
       "value": ""
     }
   ]

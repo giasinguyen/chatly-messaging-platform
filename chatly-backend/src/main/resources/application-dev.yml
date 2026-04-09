@@ -75,6 +75,13 @@ app:
     mail:
         from: ${APP_MAIL_FROM:${SPRING_MAIL_USERNAME:}}
 
+# ── AI Agent ──────────────────────────────────────────────────────────────────
+agent:
+    base-url: ${AGENT_BASE_URL:http://localhost:8000}
+    api-key: ${AGENT_API_KEY:change-me-use-a-long-random-string-min-32-chars}
+    timeout-seconds: ${AGENT_TIMEOUT_SECONDS:60}
+    stream-timeout-seconds: ${AGENT_STREAM_TIMEOUT_SECONDS:120}
+
 # ── File Storage ──────────────────────────────────────────────────────────────
 storage:
     provider: ${STORAGE_PROVIDER:local} # switch to "s3" when ready for cloud

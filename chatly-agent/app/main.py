@@ -4,8 +4,6 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from slowapi import _rate_limit_exceeded_handler
-from slowapi.errors import RateLimitExceeded
 
 from app.config import settings
 from app.db.mongo import close_client, get_client
@@ -21,7 +19,6 @@ from app.exceptions import (
     SessionNotFoundError,
     VectorSearchError,
 )
-from app.limiter import limiter
 from app.logging_config import setup_logging
 from app.middleware.request_id import RequestIDMiddleware
 from app.routers.chat import router as chat_router
@@ -54,9 +51,6 @@ app = FastAPI(
     lifespan=lifespan,
     description="LangGraph-powered AI agent server with RAG, MCP tools, and web search.",
 )
-
-app.state.limiter = limiter
-app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)  # type: ignore[arg-type]
 
 app.add_middleware(RequestIDMiddleware)
 if settings.app_env == "development":

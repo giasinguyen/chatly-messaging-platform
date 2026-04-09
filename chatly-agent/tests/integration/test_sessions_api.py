@@ -4,9 +4,9 @@ from uuid import uuid4
 
 from fastapi.testclient import TestClient
 
-from app.dependencies import get_session_service
+from app.dependencies import get_request_context, get_session_service
 from app.main import app
-from app.middleware.auth import get_current_user
+from app.models.context import RequestContext
 
 
 class InMemorySessionService:
@@ -52,8 +52,8 @@ class InMemorySessionService:
 service = InMemorySessionService()
 
 
-async def _override_current_user() -> dict[str, str]:
-    return {"id": "user-a"}
+async def _override_request_context() -> RequestContext:
+    return RequestContext(user_id="user-a")
 
 
 async def _override_session_service() -> InMemorySessionService:
@@ -61,7 +61,7 @@ async def _override_session_service() -> InMemorySessionService:
 
 
 def _get_client() -> TestClient:
-    app.dependency_overrides[get_current_user] = _override_current_user
+    app.dependency_overrides[get_request_context] = _override_request_context
     app.dependency_overrides[get_session_service] = _override_session_service
     return TestClient(app)
 

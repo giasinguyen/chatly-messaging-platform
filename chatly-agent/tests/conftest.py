@@ -1,5 +1,9 @@
 import os
 
+import pytest
+
+from app.models.context import RequestContext
+
 
 def _set_required_env() -> None:
     os.environ.setdefault("GROQ_API_KEY", "test-groq-key")
@@ -16,7 +20,23 @@ def _set_required_env() -> None:
     os.environ.setdefault("MINIO_SECRET_KEY", "minioadmin")
     os.environ.setdefault("MINIO_SECURE", "false")
     os.environ.setdefault("MINIO_BUCKET_NAME", "uploads")
-    os.environ.setdefault("JWT_SECRET_KEY", "test-secret-key")
+    os.environ.setdefault("INTERNAL_API_KEY", "test-internal-api-key")
 
 
 _set_required_env()
+
+
+@pytest.fixture
+def auth_headers() -> dict[str, str]:
+    """Headers sent by chatly-backend on every request to the agent."""
+    return {
+        "X-API-Key": "test-internal-api-key",
+        "X-User-Id": "test-user-123",
+        "X-User-Role": "user",
+    }
+
+
+@pytest.fixture
+def request_context() -> RequestContext:
+    """Pre-built RequestContext for dependency_overrides in integration tests."""
+    return RequestContext(user_id="user-a", user_role="user")

@@ -1,5 +1,6 @@
 package com.chatly.exception;
 
+import com.chatly.agent.AgentServiceException;
 import com.chatly.dto.response.ApiResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -61,6 +62,20 @@ public class GlobalExceptionHandler {
         }
 
         return ResponseEntity.badRequest()
+                .body(ApiResponse.<Void>builder()
+                        .code(errorCode.getCode())
+                        .message(errorCode.getMessage())
+                        .build());
+    }
+
+    @ExceptionHandler(AgentServiceException.class)
+    ResponseEntity<ApiResponse<Void>> handleAgentServiceException(AgentServiceException exception) {
+        log.error("Agent service error: {}", exception.getMessage());
+        ErrorCode errorCode = exception.getStatusCode().is4xxClientError()
+                ? ErrorCode.AGENT_BAD_REQUEST
+                : ErrorCode.AGENT_SERVICE_ERROR;
+
+        return ResponseEntity.status(errorCode.getStatusCode())
                 .body(ApiResponse.<Void>builder()
                         .code(errorCode.getCode())
                         .message(errorCode.getMessage())

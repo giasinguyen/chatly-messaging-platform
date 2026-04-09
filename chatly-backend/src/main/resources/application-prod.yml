@@ -49,3 +49,9 @@ app:
     verification-link-base-url: ${APP_AUTH_VERIFICATION_LINK_BASE_URL:https://api.chatly.app/api/auth/verify-email}
   mail:
     from: ${APP_MAIL_FROM:${SPRING_MAIL_USERNAME}}
+
+agent:
+  base-url: ${AGENT_BASE_URL:http://chatly-agent:8000}
+  api-key: ${AGENT_API_KEY}
+  timeout-seconds: ${AGENT_TIMEOUT_SECONDS:60}
+  stream-timeout-seconds: ${AGENT_STREAM_TIMEOUT_SECONDS:120}

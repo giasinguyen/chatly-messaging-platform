@@ -12,10 +12,10 @@ import pytest
 import respx
 from fastapi.testclient import TestClient
 
-from app.dependencies import get_mcp_service
+from app.dependencies import get_mcp_service, get_request_context
 from app.exceptions import MCPConnectionError, MCPServerNotFoundError
 from app.main import app
-from app.middleware.auth import get_current_user
+from app.models.context import RequestContext
 from app.services.mcp_service import MCPService
 
 # ---------------------------------------------------------------------------
@@ -68,12 +68,12 @@ def _make_mcp_service_mock(**overrides: Any) -> AsyncMock:
     return mock
 
 
-async def _fake_current_user() -> dict[str, str]:
-    return {"id": "user-a"}
+async def _fake_request_context() -> RequestContext:
+    return RequestContext(user_id="user-a")
 
 
 def _client(mcp_mock: AsyncMock) -> TestClient:
-    app.dependency_overrides[get_current_user] = _fake_current_user
+    app.dependency_overrides[get_request_context] = _fake_request_context
     app.dependency_overrides[get_mcp_service] = lambda: mcp_mock
     return TestClient(app, raise_server_exceptions=False)
 

@@ -1,8 +1,7 @@
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
 
 from app.dependencies import get_chat_service, get_request_context
-from app.limiter import limiter
 from app.models.chat import ChatRequest, ChatResponse
 from app.models.context import RequestContext
 from app.services.chat_service import ChatService
@@ -16,14 +15,11 @@ router = APIRouter(prefix="/sessions/{session_id}", tags=["chat"])
     summary="Invoke agent (blocking)",
     description="Send a message to the agent and receive the full response once complete.",
     responses={
-        401: {"description": "Missing or invalid token"},
+        401: {"description": "Missing or invalid API key"},
         404: {"description": "Session not found"},
-        429: {"description": "Rate limit exceeded"},
     },
 )
-@limiter.limit("30/minute")
 async def invoke_chat(
-    request: Request,
     session_id: str,
     payload: ChatRequest,
     ctx: RequestContext = Depends(get_request_context),  # noqa: B008
@@ -45,14 +41,11 @@ async def invoke_chat(
         "Format: `data: {\"token\": \"...\"}\\n\\n`, terminated by `data: [DONE]\\n\\n`."
     ),
     responses={
-        401: {"description": "Missing or invalid token"},
+        401: {"description": "Missing or invalid API key"},
         404: {"description": "Session not found"},
-        429: {"description": "Rate limit exceeded"},
     },
 )
-@limiter.limit("30/minute")
 async def stream_chat(
-    request: Request,
     session_id: str,
     payload: ChatRequest,
     ctx: RequestContext = Depends(get_request_context),  # noqa: B008

@@ -5,9 +5,9 @@ from typing import Any
 from fastapi import UploadFile
 from fastapi.testclient import TestClient
 
-from app.dependencies import get_file_service
+from app.dependencies import get_file_service, get_request_context
 from app.main import app
-from app.middleware.auth import get_current_user
+from app.models.context import RequestContext
 
 
 class InMemoryFileService:
@@ -55,8 +55,8 @@ class InMemoryFileService:
 service = InMemoryFileService()
 
 
-async def _override_current_user() -> dict[str, str]:
-    return {"id": "user-a"}
+async def _override_request_context() -> RequestContext:
+    return RequestContext(user_id="user-a")
 
 
 async def _override_file_service() -> InMemoryFileService:
@@ -64,7 +64,7 @@ async def _override_file_service() -> InMemoryFileService:
 
 
 def _get_client() -> TestClient:
-    app.dependency_overrides[get_current_user] = _override_current_user
+    app.dependency_overrides[get_request_context] = _override_request_context
     app.dependency_overrides[get_file_service] = _override_file_service
     return TestClient(app)
 
