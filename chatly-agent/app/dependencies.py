@@ -1,6 +1,6 @@
 from typing import Any
 
-from fastapi import Depends
+from fastapi import Depends, Header
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from app.agents.chatbot_agent import ChatbotAgent
@@ -14,8 +14,6 @@ from app.repositories.file_repo import FileRepository
 from app.repositories.message_repo import MessageRepository
 from app.repositories.qdrant_repo import QdrantRepository
 from app.repositories.session_repo import SessionRepository
-from app.repositories.user_repo import UserRepository
-from app.services.auth_service import AuthService
 from app.services.chat_service import ChatService
 from app.services.file_service import FileService
 from app.services.session_service import SessionService
@@ -24,6 +22,8 @@ from app.services.vector_service import VectorService
 from app.storage.minio import ensure_bucket_exists, get_bucket_name, get_minio_client
 from app.utils.embeddings import get_embedder
 from app.utils.llm import get_llm
+from app.models.context import RequestContext
+from app.utils.security import verify_api_key
 
 
 def get_database() -> AsyncIOMotorDatabase[dict[str, Any]]:
@@ -45,13 +45,6 @@ def get_message_repository(
     return MessageRepository(collection=db["messages"])
 
 
-def get_user_repository(
-    db: AsyncIOMotorDatabase[dict[str, Any]] = Depends(get_database),  # noqa: B008
-) -> UserRepository:
-    """Build user repository dependency."""
-    return UserRepository(collection=db["users"])
-
-
 def get_file_repository(
     db: AsyncIOMotorDatabase[dict[str, Any]] = Depends(get_database),  # noqa: B008
 ) -> FileRepository:
@@ -70,12 +63,6 @@ def get_qdrant_repository() -> QdrantRepository:
     """Build Qdrant vector repository dependency."""
     return QdrantRepository(client=get_qdrant_client())
 
-
-def get_auth_service(
-    user_repo: UserRepository = Depends(get_user_repository),  # noqa: B008
-) -> AuthService:
-    """Build auth service dependency."""
-    return AuthService(user_repo=user_repo)
 
 
 def get_chatbot_agent() -> ChatbotAgent:
@@ -171,3 +158,15 @@ def get_file_service(
         minio_client=minio_client,
         bucket_name=bucket_name,
     )
+
+
+async def get_request_context(
+    _: None = Depends(verify_api_key),  # noqa: B008
+    x_user_id: str = Header(..., alias="X-User-Id"),  # noqa: B008
+    x_user_role: str = Header("user", alias="X-User-Role"),  # noqa: B008
+) -> RequestContext:
+    """
+    Primary dependency for all protected endpoints.
+    Replaces the old get_current_user() JWT-based dependency.
+    """
+    return RequestContext(user_id=x_user_id, user_role=x_user_role)

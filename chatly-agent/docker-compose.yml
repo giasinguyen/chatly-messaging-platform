@@ -4,7 +4,7 @@ services:
     container_name: agent-server-mongodb
     restart: unless-stopped
     ports:
-      - "27017:27017"
+      - "27018:27017"
     volumes:
       - mongo_data:/data
     healthcheck:

@@ -1,12 +1,10 @@
-from typing import Any
-
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import StreamingResponse
 
-from app.dependencies import get_chat_service
+from app.dependencies import get_chat_service, get_request_context
 from app.limiter import limiter
-from app.middleware.auth import get_current_user
 from app.models.chat import ChatRequest, ChatResponse
+from app.models.context import RequestContext
 from app.services.chat_service import ChatService
 
 router = APIRouter(prefix="/sessions/{session_id}", tags=["chat"])
@@ -28,12 +26,12 @@ async def invoke_chat(
     request: Request,
     session_id: str,
     payload: ChatRequest,
-    current_user: dict[str, Any] = Depends(get_current_user),  # noqa: B008
+    ctx: RequestContext = Depends(get_request_context),  # noqa: B008
     service: ChatService = Depends(get_chat_service),  # noqa: B008
 ) -> ChatResponse:
     """Run one chat turn and return full response."""
     return await service.chat(
-        user_id=str(current_user["id"]),
+        user_id=ctx.user_id,
         session_id=session_id,
         request=payload,
     )
@@ -57,13 +55,13 @@ async def stream_chat(
     request: Request,
     session_id: str,
     payload: ChatRequest,
-    current_user: dict[str, Any] = Depends(get_current_user),  # noqa: B008
+    ctx: RequestContext = Depends(get_request_context),  # noqa: B008
     service: ChatService = Depends(get_chat_service),  # noqa: B008
 ) -> StreamingResponse:
     """Run one chat turn and stream SSE tokens."""
     return StreamingResponse(
         service.stream_chat(
-            user_id=str(current_user["id"]),
+            user_id=ctx.user_id,
             session_id=session_id,
             request=payload,
         ),

@@ -1,11 +1,10 @@
 """Router for MCP server CRUD and tool introspection."""
 import logging
-from typing import Any
 
 from fastapi import APIRouter, Depends, Response, status
 
-from app.dependencies import get_mcp_service
-from app.middleware.auth import get_current_user
+from app.dependencies import get_mcp_service, get_request_context
+from app.models.context import RequestContext
 from app.models.mcp import MCPServerCreate, MCPServerResponse, MCPServerUpdate, MCPToolInfo
 from app.services.mcp_service import MCPService
 
@@ -27,12 +26,12 @@ router = APIRouter(prefix="/mcp/servers", tags=["mcp"])
 )
 async def register_server(
     payload: MCPServerCreate,
-    current_user: dict[str, Any] = Depends(get_current_user),  # noqa: B008
+    ctx: RequestContext = Depends(get_request_context),  # noqa: B008
     service: MCPService = Depends(get_mcp_service),  # noqa: B008
 ) -> MCPServerResponse:
     """Verify connectivity and register a new MCP server for the current user."""
     record = await service.register_server(
-        user_id=current_user["id"],
+        user_id=ctx.user_id,
         name=payload.name,
         url=str(payload.url),
         headers=payload.headers,
@@ -48,11 +47,11 @@ async def register_server(
     responses={401: {"description": "Unauthorized"}},
 )
 async def list_servers(
-    current_user: dict[str, Any] = Depends(get_current_user),  # noqa: B008
+    ctx: RequestContext = Depends(get_request_context),  # noqa: B008
     service: MCPService = Depends(get_mcp_service),  # noqa: B008
 ) -> list[MCPServerResponse]:
     """List all MCP servers owned by the current user."""
-    records = await service.list_servers(current_user["id"])
+    records = await service.list_servers(ctx.user_id)
     return [MCPServerResponse(**r) for r in records]
 
 
@@ -65,11 +64,11 @@ async def list_servers(
 )
 async def get_server(
     server_id: str,
-    current_user: dict[str, Any] = Depends(get_current_user),  # noqa: B008
+    ctx: RequestContext = Depends(get_request_context),  # noqa: B008
     service: MCPService = Depends(get_mcp_service),  # noqa: B008
 ) -> MCPServerResponse:
     """Get details for a single MCP server owned by the current user."""
-    record = await service.get_server(current_user["id"], server_id)
+    record = await service.get_server(ctx.user_id, server_id)
     return MCPServerResponse(**record)
 
 
@@ -82,11 +81,11 @@ async def get_server(
 )
 async def delete_server(
     server_id: str,
-    current_user: dict[str, Any] = Depends(get_current_user),  # noqa: B008
+    ctx: RequestContext = Depends(get_request_context),  # noqa: B008
     service: MCPService = Depends(get_mcp_service),  # noqa: B008
 ) -> Response:
     """Delete an MCP server owned by the current user."""
-    await service.delete_server(current_user["id"], server_id)
+    await service.delete_server(ctx.user_id, server_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
@@ -100,11 +99,11 @@ async def delete_server(
 async def toggle_server(
     server_id: str,
     payload: MCPServerUpdate,
-    current_user: dict[str, Any] = Depends(get_current_user),  # noqa: B008
+    ctx: RequestContext = Depends(get_request_context),  # noqa: B008
     service: MCPService = Depends(get_mcp_service),  # noqa: B008
 ) -> MCPServerResponse:
     """Enable or disable an MCP server."""
-    record = await service.toggle_server(current_user["id"], server_id, payload.is_active)
+    record = await service.toggle_server(ctx.user_id, server_id, payload.is_active)
     return MCPServerResponse(**record)
 
 
@@ -121,11 +120,11 @@ async def toggle_server(
 )
 async def list_server_tools(
     server_id: str,
-    current_user: dict[str, Any] = Depends(get_current_user),  # noqa: B008
+    ctx: RequestContext = Depends(get_request_context),  # noqa: B008
     service: MCPService = Depends(get_mcp_service),  # noqa: B008
 ) -> list[MCPToolInfo]:
     """Live-fetch the tool list from a registered MCP server."""
-    raw_tools = await service.get_live_tools(current_user["id"], server_id)
+    raw_tools = await service.get_live_tools(ctx.user_id, server_id)
     return [
         MCPToolInfo(
             name=t["name"],
