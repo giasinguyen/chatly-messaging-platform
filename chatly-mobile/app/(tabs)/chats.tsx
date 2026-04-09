@@ -13,6 +13,7 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { ConversationItem } from '@/components/chat/ConversationItem';
+import { CreateConversationModal } from '@/components/chat/CreateConversationModal';
 import { conversationService } from '@/services/conversation.service';
 import { userService } from '@/services/user.service';
 import { useConversationStore } from '@/store/conversation.store';
@@ -28,6 +29,7 @@ export default function ChatsScreen() {
   const { conversations, setConversations, removeConversation, loading, setLoading } = useConversationStore();
 
   const [refreshing, setRefreshing] = useState(false);
+  const [modalVisible, setModalVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [participantMap, setParticipantMap] = useState<Record<string, UserResponse>>({});
 
@@ -133,9 +135,7 @@ export default function ChatsScreen() {
             Tin nhắn
           </Text>
           <TouchableOpacity
-            onPress={() => {
-              // TODO: New conversation modal
-            }}
+            onPress={() => setModalVisible(true)}
             style={{
               width: 36,
               height: 36,
@@ -220,6 +220,11 @@ export default function ChatsScreen() {
           showsVerticalScrollIndicator={false}
         />
       )}
+
+      <CreateConversationModal
+        visible={modalVisible}
+        onClose={() => setModalVisible(false)}
+      />
     </View>
   );
 }
