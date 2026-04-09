@@ -219,7 +219,7 @@ export const ChatWindow = memo(({ id }: ChatWindowProps) => {
                 if (msg.senderId !== currentUser?.id) {
                     sendSeen(msg.id);
                 }
-            } else if (action === "EDIT" || action === "RECALL") {
+            } else if (action === "EDIT" || action === "RECALL" || action === "REACT") {
                 setMessages((prev) =>
                     prev.map((m) => (m.id === msg.id ? { ...m, ...msg } : m)),
                 );
@@ -561,6 +561,27 @@ export const ChatWindow = memo(({ id }: ChatWindowProps) => {
         [],
     );
 
+    const handleReact = useCallback(
+        async (messageId: string, emoji: string) => {
+            try {
+                const res = await messageService.react(messageId, emoji);
+                setMessages((prev) =>
+                    prev.map((m) =>
+                        m.id === messageId
+                            ? { ...m, reactions: res.result.reactions }
+                            : m,
+                    ),
+                );
+            } catch (err: any) {
+                const msg =
+                    err?.response?.data?.message ??
+                    "Không thể react tin nhắn";
+                toast.error(msg);
+            }
+        },
+        [],
+    );
+
     const handleOpenSenderProfile = useCallback(
         (senderId: string) => {
             const user = participantDirectory[senderId];
@@ -766,6 +787,7 @@ export const ChatWindow = memo(({ id }: ChatWindowProps) => {
                 onRecall={handleRecall}
                 onEdit={handleEdit}
                 onDelete={handleDelete}
+                onReact={handleReact}
                 onOpenSenderProfile={handleOpenSenderProfile}
                 onLoadMore={handleLoadMore}
                 isLoadingMore={isLoadingMore}

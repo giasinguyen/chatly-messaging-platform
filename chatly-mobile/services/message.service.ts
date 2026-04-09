@@ -51,4 +51,12 @@ export const messageService = {
     const response = await axiosClient.delete<ApiResponse<void>>(`/api/messages/${messageId}`);
     return response.data;
   },
+
+  react: async (messageId: string, emoji: string): Promise<ApiResponse<Message>> => {
+    const response = await axiosClient.put<ApiResponse<Message>>(
+      `/api/messages/${messageId}/react`,
+      { emoji },
+    );
+    return response.data;
+  },
 };

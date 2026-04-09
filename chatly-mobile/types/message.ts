@@ -20,6 +20,12 @@ export interface EditHistoryEntry {
   editedAt: string;
 }
 
+export interface Reaction {
+  userId: string;
+  emoji: string;
+  createdAt: string;
+}
+
 export interface Message {
   id: string;
   conversationId: string;
@@ -36,11 +42,12 @@ export interface Message {
   edited: boolean;
   editedAt: string | null;
   editHistory: EditHistoryEntry[];
+  reactions: Reaction[];
   createdAt: string;
   updatedAt: string;
 }
 
-export type ChatAction = 'SEND' | 'EDIT' | 'RECALL' | 'DELETE';
+export type ChatAction = 'SEND' | 'EDIT' | 'RECALL' | 'DELETE' | 'REACT';
 
 export interface ChatEvent {
   action: ChatAction;

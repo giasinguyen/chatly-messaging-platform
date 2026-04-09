@@ -73,9 +73,8 @@ export default function ChatScreen() {
           setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
           break;
         case 'EDIT':
-          updateMessage(conversationId, event.message.id, event.message);
-          break;
         case 'RECALL':
+        case 'REACT':
           updateMessage(conversationId, event.message.id, event.message);
           break;
         case 'DELETE':
@@ -315,6 +314,19 @@ export default function ChatScreen() {
     ]);
   }, [selectedMessage, conversationId, removeMessage]);
 
+  const handleReact = useCallback(
+    async (messageId: string, emoji: string) => {
+      if (!conversationId || !user) return;
+      try {
+        const res = await messageService.react(messageId, emoji);
+        updateMessage(conversationId, messageId, res.result);
+      } catch {
+        Alert.alert('Lỗi', 'Không thể bày tỏ cảm xúc.');
+      }
+    },
+    [conversationId, user, updateMessage],
+  );
+
   // Build display data with date separators
   const displayData = useMemo(() => {
     const items: Array<{ type: 'date'; label: string } | { type: 'message'; data: Message }> = [];
@@ -386,7 +398,9 @@ export default function ChatScreen() {
                   isMe={isMe}
                   showAvatar={isGroup}
                   senderName={sender?.displayName}
+                  currentUserId={user?.id}
                   onLongPress={() => handleLongPress(msg)}
+                  onReact={handleReact}
                   replyToMessage={msg.replyToId ? (messageById[msg.replyToId] ?? null) : null}
                 />
               );
@@ -447,6 +461,7 @@ export default function ChatScreen() {
           setActionsVisible(false);
         }}
         onCopy={handleCopy}
+        onReact={selectedMessage ? (emoji: string) => handleReact(selectedMessage.id, emoji) : undefined}
         onEdit={handleEdit}
         onRecall={handleRecall}
         onDelete={handleDelete}

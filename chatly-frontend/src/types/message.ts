@@ -20,6 +20,12 @@ export interface EditHistoryEntry {
     editedAt: string;
 }
 
+export interface Reaction {
+    userId: string;
+    emoji: string;
+    createdAt: string;
+}
+
 /**
  * Message trả về từ API – khớp 100% với MessageResponse.java.
  * Thứ tự API trả về: mới nhất trước (descending), cần reverse trước khi render.
@@ -45,6 +51,9 @@ export interface Message {
     editedAt: string | null;
     editHistory: EditHistoryEntry[];
 
+    // Reactions
+    reactions: Reaction[];
+
     createdAt: string;
     updatedAt: string;
 }
@@ -52,7 +61,7 @@ export interface Message {
 /**
  * ChatEvent – wrapper for all realtime message events from WebSocket.
  */
-export type ChatAction = "SEND" | "EDIT" | "RECALL" | "DELETE";
+export type ChatAction = "SEND" | "EDIT" | "RECALL" | "DELETE" | "REACT";
 
 export interface ChatEvent {
     action: ChatAction;

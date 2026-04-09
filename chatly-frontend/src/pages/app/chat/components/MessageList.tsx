@@ -1,9 +1,9 @@
 import { useEffect, useRef, useCallback, useState, useMemo } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
-import { ChevronLeft, ChevronRight, Check, CheckCheck, Reply, RotateCcw, Pencil, X, Send, FileText, Download, Copy, Trash2, AlertCircle, RefreshCcw } from "lucide-react";
+import { ChevronLeft, ChevronRight, Check, CheckCheck, Reply, RotateCcw, Pencil, X, Send, FileText, Download, Copy, Trash2, AlertCircle, RefreshCcw, SmilePlus } from "lucide-react";
 import { toast } from "sonner";
-import type { Message, ChatUser } from "@/types/message";
+import type { Message, ChatUser, Reaction } from "@/types/message";
 import type { ConversationType } from "@/types/conversation";
 import { ReplyPreview } from "./ReplyPreview";
 import {
@@ -40,6 +40,7 @@ interface MessageListProps {
     onRecall: (messageId: string) => void;
     onEdit: (messageId: string, newContent: string) => void;
     onDelete: (messageId: string) => void;
+    onReact: (messageId: string, emoji: string) => void;
     onOpenSenderProfile?: (userId: string) => void;
     onLoadMore: () => void;
     isLoadingMore: boolean;
@@ -51,6 +52,7 @@ interface MessageListProps {
 
 const RECALL_LIMIT_MS = 24 * 60 * 60 * 1000;
 const EDIT_LIMIT_MS = 15 * 60 * 1000;
+const QUICK_EMOJIS = ["👍", "❤️", "😂", "😮", "😢", "😡"];
 
 export function MessageList({
     messages,
@@ -62,6 +64,7 @@ export function MessageList({
     onRecall,
     onEdit,
     onDelete,
+    onReact,
     onOpenSenderProfile,
     onLoadMore,
     isLoadingMore,
@@ -431,19 +434,69 @@ export function MessageList({
                             </div>
                         )}
 
-                        {/* Reply button (on hover) — hidden for recalled messages */}
+                        {/* Action buttons (on hover) — hidden for recalled messages */}
                         {!msg.recalled && !isBeingEdited && (
-                            <button
-                                onClick={() => onReply(msg)}
-                                className={cn(
-                                    "opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground shrink-0",
-                                )}
-                                title="Trả lời"
-                            >
-                                <Reply size={14} />
-                            </button>
+                            <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                                <div className="relative group/react">
+                                    <button
+                                        className="p-1.5 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground"
+                                        title="Bày tỏ cảm xúc"
+                                    >
+                                        <SmilePlus size={14} />
+                                    </button>
+                                    <div
+                                        className={cn(
+                                            "absolute bottom-full mb-1 hidden group-hover/react:flex items-center gap-0.5 bg-popover border border-border rounded-full px-1 py-0.5 shadow-lg z-50",
+                                            isMe ? "right-0" : "left-0",
+                                        )}
+                                    >
+                                        {QUICK_EMOJIS.map((emoji) => (
+                                            <button
+                                                key={emoji}
+                                                onClick={() => onReact(msg.id, emoji)}
+                                                className="hover:scale-125 transition-transform text-base px-0.5"
+                                            >
+                                                {emoji}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={() => onReply(msg)}
+                                    className="p-1.5 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground"
+                                    title="Trả lời"
+                                >
+                                    <Reply size={14} />
+                                </button>
+                            </div>
                         )}
                     </div>
+
+                    {/* Reaction badges */}
+                    {msg.reactions && msg.reactions.length > 0 && (
+                        <div className={cn("flex flex-wrap gap-1 mt-0.5 px-1", isMe ? "justify-end" : "justify-start")}>
+                            {Object.entries(
+                                msg.reactions.reduce<Record<string, string[]>>((acc, r) => {
+                                    (acc[r.emoji] ??= []).push(r.userId);
+                                    return acc;
+                                }, {}),
+                            ).map(([emoji, userIds]) => (
+                                <button
+                                    key={emoji}
+                                    onClick={() => onReact(msg.id, emoji)}
+                                    className={cn(
+                                        "flex items-center gap-0.5 text-xs rounded-full px-1.5 py-0.5 border transition-colors",
+                                        userIds.includes(currentUserId)
+                                            ? "bg-brand/10 border-brand/40 text-brand"
+                                            : "bg-muted/60 border-border/50 text-muted-foreground hover:bg-muted",
+                                    )}
+                                >
+                                    <span>{emoji}</span>
+                                    {userIds.length > 1 && <span>{userIds.length}</span>}
+                                </button>
+                            ))}
+                        </div>
+                    )}
 
                     {/* Time + status */}
                     {isLastInGroup(msg, index) && (
