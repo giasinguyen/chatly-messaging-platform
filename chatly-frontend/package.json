@@ -10,6 +10,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@emoji-mart/data": "^1.2.1",
+    "@emoji-mart/react": "^1.1.1",
     "@hookform/resolvers": "^5.2.2",
     "@stomp/stompjs": "^7.3.0",
     "@tailwindcss/vite": "^4.2.1",
