@@ -17,5 +17,6 @@ public class ChatEvent {
 
     public enum ChatAction {
         SEND, EDIT, RECALL, DELETE, GROUP_UPDATE, REACT
+    }
 
 }
