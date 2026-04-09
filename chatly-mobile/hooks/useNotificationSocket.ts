@@ -1,20 +1,20 @@
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { usePathname } from 'expo-router';
 import { socketService } from '@/services/socket.service';
 import { useAuthStore } from '@/store/auth.store';
+import { useNotificationStore } from '@/store/notification.store';
+import { useConversationStore } from '@/store/conversation.store';
 import type { NotificationEvent } from '@/types/notification';
-
-interface UseNotificationSocketProps {
-  onEvent: (event: NotificationEvent) => void;
-}
 
 /**
  * Hook to subscribe to /user/queue/notifications for realtime notifications
  */
-export function useNotificationSocket({ onEvent }: UseNotificationSocketProps) {
+export function useNotificationSocket() {
   const user = useAuthStore((s) => s.user);
-  const callbackRef = useRef(onEvent);
-  callbackRef.current = onEvent;
+  const pathname = usePathname();
+  const { addNotification, setUnreadCount, showBanner } = useNotificationStore();
+  const handleIncomingMessage = useConversationStore((s) => s.handleIncomingMessage);
 
   useEffect(() => {
     if (!user) return;
@@ -30,8 +30,41 @@ export function useNotificationSocket({ onEvent }: UseNotificationSocketProps) {
       if (!isMounted) return;
 
       const sub = socketService.subscribe('/user/queue/notifications', (payload) => {
+        console.log('--- NOTIFICATION RECEIVED ---');
         const event = JSON.parse(payload.body) as NotificationEvent;
-        callbackRef.current(event);
+        console.log('Event type:', event.notification?.type);
+        console.log('Reference ID (Conv ID):', event.notification?.referenceId);
+        
+        // Update unread count in store
+        if (typeof event.unreadCount === 'number') {
+          console.log('Updating global unread count to:', event.unreadCount);
+          setUnreadCount(event.unreadCount);
+        }
+
+        if (event.notification) {
+          console.log('Adding notification to store:', event.notification.id);
+          addNotification(event.notification);
+
+          // Logic to show banner only if NOT in the conversation mentioned
+          const isChatScene = pathname.startsWith('/chat/');
+          const currentChatId = isChatScene ? pathname.split('/').pop() : null;
+          
+          const isAtThisChat = event.notification.type === 'NEW_MESSAGE' && 
+                               event.notification.referenceId === currentChatId;
+
+          // Update conversation list real-time
+          if (event.notification.type === 'NEW_MESSAGE') {
+            console.log('Triggering handleIncomingMessage for conv:', event.notification.referenceId);
+            handleIncomingMessage(event.notification);
+          }
+
+          if (!isAtThisChat) {
+            console.log('Showing in-app banner');
+            showBanner(event.notification);
+          } else {
+            console.log('User is in this chat, skipping banner');
+          }
+        }
       });
 
       cleanupFn = () => sub?.unsubscribe();
@@ -43,5 +76,5 @@ export function useNotificationSocket({ onEvent }: UseNotificationSocketProps) {
       isMounted = false;
       cleanupFn?.();
     };
-  }, [user]);
+  }, [user, pathname, setUnreadCount, addNotification, handleIncomingMessage, showBanner]);
 }

@@ -22,6 +22,14 @@ const axiosClient = axios.create({
 let onTokenRefreshed: ((payload: AuthResponse) => void) | null = null;
 let onLogout: (() => void) | null = null;
 
+/**
+ * Business error codes that indicate the current user/session is no longer valid.
+ * Code 1100 = User not found (e.g. user was deleted from DB while token still alive)
+ * Code 1006 = Account locked / deactivated
+ * Code 1001 = Unauthenticated (should be caught by 401 but added as safety net)
+ */
+const FATAL_AUTH_CODES = new Set([1100, 1006, 1001]);
+
 export function setupAxiosInterceptors(opts: {
     onTokenRefreshed?: (payload: AuthResponse) => void;
     onLogout?: () => void;
@@ -93,21 +101,70 @@ axiosClient.interceptors.request.use(
 // Chạy SAU khi nhận được response từ server.
 // ============================================================
 axiosClient.interceptors.response.use(
-    (res) => res,
+    (res) => {
+        // ============================================================
+        // BUSINESS ERROR INTERCEPTOR
+        // Server trả HTTP 200 nhưng code trong body báo user không tồn tại.
+        // Trường hợp này xảy ra khi: drop DB, xóa user, token còn hạn nhưng
+        // user đã bị xóa nên mọi API đều trả 1100 "User not found".
+        // ============================================================
+        const data = res.data as { code?: number } | undefined;
+        if (data?.code !== undefined && FATAL_AUTH_CODES.has(data.code)) {
+            // Bỏ qua khi đang ở login / register / refresh để tránh loop
+            const url = res.config?.url ?? "";
+            const isAuthEndpoint =
+                url.includes("/auth/login") ||
+                url.includes("/auth/register") ||
+                url.includes("/auth/refresh") ||
+                url.includes("/auth/introspect");
+
+            if (!isAuthEndpoint) {
+                console.warn(
+                    `[axiosClient] Fatal business error code ${data.code} from ${url}. Forcing logout.`,
+                );
+                localStorage.removeItem("access_token");
+                localStorage.removeItem("refresh_token");
+                if (onLogout) onLogout();
+            }
+        }
+        return res;
+    },
     async (error: AxiosError) => {
         const originalRequest = error.config as InternalAxiosRequestConfig & {
             _retry?: boolean;
         };
 
+        const status = error.response?.status;
+        const url = originalRequest?.url ?? "";
+
+        // ============================================================
+        // DETECT "USER DELETED FROM DB" SCENARIO
+        // Khi drop DB hoặc xóa user, token vẫn còn hạn nhưng /me trả 404.
+        // Đây là dấu hiệu chắc chắn user không còn tồn tại → force logout.
+        // Chỉ áp dụng cho /users/me, KHÔNG áp dụng với 404 thông thường.
+        // ============================================================
+        const isMeEndpoint = url.includes("/users/me");
+        const isUserGone = status === 404 || status === 410;
+
+        if (isMeEndpoint && isUserGone) {
+            console.warn(
+                `[axiosClient] /me returned HTTP ${status} – user deleted from DB. Forcing logout.`,
+            );
+            localStorage.removeItem("access_token");
+            localStorage.removeItem("refresh_token");
+            if (onLogout) onLogout();
+            return Promise.reject(error);
+        }
+
         // 1. Chỉ retry khi lỗi là 401 (Unauthorized / token hết hạn)
         // 403 là lỗi authorization (không có quyền), KHÔNG phải auth failure → không retry
-        const status = error.response?.status;
         const isUnauthorized = status === 401;
 
         // Nếu không phải 401 hoặc request này đã từng thử refresh rồi thì thôi
         if (!isUnauthorized || !originalRequest || originalRequest._retry) {
             return Promise.reject(error);
         }
+
 
         // 2. Chặn vòng lặp vô hạn (Tránh việc login/refresh bị lỗi 401 rồi lại gọi chính nó)
         if (

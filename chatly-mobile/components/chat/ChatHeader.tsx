@@ -11,7 +11,11 @@ interface ChatHeaderProps {
   isOnline?: boolean;
   memberCount?: number;
   isGroup?: boolean;
+<<<<<<< HEAD
   onToggleSearch?: () => void;
+=======
+  onPressInfo?: () => void;
+>>>>>>> van-minh
 }
 
 export function ChatHeader({
@@ -20,7 +24,11 @@ export function ChatHeader({
   isOnline = false,
   memberCount,
   isGroup = false,
+<<<<<<< HEAD
   onToggleSearch,
+=======
+  onPressInfo,
+>>>>>>> van-minh
 }: ChatHeaderProps) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -51,17 +59,23 @@ export function ChatHeader({
           <Ionicons name="chevron-back" size={26} color={Colors.cta} />
         </TouchableOpacity>
 
-        {/* Avatar */}
-        <Avatar
-          uri={avatarUrl}
-          name={name}
-          size={40}
-          showOnline={!isGroup}
-          isOnline={isOnline}
-        />
+        {/* Content wrapper */}
+        <TouchableOpacity 
+          className="flex-1 flex-row items-center ml-1" 
+          onPress={onPressInfo}
+          disabled={!onPressInfo}
+        >
+          {/* Avatar */}
+          <Avatar
+            uri={avatarUrl}
+            name={name}
+            size={40}
+            showOnline={!isGroup}
+            isOnline={isOnline}
+          />
 
-        {/* Name & status */}
-        <View className="ml-2.5 flex-1">
+          {/* Name & status */}
+          <View className="ml-2.5 flex-1">
           <Text
             className="text-base font-semibold"
             style={{ color: Colors.text }}
@@ -73,6 +87,7 @@ export function ChatHeader({
             {subtitle}
           </Text>
         </View>
+        </TouchableOpacity>
 
         {/* Action buttons */}
         <TouchableOpacity onPress={onToggleSearch} className="mx-1 p-2">

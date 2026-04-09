@@ -17,6 +17,7 @@ export interface ConversationResponse {
   creatorId: string;
   participantIds: string[];
   lastMessage: LastMessage | null;
+  unreadCount: number;
   createdAt: string;
   updatedAt: string;
 }
