@@ -1,13 +1,11 @@
 package com.chatly.controller;
 
-import com.chatly.agent.AgentChatRequest;
-import com.chatly.agent.AgentChatResponse;
-import com.chatly.dto.request.AiChatRequest;
-import com.chatly.dto.response.ApiResponse;
-import com.chatly.service.AgentService;
-import jakarta.validation.Valid;
+import com.chatly.proxy.AgentProxyClient;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
@@ -16,48 +14,38 @@ import java.io.IOException;
 @RestController
 @RequestMapping("/api/ai/sessions/{sessionId}/chat")
 @RequiredArgsConstructor
+@Slf4j
 public class AgentChatController {
 
-    private final AgentService agentService;
+    private final AgentProxyClient agentProxy;
 
     @PostMapping
-    ApiResponse<AgentChatResponse> send(
+    ResponseEntity<byte[]> chat(
             @PathVariable String sessionId,
-            @RequestBody @Valid AiChatRequest request
+            @RequestBody byte[] body,
+            @AuthenticationPrincipal String userId
     ) {
-        AgentChatRequest agentReq = new AgentChatRequest(
-                sessionId,
-                request.getMessage(),
-                request.getAgentType(),
-                request.isUseWebSearch(),
-                request.getMcpServerIds()
+        return agentProxy.forward(
+                org.springframework.http.HttpMethod.POST,
+                "/sessions/" + sessionId + "/chat",
+                userId,
+                body
         );
-        return ApiResponse.<AgentChatResponse>builder()
-                .result(agentService.chat(sessionId, agentReq))
-                .build();
     }
 
-    /**
-     * SSE streaming endpoint — uses {@link SseEmitter} to bridge the reactive
-     * {@code Flux<String>} from AgentClient onto the servlet response.
-     * Spring MVC (servlet stack) requires SseEmitter; WebFlux is not used here.
-     */
     @PostMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     SseEmitter stream(
             @PathVariable String sessionId,
-            @RequestBody @Valid AiChatRequest request
+            @RequestBody byte[] body,
+            @AuthenticationPrincipal String userId
     ) {
-        SseEmitter emitter = new SseEmitter(agentService.streamTimeoutMs());
+        SseEmitter emitter = new SseEmitter(agentProxy.streamTimeoutMs());
 
-        AgentChatRequest agentReq = new AgentChatRequest(
-                sessionId,
-                request.getMessage(),
-                request.getAgentType(),
-                request.isUseWebSearch(),
-                request.getMcpServerIds()
-        );
-
-        agentService.stream(sessionId, agentReq)
+        agentProxy.forwardStream(
+                        "/sessions/" + sessionId + "/chat/stream",
+                        userId,
+                        body
+                )
                 .doOnNext(token -> {
                     try {
                         emitter.send(SseEmitter.event().data(token));
@@ -72,3 +60,4 @@ public class AgentChatController {
         return emitter;
     }
 }
+

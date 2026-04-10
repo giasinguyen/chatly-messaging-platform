@@ -1,11 +1,11 @@
 package com.chatly.controller;
 
-import com.chatly.agent.AgentFileListResponse;
-import com.chatly.agent.AgentFileResponse;
-import com.chatly.dto.response.ApiResponse;
-import com.chatly.service.AgentService;
+import com.chatly.proxy.AgentProxyClient;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -16,29 +16,40 @@ import java.io.IOException;
 @RequiredArgsConstructor
 public class AgentFileController {
 
-    private final AgentService agentService;
+    private final AgentProxyClient agentProxy;
 
     @PostMapping(consumes = "multipart/form-data")
     @ResponseStatus(HttpStatus.CREATED)
-    ApiResponse<AgentFileResponse> upload(
+    ResponseEntity<byte[]> upload(
             @PathVariable String sessionId,
-            @RequestParam("file") MultipartFile file
+            @RequestParam("file") MultipartFile file,
+            @AuthenticationPrincipal String userId
     ) throws IOException {
-        return ApiResponse.<AgentFileResponse>builder()
-                .result(agentService.uploadFile(sessionId, file))
-                .build();
+        return agentProxy.forwardMultipart(
+                "/sessions/" + sessionId + "/files",
+                userId,
+                file
+        );
     }
 
     @GetMapping
-    ApiResponse<AgentFileListResponse> list(@PathVariable String sessionId) {
-        return ApiResponse.<AgentFileListResponse>builder()
-                .result(agentService.listFiles(sessionId))
-                .build();
+    ResponseEntity<byte[]> list(
+            @PathVariable String sessionId,
+            @AuthenticationPrincipal String userId
+    ) {
+        return agentProxy.forward(
+                HttpMethod.GET, "/sessions/" + sessionId + "/files", userId, null);
     }
 
     @DeleteMapping("/{fileId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    void delete(@PathVariable String sessionId, @PathVariable String fileId) {
-        agentService.deleteFile(sessionId, fileId);
+    ResponseEntity<byte[]> delete(
+            @PathVariable String sessionId,
+            @PathVariable String fileId,
+            @AuthenticationPrincipal String userId
+    ) {
+        return agentProxy.forward(
+                HttpMethod.DELETE, "/sessions/" + sessionId + "/files/" + fileId, userId, null);
     }
 }
+

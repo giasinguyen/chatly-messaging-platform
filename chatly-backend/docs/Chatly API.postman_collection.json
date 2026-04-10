@@ -1452,9 +1452,9 @@
                     "exec": [
                       "if (pm.response.code === 201) {",
                       "    const jsonData = pm.response.json();",
-                      "    if (jsonData.result && jsonData.result.id) {",
-                      "        pm.collectionVariables.set('aiSessionId', jsonData.result.id);",
-                      "        console.log('AI Session ID saved: ' + jsonData.result.id);",
+                      "    if (jsonData.id) {",
+                      "        pm.collectionVariables.set('aiSessionId', jsonData.id);",
+                      "        console.log('AI Session ID saved: ' + jsonData.id);",
                       "    }",
                       "}"
                     ],
@@ -1549,7 +1549,7 @@
         },
         {
           "name": "Chat",
-          "description": "Send messages to the AI agent. Supports blocking (full response) and SSE streaming modes. agentType: chatbot | rag | tool",
+          "description": "Send messages to the AI agent. Supports blocking (full response) and SSE streaming modes. Agent type is selected automatically based on session context (uploaded files → RAG, MCP servers → tool, otherwise → chatbot).",
           "item": [
             {
               "name": "Send Chat Message (Blocking)",
@@ -1561,14 +1561,14 @@
                 ],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n    \"message\": \"Hello! What can you help me with?\",\n    \"agentType\": \"chatbot\",\n    \"useWebSearch\": false,\n    \"mcpServerIds\": []\n}"
+                  "raw": "{\n    \"message\": \"Hello! What can you help me with?\",\n    \"use_web_search\": false,\n    \"mcp_server_ids\": []\n}"
                 },
                 "url": {
                   "raw": "{{baseUrl}}/api/ai/sessions/{{aiSessionId}}/chat",
                   "host": ["{{baseUrl}}"],
                   "path": ["api", "ai", "sessions", "{{aiSessionId}}", "chat"]
                 },
-                "description": "Send a message and wait for the full response. Returns content, sessionId, messageId. agentType: chatbot (default), rag (uses uploaded files), tool (uses MCP servers + web search)."
+                "description": "Send a message and wait for the full response. Returns direct JSON: {\"content\":\"...\",\"session_id\":\"...\",\"message_id\":\"...\",\"agent_type\":\"chatbot|rag|tool\"}. Agent type is auto-selected: chatbot (default), rag (session has uploaded files), tool (mcp_server_ids provided or use_web_search=true)."
               },
               "response": []
             },
@@ -1582,14 +1582,14 @@
                 ],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n    \"message\": \"Summarize the documents I uploaded.\",\n    \"agentType\": \"rag\",\n    \"useWebSearch\": false,\n    \"mcpServerIds\": []\n}"
+                  "raw": "{\n    \"message\": \"Summarize the documents I uploaded.\",\n    \"use_web_search\": false,\n    \"mcp_server_ids\": []\n}"
                 },
                 "url": {
                   "raw": "{{baseUrl}}/api/ai/sessions/{{aiSessionId}}/chat",
                   "host": ["{{baseUrl}}"],
                   "path": ["api", "ai", "sessions", "{{aiSessionId}}", "chat"]
                 },
-                "description": "Use RAG agent — queries against uploaded documents in the session via vector search."
+                "description": "Query uploaded documents. The agent automatically uses RAG when the session has indexed files. No agentType field needed."
               },
               "response": []
             },
@@ -1603,14 +1603,14 @@
                 ],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n    \"message\": \"What is the latest news about AI in 2026?\",\n    \"agentType\": \"tool\",\n    \"useWebSearch\": true,\n    \"mcpServerIds\": []\n}"
+                  "raw": "{\n    \"message\": \"What is the latest news about AI in 2026?\",\n    \"use_web_search\": true,\n    \"mcp_server_ids\": []\n}"
                 },
                 "url": {
                   "raw": "{{baseUrl}}/api/ai/sessions/{{aiSessionId}}/chat",
                   "host": ["{{baseUrl}}"],
                   "path": ["api", "ai", "sessions", "{{aiSessionId}}", "chat"]
                 },
-                "description": "Use tool agent with web search enabled via Tavily."
+                "description": "Use tool agent with web search enabled via Tavily. Set use_web_search=true or populate mcp_server_ids to trigger the tool agent."
               },
               "response": []
             },
@@ -1625,14 +1625,14 @@
                 ],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n    \"message\": \"Tell me a short story.\",\n    \"agentType\": \"chatbot\",\n    \"useWebSearch\": false,\n    \"mcpServerIds\": []\n}"
+                  "raw": "{\n    \"message\": \"Tell me a short story.\",\n    \"use_web_search\": false,\n    \"mcp_server_ids\": []\n}"
                 },
                 "url": {
                   "raw": "{{baseUrl}}/api/ai/sessions/{{aiSessionId}}/chat/stream",
                   "host": ["{{baseUrl}}"],
                   "path": ["api", "ai", "sessions", "{{aiSessionId}}", "chat", "stream"]
                 },
-                "description": "Stream the AI response token-by-token as Server-Sent Events. Response format: data: {\"token\": \"...\"} terminated by data: [DONE]. Use EventSource or curl -N in browser/CLI."
+                "description": "Stream the AI response token-by-token as Server-Sent Events. Response format: data: {\"token\": \"...\"} terminated by data: {\"done\": true, \"agent_type\": \"chatbot\"}. Use EventSource or curl -N in browser/CLI."
               },
               "response": []
             }
@@ -1651,9 +1651,9 @@
                     "exec": [
                       "if (pm.response.code === 201) {",
                       "    const jsonData = pm.response.json();",
-                      "    if (jsonData.result && jsonData.result.id) {",
-                      "        pm.collectionVariables.set('aiFileId', jsonData.result.id);",
-                      "        console.log('AI File ID saved: ' + jsonData.result.id);",
+                      "    if (jsonData.id) {",
+                      "        pm.collectionVariables.set('aiFileId', jsonData.id);",
+                      "        console.log('AI File ID saved: ' + jsonData.id);",
                       "    }",
                       "}"
                     ],
@@ -1733,9 +1733,9 @@
                     "exec": [
                       "if (pm.response.code === 201) {",
                       "    const jsonData = pm.response.json();",
-                      "    if (jsonData.result && jsonData.result.id) {",
-                      "        pm.collectionVariables.set('aiMcpServerId', jsonData.result.id);",
-                      "        console.log('MCP Server ID saved: ' + jsonData.result.id);",
+                      "    if (jsonData.id) {",
+                      "        pm.collectionVariables.set('aiMcpServerId', jsonData.id);",
+                      "        console.log('MCP Server ID saved: ' + jsonData.id);",
                       "    }",
                       "}"
                     ],
@@ -1758,7 +1758,7 @@
                   "host": ["{{baseUrl}}"],
                   "path": ["api", "ai", "mcp", "servers"]
                 },
-                "description": "Register a new MCP server. Agent will verify live connectivity to the URL before persisting. Returns 400 if server is unreachable."
+                "description": "Register a new MCP server. Agent will verify live connectivity to the URL before persisting. Returns 400 if server is unreachable. Response: direct JSON {\"id\":\"...\",\"user_id\":\"...\",\"name\":\"...\",\"url\":\"...\",\"headers\":{},\"is_active\":true,\"created_at\":\"...\",\"updated_at\":\"...\"}"
               },
               "response": []
             },
@@ -1807,11 +1807,27 @@
                   "raw": "{\n    \"is_active\": false\n}"
                 },
                 "url": {
-                  "raw": "{{baseUrl}}/api/ai/mcp/servers/{{aiMcpServerId}}",
+                  "raw": "{{baseUrl}}/api/ai/mcp/servers/{{aiMcpServerId}}/toggle",
                   "host": ["{{baseUrl}}"],
-                  "path": ["api", "ai", "mcp", "servers", "{{aiMcpServerId}}"]
+                  "path": ["api", "ai", "mcp", "servers", "{{aiMcpServerId}}", "toggle"]
                 },
                 "description": "Toggle MCP server active state. Inactive servers are not invoked by the tool agent."
+              },
+              "response": []
+            },
+            {
+              "name": "Get MCP Server Tools",
+              "request": {
+                "method": "GET",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{accessToken}}", "type": "text" }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/ai/mcp/servers/{{aiMcpServerId}}/tools",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "ai", "mcp", "servers", "{{aiMcpServerId}}", "tools"]
+                },
+                "description": "Live-fetch the list of tools exposed by this MCP server. Returns 400 if server is unreachable. Response: [{\"name\":\"...\",\"description\":\"...\",\"input_schema\":{...}}]"
               },
               "response": []
             },

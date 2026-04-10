@@ -1,65 +1,69 @@
 package com.chatly.controller;
 
-import com.chatly.agent.AgentMcpServerRequest;
-import com.chatly.agent.AgentMcpServerResponse;
-import com.chatly.agent.AgentMcpServerUpdateRequest;
-import com.chatly.dto.request.AiMcpServerRequest;
-import com.chatly.dto.response.ApiResponse;
-import com.chatly.service.AgentService;
-import jakarta.validation.Valid;
+import com.chatly.proxy.AgentProxyClient;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
 
 @RestController
 @RequestMapping("/api/ai/mcp/servers")
 @RequiredArgsConstructor
 public class AgentMcpController {
 
-    private final AgentService agentService;
+    private final AgentProxyClient agentProxy;
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    ApiResponse<AgentMcpServerResponse> register(@RequestBody @Valid AiMcpServerRequest request) {
-        AgentMcpServerRequest agentReq = new AgentMcpServerRequest(
-                request.getName(),
-                request.getUrl(),
-                request.getHeaders()
-        );
-        return ApiResponse.<AgentMcpServerResponse>builder()
-                .result(agentService.registerMcpServer(agentReq))
-                .build();
+    ResponseEntity<byte[]> register(
+            @RequestBody byte[] body,
+            @AuthenticationPrincipal String userId
+    ) {
+        return agentProxy.forward(HttpMethod.POST, "/mcp/servers", userId, body);
     }
 
     @GetMapping
-    ApiResponse<List<AgentMcpServerResponse>> list() {
-        return ApiResponse.<List<AgentMcpServerResponse>>builder()
-                .result(agentService.listMcpServers())
-                .build();
+    ResponseEntity<byte[]> list(@AuthenticationPrincipal String userId) {
+        return agentProxy.forward(HttpMethod.GET, "/mcp/servers", userId, null);
     }
 
     @GetMapping("/{serverId}")
-    ApiResponse<AgentMcpServerResponse> get(@PathVariable String serverId) {
-        return ApiResponse.<AgentMcpServerResponse>builder()
-                .result(agentService.getMcpServer(serverId))
-                .build();
-    }
-
-    @PatchMapping("/{serverId}")
-    ApiResponse<AgentMcpServerResponse> update(
+    ResponseEntity<byte[]> get(
             @PathVariable String serverId,
-            @RequestBody AgentMcpServerUpdateRequest request
+            @AuthenticationPrincipal String userId
     ) {
-        return ApiResponse.<AgentMcpServerResponse>builder()
-                .result(agentService.updateMcpServer(serverId, request))
-                .build();
+        return agentProxy.forward(HttpMethod.GET, "/mcp/servers/" + serverId, userId, null);
     }
 
     @DeleteMapping("/{serverId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    void delete(@PathVariable String serverId) {
-        agentService.deleteMcpServer(serverId);
+    ResponseEntity<byte[]> delete(
+            @PathVariable String serverId,
+            @AuthenticationPrincipal String userId
+    ) {
+        return agentProxy.forward(
+                HttpMethod.DELETE, "/mcp/servers/" + serverId, userId, null);
+    }
+
+    @PatchMapping("/{serverId}/toggle")
+    ResponseEntity<byte[]> toggle(
+            @PathVariable String serverId,
+            @RequestBody byte[] body,
+            @AuthenticationPrincipal String userId
+    ) {
+        return agentProxy.forward(
+                HttpMethod.PATCH, "/mcp/servers/" + serverId + "/toggle", userId, body);
+    }
+
+    @GetMapping("/{serverId}/tools")
+    ResponseEntity<byte[]> tools(
+            @PathVariable String serverId,
+            @AuthenticationPrincipal String userId
+    ) {
+        return agentProxy.forward(
+                HttpMethod.GET, "/mcp/servers/" + serverId + "/tools", userId, null);
     }
 }
+
