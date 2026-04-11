@@ -437,7 +437,7 @@ export default function ChatScreen() {
           setShowSearch((prev) => !prev);
           if (showSearch) setHighlightedMessageId(null);
         }}
-        onPressInfo={isGroup ? () => router.push(`/chat/${conversationId}/info`) : undefined}
+        onPressInfo={() => router.push(`/chat/${conversationId}/info`)}
       />
 
       {showSearch && conversationId && (

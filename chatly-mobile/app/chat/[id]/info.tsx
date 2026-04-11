@@ -20,12 +20,14 @@ import * as ImagePicker from 'expo-image-picker';
 import { groupService } from '@/services/group.service';
 import { contactService } from '@/services/contact.service';
 import { fileService, type FileUploadResponse } from '@/services/file.service';
+import { userService } from '@/services/user.service';
 import { useAuthStore } from '@/store/auth.store';
 import { useConversationStore } from '@/store/conversation.store';
 import { Colors } from '@/constants/theme';
 import { Avatar } from '@/components/ui/Avatar';
 import type { GroupMemberResponse, GroupRole } from '@/types/group';
 import type { ContactResponse } from '@/types/contact';
+import type { UserResponse } from '@/types/auth';
 
 export default function GroupInfoScreen() {
   const { id: conversationId } = useLocalSearchParams<{ id: string }>();
@@ -36,10 +38,14 @@ export default function GroupInfoScreen() {
   const conversations = useConversationStore((s) => s.conversations);
   const setConversations = useConversationStore((s) => s.setConversations);
   const conversation = conversations.find((c) => c.id === conversationId);
+  const isGroup = conversation?.type === 'GROUP';
 
   const [members, setMembers] = useState<GroupMemberResponse[]>([]);
   const [loading, setLoading] = useState(false);
   const [addingMember, setAddingMember] = useState(false);
+
+  // For 1-1 chats: the other participant
+  const [otherUser, setOtherUser] = useState<UserResponse | null>(null);
 
   // Contacts
   const [contacts, setContacts] = useState<ContactResponse[]>([]);
@@ -51,7 +57,7 @@ export default function GroupInfoScreen() {
   const [docFiles, setDocFiles] = useState<FileUploadResponse[]>([]);
 
   const fetchMembers = useCallback(async () => {
-    if (!conversationId) return;
+    if (!conversationId || !isGroup) return;
     try {
       setLoading(true);
       const res = await groupService.getMembers(conversationId);
@@ -61,11 +67,21 @@ export default function GroupInfoScreen() {
     } finally {
       setLoading(false);
     }
-  }, [conversationId]);
+  }, [conversationId, isGroup]);
 
   useEffect(() => {
     fetchMembers();
   }, [fetchMembers]);
+
+  // Fetch other user profile for 1-1 chats
+  useEffect(() => {
+    if (isGroup || !conversation || !user) return;
+    const otherId = conversation.participantIds.find((id) => id !== user.id);
+    if (!otherId) return;
+    userService.getById(otherId)
+      .then((res) => setOtherUser(res.result))
+      .catch(console.error);
+  }, [isGroup, conversation, user]);
 
   // Fetch media & files
   useEffect(() => {
@@ -234,18 +250,84 @@ export default function GroupInfoScreen() {
 
   return (
     <View className="flex-1" style={{ backgroundColor: Colors.bg }}>
+      {/* Header */}
       <View style={{ paddingTop: insets.top, backgroundColor: Colors.white, borderBottomWidth: 0.5, borderBottomColor: Colors.borderLight }}>
         <View className="flex-row items-center px-4 py-3">
           <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
             <Ionicons name="chevron-back" size={24} color={Colors.text} />
           </TouchableOpacity>
           <Text className="flex-1 text-center text-lg font-bold" style={{ color: Colors.text }}>
-            Thông tin nhóm
+            {isGroup ? 'Thông tin nhóm' : 'Thông tin hộp thoại'}
           </Text>
           <View style={{ width: 24 }} />
         </View>
       </View>
 
+      {/* 1-1 DM info screen */}
+      {!isGroup && (
+        <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
+          {/* User profile */}
+          <View className="items-center py-6" style={{ backgroundColor: Colors.white, marginBottom: 8 }}>
+            <Avatar uri={otherUser?.avatarUrl} name={otherUser?.displayName ?? '?'} size={80} />
+            <Text className="mt-3 text-xl font-bold" style={{ color: Colors.text }}>{otherUser?.displayName ?? '...'}</Text>
+            <Text className="mt-1 text-sm" style={{ color: otherUser?.status === 'ONLINE' ? Colors.online : Colors.textLight }}>
+              {otherUser?.status === 'ONLINE' ? 'Đang hoạt động' : 'Ngoại tuyến'}
+            </Text>
+            <Text className="mt-0.5 text-xs" style={{ color: Colors.textMuted }}>@{otherUser?.username}</Text>
+          </View>
+
+          {/* Media section */}
+          <View style={{ backgroundColor: Colors.white, padding: 16, marginBottom: 8 }}>
+            <Text className="font-semibold text-lg mb-3" style={{ color: Colors.text }}>Ảnh/Video</Text>
+            {mediaFiles.length === 0 ? (
+              <Text style={{ color: Colors.textLight, textAlign: 'center', paddingVertical: 12 }}>Chưa có ảnh hoặc video nào</Text>
+            ) : (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                <View className="flex-row gap-2">
+                  {mediaFiles.slice(0, 20).map((file) => (
+                    <TouchableOpacity key={file.fileId} onPress={() => Linking.openURL(file.url)} style={{ borderRadius: 8, overflow: 'hidden' }}>
+                      <Image source={{ uri: file.url }} style={{ width: 80, height: 80, borderRadius: 8 }} resizeMode="cover" />
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </ScrollView>
+            )}
+          </View>
+
+          {/* Files section */}
+          <View style={{ backgroundColor: Colors.white, padding: 16 }}>
+            <Text className="font-semibold text-lg mb-3" style={{ color: Colors.text }}>Tệp đính kèm</Text>
+            {docFiles.length === 0 ? (
+              <Text style={{ color: Colors.textLight, textAlign: 'center', paddingVertical: 12 }}>Chưa có tệp nào</Text>
+            ) : (
+              docFiles.slice(0, 20).map((file) => (
+                <TouchableOpacity
+                  key={file.fileId}
+                  onPress={() => Linking.openURL(file.url)}
+                  className="flex-row items-center py-3"
+                  style={{ borderBottomWidth: 0.5, borderBottomColor: Colors.borderLight }}
+                >
+                  <View style={{ width: 40, height: 40, borderRadius: 8, backgroundColor: Colors.bg, alignItems: 'center', justifyContent: 'center' }}>
+                    <Ionicons name="document-outline" size={20} color={Colors.cta} />
+                  </View>
+                  <View className="flex-1 ml-3">
+                    <Text className="font-medium" style={{ color: Colors.text }} numberOfLines={1}>{file.fileName}</Text>
+                    <Text className="text-xs mt-0.5" style={{ color: Colors.textLight }}>
+                      {file.fileSize > 1048576 ? `${(file.fileSize / 1048576).toFixed(1)} MB` : `${Math.round(file.fileSize / 1024)} KB`}
+                      {file.createdAt ? ` · ${new Date(file.createdAt).toLocaleDateString('vi-VN')}` : ''}
+                    </Text>
+                  </View>
+                  <Ionicons name="download-outline" size={20} color={Colors.cta} />
+                </TouchableOpacity>
+              ))
+            )}
+          </View>
+        </ScrollView>
+      )}
+
+      {/* Group info screen (existing) */}
+      {isGroup && (
+      <>
       <FlatList
         data={members}
         keyExtractor={(item) => item.userId}
@@ -446,6 +528,8 @@ export default function GroupInfoScreen() {
           />
         </View>
       </Modal>
+      </>
+      )}
     </View>
   );
 }

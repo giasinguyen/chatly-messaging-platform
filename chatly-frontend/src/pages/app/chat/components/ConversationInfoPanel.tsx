@@ -42,6 +42,7 @@ import type { ConversationResponse } from "@/types/conversation";
 import { conversationService } from "@/services/conversation.service";
 import { groupService } from "@/services/group.service";
 import { fileService, type FileUploadResponse } from "@/services/file.service";
+import { messageService } from "@/services/message.service";
 import { useConversationPrefsStore } from "@/store/conversationPrefs.store";
 
 interface ConversationInfoPanelProps {
@@ -107,15 +108,30 @@ export function ConversationInfoPanel({
 
     useEffect(() => {
         let cancelled = false;
+        const URL_REGEX = /(https?:\/\/[^\s<>"]+)/g;
         const fetchFiles = async () => {
             try {
-                const [images, docs] = await Promise.all([
+                const [images, docs, linkMsgs] = await Promise.all([
                     fileService.getByConversation(conversation.id, "image"),
                     fileService.getByConversation(conversation.id, "file"),
+                    messageService.search(conversation.id, "http", 0, 50).catch(() => ({ result: [] })),
                 ]);
                 if (!cancelled) {
                     setMediaFiles(images);
                     setDocFiles(docs);
+                    const extracted: { url: string; domain: string }[] = [];
+                    for (const msg of linkMsgs.result) {
+                        const matches = msg.content?.match(URL_REGEX) ?? [];
+                        for (const url of matches) {
+                            try {
+                                const domain = new URL(url).hostname;
+                                if (!extracted.find(l => l.url === url)) {
+                                    extracted.push({ url, domain });
+                                }
+                            } catch { /* ignore */ }
+                        }
+                    }
+                    setLinkMessages(extracted.slice(0, 20));
                 }
             } catch {
                 // silently ignore
@@ -240,7 +256,7 @@ export function ConversationInfoPanel({
                 </h3>
             </div>
 
-            <ScrollArea className="flex-1">
+            <ScrollArea className="flex-1 [&>[data-slot=scroll-area-viewport]]:overflow-x-hidden">
                 <div className="flex flex-col gap-0">
                     {/* Avatar + Name */}
                     <div className="flex flex-col items-center gap-2 py-5 px-4">
@@ -610,6 +626,33 @@ export function ConversationInfoPanel({
                     </div>
 
                     <Separator />
+
+                    {/* Link */}
+                    {linkMessages.length > 0 && (
+                        <>
+                            <div className="px-4 py-3">
+                                <div className="flex items-center gap-2 mb-2">
+                                    <LinkIcon size={15} className="text-muted-foreground" />
+                                    <span className="text-sm font-medium text-foreground">Link</span>
+                                </div>
+                                <div className="flex flex-col gap-2">
+                                    {linkMessages.map((link, i) => (
+                                        <a key={i} href={link.url} target="_blank" rel="noopener noreferrer"
+                                            className="flex min-w-0 items-center gap-2.5 p-2 rounded-lg bg-muted/30 border border-border/40 hover:bg-muted/50 transition no-underline">
+                                            <div className="h-7 w-7 rounded bg-brand/10 flex items-center justify-center shrink-0">
+                                                <LinkIcon size={13} className="text-brand" />
+                                            </div>
+                                            <div className="flex-1 min-w-0 overflow-hidden">
+                                                <p className="text-xs text-brand truncate">{link.domain}</p>
+                                                <p className="text-[11px] text-muted-foreground break-all leading-tight">{link.url}</p>
+                                            </div>
+                                        </a>
+                                    ))}
+                                </div>
+                            </div>
+                            <Separator />
+                        </>
+                    )}
 
                     {/* Delete Conversation */}
                     <div className="px-4 py-4">

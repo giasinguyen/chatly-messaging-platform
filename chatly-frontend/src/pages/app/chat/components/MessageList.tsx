@@ -389,7 +389,26 @@ export function MessageList({
                                         isMe={isMe}
                                     />
                                 )}
-                                {msg.content}
+                                {msg.content && (() => {
+                                    const URL_REGEX = /(https?:\/\/[^\s<>"]+)/g;
+                                    const parts = msg.content.split(URL_REGEX);
+                                    const hasLinks = parts.some(p => /^https?:\/\//.test(p));
+                                    if (!hasLinks) return <span>{msg.content}</span>;
+                                    return (
+                                        <span>
+                                            {parts.map((part, i) =>
+                                                /^https?:\/\//.test(part) ? (
+                                                    <a key={i} href={part} target="_blank" rel="noopener noreferrer"
+                                                        className={cn("underline break-all", isMe ? "text-white/90 hover:text-white" : "text-brand hover:text-brand/80")}>
+                                                        {part}
+                                                    </a>
+                                                ) : (
+                                                    <span key={i}>{part}</span>
+                                                )
+                                            )}
+                                        </span>
+                                    );
+                                })()}
                                 {/* Attachments */}
                                 {msg.attachments && msg.attachments.length > 0 && (
                                     <div className={cn("flex flex-col gap-2", msg.content ? "mt-2" : "")}>

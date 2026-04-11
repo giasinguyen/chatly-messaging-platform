@@ -1,4 +1,4 @@
-import { View, Text, TouchableOpacity, Image } from 'react-native';
+import { View, Text, TouchableOpacity, Image, Linking } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/theme';
 import { formatMessageTime } from '@/utils/format';
@@ -55,15 +55,55 @@ export function MessageBubble({
     const imageUrl = attachments?.[0]?.url;
     if (!imageUrl) return null;
     return (
-      <Image
-        source={{ uri: imageUrl }}
-        style={{
-          width: 200,
-          height: 200,
-          borderRadius: 12,
-        }}
-        resizeMode="cover"
-      />
+      <TouchableOpacity onPress={() => Linking.openURL(imageUrl)} activeOpacity={0.85}>
+        <Image
+          source={{ uri: imageUrl }}
+          style={{ width: 200, height: 200, borderRadius: 12 }}
+          resizeMode="cover"
+        />
+      </TouchableOpacity>
+    );
+  };
+
+  // Video message
+  const renderVideoContent = () => {
+    const video = attachments?.[0];
+    if (!video?.url) return null;
+    return (
+      <TouchableOpacity
+        onPress={() => Linking.openURL(video.url)}
+        activeOpacity={0.85}
+        style={{ width: 200, height: 120, borderRadius: 12, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}
+      >
+        <Ionicons name="play-circle-outline" size={44} color="rgba(255,255,255,0.9)" />
+        {video.name ? (
+          <Text style={{ color: 'rgba(255,255,255,0.75)', fontSize: 11, marginTop: 6, paddingHorizontal: 8, textAlign: 'center' }} numberOfLines={1}>
+            {video.name}
+          </Text>
+        ) : null}
+      </TouchableOpacity>
+    );
+  };
+
+  // Audio message
+  const renderAudioContent = () => {
+    const audio = attachments?.[0];
+    if (!audio?.url) return null;
+    return (
+      <TouchableOpacity
+        onPress={() => Linking.openURL(audio.url)}
+        className="flex-row items-center rounded-xl px-3 py-2"
+        style={{ backgroundColor: isMe ? 'rgba(0,0,0,0.15)' : 'rgba(0,0,0,0.07)' }}
+      >
+        <Ionicons name="musical-notes-outline" size={20} color={isMe ? Colors.bubbleSenderText : Colors.cta} />
+        <Text
+          className="ml-2 text-sm"
+          style={{ color: isMe ? Colors.bubbleSenderText : Colors.cta }}
+          numberOfLines={1}
+        >
+          {audio.name ?? 'Âm thanh'}
+        </Text>
+      </TouchableOpacity>
     );
   };
 
@@ -72,20 +112,65 @@ export function MessageBubble({
     const file = attachments?.[0];
     if (!file) return null;
     return (
-      <View className="flex-row items-center">
+      <TouchableOpacity
+        onPress={() => file.url && Linking.openURL(file.url)}
+        className="flex-row items-center rounded-xl px-3 py-2"
+        style={{ backgroundColor: isMe ? 'rgba(0,0,0,0.15)' : 'rgba(0,0,0,0.07)' }}
+      >
         <Ionicons
           name="document-outline"
           size={20}
           color={isMe ? Colors.bubbleSenderText : Colors.cta}
         />
         <Text
-          className="ml-2 text-sm"
+          className="ml-2 text-sm flex-1"
           style={{ color: isMe ? Colors.bubbleSenderText : Colors.cta }}
           numberOfLines={1}
         >
           {file.name ?? 'Tệp đính kèm'}
         </Text>
-      </View>
+        <Ionicons
+          name="download-outline"
+          size={16}
+          color={isMe ? Colors.bubbleSenderText : Colors.cta}
+          style={{ marginLeft: 6 }}
+        />
+      </TouchableOpacity>
+    );
+  };
+
+  // Text with URL detection
+  const renderTextContent = () => {
+    const URL_REGEX = /(https?:\/\/[^\s<>"]+)/g;
+    const parts = content.split(URL_REGEX);
+    const hasLinks = parts.some((p) => /^https?:\/\//.test(p));
+    const textColor = isMe ? Colors.bubbleSenderText : Colors.bubbleReceiverText;
+    if (!hasLinks) {
+      return (
+        <Text className="text-[15px] leading-5" style={{ color: textColor }}>
+          {content}
+        </Text>
+      );
+    }
+    return (
+      <Text className="text-[15px] leading-5" style={{ color: textColor }}>
+        {parts.map((part, i) =>
+          /^https?:\/\//.test(part) ? (
+            <Text
+              key={i}
+              onPress={() => Linking.openURL(part)}
+              style={{
+                color: isMe ? 'rgba(255,255,255,0.9)' : Colors.cta,
+                textDecorationLine: 'underline',
+              }}
+            >
+              {part}
+            </Text>
+          ) : (
+            <Text key={i}>{part}</Text>
+          )
+        )}
+      </Text>
     );
   };
 
@@ -93,6 +178,10 @@ export function MessageBubble({
     switch (type) {
       case 'IMAGE':
         return renderImageContent();
+      case 'VIDEO':
+        return renderVideoContent();
+      case 'AUDIO':
+        return renderAudioContent();
       case 'FILE':
         return renderFileContent();
       case 'SYSTEM':
@@ -104,14 +193,7 @@ export function MessageBubble({
           </View>
         );
       default:
-        return (
-          <Text
-            className="text-[15px] leading-5"
-            style={{ color: isMe ? Colors.bubbleSenderText : Colors.bubbleReceiverText }}
-          >
-            {content}
-          </Text>
-        );
+        return renderTextContent();
     }
   };
 
