@@ -8,6 +8,7 @@ import {
     FileText,
     Loader2,
     Smile,
+    ImagePlus,
 } from "lucide-react";
 import Picker from "@emoji-mart/react";
 import data from "@emoji-mart/data";
@@ -57,6 +58,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
     const typingTimerRef = useRef<any>(null);
     const inputRef = useRef<HTMLInputElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const imageInputRef = useRef<HTMLInputElement>(null);
     const emojiPickerRef = useRef<HTMLDivElement>(null);
 
     // ----------------------------------------------------------------
@@ -296,17 +298,36 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
 
             <div className="p-4 px-6">
                 <div className="flex items-center gap-3">
-                    {/* Hidden file input */}
+                    {/* Hidden file inputs */}
+                    <input
+                        ref={imageInputRef}
+                        type="file"
+                        multiple
+                        accept="image/*,video/*"
+                        className="hidden"
+                        onChange={handleFileSelect}
+                    />
                     <input
                         ref={fileInputRef}
                         type="file"
                         multiple
-                        accept={ACCEPTED_TYPES}
+                        accept="application/pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip,audio/*"
                         className="hidden"
                         onChange={handleFileSelect}
                     />
 
-                    {/* Attach button */}
+                    {/* Image/Video attach button */}
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-9 w-9 shrink-0 text-muted-foreground hover:text-foreground"
+                        onClick={() => imageInputRef.current?.click()}
+                        title="Gửi ảnh/video"
+                    >
+                        <ImagePlus size={18} />
+                    </Button>
+
+                    {/* File attach button */}
                     <Button
                         variant="ghost"
                         size="icon"

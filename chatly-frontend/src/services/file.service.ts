@@ -8,6 +8,7 @@ export interface FileUploadResponse {
     fileType: string;
     fileSize: number;
     conversationId?: string;
+    createdAt?: string;
 }
 
 export const fileService = {
@@ -39,5 +40,16 @@ export const fileService = {
 
     async deleteFile(fileId: string): Promise<void> {
         await axiosClient.delete(`/api/files/${fileId}`);
+    },
+
+    async getByConversation(
+        conversationId: string,
+        type?: "image" | "video" | "file",
+    ): Promise<FileUploadResponse[]> {
+        const { data } = await axiosClient.get<{ result: FileUploadResponse[] }>(
+            `/api/files/conversation/${conversationId}`,
+            { params: type ? { type } : {} },
+        );
+        return data.result;
     },
 };

@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
     BellOff,
@@ -18,6 +18,7 @@ import {
     X,
     Users,
     Loader2,
+    Download,
 } from "lucide-react";
 import { AddMembersDialog } from "./AddMembersDialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -40,7 +41,7 @@ import type { ChatUser } from "@/types/message";
 import type { ConversationResponse } from "@/types/conversation";
 import { conversationService } from "@/services/conversation.service";
 import { groupService } from "@/services/group.service";
-import { fileService } from "@/services/file.service";
+import { fileService, type FileUploadResponse } from "@/services/file.service";
 import { useConversationPrefsStore } from "@/store/conversationPrefs.store";
 
 interface ConversationInfoPanelProps {
@@ -98,6 +99,31 @@ export function ConversationInfoPanel({
 
     // Add members dialog (group only)
     const [showAddMembersDialog, setShowAddMembersDialog] = useState(false);
+
+    // Media & files from S3
+    const [mediaFiles, setMediaFiles] = useState<FileUploadResponse[]>([]);
+    const [docFiles, setDocFiles] = useState<FileUploadResponse[]>([]);
+    const [linkMessages, setLinkMessages] = useState<{ url: string; domain: string }[]>([]);
+
+    useEffect(() => {
+        let cancelled = false;
+        const fetchFiles = async () => {
+            try {
+                const [images, docs] = await Promise.all([
+                    fileService.getByConversation(conversation.id, "image"),
+                    fileService.getByConversation(conversation.id, "file"),
+                ]);
+                if (!cancelled) {
+                    setMediaFiles(images);
+                    setDocFiles(docs);
+                }
+            } catch {
+                // silently ignore
+            }
+        };
+        fetchFiles();
+        return () => { cancelled = true; };
+    }, [conversation.id]);
 
     // Group name editing (group only)
     const [isEditingGroupName, setIsEditingGroupName] = useState(false);
