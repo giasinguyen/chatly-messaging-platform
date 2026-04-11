@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef, memo } from "react";
+import { useState, useCallback, useEffect, useRef, useMemo, memo } from "react";
 import { useNavigate } from "react-router-dom";
 import { ChatHeader } from "./ChatHeader";
 import { MessageList } from "./MessageList";
@@ -8,6 +8,7 @@ import { MessageSearch } from "./MessageSearch";
 import { GroupManagementPanel } from "./GroupManagementPanel";
 import { ConversationInfoPanel } from "./ConversationInfoPanel";
 import { CreateGroupDialog } from "./CreateGroupDialog";
+import { ForwardMessageDialog } from "./ForwardMessageDialog";
 import { conversationService } from "@/services/conversation.service";
 import { contactService } from "@/services/contact.service";
 import { messageService } from "@/services/message.service";
@@ -53,6 +54,7 @@ import { toast } from "sonner";
 import type { Message, ChatUser, ChatEvent } from "@/types/message";
 import type { ContactStatus } from "@/types/contact";
 import type { ConversationResponse } from "@/types/conversation";
+import type { UserResponse } from "@/types/auth";
 
 const PAGE_SIZE = 20;
 
@@ -151,6 +153,7 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
     const [participantDirectory, setParticipantDirectory] = useState<
         Record<string, ChatUser>
     >({});
+    const [userDirectory, setUserDirectory] = useState<Record<string, UserResponse>>({});
     const [messages, setMessages] = useState<Message[]>([]);
     const [replyingTo, setReplyingTo] = useState<Message | null>(null);
     const [loading, setLoading] = useState(true);
@@ -179,6 +182,7 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
     const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
     const [groupPanelDefaultTab, setGroupPanelDefaultTab] = useState<"members" | "settings">("members");
     const [createGroupFromPrivateOpen, setCreateGroupFromPrivateOpen] = useState(false);
+    const [forwardingMessage, setForwardingMessage] = useState<Message | null>(null);
     const groupAvatarInputRef = useRef<HTMLInputElement>(null);
 
     const [selectedProfileUser, setSelectedProfileUser] =
@@ -330,6 +334,9 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
 
                 // Lấy thông tin participant hiển thị
                 const allUsers = usersRes.result ?? [];
+                setUserDirectory(
+                    Object.fromEntries(allUsers.map((user) => [user.id, user])),
+                );
                 const allContacts = contactsRes.result ?? [];
                 const directory = Object.fromEntries(
                     conv.participantIds.map((participantId) => {
@@ -589,6 +596,33 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
         [],
     );
 
+    const handleForward = useCallback((message: Message) => {
+        setForwardingMessage(message);
+    }, []);
+
+    const handleForwardConfirm = useCallback(
+        async (targetConversationIds: string[]) => {
+            if (!forwardingMessage) return;
+
+            try {
+                await messageService.forward(forwardingMessage.id, targetConversationIds);
+                toast.success(
+                    targetConversationIds.length > 1
+                        ? "Đã chuyển tiếp tin nhắn"
+                        : "Đã chuyển tiếp tin nhắn đến cuộc trò chuyện đã chọn",
+                );
+                setForwardingMessage(null);
+            } catch (err: any) {
+                const msg =
+                    err?.response?.data?.message ??
+                    "Không thể chuyển tiếp tin nhắn";
+                toast.error(msg);
+                throw err;
+            }
+        },
+        [forwardingMessage],
+    );
+
     const handleReact = useCallback(
         async (messageId: string, emoji: string) => {
             try {
@@ -754,6 +788,14 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
         }
     }, [conversation?.type, conversation?.id, groupAvatarDraft, groupNameDraft]);
 
+    const messageUserDirectory = useMemo(
+        () => ({
+            ...userDirectory,
+            ...participantDirectory,
+        }),
+        [participantDirectory, userDirectory],
+    );
+
     // ----------------------------------------------------------------
     // Render states
     // ----------------------------------------------------------------
@@ -891,9 +933,10 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
                 messages={messages}
                 participant={participant}
                 conversationType={conversation.type}
-                participantDirectory={participantDirectory}
+                participantDirectory={messageUserDirectory}
                 currentUserId={currentUser?.id ?? ""}
                 onReply={handleReply}
+                onForward={handleForward}
                 onRecall={handleRecall}
                 onEdit={handleEdit}
                 onDelete={handleDelete}
@@ -942,6 +985,16 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
                 onCancelReply={handleCancelReply}
                 onSendMessage={handleSendMessage}
                 onTyping={sendTyping}
+            />
+
+            <ForwardMessageDialog
+                open={!!forwardingMessage}
+                currentConversationId={id}
+                currentUserId={currentUser?.id ?? ""}
+                onOpenChange={(open) => {
+                    if (!open) setForwardingMessage(null);
+                }}
+                onConfirm={handleForwardConfirm}
             />
 
             <Dialog

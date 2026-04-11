@@ -38,12 +38,7 @@ public class ChatMessageController {
                 .poll(request.getPoll())
                 .build();
 
-        MessageResponse response = messageService.send(senderId, messageRequest);
-
-        messagingTemplate.convertAndSend(
-                "/topic/conversation." + request.getConversationId(),
-                ChatEvent.builder().action(ChatEvent.ChatAction.SEND).message(response).build()
-        );
+        messageService.send(senderId, messageRequest);
     }
 
     @MessageMapping("/chat.seen")

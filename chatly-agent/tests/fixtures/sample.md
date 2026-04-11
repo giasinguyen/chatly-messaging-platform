@@ -1,0 +1,1 @@
+# Sample Document\n\nRAG helps retrieve relevant chunks before generation.

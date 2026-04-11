@@ -9,6 +9,7 @@ interface MessageActionsProps {
   isMe: boolean;
   onClose: () => void;
   onReply: () => void;
+  onForward?: () => void;
   onCopy: () => void;
   onReact?: (emoji: string) => void;
   onEdit?: () => void;
@@ -30,6 +31,7 @@ export function MessageActions({
   isMe,
   onClose,
   onReply,
+  onForward,
   onCopy,
   onReact,
   onEdit,
@@ -47,6 +49,7 @@ export function MessageActions({
 
   const actions: ActionItem[] = [
     { icon: 'arrow-undo-outline', label: 'Trả lời', onPress: onReply },
+    ...(onForward ? [{ icon: 'arrow-redo-outline' as const, label: 'Chuyển tiếp', onPress: onForward }] : []),
     { icon: 'copy-outline', label: 'Sao chép', onPress: onCopy },
   ];
 

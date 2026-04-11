@@ -44,6 +44,9 @@ public enum ErrorCode {
     CANNOT_RECALL_SYSTEM_MESSAGE(1407, "System messages cannot be recalled", HttpStatus.BAD_REQUEST),
     INVALID_EMOJI(1408, "Emoji is not in the allowed list", HttpStatus.BAD_REQUEST),
     CANNOT_REACT_RECALLED_MESSAGE(1409, "Cannot react to a recalled message", HttpStatus.BAD_REQUEST),
+    INVALID_FORWARD_TARGETS(1410, "Please select at least one valid target conversation", HttpStatus.BAD_REQUEST),
+    CANNOT_FORWARD_MESSAGE_TYPE(1411, "Only text, image and file messages can be forwarded", HttpStatus.BAD_REQUEST),
+    CANNOT_FORWARD_RECALLED_MESSAGE(1412, "Recalled messages cannot be forwarded", HttpStatus.BAD_REQUEST),
     POLL_NOT_FOUND(1410, "Poll not found in this message", HttpStatus.BAD_REQUEST),
     POLL_INVALID_OPTION(1411, "Invalid poll option index", HttpStatus.BAD_REQUEST),
 
@@ -66,7 +69,10 @@ public enum ErrorCode {
 
     UNAUTHORIZED(1600, "You do not have permission", HttpStatus.FORBIDDEN),
     UNAUTHENTICATED(1601, "Unauthenticated", HttpStatus.UNAUTHORIZED),
-    INVALID_TOKEN(1602, "Invalid or expired token", HttpStatus.UNAUTHORIZED);
+    INVALID_TOKEN(1602, "Invalid or expired token", HttpStatus.UNAUTHORIZED),
+
+    AGENT_SERVICE_ERROR(2000, "AI service temporarily unavailable", HttpStatus.BAD_GATEWAY),
+    AGENT_BAD_REQUEST(2001, "Invalid AI service request", HttpStatus.BAD_REQUEST);
 
     private final int code;
     private final String message;

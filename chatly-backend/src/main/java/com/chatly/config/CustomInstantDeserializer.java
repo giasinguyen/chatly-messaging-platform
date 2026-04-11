@@ -2,16 +2,20 @@ package com.chatly.config;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import tools.jackson.core.JsonParser;
 import tools.jackson.databind.DeserializationContext;
 import tools.jackson.databind.ValueDeserializer;
 
-/* 
- * Intanst require kiểu T00:00:00Z nếu không có T thì tự động thêm T00:00:00Z :v
- * 2026-03-08T07:30:00Z   → parsed directly as Instant
- * 2026-03-08             → converted to 2026-03-08T00:00:00Z
-*/
+/*
+ * Handles all datetime string variants returned by Python/Pydantic:
+ * 2026-04-09T08:32:06.773000Z          → Instant via OffsetDateTime
+ * 2026-04-09T08:32:06.773000+00:00     → Instant via OffsetDateTime
+ * 2026-04-09T08:32:06.773000           → assume UTC, parse as LocalDateTime
+ * 2026-03-08                           → converted to 2026-03-08T00:00:00Z
+ */
 public class CustomInstantDeserializer extends ValueDeserializer<Instant> {
     @Override
     public Instant deserialize(JsonParser p, DeserializationContext ctxt) {
@@ -21,7 +25,13 @@ public class CustomInstantDeserializer extends ValueDeserializer<Instant> {
                 return null;
 
             if (text.contains("T")) {
-                return Instant.parse(text);
+                try {
+                    // Handles Z, +00:00, -05:00 etc.
+                    return OffsetDateTime.parse(text).toInstant();
+                } catch (Exception e) {
+                    // No timezone offset — treat as UTC
+                    return LocalDateTime.parse(text).toInstant(ZoneOffset.UTC);
+                }
             }
 
             return LocalDate.parse(text).atStartOfDay(ZoneOffset.UTC).toInstant();

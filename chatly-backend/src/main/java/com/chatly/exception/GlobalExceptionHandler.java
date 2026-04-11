@@ -1,6 +1,7 @@
 package com.chatly.exception;
 
 import com.chatly.dto.response.ApiResponse;
+import com.chatly.proxy.AgentProxyException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
@@ -61,6 +62,20 @@ public class GlobalExceptionHandler {
         }
 
         return ResponseEntity.badRequest()
+                .body(ApiResponse.<Void>builder()
+                        .code(errorCode.getCode())
+                        .message(errorCode.getMessage())
+                        .build());
+    }
+
+    @ExceptionHandler(AgentProxyException.class)
+    ResponseEntity<ApiResponse<Void>> handleAgentProxy(AgentProxyException ex) {
+        log.error("Agent proxy error: {}", ex.getMessage());
+        ErrorCode errorCode = ex.getAgentStatusCode().is5xxServerError()
+                ? ErrorCode.AGENT_SERVICE_ERROR
+                : ErrorCode.AGENT_BAD_REQUEST;
+
+        return ResponseEntity.status(errorCode.getStatusCode())
                 .body(ApiResponse.<Void>builder()
                         .code(errorCode.getCode())
                         .message(errorCode.getMessage())

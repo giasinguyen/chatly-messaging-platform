@@ -1,9 +1,29 @@
 import { useEffect, useRef, useCallback, useState, useMemo } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
-import { ChevronLeft, ChevronRight, Check, CheckCheck, Reply, RotateCcw, Pencil, X, Send, FileText, Download, Copy, Trash2, AlertCircle, RefreshCcw, SmilePlus, Pin, BarChart3 } from "lucide-react";
+import {
+    ChevronLeft,
+    ChevronRight,
+    Check,
+    CheckCheck,
+    Reply,
+    RotateCcw,
+    Pencil,
+    X,
+    Send,
+    FileText,
+    Download,
+    Copy,
+    Trash2,
+    AlertCircle,
+    RefreshCcw,
+    SmilePlus,
+    Pin,
+    BarChart3,
+    Forward,
+} from "lucide-react";
 import { toast } from "sonner";
-import type { Message, ChatUser, Reaction } from "@/types/message";
+import type { Message, ChatUser } from "@/types/message";
 import type { ConversationType } from "@/types/conversation";
 import { ReplyPreview } from "./ReplyPreview";
 import {
@@ -37,6 +57,7 @@ interface MessageListProps {
     participantDirectory: Record<string, ChatUser>;
     currentUserId: string;
     onReply: (msg: Message) => void;
+    onForward: (msg: Message) => void;
     onRecall: (messageId: string) => void;
     onEdit: (messageId: string, newContent: string) => void;
     onDelete: (messageId: string) => void;
@@ -64,6 +85,7 @@ export function MessageList({
     participantDirectory,
     currentUserId,
     onReply,
+    onForward,
     onRecall,
     onEdit,
     onDelete,
@@ -259,6 +281,11 @@ export function MessageList({
         return age < EDIT_LIMIT_MS;
     };
 
+    const canForward = (msg: Message): boolean => {
+        if (msg.recalled) return false;
+        return ["TEXT", "IMAGE", "FILE"].includes(msg.type);
+    };
+
     const startEdit = (msg: Message) => {
         setEditingId(msg.id);
         setEditDraft(msg.content);
@@ -300,7 +327,6 @@ export function MessageList({
                 ? "Bạn"
                 : (participantDirectory[repliedMsg.senderId]?.displayName || participant.displayName).split(" ").slice(-1)[0]
             : undefined;
-
         const isBeingEdited = editingId === msg.id;
 
         const bubble = (
@@ -699,6 +725,15 @@ export function MessageList({
                         >
                             <Reply size={14} />
                             Trả lời
+                        </ContextMenuItem>
+                    )}
+                    {canForward(msg) && (
+                        <ContextMenuItem
+                            onClick={() => onForward(msg)}
+                            className="gap-2"
+                        >
+                            <Forward size={14} />
+                            Chuyển tiếp
                         </ContextMenuItem>
                     )}
                     {msg.type === "TEXT" && !msg.recalled && (
