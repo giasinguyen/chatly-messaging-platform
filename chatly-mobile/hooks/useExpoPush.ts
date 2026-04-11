@@ -5,6 +5,7 @@ import Constants from 'expo-constants';
 import { useRouter } from 'expo-router';
 import { useAuthStore } from '@/store/auth.store';
 import axiosClient from '@/lib/axiosClient';
+import { useConversationPrefsStore, isConvMuted } from '@/store/conversationPrefs.store';
 
 // Lazy load expo-notifications to avoid side-effect crash in Expo Go
 let Notifications: any;
@@ -15,11 +16,16 @@ if (!isExpoGo) {
     Notifications = require('expo-notifications');
     // Configure how notifications are displayed when the app is in the foreground
     Notifications.setNotificationHandler({
-      handleNotification: async () => ({
-        shouldShowAlert: true,
-        shouldPlaySound: true,
-        shouldSetBadge: true,
-      }),
+      handleNotification: async (notification: any) => {
+        const data = notification.request?.content?.data;
+        if (data?.type === 'NEW_MESSAGE' && data?.referenceId) {
+          const convPrefs = useConversationPrefsStore.getState().prefs[data.referenceId] ?? {};
+          if (isConvMuted(convPrefs)) {
+            return { shouldShowAlert: false, shouldPlaySound: false, shouldSetBadge: false };
+          }
+        }
+        return { shouldShowAlert: true, shouldPlaySound: true, shouldSetBadge: true };
+      },
     });
   } catch (e) {
     console.warn('Failed to load expo-notifications', e);

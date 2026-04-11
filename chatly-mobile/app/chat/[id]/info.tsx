@@ -11,6 +11,7 @@ import {
   Image,
   Linking,
   ScrollView,
+  Switch,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -23,6 +24,8 @@ import { fileService, type FileUploadResponse } from '@/services/file.service';
 import { userService } from '@/services/user.service';
 import { useAuthStore } from '@/store/auth.store';
 import { useConversationStore } from '@/store/conversation.store';
+import { useConversationPrefsStore } from '@/store/conversationPrefs.store';
+import { isConvMuted } from '@/store/conversationPrefs.store';
 import { Colors } from '@/constants/theme';
 import { Avatar } from '@/components/ui/Avatar';
 import type { GroupMemberResponse, GroupRole } from '@/types/group';
@@ -40,6 +43,21 @@ export default function GroupInfoScreen() {
   const conversation = conversations.find((c) => c.id === conversationId);
   const isGroup = conversation?.type === 'GROUP';
 
+  const { prefs, hydrate, setPin, setMute, setNickname } = useConversationPrefsStore();
+  const convPrefs = prefs[conversationId ?? ''] ?? {};
+  const isPinned = convPrefs.isPinned ?? false;
+  const isEffMuted = isConvMuted(convPrefs);
+  const nickname = convPrefs.nickname ?? '';
+  const muteUntil = convPrefs.muteUntil;
+  const muteUntilLabel = !isEffMuted
+    ? ''
+    : muteUntil == null
+    ? 'Cho đến khi bật lại'
+    : `Đến ${new Date(muteUntil).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}`;
+
+  useEffect(() => { hydrate(); }, []);
+
+
   const [members, setMembers] = useState<GroupMemberResponse[]>([]);
   const [loading, setLoading] = useState(false);
   const [addingMember, setAddingMember] = useState(false);
@@ -51,6 +69,7 @@ export default function GroupInfoScreen() {
   const [contacts, setContacts] = useState<ContactResponse[]>([]);
   const [addModalVisible, setAddModalVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [muteModalVisible, setMuteModalVisible] = useState(false);
 
   // Media & files
   const [mediaFiles, setMediaFiles] = useState<FileUploadResponse[]>([]);
@@ -122,7 +141,7 @@ export default function GroupInfoScreen() {
           }
         },
       },
-    ], 'plain-text', conversation?.name);
+    ], 'plain-text', conversation?.name ?? undefined);
   };
 
   const handlePickAvatar = async () => {
@@ -194,7 +213,7 @@ export default function GroupInfoScreen() {
       });
     }
 
-    options.push({ text: 'Hủy', style: 'cancel' });
+    options.push({ text: 'Hủy', style: 'cancel' as const });
 
     if (options.length > 1) {
       Alert.alert(member.displayName, 'Chọn hành động', options);
@@ -224,6 +243,28 @@ export default function GroupInfoScreen() {
     setAddModalVisible(true);
   };
 
+  const handleSetNickname = () => {
+    Alert.prompt(
+      'Đặt biệt danh',
+      `Biệt danh cho ${otherUser?.displayName ?? 'người dùng này'}`,
+      [
+        { text: 'Hủy', style: 'cancel' },
+        {
+          text: 'Lưu',
+          onPress: (value?: string) => {
+            setNickname(conversationId, (value ?? '').trim());
+          },
+        },
+      ],
+      'plain-text',
+      nickname,
+    );
+  };
+
+  const handleMutePress = () => {
+    setMuteModalVisible(true);
+  };
+
   const handleAddMember = async (contactUser: any) => {
     try {
       setAddingMember(true);
@@ -248,245 +289,260 @@ export default function GroupInfoScreen() {
     });
   }, [contacts, members, user?.id, searchQuery]);
 
+  // ── Quick action button helper ──
+  const QuickActionBtn = ({
+    iconName,
+    label,
+    onPress,
+    active = false,
+  }: {
+    iconName: string;
+    label: string;
+    onPress: () => void;
+    active?: boolean;
+  }) => (
+    <TouchableOpacity onPress={onPress} style={{ alignItems: 'center', flex: 1, maxWidth: 76 }}>
+      <View style={{
+        width: 52, height: 52, borderRadius: 26,
+        backgroundColor: active ? Colors.ctaLight : Colors.bg,
+        alignItems: 'center', justifyContent: 'center',
+      }}>
+        {(() => {
+          const key = (iconName || '').toString().toLowerCase();
+          const iconSize = key.includes('pin') || key.includes('bookmark') || key.includes('notification') ? 24 : 22;
+          return <Ionicons name={iconName as any} size={iconSize} color={active ? Colors.cta : Colors.text} />;
+        })()}
+      </View>
+      <Text style={{ color: Colors.textMuted, fontSize: 11, textAlign: 'center', marginTop: 6, lineHeight: 15 }} numberOfLines={2}>
+        {label}
+      </Text>
+    </TouchableOpacity>
+  );
+
   return (
-    <View className="flex-1" style={{ backgroundColor: Colors.bg }}>
+    <View style={{ flex: 1, backgroundColor: Colors.bg }}>
       {/* Header */}
       <View style={{ paddingTop: insets.top, backgroundColor: Colors.white, borderBottomWidth: 0.5, borderBottomColor: Colors.borderLight }}>
-        <View className="flex-row items-center px-4 py-3">
+        <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12 }}>
           <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
             <Ionicons name="chevron-back" size={24} color={Colors.text} />
           </TouchableOpacity>
-          <Text className="flex-1 text-center text-lg font-bold" style={{ color: Colors.text }}>
-            {isGroup ? 'Thông tin nhóm' : 'Thông tin hộp thoại'}
+          <Text style={{ flex: 1, textAlign: 'center', fontSize: 18, fontWeight: 'bold', color: Colors.text }}>
+            Tùy chọn
           </Text>
           <View style={{ width: 24 }} />
         </View>
       </View>
 
-      {/* 1-1 DM info screen */}
-      {!isGroup && (
-        <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
-          {/* User profile */}
-          <View className="items-center py-6" style={{ backgroundColor: Colors.white, marginBottom: 8 }}>
-            <Avatar uri={otherUser?.avatarUrl} name={otherUser?.displayName ?? '?'} size={80} />
-            <Text className="mt-3 text-xl font-bold" style={{ color: Colors.text }}>{otherUser?.displayName ?? '...'}</Text>
-            <Text className="mt-1 text-sm" style={{ color: otherUser?.status === 'ONLINE' ? Colors.online : Colors.textLight }}>
-              {otherUser?.status === 'ONLINE' ? 'Đang hoạt động' : 'Ngoại tuyến'}
-            </Text>
-            <Text className="mt-0.5 text-xs" style={{ color: Colors.textMuted }}>@{otherUser?.username}</Text>
-          </View>
-
-          {/* Media section */}
-          <View style={{ backgroundColor: Colors.white, padding: 16, marginBottom: 8 }}>
-            <Text className="font-semibold text-lg mb-3" style={{ color: Colors.text }}>Ảnh/Video</Text>
-            {mediaFiles.length === 0 ? (
-              <Text style={{ color: Colors.textLight, textAlign: 'center', paddingVertical: 12 }}>Chưa có ảnh hoặc video nào</Text>
-            ) : (
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                <View className="flex-row gap-2">
-                  {mediaFiles.slice(0, 20).map((file) => (
-                    <TouchableOpacity key={file.fileId} onPress={() => Linking.openURL(file.url)} style={{ borderRadius: 8, overflow: 'hidden' }}>
-                      <Image source={{ uri: file.url }} style={{ width: 80, height: 80, borderRadius: 8 }} resizeMode="cover" />
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </ScrollView>
-            )}
-          </View>
-
-          {/* Files section */}
-          <View style={{ backgroundColor: Colors.white, padding: 16 }}>
-            <Text className="font-semibold text-lg mb-3" style={{ color: Colors.text }}>Tệp đính kèm</Text>
-            {docFiles.length === 0 ? (
-              <Text style={{ color: Colors.textLight, textAlign: 'center', paddingVertical: 12 }}>Chưa có tệp nào</Text>
-            ) : (
-              docFiles.slice(0, 20).map((file) => (
-                <TouchableOpacity
-                  key={file.fileId}
-                  onPress={() => Linking.openURL(file.url)}
-                  className="flex-row items-center py-3"
-                  style={{ borderBottomWidth: 0.5, borderBottomColor: Colors.borderLight }}
-                >
-                  <View style={{ width: 40, height: 40, borderRadius: 8, backgroundColor: Colors.bg, alignItems: 'center', justifyContent: 'center' }}>
-                    <Ionicons name="document-outline" size={20} color={Colors.cta} />
-                  </View>
-                  <View className="flex-1 ml-3">
-                    <Text className="font-medium" style={{ color: Colors.text }} numberOfLines={1}>{file.fileName}</Text>
-                    <Text className="text-xs mt-0.5" style={{ color: Colors.textLight }}>
-                      {file.fileSize > 1048576 ? `${(file.fileSize / 1048576).toFixed(1)} MB` : `${Math.round(file.fileSize / 1024)} KB`}
-                      {file.createdAt ? ` · ${new Date(file.createdAt).toLocaleDateString('vi-VN')}` : ''}
-                    </Text>
-                  </View>
-                  <Ionicons name="download-outline" size={20} color={Colors.cta} />
-                </TouchableOpacity>
-              ))
-            )}
-          </View>
-        </ScrollView>
-      )}
-
-      {/* Group info screen (existing) */}
-      {isGroup && (
-      <>
-      <FlatList
-        data={members}
-        keyExtractor={(item) => item.userId}
-        contentContainerStyle={{ paddingBottom: 40 }}
-        ListHeaderComponent={
-          <>
-            <View className="items-center py-6" style={{ backgroundColor: Colors.white, marginBottom: 8 }}>
-              <TouchableOpacity onPress={handlePickAvatar} disabled={!canManage}>
-                <View className="relative">
-                  <Avatar uri={conversation?.avatarUrl} name={conversation?.name ?? 'Group'} size={80} />
-                  {canManage && (
-                    <View className="absolute bottom-0 right-0 rounded-full p-1" style={{ backgroundColor: Colors.cta }}>
-                      <Ionicons name="camera" size={16} color={Colors.white} />
-                    </View>
-                  )}
-                </View>
-              </TouchableOpacity>
-              
-              <TouchableOpacity 
-                onPress={handleChangeName} 
-                className="mt-3 flex-row items-center" 
-                disabled={!canManage}
-              >
-                <Text className="text-xl font-bold" style={{ color: Colors.text }}>
-                  {conversation?.name ?? 'Nhóm chưa đặt tên'}
-                </Text>
-                {canManage && <Ionicons name="pencil" size={16} color={Colors.textLight} style={{ marginLeft: 6 }} />}
-              </TouchableOpacity>
-              <Text className="mt-1" style={{ color: Colors.textLight }}>
-                {members.length} thành viên
-              </Text>
-            </View>
-
-            <View className="px-4 py-3 pb-2" style={{ backgroundColor: Colors.white }}>
-              <View className="flex-row items-center justify-between mb-2">
-                <Text className="font-semibold text-lg" style={{ color: Colors.text }}>Thành viên</Text>
-                {canManage && (
-                  <TouchableOpacity onPress={handleOpenAddModal} className="flex-row items-center rounded-lg px-2 py-1" style={{ backgroundColor: Colors.ctaLight }}>
-                    <Ionicons name="person-add" size={16} color={Colors.cta} />
-                    <Text className="ml-1 font-medium" style={{ color: Colors.cta }}>Thêm</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-            </View>
-          </>
-        }
-        renderItem={({ item }) => (
-          <TouchableOpacity 
-             onPress={() => handleMemberAction(item)}
-             className="flex-row items-center px-4 py-3" 
-             style={{ backgroundColor: Colors.white, borderBottomWidth: 0.5, borderBottomColor: Colors.borderLight }}
-             disabled={item.userId === user?.id}
+      <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
+        {/* ── Profile card ── */}
+        <View style={{ alignItems: 'center', paddingTop: 28, paddingBottom: 20, backgroundColor: Colors.white, marginBottom: 8 }}>
+          <TouchableOpacity
+            onPress={isGroup && canManage ? handlePickAvatar : undefined}
+            disabled={!isGroup || !canManage}
           >
-            <Avatar uri={item.avatar} name={item.displayName} size={40} />
-            <View className="ml-3 flex-1">
-              <Text className="font-semibold" style={{ color: Colors.text }}>
-                {item.userId === user?.id ? 'Bạn' : item.displayName}
-              </Text>
-              <Text className="text-xs mt-0.5" style={{ color: Colors.textLight }}>
-                @{item.username}
-              </Text>
-            </View>
-            {item.role !== 'MEMBER' && (
-              <View className="rounded px-2 py-0.5" style={{ backgroundColor: item.role === 'OWNER' ? '#FFE8D6' : Colors.ctaLight }}>
-                 <Text style={{ fontSize: 11, fontWeight: 'bold', color: item.role === 'OWNER' ? '#D08C60' : Colors.cta }}>
-                    {item.role === 'OWNER' ? 'Trưởng nhóm' : 'Quản trị viên'}
-                 </Text>
-              </View>
-            )}
-          </TouchableOpacity>
-        )}
-        ListFooterComponent={
-          <>
-            {/* Media (Ảnh/Video) section */}
-            <View style={{ height: 8 }} />
-            <View style={{ backgroundColor: Colors.white, padding: 16 }}>
-              <Text className="font-semibold text-lg mb-3" style={{ color: Colors.text }}>
-                Ảnh/Video
-              </Text>
-              {mediaFiles.length === 0 ? (
-                <Text style={{ color: Colors.textLight, textAlign: 'center', paddingVertical: 12 }}>
-                  Chưa có ảnh hoặc video nào
-                </Text>
-              ) : (
-                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                  <View className="flex-row gap-2">
-                    {mediaFiles.slice(0, 20).map((file) => (
-                      <TouchableOpacity
-                        key={file.fileId}
-                        onPress={() => Linking.openURL(file.url)}
-                        style={{ borderRadius: 8, overflow: 'hidden' }}
-                      >
-                        <Image
-                          source={{ uri: file.url }}
-                          style={{ width: 80, height: 80, borderRadius: 8 }}
-                          resizeMode="cover"
-                        />
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                </ScrollView>
+            <View style={{ position: 'relative' }}>
+              <Avatar
+                uri={isGroup ? (conversation?.avatarUrl ?? null) : (otherUser?.avatarUrl ?? null)}
+                name={isGroup ? (conversation?.name ?? 'Nhóm') : (otherUser?.displayName ?? '?')}
+                size={80}
+              />
+              {isGroup && canManage && (
+                <View style={{ position: 'absolute', bottom: 0, right: 0, borderRadius: 99, padding: 5, backgroundColor: Colors.cta }}>
+                  <Ionicons name="camera" size={12} color={Colors.white} />
+                </View>
               )}
             </View>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={{ marginTop: 12, flexDirection: 'row', alignItems: 'center' }}
+            onPress={isGroup && canManage ? handleChangeName : undefined}
+            disabled={!isGroup || !canManage}
+          >
+            <Text style={{ fontSize: 20, fontWeight: 'bold', color: Colors.text }}>
+              {isGroup ? (conversation?.name ?? 'Nhóm chưa đặt tên') : (otherUser?.displayName ?? '...')}
+            </Text>
+            {isGroup && canManage && (
+              <Ionicons name="pencil" size={15} color={Colors.textLight} style={{ marginLeft: 6 }} />
+            )}
+          </TouchableOpacity>
+          {!isGroup && otherUser && (
+            <>
+              {nickname ? (
+                <Text style={{ marginTop: 2, fontSize: 14, fontWeight: '600', color: Colors.cta }}>{nickname}</Text>
+              ) : null}
+              <Text style={{ marginTop: nickname ? 1 : 2, fontSize: 13, color: Colors.textMuted }}>@{otherUser.username}</Text>
+            </>
+          )}
+          {isGroup && (
+            <Text style={{ marginTop: 4, color: Colors.textLight }}>{members.length} thành viên</Text>
+          )}
 
-            {/* Files section */}
-            <View style={{ height: 8 }} />
-            <View style={{ backgroundColor: Colors.white, padding: 16 }}>
-              <Text className="font-semibold text-lg mb-3" style={{ color: Colors.text }}>
-                Tệp đính kèm
-              </Text>
-              {docFiles.length === 0 ? (
-                <Text style={{ color: Colors.textLight, textAlign: 'center', paddingVertical: 12 }}>
-                  Chưa có tệp nào
-                </Text>
+          {/* ── Quick action buttons ── */}
+          <View style={{ flexDirection: 'row', marginTop: 24, paddingHorizontal: 8, alignSelf: 'stretch', justifyContent: 'center', gap: 4 }}>
+            <QuickActionBtn
+              iconName="search-outline"
+              label={'Tìm\ntin nhắn'}
+              onPress={() => router.back()}
+            />
+            {isGroup ? (
+              <QuickActionBtn
+                iconName="person-add-outline"
+                label={'Thêm\nthành viên'}
+                onPress={handleOpenAddModal}
+              />
+            ) : (
+              <QuickActionBtn
+                iconName="person-outline"
+                label={'Trang\ncá nhân'}
+                onPress={() => {}}
+              />
+            )}
+            <QuickActionBtn
+              iconName={isPinned ? 'bookmark' : 'bookmark-outline'}
+              label={isPinned ? 'Bỏ\nghim' : 'Ghim\nhội thoại'}
+              onPress={() => setPin(conversationId, !isPinned)}
+              active={isPinned}
+            />
+            <QuickActionBtn
+              iconName={isEffMuted ? 'notifications-off-outline' : 'notifications-outline'}
+              label={isEffMuted ? 'Bật\nthông báo' : 'Tắt\nthông báo'}
+              onPress={handleMutePress}
+              active={isEffMuted}
+            />
+          </View>
+        </View>
+
+        {/* ── DM settings rows ── */}
+        {!isGroup && (
+          <View style={{ backgroundColor: Colors.white, marginBottom: 8 }}>
+            <TouchableOpacity
+              onPress={handleSetNickname}
+              style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, height: 54, borderBottomWidth: 0.5, borderBottomColor: Colors.borderLight }}
+            >
+              <Ionicons name="pencil-outline" size={20} color={Colors.textMuted} style={{ marginRight: 14 }} />
+              <Text style={{ flex: 1, fontSize: 15, color: Colors.text }}>Đặt biệt danh</Text>
+              {nickname ? (
+                <Text style={{ fontSize: 13, color: Colors.textLight, maxWidth: 140 }} numberOfLines={1}>{nickname}</Text>
               ) : (
-                docFiles.slice(0, 20).map((file) => (
+                <Ionicons name="chevron-forward" size={16} color={Colors.textLight} />
+              )}
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* ── Media (Ảnh, file, link) ── */}
+        {mediaFiles.length > 0 && (
+          <View style={{ backgroundColor: Colors.white, padding: 16, marginBottom: 8 }}>
+            <Text style={{ fontWeight: '600', fontSize: 15, color: Colors.text, marginBottom: 10 }}>
+              Ảnh, file, link
+            </Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              <View style={{ flexDirection: 'row', gap: 4 }}>
+                {mediaFiles.slice(0, 4).map((file) => (
                   <TouchableOpacity
                     key={file.fileId}
                     onPress={() => Linking.openURL(file.url)}
-                    className="flex-row items-center py-3"
-                    style={{ borderBottomWidth: 0.5, borderBottomColor: Colors.borderLight }}
+                    style={{ borderRadius: 8, overflow: 'hidden' }}
                   >
-                    <View
-                      style={{
-                        width: 40, height: 40, borderRadius: 8,
-                        backgroundColor: Colors.bg,
-                        alignItems: 'center', justifyContent: 'center',
-                      }}
-                    >
-                      <Ionicons name="document-outline" size={20} color={Colors.cta} />
-                    </View>
-                    <View className="flex-1 ml-3">
-                      <Text className="font-medium" style={{ color: Colors.text }} numberOfLines={1}>
-                        {file.fileName}
-                      </Text>
-                      <Text className="text-xs mt-0.5" style={{ color: Colors.textLight }}>
-                        {file.fileSize > 1048576
-                          ? `${(file.fileSize / 1048576).toFixed(1)} MB`
-                          : `${Math.round(file.fileSize / 1024)} KB`}
-                        {file.createdAt ? ` · ${new Date(file.createdAt).toLocaleDateString('vi-VN')}` : ''}
-                      </Text>
-                    </View>
-                    <Ionicons name="download-outline" size={20} color={Colors.cta} />
+                    <Image source={{ uri: file.url }} style={{ width: 80, height: 80 }} resizeMode="cover" />
                   </TouchableOpacity>
-                ))
+                ))}
+                {mediaFiles.length > 4 && (
+                  <View style={{ width: 80, height: 80, borderRadius: 8, backgroundColor: Colors.bg, alignItems: 'center', justifyContent: 'center' }}>
+                    <Ionicons name="arrow-forward" size={22} color={Colors.cta} />
+                  </View>
+                )}
+              </View>
+            </ScrollView>
+          </View>
+        )}
+
+        {/* ── Group: Members ── */}
+        {isGroup && (
+          <View style={{ backgroundColor: Colors.white, marginBottom: 8 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12 }}>
+              <Text style={{ fontWeight: '600', fontSize: 15, color: Colors.text }}>
+                Thành viên ({members.length})
+              </Text>
+              {canManage && (
+                <TouchableOpacity
+                  onPress={handleOpenAddModal}
+                  style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8, backgroundColor: Colors.ctaLight }}
+                >
+                  <Ionicons name="person-add" size={14} color={Colors.cta} />
+                  <Text style={{ marginLeft: 4, color: Colors.cta, fontSize: 13, fontWeight: '600' }}>Thêm</Text>
+                </TouchableOpacity>
               )}
             </View>
+            {loading && <ActivityIndicator style={{ padding: 16 }} color={Colors.cta} />}
+            {members.map((item) => (
+              <TouchableOpacity
+                key={item.userId}
+                onPress={() => handleMemberAction(item)}
+                disabled={item.userId === user?.id}
+                style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10, borderTopWidth: 0.5, borderTopColor: Colors.borderLight }}
+              >
+                <Avatar uri={item.avatar} name={item.displayName} size={40} />
+                <View style={{ flex: 1, marginLeft: 12 }}>
+                  <Text style={{ fontWeight: '500', color: Colors.text }}>
+                    {item.userId === user?.id ? 'Bạn' : item.displayName}
+                  </Text>
+                  <Text style={{ fontSize: 12, marginTop: 1, color: Colors.textLight }}>@{item.username}</Text>
+                </View>
+                {item.role !== 'MEMBER' && (
+                  <View style={{ borderRadius: 4, paddingHorizontal: 8, paddingVertical: 2, backgroundColor: item.role === 'OWNER' ? '#FFE8D6' : Colors.ctaLight }}>
+                    <Text style={{ fontSize: 11, fontWeight: 'bold', color: item.role === 'OWNER' ? '#D08C60' : Colors.cta }}>
+                      {item.role === 'OWNER' ? 'Trưởng nhóm' : 'Quản trị viên'}
+                    </Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+        {/* ── Settings: Pin & Mute ── */}
+        <View style={{ backgroundColor: Colors.white, marginBottom: 8 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, height: 54, borderBottomWidth: 0.5, borderBottomColor: Colors.borderLight }}>
+            <Ionicons name="pin-outline" size={22} color={Colors.textMuted} style={{ marginRight: 14 }} />
+            <Text style={{ flex: 1, fontSize: 15, color: Colors.text }}>Ghim trò chuyện</Text>
+            <Switch
+              value={isPinned}
+              onValueChange={(v) => setPin(conversationId, v)}
+              trackColor={{ false: Colors.borderLight, true: Colors.cta }}
+              thumbColor={Colors.white}
+            />
+          </View>
+          <TouchableOpacity
+            onPress={handleMutePress}
+            style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, minHeight: 54, paddingVertical: 8 }}
+          >
+            <Ionicons
+              name={isEffMuted ? 'notifications-off-outline' : 'notifications-outline'}
+              size={22}
+              color={isEffMuted ? Colors.cta : Colors.textMuted}
+              style={{ marginRight: 14 }}
+            />
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 15, color: Colors.text }}>Tắt thông báo</Text>
+              {isEffMuted && (
+                <Text style={{ fontSize: 12, color: Colors.cta, marginTop: 1 }}>{muteUntilLabel}</Text>
+              )}
+            </View>
+            <Ionicons name="chevron-forward" size={16} color={Colors.textLight} />
+          </TouchableOpacity>
+        </View>
 
-            {/* Leave group button */}
-            <View style={{ height: 8 }} />
-            <TouchableOpacity 
-              onPress={handleLeaveGroup}
-              style={{ backgroundColor: Colors.white, padding: 16, alignItems: 'center' }}
-            >
-              <Text style={{ color: Colors.error, fontSize: 16, fontWeight: 'bold' }}>Rời khỏi nhóm</Text>
-            </TouchableOpacity>
-          </>
-        }
-      />
+        {/* ── Leave group ── */}
+        {isGroup && (
+          <TouchableOpacity
+            onPress={handleLeaveGroup}
+            style={{ backgroundColor: Colors.white, paddingVertical: 16, alignItems: 'center', marginBottom: 8 }}
+          >
+            <Text style={{ color: Colors.error, fontSize: 16, fontWeight: '600' }}>Rời khỏi nhóm</Text>
+          </TouchableOpacity>
+        )}
+      </ScrollView>
 
       {/* Add Member Modal */}
       <Modal visible={addModalVisible} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setAddModalVisible(false)}>
@@ -528,8 +584,72 @@ export default function GroupInfoScreen() {
           />
         </View>
       </Modal>
-      </>
-      )}
+
+      {/* Mute Duration Picker Modal */}
+      <Modal
+        visible={muteModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setMuteModalVisible(false)}
+      >
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}>
+          <View style={{ backgroundColor: Colors.white, borderTopLeftRadius: 16, borderTopRightRadius: 16, paddingBottom: insets.bottom }}>
+            {/* Header */}
+            <View style={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 12, borderBottomWidth: 0.5, borderBottomColor: Colors.borderLight }}>
+              <Text style={{ fontSize: 18, fontWeight: '700', color: Colors.text, textAlign: 'center' }}>
+                {isEffMuted ? 'Thông báo đang tắt' : 'Tắt thông báo'}
+              </Text>
+              {isEffMuted && (
+                <Text style={{ fontSize: 13, color: Colors.textMuted, textAlign: 'center', marginTop: 4 }}>
+                  {muteUntilLabel}
+                </Text>
+              )}
+            </View>
+
+            {/* Options */}
+            <View style={{ paddingHorizontal: 12, paddingVertical: 12, gap: 8 }}>
+              {isEffMuted ? (
+                <TouchableOpacity
+                  onPress={() => {
+                    setMute(conversationId, false);
+                    setMuteModalVisible(false);
+                  }}
+                  style={{ backgroundColor: Colors.error, borderRadius: 10, paddingVertical: 12, alignItems: 'center' }}
+                >
+                  <Text style={{ fontSize: 15, fontWeight: '600', color: Colors.white }}>Bật lại ngay</Text>
+                </TouchableOpacity>
+              ) : (
+                <>
+                  {[
+                    { label: '1 giờ', hours: 1 },
+                    { label: '4 giờ', hours: 4 },
+                    { label: '8 giờ', hours: 8 },
+                    { label: 'Cho đến khi tôi bật lại', hours: -1 },
+                  ].map(({ label, hours }) => (
+                    <TouchableOpacity
+                      key={label}
+                      onPress={() => {
+                        const h = (hrs: number) => Date.now() + hrs * 3_600_000;
+                        setMute(conversationId, true, hours === -1 ? null : h(hours));
+                        setMuteModalVisible(false);
+                      }}
+                      style={{ backgroundColor: Colors.ctaLight, borderRadius: 10, paddingVertical: 12, alignItems: 'center', borderWidth: 1, borderColor: Colors.cta }}
+                    >
+                      <Text style={{ fontSize: 15, fontWeight: '600', color: Colors.cta }}>{label}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </>
+              )}
+              <TouchableOpacity
+                onPress={() => setMuteModalVisible(false)}
+                style={{ backgroundColor: Colors.bg, borderRadius: 10, paddingVertical: 12, alignItems: 'center' }}
+              >
+                <Text style={{ fontSize: 15, fontWeight: '600', color: Colors.text }}>Đóng</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
