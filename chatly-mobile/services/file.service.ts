@@ -69,4 +69,12 @@ export const fileService = {
     );
     return data.result;
   },
+
+  async getMyFiles(type?: 'image' | 'video' | 'file'): Promise<FileUploadResponse[]> {
+    const { data } = await axiosClient.get<{ result: FileUploadResponse[] }>(
+      '/api/files/my',
+      { params: type ? { type } : {} },
+    );
+    return data.result;
+  },
 };

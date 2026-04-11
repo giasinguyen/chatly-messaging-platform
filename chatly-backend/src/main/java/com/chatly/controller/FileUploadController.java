@@ -61,6 +61,20 @@ public class FileUploadController {
                 .build();
     }
 
+    /**
+     * List all files uploaded by the authenticated user across all conversations.
+     * Optionally filter by type: "image", "video", "file".
+     */
+    @GetMapping("/my")
+    public ApiResponse<List<FileUploadResponse>> getMyFiles(
+            @RequestParam(value = "type", required = false) String type) {
+        String userId = getAuthenticatedUserId();
+        List<FileUploadResponse> files = fileUploadService.getByUploadedUser(userId, type);
+        return ApiResponse.<List<FileUploadResponse>>builder()
+                .result(files)
+                .build();
+    }
+
     // -------------------------------------------------------------------------
 
     private String getAuthenticatedUserId() {

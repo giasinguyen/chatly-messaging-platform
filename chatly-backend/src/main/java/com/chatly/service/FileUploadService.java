@@ -115,6 +115,42 @@ public class FileUploadService {
         ).toList();
     }
 
+    public List<FileUploadResponse> getByUploadedUser(String userId, String type) {
+        List<FileMetadata> files = fileMetadataRepository.findByUploadedBy(userId)
+                .stream()
+                .sorted((a, b) -> {
+                    if (a.getCreatedAt() == null) return 1;
+                    if (b.getCreatedAt() == null) return -1;
+                    return b.getCreatedAt().compareTo(a.getCreatedAt());
+                })
+                .toList();
+
+        if (type != null && !type.isBlank()) {
+            files = files.stream().filter(f -> {
+                String ft = f.getFileType();
+                if (ft == null) return false;
+                return switch (type.toLowerCase()) {
+                    case "image" -> ft.startsWith("image/");
+                    case "video" -> ft.startsWith("video/");
+                    case "file" -> !ft.startsWith("image/") && !ft.startsWith("video/");
+                    default -> true;
+                };
+            }).toList();
+        }
+
+        return files.stream().map(m -> FileUploadResponse.builder()
+                .fileId(m.getId())
+                .provider(m.getProvider())
+                .url(m.getUrl())
+                .fileName(m.getFileName())
+                .fileType(m.getFileType())
+                .fileSize(m.getFileSize())
+                .conversationId(m.getConversationId())
+                .createdAt(m.getCreatedAt())
+                .build()
+        ).toList();
+    }
+
     // -------------------------------------------------------------------------
 
     private void validateFile(MultipartFile file) {
