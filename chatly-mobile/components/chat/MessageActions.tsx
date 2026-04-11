@@ -14,6 +14,7 @@ interface MessageActionsProps {
   onEdit?: () => void;
   onRecall?: () => void;
   onDelete?: () => void;
+  onTogglePin?: () => void;
 }
 
 interface ActionItem {
@@ -34,6 +35,7 @@ export function MessageActions({
   onEdit,
   onRecall,
   onDelete,
+  onTogglePin,
 }: MessageActionsProps) {
   if (!message) return null;
 
@@ -50,6 +52,14 @@ export function MessageActions({
 
   if (canEdit && onEdit) {
     actions.push({ icon: 'pencil-outline', label: 'Chỉnh sửa', onPress: onEdit });
+  }
+
+  if (!message.recalled && onTogglePin) {
+    actions.push({
+      icon: 'pin-outline',
+      label: message.pinned ? 'Bỏ ghim' : 'Ghim tin nhắn',
+      onPress: onTogglePin,
+    });
   }
 
   if (canRecall && onRecall) {

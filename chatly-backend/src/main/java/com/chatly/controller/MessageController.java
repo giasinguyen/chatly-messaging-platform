@@ -2,6 +2,7 @@ package com.chatly.controller;
 
 import com.chatly.dto.request.EditMessageRequest;
 import com.chatly.dto.request.MessageRequest;
+import com.chatly.dto.request.PollVoteRequest;
 import com.chatly.dto.request.ReactRequest;
 import com.chatly.dto.response.ApiResponse;
 import com.chatly.dto.response.MessageResponse;
@@ -86,6 +87,31 @@ public class MessageController {
             @RequestParam(defaultValue = "20") int size) {
         return ApiResponse.<List<MessageResponse>>builder()
                 .result(messageService.search(conversationId, getAuthenticatedUserId(), keyword, page, size))
+                .build();
+    }
+
+    // ── Poll Vote ───────────────────────────────────────────────────
+    @PutMapping("/{messageId}/vote")
+    ApiResponse<MessageResponse> votePoll(
+            @PathVariable String messageId,
+            @RequestBody @Valid PollVoteRequest request) {
+        return ApiResponse.<MessageResponse>builder()
+                .result(messageService.votePoll(messageId, getAuthenticatedUserId(), request.getOptionIndex()))
+                .build();
+    }
+
+    // ── Pin / Unpin ─────────────────────────────────────────────────
+    @PutMapping("/{messageId}/pin")
+    ApiResponse<MessageResponse> togglePin(@PathVariable String messageId) {
+        return ApiResponse.<MessageResponse>builder()
+                .result(messageService.togglePin(messageId, getAuthenticatedUserId()))
+                .build();
+    }
+
+    @GetMapping("/conversation/{conversationId}/pinned")
+    ApiResponse<List<MessageResponse>> getPinnedMessages(@PathVariable String conversationId) {
+        return ApiResponse.<List<MessageResponse>>builder()
+                .result(messageService.getPinnedMessages(conversationId, getAuthenticatedUserId()))
                 .build();
     }
 

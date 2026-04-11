@@ -12,6 +12,7 @@ interface MessageBubbleProps {
   currentUserId?: string;
   onLongPress?: () => void;
   onReact?: (messageId: string, emoji: string) => void;
+  onVotePoll?: (messageId: string, optionIndex: number) => void;
   replyToMessage?: Message | null;
 }
 
@@ -23,6 +24,7 @@ export function MessageBubble({
   currentUserId,
   onLongPress,
   onReact,
+  onVotePoll,
   replyToMessage,
 }: MessageBubbleProps) {
   const { content, type, recalled, edited, createdAt, readBy, attachments } = message;
@@ -174,6 +176,69 @@ export function MessageBubble({
     );
   };
 
+  // Poll message
+  const renderPollContent = () => {
+    const poll = message.poll;
+    if (!poll) return null;
+    const totalVoters = new Set(Object.values(poll.votes ?? {}).flat()).size;
+    const myVotedOptions = Object.entries(poll.votes ?? {})
+      .filter(([, voters]) => voters.includes(currentUserId ?? ''))
+      .map(([idx]) => Number(idx));
+
+    return (
+      <View style={{ width: 260 }}>
+        {/* Poll header */}
+        <View className="flex-row items-center mb-2">
+          <Ionicons name="bar-chart-outline" size={16} color={Colors.cta} />
+          <Text className="ml-2 text-sm font-semibold" style={{ color: Colors.text, flex: 1 }}>
+            {poll.question}
+          </Text>
+        </View>
+        {/* Options */}
+        {poll.options.map((option, idx) => {
+          const voterCount = (poll.votes?.[String(idx)] ?? []).length;
+          const pct = totalVoters > 0 ? Math.round((voterCount / totalVoters) * 100) : 0;
+          const isVoted = myVotedOptions.includes(idx);
+          return (
+            <TouchableOpacity
+              key={idx}
+              onPress={() => onVotePoll?.(message.id, idx)}
+              activeOpacity={0.7}
+              className="mb-1.5 rounded-lg overflow-hidden"
+              style={{
+                borderWidth: 1,
+                borderColor: isVoted ? Colors.cta : 'rgba(0,0,0,0.1)',
+                backgroundColor: isVoted ? 'rgba(99,102,241,0.08)' : 'transparent',
+              }}
+            >
+              {/* Progress background */}
+              <View style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${pct}%`, backgroundColor: isVoted ? 'rgba(99,102,241,0.12)' : 'rgba(0,0,0,0.04)' }} />
+              <View className="flex-row items-center justify-between px-3 py-2">
+                <Text className="text-sm flex-1" style={{ color: Colors.text }} numberOfLines={1}>
+                  {option}
+                </Text>
+                {voterCount > 0 && (
+                  <Text className="text-xs ml-2" style={{ color: Colors.textMuted }}>
+                    {pct}%
+                  </Text>
+                )}
+              </View>
+            </TouchableOpacity>
+          );
+        })}
+        {/* Footer */}
+        <View className="flex-row items-center justify-between mt-1">
+          <Text className="text-[11px]" style={{ color: Colors.textMuted }}>
+            {totalVoters} người đã bình chọn
+          </Text>
+          <Text className="text-[11px]" style={{ color: Colors.textMuted }}>
+            {poll.multipleChoice ? 'Chọn nhiều' : 'Chọn một'}
+          </Text>
+        </View>
+      </View>
+    );
+  };
+
   const renderContent = () => {
     switch (type) {
       case 'IMAGE':
@@ -184,6 +249,8 @@ export function MessageBubble({
         return renderAudioContent();
       case 'FILE':
         return renderFileContent();
+      case 'POLL':
+        return renderPollContent();
       case 'SYSTEM':
         return (
           <View className="my-1 items-center">
@@ -209,6 +276,14 @@ export function MessageBubble({
         <Text className="mb-0.5 ml-1 text-xs" style={{ color: Colors.textMuted }}>
           {senderName}
         </Text>
+      )}
+
+      {/* Pinned indicator */}
+      {message.pinned && (
+        <View className={`flex-row items-center mb-0.5 ${isMe ? 'justify-end' : 'justify-start'}`}>
+          <Ionicons name="pin" size={10} color="#f59e0b" />
+          <Text className="ml-1 text-[10px]" style={{ color: '#d97706' }}>Đã ghim</Text>
+        </View>
       )}
 
       <TouchableOpacity

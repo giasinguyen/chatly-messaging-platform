@@ -26,6 +26,13 @@ export interface Reaction {
   createdAt: string;
 }
 
+export interface Poll {
+  question: string;
+  options: string[];
+  multipleChoice: boolean;
+  votes: Record<string, string[]>;
+}
+
 export interface Message {
   id: string;
   conversationId: string;
@@ -43,6 +50,10 @@ export interface Message {
   editedAt: string | null;
   editHistory: EditHistoryEntry[];
   reactions: Reaction[];
+  poll?: Poll | null;
+  pinned: boolean;
+  pinnedAt: string | null;
+  pinnedBy: string | null;
   createdAt: string;
   updatedAt: string;
 }

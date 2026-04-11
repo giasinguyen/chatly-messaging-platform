@@ -76,7 +76,7 @@ export function RemindersDialog({
             await groupService.createReminder(conversationId, {
                 title: title.trim(),
                 description: description.trim() || undefined,
-                remindAt: remindAt || undefined,
+                remindAt: remindAt ? new Date(remindAt).toISOString() : undefined,
             });
             toast.success("Đã tạo nhắc hẹn");
             setTitle("");
