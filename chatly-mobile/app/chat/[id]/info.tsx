@@ -9,6 +9,9 @@ import {
   Modal,
   TextInput,
   Image,
+  Linking,
+  ScrollView,
+  Dimensions,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -17,7 +20,7 @@ import * as ImagePicker from 'expo-image-picker';
 
 import { groupService } from '@/services/group.service';
 import { contactService } from '@/services/contact.service';
-import { fileService } from '@/services/file.service';
+import { fileService, type FileUploadResponse } from '@/services/file.service';
 import { useAuthStore } from '@/store/auth.store';
 import { useConversationStore } from '@/store/conversation.store';
 import { Colors } from '@/constants/theme';
@@ -44,6 +47,10 @@ export default function GroupInfoScreen() {
   const [addModalVisible, setAddModalVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
+  // Media & files
+  const [mediaFiles, setMediaFiles] = useState<FileUploadResponse[]>([]);
+  const [docFiles, setDocFiles] = useState<FileUploadResponse[]>([]);
+
   const fetchMembers = useCallback(async () => {
     if (!conversationId) return;
     try {
@@ -60,6 +67,13 @@ export default function GroupInfoScreen() {
   useEffect(() => {
     fetchMembers();
   }, [fetchMembers]);
+
+  // Fetch media & files
+  useEffect(() => {
+    if (!conversationId) return;
+    fileService.getByConversation(conversationId, 'image').then(setMediaFiles).catch(console.error);
+    fileService.getByConversation(conversationId, 'file').then(setDocFiles).catch(console.error);
+  }, [conversationId]);
 
   const fetchContacts = async () => {
     try {
@@ -309,6 +323,82 @@ export default function GroupInfoScreen() {
         )}
         ListFooterComponent={
           <>
+            {/* Media (Ảnh/Video) section */}
+            <View style={{ height: 8 }} />
+            <View style={{ backgroundColor: Colors.white, padding: 16 }}>
+              <Text className="font-semibold text-lg mb-3" style={{ color: Colors.text }}>
+                Ảnh/Video
+              </Text>
+              {mediaFiles.length === 0 ? (
+                <Text style={{ color: Colors.textLight, textAlign: 'center', paddingVertical: 12 }}>
+                  Chưa có ảnh hoặc video nào
+                </Text>
+              ) : (
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                  <View className="flex-row gap-2">
+                    {mediaFiles.slice(0, 20).map((file) => (
+                      <TouchableOpacity
+                        key={file.fileId}
+                        onPress={() => Linking.openURL(file.url)}
+                        style={{ borderRadius: 8, overflow: 'hidden' }}
+                      >
+                        <Image
+                          source={{ uri: file.url }}
+                          style={{ width: 80, height: 80, borderRadius: 8 }}
+                          resizeMode="cover"
+                        />
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </ScrollView>
+              )}
+            </View>
+
+            {/* Files section */}
+            <View style={{ height: 8 }} />
+            <View style={{ backgroundColor: Colors.white, padding: 16 }}>
+              <Text className="font-semibold text-lg mb-3" style={{ color: Colors.text }}>
+                Tệp đính kèm
+              </Text>
+              {docFiles.length === 0 ? (
+                <Text style={{ color: Colors.textLight, textAlign: 'center', paddingVertical: 12 }}>
+                  Chưa có tệp nào
+                </Text>
+              ) : (
+                docFiles.slice(0, 20).map((file) => (
+                  <TouchableOpacity
+                    key={file.fileId}
+                    onPress={() => Linking.openURL(file.url)}
+                    className="flex-row items-center py-3"
+                    style={{ borderBottomWidth: 0.5, borderBottomColor: Colors.borderLight }}
+                  >
+                    <View
+                      style={{
+                        width: 40, height: 40, borderRadius: 8,
+                        backgroundColor: Colors.bg,
+                        alignItems: 'center', justifyContent: 'center',
+                      }}
+                    >
+                      <Ionicons name="document-outline" size={20} color={Colors.cta} />
+                    </View>
+                    <View className="flex-1 ml-3">
+                      <Text className="font-medium" style={{ color: Colors.text }} numberOfLines={1}>
+                        {file.fileName}
+                      </Text>
+                      <Text className="text-xs mt-0.5" style={{ color: Colors.textLight }}>
+                        {file.fileSize > 1048576
+                          ? `${(file.fileSize / 1048576).toFixed(1)} MB`
+                          : `${Math.round(file.fileSize / 1024)} KB`}
+                        {file.createdAt ? ` · ${new Date(file.createdAt).toLocaleDateString('vi-VN')}` : ''}
+                      </Text>
+                    </View>
+                    <Ionicons name="download-outline" size={20} color={Colors.cta} />
+                  </TouchableOpacity>
+                ))
+              )}
+            </View>
+
+            {/* Leave group button */}
             <View style={{ height: 8 }} />
             <TouchableOpacity 
               onPress={handleLeaveGroup}
