@@ -27,6 +27,7 @@ import { QRCodeSVG } from "qrcode.react";
 import { AddMembersDialog } from "./AddMembersDialog";
 import { RemindersDialog } from "./RemindersDialog";
 import { NotesDialog } from "./NotesDialog";
+import { PinnedMessagesDialog } from "./PinnedMessagesDialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -163,6 +164,7 @@ export function ConversationInfoPanel({
     // Bulletin board dialogs
     const [showReminders, setShowReminders] = useState(false);
     const [showNotes, setShowNotes] = useState(false);
+    const [showPinnedMessages, setShowPinnedMessages] = useState(false);
 
     // Invite link
     const [inviteLink, setInviteLink] = useState<string | null>(null);
@@ -657,6 +659,16 @@ export function ConversationInfoPanel({
                                         <button
                                             type="button"
                                             className="flex items-center gap-2.5 p-2 rounded-lg bg-muted/30 border border-border/40 hover:bg-muted/50 cursor-pointer transition text-left"
+                                            onClick={() => setShowPinnedMessages(true)}
+                                        >
+                                            <div className="h-7 w-7 rounded bg-amber-500/10 flex items-center justify-center shrink-0">
+                                                <Pin size={13} className="text-amber-500" />
+                                            </div>
+                                            <span className="text-xs text-foreground">Tin nhắn đã ghim</span>
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className="flex items-center gap-2.5 p-2 rounded-lg bg-muted/30 border border-border/40 hover:bg-muted/50 cursor-pointer transition text-left"
                                             onClick={() => setShowNotes(true)}
                                         >
                                             <div className="h-7 w-7 rounded bg-brand/10 flex items-center justify-center shrink-0">
@@ -846,6 +858,11 @@ export function ConversationInfoPanel({
                         conversationId={conversation.id}
                         open={showNotes}
                         onOpenChange={setShowNotes}
+                    />
+                    <PinnedMessagesDialog
+                        conversationId={conversation.id}
+                        open={showPinnedMessages}
+                        onOpenChange={setShowPinnedMessages}
                     />
                 </>
             )}

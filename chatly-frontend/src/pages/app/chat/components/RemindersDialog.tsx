@@ -17,6 +17,7 @@ import {
     CheckCircle2,
     Circle,
     CalendarClock,
+    Pencil,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -42,6 +43,13 @@ export function RemindersDialog({
     const [description, setDescription] = useState("");
     const [remindAt, setRemindAt] = useState("");
     const [creating, setCreating] = useState(false);
+
+    // Edit reminder state
+    const [editingId, setEditingId] = useState<string | null>(null);
+    const [editTitle, setEditTitle] = useState("");
+    const [editDescription, setEditDescription] = useState("");
+    const [editRemindAt, setEditRemindAt] = useState("");
+    const [updating, setUpdating] = useState(false);
 
     const fetchReminders = useCallback(async () => {
         if (!conversationId) return;
@@ -107,6 +115,37 @@ export function RemindersDialog({
             fetchReminders();
         } catch {
             toast.error("Không thể xóa nhắc hẹn");
+        }
+    };
+
+    const startEdit = (r: GroupReminderResponse) => {
+        setEditingId(r.id);
+        setEditTitle(r.title);
+        setEditDescription(r.description ?? "");
+        setEditRemindAt(
+            r.remindAt ? new Date(r.remindAt).toISOString().slice(0, 16) : "",
+        );
+    };
+
+    const handleUpdate = async () => {
+        if (!editingId || !editTitle.trim()) {
+            toast.error("Tiêu đề không được để trống");
+            return;
+        }
+        setUpdating(true);
+        try {
+            await groupService.updateReminder(editingId, {
+                title: editTitle.trim(),
+                description: editDescription.trim() || undefined,
+                remindAt: editRemindAt ? new Date(editRemindAt).toISOString() : undefined,
+            });
+            toast.success("Đã cập nhật nhắc hẹn");
+            setEditingId(null);
+            fetchReminders();
+        } catch {
+            toast.error("Không thể cập nhật nhắc hẹn");
+        } finally {
+            setUpdating(false);
         }
     };
 
@@ -186,7 +225,51 @@ export function RemindersDialog({
                         </div>
                     ) : (
                         <div className="space-y-1.5">
-                            {reminders.map((r) => (
+                            {reminders.map((r) =>
+                                editingId === r.id ? (
+                                    <div
+                                        key={r.id}
+                                        className="space-y-2 rounded-lg border border-brand/40 bg-muted/20 p-3"
+                                    >
+                                        <Input
+                                            value={editTitle}
+                                            onChange={(e) => setEditTitle(e.target.value)}
+                                            placeholder="Tiêu đề nhắc hẹn..."
+                                            className="h-8 text-sm"
+                                        />
+                                        <Input
+                                            value={editDescription}
+                                            onChange={(e) => setEditDescription(e.target.value)}
+                                            placeholder="Mô tả (tùy chọn)..."
+                                            className="h-8 text-sm"
+                                        />
+                                        <Input
+                                            type="datetime-local"
+                                            value={editRemindAt}
+                                            onChange={(e) => setEditRemindAt(e.target.value)}
+                                            className="h-8 text-sm"
+                                        />
+                                        <div className="flex gap-2">
+                                            <Button
+                                                size="sm"
+                                                className="h-7 text-xs flex-1 gap-1"
+                                                onClick={handleUpdate}
+                                                disabled={updating}
+                                            >
+                                                {updating ? <Loader2 size={11} className="animate-spin" /> : <Pencil size={11} />}
+                                                Cập nhật
+                                            </Button>
+                                            <Button
+                                                size="sm"
+                                                variant="ghost"
+                                                className="h-7 text-xs"
+                                                onClick={() => setEditingId(null)}
+                                            >
+                                                Hủy
+                                            </Button>
+                                        </div>
+                                    </div>
+                                ) : (
                                 <div
                                     key={r.id}
                                     className={cn(
@@ -219,16 +302,27 @@ export function RemindersDialog({
                                             </p>
                                         )}
                                     </div>
-                                    <Button
-                                        size="icon"
-                                        variant="ghost"
-                                        className="h-6 w-6 shrink-0 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive"
-                                        onClick={() => handleDelete(r.id)}
-                                    >
-                                        <Trash2 size={12} />
-                                    </Button>
+                                    <div className="flex items-center gap-0.5 shrink-0 opacity-0 group-hover:opacity-100">
+                                        <Button
+                                            size="icon"
+                                            variant="ghost"
+                                            className="h-6 w-6 text-muted-foreground hover:text-foreground"
+                                            onClick={() => startEdit(r)}
+                                        >
+                                            <Pencil size={12} />
+                                        </Button>
+                                        <Button
+                                            size="icon"
+                                            variant="ghost"
+                                            className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                                            onClick={() => handleDelete(r.id)}
+                                        >
+                                            <Trash2 size={12} />
+                                        </Button>
+                                    </div>
                                 </div>
-                            ))}
+                                ),
+                            )}
                         </div>
                     )}
                 </ScrollArea>

@@ -414,6 +414,20 @@ public class MessageService {
         );
     }
 
+    public MessageResponse sendSystemMessage(String conversationId, String content) {
+        Message message = Message.builder()
+                .conversationId(conversationId)
+                .senderId("SYSTEM")
+                .content(content)
+                .type(MessageType.SYSTEM)
+                .build();
+
+        message = messageRepository.save(message);
+        updateLastMessage(conversationId, message);
+        broadcastEvent(conversationId, ChatEvent.ChatAction.SEND, messageMapper.toResponse(message));
+        return messageMapper.toResponse(message);
+    }
+
     private void updateLastMessage(String conversationId, Message message) {
         LastMessage lastMessage = LastMessage.builder()
                 .senderId(message.getSenderId())

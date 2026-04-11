@@ -2,6 +2,7 @@ package com.chatly.dto.request;
 
 import com.chatly.model.enums.MessageType;
 import com.chatly.model.mongo.Attachment;
+import com.chatly.model.mongo.Poll;
 import lombok.*;
 
 import java.util.List;
@@ -18,4 +19,5 @@ public class ChatMessageRequest {
     private MessageType type;
     private String replyToId;
     private List<Attachment> attachments;
+    private Poll poll;
 }

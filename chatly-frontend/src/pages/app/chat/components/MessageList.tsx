@@ -278,6 +278,17 @@ export function MessageList({
     };
 
     const renderMessage = (msg: Message, index: number) => {
+        // SYSTEM messages render as centered labels
+        if (msg.type === "SYSTEM") {
+            return (
+                <div key={msg.id} className="flex justify-center my-2 px-4">
+                    <div className="inline-flex items-center gap-1.5 bg-muted/60 dark:bg-zinc-800/60 border border-border/40 rounded-full px-3.5 py-1.5 max-w-[85%]">
+                        <span className="text-xs text-muted-foreground text-center">{msg.content}</span>
+                    </div>
+                </div>
+            );
+        }
+
         const isMe = msg.senderId === currentUserId;
         const sender = participantDirectory[msg.senderId] ?? participant;
         const senderShortName = sender.displayName.split(" ").slice(-1)[0] || "Người dùng";

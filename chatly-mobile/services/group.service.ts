@@ -168,6 +168,17 @@ export const groupService = {
     return response.data;
   },
 
+  updateReminder: async (
+    reminderId: string,
+    payload: { title?: string; description?: string; remindAt?: string },
+  ): Promise<ApiResponse<GroupReminderResponse>> => {
+    const response = await axiosClient.put<ApiResponse<GroupReminderResponse>>(
+      `/api/groups/reminders/${reminderId}`,
+      payload,
+    );
+    return response.data;
+  },
+
   // ── Notes ──────────────────────────────────────────────────────
 
   getNotes: async (

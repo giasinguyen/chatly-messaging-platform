@@ -39,6 +39,7 @@ public class GroupService {
     private final PendingJoinRequestRepository pendingJoinRequestRepository;
     private final GroupReminderRepository groupReminderRepository;
     private final GroupNoteRepository groupNoteRepository;
+    private final MessageService messageService;
 
     /**
      * Add a member to a group conversation.
@@ -368,7 +369,25 @@ public class GroupService {
                 .remindAt(request.getRemindAt())
                 .build();
 
-        return toReminderResponse(groupReminderRepository.save(reminder));
+        GroupReminder saved = groupReminderRepository.save(reminder);
+
+        // Broadcast SYSTEM message to group chat
+        try {
+            User creator = userRepository.findById(UUID.fromString(requesterId)).orElse(null);
+            String creatorName = creator != null ? creator.getDisplayName() : "Thành viên";
+            String timeInfo = request.getRemindAt() != null
+                    ? " — Hẹn lúc: " + java.time.format.DateTimeFormatter
+                        .ofPattern("HH:mm dd/MM/yyyy")
+                        .withZone(java.time.ZoneId.of("Asia/Ho_Chi_Minh"))
+                        .format(request.getRemindAt())
+                    : "";
+            String content = "📋 " + creatorName + " đã tạo nhắc hẹn: " + request.getTitle() + timeInfo;
+            messageService.sendSystemMessage(conversationId, content);
+        } catch (Exception e) {
+            // Don't fail the create if broadcast fails
+        }
+
+        return toReminderResponse(saved);
     }
 
     public GroupReminderResponse toggleReminderComplete(String reminderId, String requesterId) {
@@ -385,6 +404,21 @@ public class GroupService {
                 .orElseThrow(() -> new AppException(ErrorCode.GROUP_REMINDER_NOT_FOUND));
         requireGroupMember(reminder.getConversationId(), requesterId);
         groupReminderRepository.delete(reminder);
+    }
+
+    public GroupReminderResponse updateReminder(String reminderId, GroupReminderRequest request, String requesterId) {
+        GroupReminder reminder = groupReminderRepository.findById(reminderId)
+                .orElseThrow(() -> new AppException(ErrorCode.GROUP_REMINDER_NOT_FOUND));
+        requireGroupMember(reminder.getConversationId(), requesterId);
+
+        if (request.getTitle() != null) reminder.setTitle(request.getTitle());
+        if (request.getDescription() != null) reminder.setDescription(request.getDescription());
+        if (request.getRemindAt() != null) {
+            reminder.setRemindAt(request.getRemindAt());
+            reminder.setNotified(false); // reset notification if time changed
+        }
+
+        return toReminderResponse(groupReminderRepository.save(reminder));
     }
 
     // ── Notes ────────────────────────────────────────────────────────

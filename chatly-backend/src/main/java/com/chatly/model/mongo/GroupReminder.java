@@ -33,6 +33,9 @@ public class GroupReminder {
     @Builder.Default
     private Boolean completed = false;
 
+    @Builder.Default
+    private Boolean notified = false;
+
     @CreatedDate
     private Instant createdAt;
 }

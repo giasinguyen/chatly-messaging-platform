@@ -163,6 +163,15 @@ public class GroupController {
         return ApiResponse.<Void>builder().message("Reminder deleted").build();
     }
 
+    @PutMapping("/reminders/{reminderId}")
+    ApiResponse<GroupReminderResponse> updateReminder(
+            @PathVariable String reminderId,
+            @RequestBody @Valid GroupReminderRequest request) {
+        return ApiResponse.<GroupReminderResponse>builder()
+                .result(groupService.updateReminder(reminderId, request, getAuthenticatedUserId()))
+                .build();
+    }
+
     // ── Notes ────────────────────────────────────────────────────────
 
     @GetMapping("/{conversationId}/notes")
