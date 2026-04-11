@@ -12,6 +12,7 @@ import {
   Animated,
   Share,
 } from 'react-native';
+import { ImageLightbox } from '@/components/ui/ImageLightbox';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/theme';
@@ -67,6 +68,16 @@ export default function CloudScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchActive, setSearchActive] = useState(false);
+
+  const [lightboxUrls, setLightboxUrls] = useState<string[]>([]);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
+  const [lightboxVisible, setLightboxVisible] = useState(false);
+
+  const openLightbox = (urls: string[], idx: number) => {
+    setLightboxUrls(urls);
+    setLightboxIndex(idx);
+    setLightboxVisible(true);
+  };
 
   const searchAnim = useRef(new Animated.Value(0)).current;
 
@@ -131,8 +142,17 @@ export default function CloudScreen() {
     else grouped.push({ date: d, items: [f] });
   }
 
+  // Flat list of all image urls for lightbox navigation
+  const allImageUrls = displayed.filter(isImage).map((f) => f.url);
+
   return (
     <View style={{ flex: 1, backgroundColor: Colors.bg }}>
+      <ImageLightbox
+        images={lightboxUrls}
+        initialIndex={lightboxIndex}
+        visible={lightboxVisible}
+        onClose={() => setLightboxVisible(false)}
+      />
       {/* ── Header ── */}
       <View
         style={{
@@ -281,10 +301,12 @@ export default function CloudScreen() {
               {/* Image grid for image tab / all tab images */}
               {tab !== 'file' && group.items.some(isImage) && (
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 12, gap: 3 }}>
-                  {group.items.filter(isImage).map((f) => (
+                  {group.items.filter(isImage).map((f) => {
+                    const imgIdx = allImageUrls.indexOf(f.url);
+                    return (
                     <TouchableOpacity
                       key={f.fileId}
-                      onPress={() => Linking.openURL(f.url)}
+                      onPress={() => openLightbox(allImageUrls, imgIdx >= 0 ? imgIdx : 0)}
                       onLongPress={() =>
                         Share.share({ url: f.url, message: f.fileName })
                       }
@@ -310,7 +332,8 @@ export default function CloudScreen() {
                         </Text>
                       </View>
                     </TouchableOpacity>
-                  ))}
+                    );
+                  })}
                 </View>
               )}
 
