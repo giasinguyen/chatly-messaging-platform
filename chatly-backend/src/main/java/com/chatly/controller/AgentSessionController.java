@@ -46,6 +46,15 @@ public class AgentSessionController {
         return agentProxy.forward(HttpMethod.DELETE, "/sessions/" + sessionId, userId, null);
     }
 
+    @PatchMapping("/{sessionId}")
+    ResponseEntity<byte[]> rename(
+            @PathVariable String sessionId,
+            @RequestBody byte[] body,
+            @AuthenticationPrincipal String userId
+    ) {
+        return agentProxy.forward(HttpMethod.PATCH, "/sessions/" + sessionId, userId, body);
+    }
+
     @GetMapping("/{sessionId}/messages")
     ResponseEntity<byte[]> messages(
             @PathVariable String sessionId,

@@ -1,5 +1,5 @@
-import { useEffect, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useCallback, useRef } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ChatbotHeader } from "./ChatbotHeader";
@@ -9,13 +9,18 @@ import { useChatbotStore } from "@/store/chatbot.store";
 import { useAgentStream } from "@/hooks/useAgentStream";
 import { agentService } from "@/services/agent.service";
 import { toast } from "sonner";
+import type { AgentMessage } from "@/types/agent";
 
 interface Props {
     sessionId: string;
+    sidebarCollapsed?: boolean;
+    onToggleSidebar?: () => void;
 }
 
-export function ChatbotWindow({ sessionId }: Props) {
+export function ChatbotWindow({ sessionId, sidebarCollapsed, onToggleSidebar }: Props) {
     const navigate = useNavigate();
+    const [searchParams, setSearchParams] = useSearchParams();
+    const autoSendFired = useRef(false);
     const {
         sessions,
         messagesBySession,
@@ -26,9 +31,12 @@ export function ChatbotWindow({ sessionId }: Props) {
         useWebSearch,
         selectedMcpIds,
         resetStreaming,
+        lastUserPrompt,
+        setLastUserPrompt,
+        setDraft,
     } = useChatbotStore();
 
-    const { startStream, cancelStream: _cancelStream } = useAgentStream();
+    const { startStream, cancelStream } = useAgentStream();
     const messages = messagesBySession[sessionId] ?? [];
     const session = sessions.find((s) => s.id === sessionId);
     const isStreaming =
@@ -38,6 +46,7 @@ export function ChatbotWindow({ sessionId }: Props) {
     useEffect(() => {
         setActiveSessionId(sessionId);
         resetStreaming();
+        setLastUserPrompt(null);
 
         let cancelled = false;
         const loadHistory = async () => {
@@ -61,6 +70,8 @@ export function ChatbotWindow({ sessionId }: Props) {
 
     const handleSend = useCallback(
         async (content: string) => {
+            setLastUserPrompt(content);
+
             // Append user message optimistically
             const userMsg = {
                 id: `user-${Date.now()}`,
@@ -78,8 +89,43 @@ export function ChatbotWindow({ sessionId }: Props) {
                 mcp_server_ids: selectedMcpIds,
             });
         },
-        [sessionId, useWebSearch, selectedMcpIds, appendMessage, startStream],
+        [sessionId, useWebSearch, selectedMcpIds, appendMessage, startStream, setLastUserPrompt],
     );
+
+    // Auto-send draft when navigated from empty state
+    useEffect(() => {
+        if (autoSendFired.current) return;
+        if (searchParams.get("autoSend") !== "1") return;
+        const draft = useChatbotStore.getState().draftsBySession[sessionId];
+        if (!draft?.trim()) return;
+        autoSendFired.current = true;
+        setSearchParams({}, { replace: true });
+        setDraft(sessionId, "");
+        handleSend(draft.trim());
+    }, [sessionId, searchParams, handleSend, setSearchParams, setDraft]);
+
+    // Edit: populate draft with edited content and send as new turn
+    const handleEdit = useCallback(
+        (message: AgentMessage) => {
+            setDraft(sessionId, message.content);
+        },
+        [sessionId, setDraft],
+    );
+
+    // Retry: resend the same user message
+    const handleRetry = useCallback(
+        async (message: AgentMessage) => {
+            if (isStreaming) return;
+            await handleSend(message.content);
+        },
+        [handleSend, isStreaming],
+    );
+
+    // Retry last prompt (after error/cancel)
+    const handleRetryLast = useCallback(async () => {
+        if (!lastUserPrompt || isStreaming) return;
+        await handleSend(lastUserPrompt);
+    }, [lastUserPrompt, isStreaming, handleSend]);
 
     return (
         <div className="flex flex-col h-full">
@@ -94,14 +140,25 @@ export function ChatbotWindow({ sessionId }: Props) {
                     <ArrowLeft className="h-4 w-4" />
                 </Button>
             </div>
-            <ChatbotHeader title={session?.title ?? "AI Chat"} />
+            <ChatbotHeader
+                title={session?.title ?? "AI Chat"}
+                sidebarCollapsed={sidebarCollapsed}
+                onToggleSidebar={onToggleSidebar}
+            />
 
             {/* Messages */}
-            <ChatbotMessageList messages={messages} />
+            <ChatbotMessageList
+                messages={messages}
+                onEdit={handleEdit}
+                onRetry={handleRetry}
+                onRetryLast={handleRetryLast}
+            />
 
             {/* Composer */}
             <ChatbotComposer
                 sessionId={sessionId}
+                isStreaming={isStreaming}
+                onCancel={cancelStream}
                 onSend={handleSend}
                 disabled={isStreaming}
             />

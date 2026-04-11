@@ -40,6 +40,13 @@ class SessionService:
             raise SessionNotFoundError("Session not found")
         return session
 
+    async def rename_session(
+        self, user_id: str, session_id: str, title: str
+    ) -> dict[str, Any]:
+        """Rename one session after ownership validation."""
+        await self.get_session(user_id, session_id)
+        return await self._session_repo.update_title(session_id, title)
+
     async def delete_session(self, user_id: str, session_id: str) -> None:
         """Delete one session after ownership validation."""
         await self.get_session(user_id, session_id)

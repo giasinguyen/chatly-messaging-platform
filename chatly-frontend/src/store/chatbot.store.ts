@@ -24,11 +24,15 @@ interface ChatbotState {
     selectedMcpIds: string[];
     draftsBySession: Record<string, string>;
 
+    // Phase 2 — retry / edit
+    lastUserPrompt: string | null;
+
     // Actions — sessions
     setSessions: (sessions: AgentSession[]) => void;
     addSession: (session: AgentSession) => void;
     removeSession: (sessionId: string) => void;
     setActiveSessionId: (id: string | null) => void;
+    renameSession: (sessionId: string, title: string) => void;
 
     // Actions — messages
     setMessages: (sessionId: string, messages: AgentMessage[]) => void;
@@ -45,6 +49,7 @@ interface ChatbotState {
     setUseWebSearch: (value: boolean) => void;
     setSelectedMcpIds: (ids: string[]) => void;
     setDraft: (sessionId: string, draft: string) => void;
+    setLastUserPrompt: (prompt: string | null) => void;
 }
 
 export const useChatbotStore = create<ChatbotState>((set) => ({
@@ -58,6 +63,7 @@ export const useChatbotStore = create<ChatbotState>((set) => ({
     useWebSearch: false,
     selectedMcpIds: [],
     draftsBySession: {},
+    lastUserPrompt: null,
 
     // Sessions
     setSessions: (sessions) => set({ sessions }),
@@ -75,6 +81,12 @@ export const useChatbotStore = create<ChatbotState>((set) => ({
                 s.activeSessionId === sessionId ? null : s.activeSessionId,
         })),
     setActiveSessionId: (id) => set({ activeSessionId: id }),
+    renameSession: (sessionId, title) =>
+        set((s) => ({
+            sessions: s.sessions.map((sess) =>
+                sess.id === sessionId ? { ...sess, title } : sess,
+            ),
+        })),
 
     // Messages
     setMessages: (sessionId, messages) =>
@@ -112,4 +124,5 @@ export const useChatbotStore = create<ChatbotState>((set) => ({
         set((s) => ({
             draftsBySession: { ...s.draftsBySession, [sessionId]: draft },
         })),
+    setLastUserPrompt: (prompt) => set({ lastUserPrompt: prompt }),
 }));

@@ -30,6 +30,11 @@ export const agentService = {
         await axiosClient.delete(`${BASE}/${sessionId}`);
     },
 
+    renameSession: async (sessionId: string, title: string): Promise<AgentSession> => {
+        const res = await axiosClient.patch(`${BASE}/${sessionId}`, { title });
+        return res.data;
+    },
+
     // ─── Messages ────────────────────────────────────────────
     getHistory: async (sessionId: string): Promise<AgentMessageHistory> => {
         const res = await axiosClient.get(`${BASE}/${sessionId}/messages`);

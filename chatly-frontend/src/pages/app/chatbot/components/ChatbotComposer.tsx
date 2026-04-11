@@ -7,6 +7,7 @@ import {
     Loader2,
     X,
     FileText,
+    Square,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useChatbotStore } from "@/store/chatbot.store";
@@ -19,6 +20,8 @@ interface Props {
     sessionId: string;
     onSend: (content: string) => void;
     disabled?: boolean;
+    isStreaming?: boolean;
+    onCancel?: () => void;
 }
 
 interface PendingFile {
@@ -32,7 +35,7 @@ interface PendingFile {
 const ACCEPTED_TYPES =
     "image/*,application/pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.md";
 
-export function ChatbotComposer({ sessionId, onSend, disabled }: Props) {
+export function ChatbotComposer({ sessionId, onSend, disabled, isStreaming, onCancel }: Props) {
     const {
         useWebSearch,
         setUseWebSearch,
@@ -59,6 +62,12 @@ export function ChatbotComposer({ sessionId, onSend, disabled }: Props) {
         if (e.key === "Enter" && !e.shiftKey) {
             e.preventDefault();
             handleSend();
+        }
+        if (e.key === "Escape") {
+            e.preventDefault();
+            setDraft(sessionId, "");
+            const textarea = document.getElementById("chatbot-composer-input") as HTMLTextAreaElement | null;
+            if (textarea) textarea.style.height = "auto";
         }
     };
 
@@ -234,17 +243,27 @@ export function ChatbotComposer({ sessionId, onSend, disabled }: Props) {
                     rows={1}
                     className="flex-1 resize-none bg-transparent border-none outline-none text-[15px] text-foreground placeholder:text-muted-foreground/50 min-h-10 max-h-40 py-2 leading-relaxed"
                 />
-                <Button
-                    onClick={handleSend}
-                    disabled={!canSend}
-                    className="h-10 px-5 bg-brand text-white hover:bg-brand/90 transition-all active:scale-95 disabled:opacity-50 disabled:scale-100 shrink-0"
-                >
-                    {isUploading ? (
-                        <Loader2 size={18} className="animate-spin" />
-                    ) : (
-                        <SendHorizontal size={18} />
-                    )}
-                </Button>
+                {isStreaming ? (
+                    <Button
+                        onClick={onCancel}
+                        className="h-10 px-5 bg-muted-foreground text-white hover:bg-muted-foreground/80 transition-all active:scale-95 shrink-0"
+                        title="Dừng tạo câu trả lời"
+                    >
+                        <Square size={18} />
+                    </Button>
+                ) : (
+                    <Button
+                        onClick={handleSend}
+                        disabled={!canSend}
+                        className="h-10 px-5 bg-brand text-white hover:bg-brand/90 transition-all active:scale-95 disabled:opacity-50 disabled:scale-100 shrink-0"
+                    >
+                        {isUploading ? (
+                            <Loader2 size={18} className="animate-spin" />
+                        ) : (
+                            <SendHorizontal size={18} />
+                        )}
+                    </Button>
+                )}
             </div>
 
             {/* MCP Picker Dialog */}

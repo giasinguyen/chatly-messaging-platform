@@ -1,6 +1,8 @@
+from datetime import UTC, datetime
 from typing import Any, cast
 
 from motor.motor_asyncio import AsyncIOMotorCollection
+from pymongo import ReturnDocument
 
 from app.db.mongo import to_object_id, to_str_id
 from app.repositories.base import BaseRepository
@@ -17,6 +19,15 @@ class SessionRepository(BaseRepository[dict[str, Any]]):
         cursor = self._col.find({"user_id": user_id}).sort("updated_at", -1)
         rows = [to_str_id(doc) async for doc in cursor]
         return cast(list[dict[str, Any]], rows)
+
+    async def update_title(self, session_id: str, title: str) -> dict[str, Any]:
+        """Update the title of a session."""
+        doc = await self._col.find_one_and_update(
+            {"_id": to_object_id(session_id)},
+            {"$set": {"title": title, "updated_at": datetime.now(UTC)}},
+            return_document=ReturnDocument.AFTER,
+        )
+        return cast(dict[str, Any], to_str_id(doc))
 
     async def find_by_user_and_id(
         self,

@@ -9,6 +9,12 @@ class SessionCreate(BaseModel):
     title: str = "New Chat"
 
 
+class SessionUpdate(BaseModel):
+    """Payload to rename a chat session."""
+
+    title: str
+
+
 class SessionResponse(BaseModel):
     """Session data returned to clients."""
 

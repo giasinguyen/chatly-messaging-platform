@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, Response, status
 from app.dependencies import get_request_context, get_session_service
 from app.models.context import RequestContext
 from app.models.message import MessageHistory, MessageResponse
-from app.models.session import SessionCreate, SessionList, SessionResponse
+from app.models.session import SessionCreate, SessionList, SessionResponse, SessionUpdate
 from app.services.session_service import SessionService
 
 router = APIRouter(prefix="/sessions", tags=["sessions"])
@@ -76,6 +76,24 @@ async def delete_session(
     """Delete one session owned by current user."""
     await service.delete_session(ctx.user_id, session_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.patch(
+    "/{session_id}",
+    response_model=SessionResponse,
+    summary="Rename session",
+    description="Update the title of a session.",
+    responses={401: {"description": "Unauthorized"}, 404: {"description": "Session not found"}},
+)
+async def rename_session(
+    session_id: str,
+    payload: SessionUpdate,
+    ctx: RequestContext = Depends(get_request_context),  # noqa: B008
+    service: SessionService = Depends(get_session_service),  # noqa: B008
+) -> SessionResponse:
+    """Rename one session owned by current user."""
+    session = await service.rename_session(ctx.user_id, session_id, payload.title)
+    return SessionResponse(**session)
 
 
 @router.get(
