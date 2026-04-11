@@ -11,6 +11,8 @@ import {
     Trash2,
     Pin,
     Menu,
+    MoreHorizontal,
+    Check,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -26,12 +28,29 @@ import {
     ContextMenuSubTrigger,
     ContextMenuTrigger,
 } from "@/components/ui/context-menu";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuSeparator,
+    DropdownMenuSub,
+    DropdownMenuSubContent,
+    DropdownMenuSubTrigger,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { conversationService } from "@/services/conversation.service";
 import { socketService } from "@/services/socket.service";
 import { userService } from "@/services/user.service";
 import { useAuthStore } from "@/store/auth.store";
-import { useConversationPrefsStore } from "@/store/conversationPrefs.store";
+import { useConversationPrefsStore, CATEGORY_META } from "@/store/conversationPrefs.store";
+import type { ConversationCategory } from "@/store/conversationPrefs.store";
 import {
     getConversationDisplayName,
     getConversationAvatar,
@@ -79,7 +98,8 @@ export const ChatList = forwardRef(function ChatListComponent(_, ref) {
         [],
     );
     const [createGroupOpen, setCreateGroupOpen] = useState(false);
-    const subscriptionsRef = useRef<Array<{ unsubscribe: () => void }>>([]);
+    const subscriptionsRef = useRef<Map<string, { unsubscribe: () => void }>>(new Map());
+    const processedNotifIdsRef = useRef<Set<string>>(new Set());
     const [users, setUsers] = useState<UserResponse[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState("");
@@ -89,7 +109,7 @@ export const ChatList = forwardRef(function ChatListComponent(_, ref) {
         notifications.filter((n) => n.type === "NEW_MESSAGE" && !n.read),
     [notifications]);
     const convPrefs = useConversationPrefsStore((s) => s.prefs);
-    const { setPin: storeSetPin, setMute: storeSetMute } = useConversationPrefsStore();
+    const { setPin: storeSetPin, setMute: storeSetMute, setCategory: storeSetCategory } = useConversationPrefsStore();
     const conversationIdsKey = [...conversations]
         .map((conv) => conv.id)
         .sort()
@@ -123,10 +143,91 @@ export const ChatList = forwardRef(function ChatListComponent(_, ref) {
         fetchData();
     }, [currentUser]);
 
+    // When a NEW_MESSAGE notification arrives for a conversation not yet in the list
+    // (e.g. someone starts a brand-new conversation), fetch that conversation and add it.
+    useEffect(() => {
+        const newMsgNotifs = notifications.filter(
+            (n) => n.type === "NEW_MESSAGE" && n.referenceId && !processedNotifIdsRef.current.has(n.id),
+        );
+        if (newMsgNotifs.length === 0) return;
+
+        for (const notif of newMsgNotifs) {
+            processedNotifIdsRef.current.add(notif.id);
+            const convId = notif.referenceId!;
+            setConversations((prev) => {
+                if (prev.some((c) => c.id === convId)) return prev;
+                // New conversation not in list — fetch and prepend
+                conversationService.getById(convId).then((res) => {
+                    if (res.result) {
+                        setConversations((p) => {
+                            if (p.some((c) => c.id === res.result.id)) return p;
+                            return [res.result, ...p];
+                        });
+                    }
+                }).catch(() => {});
+                return prev;
+            });
+        }
+    }, [notifications]);
+
     useEffect(() => {
         if (!currentUser?.id || conversations.length === 0) return;
 
         let disposed = false;
+
+        const createSubscription = (client: import("@stomp/stompjs").Client, conv: ConversationResponse) => {
+            return client.subscribe(
+                `/topic/conversation.${conv.id}`,
+                (payload) => {
+                    const event = JSON.parse(payload.body) as ChatEvent;
+
+                    // Handle SEND actions - update last message preview
+                    if (event.action === "SEND") {
+                        const message = event.message;
+                        if (!message) return;
+
+                        setConversations((prev) => {
+                            const target = prev.find(
+                                (item) => item.id === message.conversationId,
+                            );
+                            if (!target) return prev;
+
+                            const updatedConversation: ConversationResponse = {
+                                ...target,
+                                lastMessage: {
+                                    senderId: message.senderId,
+                                    content: message.content,
+                                    type: message.type,
+                                    timestamp: message.createdAt,
+                                },
+                                updatedAt: message.createdAt,
+                            };
+
+                            return [
+                                updatedConversation,
+                                ...prev.filter(
+                                    (item) => item.id !== message.conversationId,
+                                ),
+                            ];
+                        });
+                        return;
+                    }
+
+                    // Handle GROUP_UPDATE actions - update group info (name, avatar, etc)
+                    if (event.action === "GROUP_UPDATE") {
+                        const updatedConv = event.conversationData;
+                        if (!updatedConv) return;
+
+                        setConversations((prev) =>
+                            prev.map((c) =>
+                                c.id === updatedConv.id ? updatedConv : c
+                            )
+                        );
+                        return;
+                    }
+                },
+            );
+        };
 
         const setup = async () => {
             try {
@@ -139,63 +240,23 @@ export const ChatList = forwardRef(function ChatListComponent(_, ref) {
                 const client = socketService.getClient();
                 if (!client) return;
 
-                subscriptionsRef.current.forEach((sub) => sub.unsubscribe());
-                subscriptionsRef.current = conversations.map((conv) =>
-                    client.subscribe(
-                        `/topic/conversation.${conv.id}`,
-                        (payload) => {
-                            const event = JSON.parse(payload.body) as ChatEvent;
+                const currentIds = new Set(conversations.map((c) => c.id));
+                const subscribedIds = new Set(subscriptionsRef.current.keys());
 
-                            // Handle SEND actions - update last message preview
-                            if (event.action === "SEND") {
-                                const message = event.message;
-                                if (!message) return;
+                // Subscribe to new conversations
+                for (const conv of conversations) {
+                    if (!subscribedIds.has(conv.id)) {
+                        subscriptionsRef.current.set(conv.id, createSubscription(client, conv));
+                    }
+                }
 
-                                setConversations((prev) => {
-                                    const target = prev.find(
-                                        (item) =>
-                                            item.id === message.conversationId,
-                                    );
-                                    if (!target) return prev;
-
-                                    const updatedConversation: ConversationResponse =
-                                        {
-                                            ...target,
-                                            lastMessage: {
-                                                senderId: message.senderId,
-                                                content: message.content,
-                                                type: message.type,
-                                                timestamp: message.createdAt,
-                                            },
-                                            updatedAt: message.createdAt,
-                                        };
-
-                                    return [
-                                        updatedConversation,
-                                        ...prev.filter(
-                                            (item) =>
-                                                item.id !== message.conversationId,
-                                        ),
-                                    ];
-                                });
-                                return;
-                            }
-
-                            // Handle GROUP_UPDATE actions - update group info (name, avatar, etc)
-                            if (event.action === "GROUP_UPDATE") {
-                                const updatedConv = event.conversationData;
-                                if (!updatedConv) return;
-                                
-                                setConversations((prev) =>
-                                    prev.map((conv) =>
-                                        conv.id === updatedConv.id ? updatedConv : conv
-                                    )
-                                );
-                                return;
-                            }
-                        },
-                    ),
-                );
+                // Unsubscribe from removed conversations
+                for (const id of subscribedIds) {
+                    if (!currentIds.has(id)) {
+                        subscriptionsRef.current.get(id)?.unsubscribe();
+                        subscriptionsRef.current.delete(id);
+                    }
+                }
             } catch (error) {
                 console.error(
                     "Không thể subscribe realtime conversations:",
@@ -209,7 +270,7 @@ export const ChatList = forwardRef(function ChatListComponent(_, ref) {
         return () => {
             disposed = true;
             subscriptionsRef.current.forEach((sub) => sub.unsubscribe());
-            subscriptionsRef.current = [];
+            subscriptionsRef.current.clear();
         };
     }, [currentUser?.id, conversations.length, conversationIdsKey]);
 
@@ -274,11 +335,97 @@ export const ChatList = forwardRef(function ChatListComponent(_, ref) {
         ).length;
         const isPinned = prefs.isPinned ?? conv.isPinned ?? false;
         const isMuted = prefs.isMuted ?? conv.isMuted ?? false;
+        const categories: ConversationCategory[] = prefs.categories ?? [];
+
+        const menuContent = (isDropdown: boolean) => {
+            const Item = isDropdown ? DropdownMenuItem : ContextMenuItem;
+            const Separator = isDropdown ? DropdownMenuSeparator : ContextMenuSeparator;
+            const Sub = isDropdown ? DropdownMenuSub : ContextMenuSub;
+            const SubTrigger = isDropdown ? DropdownMenuSubTrigger : ContextMenuSubTrigger;
+            const SubContent = isDropdown ? DropdownMenuSubContent : ContextMenuSubContent;
+
+            return (
+                <>
+                    <Item
+                        onClick={() => {
+                            const pinnedCount = Object.values(convPrefs).filter((p) => p.isPinned).length;
+                            if (!isPinned && pinnedCount >= 5) {
+                                toast.warning("Chỉ có thể ghim tối đa 5 hội thoại");
+                                return;
+                            }
+                            storeSetPin(conv.id, !isPinned);
+                            toast.success(isPinned ? "Đã bỏ ghim hội thoại" : "Đã ghim hội thoại");
+                        }}
+                    >
+                        <Pin className="mr-2 h-4 w-4" />
+                        <span>{isPinned ? "Bỏ ghim" : "Ghim"}</span>
+                    </Item>
+
+                    <Sub>
+                        <SubTrigger>
+                            <Tags className="mr-2 h-4 w-4" />
+                            <span>Phân loại</span>
+                        </SubTrigger>
+                        <SubContent className="w-48">
+                            {(Object.entries(CATEGORY_META) as [ConversationCategory, { label: string; color: string }][]).map(
+                                ([key, meta]) => (
+                                    <Item
+                                        key={key}
+                                        onClick={() => {
+                                            const isSelected = categories.includes(key);
+                                            // Single-select: deselect if same, otherwise select new
+                                            storeSetCategory(conv.id, key, !isSelected);
+                                        }}
+                                    >
+                                        <span
+                                            className="mr-2 h-3 w-3 rounded-full shrink-0"
+                                            style={{ background: meta.color }}
+                                        />
+                                        <span className="flex-1">{meta.label}</span>
+                                        {categories.includes(key) && (
+                                            <Check className="ml-1 h-3.5 w-3.5 text-foreground shrink-0" />
+                                        )}
+                                    </Item>
+                                )
+                            )}
+                        </SubContent>
+                    </Sub>
+
+                    <Item
+                        onClick={() => {
+                            storeSetMute(conv.id, !isMuted);
+                            toast.success(isMuted ? "Đã bật thông báo" : "Đã tắt thông báo");
+                        }}
+                    >
+                        <BellOff className="mr-2 h-4 w-4" />
+                        <span>{isMuted ? "Bật thông báo" : "Tắt thông báo"}</span>
+                    </Item>
+
+                    <Separator />
+
+                    <Item disabled>
+                        <Flag className="mr-2 h-4 w-4" />
+                        <span>Báo xấu</span>
+                    </Item>
+
+                    <Item
+                        className="text-red-500 hover:text-red-600 hover:bg-red-50 focus:text-red-600 focus:bg-red-50"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteConversation(conv.id);
+                        }}
+                    >
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        <span>Xoá hội thoại</span>
+                    </Item>
+                </>
+            );
+        };
 
         return (
             <ContextMenu key={conv.id}>
                 <ContextMenuTrigger asChild>
-                    <div className="w-full">
+                    <div className="group w-full relative">
                         <NavLink
                             to={`/chat/${conv.id}`}
                             className={({ isActive }) =>
@@ -316,12 +463,35 @@ export const ChatList = forwardRef(function ChatListComponent(_, ref) {
                             </div>
 
                             {/* Info */}
-                            <div className="flex-1 overflow-hidden">
+                            <div className="flex-1 overflow-hidden pr-6">
                                 <div className="flex items-center justify-between mb-0.5">
-                                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                                    <div className="flex items-center gap-1.5 min-w-0 flex-1">
                                         <span className="font-normal truncate block text-[15px] text-foreground">
                                             {displayName}
                                         </span>
+                                        {/* Category tag icons next to name */}
+                                        {categories.length > 0 && (
+                                            <TooltipProvider>
+                                                <div className="flex items-center gap-0.5 shrink-0">
+                                                    {categories.map((cat) => {
+                                                        const meta = CATEGORY_META[cat];
+                                                        return (
+                                                            <Tooltip key={cat}>
+                                                                <TooltipTrigger asChild>
+                                                                    <span
+                                                                        className="h-3 w-3 rounded-full shrink-0 cursor-default inline-block"
+                                                                        style={{ background: meta.color }}
+                                                                    />
+                                                                </TooltipTrigger>
+                                                                <TooltipContent side="top" className="text-xs px-2 py-1">
+                                                                    {meta.label}
+                                                                </TooltipContent>
+                                                            </Tooltip>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </TooltipProvider>
+                                        )}
                                         {isPinned && <Pin size={14} className="text-brand shrink-0" />}
                                         {isMuted && <BellOff size={14} className="text-muted-foreground shrink-0" />}
                                     </div>
@@ -364,82 +534,26 @@ export const ChatList = forwardRef(function ChatListComponent(_, ref) {
                                 </div>
                             </div>
                         </NavLink>
+
+                        {/* ... dropdown button — visible on group hover */}
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <button
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 h-7 w-7 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 hover:bg-muted/60 transition-opacity focus:outline-none focus:opacity-100"
+                                    onClick={(e) => e.preventDefault()}
+                                    title="Tuỳ chọn"
+                                >
+                                    <MoreHorizontal size={15} />
+                                </button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent className="w-52" align="end">
+                                {menuContent(true)}
+                            </DropdownMenuContent>
+                        </DropdownMenu>
                     </div>
                 </ContextMenuTrigger>
                 <ContextMenuContent className="w-56">
-                    <ContextMenuItem
-                        onClick={() => {
-                            const pinnedCount = Object.values(convPrefs).filter((p) => p.isPinned).length;
-                            if (!isPinned && pinnedCount >= 5) {
-                                toast.warning("Chỉ có thể ghim tối đa 5 hội thoại");
-                                return;
-                            }
-                            storeSetPin(conv.id, !isPinned);
-                            toast.success(isPinned ? "Đã bỏ ghim hội thoại" : "Đã ghim hội thoại");
-                        }}
-                    >
-                        <Pin className="mr-2 h-4 w-4" />
-                        <span>{isPinned ? "Bỏ ghim" : "Ghim"}</span>
-                    </ContextMenuItem>
-
-                    <ContextMenuSub>
-                        <ContextMenuSubTrigger>
-                            <Tags className="mr-2 h-4 w-4" />
-                            <span>Phân loại</span>
-                        </ContextMenuSubTrigger>
-                        <ContextMenuSubContent className="w-40">
-                            <ContextMenuItem
-                                onClick={() =>
-                                    toast.info("Development in progress...")
-                                }
-                            >
-                                Khách hàng
-                            </ContextMenuItem>
-                            <ContextMenuItem
-                                onClick={() =>
-                                    toast.info("Development in progress...")
-                                }
-                            >
-                                Gia đình
-                            </ContextMenuItem>
-                            <ContextMenuItem
-                                onClick={() =>
-                                    toast.info("Development in progress...")
-                                }
-                            >
-                                Công việc
-                            </ContextMenuItem>
-                        </ContextMenuSubContent>
-                    </ContextMenuSub>
-
-                    <ContextMenuItem
-                        onClick={() => {
-                            storeSetMute(conv.id, !isMuted);
-                            toast.success(isMuted ? "Đã bật thông báo" : "Đã tắt thông báo");
-                        }}
-                    >
-                        <BellOff className="mr-2 h-4 w-4" />
-                        <span>{isMuted ? "Bật thông báo" : "Tắt thông báo"}</span>
-                    </ContextMenuItem>
-
-                    <ContextMenuSeparator />
-
-                    <ContextMenuItem disabled>
-                        <Flag className="mr-2 h-4 w-4" />
-                        <span>Báo xấu</span>
-                    </ContextMenuItem>
-
-                    <ContextMenuItem
-                        className="text-red-500 hover:text-red-600 hover:bg-red-50 focus:text-red-600 focus:bg-red-50"
-                        onClick={(e) => {
-                            // Tránh trigger NavLink nếu có click propagation
-                            e.stopPropagation();
-                            handleDeleteConversation(conv.id);
-                        }}
-                    >
-                        <Trash2 className="mr-2 h-4 w-4" />
-                        <span>Xoá hội thoại</span>
-                    </ContextMenuItem>
+                    {menuContent(false)}
                 </ContextMenuContent>
             </ContextMenu>
         );

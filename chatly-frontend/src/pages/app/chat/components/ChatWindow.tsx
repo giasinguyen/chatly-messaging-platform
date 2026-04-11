@@ -241,7 +241,10 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
                 });
                 if (msg.senderId !== currentUser?.id) {
                     sendSeen(msg.id);
-                    new Audio("/sounds/message_ting_ting.mp3").play().catch(() => {});
+                    const isMuted = getPrefs(id).isMuted ?? false;
+                    if (!isMuted) {
+                        new Audio("/sounds/message_ting_ting.mp3").play().catch(() => {});
+                    }
                 }
             } else if (action === "EDIT" || action === "RECALL" || action === "REACT") {
                 setMessages((prev) =>
@@ -251,7 +254,7 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
                 setMessages((prev) => prev.filter((m) => m.id !== msg.id));
             }
         },
-        [currentUser?.id],
+        [currentUser?.id, id, getPrefs],
     );
 
     const onTyping = useCallback(
