@@ -1,13 +1,12 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+﻿import { useCallback, useEffect, useMemo, useState } from "react";
 import {
     ImageIcon,
     FileText,
     Video,
-    Music4,
-    Link2,
     Search,
     Download,
     Eye,
+    Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -20,7 +19,6 @@ import {
     CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
     Select,
@@ -29,180 +27,49 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
+import { fileService, type FileUploadResponse } from "@/services/file.service";
+import { conversationService } from "@/services/conversation.service";
 
-type MediaEntry = {
-    id: string;
-    name: string;
-    thumbnail: string;
-    size: string;
-    uploadedAt: string;
-    conversationId: string;
-    conversationName: string;
-    type: "images" | "videos";
+// --- Helpers ---
+
+const formatFileSize = (bytes: number): string => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
 };
 
-type FileEntry = {
-    id: string;
-    name: string;
-    size: string;
-    uploadedAt: string;
-    status: string;
-    extension: string;
-    color: string;
-    conversationId: string;
-    conversationName: string;
+const formatTotalSize = (bytes: number): string => {
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+    if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
 };
 
-type LinkEntry = {
-    id: string;
-    title: string;
-    url: string;
-    uploadedAt: string;
-    meta: string;
-    conversationId: string;
-    conversationName: string;
+const getExtension = (fileName: string): string => {
+    const parts = fileName.split(".");
+    return parts.length > 1 ? parts[parts.length - 1].toLowerCase() : "file";
 };
 
-const mediaLibrary: MediaEntry[] = [
-    {
-        id: "M-1001",
-        name: "Ảnh họp Retro",
-        size: "1.8 MB",
-        uploadedAt: "2026-01-26T09:10:00Z",
-        thumbnail: "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=600&q=60",
-        conversationId: "growth",
-        conversationName: "Growth team",
-        type: "images",
-    },
-    {
-        id: "M-1002",
-        name: "Moodboard concept",
-        size: "2.3 MB",
-        uploadedAt: "2025-12-09T08:00:00Z",
-        thumbnail: "https://images.unsplash.com/photo-1529333166437-7750a6dd5a70?auto=format&fit=crop&w=600&q=60",
-        conversationId: "brand",
-        conversationName: "Brand refresh",
-        type: "images",
-    },
-    {
-        id: "M-1003",
-        name: "Product teaser",
-        size: "48 MB",
-        uploadedAt: "2025-11-28T12:00:00Z",
-        thumbnail: "https://images.unsplash.com/photo-1500534314209-a25ddb2bd429?auto=format&fit=crop&w=600&q=60",
-        conversationId: "alpha",
-        conversationName: "Alpha cohort",
-        type: "videos",
-    },
-    {
-        id: "M-1004",
-        name: "Ảnh khách hàng",
-        size: "950 KB",
-        uploadedAt: "2025-10-25T11:00:00Z",
-        thumbnail: "https://images.unsplash.com/photo-1502767089025-6572583495b0?auto=format&fit=crop&w=600&q=60",
-        conversationId: "stories",
-        conversationName: "Customer stories",
-        type: "images",
-    },
-];
+const isImage = (fileType: string) => fileType.startsWith("image/");
+const isVideo = (fileType: string) => fileType.startsWith("video/");
+const isMedia = (fileType: string) => isImage(fileType) || isVideo(fileType);
 
-const fileLibrary: FileEntry[] = [
-    {
-        id: "F-101",
-        name: "itpm02-140329000706-phpapp02.pdf",
-        size: "3.94 MB",
-        uploadedAt: "2026-01-23T14:00:00Z",
-        status: "Chưa có trên Cloud",
-        extension: "PDF",
-        color: "bg-red-500",
-        conversationId: "growth",
-        conversationName: "Growth team",
-    },
-    {
-        id: "F-102",
-        name: "itpm01-40329000787-phpapp02.pdf",
-        size: "1.94 MB",
-        uploadedAt: "2026-01-23T13:10:00Z",
-        status: "Chưa có trên Cloud",
-        extension: "PDF",
-        color: "bg-red-500",
-        conversationId: "growth",
-        conversationName: "Growth team",
-    },
-    {
-        id: "F-103",
-        name: "handover-pack-v4.rar",
-        size: "21.33 KB",
-        uploadedAt: "2025-10-16T09:00:00Z",
-        status: "Chưa có trên Cloud",
-        extension: "RAR",
-        color: "bg-purple-500",
-        conversationId: "brand",
-        conversationName: "Brand refresh",
-    },
-    {
-        id: "F-104",
-        name: "shopping.sql",
-        size: "8.99 KB",
-        uploadedAt: "2025-10-16T10:40:00Z",
-        status: "Chưa có trên Cloud",
-        extension: "SQL",
-        color: "bg-sky-600",
-        conversationId: "alpha",
-        conversationName: "Alpha cohort",
-    },
-];
-
-const linkLibrary: LinkEntry[] = [
-    {
-        id: "L-01",
-        title: "Sprint board",
-        url: "https://miro.com/retro",
-        uploadedAt: "2026-01-20T08:00:00Z",
-        meta: "Miro • 12 cards",
-        conversationId: "growth",
-        conversationName: "Growth team",
-    },
-    {
-        id: "L-02",
-        title: "Figma - Landing revamp",
-        url: "https://figma.com/file/landing",
-        uploadedAt: "2025-12-01T09:30:00Z",
-        meta: "Figma • 18 frames",
-        conversationId: "brand",
-        conversationName: "Brand refresh",
-    },
-];
-
-const categoryTabs = [
-    { id: "media", label: "Ảnh/Video" },
-    { id: "files", label: "Files" },
-    { id: "links", label: "Links" },
-];
-
-const sortOptions = [
-    { value: "latest", label: "Ngày gửi (mới nhất)" },
-    { value: "oldest", label: "Ngày gửi (cũ nhất)" },
-];
-
-const typeOptionsByTab: Record<string, { label: string; value: string }[]> = {
-    media: [
-        { value: "all", label: "Tất cả" },
-        { value: "images", label: "Ảnh" },
-        { value: "videos", label: "Video" },
-    ],
-    files: [
-        { value: "all", label: "Tất cả" },
-        { value: "pdf", label: "PDF" },
-        { value: "rar", label: "RAR" },
-        { value: "sql", label: "SQL" },
-    ],
-    links: [
-        { value: "all", label: "Tất cả" },
-        { value: "design", label: "Design" },
-        { value: "board", label: "Board" },
-    ],
+const FILE_ICON_COLORS: Record<string, string> = {
+    pdf: "bg-red-500",
+    doc: "bg-blue-600",
+    docx: "bg-blue-600",
+    xls: "bg-green-600",
+    xlsx: "bg-green-600",
+    ppt: "bg-orange-500",
+    pptx: "bg-orange-500",
+    zip: "bg-yellow-600",
+    rar: "bg-yellow-600",
+    sql: "bg-purple-600",
+    txt: "bg-gray-500",
+    csv: "bg-emerald-600",
 };
+
+const getExtensionColor = (ext: string): string => FILE_ICON_COLORS[ext] ?? "bg-slate-500";
 
 const formatSectionLabel = (timestamp: string) => {
     const date = new Date(timestamp);
@@ -210,39 +77,90 @@ const formatSectionLabel = (timestamp: string) => {
     const month = (date.getMonth() + 1).toString().padStart(2, "0");
     const year = date.getFullYear();
     const sameYear = year === new Date().getFullYear();
-    return sameYear ? `Ngày ${day} Tháng ${month}` : `Ngày ${day} Tháng ${month} Năm ${year}`;
+    return sameYear
+        ? `Ngày ${day} Tháng ${month}`
+        : `Ngày ${day} Tháng ${month} Năm ${year}`;
 };
 
-const groupByDate = <T extends { uploadedAt: string }>(collection: T[]) => {
-    return collection.reduce<Record<string, T[]>>((acc, item) => {
-        const label = formatSectionLabel(item.uploadedAt);
+const groupByDate = (files: FileUploadResponse[]): Record<string, FileUploadResponse[]> => {
+    return files.reduce<Record<string, FileUploadResponse[]>>((acc, item) => {
+        const label = formatSectionLabel(item.createdAt ?? new Date().toISOString());
         acc[label] = acc[label] ? [...acc[label], item] : [item];
         return acc;
     }, {});
 };
 
+// --- Constants ---
+
+const sortOptions = [
+    { value: "latest", label: "Mới nhất" },
+    { value: "oldest", label: "Cũ nhất" },
+];
+
+const mediaTypeOptions = [
+    { value: "all", label: "Tất cả" },
+    { value: "images", label: "Ảnh" },
+    { value: "videos", label: "Video" },
+];
+
+// --- Component ---
+
 export default function CloudPage() {
-    const [conversationFilter, setConversationFilter] = useState("all");
+    const [loading, setLoading] = useState(true);
+    const [allFiles, setAllFiles] = useState<FileUploadResponse[]>([]);
+    const [convMap, setConvMap] = useState<Record<string, string>>({});
+
     const [searchTerm, setSearchTerm] = useState("");
     const [sortFilter, setSortFilter] = useState("latest");
     const [categoryTab, setCategoryTab] = useState("media");
     const [typeFilterByTab, setTypeFilterByTab] = useState<Record<string, string>>({
         media: "all",
         files: "all",
-        links: "all",
     });
 
     useEffect(() => {
-        toast.dismiss();
+        let cancelled = false;
+        setLoading(true);
+        Promise.all([
+            fileService.getMyFiles(),
+            conversationService.getMyConversations(),
+        ])
+            .then(([files, convsResp]) => {
+                if (cancelled) return;
+                setAllFiles(files);
+                const map: Record<string, string> = {};
+                for (const c of convsResp.result) {
+                    map[c.id] = c.nickname ?? c.name ?? c.id;
+                }
+                setConvMap(map);
+            })
+            .catch(() => toast.error("Không thể tải dữ liệu kho lưu trữ"))
+            .finally(() => {
+                if (!cancelled) setLoading(false);
+            });
+        return () => { cancelled = true; };
     }, []);
 
-    const conversations = useMemo(() => {
-        const pool = [...mediaLibrary, ...fileLibrary, ...linkLibrary];
-        const entries = Array.from(
-            new Map(pool.map((item) => [item.conversationId, item.conversationName])).entries(),
-        ).map(([id, label]) => ({ id, label }));
-        return [{ id: "all", label: "Tất cả" }, ...entries];
-    }, []);
+    const mediaFiles = useMemo(() => allFiles.filter((f) => isMedia(f.fileType)), [allFiles]);
+    const docFiles = useMemo(() => allFiles.filter((f) => !isMedia(f.fileType)), [allFiles]);
+
+    const docExtensions = useMemo(() => {
+        const exts = new Set(docFiles.map((f) => getExtension(f.fileName)));
+        return [
+            { value: "all", label: "Tất cả" },
+            ...Array.from(exts).map((e) => ({ value: e, label: e.toUpperCase() })),
+        ];
+    }, [docFiles]);
+
+    const totalSize = useMemo(
+        () => allFiles.reduce((sum, f) => sum + (f.fileSize ?? 0), 0),
+        [allFiles],
+    );
+
+    const uniqueConvCount = useMemo(() => {
+        const ids = new Set(allFiles.map((f) => f.conversationId).filter(Boolean));
+        return ids.size;
+    }, [allFiles]);
 
     const currentTypeFilter = typeFilterByTab[categoryTab];
 
@@ -250,50 +168,56 @@ export default function CloudPage() {
         setTypeFilterByTab((prev) => ({ ...prev, [categoryTab]: value }));
     };
 
-    const applyFilters = useCallback(<T extends {
-        name?: string;
-        title?: string;
-        conversationId: string;
-        uploadedAt: string;
-        type?: string;
-        extension?: string;
-    }>(data: T[], category: keyof typeof typeOptionsByTab) => {
-        const normalizedSearch = searchTerm.trim().toLowerCase();
-        const currentType = typeFilterByTab[category];
-        const filtered = data.filter((item) => {
-            const label = (item.name ?? item.title ?? "").toLowerCase();
-            const matchesConversation =
-                conversationFilter === "all" || item.conversationId === conversationFilter;
-            const matchesSearch = !normalizedSearch || label.includes(normalizedSearch);
-            let matchesType = true;
-            if (category === "media" && currentType !== "all") {
-                matchesType = item.type === currentType;
-            }
-            if (category === "files" && currentType !== "all" && "extension" in item) {
-                matchesType = item.extension.toLowerCase() === currentType;
-            }
-            if (category === "links" && currentType !== "all") {
-                const title = item.title?.toLowerCase() ?? "";
-                matchesType =
-                    (currentType === "design" && title.includes("figma")) ||
-                    (currentType === "board" && title.includes("board"));
-            }
-            return matchesConversation && matchesSearch && matchesType;
-        });
+    const applySort = useCallback(
+        (files: FileUploadResponse[]) =>
+            [...files].sort((a, b) => {
+                const delta =
+                    new Date(a.createdAt ?? 0).getTime() -
+                    new Date(b.createdAt ?? 0).getTime();
+                return sortFilter === "latest" ? -delta : delta;
+            }),
+        [sortFilter],
+    );
 
-        return filtered.sort((a, b) => {
-            const delta = new Date(a.uploadedAt).getTime() - new Date(b.uploadedAt).getTime();
-            return sortFilter === "latest" ? -delta : delta;
+    const filteredMedia = useMemo(() => {
+        const mediaType = typeFilterByTab.media;
+        const search = searchTerm.trim().toLowerCase();
+        const result = mediaFiles.filter((f) => {
+            const matchSearch = !search || f.fileName.toLowerCase().includes(search);
+            const matchType =
+                mediaType === "all" ||
+                (mediaType === "images" && isImage(f.fileType)) ||
+                (mediaType === "videos" && isVideo(f.fileType));
+            return matchSearch && matchType;
         });
-    }, [conversationFilter, searchTerm, sortFilter, typeFilterByTab]);
+        return applySort(result);
+    }, [mediaFiles, typeFilterByTab, searchTerm, applySort]);
 
-    const filteredMedia = useMemo(() => applyFilters(mediaLibrary, "media"), [applyFilters]);
-    const filteredFiles = useMemo(() => applyFilters(fileLibrary, "files"), [applyFilters]);
-    const filteredLinks = useMemo(() => applyFilters(linkLibrary, "links"), [applyFilters]);
+    const filteredDocs = useMemo(() => {
+        const extFilter = typeFilterByTab.files;
+        const search = searchTerm.trim().toLowerCase();
+        const result = docFiles.filter((f) => {
+            const matchSearch = !search || f.fileName.toLowerCase().includes(search);
+            const matchType = extFilter === "all" || getExtension(f.fileName) === extFilter;
+            return matchSearch && matchType;
+        });
+        return applySort(result);
+    }, [docFiles, typeFilterByTab, searchTerm, applySort]);
 
     const sectionedMedia = useMemo(() => groupByDate(filteredMedia), [filteredMedia]);
-    const sectionedFiles = useMemo(() => groupByDate(filteredFiles), [filteredFiles]);
-    const sectionedLinks = useMemo(() => groupByDate(filteredLinks), [filteredLinks]);
+    const sectionedDocs = useMemo(() => groupByDate(filteredDocs), [filteredDocs]);
+
+    const getConvName = (id?: string) =>
+        id ? (convMap[id] ?? id.slice(0, 8) + "...") : "-";
+
+    const handleDownload = (file: FileUploadResponse) => {
+        const a = document.createElement("a");
+        a.href = file.url;
+        a.download = file.fileName;
+        a.target = "_blank";
+        a.rel = "noreferrer";
+        a.click();
+    };
 
     return (
         <div className="min-h-screen bg-background text-foreground">
@@ -306,25 +230,24 @@ export default function CloudPage() {
                                 Kho lưu trữ cá nhân — mọi file từ các cuộc trò chuyện.
                             </h1>
                             <p className="text-sm text-muted-foreground">
-                                Lọc theo loại file, hội thoại và thời gian gửi. Xem nhanh hình ảnh hoặc tải về PDF
-                                chỉ với một cú nhấp.
+                                Lọc theo loại file, hội thoại và thời gian gửi. Xem nhanh hình ảnh hoặc tải về tài liệu chỉ với một cú nhấp.
                             </p>
                         </div>
                         <div className="grid w-full max-w-sm grid-cols-2 gap-4 text-center text-sm text-muted-foreground">
                             <div className="rounded-2xl border border-border/60 bg-muted/60 p-4">
-                                <p className="text-2xl font-semibold text-foreground">{mediaLibrary.length + fileLibrary.length}</p>
+                                <p className="text-2xl font-semibold text-foreground">{loading ? "-" : allFiles.length}</p>
                                 <p>Files đã lưu</p>
                             </div>
                             <div className="rounded-2xl border border-border/60 bg-muted/60 p-4">
-                                <p className="text-2xl font-semibold text-foreground">4</p>
+                                <p className="text-2xl font-semibold text-foreground">{loading ? "-" : uniqueConvCount}</p>
                                 <p>Conversations</p>
                             </div>
                             <div className="rounded-2xl border border-border/60 bg-muted/60 p-4">
-                                <p className="text-2xl font-semibold text-foreground">12</p>
-                                <p>Tập tin mới</p>
+                                <p className="text-2xl font-semibold text-foreground">{loading ? "-" : mediaFiles.length}</p>
+                                <p>Ảnh / Video</p>
                             </div>
                             <div className="rounded-2xl border border-border/60 bg-muted/60 p-4">
-                                <p className="text-2xl font-semibold text-foreground">412 MB</p>
+                                <p className="text-2xl font-semibold text-foreground">{loading ? "-" : formatTotalSize(totalSize)}</p>
                                 <p>Đã đồng bộ</p>
                             </div>
                         </div>
@@ -344,7 +267,7 @@ export default function CloudPage() {
                                         <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/70" />
                                         <Input
                                             value={searchTerm}
-                                            onChange={(event) => setSearchTerm(event.target.value)}
+                                            onChange={(e) => setSearchTerm(e.target.value)}
                                             placeholder="Tìm kiếm file"
                                             className="h-10 rounded-2xl border-border bg-muted pl-10"
                                         />
@@ -355,10 +278,8 @@ export default function CloudPage() {
                                                 <SelectValue placeholder="Loại" />
                                             </SelectTrigger>
                                             <SelectContent>
-                                                {typeOptionsByTab[categoryTab].map((option) => (
-                                                    <SelectItem key={option.value} value={option.value}>
-                                                        {option.label}
-                                                    </SelectItem>
+                                                {(categoryTab === "media" ? mediaTypeOptions : docExtensions).map((opt) => (
+                                                    <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
                                                 ))}
                                             </SelectContent>
                                         </Select>
@@ -367,10 +288,8 @@ export default function CloudPage() {
                                                 <SelectValue placeholder="Ngày gửi" />
                                             </SelectTrigger>
                                             <SelectContent>
-                                                {sortOptions.map((option) => (
-                                                    <SelectItem key={option.value} value={option.value}>
-                                                        {option.label}
-                                                    </SelectItem>
+                                                {sortOptions.map((opt) => (
+                                                    <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
                                                 ))}
                                             </SelectContent>
                                         </Select>
@@ -378,140 +297,111 @@ export default function CloudPage() {
                                 </div>
                             </div>
                             <TabsList className="inline-flex rounded-2xl bg-muted/70 p-1 text-sm">
-                                {categoryTabs.map((tab) => (
-                                    <TabsTrigger
-                                        key={tab.id}
-                                        value={tab.id}
-                                        className="rounded-2xl px-4 py-1.5 data-[state=active]:bg-background data-[state=active]:text-foreground"
-                                    >
-                                        {tab.label}
-                                    </TabsTrigger>
-                                ))}
+                                <TabsTrigger value="media" className="rounded-2xl px-4 py-1.5 data-[state=active]:bg-background data-[state=active]:text-foreground">
+                                    Ảnh / Video
+                                </TabsTrigger>
+                                <TabsTrigger value="files" className="rounded-2xl px-4 py-1.5 data-[state=active]:bg-background data-[state=active]:text-foreground">
+                                    Tài liệu
+                                </TabsTrigger>
                             </TabsList>
                         </CardHeader>
+
                         <CardContent className="space-y-8">
-                            <TabsContent value="media" className="space-y-6">
-                                    {Object.entries(sectionedMedia).map(([label, items]) => (
-                                        <div key={label} className="space-y-3">
-                                            <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground/70">
-                                                {label}
-                                            </p>
-                                            <div className="space-y-4">
-                                                {items.map((item) => (
-                                                    <div
-                                                        key={item.id}
-                                                        className="flex gap-4 rounded-3xl border border-border/60 bg-muted/60 p-4"
-                                                    >
-                                                        <div className="h-28 w-32 overflow-hidden rounded-2xl bg-muted">
-                                                            <img src={item.thumbnail} alt={item.name} className="h-full w-full object-cover" />
-                                                        </div>
-                                                        <div className="flex flex-1 flex-col justify-between">
-                                                            <div>
-                                                                <p className="text-sm font-semibold">{item.name}</p>
-                                                                <p className="text-xs text-muted-foreground">
-                                                                    {item.size} • {item.conversationName}
-                                                                </p>
+                            {loading ? (
+                                <div className="flex h-40 items-center justify-center">
+                                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                                </div>
+                            ) : (
+                                <>
+                                    <TabsContent value="media" className="space-y-6">
+                                        {filteredMedia.length === 0 ? (
+                                            <div className="flex h-40 flex-col items-center justify-center gap-2 text-muted-foreground">
+                                                <ImageIcon className="h-8 w-8 opacity-40" />
+                                                <p className="text-sm">Không có ảnh hoặc video nào.</p>
+                                            </div>
+                                        ) : (
+                                            Object.entries(sectionedMedia).map(([label, items]) => (
+                                                <div key={label} className="space-y-3">
+                                                    <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground/70">{label}</p>
+                                                    <div className="space-y-4">
+                                                        {items.map((item) => (
+                                                            <div key={item.fileId} className="flex gap-4 rounded-3xl border border-border/60 bg-muted/60 p-4">
+                                                                <div className="flex h-28 w-32 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-muted">
+                                                                    {isImage(item.fileType) ? (
+                                                                        <img src={item.url} alt={item.fileName} className="h-full w-full object-cover" />
+                                                                    ) : (
+                                                                        <Video className="h-10 w-10 text-muted-foreground/60" />
+                                                                    )}
+                                                                </div>
+                                                                <div className="flex flex-1 flex-col justify-between min-w-0">
+                                                                    <div>
+                                                                        <p className="text-sm font-semibold line-clamp-1">{item.fileName}</p>
+                                                                        <p className="text-xs text-muted-foreground">
+                                                                            {formatFileSize(item.fileSize)} •{" "}
+                                                                            {getConvName(item.conversationId)}
+                                                                        </p>
+                                                                    </div>
+                                                                    <div className="flex gap-2">
+                                                                        <Button size="sm" variant="secondary" className="rounded-2xl" onClick={() => window.open(item.url, "_blank")}>
+                                                                            <Eye className="mr-1 h-4 w-4" />
+                                                                            Xem
+                                                                        </Button>
+                                                                        <Button size="sm" className="rounded-2xl" onClick={() => handleDownload(item)}>
+                                                                            <Download className="mr-1 h-4 w-4" />
+                                                                            Tải xuống
+                                                                        </Button>
+                                                                    </div>
+                                                                </div>
                                                             </div>
-                                                            <div className="flex gap-2">
-                                                                <Button
-                                                                    size="sm"
-                                                                    variant="secondary"
-                                                                    className="rounded-2xl"
-                                                                    onClick={() => toast.info(`Preview ${item.name}`)}
-                                                                >
-                                                                    <Eye className="mr-1 h-4 w-4" />
-                                                                    Xem
-                                                                </Button>
-                                                                <Button
-                                                                    size="sm"
-                                                                    className="rounded-2xl"
-                                                                    onClick={() => toast.success(`Downloading ${item.name}`)}
-                                                                >
-                                                                    <Download className="mr-1 h-4 w-4" />
-                                                                    Tải xuống
-                                                                </Button>
-                                                            </div>
-                                                        </div>
+                                                        ))}
                                                     </div>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    ))}
-                            </TabsContent>
+                                                </div>
+                                            ))
+                                        )}
+                                    </TabsContent>
 
-                            <TabsContent value="files" className="space-y-6">
-                                    {Object.entries(sectionedFiles).map(([label, items]) => (
-                                        <div key={label} className="space-y-3">
-                                            <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground/70">
-                                                {label}
-                                            </p>
-                                            <div className="space-y-4">
-                                                {items.map((item) => (
-                                                    <div
-                                                        key={item.id}
-                                                        className="flex items-center gap-4 rounded-3xl border border-border/60 bg-muted/60 p-4"
-                                                    >
-                                                        <div className={`flex h-16 w-14 items-center justify-center rounded-2xl text-xs font-bold text-white ${item.color}`}>
-                                                            {item.extension}
-                                                        </div>
-                                                        <div className="flex-1">
-                                                            <p className="text-sm font-semibold">{item.name}</p>
-                                                            <p className="text-xs text-muted-foreground">
-                                                                {item.size} • {item.status}
-                                                            </p>
-                                                        </div>
-                                                        <div className="text-right text-xs text-muted-foreground/80">
-                                                            {new Date(item.uploadedAt).toLocaleTimeString("vi-VN", {
-                                                                hour: "2-digit",
-                                                                minute: "2-digit",
-                                                            })}
-                                                        </div>
-                                                    </div>
-                                                ))}
+                                    <TabsContent value="files" className="space-y-6">
+                                        {filteredDocs.length === 0 ? (
+                                            <div className="flex h-40 flex-col items-center justify-center gap-2 text-muted-foreground">
+                                                <FileText className="h-8 w-8 opacity-40" />
+                                                <p className="text-sm">Không có tài liệu nào.</p>
                                             </div>
-                                        </div>
-                                    ))}
-                            </TabsContent>
-
-                            <TabsContent value="links" className="space-y-6">
-                                    {Object.entries(sectionedLinks).map(([label, items]) => (
-                                        <div key={label} className="space-y-3">
-                                            <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground/70">
-                                                {label}
-                                            </p>
-                                            <div className="space-y-4">
-                                                {items.map((item) => (
-                                                    <div
-                                                        key={item.id}
-                                                        className="flex items-center gap-4 rounded-3xl border border-border/60 bg-muted/60 p-4"
-                                                    >
-                                                        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-muted text-muted-foreground">
-                                                            <Link2 className="h-5 w-5" />
-                                                        </div>
-                                                        <div className="flex-1">
-                                                            <p className="text-sm font-semibold">{item.title}</p>
-                                                            <p className="text-xs text-muted-foreground">{item.meta}</p>
-                                                            <a
-                                                                href={item.url}
-                                                                target="_blank"
-                                                                rel="noreferrer"
-                                                                className="text-xs text-primary underline"
-                                                            >
-                                                                {item.url}
-                                                            </a>
-                                                        </div>
-                                                        <span className="text-xs text-muted-foreground/80">
-                                                            {new Date(item.uploadedAt).toLocaleDateString("vi-VN", {
-                                                                day: "2-digit",
-                                                                month: "2-digit",
-                                                            })}
-                                                        </span>
+                                        ) : (
+                                            Object.entries(sectionedDocs).map(([label, items]) => (
+                                                <div key={label} className="space-y-3">
+                                                    <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground/70">{label}</p>
+                                                    <div className="space-y-4">
+                                                        {items.map((item) => {
+                                                            const ext = getExtension(item.fileName);
+                                                            return (
+                                                                <div key={item.fileId} className="flex items-center gap-4 rounded-3xl border border-border/60 bg-muted/60 p-4">
+                                                                    <div className={`flex h-16 w-14 shrink-0 items-center justify-center rounded-2xl text-xs font-bold uppercase text-white ${getExtensionColor(ext)}`}>
+                                                                        {ext}
+                                                                    </div>
+                                                                    <div className="flex-1 min-w-0">
+                                                                        <p className="text-sm font-semibold line-clamp-1">{item.fileName}</p>
+                                                                        <p className="text-xs text-muted-foreground">
+                                                                            {formatFileSize(item.fileSize)} - {getConvName(item.conversationId)}
+                                                                        </p>
+                                                                    </div>
+                                                                    <div className="flex shrink-0 items-center gap-2">
+                                                                        <span className="hidden text-right text-xs text-muted-foreground/80 sm:block">
+                                                                            {new Date(item.createdAt ?? "").toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}
+                                                                        </span>
+                                                                        <Button size="sm" variant="ghost" className="rounded-2xl" onClick={() => handleDownload(item)}>
+                                                                            <Download className="h-4 w-4" />
+                                                                        </Button>
+                                                                    </div>
+                                                                </div>
+                                                            );
+                                                        })}
                                                     </div>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    ))}
-                            </TabsContent>
+                                                </div>
+                                            ))
+                                        )}
+                                    </TabsContent>
+                                </>
+                            )}
                         </CardContent>
                     </Card>
                 </Tabs>
