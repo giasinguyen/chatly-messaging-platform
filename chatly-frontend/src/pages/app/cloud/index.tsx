@@ -220,7 +220,7 @@ export default function CloudPage() {
     };
 
     return (
-        <div className="min-h-screen bg-background text-foreground">
+        <div className="h-full overflow-y-auto bg-background text-foreground">
             <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 pb-16 pt-8 md:px-8">
                 <section className="rounded-3xl border border-border bg-card/95 p-8 shadow-xl">
                     <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
