@@ -11,7 +11,6 @@ import {
   Image,
   Linking,
   ScrollView,
-  Dimensions,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -129,13 +128,10 @@ export default function GroupInfoScreen() {
         const uri = result.assets[0].uri;
         let filename = uri.split('/').pop() || 'avatar.jpg';
         let match = /\.(\w+)$/.exec(filename);
-        let type = match ? `image/${match[1]}` : `image`;
+        let type = match ? `image/${match[1]}` : 'image/jpeg';
 
-        const formData = new FormData();
-        formData.append('file', { uri, name: filename, type } as any);
-
-        const uploadRes = await fileService.upload(formData);
-        const fileUrl = uploadRes.result.url;
+        const uploadRes = await fileService.upload(uri, filename, type);
+        const fileUrl = uploadRes.url;
 
         const res = await groupService.updateGroup(conversationId, { avatar: fileUrl });
         setConversations(conversations.map((c) => (c.id === conversationId ? res.result : c)));
