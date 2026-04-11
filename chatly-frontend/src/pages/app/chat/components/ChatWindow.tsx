@@ -175,6 +175,7 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
     const [groupProfileSaving, setGroupProfileSaving] = useState(false);
     const [showGroupPanel, setShowGroupPanel] = useState(false);
     const [showSearch, setShowSearch] = useState(false);
+    const [showInfoPanel, setShowInfoPanel] = useState(true);
     const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
     const [groupPanelDefaultTab, setGroupPanelDefaultTab] = useState<"members" | "settings">("members");
     const [createGroupFromPrivateOpen, setCreateGroupFromPrivateOpen] = useState(false);
@@ -818,6 +819,8 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
                     setShowSearch((prev) => !prev);
                     if (showSearch) setHighlightedMessageId(null);
                 }}
+                onToggleInfoPanel={() => setShowInfoPanel((prev) => !prev)}
+                isInfoPanelOpen={showInfoPanel}
                 presenceStatus={participantPresence?.status}
                 lastSeen={participantPresence?.lastSeen}
                 onBack={() => navigate("/chat")}
@@ -1266,7 +1269,8 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
             />
         </div>
 
-            {/* Conversation Info Panel (right sidebar - always visible on lg+) */}
+            {/* Conversation Info Panel (right sidebar - toggleable on lg+) */}
+            {showInfoPanel && (
             <ConversationInfoPanel
                 conversation={conversation}
                 participant={participant}
@@ -1290,6 +1294,7 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
                     onConversationUpdated?.(updated);
                 }}
             />
+            )}
         </div>
     );
 });

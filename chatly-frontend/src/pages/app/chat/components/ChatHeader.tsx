@@ -1,4 +1,4 @@
-import { Phone, Video, Users, ChevronLeft, Search, Pin, BellOff } from "lucide-react";
+import { Phone, Video, Users, ChevronLeft, Search, Pin, BellOff, PanelRightOpen, PanelRightClose } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { PresenceIndicator } from "@/components/customize/PresenceIndicator";
@@ -11,6 +11,8 @@ interface ChatHeaderProps {
     isGroup?: boolean;
     onOpenGroupPanel?: () => void;
     onToggleSearch?: () => void;
+    onToggleInfoPanel?: () => void;
+    isInfoPanelOpen?: boolean;
     presenceStatus?: "ONLINE" | "OFFLINE" | string;
     lastSeen?: string | null;
     onBack?: () => void;
@@ -19,7 +21,7 @@ interface ChatHeaderProps {
     nickname?: string | null;
 }
 
-export function ChatHeader({ user, onOpenProfile, isGroup, onOpenGroupPanel, onToggleSearch, presenceStatus, lastSeen, onBack, isPinned, isMuted, nickname }: ChatHeaderProps) {
+export function ChatHeader({ user, onOpenProfile, isGroup, onOpenGroupPanel, onToggleSearch, onToggleInfoPanel, isInfoPanelOpen, presenceStatus, lastSeen, onBack, isPinned, isMuted, nickname }: ChatHeaderProps) {
     return (
         <header className="h-16 border-b border-border flex items-center justify-between px-2 sm:px-4 shrink-0 bg-background dark:bg-[#22252b]">
             <div className="flex items-center">
@@ -112,6 +114,17 @@ export function ChatHeader({ user, onOpenProfile, isGroup, onOpenGroupPanel, onT
                 >
                     <Phone size={18} />
                 </Button>
+                {onToggleInfoPanel && (
+                    <Button
+                        onClick={onToggleInfoPanel}
+                        variant="ghost"
+                        size="icon"
+                        className="h-9 w-9 hidden lg:inline-flex"
+                        title={isInfoPanelOpen ? "Đóng thông tin" : "Mở thông tin"}
+                    >
+                        {isInfoPanelOpen ? <PanelRightClose size={18} /> : <PanelRightOpen size={18} />}
+                    </Button>
+                )}
             </div>
         </header>
     );

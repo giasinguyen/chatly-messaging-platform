@@ -26,7 +26,7 @@ import { useChatSocket } from '@/hooks/useChatSocket';
 import { usePresenceSocket } from '@/hooks/usePresenceSocket';
 import { Colors } from '@/constants/theme';
 import { formatDateSeparator } from '@/utils/format';
-import type { Message, ChatEvent } from '@/types/message';
+import type { Message, ChatEvent, Attachment } from '@/types/message';
 import type { ConversationResponse } from '@/types/conversation';
 import type { UserResponse } from '@/types/auth';
 
@@ -239,19 +239,26 @@ export default function ChatScreen() {
 
   // Send message (try WebSocket, fallback to REST)
   const handleSend = useCallback(
-    async (text: string) => {
+    async (text: string, attachments?: Attachment[]) => {
       if (!conversationId || !user) return;
       const replyToId = replyingTo?.id ?? null;
+      const hasAttachments = attachments && attachments.length > 0;
+      const msgType = hasAttachments
+        ? attachments[0].type?.startsWith('image/') ? 'IMAGE'
+          : attachments[0].type?.startsWith('video/') ? 'VIDEO'
+          : attachments[0].type?.startsWith('audio/') ? 'AUDIO'
+          : 'FILE'
+        : 'TEXT';
 
       const optimisticLastMsg = {
         senderId: user.id,
-        content: text,
-        type: 'TEXT' as const,
+        content: text || (hasAttachments ? `[${msgType}]` : ''),
+        type: msgType as 'TEXT',
         timestamp: new Date().toISOString(),
       };
 
       // Try WebSocket first
-      const sent = wsSendMessage(text, replyToId);
+      const sent = wsSendMessage(text, replyToId, attachments);
       if (sent) {
         updateConversation(conversationId, { lastMessage: optimisticLastMsg });
         setReplyingTo(null);
@@ -264,8 +271,9 @@ export default function ChatScreen() {
         const res = await messageService.send({
           conversationId,
           content: text,
-          type: 'TEXT',
+          type: msgType,
           replyToId,
+          attachments,
         });
         addMessage(conversationId, res.result);
         updateConversation(conversationId, { 
@@ -429,7 +437,7 @@ export default function ChatScreen() {
           setShowSearch((prev) => !prev);
           if (showSearch) setHighlightedMessageId(null);
         }}
-        onPressInfo={isGroup ? () => router.push(`/chat/${conversationId}/info`) : undefined}
+        onPressInfo={() => router.push(`/chat/${conversationId}/info`)}
       />
 
       {showSearch && conversationId && (
@@ -517,6 +525,7 @@ export default function ChatScreen() {
       {/* Input */}
       <View style={{ paddingBottom: insets.bottom }}>
         <ChatInput
+          conversationId={conversationId}
           onSend={handleSend}
           onTyping={sendTyping}
           replyingTo={replyingTo}

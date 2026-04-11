@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
     BellOff,
@@ -18,6 +18,7 @@ import {
     X,
     Users,
     Loader2,
+    Download,
 } from "lucide-react";
 import { AddMembersDialog } from "./AddMembersDialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -40,7 +41,8 @@ import type { ChatUser } from "@/types/message";
 import type { ConversationResponse } from "@/types/conversation";
 import { conversationService } from "@/services/conversation.service";
 import { groupService } from "@/services/group.service";
-import { fileService } from "@/services/file.service";
+import { fileService, type FileUploadResponse } from "@/services/file.service";
+import { messageService } from "@/services/message.service";
 import { useConversationPrefsStore } from "@/store/conversationPrefs.store";
 
 interface ConversationInfoPanelProps {
@@ -98,6 +100,46 @@ export function ConversationInfoPanel({
 
     // Add members dialog (group only)
     const [showAddMembersDialog, setShowAddMembersDialog] = useState(false);
+
+    // Media & files from S3
+    const [mediaFiles, setMediaFiles] = useState<FileUploadResponse[]>([]);
+    const [docFiles, setDocFiles] = useState<FileUploadResponse[]>([]);
+    const [linkMessages, setLinkMessages] = useState<{ url: string; domain: string }[]>([]);
+
+    useEffect(() => {
+        let cancelled = false;
+        const URL_REGEX = /(https?:\/\/[^\s<>"]+)/g;
+        const fetchFiles = async () => {
+            try {
+                const [images, docs, linkMsgs] = await Promise.all([
+                    fileService.getByConversation(conversation.id, "image"),
+                    fileService.getByConversation(conversation.id, "file"),
+                    messageService.search(conversation.id, "http", 0, 50).catch(() => ({ result: [] })),
+                ]);
+                if (!cancelled) {
+                    setMediaFiles(images);
+                    setDocFiles(docs);
+                    const extracted: { url: string; domain: string }[] = [];
+                    for (const msg of linkMsgs.result) {
+                        const matches = msg.content?.match(URL_REGEX) ?? [];
+                        for (const url of matches) {
+                            try {
+                                const domain = new URL(url).hostname;
+                                if (!extracted.find(l => l.url === url)) {
+                                    extracted.push({ url, domain });
+                                }
+                            } catch { /* ignore */ }
+                        }
+                    }
+                    setLinkMessages(extracted.slice(0, 20));
+                }
+            } catch {
+                // silently ignore
+            }
+        };
+        fetchFiles();
+        return () => { cancelled = true; };
+    }, [conversation.id]);
 
     // Group name editing (group only)
     const [isEditingGroupName, setIsEditingGroupName] = useState(false);
@@ -214,7 +256,7 @@ export function ConversationInfoPanel({
                 </h3>
             </div>
 
-            <ScrollArea className="flex-1">
+            <ScrollArea className="flex-1 [&>[data-slot=scroll-area-viewport]]:overflow-x-hidden">
                 <div className="flex flex-col gap-0">
                     {/* Avatar + Name */}
                     <div className="flex flex-col items-center gap-2 py-5 px-4">
@@ -504,25 +546,37 @@ export function ConversationInfoPanel({
                                 <Image size={15} className="text-muted-foreground" />
                                 <span className="text-sm font-medium text-foreground">Ảnh/Video</span>
                             </div>
-                            <button
-                                type="button"
-                                className="flex items-center gap-0.5 text-[12px] text-brand hover:underline"
-                                onClick={() => toast.info("Development in progress...")}
-                            >
-                                Xem tất cả <ChevronRight size={12} />
-                            </button>
-                        </div>
-                        <div className="grid grid-cols-3 gap-1">
-                            {Array.from({ length: 6 }).map((_, i) => (
-                                <div
-                                    key={`photo-placeholder-${i}`}
-                                    className="aspect-square rounded bg-muted/60 border border-border/40 flex items-center justify-center cursor-pointer hover:bg-muted/80 transition"
-                                    onClick={() => toast.info("Development in progress...")}
+                            {mediaFiles.length > 6 && (
+                                <button
+                                    type="button"
+                                    className="flex items-center gap-0.5 text-[12px] text-brand hover:underline"
+                                    onClick={() => toast.info("Hiện đang hiển thị 6 mục gần nhất")}
                                 >
-                                    <Image size={16} className="text-muted-foreground/40" />
-                                </div>
-                            ))}
+                                    Xem tất cả <ChevronRight size={12} />
+                                </button>
+                            )}
                         </div>
+                        {mediaFiles.length === 0 ? (
+                            <p className="text-xs text-muted-foreground text-center py-3">Chưa có ảnh/video nào</p>
+                        ) : (
+                            <div className="grid grid-cols-3 gap-1">
+                                {mediaFiles.slice(0, 6).map((file) => (
+                                    <a
+                                        key={file.fileId}
+                                        href={file.url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="aspect-square rounded bg-muted/60 border border-border/40 overflow-hidden cursor-pointer hover:opacity-80 transition"
+                                    >
+                                        {file.fileType?.startsWith("video/") ? (
+                                            <video src={file.url} className="w-full h-full object-cover" muted />
+                                        ) : (
+                                            <img src={file.url} alt={file.fileName} className="w-full h-full object-cover" />
+                                        )}
+                                    </a>
+                                ))}
+                            </div>
+                        )}
                     </div>
 
                     <Separator />
@@ -534,68 +588,71 @@ export function ConversationInfoPanel({
                                 <FileText size={15} className="text-muted-foreground" />
                                 <span className="text-sm font-medium text-foreground">File</span>
                             </div>
-                            <button
-                                type="button"
-                                className="flex items-center gap-0.5 text-[12px] text-brand hover:underline"
-                                onClick={() => toast.info("Development in progress...")}
-                            >
-                                Xem tất cả <ChevronRight size={12} />
-                            </button>
                         </div>
-                        <div className="flex flex-col gap-2">
-                            {[
-                                { name: "Tài liệu học tập.pdf", size: "2.3 MB", date: "Hôm nay" },
-                                { name: "Ảnh nhóm.png", size: "1.1 MB", date: "Hôm qua" },
-                            ].map((file, i) => (
-                                <div
-                                    key={`file-${i}`}
-                                    className="flex items-center gap-2.5 p-2 rounded-lg bg-muted/30 border border-border/40 hover:bg-muted/50 cursor-pointer transition"
-                                    onClick={() => toast.info("Development in progress...")}
-                                >
-                                    <div className="h-8 w-8 rounded bg-brand/10 flex items-center justify-center shrink-0">
-                                        <FileText size={14} className="text-brand" />
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                        <p className="text-xs font-medium text-foreground truncate">{file.name}</p>
-                                        <p className="text-[11px] text-muted-foreground">{file.size} · {file.date}</p>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
+                        {docFiles.length === 0 ? (
+                            <p className="text-xs text-muted-foreground text-center py-3">Chưa có file nào</p>
+                        ) : (
+                            <div className="flex flex-col gap-2">
+                                {docFiles.slice(0, 5).map((file) => {
+                                    const sizeStr = file.fileSize
+                                        ? file.fileSize > 1048576
+                                            ? `${(file.fileSize / 1048576).toFixed(1)} MB`
+                                            : `${(file.fileSize / 1024).toFixed(0)} KB`
+                                        : "";
+                                    const dateStr = file.createdAt
+                                        ? new Date(file.createdAt).toLocaleDateString("vi-VN")
+                                        : "";
+                                    return (
+                                        <a
+                                            key={file.fileId}
+                                            href={file.url}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="flex items-center gap-2.5 p-2 rounded-lg bg-muted/30 border border-border/40 hover:bg-muted/50 cursor-pointer transition"
+                                        >
+                                            <div className="h-8 w-8 rounded bg-brand/10 flex items-center justify-center shrink-0">
+                                                <FileText size={14} className="text-brand" />
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-xs font-medium text-foreground truncate">{file.fileName}</p>
+                                                <p className="text-[11px] text-muted-foreground">{sizeStr}{sizeStr && dateStr ? " · " : ""}{dateStr}</p>
+                                            </div>
+                                            <Download size={14} className="text-muted-foreground shrink-0" />
+                                        </a>
+                                    );
+                                })}
+                            </div>
+                        )}
                     </div>
 
                     <Separator />
 
                     {/* Link */}
-                    <div className="px-4 py-3">
-                        <div className="flex items-center justify-between mb-2">
-                            <div className="flex items-center gap-2">
-                                <LinkIcon size={15} className="text-muted-foreground" />
-                                <span className="text-sm font-medium text-foreground">Link</span>
+                    {linkMessages.length > 0 && (
+                        <>
+                            <div className="px-4 py-3">
+                                <div className="flex items-center gap-2 mb-2">
+                                    <LinkIcon size={15} className="text-muted-foreground" />
+                                    <span className="text-sm font-medium text-foreground">Link</span>
+                                </div>
+                                <div className="flex flex-col gap-2">
+                                    {linkMessages.map((link, i) => (
+                                        <a key={i} href={link.url} target="_blank" rel="noopener noreferrer"
+                                            className="flex min-w-0 items-center gap-2.5 p-2 rounded-lg bg-muted/30 border border-border/40 hover:bg-muted/50 transition no-underline">
+                                            <div className="h-7 w-7 rounded bg-brand/10 flex items-center justify-center shrink-0">
+                                                <LinkIcon size={13} className="text-brand" />
+                                            </div>
+                                            <div className="flex-1 min-w-0 overflow-hidden">
+                                                <p className="text-xs text-brand truncate">{link.domain}</p>
+                                                <p className="text-[11px] text-muted-foreground break-all leading-tight">{link.url}</p>
+                                            </div>
+                                        </a>
+                                    ))}
+                                </div>
                             </div>
-                            <button
-                                type="button"
-                                className="flex items-center gap-0.5 text-[12px] text-brand hover:underline"
-                                onClick={() => toast.info("Development in progress...")}
-                            >
-                                Xem tất cả <ChevronRight size={12} />
-                            </button>
-                        </div>
-                        <div
-                            className="flex items-center gap-2.5 p-2 rounded-lg bg-muted/30 border border-border/40 hover:bg-muted/50 cursor-pointer transition"
-                            onClick={() => toast.info("Development in progress...")}
-                        >
-                            <div className="h-8 w-8 rounded bg-blue-500/10 flex items-center justify-center shrink-0">
-                                <LinkIcon size={14} className="text-blue-500" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                                <p className="text-xs font-medium text-foreground truncate">chatly.app</p>
-                                <p className="text-[11px] text-muted-foreground">Đường dẫn đã chia sẻ</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <Separator />
+                            <Separator />
+                        </>
+                    )}
 
                     {/* Delete Conversation */}
                     <div className="px-4 py-4">

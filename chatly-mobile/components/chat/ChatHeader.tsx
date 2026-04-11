@@ -93,6 +93,11 @@ export function ChatHeader({
         <TouchableOpacity className="mx-1 p-2">
           <Ionicons name="videocam-outline" size={24} color={Colors.cta} />
         </TouchableOpacity>
+        {onPressInfo && (
+          <TouchableOpacity onPress={onPressInfo} className="mx-1 p-2">
+            <Ionicons name="information-circle-outline" size={24} color={Colors.cta} />
+          </TouchableOpacity>
+        )}
       </View>
     </View>
   );

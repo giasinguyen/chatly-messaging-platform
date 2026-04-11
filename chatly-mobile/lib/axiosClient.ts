@@ -71,7 +71,7 @@ axiosClient.interceptors.response.use(
     };
 
     const status = error.response?.status;
-    const isUnauthorized = status === 401;
+    const isUnauthorized = status === 401 || status === 403;
 
     // Log diagnostic info for Network Errors or other failures
     console.error(`AXIOS ERROR: [${status || 'NETWORK'}] [${originalRequest?.method?.toUpperCase()}] [${originalRequest?.url}] - ${error.message}`);
