@@ -1,11 +1,7 @@
 package com.chatly.controller;
 
-import com.chatly.dto.request.AddMemberRequest;
-import com.chatly.dto.request.GroupUpdateRequest;
-import com.chatly.dto.request.UpdateRoleRequest;
-import com.chatly.dto.response.ApiResponse;
-import com.chatly.dto.response.ConversationResponse;
-import com.chatly.dto.response.GroupMemberResponse;
+import com.chatly.dto.request.*;
+import com.chatly.dto.response.*;
 import com.chatly.service.GroupService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -86,6 +82,121 @@ public class GroupController {
                 .result(groupService.getMembers(conversationId, getAuthenticatedUserId()))
                 .build();
     }
+
+    // ── Invite Link ───────────────────────────────────────────────────
+
+    @PostMapping("/{conversationId}/invite-link")
+    ApiResponse<InviteLinkResponse> getOrCreateInviteLink(@PathVariable String conversationId) {
+        return ApiResponse.<InviteLinkResponse>builder()
+                .result(groupService.getOrCreateInviteLink(conversationId, getAuthenticatedUserId()))
+                .build();
+    }
+
+    @PostMapping("/{conversationId}/invite-link/reset")
+    ApiResponse<InviteLinkResponse> resetInviteLink(@PathVariable String conversationId) {
+        return ApiResponse.<InviteLinkResponse>builder()
+                .result(groupService.resetInviteLink(conversationId, getAuthenticatedUserId()))
+                .build();
+    }
+
+    @PostMapping("/join/{inviteToken}")
+    ApiResponse<GroupMemberResponse> joinByInviteLink(@PathVariable String inviteToken) {
+        return ApiResponse.<GroupMemberResponse>builder()
+                .result(groupService.joinByInviteLink(inviteToken, getAuthenticatedUserId()))
+                .build();
+    }
+
+    // ── Pending Join Requests ────────────────────────────────────────
+
+    @GetMapping("/{conversationId}/pending")
+    ApiResponse<List<PendingJoinResponse>> getPendingRequests(@PathVariable String conversationId) {
+        return ApiResponse.<List<PendingJoinResponse>>builder()
+                .result(groupService.getPendingRequests(conversationId, getAuthenticatedUserId()))
+                .build();
+    }
+
+    @PostMapping("/{conversationId}/pending/{userId}/approve")
+    ApiResponse<GroupMemberResponse> approvePendingRequest(
+            @PathVariable String conversationId,
+            @PathVariable String userId) {
+        return ApiResponse.<GroupMemberResponse>builder()
+                .result(groupService.approvePendingRequest(conversationId, userId, getAuthenticatedUserId()))
+                .build();
+    }
+
+    @DeleteMapping("/{conversationId}/pending/{userId}")
+    ApiResponse<Void> rejectPendingRequest(
+            @PathVariable String conversationId,
+            @PathVariable String userId) {
+        groupService.rejectPendingRequest(conversationId, userId, getAuthenticatedUserId());
+        return ApiResponse.<Void>builder().message("Request rejected").build();
+    }
+
+    // ── Reminders ────────────────────────────────────────────────────
+
+    @GetMapping("/{conversationId}/reminders")
+    ApiResponse<List<GroupReminderResponse>> getReminders(@PathVariable String conversationId) {
+        return ApiResponse.<List<GroupReminderResponse>>builder()
+                .result(groupService.getReminders(conversationId, getAuthenticatedUserId()))
+                .build();
+    }
+
+    @PostMapping("/{conversationId}/reminders")
+    ApiResponse<GroupReminderResponse> createReminder(
+            @PathVariable String conversationId,
+            @RequestBody @Valid GroupReminderRequest request) {
+        return ApiResponse.<GroupReminderResponse>builder()
+                .result(groupService.createReminder(conversationId, request, getAuthenticatedUserId()))
+                .build();
+    }
+
+    @PatchMapping("/reminders/{reminderId}/toggle")
+    ApiResponse<GroupReminderResponse> toggleReminder(@PathVariable String reminderId) {
+        return ApiResponse.<GroupReminderResponse>builder()
+                .result(groupService.toggleReminderComplete(reminderId, getAuthenticatedUserId()))
+                .build();
+    }
+
+    @DeleteMapping("/reminders/{reminderId}")
+    ApiResponse<Void> deleteReminder(@PathVariable String reminderId) {
+        groupService.deleteReminder(reminderId, getAuthenticatedUserId());
+        return ApiResponse.<Void>builder().message("Reminder deleted").build();
+    }
+
+    // ── Notes ────────────────────────────────────────────────────────
+
+    @GetMapping("/{conversationId}/notes")
+    ApiResponse<List<GroupNoteResponse>> getNotes(@PathVariable String conversationId) {
+        return ApiResponse.<List<GroupNoteResponse>>builder()
+                .result(groupService.getNotes(conversationId, getAuthenticatedUserId()))
+                .build();
+    }
+
+    @PostMapping("/{conversationId}/notes")
+    ApiResponse<GroupNoteResponse> createNote(
+            @PathVariable String conversationId,
+            @RequestBody @Valid GroupNoteRequest request) {
+        return ApiResponse.<GroupNoteResponse>builder()
+                .result(groupService.createNote(conversationId, request, getAuthenticatedUserId()))
+                .build();
+    }
+
+    @PutMapping("/notes/{noteId}")
+    ApiResponse<GroupNoteResponse> updateNote(
+            @PathVariable String noteId,
+            @RequestBody @Valid GroupNoteRequest request) {
+        return ApiResponse.<GroupNoteResponse>builder()
+                .result(groupService.updateNote(noteId, request, getAuthenticatedUserId()))
+                .build();
+    }
+
+    @DeleteMapping("/notes/{noteId}")
+    ApiResponse<Void> deleteNote(@PathVariable String noteId) {
+        groupService.deleteNote(noteId, getAuthenticatedUserId());
+        return ApiResponse.<Void>builder().message("Note deleted").build();
+    }
+
+    // ── Auth helper ──────────────────────────────────────────────────
 
     private String getAuthenticatedUserId() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();

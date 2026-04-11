@@ -48,6 +48,11 @@ public enum ErrorCode {
     GROUP_MEMBER_NOT_FOUND(1500, "Group member not found", HttpStatus.NOT_FOUND),
     GROUP_MEMBER_ALREADY_EXISTS(1501, "User is already a member of this group", HttpStatus.CONFLICT),
     GROUP_PERMISSION_DENIED(1502, "You do not have permission for this action", HttpStatus.FORBIDDEN),
+    GROUP_INVITE_TOKEN_INVALID(1503, "Invalid or expired invite link", HttpStatus.BAD_REQUEST),
+    GROUP_PENDING_REQUEST_EXISTS(1504, "A pending join request already exists", HttpStatus.CONFLICT),
+    GROUP_PENDING_REQUEST_NOT_FOUND(1505, "Pending join request not found", HttpStatus.NOT_FOUND),
+    GROUP_REMINDER_NOT_FOUND(1506, "Reminder not found", HttpStatus.NOT_FOUND),
+    GROUP_NOTE_NOT_FOUND(1507, "Note not found", HttpStatus.NOT_FOUND),
 
     NOTIFICATION_NOT_FOUND(1700, "Notification not found", HttpStatus.NOT_FOUND),
 

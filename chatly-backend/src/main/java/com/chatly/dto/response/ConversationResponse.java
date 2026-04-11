@@ -22,6 +22,8 @@ public class ConversationResponse {
     private List<String> participantIds;
     private LastMessage lastMessage;
     private long unreadCount;
+    private Boolean requireApproval;
+    private String inviteToken;
     private Instant createdAt;
     private Instant updatedAt;
 }

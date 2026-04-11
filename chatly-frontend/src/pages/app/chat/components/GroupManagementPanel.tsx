@@ -14,6 +14,8 @@ import {
     DialogContent,
     DialogHeader,
     DialogTitle,
+    DialogFooter,
+    DialogDescription,
 } from "@/components/ui/dialog";
 import {
     Crown,
@@ -29,10 +31,17 @@ import {
     Loader2,
     Save,
     Upload,
+    Link as LinkIcon,
+    Copy,
+    RefreshCw,
+    QrCode,
+    UserCheck,
+    UserX,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import type { GroupMemberResponse, GroupRole } from "@/types/group";
+import type { GroupMemberResponse, GroupRole, PendingJoinResponse } from "@/types/group";
+import { QRCodeSVG } from "qrcode.react";
 
 interface GroupManagementPanelProps {
     conversationId: string;
@@ -104,13 +113,27 @@ export function GroupManagementPanel({
     // Add members dialog
     const [showAddMembersDialog, setShowAddMembersDialog] = useState(false);
 
+    // Remove member confirmation
+    const [removingMember, setRemovingMember] = useState<GroupMemberResponse | null>(null);
+
     // Group settings
     const [groupName, setGroupName] = useState(initialGroupName);
     const [groupAvatar, setGroupAvatar] = useState(initialGroupAvatar);
     const [settingsSaving, setSettingsSaving] = useState(false);
     const [avatarUploading, setAvatarUploading] = useState(false);
     const [allowMembersUpdate, setAllowMembersUpdate] = useState(true);
+    const [requireApproval, setRequireApproval] = useState(false);
     const avatarInputRef = useRef<HTMLInputElement>(null);
+
+    // Invite link
+    const [inviteLink, setInviteLink] = useState<string | null>(null);
+    const [inviteToken, setInviteToken] = useState<string | null>(null);
+    const [inviteLinkLoading, setInviteLinkLoading] = useState(false);
+    const [showQrDialog, setShowQrDialog] = useState(false);
+
+    // Pending requests
+    const [pendingRequests, setPendingRequests] = useState<PendingJoinResponse[]>([]);
+    const [pendingLoading, setPendingLoading] = useState(false);
 
     // Inline role dropdown
     const [roleMenuOpenFor, setRoleMenuOpenFor] = useState<string | null>(null);
@@ -173,12 +196,20 @@ export function GroupManagementPanel({
     };
 
     const handleRemoveMember = async (member: GroupMemberResponse) => {
+        // Show confirmation dialog instead of removing directly
+        setRemovingMember(member);
+    };
+
+    const confirmRemoveMember = async () => {
+        if (!removingMember) return;
         try {
-            await groupService.removeMember(conversationId, member.userId);
-            toast.success(`Đã xóa ${member.displayName} khỏi nhóm`);
+            await groupService.removeMember(conversationId, removingMember.userId);
+            toast.success(`Đã xóa ${removingMember.displayName} khỏi nhóm`);
             fetchMembers();
         } catch {
             toast.error("Không thể xóa thành viên");
+        } finally {
+            setRemovingMember(null);
         }
     };
 
@@ -204,6 +235,7 @@ export function GroupManagementPanel({
                 name: groupName.trim(),
                 avatar: groupAvatar.trim() || undefined,
                 allowMembersUpdateInfo: allowMembersUpdate,
+                requireApproval,
             });
             toast.success("Đã lưu thông tin nhóm");
             onGroupUpdated?.(groupName.trim(), groupAvatar.trim() || undefined);
@@ -221,6 +253,91 @@ export function GroupManagementPanel({
             return false;
         return true;
     };
+
+    // ── Invite Link ─────────────────────────────────────────────────
+    const fetchInviteLink = async () => {
+        setInviteLinkLoading(true);
+        try {
+            const res = await groupService.getOrCreateInviteLink(conversationId);
+            const data = res.result;
+            if (data) {
+                setInviteToken(data.inviteToken);
+                setInviteLink(`${window.location.origin}/join/${data.inviteToken}`);
+            }
+        } catch {
+            toast.error("Không thể tạo link mời");
+        } finally {
+            setInviteLinkLoading(false);
+        }
+    };
+
+    const handleResetInviteLink = async () => {
+        setInviteLinkLoading(true);
+        try {
+            const res = await groupService.resetInviteLink(conversationId);
+            const data = res.result;
+            if (data) {
+                setInviteToken(data.inviteToken);
+                setInviteLink(`${window.location.origin}/join/${data.inviteToken}`);
+            }
+            toast.success("Đã tạo mới link mời");
+        } catch {
+            toast.error("Không thể tạo mới link mời");
+        } finally {
+            setInviteLinkLoading(false);
+        }
+    };
+
+    const handleCopyInviteLink = () => {
+        if (inviteLink) {
+            navigator.clipboard.writeText(inviteLink);
+            toast.success("Đã sao chép link mời");
+        }
+    };
+
+    // ── Pending Requests ────────────────────────────────────────────
+    const fetchPendingRequests = async () => {
+        if (!isOwnerOrAdmin) return;
+        setPendingLoading(true);
+        try {
+            const res = await groupService.getPendingRequests(conversationId);
+            setPendingRequests(res.result ?? []);
+        } catch {
+            // silent
+        } finally {
+            setPendingLoading(false);
+        }
+    };
+
+    const handleApprovePending = async (userId: string) => {
+        try {
+            await groupService.approvePendingRequest(conversationId, userId);
+            toast.success("Đã duyệt yêu cầu");
+            fetchPendingRequests();
+            fetchMembers();
+        } catch {
+            toast.error("Không thể duyệt yêu cầu");
+        }
+    };
+
+    const handleRejectPending = async (userId: string) => {
+        try {
+            await groupService.rejectPendingRequest(conversationId, userId);
+            toast.success("Đã từ chối yêu cầu");
+            fetchPendingRequests();
+        } catch {
+            toast.error("Không thể từ chối yêu cầu");
+        }
+    };
+
+    // Fetch invite link + pending on settings tab open
+    useEffect(() => {
+        if (open && isOwnerOrAdmin) {
+            fetchInviteLink();
+            fetchPendingRequests();
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [open, isOwnerOrAdmin]);
 
     return (
         <>
@@ -331,7 +448,8 @@ export function GroupManagementPanel({
                             value="settings"
                             className="mt-0 flex flex-1 min-h-0 flex-col px-5 pb-5"
                         >
-                            <div className="flex-1 space-y-4 pt-3">
+                            <ScrollArea className="flex-1 min-h-0 -mx-1 px-1">
+                            <div className="space-y-4 pt-3">
                                 <div className="space-y-1.5">
                                     <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                                         Tên nhóm
@@ -396,6 +514,72 @@ export function GroupManagementPanel({
 
                                 <Separator />
 
+                                {/* ── Invite link section ── */}
+                                <div className="space-y-2">
+                                    <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
+                                        <LinkIcon size={12} /> Link mời vào nhóm
+                                    </label>
+                                    {inviteLink ? (
+                                        <div className="space-y-2">
+                                            <div className="flex items-center gap-2">
+                                                <Input
+                                                    value={inviteLink}
+                                                    readOnly
+                                                    className="h-8 text-xs bg-muted/40 flex-1"
+                                                />
+                                                <Button
+                                                    size="icon"
+                                                    variant="outline"
+                                                    className="h-8 w-8 shrink-0"
+                                                    onClick={handleCopyInviteLink}
+                                                    title="Sao chép link"
+                                                >
+                                                    <Copy size={13} />
+                                                </Button>
+                                                <Button
+                                                    size="icon"
+                                                    variant="outline"
+                                                    className="h-8 w-8 shrink-0"
+                                                    onClick={() => setShowQrDialog(true)}
+                                                    title="Mã QR"
+                                                >
+                                                    <QrCode size={13} />
+                                                </Button>
+                                            </div>
+                                            {isOwnerOrAdmin && (
+                                                <Button
+                                                    size="sm"
+                                                    variant="ghost"
+                                                    className="h-7 text-xs gap-1.5 text-muted-foreground"
+                                                    onClick={handleResetInviteLink}
+                                                    disabled={inviteLinkLoading}
+                                                >
+                                                    <RefreshCw size={11} />
+                                                    Tạo mới link
+                                                </Button>
+                                            )}
+                                        </div>
+                                    ) : (
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            className="h-8 text-xs gap-1.5"
+                                            onClick={fetchInviteLink}
+                                            disabled={inviteLinkLoading}
+                                        >
+                                            {inviteLinkLoading ? (
+                                                <Loader2 size={12} className="animate-spin" />
+                                            ) : (
+                                                <LinkIcon size={12} />
+                                            )}
+                                            Tạo link mời
+                                        </Button>
+                                    )}
+                                </div>
+
+                                <Separator />
+
+                                {/* ── Toggle switches ── */}
                                 <div className="flex items-center justify-between gap-3 rounded-lg border border-border/50 bg-muted/20 px-3 py-2.5">
                                     <div className="flex-1 min-w-0">
                                         <p className="text-sm font-medium text-foreground">
@@ -422,6 +606,85 @@ export function GroupManagementPanel({
                                     </button>
                                 </div>
 
+                                <div className="flex items-center justify-between gap-3 rounded-lg border border-border/50 bg-muted/20 px-3 py-2.5">
+                                    <div className="flex-1 min-w-0">
+                                        <p className="text-sm font-medium text-foreground">
+                                            Duyệt thành viên mới
+                                        </p>
+                                        <p className="mt-1 text-xs text-muted-foreground">
+                                            Yêu cầu trưởng nhóm duyệt trước khi thêm thành viên mới
+                                        </p>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => setRequireApproval(!requireApproval)}
+                                        className={cn(
+                                            "relative h-6 w-10 shrink-0 rounded-full transition-colors",
+                                            requireApproval ? "bg-brand" : "bg-muted/40"
+                                        )}
+                                    >
+                                        <div
+                                            className={cn(
+                                                "absolute top-1 h-4 w-4 rounded-full bg-white transition-transform",
+                                                requireApproval ? "translate-x-5" : "translate-x-1"
+                                            )}
+                                        />
+                                    </button>
+                                </div>
+
+                                {/* ── Pending join requests ── */}
+                                {myRole === "OWNER" && pendingRequests.length > 0 && (
+                                    <>
+                                        <Separator />
+                                        <div className="space-y-2">
+                                            <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
+                                                <UserCheck size={12} /> Yêu cầu chờ duyệt ({pendingRequests.length})
+                                            </label>
+                                            <div className="space-y-1">
+                                                {pendingRequests.map((req) => (
+                                                    <div
+                                                        key={req.id}
+                                                        className="flex items-center gap-2.5 rounded-lg border border-border/50 bg-muted/20 px-3 py-2"
+                                                    >
+                                                        <Avatar className="h-8 w-8 shrink-0">
+                                                            <AvatarImage src={req.avatarUrl ?? undefined} />
+                                                            <AvatarFallback className="text-xs">
+                                                                {req.displayName.charAt(0).toUpperCase()}
+                                                            </AvatarFallback>
+                                                        </Avatar>
+                                                        <div className="flex-1 min-w-0">
+                                                            <p className="text-sm font-medium truncate">{req.displayName}</p>
+                                                            <p className="text-xs text-muted-foreground">@{req.username}</p>
+                                                        </div>
+                                                        <div className="flex gap-1 shrink-0">
+                                                            <Button
+                                                                size="icon"
+                                                                variant="ghost"
+                                                                className="h-7 w-7 text-green-600 hover:text-green-700 hover:bg-green-50"
+                                                                onClick={() => handleApprovePending(req.userId)}
+                                                                title="Duyệt"
+                                                            >
+                                                                <UserCheck size={14} />
+                                                            </Button>
+                                                            <Button
+                                                                size="icon"
+                                                                variant="ghost"
+                                                                className="h-7 w-7 text-destructive hover:text-destructive/90 hover:bg-destructive/10"
+                                                                onClick={() => handleRejectPending(req.userId)}
+                                                                title="Từ chối"
+                                                            >
+                                                                <UserX size={14} />
+                                                            </Button>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </>
+                                )}
+
+                                <Separator />
+
                                 <Button
                                     onClick={handleSaveSettings}
                                     disabled={settingsSaving}
@@ -436,9 +699,49 @@ export function GroupManagementPanel({
                                     Lưu thay đổi
                                 </Button>
                             </div>
+                            </ScrollArea>
                         </TabsContent>
                     )}
                 </Tabs>
+            </DialogContent>
+        </Dialog>
+
+        {/* Remove Member Confirmation */}
+        <Dialog open={!!removingMember} onOpenChange={(o) => !o && setRemovingMember(null)}>
+            <DialogContent className="sm:max-w-sm">
+                <DialogHeader>
+                    <DialogTitle>Xóa thành viên</DialogTitle>
+                    <DialogDescription>
+                        Bạn có chắc muốn xóa <strong>{removingMember?.displayName}</strong> khỏi nhóm?
+                    </DialogDescription>
+                </DialogHeader>
+                <DialogFooter className="gap-2 sm:gap-0">
+                    <Button variant="outline" size="sm" onClick={() => setRemovingMember(null)}>
+                        Hủy
+                    </Button>
+                    <Button variant="destructive" size="sm" onClick={confirmRemoveMember}>
+                        Xóa
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+
+        {/* QR Code Dialog */}
+        <Dialog open={showQrDialog} onOpenChange={setShowQrDialog}>
+            <DialogContent className="sm:max-w-xs">
+                <DialogHeader>
+                    <DialogTitle className="text-center">Mã QR mời vào nhóm</DialogTitle>
+                </DialogHeader>
+                <div className="flex flex-col items-center gap-4 py-4">
+                    {inviteLink && (
+                        <div className="rounded-xl bg-white p-4">
+                            <QRCodeSVG value={inviteLink} size={200} />
+                        </div>
+                    )}
+                    <p className="text-xs text-muted-foreground text-center">
+                        Quét mã QR để tham gia nhóm
+                    </p>
+                </div>
             </DialogContent>
         </Dialog>
 

@@ -26,4 +26,6 @@ export interface ConversationResponse {
     nickname?: string | null; // For PRIVATE conversations - custom name for the contact
     // Group settings
     allowMembersUpdateInfo?: boolean; // If true, all members can update group name/avatar; default true
+    requireApproval?: boolean;
+    inviteToken?: string | null;
 }
