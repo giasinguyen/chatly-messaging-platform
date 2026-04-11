@@ -1,6 +1,7 @@
 import { useRef, useCallback } from "react";
 import { agentService } from "@/services/agent.service";
 import { useChatbotStore } from "@/store/chatbot.store";
+import { toast } from "sonner";
 import type { AgentChatRequest, AgentStreamChunk } from "@/types/agent";
 
 /**
@@ -82,9 +83,9 @@ export function useAgentStream() {
                                 // Stream complete — finalize
                                 const finalContent = useChatbotStore.getState().streamingContent;
                                 useChatbotStore.getState().appendMessage(sessionId, {
-                                    id: `ai-${Date.now()}`,
+                                    id: `assistant-${Date.now()}`,
                                     session_id: sessionId,
-                                    role: "ai",
+                                    role: "assistant",
                                     content: finalContent,
                                     created_at: new Date().toISOString(),
                                 });
@@ -104,9 +105,9 @@ export function useAgentStream() {
                     const finalContent = useChatbotStore.getState().streamingContent;
                     if (finalContent) {
                         useChatbotStore.getState().appendMessage(sessionId, {
-                            id: `ai-${Date.now()}`,
+                            id: `assistant-${Date.now()}`,
                             session_id: sessionId,
-                            role: "ai",
+                            role: "assistant",
                             content: finalContent,
                             created_at: new Date().toISOString(),
                         });
@@ -118,6 +119,8 @@ export function useAgentStream() {
                     // User cancelled — treat as idle
                     useChatbotStore.getState().setStreamingStatus("idle");
                 } else {
+                    console.error("Stream error:", err);
+                    toast.error("Không thể nhận phản hồi từ AI");
                     useChatbotStore.getState().setStreamingStatus("error");
                 }
             } finally {

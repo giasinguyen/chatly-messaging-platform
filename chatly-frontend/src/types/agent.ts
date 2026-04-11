@@ -13,7 +13,7 @@ export interface AgentSessionList {
 }
 
 // ─── Agent Message ──────────────────────────────────────────
-export type AgentRole = "human" | "ai" | "system";
+export type AgentRole = "user" | "assistant" | "system";
 
 export interface AgentMessage {
     id: string;

@@ -63,9 +63,9 @@ export function ChatbotWindow({ sessionId }: Props) {
         async (content: string) => {
             // Append user message optimistically
             const userMsg = {
-                id: `human-${Date.now()}`,
+                id: `user-${Date.now()}`,
                 session_id: sessionId,
-                role: "human" as const,
+                role: "user" as const,
                 content,
                 created_at: new Date().toISOString(),
             };

@@ -47,14 +47,14 @@ class UnifiedAgent:
     async def astream(self, input: ChatInput) -> AsyncIterator[str]:
         """Stream assistant response tokens from the ReAct graph."""
         messages: list[Any] = [*input.history, HumanMessage(content=input.message)]
-        async for chunk in self._graph.astream(
+        async for msg, _metadata in self._graph.astream(
             {"messages": messages},
             config=self._build_run_config(input.session_id),
-            stream_mode="values",
+            stream_mode="messages",
         ):
-            last = chunk.get("messages", [])
-            if not last:
+            if not isinstance(msg, AIMessageChunk) or not msg.content:
                 continue
-            msg = last[-1]
-            if isinstance(msg, AIMessageChunk) and msg.content:
-                yield str(msg.content)
+            # Skip tool-call chunks (only yield final text tokens)
+            if msg.tool_calls or msg.tool_call_chunks:
+                continue
+            yield str(msg.content)

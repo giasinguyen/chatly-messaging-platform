@@ -49,11 +49,11 @@ export function ChatbotMessageList({ messages }: Props) {
                     key={msg.id}
                     className={cn(
                         "flex gap-3",
-                        msg.role === "human" ? "flex-row-reverse" : "flex-row",
+                        msg.role === "user" ? "flex-row-reverse" : "flex-row",
                     )}
                 >
                     {/* Avatar */}
-                    {msg.role === "ai" ? (
+                    {msg.role === "assistant" ? (
                         <div className="h-8 w-8 rounded-xl bg-linear-to-br from-brand/20 to-cyan-400/20 flex items-center justify-center shrink-0">
                             <Bot className="h-4 w-4 text-brand" />
                         </div>
@@ -67,12 +67,12 @@ export function ChatbotMessageList({ messages }: Props) {
                     <div
                         className={cn(
                             "max-w-[75%] group relative",
-                            msg.role === "human"
+                            msg.role === "user"
                                 ? "bg-brand text-white rounded-2xl rounded-tr-md px-4 py-2.5"
                                 : "bg-muted/50 text-foreground rounded-2xl rounded-tl-md px-4 py-2.5",
                         )}
                     >
-                        {msg.role === "ai" ? (
+                        {msg.role === "assistant" ? (
                             <div className="prose prose-sm dark:prose-invert max-w-none wrap-break-word [&_pre]:overflow-x-auto [&_pre]:rounded-lg [&_pre]:bg-muted [&_pre]:p-3 [&_code]:text-sm [&_table]:text-sm [&_p]:leading-relaxed">
                                 <Markdown remarkPlugins={[remarkGfm]}>
                                     {msg.content}
@@ -85,7 +85,7 @@ export function ChatbotMessageList({ messages }: Props) {
                         )}
 
                         {/* Copy button for AI messages */}
-                        {msg.role === "ai" && (
+                        {msg.role === "assistant" && (
                             <Button
                                 variant="ghost"
                                 size="icon"
@@ -101,7 +101,7 @@ export function ChatbotMessageList({ messages }: Props) {
                         <p
                             className={cn(
                                 "text-[10px] mt-1",
-                                msg.role === "human"
+                                msg.role === "user"
                                     ? "text-white/60"
                                     : "text-muted-foreground/60",
                             )}

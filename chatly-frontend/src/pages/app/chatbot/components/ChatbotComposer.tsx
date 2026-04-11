@@ -67,6 +67,7 @@ export function ChatbotComposer({ sessionId, onSend, disabled }: Props) {
         if (!text || disabled || isUploading) return;
         onSend(text);
         setDraft(sessionId, "");
+        setPendingFiles([]);
         // Reset textarea height
         const textarea = document.getElementById("chatbot-composer-input") as HTMLTextAreaElement | null;
         if (textarea) textarea.style.height = "auto";
