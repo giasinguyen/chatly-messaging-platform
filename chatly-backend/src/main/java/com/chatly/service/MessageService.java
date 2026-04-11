@@ -12,6 +12,7 @@ import com.chatly.model.mongo.Conversation;
 import com.chatly.model.mongo.EditHistory;
 import com.chatly.model.mongo.LastMessage;
 import com.chatly.model.mongo.Message;
+import com.chatly.model.mongo.Poll;
 import com.chatly.model.mongo.Reaction;
 import com.chatly.model.mongo.ReadReceipt;
 import com.chatly.repository.mongo.ConversationRepository;
@@ -64,6 +65,7 @@ public class MessageService {
                 .type(request.getType() != null ? request.getType() : MessageType.TEXT)
                 .replyToId(request.getReplyToId())
                 .attachments(request.getAttachments() != null ? request.getAttachments() : new ArrayList<>())
+                .poll(request.getPoll())
                 .build();
 
         message = messageRepository.save(message);
@@ -306,11 +308,124 @@ public class MessageService {
                 .toList();
     }
 
+    // ── Poll Vote ────────────────────────────────────────────────────
+    public MessageResponse votePoll(String messageId, String userId, int optionIndex) {
+        Message message = messageRepository.findById(messageId)
+                .orElseThrow(() -> new AppException(ErrorCode.MESSAGE_NOT_FOUND));
+
+        if (message.getType() != MessageType.POLL || message.getPoll() == null) {
+            throw new AppException(ErrorCode.POLL_NOT_FOUND);
+        }
+
+        Conversation conversation = conversationRepository.findById(message.getConversationId())
+                .orElseThrow(() -> new AppException(ErrorCode.CONVERSATION_NOT_FOUND));
+
+        if (!conversation.getParticipantIds().contains(userId)) {
+            throw new AppException(ErrorCode.NOT_CONVERSATION_PARTICIPANT);
+        }
+
+        Poll poll = message.getPoll();
+        if (optionIndex < 0 || optionIndex >= poll.getOptions().size()) {
+            throw new AppException(ErrorCode.POLL_INVALID_OPTION);
+        }
+
+        String key = String.valueOf(optionIndex);
+
+        if (!poll.isMultipleChoice()) {
+            // Remove previous votes by this user
+            poll.getVotes().values().forEach(voters -> voters.remove(userId));
+        }
+
+        List<String> voters = poll.getVotes().computeIfAbsent(key, k -> new ArrayList<>());
+        if (voters.contains(userId)) {
+            voters.remove(userId); // toggle off
+        } else {
+            voters.add(userId);
+        }
+
+        mongoTemplate.updateFirst(
+                Query.query(Criteria.where("_id").is(messageId)),
+                new Update().set("poll", poll),
+                Message.class
+        );
+
+        MessageResponse response = messageMapper.toResponse(message);
+        broadcastEvent(message.getConversationId(), ChatEvent.ChatAction.EDIT, response);
+        return response;
+    }
+
+    // ── Pin / Unpin Message ────────────────────────────────────────
+    public MessageResponse togglePin(String messageId, String userId) {
+        Message message = messageRepository.findById(messageId)
+                .orElseThrow(() -> new AppException(ErrorCode.MESSAGE_NOT_FOUND));
+
+        Conversation conversation = conversationRepository.findById(message.getConversationId())
+                .orElseThrow(() -> new AppException(ErrorCode.CONVERSATION_NOT_FOUND));
+
+        if (!conversation.getParticipantIds().contains(userId)) {
+            throw new AppException(ErrorCode.NOT_CONVERSATION_PARTICIPANT);
+        }
+
+        boolean newPinned = !message.isPinned();
+        Instant now = Instant.now();
+
+        mongoTemplate.updateFirst(
+                Query.query(Criteria.where("_id").is(messageId)),
+                new Update()
+                        .set("pinned", newPinned)
+                        .set("pinnedAt", newPinned ? now : null)
+                        .set("pinnedBy", newPinned ? userId : null),
+                Message.class
+        );
+
+        message.setPinned(newPinned);
+        message.setPinnedAt(newPinned ? now : null);
+        message.setPinnedBy(newPinned ? userId : null);
+
+        MessageResponse response = messageMapper.toResponse(message);
+        broadcastEvent(message.getConversationId(), ChatEvent.ChatAction.EDIT, response);
+        return response;
+    }
+
+    public List<MessageResponse> getPinnedMessages(String conversationId, String userId) {
+        Conversation conversation = conversationRepository.findById(conversationId)
+                .orElseThrow(() -> new AppException(ErrorCode.CONVERSATION_NOT_FOUND));
+
+        if (!conversation.getParticipantIds().contains(userId)) {
+            throw new AppException(ErrorCode.NOT_CONVERSATION_PARTICIPANT);
+        }
+
+        Query query = new Query(
+                Criteria.where("conversationId").is(conversationId)
+                        .and("pinned").is(true)
+        ).with(org.springframework.data.domain.Sort.by(
+                org.springframework.data.domain.Sort.Direction.DESC, "pinnedAt"
+        ));
+
+        return mongoTemplate.find(query, Message.class).stream()
+                .map(messageMapper::toResponse)
+                .toList();
+    }
+
     private void broadcastEvent(String conversationId, ChatEvent.ChatAction action, MessageResponse message) {
         messagingTemplate.convertAndSend(
                 "/topic/conversation." + conversationId,
                 ChatEvent.builder().action(action).message(message).build()
         );
+    }
+
+    public MessageResponse sendSystemMessage(String conversationId, String content) {
+        Message message = Message.builder()
+                .conversationId(conversationId)
+                .senderId("SYSTEM")
+                .content(content)
+                .type(MessageType.SYSTEM)
+                .build();
+
+        message = messageRepository.save(message);
+        updateLastMessage(conversationId, message);
+        broadcastEvent(conversationId, ChatEvent.ChatAction.SEND, messageMapper.toResponse(message));
+        return messageMapper.toResponse(message);
     }
 
     private void updateLastMessage(String conversationId, Message message) {

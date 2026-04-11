@@ -26,6 +26,13 @@ export interface Reaction {
     createdAt: string;
 }
 
+export interface Poll {
+    question: string;
+    options: string[];
+    multipleChoice: boolean;
+    votes: Record<string, string[]>; // optionIndex -> userIds
+}
+
 /**
  * Message trả về từ API – khớp 100% với MessageResponse.java.
  * Thứ tự API trả về: mới nhất trước (descending), cần reverse trước khi render.
@@ -53,6 +60,14 @@ export interface Message {
 
     // Reactions
     reactions: Reaction[];
+
+    // Poll
+    poll?: Poll | null;
+
+    // Pin
+    pinned: boolean;
+    pinnedAt: string | null;
+    pinnedBy: string | null;
 
     createdAt: string;
     updatedAt: string;

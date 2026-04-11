@@ -488,9 +488,10 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
         (
             content: string,
             attachments?: import("@/types/message").Attachment[],
+            poll?: import("@/types/message").Poll,
         ) => {
             if (!id || !currentUser) return;
-            const success = sendMessage(content, replyingTo?.id ?? null, attachments);
+            const success = sendMessage(content, replyingTo?.id ?? null, attachments, poll);
             if (!success) {
                 toast.error("Mất kết nối! Không thể gửi tin nhắn.");
                 setFailedMessages((prev) => [
@@ -617,6 +618,49 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
             setShowProfileDialog(true);
         },
         [participantDirectory],
+    );
+
+    const handleVotePoll = useCallback(
+        async (messageId: string, optionIndex: number) => {
+            try {
+                const res = await messageService.votePoll(messageId, optionIndex);
+                setMessages((prev) =>
+                    prev.map((m) =>
+                        m.id === messageId
+                            ? { ...m, poll: res.result.poll }
+                            : m,
+                    ),
+                );
+            } catch (err: any) {
+                const msg =
+                    err?.response?.data?.message ??
+                    "Không thể bình chọn";
+                toast.error(msg);
+            }
+        },
+        [],
+    );
+
+    const handleTogglePin = useCallback(
+        async (messageId: string) => {
+            try {
+                const res = await messageService.togglePin(messageId);
+                setMessages((prev) =>
+                    prev.map((m) =>
+                        m.id === messageId
+                            ? { ...m, pinned: res.result.pinned, pinnedAt: res.result.pinnedAt, pinnedBy: res.result.pinnedBy }
+                            : m,
+                    ),
+                );
+                toast.success(res.result.pinned ? "Đã ghim tin nhắn" : "Đã bỏ ghim tin nhắn");
+            } catch (err: any) {
+                const msg =
+                    err?.response?.data?.message ??
+                    "Không thể ghim tin nhắn";
+                toast.error(msg);
+            }
+        },
+        [],
     );
 
     const handleSendFriendRequest = useCallback(async () => {
@@ -862,6 +906,8 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
                 onRetryMessage={handleRetryMessage}
                 onRemoveFailedMessage={(fid) => setFailedMessages((p) => p.filter(m => m.id !== fid))}
                 highlightedMessageId={highlightedMessageId}
+                onVotePoll={handleVotePoll}
+                onTogglePin={handleTogglePin}
             />
 
             {isTyping && (

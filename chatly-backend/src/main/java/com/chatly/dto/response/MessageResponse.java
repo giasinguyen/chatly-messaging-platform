@@ -4,6 +4,7 @@ import com.chatly.model.enums.MessageStatus;
 import com.chatly.model.enums.MessageType;
 import com.chatly.model.mongo.Attachment;
 import com.chatly.model.mongo.EditHistory;
+import com.chatly.model.mongo.Poll;
 import com.chatly.model.mongo.Reaction;
 import com.chatly.model.mongo.ReadReceipt;
 import lombok.*;
@@ -39,6 +40,14 @@ public class MessageResponse {
     private List<EditHistory> editHistory;
 
     private List<Reaction> reactions;
+
+    // Poll
+    private Poll poll;
+
+    // Pin
+    private boolean pinned;
+    private Instant pinnedAt;
+    private String pinnedBy;
 
     private Instant createdAt;
     private Instant updatedAt;

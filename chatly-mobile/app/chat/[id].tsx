@@ -376,6 +376,32 @@ export default function ChatScreen() {
     [conversationId, user, updateMessage],
   );
 
+  const handleVotePoll = useCallback(
+    async (messageId: string, optionIndex: number) => {
+      if (!conversationId || !user) return;
+      try {
+        const res = await messageService.votePoll(messageId, optionIndex);
+        updateMessage(conversationId, messageId, res.result);
+      } catch {
+        Alert.alert('Lỗi', 'Không thể bình chọn.');
+      }
+    },
+    [conversationId, user, updateMessage],
+  );
+
+  const handleTogglePin = useCallback(
+    async (messageId: string) => {
+      if (!conversationId || !user) return;
+      try {
+        const res = await messageService.togglePin(messageId);
+        updateMessage(conversationId, messageId, res.result);
+      } catch {
+        Alert.alert('Lỗi', 'Không thể ghim tin nhắn.');
+      }
+    },
+    [conversationId, user, updateMessage],
+  );
+
   // Build display data with date separators
   const displayData = useMemo(() => {
     const items: Array<{ type: 'date'; label: string } | { type: 'message'; data: Message }> = [];
@@ -482,6 +508,7 @@ export default function ChatScreen() {
                     currentUserId={user?.id}
                     onLongPress={() => handleLongPress(msg)}
                     onReact={handleReact}
+                    onVotePoll={handleVotePoll}
                     replyToMessage={msg.replyToId ? (messageById[msg.replyToId] ?? null) : null}
                   />
                 </View>
@@ -548,6 +575,10 @@ export default function ChatScreen() {
         onEdit={handleEdit}
         onRecall={handleRecall}
         onDelete={handleDelete}
+        onTogglePin={selectedMessage ? () => {
+          handleTogglePin(selectedMessage.id);
+          setActionsVisible(false);
+        } : undefined}
       />
     </KeyboardAvoidingView>
   );

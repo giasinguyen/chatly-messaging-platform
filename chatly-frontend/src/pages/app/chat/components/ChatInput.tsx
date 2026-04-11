@@ -9,20 +9,31 @@ import {
     Loader2,
     Smile,
     ImagePlus,
+    BarChart3,
+    Plus,
+    Trash2,
 } from "lucide-react";
 import Picker from "@emoji-mart/react";
 import data from "@emoji-mart/data";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import {
+    Dialog,
+    DialogContent,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 import { fileService } from "@/services/file.service";
-import type { Message, Attachment } from "@/types/message";
+import type { Message, Attachment, Poll } from "@/types/message";
 
 interface ChatInputProps {
     conversationId?: string;
     replyingTo?: Message | null;
     senderName?: string;
     onCancelReply: () => void;
-    onSendMessage: (content: string, attachments?: Attachment[]) => void;
+    onSendMessage: (content: string, attachments?: Attachment[], poll?: Poll) => void;
     onTyping?: (typing: boolean) => void;
 }
 
@@ -55,6 +66,10 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
     const [isTyping, setIsTyping] = useState(false);
     const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([]);
     const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+    const [showPollDialog, setShowPollDialog] = useState(false);
+    const [pollQuestion, setPollQuestion] = useState("");
+    const [pollOptions, setPollOptions] = useState(["", ""]);
+    const [pollMultipleChoice, setPollMultipleChoice] = useState(false);
     const typingTimerRef = useRef<any>(null);
     const inputRef = useRef<HTMLInputElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -227,6 +242,22 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
         }
     };
 
+    const handleSendPoll = () => {
+        const trimmedQuestion = pollQuestion.trim();
+        const validOptions = pollOptions.map(o => o.trim()).filter(Boolean);
+        if (!trimmedQuestion || validOptions.length < 2) return;
+        onSendMessage(trimmedQuestion, undefined, {
+            question: trimmedQuestion,
+            options: validOptions,
+            multipleChoice: pollMultipleChoice,
+            votes: {},
+        });
+        setShowPollDialog(false);
+        setPollQuestion("");
+        setPollOptions(["", ""]);
+        setPollMultipleChoice(false);
+    };
+
     return (
         <div className="border-t border-border bg-background font-inter">
             {/* Reply preview bar */}
@@ -364,6 +395,17 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
                         )}
                     </div>
 
+                    {/* Poll creation button */}
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-9 w-9 shrink-0 text-muted-foreground hover:text-foreground"
+                        onClick={() => setShowPollDialog(true)}
+                        title="Tạo bình chọn"
+                    >
+                        <BarChart3 size={18} />
+                    </Button>
+
                     <div className="flex-1 relative">
                         <Input
                             ref={inputRef}
@@ -391,6 +433,83 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
                     </div>
                 </div>
             </div>
+
+            {/* Poll creation dialog */}
+            <Dialog open={showPollDialog} onOpenChange={setShowPollDialog}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>Tạo bình chọn</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                        <div>
+                            <Label>Câu hỏi</Label>
+                            <Input
+                                placeholder="Nhập câu hỏi bình chọn..."
+                                value={pollQuestion}
+                                onChange={(e) => setPollQuestion(e.target.value)}
+                                className="mt-1"
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Lựa chọn</Label>
+                            {pollOptions.map((opt, idx) => (
+                                <div key={idx} className="flex items-center gap-2">
+                                    <Input
+                                        placeholder={`Lựa chọn ${idx + 1}`}
+                                        value={opt}
+                                        onChange={(e) => {
+                                            const next = [...pollOptions];
+                                            next[idx] = e.target.value;
+                                            setPollOptions(next);
+                                        }}
+                                    />
+                                    {pollOptions.length > 2 && (
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-8 w-8 shrink-0 text-muted-foreground hover:text-destructive"
+                                            onClick={() => setPollOptions(pollOptions.filter((_, i) => i !== idx))}
+                                        >
+                                            <Trash2 size={14} />
+                                        </Button>
+                                    )}
+                                </div>
+                            ))}
+                            {pollOptions.length < 10 && (
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="w-full gap-1"
+                                    onClick={() => setPollOptions([...pollOptions, ""])}
+                                >
+                                    <Plus size={14} /> Thêm lựa chọn
+                                </Button>
+                            )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <input
+                                type="checkbox"
+                                id="poll-multiple"
+                                checked={pollMultipleChoice}
+                                onChange={(e) => setPollMultipleChoice(e.target.checked)}
+                                className="h-4 w-4 rounded border-border text-brand focus:ring-brand"
+                            />
+                            <Label htmlFor="poll-multiple">Cho phép chọn nhiều</Label>
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="ghost" onClick={() => setShowPollDialog(false)}>
+                            Hủy
+                        </Button>
+                        <Button
+                            onClick={handleSendPoll}
+                            disabled={!pollQuestion.trim() || pollOptions.filter(o => o.trim()).length < 2}
+                        >
+                            Gửi bình chọn
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 });

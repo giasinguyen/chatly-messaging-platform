@@ -1,7 +1,7 @@
 import { useEffect, useRef, useCallback, useState, useMemo } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
-import { ChevronLeft, ChevronRight, Check, CheckCheck, Reply, RotateCcw, Pencil, X, Send, FileText, Download, Copy, Trash2, AlertCircle, RefreshCcw, SmilePlus } from "lucide-react";
+import { ChevronLeft, ChevronRight, Check, CheckCheck, Reply, RotateCcw, Pencil, X, Send, FileText, Download, Copy, Trash2, AlertCircle, RefreshCcw, SmilePlus, Pin, BarChart3 } from "lucide-react";
 import { toast } from "sonner";
 import type { Message, ChatUser, Reaction } from "@/types/message";
 import type { ConversationType } from "@/types/conversation";
@@ -49,6 +49,8 @@ interface MessageListProps {
     onRetryMessage?: (id: string) => void;
     onRemoveFailedMessage?: (id: string) => void;
     highlightedMessageId?: string | null;
+    onVotePoll?: (messageId: string, optionIndex: number) => void;
+    onTogglePin?: (messageId: string) => void;
 }
 
 const RECALL_LIMIT_MS = 24 * 60 * 60 * 1000;
@@ -74,6 +76,8 @@ export function MessageList({
     onRetryMessage,
     onRemoveFailedMessage,
     highlightedMessageId,
+    onVotePoll,
+    onTogglePin,
 }: MessageListProps) {
     const scrollEndRef = useRef<HTMLDivElement>(null);
     const sentinelRef = useRef<HTMLDivElement>(null);
@@ -274,6 +278,17 @@ export function MessageList({
     };
 
     const renderMessage = (msg: Message, index: number) => {
+        // SYSTEM messages render as centered labels
+        if (msg.type === "SYSTEM") {
+            return (
+                <div key={msg.id} className="flex justify-center my-2 px-4">
+                    <div className="inline-flex items-center gap-1.5 bg-muted/60 dark:bg-zinc-800/60 border border-border/40 rounded-full px-3.5 py-1.5 max-w-[85%]">
+                        <span className="text-xs text-muted-foreground text-center">{msg.content}</span>
+                    </div>
+                </div>
+            );
+        }
+
         const isMe = msg.senderId === currentUserId;
         const sender = participantDirectory[msg.senderId] ?? participant;
         const senderShortName = sender.displayName.split(" ").slice(-1)[0] || "Người dùng";
@@ -326,6 +341,14 @@ export function MessageList({
                         </button>
                     )}
 
+                    {/* Pinned indicator */}
+                    {msg.pinned && (
+                        <div className={cn("flex items-center gap-1 px-1 mb-0.5", isMe ? "justify-end" : "justify-start")}>
+                            <Pin size={10} className="text-amber-500" />
+                            <span className="text-[10px] text-amber-600 dark:text-amber-400">Đã ghim</span>
+                        </div>
+                    )}
+
                     {/* Bubble + Reply button */}
                     <div className={cn("flex items-end gap-1", isMe ? "flex-row-reverse" : "flex-row")}>
                         {/* Bubble */}
@@ -370,6 +393,67 @@ export function MessageList({
                                     <X size={12} />
                                 </button>
                             </div>
+                        ) : msg.type === "POLL" && msg.poll ? (
+                            /* Poll bubble */
+                            (() => {
+                                const poll = msg.poll;
+                                const totalVoters = new Set(Object.values(poll.votes ?? {}).flat()).size;
+                                const myVotedOptions = Object.entries(poll.votes ?? {})
+                                    .filter(([, voters]) => voters.includes(currentUserId))
+                                    .map(([idx]) => Number(idx));
+                                return (
+                                    <div className={cn(
+                                        "w-72 rounded-2xl shadow-sm overflow-hidden border",
+                                        isMe
+                                            ? "bg-brand/10 border-brand/30"
+                                            : "bg-muted/75 border-border/60 dark:bg-zinc-800/90 dark:border-zinc-700",
+                                    )}>
+                                        {/* Poll header */}
+                                        <div className={cn("px-3 py-2.5 flex items-center gap-2", isMe ? "bg-brand/20" : "bg-muted/50 dark:bg-zinc-700/50")}>
+                                            <BarChart3 size={16} className="text-brand shrink-0" />
+                                            <span className="text-sm font-semibold text-foreground">{poll.question}</span>
+                                        </div>
+                                        {/* Poll options */}
+                                        <div className="px-3 py-2 space-y-1.5">
+                                            {poll.options.map((option, idx) => {
+                                                const voterCount = (poll.votes?.[String(idx)] ?? []).length;
+                                                const pct = totalVoters > 0 ? Math.round((voterCount / totalVoters) * 100) : 0;
+                                                const isVoted = myVotedOptions.includes(idx);
+                                                return (
+                                                    <button
+                                                        key={idx}
+                                                        type="button"
+                                                        onClick={() => onVotePoll?.(msg.id, idx)}
+                                                        className={cn(
+                                                            "relative w-full text-left rounded-lg px-3 py-2 text-sm transition-all overflow-hidden border",
+                                                            isVoted
+                                                                ? "border-brand/60 bg-brand/10 font-medium"
+                                                                : "border-border/40 hover:border-brand/40 hover:bg-brand/5",
+                                                        )}
+                                                    >
+                                                        {/* Progress bar */}
+                                                        <div
+                                                            className={cn("absolute inset-y-0 left-0 transition-all duration-300", isVoted ? "bg-brand/15" : "bg-muted/40")}
+                                                            style={{ width: `${pct}%` }}
+                                                        />
+                                                        <div className="relative flex items-center justify-between gap-2">
+                                                            <span className="truncate">{option}</span>
+                                                            <span className="text-xs text-muted-foreground shrink-0">
+                                                                {voterCount > 0 && `${pct}%`}
+                                                            </span>
+                                                        </div>
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                        {/* Poll footer */}
+                                        <div className="px-3 py-1.5 text-[11px] text-muted-foreground border-t border-border/30 flex items-center justify-between">
+                                            <span>{totalVoters} người đã bình chọn</span>
+                                            <span>{poll.multipleChoice ? "Chọn nhiều" : "Chọn một"}</span>
+                                        </div>
+                                    </div>
+                                );
+                            })()
                         ) : (
                             /* Normal bubble */
                             <div
@@ -636,6 +720,15 @@ export function MessageList({
                         >
                             <Pencil size={14} />
                             Chỉnh sửa
+                        </ContextMenuItem>
+                    )}
+                    {!msg.recalled && onTogglePin && (
+                        <ContextMenuItem
+                            onClick={() => onTogglePin(msg.id)}
+                            className="gap-2"
+                        >
+                            <Pin size={14} />
+                            {msg.pinned ? "Bỏ ghim" : "Ghim tin nhắn"}
                         </ContextMenuItem>
                     )}
                     {canRecall(msg) && (
