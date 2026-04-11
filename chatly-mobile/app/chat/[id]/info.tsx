@@ -20,6 +20,8 @@ import * as ImagePicker from 'expo-image-picker';
 
 import * as Clipboard from 'expo-clipboard';
 
+import { ImageLightbox } from '@/components/ui/ImageLightbox';
+
 import { groupService } from '@/services/group.service';
 import { contactService } from '@/services/contact.service';
 import { fileService, type FileUploadResponse } from '@/services/file.service';
@@ -76,6 +78,16 @@ export default function GroupInfoScreen() {
   // Media & files
   const [mediaFiles, setMediaFiles] = useState<FileUploadResponse[]>([]);
   const [docFiles, setDocFiles] = useState<FileUploadResponse[]>([]);
+
+  // Lightbox
+  const [lightboxVisible, setLightboxVisible] = useState(false);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
+  const mediaImageUrls = mediaFiles.slice(0, 4).map((f) => f.url);
+
+  const openMediaLightbox = (idx: number) => {
+    setLightboxIndex(idx);
+    setLightboxVisible(true);
+  };
 
   // Invite link
   const [inviteLink, setInviteLink] = useState<string | null>(null);
@@ -621,12 +633,18 @@ export default function GroupInfoScreen() {
             <Text style={{ fontWeight: '600', fontSize: 15, color: Colors.text, marginBottom: 10 }}>
               Ảnh, file, link
             </Text>
+            <ImageLightbox
+              images={mediaImageUrls}
+              initialIndex={lightboxIndex}
+              visible={lightboxVisible}
+              onClose={() => setLightboxVisible(false)}
+            />
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
               <View style={{ flexDirection: 'row', gap: 4 }}>
-                {mediaFiles.slice(0, 4).map((file) => (
+                {mediaFiles.slice(0, 4).map((file, idx) => (
                   <TouchableOpacity
                     key={file.fileId}
-                    onPress={() => Linking.openURL(file.url)}
+                    onPress={() => openMediaLightbox(idx)}
                     style={{ borderRadius: 8, overflow: 'hidden' }}
                   >
                     <Image source={{ uri: file.url }} style={{ width: 80, height: 80 }} resizeMode="cover" />

@@ -1,7 +1,9 @@
+import { useState } from 'react';
 import { View, Text, TouchableOpacity, Image, Linking } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/theme';
 import { formatMessageTime } from '@/utils/format';
+import { ImageLightbox } from '@/components/ui/ImageLightbox';
 import type { Message, Reaction } from '@/types/message';
 
 interface MessageBubbleProps {
@@ -28,6 +30,8 @@ export function MessageBubble({
   replyToMessage,
 }: MessageBubbleProps) {
   const { content, type, recalled, edited, createdAt, readBy, attachments } = message;
+
+  const [lightboxVisible, setLightboxVisible] = useState(false);
 
   // Recalled message
   if (recalled) {
@@ -57,13 +61,21 @@ export function MessageBubble({
     const imageUrl = attachments?.[0]?.url;
     if (!imageUrl) return null;
     return (
-      <TouchableOpacity onPress={() => Linking.openURL(imageUrl)} activeOpacity={0.85}>
-        <Image
-          source={{ uri: imageUrl }}
-          style={{ width: 200, height: 200, borderRadius: 12 }}
-          resizeMode="cover"
+      <>
+        <ImageLightbox
+          images={[imageUrl]}
+          initialIndex={0}
+          visible={lightboxVisible}
+          onClose={() => setLightboxVisible(false)}
         />
-      </TouchableOpacity>
+        <TouchableOpacity onPress={() => setLightboxVisible(true)} activeOpacity={0.85}>
+          <Image
+            source={{ uri: imageUrl }}
+            style={{ width: 200, height: 200, borderRadius: 12 }}
+            resizeMode="cover"
+          />
+        </TouchableOpacity>
+      </>
     );
   };
 
