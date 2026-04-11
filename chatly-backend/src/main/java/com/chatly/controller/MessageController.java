@@ -1,6 +1,7 @@
 package com.chatly.controller;
 
 import com.chatly.dto.request.EditMessageRequest;
+import com.chatly.dto.request.ForwardMessageRequest;
 import com.chatly.dto.request.MessageRequest;
 import com.chatly.dto.request.ReactRequest;
 import com.chatly.dto.response.ApiResponse;
@@ -25,6 +26,13 @@ public class MessageController {
     ApiResponse<MessageResponse> send(@RequestBody @Valid MessageRequest request) {
         return ApiResponse.<MessageResponse>builder()
                 .result(messageService.send(getAuthenticatedUserId(), request))
+                .build();
+    }
+
+    @PostMapping("/forward")
+    ApiResponse<List<MessageResponse>> forward(@RequestBody @Valid ForwardMessageRequest request) {
+        return ApiResponse.<List<MessageResponse>>builder()
+                .result(messageService.forward(getAuthenticatedUserId(), request))
                 .build();
     }
 

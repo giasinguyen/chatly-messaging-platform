@@ -44,6 +44,9 @@ public enum ErrorCode {
     CANNOT_RECALL_SYSTEM_MESSAGE(1407, "System messages cannot be recalled", HttpStatus.BAD_REQUEST),
     INVALID_EMOJI(1408, "Emoji is not in the allowed list", HttpStatus.BAD_REQUEST),
     CANNOT_REACT_RECALLED_MESSAGE(1409, "Cannot react to a recalled message", HttpStatus.BAD_REQUEST),
+    INVALID_FORWARD_TARGETS(1410, "Please select at least one valid target conversation", HttpStatus.BAD_REQUEST),
+    CANNOT_FORWARD_MESSAGE_TYPE(1411, "Only text, image and file messages can be forwarded", HttpStatus.BAD_REQUEST),
+    CANNOT_FORWARD_RECALLED_MESSAGE(1412, "Recalled messages cannot be forwarded", HttpStatus.BAD_REQUEST),
 
     GROUP_MEMBER_NOT_FOUND(1500, "Group member not found", HttpStatus.NOT_FOUND),
     GROUP_MEMBER_ALREADY_EXISTS(1501, "User is already a member of this group", HttpStatus.CONFLICT),

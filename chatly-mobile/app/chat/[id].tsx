@@ -14,6 +14,7 @@ import { MessageBubble } from '@/components/chat/MessageBubble';
 import { ChatInput } from '@/components/chat/ChatInput';
 import { DateSeparator } from '@/components/chat/DateSeparator';
 import { MessageActions } from '@/components/chat/MessageActions';
+import { ForwardMessageModal } from '@/components/chat/ForwardMessageModal';
 import { TypingIndicator } from '@/components/chat/TypingIndicator';
 import { MessageSearch } from '@/components/chat/MessageSearch';
 import { messageService } from '@/services/message.service';
@@ -56,8 +57,10 @@ export default function ChatScreen() {
 
   const [conversation, setConversation] = useState<ConversationResponse | null>(null);
   const [participantMap, setParticipantMap] = useState<Record<string, UserResponse>>({});
+  const [userDirectory, setUserDirectory] = useState<Record<string, UserResponse>>({});
   const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
   const [actionsVisible, setActionsVisible] = useState(false);
+  const [forwardVisible, setForwardVisible] = useState(false);
   const [typingUsers, setTypingUsers] = useState<Set<string>>(new Set());
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
   const [otherUserOnline, setOtherUserOnline] = useState(false);
@@ -169,6 +172,11 @@ export default function ChatScreen() {
 
         // Fetch participant info
         const usersRes = await userService.getAll();
+        const fullUserMap: Record<string, UserResponse> = {};
+        usersRes.result.forEach((u) => {
+          fullUserMap[u.id] = u;
+        });
+        setUserDirectory(fullUserMap);
         const map: Record<string, UserResponse> = {};
         usersRes.result.forEach((u) => {
           if (res.result.participantIds.includes(u.id)) {
@@ -363,6 +371,19 @@ export default function ChatScreen() {
     ]);
   }, [selectedMessage, conversationId, removeMessage]);
 
+  const handleForward = useCallback(async (targetConversationIds: string[]) => {
+    if (!selectedMessage) return;
+
+    try {
+      await messageService.forward(selectedMessage.id, targetConversationIds);
+      setForwardVisible(false);
+      setSelectedMessage(null);
+    } catch (error: any) {
+      Alert.alert('Lỗi', error?.response?.data?.message ?? 'Không thể chuyển tiếp tin nhắn.');
+      throw error;
+    }
+  }, [selectedMessage]);
+
   const handleReact = useCallback(
     async (messageId: string, emoji: string) => {
       if (!conversationId || !user) return;
@@ -543,11 +564,23 @@ export default function ChatScreen() {
           if (selectedMessage) setReplyingTo(selectedMessage);
           setActionsVisible(false);
         }}
+        onForward={() => {
+          setForwardVisible(true);
+          setActionsVisible(false);
+        }}
         onCopy={handleCopy}
         onReact={selectedMessage ? (emoji: string) => handleReact(selectedMessage.id, emoji) : undefined}
         onEdit={handleEdit}
         onRecall={handleRecall}
         onDelete={handleDelete}
+      />
+
+      <ForwardMessageModal
+        visible={forwardVisible}
+        currentConversationId={conversationId ?? ''}
+        currentUserId={user?.id ?? ''}
+        onClose={() => setForwardVisible(false)}
+        onConfirm={handleForward}
       />
     </KeyboardAvoidingView>
   );

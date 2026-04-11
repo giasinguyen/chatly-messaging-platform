@@ -39,6 +39,10 @@ public class Message {
 
     private String replyToId;
 
+    private String forwardedFromId;
+
+    private String forwardedFromConversationId;
+
     @Builder.Default
     private List<Attachment> attachments = new ArrayList<>();
 

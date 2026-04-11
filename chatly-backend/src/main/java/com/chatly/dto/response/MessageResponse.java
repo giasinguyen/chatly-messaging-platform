@@ -25,6 +25,8 @@ public class MessageResponse {
     private MessageType type;
     private MessageStatus status;
     private String replyToId;
+    private String forwardedFromId;
+    private String forwardedFromConversationId;
     private List<Attachment> attachments;
     private List<ReadReceipt> readBy;
 

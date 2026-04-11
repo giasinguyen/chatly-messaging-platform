@@ -26,6 +26,17 @@ export const messageService = {
     return response.data;
   },
 
+  forward: async (
+    messageId: string,
+    targetConversationIds: string[],
+  ): Promise<ApiResponse<Message[]>> => {
+    const response = await axiosClient.post<ApiResponse<Message[]>>('/api/messages/forward', {
+      messageId,
+      targetConversationIds,
+    });
+    return response.data;
+  },
+
   markAsSeen: async (messageId: string): Promise<ApiResponse<Message>> => {
     const response = await axiosClient.put<ApiResponse<Message>>(
       `/api/messages/${messageId}/seen`,

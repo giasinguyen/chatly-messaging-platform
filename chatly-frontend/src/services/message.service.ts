@@ -32,10 +32,22 @@ export const messageService = {
         content: string;
         type?: string;
         replyToId?: string | null;
+        attachments?: import("@/types/message").Attachment[];
     }): Promise<ApiResponse<Message>> => {
         const response = await axiosClient.post<ApiResponse<Message>>(
             "/api/messages",
             payload,
+        );
+        return response.data;
+    },
+
+    forward: async (
+        messageId: string,
+        targetConversationIds: string[],
+    ): Promise<ApiResponse<Message[]>> => {
+        const response = await axiosClient.post<ApiResponse<Message[]>>(
+            "/api/messages/forward",
+            { messageId, targetConversationIds },
         );
         return response.data;
     },

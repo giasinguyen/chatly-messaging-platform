@@ -38,6 +38,8 @@ export interface Message {
     type: MessageType;
     status: MessageStatus;
     replyToId: string | null;
+    forwardedFromId: string | null;
+    forwardedFromConversationId: string | null;
     attachments: Attachment[];
     readBy: ReadReceipt[];
 

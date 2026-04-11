@@ -1,5 +1,6 @@
 package com.chatly.service;
 
+import com.chatly.dto.request.ForwardMessageRequest;
 import com.chatly.dto.request.MessageRequest;
 import com.chatly.dto.response.MessageResponse;
 import com.chatly.exception.AppException;
@@ -12,6 +13,7 @@ import com.chatly.model.mongo.Conversation;
 import com.chatly.model.mongo.EditHistory;
 import com.chatly.model.mongo.LastMessage;
 import com.chatly.model.mongo.Message;
+import com.chatly.model.mongo.Attachment;
 import com.chatly.model.mongo.Reaction;
 import com.chatly.model.mongo.ReadReceipt;
 import com.chatly.repository.mongo.ConversationRepository;
@@ -30,6 +32,7 @@ import org.springframework.stereotype.Service;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -48,14 +51,10 @@ public class MessageService {
     private static final long RECALL_LIMIT_HOURS = 24;
     private static final long EDIT_LIMIT_MINUTES = 15;
     private static final Set<String> ALLOWED_EMOJIS = Set.of("👍", "❤️", "😂", "😮", "😢", "😡", "🔥", "👏");
+        private static final Set<MessageType> FORWARDABLE_TYPES = Set.of(MessageType.TEXT, MessageType.IMAGE, MessageType.FILE);
 
     public MessageResponse send(String senderId, MessageRequest request) {
-        Conversation conversation = conversationRepository.findById(request.getConversationId())
-                .orElseThrow(() -> new AppException(ErrorCode.CONVERSATION_NOT_FOUND));
-
-        if (!conversation.getParticipantIds().contains(senderId)) {
-            throw new AppException(ErrorCode.NOT_CONVERSATION_PARTICIPANT);
-        }
+                Conversation conversation = getConversationForParticipant(request.getConversationId(), senderId);
 
         Message message = Message.builder()
                 .conversationId(request.getConversationId())
@@ -66,34 +65,49 @@ public class MessageService {
                 .attachments(request.getAttachments() != null ? request.getAttachments() : new ArrayList<>())
                 .build();
 
-        message = messageRepository.save(message);
-        updateLastMessage(request.getConversationId(), message);
+        Message savedMessage = persistAndBroadcast(conversation, message, senderId);
+        return messageMapper.toResponse(savedMessage);
+    }
 
-        // Notify all conversation participants except the sender
-        final Message savedMessage = message;
-        String notifContent = savedMessage.getContent() != null && savedMessage.getContent().length() > 100
-                ? savedMessage.getContent().substring(0, 100) + "..."
-                : savedMessage.getContent();
-        conversation.getParticipantIds().stream()
-                .filter(pid -> !pid.equals(senderId))
-                .forEach(receiverId -> notificationService.createAndPush(
-                        NotificationType.NEW_MESSAGE,
-                        senderId,
-                        receiverId,
-                        notifContent,
-                        savedMessage.getConversationId()
-                ));
+    public List<MessageResponse> forward(String senderId, ForwardMessageRequest request) {
+        Message sourceMessage = messageRepository.findById(request.getMessageId())
+                .orElseThrow(() -> new AppException(ErrorCode.MESSAGE_NOT_FOUND));
 
-        return messageMapper.toResponse(message);
+        Conversation sourceConversation = getConversationForParticipant(sourceMessage.getConversationId(), senderId);
+
+        if (sourceMessage.isRecalled()) {
+            throw new AppException(ErrorCode.CANNOT_FORWARD_RECALLED_MESSAGE);
+        }
+
+        if (!FORWARDABLE_TYPES.contains(sourceMessage.getType())) {
+            throw new AppException(ErrorCode.CANNOT_FORWARD_MESSAGE_TYPE);
+        }
+
+        List<String> targetConversationIds = sanitizeForwardTargets(sourceConversation.getId(), request.getTargetConversationIds());
+        if (targetConversationIds.isEmpty()) {
+            throw new AppException(ErrorCode.INVALID_FORWARD_TARGETS);
+        }
+
+        List<MessageResponse> forwardedMessages = new ArrayList<>();
+        for (String targetConversationId : targetConversationIds) {
+            Conversation targetConversation = getConversationForParticipant(targetConversationId, senderId);
+
+            Message forwardedMessage = Message.builder()
+                    .conversationId(targetConversationId)
+                    .senderId(senderId)
+                    .content(sourceMessage.getContent())
+                    .type(sourceMessage.getType())
+                    .attachments(copyAttachments(sourceMessage.getAttachments()))
+                    .build();
+
+            forwardedMessages.add(messageMapper.toResponse(persistAndBroadcast(targetConversation, forwardedMessage, senderId)));
+        }
+
+        return forwardedMessages;
     }
 
     public List<MessageResponse> getByConversation(String conversationId, String userId, int page, int size) {
-        Conversation conversation = conversationRepository.findById(conversationId)
-                .orElseThrow(() -> new AppException(ErrorCode.CONVERSATION_NOT_FOUND));
-
-        if (!conversation.getParticipantIds().contains(userId)) {
-            throw new AppException(ErrorCode.NOT_CONVERSATION_PARTICIPANT);
-        }
+        getConversationForParticipant(conversationId, userId);
 
         Page<Message> messages = messageRepository
                 .findByConversationIdOrderByCreatedAtDesc(conversationId, PageRequest.of(page, size));
@@ -250,12 +264,7 @@ public class MessageService {
             throw new AppException(ErrorCode.CANNOT_REACT_RECALLED_MESSAGE);
         }
 
-        Conversation conversation = conversationRepository.findById(message.getConversationId())
-                .orElseThrow(() -> new AppException(ErrorCode.CONVERSATION_NOT_FOUND));
-
-        if (!conversation.getParticipantIds().contains(userId)) {
-            throw new AppException(ErrorCode.NOT_CONVERSATION_PARTICIPANT);
-        }
+        getConversationForParticipant(message.getConversationId(), userId);
 
         // Toggle: remove if same emoji exists, otherwise add/replace
         boolean removed = message.getReactions().removeIf(
@@ -283,12 +292,7 @@ public class MessageService {
     }
 
     public List<MessageResponse> search(String conversationId, String userId, String keyword, int page, int size) {
-        Conversation conversation = conversationRepository.findById(conversationId)
-                .orElseThrow(() -> new AppException(ErrorCode.CONVERSATION_NOT_FOUND));
-
-        if (!conversation.getParticipantIds().contains(userId)) {
-            throw new AppException(ErrorCode.NOT_CONVERSATION_PARTICIPANT);
-        }
+        getConversationForParticipant(conversationId, userId);
 
         String escapedKeyword = java.util.regex.Pattern.quote(keyword);
 
@@ -312,6 +316,85 @@ public class MessageService {
                 ChatEvent.builder().action(action).message(message).build()
         );
     }
+
+        private Conversation getConversationForParticipant(String conversationId, String userId) {
+                Conversation conversation = conversationRepository.findById(conversationId)
+                                .orElseThrow(() -> new AppException(ErrorCode.CONVERSATION_NOT_FOUND));
+
+                if (!conversation.getParticipantIds().contains(userId)) {
+                        throw new AppException(ErrorCode.NOT_CONVERSATION_PARTICIPANT);
+                }
+
+                return conversation;
+        }
+
+        private Message persistAndBroadcast(Conversation conversation, Message message, String actorId) {
+                Message savedMessage = messageRepository.save(message);
+                updateLastMessage(conversation.getId(), savedMessage);
+                notifyParticipants(conversation, savedMessage, actorId);
+                broadcastEvent(conversation.getId(), ChatEvent.ChatAction.SEND, messageMapper.toResponse(savedMessage));
+                return savedMessage;
+        }
+
+        private void notifyParticipants(Conversation conversation, Message message, String actorId) {
+                String notifContent = resolveNotificationContent(message);
+
+                conversation.getParticipantIds().stream()
+                                .filter(pid -> !pid.equals(actorId))
+                                .forEach(receiverId -> notificationService.createAndPush(
+                                                NotificationType.NEW_MESSAGE,
+                                                actorId,
+                                                receiverId,
+                                                notifContent,
+                                                message.getConversationId()
+                                ));
+        }
+
+        private String resolveNotificationContent(Message message) {
+                if (message.getContent() != null && !message.getContent().isBlank()) {
+                        return message.getContent().length() > 100
+                                        ? message.getContent().substring(0, 100) + "..."
+                                        : message.getContent();
+                }
+
+                return switch (message.getType()) {
+                        case IMAGE -> "[Image]";
+                        case FILE -> "[File]";
+                        case VIDEO -> "[Video]";
+                        case AUDIO -> "[Audio]";
+                        default -> "[Message]";
+                };
+        }
+
+        private List<String> sanitizeForwardTargets(String sourceConversationId, List<String> targetConversationIds) {
+                if (targetConversationIds == null || targetConversationIds.isEmpty()) {
+                        return List.of();
+                }
+
+                return targetConversationIds.stream()
+                                .filter(targetId -> targetId != null && !targetId.isBlank())
+                                .filter(targetId -> !sourceConversationId.equals(targetId))
+                                .collect(java.util.stream.Collectors.collectingAndThen(
+                                                java.util.stream.Collectors.toCollection(LinkedHashSet::new),
+                                                ArrayList::new
+                                ));
+        }
+
+        private List<Attachment> copyAttachments(List<Attachment> attachments) {
+                if (attachments == null || attachments.isEmpty()) {
+                        return new ArrayList<>();
+                }
+
+                return attachments.stream()
+                                .map(attachment -> Attachment.builder()
+                                                .fileId(attachment.getFileId())
+                                                .fileName(attachment.getFileName())
+                                                .fileUrl(attachment.getFileUrl())
+                                                .fileType(attachment.getFileType())
+                                                .fileSize(attachment.getFileSize())
+                                                .build())
+                                .collect(java.util.stream.Collectors.toCollection(ArrayList::new));
+        }
 
     private void updateLastMessage(String conversationId, Message message) {
         LastMessage lastMessage = LastMessage.builder()
