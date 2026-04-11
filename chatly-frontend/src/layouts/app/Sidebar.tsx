@@ -9,6 +9,17 @@ import { socketService } from "@/services/socket.service";
 import { toast } from "sonner";
 import { NotificationBell } from "@/components/customize/NotificationBell";
 import { useNotificationStore } from "@/store/notification.store";
+import { useState } from "react";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface SidebarProps {
     user: UserResponse | null;
@@ -20,6 +31,7 @@ export function Sidebar({ user }: SidebarProps) {
     const msgUnreadCount = useNotificationStore(
         (s) => s.notifications.filter((n) => n.type === "NEW_MESSAGE" && !n.read).length,
     );
+    const [showLogoutDialog, setShowLogoutDialog] = useState(false);
 
     const handleLogout = async () => {
         try {
@@ -158,13 +170,39 @@ export function Sidebar({ user }: SidebarProps) {
 
                 {/* Logout Button */}
                 <button
-                    onClick={handleLogout}
+                    onClick={() => setShowLogoutDialog(true)}
                     title="Đăng xuất"
                     className="w-full flex justify-center py-3 relative transition-colors hover:bg-black/10 text-white/70 hover:text-red-400 group"
                 >
                     <LogOut className="h-6 w-6 transition-colors group-hover:scale-110" />
                 </button>
             </div>
+
+            {/* Logout Confirm Dialog */}
+            <AlertDialog open={showLogoutDialog} onOpenChange={setShowLogoutDialog}>
+                <AlertDialogContent className="max-w-sm rounded-2xl">
+                    <AlertDialogHeader className="items-center text-center">
+                        <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-red-100 dark:bg-red-950">
+                            <LogOut className="h-6 w-6 text-red-500" />
+                        </div>
+                        <AlertDialogTitle className="text-lg">Đăng xuất?</AlertDialogTitle>
+                        <AlertDialogDescription className="text-sm text-muted-foreground">
+                            Bạn sẽ cần đăng nhập lại để sử dụng Chatly. Tiến hành đăng xuất?
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter className="flex-row justify-center gap-3 sm:justify-center">
+                        <AlertDialogCancel className="flex-1 rounded-xl">
+                            Huỷ
+                        </AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={handleLogout}
+                            className="flex-1 rounded-xl bg-red-500 text-white hover:bg-red-600"
+                        >
+                            Đăng xuất
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </nav>
     );
 }

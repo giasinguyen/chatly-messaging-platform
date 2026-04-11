@@ -47,11 +47,6 @@ export function ChatHeader({ user, onOpenProfile, isGroup, onOpenGroupPanel, onT
                             {user.displayName.charAt(0)}
                         </AvatarFallback>
                     </Avatar>
-                    {!isGroup && presenceStatus && (
-                        <span className="absolute -bottom-0.5 -right-0.5">
-                            <PresenceIndicator status={presenceStatus} size="sm" />
-                        </span>
-                    )}
                 </div>
                 <div className="flex flex-col">
                     <div className="flex items-center gap-2">
