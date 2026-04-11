@@ -20,6 +20,8 @@ import { useConversationStore } from '@/store/conversation.store';
 import { useAuthStore } from '@/store/auth.store';
 import { Colors } from '@/constants/theme';
 import { useNotificationStore } from '@/store/notification.store';
+import { useConversationPrefsStore } from '@/store/conversationPrefs.store';
+import { isConvMuted } from '@/store/conversationPrefs.store';
 import type { ConversationResponse } from '@/types/conversation';
 import type { UserResponse } from '@/types/auth';
 
@@ -71,17 +73,28 @@ export default function ChatsScreen() {
     setRefreshing(false);
   }, [fetchConversations, loadParticipants]);
 
-  // Filter conversations by search query
-  const filtered = searchQuery.trim()
-    ? conversations.filter((c) => {
-        const q = searchQuery.toLowerCase();
-        if (c.name?.toLowerCase().includes(q)) return true;
-        // Search by participant names
-        return c.participantIds.some((id) =>
-          participantMap[id]?.displayName?.toLowerCase().includes(q),
-        );
-      })
-    : conversations;
+  const unreadCount = useNotificationStore((s) => s.unreadCount);
+  const { prefs, hydrate } = useConversationPrefsStore();
+
+  useEffect(() => { hydrate(); }, []);
+
+  // Filter conversations by search query, then sort pinned first
+  const filtered = (() => {
+    const list = searchQuery.trim()
+      ? conversations.filter((c) => {
+          const q = searchQuery.toLowerCase();
+          if (c.name?.toLowerCase().includes(q)) return true;
+          return c.participantIds.some((id) =>
+            participantMap[id]?.displayName?.toLowerCase().includes(q),
+          );
+        })
+      : conversations;
+    return [...list].sort((a, b) => {
+      const aPinned = prefs[a.id]?.isPinned ? 1 : 0;
+      const bPinned = prefs[b.id]?.isPinned ? 1 : 0;
+      return bPinned - aPinned;
+    });
+  })();
 
   const participantNames: Record<string, string> = {};
   const participantAvatars: Record<string, string | undefined> = {};
@@ -118,8 +131,6 @@ export default function ChatsScreen() {
       ],
     );
   }, [participantMap, removeConversation, user?.id]);
-
-  const unreadCount = useNotificationStore((s) => s.unreadCount);
 
   return (
     <View className="flex-1" style={{ backgroundColor: Colors.bg }}>
@@ -201,6 +212,8 @@ export default function ChatsScreen() {
               currentUserId={user?.id ?? ''}
               participantNames={participantNames}
               participantAvatars={participantAvatars}
+              isPinned={prefs[item.id]?.isPinned ?? false}
+              isMuted={isConvMuted(prefs[item.id] ?? {})}
               onPress={() => handleConversationPress(item)}
               onLongPress={() => handleDeleteConversation(item)}
             />

@@ -5,6 +5,7 @@ import { socketService } from '@/services/socket.service';
 import { useAuthStore } from '@/store/auth.store';
 import { useNotificationStore } from '@/store/notification.store';
 import { useConversationStore } from '@/store/conversation.store';
+import { useConversationPrefsStore, isConvMuted } from '@/store/conversationPrefs.store';
 import type { NotificationEvent } from '@/types/notification';
 
 /**
@@ -59,8 +60,13 @@ export function useNotificationSocket() {
           }
 
           if (!isAtThisChat) {
-            console.log('Showing in-app banner');
-            showBanner(event.notification);
+            const convPrefs = useConversationPrefsStore.getState().prefs[event.notification.referenceId ?? ''] ?? {};
+            if (!isConvMuted(convPrefs)) {
+              console.log('Showing in-app banner');
+              showBanner(event.notification);
+            } else {
+              console.log('Conversation is muted, skipping banner');
+            }
           } else {
             console.log('User is in this chat, skipping banner');
           }

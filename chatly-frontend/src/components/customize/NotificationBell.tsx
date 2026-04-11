@@ -6,6 +6,7 @@ import { notificationService } from "@/services/notification.service";
 import { useNotificationSocket } from "@/hooks/useNotificationSocket";
 import { useAuthStore } from "@/store/auth.store";
 import { useNotificationStore } from "@/store/notification.store";
+import { useConversationPrefsStore } from "@/store/conversationPrefs.store";
 import type { Notification, NotificationEvent } from "@/types/notification";
 
 export function NotificationBell() {
@@ -19,6 +20,7 @@ export function NotificationBell() {
         markOneRead,
         markAllRead,
     } = useNotificationStore();
+    const convPrefs = useConversationPrefsStore((s) => s.prefs);
     const [open, setOpen] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
     const navigate = useNavigate();
@@ -50,9 +52,13 @@ export function NotificationBell() {
     const handleNotificationEvent = useCallback((event: NotificationEvent) => {
         addNotification(event.notification);
         if (event.notification.type === "NEW_MESSAGE") {
-            new Audio("/sounds/message_ting_ting.mp3").play().catch(() => {});
+            const convId = event.notification.referenceId ?? "";
+            const isMuted = convPrefs[convId]?.isMuted ?? false;
+            if (!isMuted) {
+                new Audio("/sounds/message_ting_ting.mp3").play().catch(() => {});
+            }
         }
-    }, [addNotification]);
+    }, [addNotification, convPrefs]);
 
     useNotificationSocket({ onEvent: handleNotificationEvent });
 
