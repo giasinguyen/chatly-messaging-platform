@@ -18,6 +18,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 
+import * as Clipboard from 'expo-clipboard';
+
 import { groupService } from '@/services/group.service';
 import { contactService } from '@/services/contact.service';
 import { fileService, type FileUploadResponse } from '@/services/file.service';
@@ -28,7 +30,7 @@ import { useConversationPrefsStore } from '@/store/conversationPrefs.store';
 import { isConvMuted } from '@/store/conversationPrefs.store';
 import { Colors } from '@/constants/theme';
 import { Avatar } from '@/components/ui/Avatar';
-import type { GroupMemberResponse, GroupRole } from '@/types/group';
+import type { GroupMemberResponse, GroupRole, PendingJoinResponse, GroupReminderResponse, GroupNoteResponse } from '@/types/group';
 import type { ContactResponse } from '@/types/contact';
 import type { UserResponse } from '@/types/auth';
 
@@ -74,6 +76,22 @@ export default function GroupInfoScreen() {
   // Media & files
   const [mediaFiles, setMediaFiles] = useState<FileUploadResponse[]>([]);
   const [docFiles, setDocFiles] = useState<FileUploadResponse[]>([]);
+
+  // Invite link
+  const [inviteLink, setInviteLink] = useState<string | null>(null);
+  const [inviteLinkLoading, setInviteLinkLoading] = useState(false);
+
+  // Pending requests
+  const [pendingRequests, setPendingRequests] = useState<PendingJoinResponse[]>([]);
+
+  // Require approval
+  const [requireApproval, setRequireApproval] = useState(conversation?.requireApproval ?? false);
+
+  // Reminders & notes
+  const [reminders, setReminders] = useState<GroupReminderResponse[]>([]);
+  const [notes, setNotes] = useState<GroupNoteResponse[]>([]);
+  const [remindersVisible, setRemindersVisible] = useState(false);
+  const [notesVisible, setNotesVisible] = useState(false);
 
   const fetchMembers = useCallback(async () => {
     if (!conversationId || !isGroup) return;
@@ -185,14 +203,27 @@ export default function GroupInfoScreen() {
       options.push({
         text: 'Xóa khỏi nhóm',
         style: 'destructive' as const,
-        onPress: async () => {
-          try {
-            await groupService.removeMember(conversationId, member.userId);
-            setMembers((prev) => prev.filter((m) => m.userId !== member.userId));
-            Alert.alert('Thành công', 'Đã xóa khỏi nhóm.');
-          } catch (e: any) {
-            Alert.alert('Lỗi', e?.response?.data?.message || 'Không thể xóa thành viên.');
-          }
+        onPress: () => {
+          Alert.alert(
+            'Xác nhận xóa',
+            `Bạn có chắc muốn xóa ${member.displayName} khỏi nhóm?`,
+            [
+              { text: 'Hủy', style: 'cancel' },
+              {
+                text: 'Xóa',
+                style: 'destructive',
+                onPress: async () => {
+                  try {
+                    await groupService.removeMember(conversationId, member.userId);
+                    setMembers((prev) => prev.filter((m) => m.userId !== member.userId));
+                    Alert.alert('Thành công', 'Đã xóa khỏi nhóm.');
+                  } catch (e: any) {
+                    Alert.alert('Lỗi', e?.response?.data?.message || 'Không thể xóa thành viên.');
+                  }
+                },
+              },
+            ],
+          );
         },
       });
     }
@@ -278,6 +309,159 @@ export default function GroupInfoScreen() {
       setAddingMember(false);
     }
   };
+
+  // ── Invite Link ──
+  const fetchInviteLink = async () => {
+    if (!conversationId) return;
+    setInviteLinkLoading(true);
+    try {
+      const res = await groupService.getOrCreateInviteLink(conversationId);
+      if (res.result) setInviteLink(res.result.inviteToken);
+    } catch { /* silent */ }
+    finally { setInviteLinkLoading(false); }
+  };
+
+  const handleCopyInviteLink = async () => {
+    if (!inviteLink) return;
+    const fullLink = `chatly://join/${inviteLink}`;
+    await Clipboard.setStringAsync(fullLink);
+    Alert.alert('Đã sao chép', 'Link mời đã được sao chép.');
+  };
+
+  const handleResetInviteLink = async () => {
+    if (!conversationId) return;
+    try {
+      const res = await groupService.resetInviteLink(conversationId);
+      if (res.result) setInviteLink(res.result.inviteToken);
+      Alert.alert('Thành công', 'Đã tạo mới link mời.');
+    } catch {
+      Alert.alert('Lỗi', 'Không thể tạo mới link mời.');
+    }
+  };
+
+  // ── Pending Requests ──
+  const fetchPendingRequests = async () => {
+    if (!conversationId || currentUserRole !== 'OWNER') return;
+    try {
+      const res = await groupService.getPendingRequests(conversationId);
+      setPendingRequests(res.result ?? []);
+    } catch { /* silent */ }
+  };
+
+  const handleApprovePending = async (userId: string) => {
+    try {
+      await groupService.approvePendingRequest(conversationId, userId);
+      fetchPendingRequests();
+      fetchMembers();
+    } catch { Alert.alert('Lỗi', 'Không thể duyệt yêu cầu.'); }
+  };
+
+  const handleRejectPending = async (userId: string) => {
+    try {
+      await groupService.rejectPendingRequest(conversationId, userId);
+      fetchPendingRequests();
+    } catch { Alert.alert('Lỗi', 'Không thể từ chối yêu cầu.'); }
+  };
+
+  // ── Require approval toggle ──
+  const handleToggleRequireApproval = async (val: boolean) => {
+    setRequireApproval(val);
+    try {
+      await groupService.updateGroup(conversationId, { requireApproval: val });
+    } catch {
+      setRequireApproval(!val);
+      Alert.alert('Lỗi', 'Không thể cập nhật cài đặt.');
+    }
+  };
+
+  // ── Reminders ──
+  const fetchReminders = async () => {
+    if (!conversationId) return;
+    try {
+      const res = await groupService.getReminders(conversationId);
+      setReminders(res.result ?? []);
+    } catch { /* silent */ }
+  };
+
+  const handleCreateReminder = () => {
+    Alert.prompt('Tạo nhắc hẹn', 'Nhập tiêu đề nhắc hẹn', [
+      { text: 'Hủy', style: 'cancel' },
+      {
+        text: 'Tạo',
+        onPress: async (title?: string) => {
+          if (!title?.trim()) return;
+          try {
+            await groupService.createReminder(conversationId, { title: title.trim() });
+            fetchReminders();
+          } catch { Alert.alert('Lỗi', 'Không thể tạo nhắc hẹn.'); }
+        },
+      },
+    ], 'plain-text');
+  };
+
+  const handleToggleReminder = async (id: string) => {
+    try { await groupService.toggleReminder(id); fetchReminders(); }
+    catch { Alert.alert('Lỗi', 'Không thể cập nhật.'); }
+  };
+
+  const handleDeleteReminder = (id: string) => {
+    Alert.alert('Xóa nhắc hẹn', 'Bạn có chắc muốn xóa?', [
+      { text: 'Hủy', style: 'cancel' },
+      { text: 'Xóa', style: 'destructive', onPress: async () => {
+        try { await groupService.deleteReminder(id); fetchReminders(); }
+        catch { Alert.alert('Lỗi', 'Không thể xóa.'); }
+      }},
+    ]);
+  };
+
+  // ── Notes ──
+  const fetchNotes = async () => {
+    if (!conversationId) return;
+    try {
+      const res = await groupService.getNotes(conversationId);
+      setNotes(res.result ?? []);
+    } catch { /* silent */ }
+  };
+
+  const handleCreateNote = () => {
+    Alert.prompt('Tạo ghi chú', 'Nhập tiêu đề ghi chú', [
+      { text: 'Hủy', style: 'cancel' },
+      {
+        text: 'Tạo',
+        onPress: async (title?: string) => {
+          if (!title?.trim()) return;
+          try {
+            await groupService.createNote(conversationId, { title: title.trim() });
+            fetchNotes();
+          } catch { Alert.alert('Lỗi', 'Không thể tạo ghi chú.'); }
+        },
+      },
+    ], 'plain-text');
+  };
+
+  const handleTogglePin = async (noteId: string, currentPinned: boolean) => {
+    try { await groupService.updateNote(noteId, { title: '', pinned: !currentPinned }); fetchNotes(); }
+    catch { Alert.alert('Lỗi', 'Không thể cập nhật ghim.'); }
+  };
+
+  const handleDeleteNote = (id: string) => {
+    Alert.alert('Xóa ghi chú', 'Bạn có chắc muốn xóa?', [
+      { text: 'Hủy', style: 'cancel' },
+      { text: 'Xóa', style: 'destructive', onPress: async () => {
+        try { await groupService.deleteNote(id); fetchNotes(); }
+        catch { Alert.alert('Lỗi', 'Không thể xóa.'); }
+      }},
+    ]);
+  };
+
+  // Fetch invite link + pending on mount for groups
+  useEffect(() => {
+    if (isGroup) {
+      fetchInviteLink();
+      if (currentUserRole === 'OWNER') fetchPendingRequests();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isGroup, currentUserRole]);
 
   const availableContacts = useMemo(() => {
     return contacts.filter((c) => {
@@ -501,6 +685,115 @@ export default function GroupInfoScreen() {
             ))}
           </View>
         )}
+        {/* ── Group: Invite Link + Settings ── */}
+        {isGroup && (
+          <View style={{ backgroundColor: Colors.white, marginBottom: 8 }}>
+            {/* Invite Link */}
+            <TouchableOpacity
+              onPress={inviteLink ? handleCopyInviteLink : fetchInviteLink}
+              style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, height: 54, borderBottomWidth: 0.5, borderBottomColor: Colors.borderLight }}
+            >
+              <Ionicons name="link-outline" size={22} color={Colors.textMuted} style={{ marginRight: 14 }} />
+              <Text style={{ flex: 1, fontSize: 15, color: Colors.text }}>
+                {inviteLink ? 'Sao chép link mời' : 'Tạo link mời'}
+              </Text>
+              {inviteLinkLoading ? (
+                <ActivityIndicator size="small" color={Colors.cta} />
+              ) : (
+                <Ionicons name={inviteLink ? 'copy-outline' : 'chevron-forward'} size={16} color={Colors.textLight} />
+              )}
+            </TouchableOpacity>
+
+            {/* Reset invite link (OWNER/ADMIN only) */}
+            {inviteLink && canManage && (
+              <TouchableOpacity
+                onPress={handleResetInviteLink}
+                style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, height: 48, borderBottomWidth: 0.5, borderBottomColor: Colors.borderLight }}
+              >
+                <Ionicons name="refresh-outline" size={20} color={Colors.cta} style={{ marginRight: 14 }} />
+                <Text style={{ fontSize: 14, color: Colors.cta }}>Tạo mới link mời</Text>
+              </TouchableOpacity>
+            )}
+
+            {/* Require approval toggle (OWNER/ADMIN) */}
+            {canManage && (
+              <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, height: 54, borderBottomWidth: 0.5, borderBottomColor: Colors.borderLight }}>
+                <Ionicons name="shield-checkmark-outline" size={22} color={Colors.textMuted} style={{ marginRight: 14 }} />
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 15, color: Colors.text }}>Duyệt thành viên mới</Text>
+                  <Text style={{ fontSize: 12, color: Colors.textLight, marginTop: 1 }}>Trưởng nhóm duyệt trước khi thêm</Text>
+                </View>
+                <Switch
+                  value={requireApproval}
+                  onValueChange={handleToggleRequireApproval}
+                  trackColor={{ false: Colors.borderLight, true: Colors.cta }}
+                  thumbColor={Colors.white}
+                />
+              </View>
+            )}
+          </View>
+        )}
+
+        {/* ── Group: Pending Requests (OWNER only) ── */}
+        {isGroup && currentUserRole === 'OWNER' && pendingRequests.length > 0 && (
+          <View style={{ backgroundColor: Colors.white, marginBottom: 8 }}>
+            <View style={{ paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 0.5, borderBottomColor: Colors.borderLight }}>
+              <Text style={{ fontWeight: '600', fontSize: 15, color: Colors.text }}>
+                Yêu cầu chờ duyệt ({pendingRequests.length})
+              </Text>
+            </View>
+            {pendingRequests.map((req) => (
+              <View
+                key={req.id}
+                style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: 0.5, borderBottomColor: Colors.borderLight }}
+              >
+                <Avatar uri={req.avatarUrl} name={req.displayName} size={40} />
+                <View style={{ flex: 1, marginLeft: 12 }}>
+                  <Text style={{ fontWeight: '500', color: Colors.text }}>{req.displayName}</Text>
+                  <Text style={{ fontSize: 12, color: Colors.textLight }}>@{req.username}</Text>
+                </View>
+                <TouchableOpacity
+                  onPress={() => handleApprovePending(req.userId)}
+                  style={{ marginRight: 8, padding: 6, borderRadius: 8, backgroundColor: '#E8F5E9' }}
+                >
+                  <Ionicons name="checkmark" size={18} color="#4CAF50" />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => handleRejectPending(req.userId)}
+                  style={{ padding: 6, borderRadius: 8, backgroundColor: '#FFEBEE' }}
+                >
+                  <Ionicons name="close" size={18} color={Colors.error} />
+                </TouchableOpacity>
+              </View>
+            ))}
+          </View>
+        )}
+
+        {/* ── Group: Bulletin Board (Reminders + Notes) ── */}
+        {isGroup && (
+          <View style={{ backgroundColor: Colors.white, marginBottom: 8 }}>
+            <View style={{ paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 0.5, borderBottomColor: Colors.borderLight }}>
+              <Text style={{ fontWeight: '600', fontSize: 15, color: Colors.text }}>Bảng tin nhóm</Text>
+            </View>
+            <TouchableOpacity
+              onPress={() => { fetchReminders(); setRemindersVisible(true); }}
+              style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, height: 54, borderBottomWidth: 0.5, borderBottomColor: Colors.borderLight }}
+            >
+              <Ionicons name="alarm-outline" size={22} color={Colors.textMuted} style={{ marginRight: 14 }} />
+              <Text style={{ flex: 1, fontSize: 15, color: Colors.text }}>Danh sách nhắc hẹn</Text>
+              <Ionicons name="chevron-forward" size={16} color={Colors.textLight} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => { fetchNotes(); setNotesVisible(true); }}
+              style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, height: 54 }}
+            >
+              <Ionicons name="document-text-outline" size={22} color={Colors.textMuted} style={{ marginRight: 14 }} />
+              <Text style={{ flex: 1, fontSize: 15, color: Colors.text }}>Ghi chú, ghim, bình chọn</Text>
+              <Ionicons name="chevron-forward" size={16} color={Colors.textLight} />
+            </TouchableOpacity>
+          </View>
+        )}
+
         {/* ── Settings: Pin & Mute ── */}
         <View style={{ backgroundColor: Colors.white, marginBottom: 8 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, height: 54, borderBottomWidth: 0.5, borderBottomColor: Colors.borderLight }}>
@@ -648,6 +941,105 @@ export default function GroupInfoScreen() {
               </TouchableOpacity>
             </View>
           </View>
+        </View>
+      </Modal>
+
+      {/* Reminders Modal */}
+      <Modal visible={remindersVisible} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setRemindersVisible(false)}>
+        <View style={{ flex: 1, backgroundColor: Colors.bg }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, height: 60, backgroundColor: Colors.white, borderBottomWidth: 0.5, borderBottomColor: Colors.borderLight }}>
+            <TouchableOpacity onPress={() => setRemindersVisible(false)}>
+              <Text style={{ color: Colors.text, fontSize: 16 }}>Đóng</Text>
+            </TouchableOpacity>
+            <Text style={{ fontSize: 18, fontWeight: 'bold', color: Colors.text }}>Nhắc hẹn</Text>
+            <TouchableOpacity onPress={handleCreateReminder}>
+              <Ionicons name="add" size={24} color={Colors.cta} />
+            </TouchableOpacity>
+          </View>
+          <FlatList
+            data={reminders}
+            keyExtractor={(item) => item.id}
+            contentContainerStyle={{ padding: 12 }}
+            ListEmptyComponent={() => (
+              <View style={{ alignItems: 'center', paddingVertical: 40 }}>
+                <Ionicons name="alarm-outline" size={40} color={Colors.borderLight} />
+                <Text style={{ color: Colors.textLight, marginTop: 8 }}>Chưa có nhắc hẹn nào</Text>
+              </View>
+            )}
+            renderItem={({ item }) => (
+              <View style={{ backgroundColor: Colors.white, borderRadius: 10, padding: 14, marginBottom: 8, flexDirection: 'row', alignItems: 'center' }}>
+                <TouchableOpacity onPress={() => handleToggleReminder(item.id)} style={{ marginRight: 12 }}>
+                  <Ionicons
+                    name={item.completed ? 'checkmark-circle' : 'ellipse-outline'}
+                    size={24}
+                    color={item.completed ? '#4CAF50' : Colors.borderLight}
+                  />
+                </TouchableOpacity>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 15, fontWeight: '500', color: Colors.text, textDecorationLine: item.completed ? 'line-through' : 'none' }}>
+                    {item.title}
+                  </Text>
+                  {item.description ? (
+                    <Text style={{ fontSize: 13, color: Colors.textLight, marginTop: 2 }}>{item.description}</Text>
+                  ) : null}
+                  {item.remindAt ? (
+                    <Text style={{ fontSize: 11, color: Colors.cta, marginTop: 4 }}>
+                      {new Date(item.remindAt).toLocaleString('vi-VN')}
+                    </Text>
+                  ) : null}
+                </View>
+                <TouchableOpacity onPress={() => handleDeleteReminder(item.id)} style={{ padding: 6 }}>
+                  <Ionicons name="trash-outline" size={18} color={Colors.error} />
+                </TouchableOpacity>
+              </View>
+            )}
+          />
+        </View>
+      </Modal>
+
+      {/* Notes Modal */}
+      <Modal visible={notesVisible} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setNotesVisible(false)}>
+        <View style={{ flex: 1, backgroundColor: Colors.bg }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, height: 60, backgroundColor: Colors.white, borderBottomWidth: 0.5, borderBottomColor: Colors.borderLight }}>
+            <TouchableOpacity onPress={() => setNotesVisible(false)}>
+              <Text style={{ color: Colors.text, fontSize: 16 }}>Đóng</Text>
+            </TouchableOpacity>
+            <Text style={{ fontSize: 18, fontWeight: 'bold', color: Colors.text }}>Ghi chú</Text>
+            <TouchableOpacity onPress={handleCreateNote}>
+              <Ionicons name="add" size={24} color={Colors.cta} />
+            </TouchableOpacity>
+          </View>
+          <FlatList
+            data={notes}
+            keyExtractor={(item) => item.id}
+            contentContainerStyle={{ padding: 12 }}
+            ListEmptyComponent={() => (
+              <View style={{ alignItems: 'center', paddingVertical: 40 }}>
+                <Ionicons name="document-text-outline" size={40} color={Colors.borderLight} />
+                <Text style={{ color: Colors.textLight, marginTop: 8 }}>Chưa có ghi chú nào</Text>
+              </View>
+            )}
+            renderItem={({ item }) => (
+              <View style={{ backgroundColor: Colors.white, borderRadius: 10, padding: 14, marginBottom: 8, borderLeftWidth: item.pinned ? 3 : 0, borderLeftColor: Colors.cta }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+                  {item.pinned && <Ionicons name="pin" size={14} color={Colors.cta} style={{ marginRight: 4 }} />}
+                  <Text style={{ flex: 1, fontSize: 15, fontWeight: '600', color: Colors.text }}>{item.title}</Text>
+                  <TouchableOpacity onPress={() => handleTogglePin(item.id, item.pinned)} style={{ padding: 4, marginRight: 4 }}>
+                    <Ionicons name={item.pinned ? 'pin' : 'pin-outline'} size={16} color={item.pinned ? Colors.cta : Colors.textLight} />
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => handleDeleteNote(item.id)} style={{ padding: 4 }}>
+                    <Ionicons name="trash-outline" size={16} color={Colors.error} />
+                  </TouchableOpacity>
+                </View>
+                {item.content ? (
+                  <Text style={{ fontSize: 14, color: Colors.textMuted, lineHeight: 20 }} numberOfLines={4}>{item.content}</Text>
+                ) : null}
+                <Text style={{ fontSize: 11, color: Colors.textLight, marginTop: 6 }}>
+                  {new Date(item.createdAt).toLocaleString('vi-VN')}
+                </Text>
+              </View>
+            )}
+          />
         </View>
       </Modal>
     </View>

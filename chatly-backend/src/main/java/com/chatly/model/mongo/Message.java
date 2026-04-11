@@ -66,6 +66,15 @@ public class Message {
     @Builder.Default
     private List<Reaction> reactions = new ArrayList<>();
 
+    // Poll (for POLL type messages)
+    private Poll poll;
+
+    // Pin
+    @Builder.Default
+    private boolean pinned = false;
+    private Instant pinnedAt;
+    private String pinnedBy;
+
     @CreatedDate
     private Instant createdAt;
 

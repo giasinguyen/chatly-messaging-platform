@@ -45,4 +45,9 @@ public class Conversation {
 
     @Builder.Default
     private Boolean allowMembersUpdateInfo = true;
+
+    @Builder.Default
+    private Boolean requireApproval = false;
+
+    private String inviteToken;
 }

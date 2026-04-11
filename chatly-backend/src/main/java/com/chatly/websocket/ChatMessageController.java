@@ -35,6 +35,7 @@ public class ChatMessageController {
                 .type(request.getType())
                 .replyToId(request.getReplyToId())
                 .attachments(request.getAttachments())
+                .poll(request.getPoll())
                 .build();
 
         messageService.send(senderId, messageRequest);

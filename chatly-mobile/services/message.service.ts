@@ -84,4 +84,26 @@ export const messageService = {
     );
     return response.data;
   },
+
+  votePoll: async (messageId: string, optionIndex: number): Promise<ApiResponse<Message>> => {
+    const response = await axiosClient.put<ApiResponse<Message>>(
+      `/api/messages/${messageId}/vote`,
+      { optionIndex },
+    );
+    return response.data;
+  },
+
+  togglePin: async (messageId: string): Promise<ApiResponse<Message>> => {
+    const response = await axiosClient.put<ApiResponse<Message>>(
+      `/api/messages/${messageId}/pin`,
+    );
+    return response.data;
+  },
+
+  getPinnedMessages: async (conversationId: string): Promise<ApiResponse<Message[]>> => {
+    const response = await axiosClient.get<ApiResponse<Message[]>>(
+      `/api/messages/conversation/${conversationId}/pinned`,
+    );
+    return response.data;
+  },
 };

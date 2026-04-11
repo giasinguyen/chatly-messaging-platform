@@ -57,6 +57,15 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="cloud"
+        options={{
+          title: 'Kho lưu trữ',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="cloud-outline" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="settings"
         options={{
           title: 'Cài đặt',

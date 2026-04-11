@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import {
     BellOff,
@@ -19,8 +19,15 @@ import {
     Users,
     Loader2,
     Download,
+    Copy,
+    RefreshCw,
+    QrCode,
 } from "lucide-react";
+import { QRCodeSVG } from "qrcode.react";
 import { AddMembersDialog } from "./AddMembersDialog";
+import { RemindersDialog } from "./RemindersDialog";
+import { NotesDialog } from "./NotesDialog";
+import { PinnedMessagesDialog } from "./PinnedMessagesDialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -153,6 +160,54 @@ export function ConversationInfoPanel({
     // Collapsible sections (group only)
     const [membersExpanded, setMembersExpanded] = useState(true);
     const [boardExpanded, setBoardExpanded] = useState(false);
+
+    // Bulletin board dialogs
+    const [showReminders, setShowReminders] = useState(false);
+    const [showNotes, setShowNotes] = useState(false);
+    const [showPinnedMessages, setShowPinnedMessages] = useState(false);
+
+    // Invite link
+    const [inviteLink, setInviteLink] = useState<string | null>(null);
+    const [inviteLinkLoading, setInviteLinkLoading] = useState(false);
+    const [showQrDialog, setShowQrDialog] = useState(false);
+    const [inviteLinkExpanded, setInviteLinkExpanded] = useState(false);
+
+    // Invite link handlers
+    const fetchInviteLink = useCallback(async () => {
+        if (!isGroup) return;
+        setInviteLinkLoading(true);
+        try {
+            const res = await groupService.getOrCreateInviteLink(conversation.id);
+            if (res.result) {
+                setInviteLink(`${window.location.origin}/join/${res.result.inviteToken}`);
+            }
+        } catch { /* silent */ } finally { setInviteLinkLoading(false); }
+    }, [isGroup, conversation.id]);
+
+    const handleResetInviteLink = async () => {
+        setInviteLinkLoading(true);
+        try {
+            const res = await groupService.resetInviteLink(conversation.id);
+            if (res.result) {
+                setInviteLink(`${window.location.origin}/join/${res.result.inviteToken}`);
+            }
+            toast.success("Đã tạo mới link mời");
+        } catch { toast.error("Không thể tạo mới link mời"); }
+        finally { setInviteLinkLoading(false); }
+    };
+
+    const handleCopyInviteLink = () => {
+        if (inviteLink) {
+            navigator.clipboard.writeText(inviteLink);
+            toast.success("Đã sao chép link mời");
+        }
+    };
+
+    useEffect(() => {
+        if (isGroup && inviteLinkExpanded && !inviteLink) {
+            fetchInviteLink();
+        }
+    }, [isGroup, inviteLinkExpanded, inviteLink, fetchInviteLink]);
 
     const handleOpenMute = () => {
         if (isMuted) {
@@ -491,6 +546,85 @@ export function ConversationInfoPanel({
                             )}
                             <Separator />
 
+                            {/* Link mời vào nhóm */}
+                            <div className="px-4 py-3">
+                                <button
+                                    type="button"
+                                    className="flex items-center justify-between w-full"
+                                    onClick={() => setInviteLinkExpanded((v) => !v)}
+                                >
+                                    <div className="flex items-center gap-2">
+                                        <LinkIcon size={15} className="text-muted-foreground" />
+                                        <span className="text-sm font-medium text-foreground">Link mời vào nhóm</span>
+                                    </div>
+                                    <ChevronDown
+                                        size={14}
+                                        className={cn(
+                                            "text-muted-foreground transition-transform",
+                                            inviteLinkExpanded && "rotate-180",
+                                        )}
+                                    />
+                                </button>
+                                {inviteLinkExpanded && (
+                                    <div className="mt-2 space-y-2">
+                                        {inviteLinkLoading ? (
+                                            <div className="flex items-center justify-center py-4">
+                                                <Loader2 size={16} className="animate-spin text-muted-foreground" />
+                                            </div>
+                                        ) : inviteLink ? (
+                                            <>
+                                                <div className="flex items-center gap-1.5">
+                                                    <Input
+                                                        value={inviteLink}
+                                                        readOnly
+                                                        className="h-8 text-xs bg-muted/40 flex-1"
+                                                    />
+                                                    <Button
+                                                        size="icon"
+                                                        variant="outline"
+                                                        className="h-8 w-8 shrink-0"
+                                                        onClick={handleCopyInviteLink}
+                                                        title="Sao chép"
+                                                    >
+                                                        <Copy size={13} />
+                                                    </Button>
+                                                    <Button
+                                                        size="icon"
+                                                        variant="outline"
+                                                        className="h-8 w-8 shrink-0"
+                                                        onClick={() => setShowQrDialog(true)}
+                                                        title="Mã QR"
+                                                    >
+                                                        <QrCode size={13} />
+                                                    </Button>
+                                                </div>
+                                                <Button
+                                                    size="sm"
+                                                    variant="ghost"
+                                                    className="h-7 text-xs gap-1.5 text-muted-foreground"
+                                                    onClick={handleResetInviteLink}
+                                                    disabled={inviteLinkLoading}
+                                                >
+                                                    <RefreshCw size={11} />
+                                                    Tạo mới link
+                                                </Button>
+                                            </>
+                                        ) : (
+                                            <Button
+                                                size="sm"
+                                                variant="outline"
+                                                className="h-8 text-xs gap-1.5 w-full"
+                                                onClick={fetchInviteLink}
+                                            >
+                                                <LinkIcon size={12} />
+                                                Tạo link mời
+                                            </Button>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                            <Separator />
+
                             {/* Bảng tin nhóm */}
                             <div className="px-4 py-3">
                                 <button
@@ -515,7 +649,7 @@ export function ConversationInfoPanel({
                                         <button
                                             type="button"
                                             className="flex items-center gap-2.5 p-2 rounded-lg bg-muted/30 border border-border/40 hover:bg-muted/50 cursor-pointer transition text-left"
-                                            onClick={() => toast.info("Development in progress...")}
+                                            onClick={() => setShowReminders(true)}
                                         >
                                             <div className="h-7 w-7 rounded bg-brand/10 flex items-center justify-center shrink-0">
                                                 <Image size={13} className="text-brand" />
@@ -525,7 +659,17 @@ export function ConversationInfoPanel({
                                         <button
                                             type="button"
                                             className="flex items-center gap-2.5 p-2 rounded-lg bg-muted/30 border border-border/40 hover:bg-muted/50 cursor-pointer transition text-left"
-                                            onClick={() => toast.info("Development in progress...")}
+                                            onClick={() => setShowPinnedMessages(true)}
+                                        >
+                                            <div className="h-7 w-7 rounded bg-amber-500/10 flex items-center justify-center shrink-0">
+                                                <Pin size={13} className="text-amber-500" />
+                                            </div>
+                                            <span className="text-xs text-foreground">Tin nhắn đã ghim</span>
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className="flex items-center gap-2.5 p-2 rounded-lg bg-muted/30 border border-border/40 hover:bg-muted/50 cursor-pointer transition text-left"
+                                            onClick={() => setShowNotes(true)}
                                         >
                                             <div className="h-7 w-7 rounded bg-brand/10 flex items-center justify-center shrink-0">
                                                 <FileText size={13} className="text-brand" />
@@ -701,6 +845,42 @@ export function ConversationInfoPanel({
                     existingMemberIds={conversation.participantIds}
                 />
             )}
+
+            {/* Bulletin board dialogs */}
+            {isGroup && (
+                <>
+                    <RemindersDialog
+                        conversationId={conversation.id}
+                        open={showReminders}
+                        onOpenChange={setShowReminders}
+                    />
+                    <NotesDialog
+                        conversationId={conversation.id}
+                        open={showNotes}
+                        onOpenChange={setShowNotes}
+                    />
+                    <PinnedMessagesDialog
+                        conversationId={conversation.id}
+                        open={showPinnedMessages}
+                        onOpenChange={setShowPinnedMessages}
+                    />
+                </>
+            )}
+
+            {/* QR Code Dialog */}
+            <Dialog open={showQrDialog} onOpenChange={setShowQrDialog}>
+                <DialogContent className="sm:max-w-xs flex flex-col items-center gap-4 py-8">
+                    <DialogHeader>
+                        <DialogTitle className="text-center">Mã QR mời vào nhóm</DialogTitle>
+                    </DialogHeader>
+                    {inviteLink && (
+                        <QRCodeSVG value={inviteLink} size={200} level="M" />
+                    )}
+                    <p className="text-xs text-muted-foreground text-center">
+                        Quét mã QR để tham gia nhóm
+                    </p>
+                </DialogContent>
+            </Dialog>
         </aside>
     );
 }
