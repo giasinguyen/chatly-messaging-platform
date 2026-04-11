@@ -21,7 +21,7 @@ from app.routers.files import router as files_router
 from app.routers.health import router as health_router
 from app.routers.mcp import router as mcp_router
 from app.routers.sessions import router as sessions_router
-from app.storage.minio import ensure_bucket_exists, get_minio_client
+from app.storage.minio import ensure_bucket_exists, get_bucket_name, get_storage_client
 
 setup_logging(settings.log_level)
 
@@ -36,7 +36,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         await client.admin.command("ping")
         qdrant_client = get_qdrant_client()
         await qdrant_client.get_collections()
-        ensure_bucket_exists(get_minio_client(), settings.minio_bucket_name)
+        ensure_bucket_exists(get_storage_client(), get_bucket_name())
     yield
     await close_client()
     await close_qdrant_client()

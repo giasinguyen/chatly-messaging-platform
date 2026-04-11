@@ -18,7 +18,7 @@ from app.services.file_service import FileService
 from app.services.session_service import SessionService
 from app.services.tool_service import ToolService
 from app.services.vector_service import VectorService
-from app.storage.minio import get_bucket_name, get_minio_client
+from app.storage.minio import get_bucket_name, get_storage_client
 from app.utils.embeddings import get_embedder
 from app.utils.llm import get_llm
 from app.models.context import RequestContext
@@ -140,7 +140,7 @@ def get_file_service(
         chunk_repo=chunk_repo,
         vector_service=vector_service,
         embedder=get_embedder(),
-        minio_client=get_minio_client(),
+        minio_client=get_storage_client(),
         bucket_name=get_bucket_name(),
     )
 

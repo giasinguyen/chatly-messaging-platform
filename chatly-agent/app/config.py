@@ -1,3 +1,5 @@
+from typing import Literal
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -20,11 +22,21 @@ class Settings(BaseSettings):
     huggingface_api_key: str = ""
     hf_embedding_model: str = "BAAI/bge-base-en-v1.5"
 
+    # --- Object storage (MinIO / S3) ---
+    storage_provider: Literal["minio", "s3"] = "minio"
+
+    # MinIO-specific (dev)
     minio_endpoint: str = "localhost:9000"
     minio_access_key: str = "minioadmin"
     minio_secret_key: str = "minioadmin"
     minio_secure: bool = False
     minio_bucket_name: str = "uploads"
+
+    # S3-specific (production)
+    storage_access_key: str = ""
+    storage_secret_key: str = ""
+    storage_bucket: str = "uploads"
+    storage_region: str = "ap-southeast-1"
 
     tavily_api_key: str = ""
 
