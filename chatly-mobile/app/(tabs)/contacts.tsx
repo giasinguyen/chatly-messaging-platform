@@ -22,7 +22,7 @@ import { useRouter } from 'expo-router';
 import type { ContactResponse } from '@/types/contact';
 import type { UserResponse } from '@/types/auth';
 
-type Tab = 'friends' | 'pending' | 'search';
+type Tab = 'friends' | 'pending' | 'blocked' | 'search';
 
 export default function ContactsScreen() {
   const insets = useSafeAreaInsets();
@@ -33,6 +33,7 @@ export default function ContactsScreen() {
   const [activeTab, setActiveTab] = useState<Tab>('friends');
   const [contacts, setContacts] = useState<ContactResponse[]>([]);
   const [pendingContacts, setPendingContacts] = useState<ContactResponse[]>([]);
+  const [blockedContacts, setBlockedContacts] = useState<ContactResponse[]>([]);
   const [searchResults, setSearchResults] = useState<UserResponse[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(false);
@@ -58,16 +59,26 @@ export default function ContactsScreen() {
     }
   }, []);
 
+  // Fetch blocked contacts
+  const fetchBlocked = useCallback(async () => {
+    try {
+      const res = await contactService.getByStatus('BLOCKED');
+      setBlockedContacts(res.result);
+    } catch (error) {
+      console.error('Failed to fetch blocked:', error);
+    }
+  }, []);
+
   // Initial load
   useEffect(() => {
     setLoading(true);
-    Promise.all([fetchContacts(), fetchPending()]).finally(() => setLoading(false));
-  }, [fetchContacts, fetchPending]);
+    Promise.all([fetchContacts(), fetchPending(), fetchBlocked()]).finally(() => setLoading(false));
+  }, [fetchContacts, fetchPending, fetchBlocked]);
 
   // Refresh
   const handleRefresh = async () => {
     setRefreshing(true);
-    await Promise.all([fetchContacts(), fetchPending()]);
+    await Promise.all([fetchContacts(), fetchPending(), fetchBlocked()]);
     setRefreshing(false);
   };
 
@@ -102,6 +113,28 @@ export default function ContactsScreen() {
       fetchPending();
     } catch (error: any) {
       Alert.alert('Lỗi', error?.response?.data?.message ?? 'Không thể chấp nhận.');
+    }
+  };
+
+  // Decline contact request
+  const handleDecline = async (contactId: string) => {
+    try {
+      await contactService.delete(contactId);
+      fetchPending();
+    } catch (error: any) {
+      Alert.alert('Lỗi', error?.response?.data?.message ?? 'Không thể từ chối.');
+    }
+  };
+
+  // Unblock contact
+  const handleUnblock = async (contactId: string) => {
+    try {
+      await contactService.delete(contactId);
+      Alert.alert('Thành công', 'Đã bỏ chặn');
+      fetchContacts();
+      fetchBlocked();
+    } catch (error: any) {
+      Alert.alert('Lỗi', error?.response?.data?.message ?? 'Không thể bỏ chặn.');
     }
   };
 
@@ -148,6 +181,7 @@ export default function ContactsScreen() {
   const tabs: { key: Tab; label: string; badge?: number }[] = [
     { key: 'friends', label: 'Bạn bè' },
     { key: 'pending', label: 'Chờ duyệt', badge: pendingContacts.length },
+    { key: 'blocked', label: 'Đã chặn' },
     { key: 'search', label: 'Tìm kiếm' },
   ];
 
@@ -194,16 +228,56 @@ export default function ContactsScreen() {
           </Text>
         </View>
         {isReceived && (
-          <TouchableOpacity
-            className="rounded-full px-4 py-1.5"
-            style={{ backgroundColor: Colors.cta }}
-            onPress={() => handleAccept(item.id)}
-          >
-            <Text className="text-[14px] font-semibold" style={{ color: Colors.white }}>
-              Chấp nhận
-            </Text>
-          </TouchableOpacity>
+          <View className="flex-row items-center space-x-2">
+            <TouchableOpacity
+              className="rounded-full px-4 py-1.5 mr-2"
+              style={{ backgroundColor: Colors.error }}
+              onPress={() => handleDecline(item.id)}
+            >
+              <Text className="text-[14px] font-semibold" style={{ color: Colors.white }}>
+                Từ chối
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              className="rounded-full px-4 py-1.5"
+              style={{ backgroundColor: Colors.cta }}
+              onPress={() => handleAccept(item.id)}
+            >
+              <Text className="text-[14px] font-semibold" style={{ color: Colors.white }}>
+                Chấp nhận
+              </Text>
+            </TouchableOpacity>
+          </View>
         )}
+      </View>
+    );
+  };
+
+  const renderBlockedItem = ({ item }: { item: ContactResponse }) => {
+    const contactUser = getContactUser(item);
+    return (
+      <View
+        className="flex-row items-center px-4 py-3"
+        style={{ borderBottomWidth: 0.5, borderBottomColor: Colors.borderLight }}
+      >
+        <Avatar uri={contactUser.avatarUrl} name={contactUser.displayName} size={48} />
+        <View className="ml-3 flex-1">
+          <Text className="text-[16px] font-semibold" style={{ color: Colors.text }}>
+            {contactUser.displayName}
+          </Text>
+          <Text className="mt-0.5 text-[13px]" style={{ color: Colors.textLight }}>
+            @{contactUser.username}
+          </Text>
+        </View>
+        <TouchableOpacity
+          className="rounded-full px-4 py-1.5"
+          style={{ backgroundColor: Colors.textLight }}
+          onPress={() => handleUnblock(item.id)}
+        >
+          <Text className="text-[14px] font-semibold" style={{ color: Colors.white }}>
+            Bỏ chặn
+          </Text>
+        </TouchableOpacity>
       </View>
     );
   };
@@ -341,6 +415,23 @@ export default function ContactsScreen() {
               <Ionicons name="hourglass-outline" size={48} color={Colors.textLight} />
               <Text className="mt-3 text-[16px]" style={{ color: Colors.textLight }}>
                 Không có lời mời nào
+              </Text>
+            </View>
+          }
+        />
+      ) : activeTab === 'blocked' ? (
+        <FlatList
+          data={blockedContacts}
+          keyExtractor={(item) => item.id}
+          renderItem={renderBlockedItem}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={Colors.cta} />
+          }
+          ListEmptyComponent={
+            <View className="flex-1 items-center justify-center pt-20">
+              <Ionicons name="shield-checkmark-outline" size={48} color={Colors.textLight} />
+              <Text className="mt-3 text-[16px]" style={{ color: Colors.textLight }}>
+                Không có liên hệ bị chặn
               </Text>
             </View>
           }

@@ -1,9 +1,9 @@
 import { useEffect, useRef, useCallback, useState, useMemo } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
-import { ChevronLeft, ChevronRight, Check, CheckCheck, Reply, RotateCcw, Pencil, X, Send, FileText, Download, Copy, Trash2, AlertCircle, RefreshCcw } from "lucide-react";
+import { ChevronLeft, ChevronRight, Check, CheckCheck, Reply, RotateCcw, Pencil, X, Send, FileText, Download, Copy, Trash2, AlertCircle, RefreshCcw, SmilePlus } from "lucide-react";
 import { toast } from "sonner";
-import type { Message, ChatUser } from "@/types/message";
+import type { Message, ChatUser, Reaction } from "@/types/message";
 import type { ConversationType } from "@/types/conversation";
 import { ReplyPreview } from "./ReplyPreview";
 import {
@@ -40,6 +40,7 @@ interface MessageListProps {
     onRecall: (messageId: string) => void;
     onEdit: (messageId: string, newContent: string) => void;
     onDelete: (messageId: string) => void;
+    onReact: (messageId: string, emoji: string) => void;
     onOpenSenderProfile?: (userId: string) => void;
     onLoadMore: () => void;
     isLoadingMore: boolean;
@@ -47,10 +48,12 @@ interface MessageListProps {
     failedMessages?: Array<{ id: string, content: string, attachments?: any, replyToId?: string | null }>;
     onRetryMessage?: (id: string) => void;
     onRemoveFailedMessage?: (id: string) => void;
+    highlightedMessageId?: string | null;
 }
 
 const RECALL_LIMIT_MS = 24 * 60 * 60 * 1000;
 const EDIT_LIMIT_MS = 15 * 60 * 1000;
+const QUICK_EMOJIS = ["👍", "❤️", "😂", "😮", "😢", "😡"];
 
 export function MessageList({
     messages,
@@ -62,6 +65,7 @@ export function MessageList({
     onRecall,
     onEdit,
     onDelete,
+    onReact,
     onOpenSenderProfile,
     onLoadMore,
     isLoadingMore,
@@ -69,6 +73,7 @@ export function MessageList({
     failedMessages = [],
     onRetryMessage,
     onRemoveFailedMessage,
+    highlightedMessageId,
 }: MessageListProps) {
     const scrollEndRef = useRef<HTMLDivElement>(null);
     const sentinelRef = useRef<HTMLDivElement>(null);
@@ -151,6 +156,18 @@ export function MessageList({
         }
     }, [isLoadingMore, messages]);
 
+    // Scroll to highlighted search result
+    useEffect(() => {
+        if (!highlightedMessageId || !containerRef.current) return;
+        const el = containerRef.current.querySelector(`[data-message-id="${highlightedMessageId}"]`);
+        if (el) {
+            el.scrollIntoView({ behavior: "smooth", block: "center" });
+            el.classList.add("search-highlight");
+            const timer = setTimeout(() => el.classList.remove("search-highlight"), 2000);
+            return () => clearTimeout(timer);
+        }
+    }, [highlightedMessageId]);
+
     // IntersectionObserver for lazy load
     const handleSentinelIntersect = useCallback(
         (entries: IntersectionObserverEntry[]) => {
@@ -214,12 +231,10 @@ export function MessageList({
         if (timeDiff < TIME_GAP_THRESHOLD) return null;
 
         return (
-            <div key={`time-sep-${msg.id}`} className="flex items-center gap-3 px-4 py-2">
-                <div className="flex-1 h-px bg-border/30" />
+            <div key={`time-sep-${msg.id}`} className="px-4 py-2 text-center">
                 <span className="text-[11px] text-muted-foreground/70 whitespace-nowrap">
                     {new Date(msg.createdAt).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}
                 </span>
-                <div className="flex-1 h-px bg-border/30" />
             </div>
         );
     };
@@ -275,8 +290,9 @@ export function MessageList({
 
         const bubble = (
             <div
+                data-message-id={msg.id}
                 className={cn(
-                    "flex gap-2 group px-4",
+                    "flex gap-2 group px-4 transition-colors duration-500",
                     isLastInGroup(msg, index) ? "mb-3" : "mb-0.5",
                     isMe ? "flex-row-reverse" : "flex-row",
                 )}
@@ -373,7 +389,26 @@ export function MessageList({
                                         isMe={isMe}
                                     />
                                 )}
-                                {msg.content}
+                                {msg.content && (() => {
+                                    const URL_REGEX = /(https?:\/\/[^\s<>"]+)/g;
+                                    const parts = msg.content.split(URL_REGEX);
+                                    const hasLinks = parts.some(p => /^https?:\/\//.test(p));
+                                    if (!hasLinks) return <span>{msg.content}</span>;
+                                    return (
+                                        <span>
+                                            {parts.map((part, i) =>
+                                                /^https?:\/\//.test(part) ? (
+                                                    <a key={i} href={part} target="_blank" rel="noopener noreferrer"
+                                                        className={cn("underline break-all", isMe ? "text-white/90 hover:text-white" : "text-brand hover:text-brand/80")}>
+                                                        {part}
+                                                    </a>
+                                                ) : (
+                                                    <span key={i}>{part}</span>
+                                                )
+                                            )}
+                                        </span>
+                                    );
+                                })()}
                                 {/* Attachments */}
                                 {msg.attachments && msg.attachments.length > 0 && (
                                     <div className={cn("flex flex-col gap-2", msg.content ? "mt-2" : "")}>
@@ -431,19 +466,71 @@ export function MessageList({
                             </div>
                         )}
 
-                        {/* Reply button (on hover) — hidden for recalled messages */}
+                        {/* Action buttons (on hover) — hidden for recalled messages */}
                         {!msg.recalled && !isBeingEdited && (
-                            <button
-                                onClick={() => onReply(msg)}
-                                className={cn(
-                                    "opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground shrink-0",
-                                )}
-                                title="Trả lời"
-                            >
-                                <Reply size={14} />
-                            </button>
+                            <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                                <div className="relative group/react">
+                                    <button
+                                        className="p-1.5 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground"
+                                        title="Bày tỏ cảm xúc"
+                                    >
+                                        <SmilePlus size={14} />
+                                    </button>
+                                    <div
+                                        className={cn(
+                                            "absolute bottom-full pb-2 hidden group-hover/react:flex flex-col items-center z-50",
+                                            isMe ? "right-0" : "left-0",
+                                        )}
+                                    >
+                                    <div className="flex items-center gap-0.5 bg-popover border border-border rounded-full px-1 py-0.5 shadow-lg">
+                                        {QUICK_EMOJIS.map((emoji) => (
+                                            <button
+                                                key={emoji}
+                                                onClick={() => onReact(msg.id, emoji)}
+                                                className="hover:scale-125 transition-transform text-base px-0.5"
+                                            >
+                                                {emoji}
+                                            </button>
+                                        ))}
+                                    </div>
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={() => onReply(msg)}
+                                    className="p-1.5 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground"
+                                    title="Trả lời"
+                                >
+                                    <Reply size={14} />
+                                </button>
+                            </div>
                         )}
                     </div>
+
+                    {/* Reaction badges */}
+                    {msg.reactions && msg.reactions.length > 0 && (
+                        <div className={cn("flex flex-wrap gap-1 mt-0.5 px-1", isMe ? "justify-end" : "justify-start")}>
+                            {Object.entries(
+                                msg.reactions.reduce<Record<string, string[]>>((acc, r) => {
+                                    (acc[r.emoji] ??= []).push(r.userId);
+                                    return acc;
+                                }, {}),
+                            ).map(([emoji, userIds]) => (
+                                <button
+                                    key={emoji}
+                                    onClick={() => onReact(msg.id, emoji)}
+                                    className={cn(
+                                        "flex items-center gap-0.5 text-xs rounded-full px-1.5 py-0.5 border transition-colors",
+                                        userIds.includes(currentUserId)
+                                            ? "bg-brand/10 border-brand/40 text-brand"
+                                            : "bg-muted/60 border-border/50 text-muted-foreground hover:bg-muted",
+                                    )}
+                                >
+                                    <span>{emoji}</span>
+                                    {userIds.length > 1 && <span>{userIds.length}</span>}
+                                </button>
+                            ))}
+                        </div>
+                    )}
 
                     {/* Time + status */}
                     {isLastInGroup(msg, index) && (

@@ -1,4 +1,4 @@
-import type { MessageType } from "@/types/conversation";
+import type { MessageType, ConversationResponse } from "@/types/conversation";
 
 export type MessageStatus = "SENT" | "DELIVERED" | "READ";
 
@@ -18,6 +18,12 @@ export interface Attachment {
 export interface EditHistoryEntry {
     content: string;
     editedAt: string;
+}
+
+export interface Reaction {
+    userId: string;
+    emoji: string;
+    createdAt: string;
 }
 
 /**
@@ -45,18 +51,21 @@ export interface Message {
     editedAt: string | null;
     editHistory: EditHistoryEntry[];
 
+    // Reactions
+    reactions: Reaction[];
+
     createdAt: string;
     updatedAt: string;
 }
 
 /**
- * ChatEvent – wrapper for all realtime message events from WebSocket.
+ * ChatEvent – wrapper for all realtime message and group update events from WebSocket.
  */
-export type ChatAction = "SEND" | "EDIT" | "RECALL" | "DELETE";
-
+export type ChatAction = "SEND" | "EDIT" | "RECALL" | "DELETE" | "GROUP_UPDATE" | "REACT";
 export interface ChatEvent {
     action: ChatAction;
-    message: Message;
+    message?: Message;
+    conversationData?: ConversationResponse;
 }
 
 /**

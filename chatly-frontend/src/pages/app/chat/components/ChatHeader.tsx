@@ -1,4 +1,4 @@
-import { Phone, Video, Users, ChevronLeft } from "lucide-react";
+import { Phone, Video, Users, ChevronLeft, Search, Pin, BellOff, PanelRightOpen, PanelRightClose } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { PresenceIndicator } from "@/components/customize/PresenceIndicator";
@@ -10,14 +10,20 @@ interface ChatHeaderProps {
     onOpenProfile: () => void;
     isGroup?: boolean;
     onOpenGroupPanel?: () => void;
+    onToggleSearch?: () => void;
+    onToggleInfoPanel?: () => void;
+    isInfoPanelOpen?: boolean;
     presenceStatus?: "ONLINE" | "OFFLINE" | string;
     lastSeen?: string | null;
     onBack?: () => void;
+    isPinned?: boolean;
+    isMuted?: boolean;
+    nickname?: string | null;
 }
 
-export function ChatHeader({ user, onOpenProfile, isGroup, onOpenGroupPanel, presenceStatus, lastSeen, onBack }: ChatHeaderProps) {
+export function ChatHeader({ user, onOpenProfile, isGroup, onOpenGroupPanel, onToggleSearch, onToggleInfoPanel, isInfoPanelOpen, presenceStatus, lastSeen, onBack, isPinned, isMuted, nickname }: ChatHeaderProps) {
     return (
-        <header className="h-16 border-b border-border flex items-center justify-between px-2 sm:px-4 shrink-0 bg-background">
+        <header className="h-16 border-b border-border flex items-center justify-between px-2 sm:px-4 shrink-0 bg-background dark:bg-[#22252b]">
             <div className="flex items-center">
                 {onBack && (
                     <Button
@@ -48,9 +54,13 @@ export function ChatHeader({ user, onOpenProfile, isGroup, onOpenGroupPanel, pre
                     )}
                 </div>
                 <div className="flex flex-col">
-                    <h3 className="text-sm font-semibold text-foreground line-clamp-1">
-                        {user.displayName}
-                    </h3>
+                    <div className="flex items-center gap-2">
+                        <h3 className="text-sm font-semibold text-foreground line-clamp-1">
+                            {nickname || user.displayName}
+                        </h3>
+                        {isPinned && <Pin size={14} className="text-brand shrink-0" />}
+                        {isMuted && <BellOff size={14} className="text-muted-foreground shrink-0" />}
+                    </div>
                     {!isGroup && presenceStatus && (
                         <PresenceIndicator
                             status={presenceStatus}
@@ -76,6 +86,15 @@ export function ChatHeader({ user, onOpenProfile, isGroup, onOpenGroupPanel, pre
                     </Button>
                 )}
                 <Button
+                    onClick={onToggleSearch}
+                    variant="ghost"
+                    size="icon"
+                    className="h-9 w-9"
+                    title="Tìm kiếm tin nhắn"
+                >
+                    <Search size={18} />
+                </Button>
+                <Button
                     onClick={() => {
                         toast.info("Development in progress...");
                     }}
@@ -95,6 +114,17 @@ export function ChatHeader({ user, onOpenProfile, isGroup, onOpenGroupPanel, pre
                 >
                     <Phone size={18} />
                 </Button>
+                {onToggleInfoPanel && (
+                    <Button
+                        onClick={onToggleInfoPanel}
+                        variant="ghost"
+                        size="icon"
+                        className="h-9 w-9 hidden lg:inline-flex"
+                        title={isInfoPanelOpen ? "Đóng thông tin" : "Mở thông tin"}
+                    >
+                        {isInfoPanelOpen ? <PanelRightClose size={18} /> : <PanelRightOpen size={18} />}
+                    </Button>
+                )}
             </div>
         </header>
     );

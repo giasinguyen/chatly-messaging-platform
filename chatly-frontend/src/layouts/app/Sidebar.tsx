@@ -5,6 +5,7 @@ import type { UserResponse } from "@/types/auth";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/store/auth.store";
 import { authService } from "@/services/auth.service";
+import { socketService } from "@/services/socket.service";
 import { toast } from "sonner";
 import { NotificationBell } from "@/components/customize/NotificationBell";
 import { useNotificationStore } from "@/store/notification.store";
@@ -23,11 +24,13 @@ export function Sidebar({ user }: SidebarProps) {
     const handleLogout = async () => {
         try {
             await authService.logout();
+            socketService.disconnect();
             clearAuth();
             toast.success("Đã đăng xuất thành công");
             navigate("/auth/login");
         } catch (error) {
             console.error("Logout error", error);
+            socketService.disconnect();
             clearAuth();
             navigate("/auth/login");
         }

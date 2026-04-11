@@ -21,6 +21,7 @@ public class ConversationResponse {
     private String creatorId;
     private List<String> participantIds;
     private LastMessage lastMessage;
+    private long unreadCount;
     private Instant createdAt;
     private Instant updatedAt;
 }

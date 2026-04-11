@@ -2,6 +2,8 @@ package com.chatly.dto.response;
 
 import lombok.*;
 
+import java.time.Instant;
+
 @Getter
 @Setter
 @NoArgsConstructor
@@ -16,4 +18,5 @@ public class FileUploadResponse {
     private String fileType;
     private Long fileSize;
     private String conversationId;
+    private Instant createdAt;
 }

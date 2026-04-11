@@ -9,5 +9,7 @@ public interface FileMetadataRepository extends MongoRepository<FileMetadata, St
 
     List<FileMetadata> findByConversationId(String conversationId);
 
+    List<FileMetadata> findByConversationIdOrderByCreatedAtDesc(String conversationId);
+
     List<FileMetadata> findByUploadedBy(String uploadedBy);
 }

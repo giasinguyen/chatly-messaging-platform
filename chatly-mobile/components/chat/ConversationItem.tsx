@@ -1,4 +1,5 @@
 import { View, Text, TouchableOpacity } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { Avatar } from '@/components/ui/Avatar';
 import { Colors } from '@/constants/theme';
 import { formatRelativeTime, truncateText } from '@/utils/format';
@@ -11,6 +12,8 @@ interface ConversationItemProps {
   onLongPress?: () => void;
   participantNames?: Record<string, string>;
   participantAvatars?: Record<string, string | undefined>;
+  isPinned?: boolean;
+  isMuted?: boolean;
 }
 
 export function ConversationItem({
@@ -20,6 +23,8 @@ export function ConversationItem({
   onLongPress,
   participantNames = {},
   participantAvatars = {},
+  isPinned = false,
+  isMuted = false,
 }: ConversationItemProps) {
   const { type, name, avatarUrl, lastMessage, participantIds, updatedAt } = conversation;
 
@@ -72,7 +77,7 @@ export function ConversationItem({
       activeOpacity={0.7}
       className="flex-row items-center px-4 py-3"
       style={{
-        backgroundColor: Colors.white,
+        backgroundColor: isPinned ? Colors.ctaLight : Colors.white,
         borderBottomWidth: 0.5,
         borderBottomColor: Colors.borderLight,
       }}
@@ -88,17 +93,40 @@ export function ConversationItem({
           >
             {displayName}
           </Text>
-          <Text className="ml-2 text-xs" style={{ color: Colors.textMuted }}>
-            {timeStr}
-          </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginLeft: 6 }}>
+            {isPinned && (
+              <Ionicons name="bookmark" size={13} color={Colors.cta} />
+            )}
+            {isMuted && (
+              <Ionicons name="notifications-off-outline" size={13} color={Colors.textLight} />
+            )}
+            <Text className="text-xs" style={{ color: Colors.textMuted }}>
+              {timeStr}
+            </Text>
+          </View>
         </View>
-        <Text
-          className="mt-0.5 text-sm"
-          style={{ color: Colors.textMuted }}
-          numberOfLines={1}
-        >
-          {truncateText(preview, 40)}
-        </Text>
+        <View className="flex-row items-center justify-between mt-0.5">
+          <Text
+            className="flex-1 text-sm"
+            style={{ 
+              color: conversation.unreadCount > 0 ? Colors.text : Colors.textMuted,
+              fontWeight: conversation.unreadCount > 0 ? '600' : 'normal'
+            }}
+            numberOfLines={1}
+          >
+            {truncateText(preview, 35)}
+          </Text>
+          {conversation.unreadCount > 0 && (
+            <View 
+              className="ml-2 h-5 min-w-[20px] items-center justify-center rounded-full px-1.5"
+              style={{ backgroundColor: Colors.cta }}
+            >
+              <Text className="text-[10px] font-bold text-white">
+                {conversation.unreadCount > 99 ? '99+' : conversation.unreadCount}
+              </Text>
+            </View>
+          )}
+        </View>
       </View>
     </TouchableOpacity>
   );

@@ -11,4 +11,5 @@ public class GroupUpdateRequest {
 
     private String name;
     private String avatar;
+    private Boolean allowMembersUpdateInfo;
 }

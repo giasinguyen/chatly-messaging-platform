@@ -8,14 +8,17 @@ import com.chatly.exception.ErrorCode;
 import com.chatly.mapper.ConversationMapper;
 import com.chatly.model.enums.ConversationType;
 import com.chatly.model.enums.GroupRole;
+import com.chatly.model.enums.NotificationType;
 import com.chatly.model.mongo.Conversation;
+import com.chatly.model.mongo.Message;
+import com.chatly.model.mongo.Notification;
 import com.chatly.model.postgres.GroupMember;
 import com.chatly.model.postgres.User;
 import com.chatly.repository.mongo.ConversationRepository;
+import com.chatly.repository.mongo.NotificationRepository;
 import com.chatly.repository.postgres.GroupMemberRepository;
 import com.chatly.repository.postgres.UserRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -36,6 +39,7 @@ import java.util.regex.Pattern;
 public class ConversationService {
 
     private final ConversationRepository conversationRepository;
+    private final NotificationRepository notificationRepository;
     private final GroupMemberRepository groupMemberRepository;
     private final UserRepository userRepository;
     private final ConversationMapper conversationMapper;
@@ -78,13 +82,19 @@ public class ConversationService {
             throw new AppException(ErrorCode.NOT_CONVERSATION_PARTICIPANT);
         }
 
-        return conversationMapper.toResponse(conversation);
+        ConversationResponse response = conversationMapper.toResponse(conversation);
+        response.setUnreadCount(getConversationUnreadCount(id, userId));
+        return response;
     }
 
     public List<ConversationResponse> getByUserId(String userId) {
         return conversationRepository.findByParticipantIdsContainingOrderByUpdatedAtDesc(userId)
                 .stream()
-                .map(conversationMapper::toResponse)
+                .map(c -> {
+                    ConversationResponse res = conversationMapper.toResponse(c);
+                    res.setUnreadCount(getConversationUnreadCount(c.getId(), userId));
+                    return res;
+                })
                 .toList();
     }
 
@@ -122,7 +132,11 @@ public class ConversationService {
 
         List<ConversationResponse> items = mongoTemplate.find(query, Conversation.class)
                 .stream()
-                .map(conversationMapper::toResponse)
+                .map(c -> {
+                    ConversationResponse res = conversationMapper.toResponse(c);
+                    res.setUnreadCount(getConversationUnreadCount(c.getId(), userId));
+                    return res;
+                })
                 .toList();
 
         return PagedResponse.from(new PageImpl<>(items, pageable, total));
@@ -134,10 +148,34 @@ public class ConversationService {
                 .orElseThrow(() -> new AppException(ErrorCode.CONVERSATION_NOT_FOUND));
 
         if (!conversation.getParticipantIds().contains(userId)) {
-            throw new AppException(ErrorCode.GROUP_PERMISSION_DENIED);
+            throw new AppException(ErrorCode.NOT_CONVERSATION_PARTICIPANT);
         }
 
-        conversationRepository.deleteById(id);
+        // Authorization for GROUP deletion: only OWNER can delete
+        if (conversation.getType() == ConversationType.GROUP) {
+            GroupMember member = groupMemberRepository.findByConversationIdAndUserId(id, UUID.fromString(userId))
+                    .orElseThrow(() -> new AppException(ErrorCode.NOT_CONVERSATION_PARTICIPANT));
+            
+            if (member.getRole() != GroupRole.OWNER) {
+                throw new AppException(ErrorCode.GROUP_PERMISSION_DENIED);
+            }
+            
+            // Delete all group memberships in Postgres
+            List<GroupMember> members = groupMemberRepository.findByConversationId(id);
+            groupMemberRepository.deleteAllInBatch(members);
+        }
+
+        // Delete all associated data in MongoDB
+        mongoTemplate.remove(Query.query(Criteria.where("conversationId").is(id)), Message.class);
+        mongoTemplate.remove(Query.query(Criteria.where("referenceId").is(id)), Notification.class);
+
+        // Delete the conversation itself
+        conversationRepository.delete(conversation);
+    }
+
+    private long getConversationUnreadCount(String conversationId, String userId) {
+        return notificationRepository.countByReceiverIdAndTypeAndReferenceIdAndReadFalse(
+                userId, NotificationType.NEW_MESSAGE, conversationId);
     }
 
     private void createGroupMembers(String conversationId, String creatorId, List<String> participantIds) {

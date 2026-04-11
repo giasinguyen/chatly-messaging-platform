@@ -4,6 +4,7 @@ import com.chatly.model.enums.MessageStatus;
 import com.chatly.model.enums.MessageType;
 import com.chatly.model.mongo.Attachment;
 import com.chatly.model.mongo.EditHistory;
+import com.chatly.model.mongo.Reaction;
 import com.chatly.model.mongo.ReadReceipt;
 import lombok.*;
 
@@ -36,6 +37,8 @@ public class MessageResponse {
     private boolean edited;
     private Instant editedAt;
     private List<EditHistory> editHistory;
+
+    private List<Reaction> reactions;
 
     private Instant createdAt;
     private Instant updatedAt;

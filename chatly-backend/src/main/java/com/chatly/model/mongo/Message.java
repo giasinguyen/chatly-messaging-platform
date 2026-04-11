@@ -59,6 +59,9 @@ public class Message {
     @Builder.Default
     private List<EditHistory> editHistory = new ArrayList<>();
 
+    @Builder.Default
+    private List<Reaction> reactions = new ArrayList<>();
+
     @CreatedDate
     private Instant createdAt;
 

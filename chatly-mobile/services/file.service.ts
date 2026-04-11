@@ -8,6 +8,7 @@ export interface FileUploadResponse {
   fileType: string;
   fileSize: number;
   conversationId?: string;
+  createdAt?: string;
 }
 
 export const fileService = {
@@ -17,12 +18,14 @@ export const fileService = {
    * @param fileName original file name
    * @param mimeType MIME type, e.g. "image/jpeg"
    * @param conversationId optional, required for chat attachments
+   * @param onProgress optional callback for upload progress
    */
   async upload(
     uri: string,
     fileName: string,
     mimeType: string,
     conversationId?: string,
+    onProgress?: (percent: number) => void,
   ): Promise<FileUploadResponse> {
     const formData = new FormData();
 
@@ -41,6 +44,11 @@ export const fileService = {
       formData,
       {
         headers: { 'Content-Type': 'multipart/form-data' },
+        onUploadProgress: (event) => {
+          if (onProgress && event.total) {
+            onProgress(Math.round((event.loaded * 100) / event.total));
+          }
+        },
       },
     );
 
@@ -49,5 +57,16 @@ export const fileService = {
 
   async deleteFile(fileId: string): Promise<void> {
     await axiosClient.delete(`/api/files/${fileId}`);
+  },
+
+  async getByConversation(
+    conversationId: string,
+    type?: 'image' | 'video' | 'file',
+  ): Promise<FileUploadResponse[]> {
+    const { data } = await axiosClient.get<{ result: FileUploadResponse[] }>(
+      `/api/files/conversation/${conversationId}`,
+      { params: type ? { type } : {} },
+    );
+    return data.result;
   },
 };

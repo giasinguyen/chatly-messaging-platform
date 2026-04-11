@@ -1,10 +1,12 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { Bell, Check, CheckCheck, MessageCircle, UserPlus, Users, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { notificationService } from "@/services/notification.service";
 import { useNotificationSocket } from "@/hooks/useNotificationSocket";
 import { useAuthStore } from "@/store/auth.store";
 import { useNotificationStore } from "@/store/notification.store";
+import { useConversationPrefsStore } from "@/store/conversationPrefs.store";
 import type { Notification, NotificationEvent } from "@/types/notification";
 
 export function NotificationBell() {
@@ -18,8 +20,10 @@ export function NotificationBell() {
         markOneRead,
         markAllRead,
     } = useNotificationStore();
+    const convPrefs = useConversationPrefsStore((s) => s.prefs);
     const [open, setOpen] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
+    const navigate = useNavigate();
 
     // ----- Load initial data -----
     useEffect(() => {
@@ -47,7 +51,14 @@ export function NotificationBell() {
     // ----- Real-time WebSocket events -----
     const handleNotificationEvent = useCallback((event: NotificationEvent) => {
         addNotification(event.notification);
-    }, [addNotification]);
+        if (event.notification.type === "NEW_MESSAGE") {
+            const convId = event.notification.referenceId ?? "";
+            const isMuted = convPrefs[convId]?.isMuted ?? false;
+            if (!isMuted) {
+                new Audio("/sounds/message_ting_ting.mp3").play().catch(() => {});
+            }
+        }
+    }, [addNotification, convPrefs]);
 
     useNotificationSocket({ onEvent: handleNotificationEvent });
 
@@ -93,6 +104,16 @@ export function NotificationBell() {
             // silently fail
         }
     }, [markAllRead]);
+
+    const handleNotificationClick = useCallback(async (notif: Notification) => {
+        await handleMarkRead(notif);
+        setOpen(false);
+        if (notif.type === "FRIEND_REQUEST") {
+            navigate("/contact?tab=requests");
+        } else if (notif.type === "GROUP_INVITE" && notif.referenceId) {
+            navigate(`/chat/${notif.referenceId}`);
+        }
+    }, [handleMarkRead, navigate]);
 
     const getIcon = (type: Notification["type"]) => {
         switch (type) {
@@ -192,7 +213,7 @@ export function NotificationBell() {
                                 {otherNotifications.map((notif) => (
                                     <li key={notif.id}>
                                         <button
-                                            onClick={() => handleMarkRead(notif)}
+                                            onClick={() => handleNotificationClick(notif)}
                                             className={cn(
                                                 "w-full text-left px-4 py-3 flex gap-3 items-start hover:bg-muted/60 transition-colors",
                                                 !notif.read && "bg-brand/5",

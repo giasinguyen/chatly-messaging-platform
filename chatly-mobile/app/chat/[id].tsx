@@ -7,7 +7,7 @@ import {
   ActivityIndicator,
   Alert,
 } from 'react-native';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ChatHeader } from '@/components/chat/ChatHeader';
 import { MessageBubble } from '@/components/chat/MessageBubble';
@@ -15,16 +15,18 @@ import { ChatInput } from '@/components/chat/ChatInput';
 import { DateSeparator } from '@/components/chat/DateSeparator';
 import { MessageActions } from '@/components/chat/MessageActions';
 import { TypingIndicator } from '@/components/chat/TypingIndicator';
+import { MessageSearch } from '@/components/chat/MessageSearch';
 import { messageService } from '@/services/message.service';
 import { conversationService } from '@/services/conversation.service';
 import { userService } from '@/services/user.service';
 import { useMessageStore } from '@/store/message.store';
 import { useAuthStore } from '@/store/auth.store';
+import { useConversationStore } from '@/store/conversation.store';
 import { useChatSocket } from '@/hooks/useChatSocket';
 import { usePresenceSocket } from '@/hooks/usePresenceSocket';
 import { Colors } from '@/constants/theme';
 import { formatDateSeparator } from '@/utils/format';
-import type { Message, ChatEvent } from '@/types/message';
+import type { Message, ChatEvent, Attachment } from '@/types/message';
 import type { ConversationResponse } from '@/types/conversation';
 import type { UserResponse } from '@/types/auth';
 
@@ -32,6 +34,7 @@ const PAGE_SIZE = 20;
 
 export default function ChatScreen() {
   const { id: conversationId } = useLocalSearchParams<{ id: string }>();
+  const router = useRouter();
   const insets = useSafeAreaInsets();
   const user = useAuthStore((s) => s.user);
   const flatListRef = useRef<FlatList>(null);
@@ -58,24 +61,37 @@ export default function ChatScreen() {
   const [typingUsers, setTypingUsers] = useState<Set<string>>(new Set());
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
   const [otherUserOnline, setOtherUserOnline] = useState(false);
+  const [showSearch, setShowSearch] = useState(false);
+  const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
 
   const messages = messagesByConversation[conversationId ?? ''] ?? [];
   const currentPage = page[conversationId ?? ''] ?? 0;
   const canLoadMore = hasMore[conversationId ?? ''] ?? true;
 
-  // WebSocket realtime
+  const { updateConversation } = useConversationStore();
+
   const handleChatEvent = useCallback(
     (event: ChatEvent) => {
       if (!conversationId) return;
       switch (event.action) {
         case 'SEND':
           addMessage(conversationId, event.message);
+          
+          // Update conversation list preview
+          updateConversation(conversationId, {
+            lastMessage: {
+              senderId: event.message.senderId,
+              content: event.message.content,
+              type: event.message.type,
+              timestamp: event.message.createdAt,
+            },
+          });
+
           setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
           break;
         case 'EDIT':
-          updateMessage(conversationId, event.message.id, event.message);
-          break;
         case 'RECALL':
+        case 'REACT':
           updateMessage(conversationId, event.message.id, event.message);
           break;
         case 'DELETE':
@@ -83,7 +99,7 @@ export default function ChatScreen() {
           break;
       }
     },
-    [conversationId, addMessage, updateMessage, removeMessage],
+    [conversationId, addMessage, updateMessage, removeMessage, updateConversation],
   );
 
   const handleTyping = useCallback(
@@ -138,9 +154,13 @@ export default function ChatScreen() {
     onRead: handleRead,
   });
 
+  const { setActiveConversation } = useConversationStore();
+
   // Fetch conversation details
   useEffect(() => {
     if (!conversationId) return;
+
+    setActiveConversation(conversationId);
 
     const fetchDetails = async () => {
       try {
@@ -162,7 +182,11 @@ export default function ChatScreen() {
     };
 
     fetchDetails();
-  }, [conversationId]);
+
+    return () => {
+      setActiveConversation(null);
+    };
+  }, [conversationId, setActiveConversation]);
 
   // Fetch initial messages
   useEffect(() => {
@@ -215,13 +239,28 @@ export default function ChatScreen() {
 
   // Send message (try WebSocket, fallback to REST)
   const handleSend = useCallback(
-    async (text: string) => {
+    async (text: string, attachments?: Attachment[]) => {
       if (!conversationId || !user) return;
       const replyToId = replyingTo?.id ?? null;
+      const hasAttachments = attachments && attachments.length > 0;
+      const msgType = hasAttachments
+        ? attachments[0].type?.startsWith('image/') ? 'IMAGE'
+          : attachments[0].type?.startsWith('video/') ? 'VIDEO'
+          : attachments[0].type?.startsWith('audio/') ? 'AUDIO'
+          : 'FILE'
+        : 'TEXT';
+
+      const optimisticLastMsg = {
+        senderId: user.id,
+        content: text || (hasAttachments ? `[${msgType}]` : ''),
+        type: msgType as 'TEXT',
+        timestamp: new Date().toISOString(),
+      };
 
       // Try WebSocket first
-      const sent = wsSendMessage(text, replyToId);
+      const sent = wsSendMessage(text, replyToId, attachments);
       if (sent) {
+        updateConversation(conversationId, { lastMessage: optimisticLastMsg });
         setReplyingTo(null);
         setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
         return;
@@ -232,17 +271,26 @@ export default function ChatScreen() {
         const res = await messageService.send({
           conversationId,
           content: text,
-          type: 'TEXT',
+          type: msgType,
           replyToId,
+          attachments,
         });
         addMessage(conversationId, res.result);
+        updateConversation(conversationId, { 
+          lastMessage: {
+            senderId: res.result.senderId,
+            content: res.result.content,
+            type: res.result.type,
+            timestamp: res.result.createdAt,
+          } 
+        });
         setReplyingTo(null);
         setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
       } catch (error) {
         Alert.alert('Lỗi', 'Không thể gửi tin nhắn. Vui lòng thử lại.');
       }
     },
-    [conversationId, user, replyingTo, wsSendMessage, addMessage],
+    [conversationId, user, replyingTo, wsSendMessage, addMessage, updateConversation],
   );
 
   // Message actions
@@ -315,6 +363,19 @@ export default function ChatScreen() {
     ]);
   }, [selectedMessage, conversationId, removeMessage]);
 
+  const handleReact = useCallback(
+    async (messageId: string, emoji: string) => {
+      if (!conversationId || !user) return;
+      try {
+        const res = await messageService.react(messageId, emoji);
+        updateMessage(conversationId, messageId, res.result);
+      } catch {
+        Alert.alert('Lỗi', 'Không thể bày tỏ cảm xúc.');
+      }
+    },
+    [conversationId, user, updateMessage],
+  );
+
   // Build display data with date separators
   const displayData = useMemo(() => {
     const items: Array<{ type: 'date'; label: string } | { type: 'message'; data: Message }> = [];
@@ -331,6 +392,20 @@ export default function ChatScreen() {
 
     return items;
   }, [messages]);
+
+  const handleNavigateToMessage = useCallback(
+    (messageId: string) => {
+      setHighlightedMessageId(messageId);
+      const idx = displayData.findIndex(
+        (item) => item.type === 'message' && item.data.id === messageId,
+      );
+      if (idx >= 0) {
+        flatListRef.current?.scrollToIndex({ index: idx, animated: true, viewPosition: 0.5 });
+      }
+      setTimeout(() => setHighlightedMessageId(null), 2000);
+    },
+    [displayData],
+  );
 
   // Resolve chat header info
   const isGroup = conversation?.type === 'GROUP';
@@ -358,7 +433,23 @@ export default function ChatScreen() {
         isGroup={isGroup}
         memberCount={conversation?.participantIds.length}
         isOnline={!isGroup && otherUserOnline}
+        onToggleSearch={() => {
+          setShowSearch((prev) => !prev);
+          if (showSearch) setHighlightedMessageId(null);
+        }}
+        onPressInfo={() => router.push(`/chat/${conversationId}/info`)}
       />
+
+      {showSearch && conversationId && (
+        <MessageSearch
+          conversationId={conversationId}
+          onClose={() => {
+            setShowSearch(false);
+            setHighlightedMessageId(null);
+          }}
+          onNavigateToMessage={handleNavigateToMessage}
+        />
+      )}
 
       {/* Messages */}
       <View className="flex-1" style={{ backgroundColor: Colors.bg }}>
@@ -380,15 +471,20 @@ export default function ChatScreen() {
               const msg = item.data;
               const isMe = msg.senderId === user?.id;
               const sender = participantMap[msg.senderId];
+              const isHighlighted = highlightedMessageId === msg.id;
               return (
-                <MessageBubble
-                  message={msg}
-                  isMe={isMe}
-                  showAvatar={isGroup}
-                  senderName={sender?.displayName}
-                  onLongPress={() => handleLongPress(msg)}
-                  replyToMessage={msg.replyToId ? (messageById[msg.replyToId] ?? null) : null}
-                />
+                <View style={isHighlighted ? { backgroundColor: 'rgba(234,179,8,0.15)', borderRadius: 12 } : undefined}>
+                  <MessageBubble
+                    message={msg}
+                    isMe={isMe}
+                    showAvatar={isGroup}
+                    senderName={sender?.displayName}
+                    currentUserId={user?.id}
+                    onLongPress={() => handleLongPress(msg)}
+                    onReact={handleReact}
+                    replyToMessage={msg.replyToId ? (messageById[msg.replyToId] ?? null) : null}
+                  />
+                </View>
               );
             }}
             onEndReached={loadMore}
@@ -429,6 +525,7 @@ export default function ChatScreen() {
       {/* Input */}
       <View style={{ paddingBottom: insets.bottom }}>
         <ChatInput
+          conversationId={conversationId}
           onSend={handleSend}
           onTyping={sendTyping}
           replyingTo={replyingTo}
@@ -447,6 +544,7 @@ export default function ChatScreen() {
           setActionsVisible(false);
         }}
         onCopy={handleCopy}
+        onReact={selectedMessage ? (emoji: string) => handleReact(selectedMessage.id, emoji) : undefined}
         onEdit={handleEdit}
         onRecall={handleRecall}
         onDelete={handleDelete}
