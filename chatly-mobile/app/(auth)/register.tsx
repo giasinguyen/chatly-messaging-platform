@@ -43,25 +43,25 @@ export default function RegisterScreen() {
     const newErrors: FormErrors = {};
 
     if (!displayName.trim()) {
-      newErrors.displayName = 'Vui lòng nhập tên hiển thị';
+      newErrors.displayName = 'Please enter your display name';
     }
     if (!username.trim()) {
-      newErrors.username = 'Vui lòng nhập tên đăng nhập';
+      newErrors.username = 'Please enter your username';
     } else if (username.length < 3) {
-      newErrors.username = 'Tên đăng nhập ít nhất 3 ký tự';
+      newErrors.username = 'Username must be at least 3 characters';
     }
     if (!email.trim()) {
-      newErrors.email = 'Vui lòng nhập email';
+      newErrors.email = 'Please enter your email';
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      newErrors.email = 'Email không hợp lệ';
+      newErrors.email = 'Invalid email address';
     }
     if (!password) {
-      newErrors.password = 'Vui lòng nhập mật khẩu';
+      newErrors.password = 'Please enter a password';
     } else if (password.length < 6) {
-      newErrors.password = 'Mật khẩu ít nhất 6 ký tự';
+      newErrors.password = 'Password must be at least 6 characters';
     }
     if (password !== confirmPassword) {
-      newErrors.confirmPassword = 'Mật khẩu xác nhận không khớp';
+      newErrors.confirmPassword = 'Passwords do not match';
     }
 
     setErrors(newErrors);
@@ -83,8 +83,8 @@ export default function RegisterScreen() {
       await setAuth(response.result);
       router.replace('/(tabs)/chats');
     } catch (error: any) {
-      const message = getApiErrorMessage(error, 'Đăng ký thất bại. Vui lòng thử lại.');
-      Alert.alert('Đăng ký thất bại', message);
+      const message = getApiErrorMessage(error, 'Registration failed. Please try again.');
+      Alert.alert('Registration Failed', message);
     } finally {
       setLoading(false);
     }
@@ -117,16 +117,16 @@ export default function RegisterScreen() {
             className="mt-2 text-center text-base"
             style={{ color: Colors.textMuted }}
           >
-            Tạo tài khoản mới
+            Create a new account
           </Text>
         </View>
 
         {/* Form */}
         <View className="mb-4">
           <AuthInput
-            label="Tên hiển thị"
+            label="Display Name"
             icon="person-outline"
-            placeholder="Nguyễn Văn A"
+            placeholder="John Doe"
             value={displayName}
             onChangeText={(text) => {
               setDisplayName(text);
@@ -137,7 +137,7 @@ export default function RegisterScreen() {
           />
 
           <AuthInput
-            label="Tên đăng nhập"
+            label="Username"
             icon="at-outline"
             placeholder="username"
             value={username}
@@ -165,9 +165,9 @@ export default function RegisterScreen() {
           />
 
           <AuthInput
-            label="Mật khẩu"
+            label="Password"
             icon="lock-closed-outline"
-            placeholder="Ít nhất 6 ký tự"
+            placeholder="At least 6 characters"
             value={password}
             onChangeText={(text) => {
               setPassword(text);
@@ -179,9 +179,9 @@ export default function RegisterScreen() {
           />
 
           <AuthInput
-            label="Xác nhận mật khẩu"
+            label="Confirm Password"
             icon="shield-checkmark-outline"
-            placeholder="Nhập lại mật khẩu"
+            placeholder="Re-enter password"
             value={confirmPassword}
             onChangeText={(text) => {
               setConfirmPassword(text);
@@ -195,14 +195,14 @@ export default function RegisterScreen() {
         </View>
 
         {/* Register Button */}
-        <PrimaryButton title="Đăng ký" loading={loading} onPress={handleRegister} />
+        <PrimaryButton title="Sign Up" loading={loading} onPress={handleRegister} />
 
         {/* Login Link */}
         <View className="mt-6 flex-row items-center justify-center">
-          <Text style={{ color: Colors.textMuted }}>Đã có tài khoản? </Text>
+          <Text style={{ color: Colors.textMuted }}>Already have an account? </Text>
           <TouchableOpacity onPress={() => router.back()}>
             <Text className="font-semibold" style={{ color: Colors.cta }}>
-              Đăng nhập
+              Sign In
             </Text>
           </TouchableOpacity>
         </View>

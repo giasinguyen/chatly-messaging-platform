@@ -85,7 +85,7 @@ export function ChatHeader({ user, onOpenProfile, isGroup, conversationId, other
                         variant="ghost"
                         size="icon"
                         className="h-9 w-9"
-                        title="Quản lý nhóm"
+                        title="Group management"
                     >
                         <Users size={18} />
                     </Button>
@@ -95,7 +95,7 @@ export function ChatHeader({ user, onOpenProfile, isGroup, conversationId, other
                     variant="ghost"
                     size="icon"
                     className="h-9 w-9"
-                    title="Tìm kiếm tin nhắn"
+                    title="Search messages"
                 >
                     <Search size={18} />
                 </Button>
@@ -138,7 +138,7 @@ export function ChatHeader({ user, onOpenProfile, isGroup, conversationId, other
                         variant="ghost"
                         size="icon"
                         className="h-9 w-9 hidden lg:inline-flex"
-                        title={isInfoPanelOpen ? "Đóng thông tin" : "Mở thông tin"}
+                        title={isInfoPanelOpen ? "Close info panel" : "Open info panel"}
                     >
                         {isInfoPanelOpen ? <PanelRightClose size={18} /> : <PanelRightOpen size={18} />}
                     </Button>

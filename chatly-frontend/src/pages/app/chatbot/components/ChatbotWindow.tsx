@@ -54,7 +54,7 @@ export function ChatbotWindow({ sessionId, sidebarCollapsed, onToggleSidebar }: 
                 const data = await agentService.getHistory(sessionId);
                 if (!cancelled) setMessages(sessionId, data.messages);
             } catch {
-                toast.error("Không thể tải lịch sử chat");
+                toast.error("Failed to load chat history");
             }
         };
 

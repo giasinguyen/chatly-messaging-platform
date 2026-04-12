@@ -6,21 +6,22 @@ import {
     CarouselNext,
     CarouselPrevious,
 } from "@/components/ui/carousel";
+import Autoplay from "embla-carousel-autoplay";
 
 const slides = [
     {
-        title: "Trải nghiệm xuyên suốt",
-        desc: "Kết nối và giải quyết công việc trên mọi thiết bị với dữ liệu luôn được đồng bộ",
+        title: "Seamless Experience",
+        desc: "Connect and work on all devices with always-synced data",
         icon: <MonitorSmartphone className="h-32 w-32 text-brand" />,
     },
     {
-        title: "Gửi file nặng dễ dàng",
-        desc: "Đã có thể gửi file lên tới 1GB nhanh chóng và tiện lợi",
+        title: "Large File Transfer",
+        desc: "Send files up to 1GB quickly and conveniently",
         icon: <CloudLightning className="h-32 w-32 text-brand" />,
     },
     {
-        title: "Bảo mật tin nhắn",
-        desc: "Trò chuyện an toàn với mã hoá đầu cuối cho mọi không gian",
+        title: "Secure Messaging",
+        desc: "Chat securely with end-to-end encryption in all spaces",
         icon: <ShieldCheck className="h-32 w-32 text-brand" />,
     },
 ];
@@ -30,13 +31,17 @@ export function WelcomeState() {
         <main className="flex-1 bg-[#F5F5F7] dark:bg-[#1D1D1F] flex flex-col items-center justify-center p-8 overflow-hidden relative">
             <div className="max-w-[480px] w-full flex flex-col items-center justify-center">
                 <h2 className="text-2xl md:text-3xl font-semibold mb-12 text-foreground text-center">
-                    Chào mừng đến với{" "}
+                    Welcome to{" "}
                     <span className="font-bold text-brand">
                         Chatly!
                     </span>
                 </h2>
 
-                <Carousel className="w-full" opts={{ loop: true }}>
+                <Carousel 
+                    className="w-full" 
+                    opts={{ loop: true }}
+                    plugins={[Autoplay({ delay: 4500, stopOnInteraction: false })]}
+                >
                     <CarouselContent>
                         {slides.map((slide, index) => (
                             <CarouselItem key={index}>

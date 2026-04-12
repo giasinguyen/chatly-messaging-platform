@@ -84,8 +84,8 @@ export function NotificationBanner() {
         <View className="ml-3 flex-1">
           <Text className="font-bold text-sm" style={{ color: Colors.text }}>
             {bannerNotification.type === 'NEW_MESSAGE' 
-              ? `Tin nhắn từ ${bannerNotification.senderName}` 
-              : 'Lời mời kết bạn'}
+              ? `Message from ${bannerNotification.senderName}` 
+              : 'Friend Request'}
           </Text>
           <Text 
             className="text-xs mt-0.5" 

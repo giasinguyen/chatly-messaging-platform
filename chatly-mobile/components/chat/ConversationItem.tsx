@@ -29,34 +29,34 @@ export function ConversationItem({
   const { type, name, avatarUrl, lastMessage, participantIds, updatedAt } = conversation;
 
   // Resolve display name
-  let displayName = name ?? 'Cuộc trò chuyện';
+  let displayName = name ?? 'Conversation';
   let displayAvatar = avatarUrl;
 
   if (type === 'PRIVATE') {
     const otherId = participantIds.find((id) => id !== currentUserId);
     if (otherId) {
-      displayName = participantNames[otherId] ?? 'Người dùng';
+      displayName = participantNames[otherId] ?? 'User';
       displayAvatar = participantAvatars[otherId] ?? null;
     }
   }
 
   // Last message preview
-  let preview = 'Chưa có tin nhắn';
+  let preview = 'No messages yet';
   if (lastMessage) {
     const isMe = lastMessage.senderId === currentUserId;
-    const prefix = isMe ? 'Bạn: ' : '';
+    const prefix = isMe ? 'You: ' : '';
     switch (lastMessage.type) {
       case 'IMAGE':
-        preview = prefix + '📷 Hình ảnh';
+        preview = prefix + '📷 Image';
         break;
       case 'FILE':
-        preview = prefix + '📎 Tệp đính kèm';
+        preview = prefix + '📎 Attachment';
         break;
       case 'VIDEO':
         preview = prefix + '🎬 Video';
         break;
       case 'AUDIO':
-        preview = prefix + '🎵 Âm thanh';
+        preview = prefix + '🎵 Audio';
         break;
       case 'SYSTEM':
         preview = lastMessage.content;

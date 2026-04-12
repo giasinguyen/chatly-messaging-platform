@@ -4,13 +4,13 @@ import type { Message } from "@/types/message";
 
 /**
  * MESSAGE SERVICE
- * Chứa các API liên quan đến Message.
+ * Contains APIs related to Messages.
  */
 export const messageService = {
     /**
-     * Lấy danh sách tin nhắn trong một conversation, có phân trang.
-     * API trả về theo thứ tự mới nhất trước (descending).
-     * Cần reverse() trước khi render để hiển thị cũ → mới.
+     * Get the list of messages in a conversation, with pagination.
+     * API returns in latest first order (descending).
+     * Needs reverse() before rendering to display old → new.
      */
     getByConversation: async (
         conversationId: string,
@@ -25,7 +25,7 @@ export const messageService = {
     },
 
     /**
-     * Gửi tin nhắn mới.
+     * Send a new message.
      */
     send: async (payload: {
         conversationId: string;
@@ -53,7 +53,7 @@ export const messageService = {
     },
 
     /**
-     * Đánh dấu tin nhắn đã đọc.
+     * Mark message as seen.
      */
     markAsSeen: async (messageId: string): Promise<ApiResponse<Message>> => {
         const response = await axiosClient.put<ApiResponse<Message>>(
@@ -63,7 +63,7 @@ export const messageService = {
     },
 
     /**
-     * Thu hồi tin nhắn (chỉ trong vòng 24 giờ, không thu hồi của người khác).
+     * Recall message (only within 24 hours, cannot recall others' messages).
      */
     recall: async (messageId: string): Promise<ApiResponse<Message>> => {
         const response = await axiosClient.put<ApiResponse<Message>>(
@@ -73,7 +73,7 @@ export const messageService = {
     },
 
     /**
-     * Chỉnh sửa nội dung tin nhắn (chỉ TEXT, trong vòng 15 phút, không chỉnh sửa của người khác).
+     * Edit message content (TEXT only, within 15 minutes, cannot edit others' messages).
      */
     edit: async (
         messageId: string,
@@ -87,7 +87,7 @@ export const messageService = {
     },
 
     /**
-     * Xoá tin nhắn.
+     * Delete message.
      */
     delete: async (messageId: string): Promise<ApiResponse<void>> => {
         const response = await axiosClient.delete<ApiResponse<void>>(
@@ -122,6 +122,14 @@ export const messageService = {
         const response = await axiosClient.put<ApiResponse<Message>>(
             `/api/messages/${messageId}/vote`,
             { optionIndex },
+        );
+        return response.data;
+    },
+
+    // ── Close Poll ──────────────────────────────────────────────────
+    closePoll: async (messageId: string): Promise<ApiResponse<Message>> => {
+        const response = await axiosClient.put<ApiResponse<Message>>(
+            `/api/messages/${messageId}/close-poll`,
         );
         return response.data;
     },

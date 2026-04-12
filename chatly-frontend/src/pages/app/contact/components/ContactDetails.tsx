@@ -43,7 +43,7 @@ export function ContactDetails({ activeTab }: ContactDetailsProps) {
             }
         } catch (error) {
             console.error(error);
-            toast.error("Không thể tải danh sách liên hệ");
+            toast.error("Could not load contact list");
         } finally {
             setLoading(false);
         }
@@ -56,30 +56,30 @@ export function ContactDetails({ activeTab }: ContactDetailsProps) {
     const handleAccept = async (id: string) => {
         try {
             await contactService.accept(id);
-            toast.success("Đã chấp nhận kết bạn");
+            toast.success("Friend request accepted");
             fetchContacts();
         } catch (error) {
-            toast.error("Lỗi khi chấp nhận kết bạn");
+            toast.error("Error accepting friend request");
         }
     };
 
     const handleReject = async (id: string) => {
         try {
             await contactService.delete(id);
-            toast.success("Đã từ chối kết bạn");
+            toast.success("Friend request rejected");
             fetchContacts();
         } catch (error) {
-            toast.error("Lỗi khi từ chối kết bạn");
+            toast.error("Error rejecting friend request");
         }
     };
 
     const handleUnblock = async (id: string) => {
         try {
              await contactService.delete(id);
-             toast.success("Đã bỏ chặn thành công");
+             toast.success("Successfully unblocked");
              fetchContacts();
         } catch (error) {
-             toast.error("Lỗi khi bỏ chặn");
+             toast.error("Error unblocking");
         }
     };
 
@@ -106,7 +106,7 @@ export function ContactDetails({ activeTab }: ContactDetailsProps) {
                 navigate(`/chat/${res.result.id}`);
             }
         } catch (error) {
-            toast.error("Không thể tạo cuộc trò chuyện");
+            toast.error("Could not create conversation");
         }
     };
 
@@ -136,10 +136,10 @@ export function ContactDetails({ activeTab }: ContactDetailsProps) {
                 return (
                     <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                         <Button size="sm" onClick={() => handleAccept(contact.id)} className="h-8">
-                            <Check className="h-4 w-4 mr-1" /> Chấp nhận
+                            <Check className="h-4 w-4 mr-1" /> Accept
                         </Button>
                         <Button size="sm" variant="destructive" onClick={() => handleReject(contact.id)} className="h-8">
-                            <X className="h-4 w-4 mr-1" /> Từ chối
+                            <X className="h-4 w-4 mr-1" /> Reject
                         </Button>
                     </div>
                 );
@@ -147,7 +147,7 @@ export function ContactDetails({ activeTab }: ContactDetailsProps) {
                 return (
                     <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                         <Button size="sm" variant="outline" onClick={() => handleReject(contact.id)} className="h-8">
-                            <X className="h-4 w-4 mr-1" /> Thu hồi
+                            <X className="h-4 w-4 mr-1" /> Recall
                         </Button>
                     </div>
                 );
@@ -157,7 +157,7 @@ export function ContactDetails({ activeTab }: ContactDetailsProps) {
         if (activeTab === "blocked") {
              return (
                  <Button size="sm" variant="outline" onClick={() => handleUnblock(contact.id)} className="h-8 opacity-0 group-hover:opacity-100 transition-opacity">
-                     <Unlock className="h-4 w-4 mr-1" /> Bỏ chặn
+                     <Unlock className="h-4 w-4 mr-1" /> Unblock
                  </Button>
              );
         }
@@ -166,7 +166,7 @@ export function ContactDetails({ activeTab }: ContactDetailsProps) {
         return (
              <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                  <Button size="sm" variant="ghost" onClick={() => handleMessage(otherUserId)} className="h-8 rounded-full px-3">
-                     <MessageSquare className="h-4 w-4 mr-1" /> Nhắn tin
+                     <MessageSquare className="h-4 w-4 mr-1" /> Message
                  </Button>
                  <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full">
                      <MoreHorizontal size={18} />
@@ -176,9 +176,9 @@ export function ContactDetails({ activeTab }: ContactDetailsProps) {
     };
 
     const getTitle = () => {
-         if (activeTab === "requests") return "Lời mời kết bạn";
-         if (activeTab === "blocked") return "Danh sách chặn";
-         return "Danh sách bạn bè";
+         if (activeTab === "requests") return "Friend requests";
+         if (activeTab === "blocked") return "Blocked list";
+         return "Friends list";
     };
 
     return (
@@ -196,13 +196,13 @@ export function ContactDetails({ activeTab }: ContactDetailsProps) {
             {/* Filters */}
             <div className="p-4 border-b border-border/50 bg-muted/20 flex flex-col gap-4">
                 <div className="text-sm font-medium text-muted-foreground">
-                    Tổng cộng: {filteredContacts.length}
+                    Total: {filteredContacts.length}
                 </div>
                 <div className="flex items-center gap-3">
                     <div className="relative flex-1 max-w-md">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                         <Input
-                            placeholder="Tìm bạn"
+                            placeholder="Find friends"
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                             className="h-9 pl-9 bg-card border-border rounded-lg text-sm"
@@ -212,22 +212,22 @@ export function ContactDetails({ activeTab }: ContactDetailsProps) {
                     <Select defaultValue="name-asc">
                         <SelectTrigger className="w-[180px] h-9 bg-card">
                             <ListFilter className="h-4 w-4 mr-2" />
-                            <SelectValue placeholder="Tên (A-Z)" />
+                            <SelectValue placeholder="Name (A-Z)" />
                         </SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="name-asc">Tên (A-Z)</SelectItem>
-                            <SelectItem value="name-desc">Tên (Z-A)</SelectItem>
+                            <SelectItem value="name-asc">Name (A-Z)</SelectItem>
+                            <SelectItem value="name-desc">Name (Z-A)</SelectItem>
                         </SelectContent>
                     </Select>
 
                     {activeTab === "friends" && (
                         <Select defaultValue="all">
                             <SelectTrigger className="w-[140px] h-9 bg-card">
-                                <SelectValue placeholder="Tất cả" />
+                                <SelectValue placeholder="All" />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="all">Tất cả</SelectItem>
-                                <SelectItem value="online">Trực tuyến</SelectItem>
+                                <SelectItem value="all">All</SelectItem>
+                                <SelectItem value="online">Online</SelectItem>
                             </SelectContent>
                         </Select>
                     )}
@@ -239,7 +239,7 @@ export function ContactDetails({ activeTab }: ContactDetailsProps) {
                 <ScrollArea className="h-full">
                     {loading ? (
                          <div className="flex items-center justify-center p-8 text-muted-foreground">
-                             Đang tải...
+                             Loading...
                          </div>
                     ) : (
                         <div className="py-2">
@@ -275,7 +275,7 @@ export function ContactDetails({ activeTab }: ContactDetailsProps) {
                                                             </span>
                                                             {activeTab === "requests" && (
                                                                 <span className="text-xs text-muted-foreground mt-0.5">
-                                                                    {isIncoming ? "Đã gửi cho bạn lời mời" : "Bạn đã gửi lời mời"}
+                                                                    {isIncoming ? "Sent you a request" : "You sent a request"}
                                                                 </span>
                                                             )}
                                                         </div>
@@ -289,7 +289,7 @@ export function ContactDetails({ activeTab }: ContactDetailsProps) {
                             ))}
                             {filteredContacts.length === 0 && (
                                 <div className="text-center p-8 text-muted-foreground">
-                                    Không có dữ liệu
+                                    No data
                                 </div>
                             )}
                         </div>

@@ -358,6 +358,33 @@ public class MessageService {
         return response;
     }
 
+    // ── Close Poll ───────────────────────────────────────────────
+    public MessageResponse closePoll(String messageId, String userId) {
+        Message message = messageRepository.findById(messageId)
+                .orElseThrow(() -> new AppException(ErrorCode.MESSAGE_NOT_FOUND));
+
+        if (message.getType() != MessageType.POLL || message.getPoll() == null) {
+            throw new AppException(ErrorCode.POLL_NOT_FOUND);
+        }
+
+        if (!message.getSenderId().equals(userId)) {
+            throw new AppException(ErrorCode.UNAUTHORIZED);
+        }
+
+        Poll poll = message.getPoll();
+        poll.setClosed(true);
+
+        mongoTemplate.updateFirst(
+                Query.query(Criteria.where("_id").is(messageId)),
+                new Update().set("poll.closed", true),
+                Message.class
+        );
+
+        MessageResponse response = messageMapper.toResponse(message);
+        broadcastEvent(message.getConversationId(), ChatEvent.ChatAction.EDIT, response);
+        return response;
+    }
+
     // ── Pin / Unpin Message ────────────────────────────────────────
     public MessageResponse togglePin(String messageId, String userId) {
         Message message = messageRepository.findById(messageId)

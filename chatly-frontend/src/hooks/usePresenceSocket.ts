@@ -13,8 +13,8 @@ interface UsePresenceSocketProps {
 }
 
 /**
- * Hook subscribe WebSocket topic /topic/presence
- * để cập nhật trạng thái online/offline realtime.
+ * Hook to subscribe to WebSocket topic /topic/presence
+ * to update online/offline status in real-time.
  */
 export function usePresenceSocket({ onPresenceChange }: UsePresenceSocketProps) {
     const { user } = useAuthStore();

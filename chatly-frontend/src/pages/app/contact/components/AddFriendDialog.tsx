@@ -54,7 +54,7 @@ export function AddFriendDialog({ open, onOpenChange }: AddFriendDialogProps) {
             }
         } catch (err) {
             console.error(err);
-            toast.error("Lỗi tìm kiếm người dùng");
+            toast.error("Error searching for user");
         } finally {
             setLoading(false);
         }
@@ -63,10 +63,10 @@ export function AddFriendDialog({ open, onOpenChange }: AddFriendDialogProps) {
     const handleAddFriend = async (userId: string) => {
         try {
             await contactService.sendRequest({ contactId: userId });
-            toast.success("Đã gửi lời mời kết bạn");
-            // Cập nhật lại list users sau khi gửi nếu cần
+            toast.success("Friend request sent");
+            // Update user list after sending if needed
         } catch (err: any) {
-            toast.error(err.response?.data?.message || "Không thể gửi lời mời kết bạn");
+            toast.error(err.response?.data?.message || "Could not send friend request");
         }
     };
 
@@ -74,14 +74,14 @@ export function AddFriendDialog({ open, onOpenChange }: AddFriendDialogProps) {
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-md">
                 <DialogHeader>
-                    <DialogTitle>Thêm bạn</DialogTitle>
+                    <DialogTitle>Add friend</DialogTitle>
                     <DialogDescription>
-                        Tìm kiếm bằng số điện thoại, email hoặc tên.
+                        Search by phone number, email or name.
                     </DialogDescription>
                 </DialogHeader>
                 <div className="flex items-center space-x-2">
                     <Input
-                        placeholder="Nhập số điện thoại, email hoặc tên"
+                        placeholder="Enter phone number, email or name"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         onKeyDown={(e) => {
@@ -89,13 +89,13 @@ export function AddFriendDialog({ open, onOpenChange }: AddFriendDialogProps) {
                         }}
                     />
                     <Button onClick={handleSearch} disabled={loading}>
-                        {loading ? <Loader2 className="animate-spin h-4 w-4" /> : "Tìm"}
+                        {loading ? <Loader2 className="animate-spin h-4 w-4" /> : "Search"}
                     </Button>
                 </div>
                 <div className="mt-4 flex flex-col gap-3 min-h-[150px] max-h-[300px] overflow-y-auto">
                     {loading ? (
                         <div className="flex items-center justify-center p-4">
-                            <span className="text-muted-foreground text-sm">Đang tìm kiếm...</span>
+                            <span className="text-muted-foreground text-sm">Searching...</span>
                         </div>
                     ) : users.length > 0 ? (
                         users.map((u) => (
@@ -116,13 +116,13 @@ export function AddFriendDialog({ open, onOpenChange }: AddFriendDialogProps) {
                                     size="sm" 
                                     onClick={() => handleAddFriend(u.id)}
                                 >
-                                    Kết bạn
+                                    Add friend
                                 </Button>
                             </div>
                         ))
                     ) : searchQuery && !loading ? (
                         <div className="flex items-center justify-center p-4">
-                            <span className="text-muted-foreground text-sm">Không tìm thấy ai</span>
+                            <span className="text-muted-foreground text-sm">No users found</span>
                         </div>
                     ) : null}
                 </div>

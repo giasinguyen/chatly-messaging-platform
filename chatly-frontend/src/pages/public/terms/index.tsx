@@ -10,7 +10,7 @@ export default function TermsPage() {
                         to="#"
                         className="text-[13px] font-medium text-brand hover:underline dark:text-brand-light"
                     >
-                        Phiên bản lưu trữ
+                        Archived versions
                     </Link>
                 </div>
 
@@ -19,21 +19,20 @@ export default function TermsPage() {
                 </h1>
 
                 <div className="mb-12 space-y-2 text-[17px] font-medium text-gray-800 dark:text-[#d1d3da]">
-                    <p>Có hiệu lực: 29 Tháng 9, 2025</p>
-                    <p>Cập nhật lần cuối: 29 Tháng 8, 2025</p>
+                    <p>Effective: September 29, 2025</p>
+                    <p>Last updated: August 29, 2025</p>
                 </div>
 
                 <div className="prose prose-blue dark:prose-invert max-w-none">
                     <ol className="list-decimal space-y-3 pl-5 text-[15px] font-medium text-[#0066cc] dark:text-[#5ac8fa]">
                         <li>
                             <a href="#who-we-are" className="hover:underline">
-                                Chúng tôi là ai
+                                Who we are
                             </a>
                         </li>
                         <li>
                             <a href="#age" className="hover:underline">
-                                Yêu cầu độ tuổi và trách nhiệm của cha mẹ/người
-                                giám hộ pháp lý
+                                Age requirements and responsibility of parents/legal guardians
                             </a>
                         </li>
                         <li>
@@ -41,17 +40,17 @@ export default function TermsPage() {
                                 href="#what-to-expect"
                                 className="hover:underline"
                             >
-                                Những gì bạn có thể mong đợi từ chúng tôi
+                                What you can expect from us
                             </a>
                         </li>
                         <li>
                             <a href="#account" className="hover:underline">
-                                Tài khoản Chatly của bạn
+                                Your Chatly account
                             </a>
                         </li>
                         <li>
                             <a href="#content" className="hover:underline">
-                                Nội dung trong dịch vụ của Chatly
+                                Content in Chatly services
                             </a>
                             <ul className="mt-2 list-disc space-y-2 pl-5">
                                 <li>
@@ -59,7 +58,7 @@ export default function TermsPage() {
                                         href="#your-content"
                                         className="hover:underline"
                                     >
-                                        Nội dung của bạn
+                                        Your content
                                     </a>
                                 </li>
                                 <li>
@@ -67,7 +66,7 @@ export default function TermsPage() {
                                         href="#chatly-content"
                                         className="hover:underline"
                                     >
-                                        Nội dung của Chatly
+                                        Chatly content
                                     </a>
                                 </li>
                                 <li>
@@ -75,19 +74,19 @@ export default function TermsPage() {
                                         href="#other-content"
                                         className="hover:underline"
                                     >
-                                        Nội dung khác
+                                        Other content
                                     </a>
                                 </li>
                             </ul>
                         </li>
                         <li>
                             <a href="#software" className="hover:underline">
-                                Phần mềm trong dịch vụ của Chatly
+                                Software in Chatly services
                             </a>
                         </li>
                         <li>
                             <a href="#copyright" className="hover:underline">
-                                Bản quyền
+                                Copyright
                             </a>
                         </li>
                         <li>
@@ -95,47 +94,47 @@ export default function TermsPage() {
                                 href="#paid-services"
                                 className="hover:underline"
                             >
-                                Dịch vụ trả phí của Chatly
+                                Chatly's paid services
                             </a>
                         </li>
                         <li>
                             <a href="#restrictions" className="hover:underline">
-                                Giới hạn trong việc sử dụng dịch vụ của Chatly
+                                Restrictions on using Chatly services
                             </a>
                         </li>
                         <li>
                             <a href="#termination" className="hover:underline">
-                                Thời hạn & Chấm dứt
+                                Term & Termination
                             </a>
                         </li>
                         <li>
                             <a href="#appeals" className="hover:underline">
-                                Khiếu nại
+                                Appeals
                             </a>
                         </li>
                         <li>
                             <a href="#indemnity" className="hover:underline">
-                                Bồi thường
+                                Indemnity
                             </a>
                         </li>
                         <li>
                             <a href="#asis" className="hover:underline">
-                                Dịch vụ cung cấp "NGUYÊN TRẠNG" (AS IS)
+                                Services provided "AS IS"
                             </a>
                         </li>
                         <li>
                             <a href="#liability" className="hover:underline">
-                                Giới hạn trách nhiệm
+                                Limitation of liability
                             </a>
                         </li>
                         <li>
                             <a href="#disputes" className="hover:underline">
-                                Giải quyết tranh chấp giữa bạn và Chatly
+                                Dispute resolution
                             </a>
                         </li>
                         <li>
                             <a href="#more-stuff" className="hover:underline">
-                                Các nội dung quan trọng khác
+                                Other important items
                             </a>
                         </li>
                     </ol>
@@ -144,80 +143,75 @@ export default function TermsPage() {
                     <div className="mt-16 space-y-12 text-[16px] leading-relaxed text-gray-700 dark:text-[#a0a3ab]">
                         <section id="who-we-are">
                             <h2 className="mb-4 text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
-                                1. Chúng tôi là ai
+                                1. Who we are
                             </h2>
                             <p>
-                                Chúng tôi là Chatly Inc., và các công ty liên
-                                kết của chúng tôi. Tại Chatly, chúng tôi định
-                                hướng và xây dựng nền tảng để bạn và cộng đồng
-                                của mình có thể trò chuyện, trao đổi, chia sẻ
-                                truyền thông đa phương tiện mỗi ngày một cách
-                                thuận tiện, an toàn và nhanh chóng nhất.
+                                We are Chatly Inc., and our affiliates. At Chatly,
+                                we design and build a platform for you and your community
+                                to chat, interact, and share multimedia every day in the
+                                most convenient, safe, and fastest way.
                             </p>
                         </section>
 
                         <section id="age">
                             <h2 className="mb-4 text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
-                                2. Yêu cầu độ tuổi
+                                2. Age requirements
                             </h2>
                             <p>
-                                Bằng việc đồng ý với bộ Điều khoản Dịch vụ này,
-                                bạn xác nhận bạn đáp ứng mọi yêu cầu về độ tuổi
-                                sử dụng tối thiểu theo luật pháp của quốc gia
-                                nơi bạn đang cư trú (thường là 13 tuổi trở lên).
-                                Nếu là phụ huynh hoặc người giám hộ hợp pháp,
-                                bạn phải có trách nhiệm quản lý nội dung của trẻ
-                                khi tiếp xúc công nghệ.
+                                By agreeing to these Terms of Service, you confirm
+                                that you meet all minimum age requirements under
+                                the laws of the country where you reside (typically
+                                13 years or older). If you are a parent or legal
+                                guardian, you are responsible for managing your
+                                child's content when interacting with technology.
                             </p>
                         </section>
 
                         <section id="what-to-expect">
                             <h2 className="mb-4 text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
-                                3. Những gì bạn có thể mong đợi từ chúng tôi
+                                3. What you can expect from us
                             </h2>
                             <p>
-                                Cam kết của chúng tôi là nỗ lực cập nhật, phát
-                                triển và sửa lỗi thường xuyên để nền tảng luôn
-                                ổn định. Chúng tôi hướng tới tính khả dụng 99.9%
-                                đối với toàn bộ hệ thống API và hạ tầng tin nhắn
-                                lõi.
+                                Our commitment is to strive for regular updates,
+                                development, and bug fixes to keep the platform
+                                stable. We aim for 99.9% availability for the
+                                entire core API and messaging infrastructure.
                             </p>
                         </section>
 
                         <section id="account">
                             <h2 className="mb-4 text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
-                                4. Tài khoản Chatly của bạn
+                                4. Your Chatly account
                             </h2>
                             <p>
-                                Bạn phải hoàn toàn chịu trách nhiệm đối với việc
-                                bảo vệ thông tin đăng nhập tài khoản. Chatly sẽ
-                                không xử lý trách nhiệm bồi thường trong trường
-                                hợp thông tin đánh cắp do lỗi bảo mật từ phía
-                                thiết bị, trình duyệt hay việc bạn đưa tài khoản
-                                cho người thứ ba.
+                                You are fully responsible for protecting your account
+                                login information. Chatly will not handle compensation
+                                liability in cases of information theft due to
+                                security flaws in your device, browser, or if you
+                                share your account with a third party.
                             </p>
                         </section>
 
                         <section id="content">
                             <h2 className="mb-4 text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
-                                5. Nội dung trong dịch vụ
+                                5. Content in the service
                             </h2>
                             <p>
-                                Tôn trọng quyền sáng tạo cá nhân, tuy nhiên mọi
-                                cá nhân sử dụng Chatly không được tải lên các
-                                thông tin trái với pháp luật, bao gồm nội dung
-                                bạo lực, phỉ báng và ảnh hưởng thuần phong mỹ
-                                tục.
+                                Respecting individual creative rights, however,
+                                any individual using Chatly must not upload
+                                information contrary to the law, including
+                                violent, defamatory content, or anything
+                                affecting social ethics.
                             </p>
                         </section>
 
                         {/* More generic text blocks can be simulated similarly */}
                         <div className="my-10 h-px w-full bg-gray-200 dark:bg-white/10" />
                         <p className="text-sm italic opacity-70">
-                            Lưu ý: Nội dung trên là văn bản giả lập
-                            (placeholder) nhằm minh họa cấu trúc tài liệu pháp
-                            lý của Chatly. Vui lòng tham khảo bộ phận pháp chế
-                            để có văn bản chính thức đưa vào khai thác.
+                            Note: The above content is placeholder text to
+                            illustrate the structure of Chatly's legal documentation.
+                            Please consult the legal department for official text
+                            for production use.
                         </p>
                     </div>
                 </div>

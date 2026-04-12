@@ -3,10 +3,10 @@ import { Colors } from '@/constants/theme';
 import type { StatusHint } from '@/types/agent';
 
 const HINT_LABELS: Record<StatusHint, string> = {
-  thinking: 'Đang suy nghĩ...',
-  searching_web: 'Đang tìm kiếm web...',
-  analyzing_documents: 'Đang phân tích tài liệu...',
-  generating: 'Đang tạo câu trả lời...',
+  thinking: 'Thinking...',
+  searching_web: 'Searching the web...',
+  analyzing_documents: 'Analyzing documents...',
+  generating: 'Generating response...',
 };
 
 interface Props {

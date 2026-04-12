@@ -120,7 +120,7 @@ export function useAgentStream() {
                     useChatbotStore.getState().setStreamingStatus("idle");
                 } else {
                     console.error("Stream error:", err);
-                    toast.error("Không thể nhận phản hồi từ AI");
+                    toast.error("Could not receive response from AI");
                     useChatbotStore.getState().setStreamingStatus("error");
                 }
             } finally {

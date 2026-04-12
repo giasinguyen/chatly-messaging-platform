@@ -1,6 +1,7 @@
 package com.chatly.controller;
 
 import com.chatly.dto.request.ConversationRequest;
+import com.chatly.dto.request.MuteConversationRequest;
 import com.chatly.dto.response.ApiResponse;
 import com.chatly.dto.response.ConversationResponse;
 import com.chatly.dto.response.PagedResponse;
@@ -56,6 +57,42 @@ public class ConversationController {
         conversationService.delete(id, getAuthenticatedUserId());
         return ApiResponse.<Void>builder()
                 .message("Conversation deleted successfully")
+                .build();
+    }
+
+    // ==================== Pin / Unpin ====================
+
+    @PutMapping("/{id}/pin")
+    ApiResponse<Void> pin(@PathVariable String id) {
+        conversationService.pinConversation(id, getAuthenticatedUserId());
+        return ApiResponse.<Void>builder()
+                .message("Conversation pinned successfully")
+                .build();
+    }
+
+    @PutMapping("/{id}/unpin")
+    ApiResponse<Void> unpin(@PathVariable String id) {
+        conversationService.unpinConversation(id, getAuthenticatedUserId());
+        return ApiResponse.<Void>builder()
+                .message("Conversation unpinned successfully")
+                .build();
+    }
+
+    // ==================== Mute / Unmute ====================
+
+    @PutMapping("/{id}/mute")
+    ApiResponse<Void> mute(@PathVariable String id, @RequestBody(required = false) MuteConversationRequest request) {
+        conversationService.muteConversation(id, getAuthenticatedUserId(), request);
+        return ApiResponse.<Void>builder()
+                .message("Conversation muted successfully")
+                .build();
+    }
+
+    @PutMapping("/{id}/unmute")
+    ApiResponse<Void> unmute(@PathVariable String id) {
+        conversationService.unmuteConversation(id, getAuthenticatedUserId());
+        return ApiResponse.<Void>builder()
+                .message("Conversation unmuted successfully")
                 .build();
     }
 

@@ -12,7 +12,9 @@ import {
     BarChart3,
     Plus,
     Trash2,
+    Clock,
 } from "lucide-react";
+import { toast } from "sonner";
 import Picker from "@emoji-mart/react";
 import data from "@emoji-mart/data";
 import { Input } from "@/components/ui/input";
@@ -26,6 +28,7 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { fileService } from "@/services/file.service";
+import { groupService } from "@/services/group.service";
 import type { Message, Attachment, Poll } from "@/types/message";
 
 interface ChatInputProps {
@@ -70,6 +73,12 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
     const [pollQuestion, setPollQuestion] = useState("");
     const [pollOptions, setPollOptions] = useState(["", ""]);
     const [pollMultipleChoice, setPollMultipleChoice] = useState(false);
+    const [showReminderDialog, setShowReminderDialog] = useState(false);
+    const [reminderTitle, setReminderTitle] = useState("");
+    const [reminderDescription, setReminderDescription] = useState("");
+    const [reminderDate, setReminderDate] = useState("");
+    const [reminderTime, setReminderTime] = useState("");
+    const [reminderSubmitting, setReminderSubmitting] = useState(false);
     const typingTimerRef = useRef<any>(null);
     const inputRef = useRef<HTMLInputElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -165,7 +174,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
             } catch {
                 setPendingFiles((prev) =>
                     prev.map((p) =>
-                        p.localId === localId ? { ...p, error: "Upload thất bại" } : p,
+                        p.localId === localId ? { ...p, error: "Upload failed" } : p,
                     ),
                 );
             }
@@ -258,6 +267,34 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
         setPollMultipleChoice(false);
     };
 
+    const handleCreateReminder = async () => {
+        if (!conversationId || !reminderTitle.trim()) return;
+        setReminderSubmitting(true);
+        try {
+            let remindAt: string | undefined;
+            if (reminderDate && reminderTime) {
+                remindAt = new Date(`${reminderDate}T${reminderTime}:00`).toISOString();
+            } else if (reminderDate) {
+                remindAt = new Date(`${reminderDate}T00:00:00`).toISOString();
+            }
+            await groupService.createReminder(conversationId, {
+                title: reminderTitle.trim(),
+                description: reminderDescription.trim() || undefined,
+                remindAt,
+            });
+            toast.success("Reminder created");
+            setShowReminderDialog(false);
+            setReminderTitle("");
+            setReminderDescription("");
+            setReminderDate("");
+            setReminderTime("");
+        } catch {
+            toast.error("Could not create reminder");
+        } finally {
+            setReminderSubmitting(false);
+        }
+    };
+
     return (
         <div className="border-t border-border bg-background font-inter">
             {/* Reply preview bar */}
@@ -266,7 +303,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
                     <CornerUpLeft size={14} className="text-brand shrink-0" />
                     <div className="flex-1 min-w-0">
                         <p className="text-[10px] font-semibold text-brand">
-                            {senderName ?? "Bạn"}
+                            {senderName ?? "You"}
                         </p>
                         <p className="text-[11px] text-muted-foreground truncate">
                             {replyingTo.content}
@@ -305,7 +342,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
                                 {p.error ? (
                                     <p className="text-destructive">{p.error}</p>
                                 ) : p.uploaded ? (
-                                    <p className="text-green-600 dark:text-green-400">Xong</p>
+                                    <p className="text-green-600 dark:text-green-400">Done</p>
                                 ) : (
                                     <div className="mt-1 h-1 w-full rounded-full bg-muted-foreground/20">
                                         <div
@@ -353,7 +390,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
                         size="icon"
                         className="h-9 w-9 shrink-0 text-muted-foreground hover:text-foreground"
                         onClick={() => imageInputRef.current?.click()}
-                        title="Gửi ảnh/video"
+                        title="Send image/video"
                     >
                         <ImagePlus size={18} />
                     </Button>
@@ -364,7 +401,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
                         size="icon"
                         className="h-9 w-9 shrink-0 text-muted-foreground hover:text-foreground"
                         onClick={() => fileInputRef.current?.click()}
-                        title="Đính kèm file"
+                        title="Attach file"
                     >
                         <Paperclip size={18} />
                     </Button>
@@ -376,7 +413,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
                             size="icon"
                             className="h-9 w-9 shrink-0 text-muted-foreground hover:text-foreground"
                             onClick={() => setShowEmojiPicker((prev) => !prev)}
-                            title="Chọn emoji"
+                            title="Select emoji"
                         >
                             <Smile size={18} />
                         </Button>
@@ -386,7 +423,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
                                     data={data}
                                     onEmojiSelect={handleEmojiSelect}
                                     theme="auto"
-                                    locale="vi"
+                                    locale="en"
                                     previewPosition="none"
                                     skinTonePosition="search"
                                     maxFrequentRows={2}
@@ -401,15 +438,26 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
                         size="icon"
                         className="h-9 w-9 shrink-0 text-muted-foreground hover:text-foreground"
                         onClick={() => setShowPollDialog(true)}
-                        title="Tạo bình chọn"
+                        title="Create poll"
                     >
                         <BarChart3 size={18} />
+                    </Button>
+
+                    {/* Reminder creation button */}
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-9 w-9 shrink-0 text-muted-foreground hover:text-foreground"
+                        onClick={() => setShowReminderDialog(true)}
+                        title="Create reminder"
+                    >
+                        <Clock size={18} />
                     </Button>
 
                     <div className="flex-1 relative">
                         <Input
                             ref={inputRef}
-                            placeholder="Nhập tin nhắn tới người này"
+                            placeholder="Type a message"
                             value={content}
                             onChange={(e) => handleContentChange(e.target.value)}
                             onKeyDown={handleKeyDown}
@@ -428,7 +476,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
                             ) : (
                                 <SendHorizontal size={18} className="mr-2" />
                             )}
-                            <span className="font-medium text-sm">Gửi</span>
+                            <span className="font-medium text-sm">Send</span>
                         </Button>
                     </div>
                 </div>
@@ -438,24 +486,24 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
             <Dialog open={showPollDialog} onOpenChange={setShowPollDialog}>
                 <DialogContent className="sm:max-w-md">
                     <DialogHeader>
-                        <DialogTitle>Tạo bình chọn</DialogTitle>
+                        <DialogTitle>Create poll</DialogTitle>
                     </DialogHeader>
                     <div className="space-y-4">
                         <div>
-                            <Label>Câu hỏi</Label>
+                            <Label>Question</Label>
                             <Input
-                                placeholder="Nhập câu hỏi bình chọn..."
+                                placeholder="Enter poll question..."
                                 value={pollQuestion}
                                 onChange={(e) => setPollQuestion(e.target.value)}
                                 className="mt-1"
                             />
                         </div>
                         <div className="space-y-2">
-                            <Label>Lựa chọn</Label>
+                            <Label>Options</Label>
                             {pollOptions.map((opt, idx) => (
                                 <div key={idx} className="flex items-center gap-2">
                                     <Input
-                                        placeholder={`Lựa chọn ${idx + 1}`}
+                                        placeholder={`Option ${idx + 1}`}
                                         value={opt}
                                         onChange={(e) => {
                                             const next = [...pollOptions];
@@ -482,7 +530,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
                                     className="w-full gap-1"
                                     onClick={() => setPollOptions([...pollOptions, ""])}
                                 >
-                                    <Plus size={14} /> Thêm lựa chọn
+                                    <Plus size={14} /> Add option
                                 </Button>
                             )}
                         </div>
@@ -494,18 +542,79 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
                                 onChange={(e) => setPollMultipleChoice(e.target.checked)}
                                 className="h-4 w-4 rounded border-border text-brand focus:ring-brand"
                             />
-                            <Label htmlFor="poll-multiple">Cho phép chọn nhiều</Label>
+                            <Label htmlFor="poll-multiple">Allow multiple choice</Label>
                         </div>
                     </div>
                     <DialogFooter>
                         <Button variant="ghost" onClick={() => setShowPollDialog(false)}>
-                            Hủy
+                            Cancel
                         </Button>
                         <Button
                             onClick={handleSendPoll}
                             disabled={!pollQuestion.trim() || pollOptions.filter(o => o.trim()).length < 2}
                         >
-                            Gửi bình chọn
+                            Send poll
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Reminder creation dialog */}
+            <Dialog open={showReminderDialog} onOpenChange={setShowReminderDialog}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>Create reminder</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                        <div>
+                            <Label>Title <span className="text-destructive">*</span></Label>
+                            <Input
+                                placeholder="Reminder title..."
+                                value={reminderTitle}
+                                onChange={(e) => setReminderTitle(e.target.value)}
+                                className="mt-1"
+                            />
+                        </div>
+                        <div>
+                            <Label>Description (optional)</Label>
+                            <Input
+                                placeholder="Add a description..."
+                                value={reminderDescription}
+                                onChange={(e) => setReminderDescription(e.target.value)}
+                                className="mt-1"
+                            />
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                            <div>
+                                <Label>Date</Label>
+                                <Input
+                                    type="date"
+                                    value={reminderDate}
+                                    onChange={(e) => setReminderDate(e.target.value)}
+                                    className="mt-1"
+                                />
+                            </div>
+                            <div>
+                                <Label>Time</Label>
+                                <Input
+                                    type="time"
+                                    value={reminderTime}
+                                    onChange={(e) => setReminderTime(e.target.value)}
+                                    className="mt-1"
+                                />
+                            </div>
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="ghost" onClick={() => setShowReminderDialog(false)}>
+                            Cancel
+                        </Button>
+                        <Button
+                            onClick={handleCreateReminder}
+                            disabled={!reminderTitle.trim() || reminderSubmitting}
+                        >
+                            {reminderSubmitting && <Loader2 size={14} className="mr-2 animate-spin" />}
+                            Create reminder
                         </Button>
                     </DialogFooter>
                 </DialogContent>

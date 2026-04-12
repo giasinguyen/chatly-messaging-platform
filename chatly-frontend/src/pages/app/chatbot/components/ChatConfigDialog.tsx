@@ -51,7 +51,7 @@ export function ChatConfigDialog({ open, onOpenChange }: Props) {
             const data = await mcpService.list();
             setServers(data);
         } catch {
-            toast.error("Không thể tải danh sách MCP servers");
+            toast.error("Failed to load MCP servers list");
         } finally {
             setLoading(false);
         }
@@ -63,7 +63,7 @@ export function ChatConfigDialog({ open, onOpenChange }: Props) {
 
     const handleCreate = async () => {
         if (!name.trim() || !url.trim()) {
-            toast.error("Vui lòng nhập tên và URL");
+            toast.error("Please enter name and URL");
             return;
         }
         setCreating(true);
@@ -80,9 +80,9 @@ export function ChatConfigDialog({ open, onOpenChange }: Props) {
             setHeaderKey("");
             setHeaderVal("");
             setShowCreate(false);
-            toast.success("Đã thêm MCP server");
+            toast.success("MCP server added");
         } catch {
-            toast.error("Không thể thêm MCP server");
+            toast.error("Failed to add MCP server");
         } finally {
             setCreating(false);
         }
@@ -95,7 +95,7 @@ export function ChatConfigDialog({ open, onOpenChange }: Props) {
                 prev.map((s) => (s.id === serverId ? updated : s)),
             );
         } catch {
-            toast.error("Không thể cập nhật trạng thái");
+            toast.error("Failed to update status");
         }
     };
 
@@ -103,9 +103,9 @@ export function ChatConfigDialog({ open, onOpenChange }: Props) {
         try {
             await mcpService.delete(serverId);
             setServers((prev) => prev.filter((s) => s.id !== serverId));
-            toast.success("Đã xóa MCP server");
+            toast.success("MCP server deleted");
         } catch {
-            toast.error("Không thể xóa MCP server");
+            toast.error("Failed to delete MCP server");
         }
     };
 
@@ -145,10 +145,9 @@ export function ChatConfigDialog({ open, onOpenChange }: Props) {
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-lg">
                 <DialogHeader>
-                    <DialogTitle>Cấu hình MCP Servers</DialogTitle>
+                    <DialogTitle>MCP Servers Configuration</DialogTitle>
                     <DialogDescription>
-                        Quản lý các MCP server để mở rộng khả năng của AI
-                        Assistant.
+                        Manage MCP servers to extend AI Assistant capabilities.
                     </DialogDescription>
                 </DialogHeader>
 
@@ -208,14 +207,13 @@ export function ChatConfigDialog({ open, onOpenChange }: Props) {
                                         <div className="border-t border-border px-3 py-2 bg-muted/20">
                                             {loadingTools ? (
                                                 <div className="flex items-center gap-2 py-2">
-                                                    <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
-                                                    <span className="text-xs text-muted-foreground">
-                                                        Đang tải tools...
+                                                    <span className="text-xs text-muted-foreground animate-pulse">
+                                                        Loading tools...
                                                     </span>
                                                 </div>
                                             ) : tools.length === 0 ? (
                                                 <p className="text-xs text-muted-foreground py-2">
-                                                    Không có tools nào
+                                                    No tools available
                                                 </p>
                                             ) : (
                                                 <div className="space-y-1.5">
@@ -242,8 +240,8 @@ export function ChatConfigDialog({ open, onOpenChange }: Props) {
                             ))}
 
                             {servers.length === 0 && (
-                                <p className="text-center text-sm text-muted-foreground py-4">
-                                    Chưa có MCP server nào
+                                <p className="text-sm text-center text-muted-foreground py-10 italic">
+                                    No MCP servers yet
                                 </p>
                             )}
                         </div>
@@ -253,7 +251,7 @@ export function ChatConfigDialog({ open, onOpenChange }: Props) {
                     {showCreate && (
                         <div className="border border-border rounded-lg p-3 mt-3 space-y-3">
                             <Input
-                                placeholder="Tên server"
+                                placeholder="Server name"
                                 value={name}
                                 onChange={(e) => setName(e.target.value)}
                             />
@@ -265,7 +263,7 @@ export function ChatConfigDialog({ open, onOpenChange }: Props) {
                             {/* Headers */}
                             <div className="space-y-2">
                                 <p className="text-xs text-muted-foreground font-medium">
-                                    Headers (tùy chọn)
+                                    Headers (optional)
                                 </p>
                                 {Object.entries(headers).map(([k, v]) => (
                                     <div
@@ -306,7 +304,7 @@ export function ChatConfigDialog({ open, onOpenChange }: Props) {
                                         className="h-8 text-xs shrink-0"
                                         onClick={addHeader}
                                     >
-                                        Thêm
+                                        Add
                                     </Button>
                                 </div>
                             </div>
@@ -317,7 +315,7 @@ export function ChatConfigDialog({ open, onOpenChange }: Props) {
                                     size="sm"
                                     onClick={() => setShowCreate(false)}
                                 >
-                                    Hủy
+                                    Cancel
                                 </Button>
                                 <Button
                                     size="sm"
@@ -327,7 +325,7 @@ export function ChatConfigDialog({ open, onOpenChange }: Props) {
                                     {creating && (
                                         <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
                                     )}
-                                    Tạo
+                                    Create
                                 </Button>
                             </div>
                         </div>
@@ -341,7 +339,7 @@ export function ChatConfigDialog({ open, onOpenChange }: Props) {
                             onClick={() => setShowCreate(true)}
                         >
                             <Plus className="h-4 w-4 mr-1.5" />
-                            Thêm MCP Server
+                            Add MCP Server
                         </Button>
                     )}
                 </DialogFooter>

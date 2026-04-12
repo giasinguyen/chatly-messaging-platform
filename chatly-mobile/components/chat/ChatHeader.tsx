@@ -1,4 +1,4 @@
-import { View, Text, TouchableOpacity } from 'react-native';
+import { View, Text, TouchableOpacity, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -40,10 +40,10 @@ export function ChatHeader({
   const callDisabled = callStatus !== 'IDLE';
 
   const subtitle = isGroup
-    ? `${memberCount ?? 0} thành viên`
+    ? `${memberCount ?? 0} members`
     : isOnline
-      ? 'Đang hoạt động'
-      : 'Ngoại tuyến';
+      ? 'Active now'
+      : 'Offline';
 
   return (
     <View
@@ -99,6 +99,7 @@ export function ChatHeader({
         <TouchableOpacity onPress={onToggleSearch} className="mx-1 p-2">
           <Ionicons name="search-outline" size={22} color={Colors.cta} />
         </TouchableOpacity>
+<<<<<<< HEAD
         {showCallButtons && (
           <>
             <TouchableOpacity
@@ -129,6 +130,20 @@ export function ChatHeader({
             </TouchableOpacity>
           </>
         )}
+=======
+        <TouchableOpacity
+          onPress={() => Alert.alert('Thông báo', 'Tính năng gọi thoại đang được phát triển')}
+          className="mx-1 p-2"
+        >
+          <Ionicons name="call-outline" size={22} color={Colors.cta} />
+        </TouchableOpacity>
+        <TouchableOpacity
+          onPress={() => Alert.alert('Thông báo', 'Tính năng video call đang được phát triển')}
+          className="mx-1 p-2"
+        >
+          <Ionicons name="videocam-outline" size={24} color={Colors.cta} />
+        </TouchableOpacity>
+>>>>>>> 10c1ebbc45588e1b8d738db62eca12cdde807a2d
         {onPressInfo && (
           <TouchableOpacity onPress={onPressInfo} className="mx-1 p-2">
             <Ionicons name="information-circle-outline" size={24} color={Colors.cta} />

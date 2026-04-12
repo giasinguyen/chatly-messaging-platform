@@ -55,9 +55,9 @@ export function McpPickerDialog({ open, onOpenChange }: Props) {
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-md">
                 <DialogHeader>
-                    <DialogTitle>Chọn MCP Servers</DialogTitle>
+                    <DialogTitle>Select MCP Servers</DialogTitle>
                     <DialogDescription>
-                        Chọn các MCP server để sử dụng cho câu hỏi tiếp theo.
+                        Select MCP servers to use for your next question.
                     </DialogDescription>
                 </DialogHeader>
 
@@ -66,8 +66,8 @@ export function McpPickerDialog({ open, onOpenChange }: Props) {
                         <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
                     </div>
                 ) : servers.length === 0 ? (
-                    <p className="py-6 text-center text-sm text-muted-foreground">
-                        Chưa có MCP server nào. Hãy thêm trong phần cấu hình chat.
+                    <p className="text-sm text-center text-muted-foreground py-8">
+                        No MCP servers available. Add them in chat configuration.
                     </p>
                 ) : (
                     <ScrollArea className="max-h-80">

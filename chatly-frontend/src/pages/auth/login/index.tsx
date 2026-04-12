@@ -65,14 +65,14 @@ export default function LoginPage() {
 
             if (response.code === 1000) {
                 setAuth(response.result);
-                toast.success("Đăng nhập thành công!");
+                toast.success("Login successful!");
                 navigate("/");
             } else {
-                toast.error(response.message || "Đăng nhập thất bại");
+                toast.error(response.message || "Login failed");
             }
         } catch (error: any) {
             console.error("Login error:", error);
-            const msg = error.response?.data?.message || "Đã có lỗi xảy ra";
+            const msg = error.response?.data?.message || "An error occurred";
             toast.error(msg);
         } finally {
             setGlobalLoading(false);
@@ -261,8 +261,8 @@ export default function LoginPage() {
                                 <>
                                     <span>
                                         {loginMethod === "password"
-                                            ? "Đăng nhập"
-                                            : "Gửi mã OTP"}
+                                            ? "Log In"
+                                            : "Send OTP"}
                                     </span>
                                 </>
                             )}
@@ -311,7 +311,7 @@ export default function LoginPage() {
                             type="button"
                             onClick={() =>
                                 toast(
-                                    "Xin lỗi, tính năng đang trong giai đoạn thử nghiệm và phát triển",
+                                    "Sorry, this feature is currently in testing and development",
                                 )
                             }
                             className="flex w-full cursor-pointer items-center justify-center gap-2.5 rounded-full border border-gray-200 bg-gray-50 px-2.5 py-2.5 text-sm font-medium text-gray-700 transition-all duration-200 hover:scale-[1.02] hover:border-gray-300 hover:bg-gray-100 active:scale-[0.99] dark:border-white/10 dark:bg-white/4 dark:text-[#d1d3da] dark:hover:border-white/18 dark:hover:bg-white/8"
@@ -345,7 +345,7 @@ export default function LoginPage() {
                             type="button"
                             onClick={() =>
                                 toast(
-                                    "Xin lỗi, tính năng đang trong giai đoạn thử nghiệm và phát triển",
+                                    "Sorry, this feature is currently in testing and development",
                                 )
                             }
                             className="flex w-full cursor-pointer items-center justify-center gap-2.5 rounded-full border border-gray-200 bg-gray-50 px-2.5 py-2.5 text-sm font-medium text-gray-700 transition-all duration-200 hover:scale-[1.02] hover:border-gray-300 hover:bg-gray-100 active:scale-[0.99] dark:border-white/10 dark:bg-white/4 dark:text-[#d1d3da] dark:hover:border-white/18 dark:hover:bg-white/8"

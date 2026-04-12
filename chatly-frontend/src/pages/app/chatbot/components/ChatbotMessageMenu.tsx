@@ -29,9 +29,9 @@ export function ChatbotMessageMenu({
     const handleCopy = async () => {
         try {
             await navigator.clipboard.writeText(message.content);
-            toast.success("Đã copy");
+            toast.success("Copied");
         } catch {
-            toast.error("Không thể copy");
+            toast.error("Failed to copy");
         }
     };
 
@@ -46,13 +46,13 @@ export function ChatbotMessageMenu({
                 {isUser && onEdit && (
                     <ContextMenuItem onClick={() => onEdit(message)}>
                         <Pencil className="mr-2 h-4 w-4" />
-                        Sửa & gửi lại
+                        Edit & resend
                     </ContextMenuItem>
                 )}
                 {isUser && onRetry && (
                     <ContextMenuItem onClick={() => onRetry(message)}>
                         <RotateCcw className="mr-2 h-4 w-4" />
-                        Gửi lại
+                        Resend
                     </ContextMenuItem>
                 )}
                 {onDelete && (
@@ -63,7 +63,7 @@ export function ChatbotMessageMenu({
                             onClick={() => onDelete(message)}
                         >
                             <Trash2 className="mr-2 h-4 w-4" />
-                            Xóa
+                            Delete
                         </ContextMenuItem>
                     </>
                 )}

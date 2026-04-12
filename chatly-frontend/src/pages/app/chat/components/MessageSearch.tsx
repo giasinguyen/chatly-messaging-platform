@@ -84,7 +84,7 @@ export function MessageSearch({ conversationId, onClose, onNavigateToMessage }: 
                 value={keyword}
                 onChange={(e) => handleChange(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="Tìm kiếm tin nhắn..."
+                placeholder="Search messages..."
                 className="h-8 text-sm flex-1 bg-transparent border-transparent focus-visible:ring-0 shadow-none"
             />
             {loading && <Loader2 size={14} className="animate-spin text-muted-foreground shrink-0" />}
@@ -94,7 +94,7 @@ export function MessageSearch({ conversationId, onClose, onNavigateToMessage }: 
                 </span>
             )}
             {searched && !loading && results.length === 0 && keyword.trim() && (
-                <span className="text-xs text-muted-foreground whitespace-nowrap">Không tìm thấy</span>
+                <span className="text-xs text-muted-foreground whitespace-nowrap">Not found</span>
             )}
             <div className="flex items-center gap-0.5">
                 <Button

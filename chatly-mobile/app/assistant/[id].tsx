@@ -53,7 +53,7 @@ export default function AssistantChatScreen() {
   const [showScrollDown, setShowScrollDown] = useState(false);
 
   const session = sessions.find((s) => s.id === sessionId);
-  const title = session?.title ?? 'Cuộc trò chuyện mới';
+  const title = session?.title ?? 'New Conversation';
 
   // Set active session / load history
   useEffect(() => {

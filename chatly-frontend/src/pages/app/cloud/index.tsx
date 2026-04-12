@@ -1,4 +1,4 @@
-﻿import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
     ImageIcon,
     FileText,
@@ -14,6 +14,7 @@ import {
     Image as ImageIconLucide,
     File,
     ArrowDownUp,
+    Eye,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -28,6 +29,7 @@ import {
 import { fileService, type FileUploadResponse } from "@/services/file.service";
 import { conversationService } from "@/services/conversation.service";
 import { cn } from "@/lib/utils";
+import { FilePreviewModal } from "./components/FilePreviewModal";
 
 // --- Helpers ---
 
@@ -77,7 +79,7 @@ const formatSectionLabel = (timestamp: string) => {
     const year = date.getFullYear();
     const sameYear = year === new Date().getFullYear();
     return sameYear
-        ? `${day} Tháng ${month}`
+        ? `${day} ${new Date(timestamp).toLocaleString("en-US", { month: "long" })}`
         : `${day}/${month}/${year}`;
 };
 
@@ -94,14 +96,14 @@ const groupByDate = (files: FileUploadResponse[]): Record<string, FileUploadResp
 const STORAGE_QUOTA = 1 * 1024 * 1024 * 1024; // 1 GB
 
 const sortOptions = [
-    { value: "latest", label: "Mới nhất" },
-    { value: "oldest", label: "Cũ nhất" },
+    { value: "latest", label: "Latest" },
+    { value: "oldest", label: "Oldest" },
 ];
 
 const mediaTypeOptions = [
-    { value: "all", label: "Tất cả" },
-    { value: "images", label: "Ảnh" },
-    { value: "videos", label: "Video" },
+    { value: "all", label: "All" },
+    { value: "images", label: "Images" },
+    { value: "videos", label: "Videos" },
 ];
 
 // --- Component ---
@@ -117,10 +119,13 @@ export default function CloudPage() {
     const [typeFilterByTab, setTypeFilterByTab] = useState<Record<string, string>>({
         media: "all",
         files: "all",
-    });
-
+    });    
     // Cleanup state
     const [isCleaningUp, setIsCleaningUp] = useState(false);
+
+    // Document preview state
+    const [docPreviewFile, setDocPreviewFile] = useState<FileUploadResponse | null>(null);
+    const [docPreviewOpen, setDocPreviewOpen] = useState(false);
 
     // Lightbox state
     const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
@@ -159,7 +164,7 @@ export default function CloudPage() {
 
         setIsCleaningUp(true);
         toast.warning(
-            `Kho lưu trữ vượt giới hạn 1 GB. Đang xóa ${toDelete.length} file cũ nhất để giải phóng dung lượng...`,
+            `Storage limit of 1 GB exceeded. Deleting ${toDelete.length} oldest files to free up space...`,
             { duration: 5000 },
         );
         Promise.all(toDelete.map((f) => fileService.deleteFile(f.fileId)))
@@ -167,9 +172,9 @@ export default function CloudPage() {
                 setAllFiles((prev) =>
                     prev.filter((f) => !toDelete.some((d) => d.fileId === f.fileId)),
                 );
-                toast.success(`Đã xóa ${toDelete.length} file cũ nhất để giải phóng dung lượng.`);
+                toast.success(`Deleted ${toDelete.length} oldest files to free up space.`);
             })
-            .catch(() => toast.error("Không thể dọn dẹp file cũ. Vui lòng kiểm tra lại."))
+            .catch(() => toast.error("Failed to clean up old files. Please check again."))
             .finally(() => setIsCleaningUp(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [allFiles]);
@@ -202,7 +207,7 @@ export default function CloudPage() {
                 }
                 setConvMap(map);
             })
-            .catch(() => toast.error("Không thể tải dữ liệu kho lưu trữ"))
+            .catch(() => toast.error("Failed to load storage data"))
             .finally(() => { if (!cancelled) setLoading(false); });
         return () => { cancelled = true; };
     }, []);
@@ -213,7 +218,7 @@ export default function CloudPage() {
     const docExtensions = useMemo(() => {
         const exts = new Set(docFiles.map((f) => getExtension(f.fileName)));
         return [
-            { value: "all", label: "Tất cả" },
+            { value: "all", label: "All" },
             ...Array.from(exts).map((e) => ({ value: e, label: e.toUpperCase() })),
         ];
     }, [docFiles]);
@@ -349,17 +354,17 @@ export default function CloudPage() {
                     <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
                         <Cloud className="h-4 w-4 text-primary-foreground" />
                     </div>
-                    <span className="text-sm font-semibold tracking-tight">Kho lưu trữ</span>
+                    <span className="text-sm font-semibold tracking-tight">Cloud Storage</span>
                 </div>
 
                 {/* Stats */}
                 {!loading && (
                     <div className="space-y-1.5">
-                        <p className="px-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">Tổng quan</p>
+                        <p className="px-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">Overview</p>
                         <div className="rounded-xl border border-border/60 bg-muted/40 p-3 space-y-2.5">
                             <StatRow label="Files" value={String(allFiles.length)} />
-                            <StatRow label="Ảnh / Video" value={String(mediaFiles.length)} />
-                            <StatRow label="Tài liệu" value={String(docFiles.length)} />
+                            <StatRow label="Images / Videos" value={String(mediaFiles.length)} />
+                            <StatRow label="Documents" value={String(docFiles.length)} />
                             <StatRow label="Conversations" value={String(uniqueConvCount)} />
                         </div>
                     </div>
@@ -367,18 +372,18 @@ export default function CloudPage() {
 
                 {/* Nav tabs */}
                 <div className="space-y-1.5">
-                    <p className="px-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">Thư viện</p>
+                    <p className="px-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">Library</p>
                     <nav className="space-y-0.5">
                         <NavItem
                             icon={<ImageIconLucide className="h-4 w-4" />}
-                            label="Ảnh & Video"
+                            label="Images & Videos"
                             count={mediaFiles.length}
                             active={categoryTab === "media"}
                             onClick={() => setCategoryTab("media")}
                         />
                         <NavItem
                             icon={<File className="h-4 w-4" />}
-                            label="Tài liệu"
+                            label="Documents"
                             count={docFiles.length}
                             active={categoryTab === "files"}
                             onClick={() => setCategoryTab("files")}
@@ -389,11 +394,11 @@ export default function CloudPage() {
                 {/* Filters */}
                 <div className="space-y-2">
                     <p className="px-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">
-                        <SlidersHorizontal className="inline h-3 w-3 mr-1" />Bộ lọc
+                        <SlidersHorizontal className="inline h-3 w-3 mr-1" />Filters
                     </p>
                     <Select value={currentTypeFilter} onValueChange={handleTypeChange}>
                         <SelectTrigger className="h-9 rounded-lg border-border bg-background text-xs">
-                            <SelectValue placeholder="Loại file" />
+                            <SelectValue placeholder="File type" />
                         </SelectTrigger>
                         <SelectContent>
                             {(categoryTab === "media" ? mediaTypeOptions : docExtensions).map((opt) => (
@@ -404,7 +409,7 @@ export default function CloudPage() {
                     <Select value={sortFilter} onValueChange={setSortFilter}>
                         <SelectTrigger className="h-9 rounded-lg border-border bg-background text-xs">
                             <ArrowDownUp className="mr-1.5 h-3 w-3 text-muted-foreground" />
-                            <SelectValue placeholder="Sắp xếp" />
+                            <SelectValue placeholder="Sort" />
                         </SelectTrigger>
                         <SelectContent>
                             {sortOptions.map((opt) => (
@@ -417,7 +422,7 @@ export default function CloudPage() {
                 {/* Storage Quota Widget */}
                 {!loading && (
                     <div className="space-y-1.5 border-t border-border/40 pt-5 mt-auto">
-                        <p className="px-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">Dung lượng</p>
+                        <p className="px-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">Storage</p>
                         <StorageWidget used={totalSize} quota={STORAGE_QUOTA} cleaning={isCleaningUp} />
                     </div>
                 )}
@@ -432,7 +437,7 @@ export default function CloudPage() {
                         <Input
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            placeholder="Tìm kiếm tên file..."
+                            placeholder="Search file name..."
                             className="h-9 rounded-lg border-border bg-background pl-9 text-sm"
                         />
                     </div>
@@ -451,7 +456,7 @@ export default function CloudPage() {
                         </div>
                     ) : categoryTab === "media" ? (
                         filteredMedia.length === 0 ? (
-                            <EmptyState icon={<ImageIcon className="h-10 w-10" />} label="Không có ảnh hoặc video nào" />
+                            <EmptyState icon={<ImageIcon className="h-10 w-10" />} label="No images or videos found" />
                         ) : (
                             <div className="space-y-8">
                                 {Object.entries(sectionedMedia).map(([label, items]) => (
@@ -501,7 +506,7 @@ export default function CloudPage() {
                         )
                     ) : (
                         filteredDocs.length === 0 ? (
-                            <EmptyState icon={<FileText className="h-10 w-10" />} label="Không có tài liệu nào" />
+                            <EmptyState icon={<FileText className="h-10 w-10" />} label="No documents found" />
                         ) : (
                             <div className="space-y-8">
                                 {Object.entries(sectionedDocs).map(([label, items]) => (
@@ -528,12 +533,25 @@ export default function CloudPage() {
                                                             </p>
                                                         </div>
                                                         <span className="hidden shrink-0 text-xs text-muted-foreground/60 md:block">
-                                                            {new Date(item.createdAt ?? "").toLocaleDateString("vi-VN")}
+                                                            {new Date(item.createdAt ?? "").toLocaleDateString("en-US")}
                                                         </span>
                                                         <Button
                                                             size="icon"
                                                             variant="ghost"
                                                             className="h-7 w-7 shrink-0 rounded-lg"
+                                                            title="Xem trước"
+                                                            onClick={() => {
+                                                                setDocPreviewFile(item);
+                                                                setDocPreviewOpen(true);
+                                                            }}
+                                                        >
+                                                            <Eye className="h-3.5 w-3.5" />
+                                                        </Button>
+                                                        <Button
+                                                            size="icon"
+                                                            variant="ghost"
+                                                            className="h-7 w-7 shrink-0 rounded-lg"
+                                                            title="Tải xuống"
                                                             onClick={() => handleDownload(item)}
                                                         >
                                                             <Download className="h-3.5 w-3.5" />
@@ -549,6 +567,15 @@ export default function CloudPage() {
                     )}
                 </div>
             </main>
+
+            {/* Document preview modal */}
+            <FilePreviewModal
+                open={docPreviewOpen}
+                onOpenChange={setDocPreviewOpen}
+                file={docPreviewFile}
+                files={filteredDocs}
+                onNavigate={(f) => setDocPreviewFile(f)}
+            />
         </div>
     );
 }
@@ -632,15 +659,15 @@ function StorageWidget({ used, quota, cleaning }: { used: number; quota: number;
                 {cleaning ? (
                     <span className="flex items-center gap-1">
                         <Loader2 className="h-3 w-3 animate-spin" />
-                        Đang dọn dẹp...
+                        Cleaning up...
                     </span>
                 ) : (
-                    <>Đã sử dụng <span className={cn("font-medium", textColor)}>{pct.toFixed(1)}%</span> trên {quotaStr}</>
+                    <>Used <span className={cn("font-medium", textColor)}>{pct.toFixed(1)}%</span> of {quotaStr}</>
                 )}
             </p>
             {pct >= 90 && !cleaning && (
                 <p className="text-[10px] text-red-500/80">
-                    ⚠ Sắp đầy — file cũ sẽ bị xóa tự động khi vượt giới hạn.
+                    ⚠ Almost full — oldest files will be automatically deleted when limit is reached.
                 </p>
             )}
         </div>

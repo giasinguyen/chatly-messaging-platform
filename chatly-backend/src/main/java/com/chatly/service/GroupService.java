@@ -374,14 +374,14 @@ public class GroupService {
         // Broadcast SYSTEM message to group chat
         try {
             User creator = userRepository.findById(UUID.fromString(requesterId)).orElse(null);
-            String creatorName = creator != null ? creator.getDisplayName() : "Thành viên";
+            String creatorName = creator != null ? creator.getDisplayName() : "Member";
             String timeInfo = request.getRemindAt() != null
-                    ? " — Hẹn lúc: " + java.time.format.DateTimeFormatter
+                    ? " — Scheduled: " + java.time.format.DateTimeFormatter
                         .ofPattern("HH:mm dd/MM/yyyy")
                         .withZone(java.time.ZoneId.of("Asia/Ho_Chi_Minh"))
                         .format(request.getRemindAt())
                     : "";
-            String content = "📋 " + creatorName + " đã tạo nhắc hẹn: " + request.getTitle() + timeInfo;
+            String content = "📋 " + creatorName + " created a reminder: " + request.getTitle() + timeInfo;
             messageService.sendSystemMessage(conversationId, content);
         } catch (Exception e) {
             // Don't fail the create if broadcast fails

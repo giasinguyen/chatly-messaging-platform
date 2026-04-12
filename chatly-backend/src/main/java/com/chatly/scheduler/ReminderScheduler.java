@@ -36,9 +36,9 @@ public class ReminderScheduler {
         for (GroupReminder reminder : dueReminders) {
             try {
                 String timeStr = VN_FORMATTER.format(reminder.getRemindAt());
-                String content = "⏰ Nhắc hẹn: " + reminder.getTitle()
+                String content = "⏰ Reminder: " + reminder.getTitle()
                         + (reminder.getDescription() != null ? " — " + reminder.getDescription() : "")
-                        + " (Hẹn lúc: " + timeStr + ")";
+                        + " (Scheduled: " + timeStr + ")";
 
                 messageService.sendSystemMessage(reminder.getConversationId(), content);
 

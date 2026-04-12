@@ -38,7 +38,7 @@ export function Sidebar({ user }: SidebarProps) {
             await authService.logout();
             socketService.disconnect();
             clearAuth();
-            toast.success("Đã đăng xuất thành công");
+            toast.success("Logged out successfully");
             navigate("/auth/login");
         } catch (error) {
             console.error("Logout error", error);
@@ -62,7 +62,7 @@ export function Sidebar({ user }: SidebarProps) {
                 <NavLink
                     to="/profile"
                     className="relative mb-2 transition-transform hover:scale-105"
-                    title="Hồ sơ cá nhân"
+                    title="Profile"
                 >
                     <Avatar className="h-11 w-11 border-2 border-blue-400">
                         <AvatarImage
@@ -171,7 +171,7 @@ export function Sidebar({ user }: SidebarProps) {
                 {/* Logout Button */}
                 <button
                     onClick={() => setShowLogoutDialog(true)}
-                    title="Đăng xuất"
+                    title="Logout"
                     className="w-full flex justify-center py-3 relative transition-colors hover:bg-black/10 text-white/70 hover:text-red-400 group"
                 >
                     <LogOut className="h-6 w-6 transition-colors group-hover:scale-110" />
@@ -185,20 +185,20 @@ export function Sidebar({ user }: SidebarProps) {
                         <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-red-100 dark:bg-red-950">
                             <LogOut className="h-6 w-6 text-red-500" />
                         </div>
-                        <AlertDialogTitle className="text-lg">Đăng xuất?</AlertDialogTitle>
+                        <AlertDialogTitle className="text-lg">Logout?</AlertDialogTitle>
                         <AlertDialogDescription className="text-sm text-muted-foreground">
-                            Bạn sẽ cần đăng nhập lại để sử dụng Chatly. Tiến hành đăng xuất?
+                            You will need to log in again to use Chatly. Proceed to log out?
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter className="flex-row justify-center gap-3 sm:justify-center">
                         <AlertDialogCancel className="flex-1 rounded-xl">
-                            Huỷ
+                            Cancel
                         </AlertDialogCancel>
                         <AlertDialogAction
                             onClick={handleLogout}
                             className="flex-1 rounded-xl bg-red-500 text-white hover:bg-red-600"
                         >
-                            Đăng xuất
+                            Logout
                         </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>

@@ -17,7 +17,7 @@ export function ChatbotHeader({ title, sidebarCollapsed, onToggleSidebar }: Chat
                     size="icon"
                     className="h-9 w-9 text-muted-foreground hover:text-foreground hidden md:flex"
                     onClick={onToggleSidebar}
-                    title="Hiện sidebar"
+                    title="Show sidebar"
                 >
                     <PanelLeft className="h-5 w-5" />
                 </Button>

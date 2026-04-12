@@ -60,14 +60,14 @@ export default function RegisterPage() {
             const response = await authService.register(payload);
 
             if (response.code === 1000) {
-                toast.success("Đăng ký thành công! Vui lòng đăng nhập.");
+                toast.success("Registration successful! Please log in.");
                 navigate("/auth/login");
             } else {
-                toast.error(response.message || "Đăng ký thất bại");
+                toast.error(response.message || "Registration failed");
             }
         } catch (error: any) {
             console.error("Register error:", error);
-            const msg = error.response?.data?.message || "Đã có lỗi xảy ra";
+            const msg = error.response?.data?.message || "An error occurred";
             toast.error(msg);
         } finally {
             setGlobalLoading(false);
@@ -384,7 +384,7 @@ export default function RegisterPage() {
                                     errors={[
                                         {
                                             message:
-                                                "Vui lòng ghi rõ ngày sinh đầy đủ.",
+                                                "Please enter your full date of birth.",
                                         },
                                     ]}
                                 />
@@ -420,7 +420,7 @@ export default function RegisterPage() {
                                 <div className="h-5 w-5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
                             ) : (
                                 <>
-                                    <span>Tạo tài khoản</span>
+                                    <span>Create Account</span>
                                 </>
                             )}
                         </button>

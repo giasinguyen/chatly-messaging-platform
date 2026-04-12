@@ -10,8 +10,8 @@ interface GuestRouteProps {
 /**
  * GuestRoute
  *
- * Chỉ cho phép người dùng CHƯA đăng nhập.
- * Nếu đã đăng nhập, sẽ đẩy về trang chủ (mặc định /).
+ * Only allows unauthenticated users.
+ * If already authenticated, redirects to the home page (default /chat).
  */
 export const GuestRoute = ({ children, to = "/chat" }: GuestRouteProps) => {
     const isAuthenticated = useAuthStore((s) => s.isAuthenticated);

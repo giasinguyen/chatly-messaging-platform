@@ -49,7 +49,7 @@ export function MessageBubble({
             className="text-sm italic"
             style={{ color: isMe ? Colors.bubbleSenderText : Colors.bubbleReceiverText }}
           >
-            Tin nhắn đã được thu hồi
+            Message recalled
           </Text>
         </View>
       </View>
@@ -115,7 +115,7 @@ export function MessageBubble({
           style={{ color: isMe ? Colors.bubbleSenderText : Colors.cta }}
           numberOfLines={1}
         >
-          {audio.name ?? 'Âm thanh'}
+          {audio.name ?? 'Audio'}
         </Text>
       </TouchableOpacity>
     );
@@ -141,7 +141,7 @@ export function MessageBubble({
           style={{ color: isMe ? Colors.bubbleSenderText : Colors.cta }}
           numberOfLines={1}
         >
-          {file.name ?? 'Tệp đính kèm'}
+          {file.name ?? 'Attachment'}
         </Text>
         <Ionicons
           name="download-outline"
@@ -241,10 +241,10 @@ export function MessageBubble({
         {/* Footer */}
         <View className="flex-row items-center justify-between mt-1">
           <Text className="text-[11px]" style={{ color: Colors.textMuted }}>
-            {totalVoters} người đã bình chọn
+            {totalVoters} people voted
           </Text>
           <Text className="text-[11px]" style={{ color: Colors.textMuted }}>
-            {poll.multipleChoice ? 'Chọn nhiều' : 'Chọn một'}
+            {poll.multipleChoice ? 'Multiple choice' : 'Single choice'}
           </Text>
         </View>
       </View>
@@ -294,7 +294,7 @@ export function MessageBubble({
       {message.pinned && (
         <View className={`flex-row items-center mb-0.5 ${isMe ? 'justify-end' : 'justify-start'}`}>
           <Ionicons name="pin" size={10} color="#f59e0b" />
-          <Text className="ml-1 text-[10px]" style={{ color: '#d97706' }}>Đã ghim</Text>
+          <Text className="ml-1 text-[10px]" style={{ color: '#d97706' }}>Pinned</Text>
         </View>
       )}
 
@@ -329,7 +329,7 @@ export function MessageBubble({
                 style={{ color: isMe ? 'rgba(255,255,255,0.75)' : Colors.cta }}
                 numberOfLines={1}
               >
-                {replyToMessage.recalled ? 'Tin nhắn đã thu hồi' : ''}
+                {replyToMessage.recalled ? 'Message recalled' : ''}
               </Text>
               <Text
                 className="text-[12px]"
@@ -337,11 +337,11 @@ export function MessageBubble({
                 numberOfLines={2}
               >
                 {replyToMessage.recalled
-                  ? 'Tin nhắn đã được thu hồi'
+                  ? 'Message recalled'
                   : replyToMessage.type === 'IMAGE'
-                  ? '🖼 Hình ảnh'
+                  ? '🖼 Image'
                   : replyToMessage.type === 'FILE'
-                  ? '📎 Tệp đính kèm'
+                  ? '📎 Attachment'
                   : replyToMessage.content}
               </Text>
             </View>
@@ -356,7 +356,7 @@ export function MessageBubble({
                 className="mr-1 text-[10px]"
                 style={{ color: isMe ? 'rgba(255,255,255,0.6)' : Colors.textLight }}
               >
-                đã chỉnh sửa
+                edited
               </Text>
             )}
             <Text

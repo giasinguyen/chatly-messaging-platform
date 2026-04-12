@@ -295,7 +295,7 @@ export default function ChatScreen() {
         setReplyingTo(null);
         setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
       } catch (error) {
-        Alert.alert('Lỗi', 'Không thể gửi tin nhắn. Vui lòng thử lại.');
+        Alert.alert('Error', 'Could not send message. Please try again.');
       }
     },
     [conversationId, user, replyingTo, wsSendMessage, addMessage, updateConversation],
@@ -310,14 +310,14 @@ export default function ChatScreen() {
   const handleCopy = useCallback(async () => {
     if (!selectedMessage) return;
     // Clipboard copy - no external dependency needed
-    Alert.alert('Đã sao chép', selectedMessage.content);
+    Alert.alert('Copied', selectedMessage.content);
   }, [selectedMessage]);
 
   const handleEdit = useCallback(async () => {
     if (!selectedMessage || !conversationId) return;
     // Simple prompt for edit
     Alert.prompt?.(
-      'Chỉnh sửa tin nhắn',
+      'Edit Message',
       '',
       async (newContent: string) => {
         if (!newContent?.trim()) return;
@@ -325,7 +325,7 @@ export default function ChatScreen() {
           const res = await messageService.edit(selectedMessage.id, newContent.trim());
           updateMessage(conversationId, selectedMessage.id, res.result);
         } catch (error: any) {
-          Alert.alert('Lỗi', error?.response?.data?.message ?? 'Không thể chỉnh sửa.');
+          Alert.alert('Error', error?.response?.data?.message ?? 'Could not edit message.');
         }
       },
       'plain-text',
@@ -335,17 +335,17 @@ export default function ChatScreen() {
 
   const handleRecall = useCallback(async () => {
     if (!selectedMessage || !conversationId) return;
-    Alert.alert('Thu hồi tin nhắn', 'Bạn có chắc muốn thu hồi tin nhắn này?', [
-      { text: 'Huỷ', style: 'cancel' },
+    Alert.alert('Recall Message', 'Are you sure you want to recall this message?', [
+      { text: 'Cancel', style: 'cancel' },
       {
-        text: 'Thu hồi',
+        text: 'Recall',
         style: 'destructive',
         onPress: async () => {
           try {
             const res = await messageService.recall(selectedMessage.id);
             updateMessage(conversationId, selectedMessage.id, res.result);
           } catch (error: any) {
-            Alert.alert('Lỗi', error?.response?.data?.message ?? 'Không thể thu hồi.');
+            Alert.alert('Error', error?.response?.data?.message ?? 'Could not recall message.');
           }
         },
       },
@@ -354,17 +354,17 @@ export default function ChatScreen() {
 
   const handleDelete = useCallback(async () => {
     if (!selectedMessage || !conversationId) return;
-    Alert.alert('Xoá tin nhắn', 'Bạn có chắc muốn xoá tin nhắn này?', [
-      { text: 'Huỷ', style: 'cancel' },
+    Alert.alert('Delete Message', 'Are you sure you want to delete this message?', [
+      { text: 'Cancel', style: 'cancel' },
       {
-        text: 'Xoá',
+        text: 'Delete',
         style: 'destructive',
         onPress: async () => {
           try {
             await messageService.delete(selectedMessage.id);
             removeMessage(conversationId, selectedMessage.id);
           } catch (error: any) {
-            Alert.alert('Lỗi', error?.response?.data?.message ?? 'Không thể xoá.');
+            Alert.alert('Error', error?.response?.data?.message ?? 'Could not delete message.');
           }
         },
       },
@@ -379,7 +379,7 @@ export default function ChatScreen() {
       setForwardVisible(false);
       setSelectedMessage(null);
     } catch (error: any) {
-      Alert.alert('Lỗi', error?.response?.data?.message ?? 'Không thể chuyển tiếp tin nhắn.');
+      Alert.alert('Error', error?.response?.data?.message ?? 'Could not forward message.');
       throw error;
     }
   }, [selectedMessage]);
@@ -391,7 +391,7 @@ export default function ChatScreen() {
         const res = await messageService.react(messageId, emoji);
         updateMessage(conversationId, messageId, res.result);
       } catch {
-        Alert.alert('Lỗi', 'Không thể bày tỏ cảm xúc.');
+        Alert.alert('Error', 'Could not react to message.');
       }
     },
     [conversationId, user, updateMessage],
@@ -404,7 +404,7 @@ export default function ChatScreen() {
         const res = await messageService.votePoll(messageId, optionIndex);
         updateMessage(conversationId, messageId, res.result);
       } catch {
-        Alert.alert('Lỗi', 'Không thể bình chọn.');
+        Alert.alert('Error', 'Could not vote.');
       }
     },
     [conversationId, user, updateMessage],
@@ -417,7 +417,7 @@ export default function ChatScreen() {
         const res = await messageService.togglePin(messageId);
         updateMessage(conversationId, messageId, res.result);
       } catch {
-        Alert.alert('Lỗi', 'Không thể ghim tin nhắn.');
+        Alert.alert('Error', 'Could not pin message.');
       }
     },
     [conversationId, user, updateMessage],
@@ -456,7 +456,7 @@ export default function ChatScreen() {
 
   // Resolve chat header info
   const isGroup = conversation?.type === 'GROUP';
-  let chatName = conversation?.name ?? 'Cuộc trò chuyện';
+  let chatName = conversation?.name ?? 'Conversation';
   let chatAvatar = conversation?.avatarUrl;
 
   if (!isGroup && conversation) {

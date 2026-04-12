@@ -1,6 +1,8 @@
 package com.chatly.websocket;
 
 import com.chatly.security.JwtProvider;
+import com.chatly.security.PasswordChangeTokenValidator;
+import com.chatly.security.SessionTokenValidator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.server.ServerHttpRequest;
@@ -19,6 +21,8 @@ import java.util.Map;
 public class WebSocketAuthInterceptor implements HandshakeInterceptor {
 
     private final JwtProvider jwtProvider;
+    private final PasswordChangeTokenValidator passwordChangeTokenValidator;
+    private final SessionTokenValidator sessionTokenValidator;
 
     @Override
     public boolean beforeHandshake(
@@ -30,7 +34,9 @@ public class WebSocketAuthInterceptor implements HandshakeInterceptor {
         log.info("WebSocket handshake attempt: URI={}", request.getURI());
         String token = extractToken(request);
 
-        if (StringUtils.hasText(token) && jwtProvider.validateToken(token)) {
+        if (StringUtils.hasText(token)
+            && passwordChangeTokenValidator.isTokenValidAgainstPasswordChange(token)
+            && sessionTokenValidator.isSessionTokenAcceptable(token)) {
             String userId = jwtProvider.getUserIdFromToken(token);
             attributes.put("userId", userId);
             log.info("WebSocket handshake ACCEPTED for userId={}", userId);

@@ -55,7 +55,7 @@ export function ChatbotSessionSidebar({ activeSessionId, onToggleCollapse }: Pro
                 const data = await agentService.listSessions();
                 if (!cancelled) setSessions(data.sessions);
             } catch {
-                toast.error("Không thể tải danh sách chat");
+                toast.error("Failed to load chat list");
             } finally {
                 if (!cancelled) setLoading(false);
             }
@@ -77,7 +77,7 @@ export function ChatbotSessionSidebar({ activeSessionId, onToggleCollapse }: Pro
             addSession(session);
             navigate(`/chatbot/${session.id}`);
         } catch {
-            toast.error("Không thể tạo cuộc trò chuyện mới");
+            toast.error("Failed to create new conversation");
         }
     };
 
@@ -88,9 +88,9 @@ export function ChatbotSessionSidebar({ activeSessionId, onToggleCollapse }: Pro
             if (activeSessionId === sessionId) {
                 navigate("/chatbot");
             }
-            toast.success("Đã xóa cuộc trò chuyện");
+            toast.success("Conversation deleted");
         } catch {
-            toast.error("Không thể xóa cuộc trò chuyện");
+            toast.error("Failed to delete conversation");
         }
     };
 
@@ -106,7 +106,7 @@ export function ChatbotSessionSidebar({ activeSessionId, onToggleCollapse }: Pro
             await agentService.renameSession(editingId, editTitle.trim());
             renameSession(editingId, editTitle.trim());
         } catch {
-            toast.error("Không thể đổi tên cuộc trò chuyện");
+            toast.error("Failed to rename conversation");
         } finally {
             setEditingId(null);
         }
@@ -127,7 +127,7 @@ export function ChatbotSessionSidebar({ activeSessionId, onToggleCollapse }: Pro
                         size="icon"
                         className="h-8 w-8 text-muted-foreground hover:text-foreground"
                         onClick={() => setConfigOpen(true)}
-                        title="Cấu hình MCP"
+                        title="MCP Configuration"
                     >
                         <Settings className="h-4 w-4" />
                     </Button>
@@ -136,7 +136,7 @@ export function ChatbotSessionSidebar({ activeSessionId, onToggleCollapse }: Pro
                         size="icon"
                         className="h-8 w-8 text-brand hover:text-brand/80"
                         onClick={handleCreate}
-                        title="Tạo cuộc trò chuyện mới"
+                        title="Create new conversation"
                     >
                         <Plus className="h-4 w-4" />
                     </Button>
@@ -146,7 +146,7 @@ export function ChatbotSessionSidebar({ activeSessionId, onToggleCollapse }: Pro
                             size="icon"
                             className="h-8 w-8 text-muted-foreground hover:text-foreground hidden md:flex"
                             onClick={onToggleCollapse}
-                            title="Ẩn sidebar"
+                            title="Hide sidebar"
                         >
                             <PanelLeftClose className="h-4 w-4" />
                         </Button>
@@ -172,7 +172,7 @@ export function ChatbotSessionSidebar({ activeSessionId, onToggleCollapse }: Pro
                     <div className="flex flex-col items-center justify-center py-12 px-4 text-center gap-2">
                         <MessageSquare className="h-8 w-8 text-muted-foreground/40" />
                         <p className="text-sm text-muted-foreground">
-                            Chưa có cuộc trò chuyện nào
+                            No conversations yet
                         </p>
                         <Button
                             variant="outline"
@@ -180,7 +180,7 @@ export function ChatbotSessionSidebar({ activeSessionId, onToggleCollapse }: Pro
                             onClick={handleCreate}
                         >
                             <Plus className="h-3.5 w-3.5 mr-1.5" />
-                            Tạo mới
+                            Create new
                         </Button>
                     </div>
                 ) : (
@@ -261,7 +261,7 @@ export function ChatbotSessionSidebar({ activeSessionId, onToggleCollapse }: Pro
                                                     {session.title}
                                                 </p>
                                                 <p className="text-[11px] text-muted-foreground truncate">
-                                                    {new Date(session.created_at).toLocaleDateString("vi-VN")}
+                                                    {new Date(session.created_at).toLocaleDateString("en-US")}
                                                 </p>
                                             </>
                                         )}
@@ -273,7 +273,7 @@ export function ChatbotSessionSidebar({ activeSessionId, onToggleCollapse }: Pro
                                                 size="icon"
                                                 className="h-7 w-7 text-muted-foreground hover:text-foreground"
                                                 onClick={(e) => startRename(e, session.id, session.title)}
-                                                title="Đổi tên"
+                                                title="Rename"
                                             >
                                                 <Pencil className="h-3.5 w-3.5" />
                                             </Button>
@@ -284,25 +284,25 @@ export function ChatbotSessionSidebar({ activeSessionId, onToggleCollapse }: Pro
                                                         size="icon"
                                                         className="h-7 w-7 text-muted-foreground hover:text-destructive"
                                                         onClick={(e) => e.stopPropagation()}
-                                                        title="Xóa"
+                                                        title="Delete"
                                                     >
                                                         <Trash2 className="h-3.5 w-3.5" />
                                                     </Button>
                                                 </AlertDialogTrigger>
                                                 <AlertDialogContent onClick={(e) => e.stopPropagation()}>
                                                     <AlertDialogHeader>
-                                                        <AlertDialogTitle>Xóa cuộc trò chuyện?</AlertDialogTitle>
+                                                        <AlertDialogTitle>Delete conversation?</AlertDialogTitle>
                                                         <AlertDialogDescription>
-                                                            Cuộc trò chuyện &ldquo;{session.title}&rdquo; sẽ bị xóa vĩnh viễn. Hành động này không thể hoàn tác.
+                                                            The conversation &ldquo;{session.title}&rdquo; will be permanently deleted. This action cannot be undone.
                                                         </AlertDialogDescription>
                                                     </AlertDialogHeader>
                                                     <AlertDialogFooter>
-                                                        <AlertDialogCancel>Hủy</AlertDialogCancel>
+                                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
                                                         <AlertDialogAction
                                                             className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                                                             onClick={() => handleDelete(session.id)}
                                                         >
-                                                            Xóa
+                                                            Delete
                                                         </AlertDialogAction>
                                                     </AlertDialogFooter>
                                                 </AlertDialogContent>
