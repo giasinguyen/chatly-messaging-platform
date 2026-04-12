@@ -1,4 +1,4 @@
-import { View, Text, TouchableOpacity } from 'react-native';
+import { View, Text, TouchableOpacity, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -87,10 +87,16 @@ export function ChatHeader({
         <TouchableOpacity onPress={onToggleSearch} className="mx-1 p-2">
           <Ionicons name="search-outline" size={22} color={Colors.cta} />
         </TouchableOpacity>
-        <TouchableOpacity className="mx-1 p-2">
+        <TouchableOpacity
+          onPress={() => Alert.alert('Thông báo', 'Tính năng gọi thoại đang được phát triển')}
+          className="mx-1 p-2"
+        >
           <Ionicons name="call-outline" size={22} color={Colors.cta} />
         </TouchableOpacity>
-        <TouchableOpacity className="mx-1 p-2">
+        <TouchableOpacity
+          onPress={() => Alert.alert('Thông báo', 'Tính năng video call đang được phát triển')}
+          className="mx-1 p-2"
+        >
           <Ionicons name="videocam-outline" size={24} color={Colors.cta} />
         </TouchableOpacity>
         {onPressInfo && (
