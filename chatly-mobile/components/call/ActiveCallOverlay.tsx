@@ -12,6 +12,16 @@ try {
   RTCView = View; // fallback for Expo Go
 }
 
+let Audio: any;
+try {
+  Audio = require('expo-av').Audio;
+} catch (e) {
+  // Expo Go fallback — chỉ mock method dùng cho loa ngoài
+  Audio = {
+    setAudioModeAsync: async () => {},
+  };
+}
+
 import { Avatar } from '@/components/ui/Avatar';
 import { Colors } from '@/constants/theme';
 import { useCallStore } from '@/store/call.store';
