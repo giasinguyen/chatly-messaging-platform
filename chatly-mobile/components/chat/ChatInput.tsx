@@ -444,32 +444,6 @@ export function ChatInput({ conversationId, onSend, onTyping, replyingTo, onCanc
           <Ionicons name="happy-outline" size={24} color={Colors.cta} />
         </TouchableOpacity>
 
-        {/* GIF picker button */}
-        <TouchableOpacity
-          onPress={() => { setActivePicker((p) => (p === 'gif' ? null : 'gif')); setShowEmojiPicker(false); }}
-          className="items-center justify-center pb-1"
-          style={{ width: 36, height: 36 }}
-        >
-          <Ionicons
-            name="film-outline"
-            size={22}
-            color={activePicker === 'gif' ? Colors.cta : Colors.textMuted}
-          />
-        </TouchableOpacity>
-
-        {/* Sticker picker button */}
-        <TouchableOpacity
-          onPress={() => { setActivePicker((p) => (p === 'sticker' ? null : 'sticker')); setShowEmojiPicker(false); }}
-          className="items-center justify-center pb-1"
-          style={{ width: 36, height: 36 }}
-        >
-          <Ionicons
-            name="flower-outline"
-            size={22}
-            color={activePicker === 'sticker' ? Colors.cta : Colors.textMuted}
-          />
-        </TouchableOpacity>
-
         {/* 3-dot options button */}
         <TouchableOpacity
           onPress={() => setShowOptionsSheet(true)}
@@ -552,6 +526,36 @@ export function ChatInput({ conversationId, onSend, onTyping, replyingTo, onCanc
             <View style={{ alignItems: 'center', marginBottom: 12 }}>
               <View style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: Colors.borderLight }} />
             </View>
+
+            {/* GIF picker */}
+            <TouchableOpacity
+              onPress={() => { setShowOptionsSheet(false); setActivePicker((p) => (p === 'gif' ? null : 'gif')); setShowEmojiPicker(false); }}
+              style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 14, backgroundColor: activePicker === 'gif' ? '#f0f9ff' : 'transparent' }}
+            >
+              <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: '#e0f2fe', alignItems: 'center', justifyContent: 'center', marginRight: 14 }}>
+                <Ionicons name="film-outline" size={20} color="#0284c7" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 15, fontWeight: '500', color: Colors.text }}>GIF</Text>
+                <Text style={{ fontSize: 12, color: Colors.textMuted, marginTop: 1 }}>Gửi ảnh GIF</Text>
+              </View>
+            </TouchableOpacity>
+
+            {/* Sticker picker */}
+            <TouchableOpacity
+              onPress={() => { setShowOptionsSheet(false); setActivePicker((p) => (p === 'sticker' ? null : 'sticker')); setShowEmojiPicker(false); }}
+              style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 14, backgroundColor: activePicker === 'sticker' ? '#fdf4ff' : 'transparent' }}
+            >
+              <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: '#f3e8ff', alignItems: 'center', justifyContent: 'center', marginRight: 14 }}>
+                <Ionicons name="flower-outline" size={20} color="#9333ea" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 15, fontWeight: '500', color: Colors.text }}>Sticker</Text>
+                <Text style={{ fontSize: 12, color: Colors.textMuted, marginTop: 1 }}>Gửi sticker</Text>
+              </View>
+            </TouchableOpacity>
+
+            <View style={{ height: 1, backgroundColor: Colors.borderLight, marginHorizontal: 20, marginVertical: 4 }} />
 
             {/* Priority options */}
             <TouchableOpacity

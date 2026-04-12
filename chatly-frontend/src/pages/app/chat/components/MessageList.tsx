@@ -1079,7 +1079,7 @@ export function MessageList({
                     </div>
 
                     {messages.map((msg, index) => (
-                        <div key={`msg-group-${msg.id}`}>
+                        <div key={`msg-group-${msg.id}-${index}`}>
                             {renderTimeSeparator(msg, index)}
                             {renderMessage(msg, index)}
                         </div>

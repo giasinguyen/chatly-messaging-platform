@@ -6,6 +6,11 @@ import {
   Platform,
   ActivityIndicator,
   Alert,
+  Modal,
+  Pressable,
+  Text,
+  Image,
+  TouchableOpacity,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -20,6 +25,7 @@ import { MessageSearch } from '@/components/chat/MessageSearch';
 import { messageService } from '@/services/message.service';
 import { conversationService } from '@/services/conversation.service';
 import { userService } from '@/services/user.service';
+import { contactService } from '@/services/contact.service';
 import { useMessageStore } from '@/store/message.store';
 import { useAuthStore } from '@/store/auth.store';
 import { useConversationStore } from '@/store/conversation.store';
@@ -31,6 +37,8 @@ import { formatDateSeparator } from '@/utils/format';
 import type { Message, ChatEvent, Attachment } from '@/types/message';
 import type { ConversationResponse } from '@/types/conversation';
 import type { UserResponse } from '@/types/auth';
+import type { ContactResponse } from '@/types/contact';
+import { Ionicons } from '@expo/vector-icons';
 
 const PAGE_SIZE = 20;
 
@@ -68,6 +76,9 @@ export default function ChatScreen() {
   const [showSearch, setShowSearch] = useState(false);
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
   const [highlightKeyword, setHighlightKeyword] = useState('');
+  const [contacts, setContacts] = useState<ContactResponse[]>([]);
+  const [mentionModalUser, setMentionModalUser] = useState<UserResponse | null>(null);
+  const [showMentionModal, setShowMentionModal] = useState(false);
 
   const messages = messagesByConversation[conversationId ?? ''] ?? [];
   const currentPage = page[conversationId ?? ''] ?? 0;
@@ -188,6 +199,12 @@ export default function ChatScreen() {
           }
         });
         setParticipantMap(map);
+
+        // Fetch contacts for friend status
+        try {
+          const contactsRes = await contactService.getAll();
+          setContacts(contactsRes.result ?? []);
+        } catch { /* ignore */ }
       } catch (error) {
         console.error('Failed to fetch conversation:', error);
       }
@@ -435,6 +452,46 @@ export default function ChatScreen() {
     [conversationId, initiateCall],
   );
 
+  const handleMentionPress = useCallback(
+    (displayName: string) => {
+      // Find user by displayName in participantMap
+      const foundUser = Object.values(participantMap).find(
+        (u) => u.displayName === displayName,
+      );
+      if (foundUser) {
+        setMentionModalUser(foundUser);
+        setShowMentionModal(true);
+      }
+    },
+    [participantMap],
+  );
+
+  const handleAddFriend = useCallback(
+    async (contactId: string) => {
+      try {
+        await contactService.sendRequest({ contactId });
+        // Refresh contacts
+        const res = await contactService.getAll();
+        setContacts(res.result ?? []);
+        Alert.alert('Thành công', 'Đã gửi lời mời kết bạn');
+      } catch {
+        Alert.alert('Lỗi', 'Không thể gửi lời mời kết bạn');
+      }
+    },
+    [],
+  );
+
+  const getMentionFriendStatus = useCallback(
+    (userId: string) => {
+      if (userId === user?.id) return 'SELF';
+      const contact = contacts.find(
+        (c) => c.contact.id === userId || c.user.id === userId,
+      );
+      return contact?.status ?? null;
+    },
+    [contacts, user?.id],
+  );
+
   // Build display data with date separators
   const displayData = useMemo(() => {
     const items: Array<{ type: 'date'; label: string } | { type: 'message'; data: Message }> = [];
@@ -554,6 +611,7 @@ export default function ChatScreen() {
                     onCallAgain={handleCallAgain}
                     calleeInfo={isMe ? null : { id: msg.senderId, name: sender?.displayName ?? 'User', avatar: sender?.avatarUrl }}
                     highlightKeyword={highlightKeyword}
+                    onMentionPress={isGroup ? handleMentionPress : undefined}
                   />
                 </View>
               );
@@ -649,6 +707,103 @@ export default function ChatScreen() {
         onClose={() => setForwardVisible(false)}
         onConfirm={handleForward}
       />
+
+      {/* Mention user info modal */}
+      <Modal
+        visible={showMentionModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowMentionModal(false)}
+      >
+        <Pressable
+          style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', alignItems: 'center' }}
+          onPress={() => setShowMentionModal(false)}
+        >
+          <Pressable
+            style={{
+              backgroundColor: '#fff',
+              borderRadius: 20,
+              width: 280,
+              overflow: 'hidden',
+            }}
+            onPress={() => {}}
+          >
+            {mentionModalUser && (() => {
+              const friendStatus = getMentionFriendStatus(mentionModalUser.id);
+              return (
+                <>
+                  {/* Avatar & info */}
+                  <View style={{ alignItems: 'center', paddingTop: 24, paddingBottom: 16, paddingHorizontal: 20 }}>
+                    <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: Colors.cta, alignItems: 'center', justifyContent: 'center', overflow: 'hidden', marginBottom: 12 }}>
+                      {mentionModalUser.avatarUrl ? (
+                        <Image source={{ uri: mentionModalUser.avatarUrl }} style={{ width: 64, height: 64, borderRadius: 32 }} />
+                      ) : (
+                        <Text style={{ color: '#fff', fontSize: 24, fontWeight: 'bold' }}>
+                          {mentionModalUser.displayName.charAt(0).toUpperCase()}
+                        </Text>
+                      )}
+                    </View>
+                    <Text style={{ fontSize: 17, fontWeight: '700', color: Colors.text, textAlign: 'center' }}>
+                      {mentionModalUser.displayName}
+                    </Text>
+                    {mentionModalUser.username ? (
+                      <Text style={{ fontSize: 13, color: Colors.textMuted, marginTop: 2 }}>
+                        @{mentionModalUser.username}
+                      </Text>
+                    ) : null}
+                  </View>
+
+                  {/* Friend status action */}
+                  <View style={{ borderTopWidth: 0.5, borderTopColor: 'rgba(0,0,0,0.08)', paddingVertical: 12, paddingHorizontal: 20 }}>
+                    {friendStatus === 'SELF' ? (
+                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 6 }}>
+                        <Ionicons name="person" size={16} color={Colors.textMuted} />
+                        <Text style={{ fontSize: 13, color: Colors.textMuted, marginLeft: 6 }}>Đây là bạn</Text>
+                      </View>
+                    ) : friendStatus === 'ACCEPTED' ? (
+                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 6 }}>
+                        <Ionicons name="checkmark-circle" size={16} color="#16a34a" />
+                        <Text style={{ fontSize: 13, color: '#16a34a', fontWeight: '600', marginLeft: 6 }}>Bạn bè</Text>
+                      </View>
+                    ) : friendStatus === 'PENDING' ? (
+                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 6 }}>
+                        <Ionicons name="time-outline" size={16} color="#d97706" />
+                        <Text style={{ fontSize: 13, color: '#d97706', fontWeight: '600', marginLeft: 6 }}>Đã gửi lời mời</Text>
+                      </View>
+                    ) : (
+                      <TouchableOpacity
+                        onPress={() => {
+                          handleAddFriend(mentionModalUser.id);
+                          setShowMentionModal(false);
+                        }}
+                        style={{
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          backgroundColor: Colors.cta,
+                          paddingVertical: 10,
+                          borderRadius: 12,
+                        }}
+                      >
+                        <Ionicons name="person-add" size={16} color="#fff" />
+                        <Text style={{ fontSize: 14, color: '#fff', fontWeight: '600', marginLeft: 6 }}>Kết bạn</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+
+                  {/* Close button */}
+                  <TouchableOpacity
+                    onPress={() => setShowMentionModal(false)}
+                    style={{ borderTopWidth: 0.5, borderTopColor: 'rgba(0,0,0,0.08)', paddingVertical: 12, alignItems: 'center' }}
+                  >
+                    <Text style={{ fontSize: 14, color: Colors.textMuted }}>Đóng</Text>
+                  </TouchableOpacity>
+                </>
+              );
+            })()}
+          </Pressable>
+        </Pressable>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }
