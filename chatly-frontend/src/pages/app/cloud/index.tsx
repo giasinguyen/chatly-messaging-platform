@@ -14,6 +14,7 @@ import {
     Image as ImageIconLucide,
     File,
     ArrowDownUp,
+    Eye,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -28,6 +29,7 @@ import {
 import { fileService, type FileUploadResponse } from "@/services/file.service";
 import { conversationService } from "@/services/conversation.service";
 import { cn } from "@/lib/utils";
+import { FilePreviewModal } from "./components/FilePreviewModal";
 
 // --- Helpers ---
 
@@ -117,10 +119,13 @@ export default function CloudPage() {
     const [typeFilterByTab, setTypeFilterByTab] = useState<Record<string, string>>({
         media: "all",
         files: "all",
-    });
-
+    });    
     // Cleanup state
     const [isCleaningUp, setIsCleaningUp] = useState(false);
+
+    // Document preview state
+    const [docPreviewFile, setDocPreviewFile] = useState<FileUploadResponse | null>(null);
+    const [docPreviewOpen, setDocPreviewOpen] = useState(false);
 
     // Lightbox state
     const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
@@ -534,6 +539,19 @@ export default function CloudPage() {
                                                             size="icon"
                                                             variant="ghost"
                                                             className="h-7 w-7 shrink-0 rounded-lg"
+                                                            title="Xem trước"
+                                                            onClick={() => {
+                                                                setDocPreviewFile(item);
+                                                                setDocPreviewOpen(true);
+                                                            }}
+                                                        >
+                                                            <Eye className="h-3.5 w-3.5" />
+                                                        </Button>
+                                                        <Button
+                                                            size="icon"
+                                                            variant="ghost"
+                                                            className="h-7 w-7 shrink-0 rounded-lg"
+                                                            title="Tải xuống"
                                                             onClick={() => handleDownload(item)}
                                                         >
                                                             <Download className="h-3.5 w-3.5" />
@@ -549,6 +567,15 @@ export default function CloudPage() {
                     )}
                 </div>
             </main>
+
+            {/* Document preview modal */}
+            <FilePreviewModal
+                open={docPreviewOpen}
+                onOpenChange={setDocPreviewOpen}
+                file={docPreviewFile}
+                files={filteredDocs}
+                onNavigate={(f) => setDocPreviewFile(f)}
+            />
         </div>
     );
 }

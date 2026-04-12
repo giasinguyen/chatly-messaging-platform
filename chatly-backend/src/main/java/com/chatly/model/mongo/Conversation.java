@@ -10,7 +10,11 @@ import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 @Document(collection = "conversations")
 @CompoundIndex(def = "{'participantIds': 1}")
@@ -50,4 +54,12 @@ public class Conversation {
     private Boolean requireApproval = false;
 
     private String inviteToken;
+
+    /** User IDs who pinned this conversation */
+    @Builder.Default
+    private Set<String> pinnedBy = new HashSet<>();
+
+    /** userId -> muteUntil (null value = muted indefinitely) */
+    @Builder.Default
+    private Map<String, Instant> mutedBy = new HashMap<>();
 }

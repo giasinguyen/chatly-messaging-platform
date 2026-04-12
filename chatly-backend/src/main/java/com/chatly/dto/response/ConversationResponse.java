@@ -24,6 +24,8 @@ public class ConversationResponse {
     private long unreadCount;
     private Boolean requireApproval;
     private String inviteToken;
+    private boolean isPinned;
+    private boolean isMuted;
     private Instant createdAt;
     private Instant updatedAt;
 }
