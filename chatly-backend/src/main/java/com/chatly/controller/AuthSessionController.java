@@ -14,6 +14,7 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -34,6 +35,16 @@ public class AuthSessionController {
         UUID currentSessionId = resolveCurrentSessionId(request);
         return ApiResponse.<List<UserSessionResponse>>builder()
             .result(userSessionService.listSessions(userId, currentSessionId))
+            .build();
+    }
+
+    /** Deletes all session rows (history + every active device). You will be signed out everywhere. */
+    @PostMapping("/purge")
+    ApiResponse<Void> purgeAllSessions() {
+        UUID userId = currentUserId();
+        userSessionService.purgeAllSessionsForUser(userId);
+        return ApiResponse.<Void>builder()
+            .message("All sessions removed. Sign in again.")
             .build();
     }
 

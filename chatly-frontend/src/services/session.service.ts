@@ -15,4 +15,10 @@ export const sessionService = {
         );
         return response.data;
     },
+
+    /** Removes every session row (history + all devices). Current tokens stop working — sign in again. */
+    purgeAll: async (): Promise<ApiResponse<null>> => {
+        const response = await axiosClient.post<ApiResponse<null>>("/api/auth/sessions/purge");
+        return response.data;
+    },
 };

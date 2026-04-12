@@ -15,7 +15,13 @@ public interface UserLoginSessionRepository extends JpaRepository<UserLoginSessi
 
     List<UserLoginSession> findByUserIdAndRevokedFalseOrderByCreatedAtDesc(UUID userId);
 
+    /** All sessions (active + ended), newest first — for account history UI */
+    List<UserLoginSession> findByUserIdOrderByCreatedAtDesc(UUID userId);
+
     Optional<UserLoginSession> findByIdAndUserId(UUID id, UUID userId);
+
+    /** Remove every session row for this user (ends all devices; JWT becomes invalid). */
+    void deleteByUserId(UUID userId);
 
     List<UserLoginSession> findByUserIdAndPlatformAndRevokedFalse(UUID userId, ClientPlatform platform);
 

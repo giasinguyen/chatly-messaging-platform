@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import { useRouter } from 'expo-router';
 import {
   View,
   Text,
@@ -25,6 +26,7 @@ import { Colors } from '@/constants/theme';
 
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const { user, clearAuth, updateUser } = useAuthStore();
 
   const [editing, setEditing] = useState(false);
@@ -295,6 +297,21 @@ export default function SettingsScreen() {
           <Ionicons name="key-outline" size={22} color={Colors.text} />
           <Text className="ml-3 flex-1 text-[15px]" style={{ color: Colors.text }}>
             Change password
+          </Text>
+          <Ionicons name="chevron-forward" size={18} color={Colors.textLight} />
+        </TouchableOpacity>
+      </View>
+
+      {/* Devices & sessions (same API as web) */}
+      <View className="mx-4 mt-3 rounded-2xl" style={{ backgroundColor: Colors.white }}>
+        <TouchableOpacity
+          className="flex-row items-center px-4 py-3.5"
+          onPress={() => router.push('/sessions')}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="phone-portrait-outline" size={22} color={Colors.text} />
+          <Text className="ml-3 flex-1 text-[15px]" style={{ color: Colors.text }}>
+            Devices & sessions
           </Text>
           <Ionicons name="chevron-forward" size={18} color={Colors.textLight} />
         </TouchableOpacity>

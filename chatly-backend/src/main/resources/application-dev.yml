@@ -74,9 +74,8 @@ app:
         verification-link-base-url: ${APP_AUTH_VERIFICATION_LINK_BASE_URL:http://localhost:8080/api/auth/verify-email}
     mail:
         from: ${APP_MAIL_FROM:${SPRING_MAIL_USERNAME:}}
-    # Off by default in dev: avoids external HTTP during login; enable when testing location labels
     geoip:
-        enabled: ${APP_GEOIP_ENABLED:false}
+        enabled: true
 
 # ── AI Agent ──────────────────────────────────────────────────────────────────
 agent:

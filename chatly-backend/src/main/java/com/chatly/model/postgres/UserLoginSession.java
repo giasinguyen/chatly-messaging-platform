@@ -1,9 +1,12 @@
 package com.chatly.model.postgres;
 
 import com.chatly.model.enums.ClientPlatform;
+import com.fasterxml.jackson.databind.JsonNode;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -47,8 +50,13 @@ public class UserLoginSession {
     @Column(length = 64)
     private String ipAddress;
 
-    @Column(length = 256)
+    @Column(length = 512)
     private String locationLabel;
+
+    /** Full JSON from ipwho.is (GET https://ipwho.is/{ip}) at login time; null if lookup failed or only ip-api fallback was used. */
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(columnDefinition = "jsonb")
+    private JsonNode geoSnapshot;
 
     @CreationTimestamp
     private Instant createdAt;

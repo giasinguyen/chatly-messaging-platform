@@ -15,11 +15,22 @@ public interface UserRepository extends JpaRepository<User, UUID> {
 
     Optional<User> findByEmail(String email);
 
+    Optional<User> findByEmailIgnoreCase(String email);
+
     Optional<User> findByPhone(String phone);
 
     Optional<User> findByUsername(String username);
 
-    Optional<User> findByUsernameOrEmailOrPhone(String username, String email, String phone);
+    /**
+     * Login lookup: username and phone match as stored; email is case-insensitive (must match forgot-password / mail).
+     */
+    @Query("""
+        SELECT u FROM User u
+        WHERE u.username = :identifier
+           OR (u.email IS NOT NULL AND LOWER(u.email) = LOWER(:identifier))
+           OR (u.phone IS NOT NULL AND u.phone = :identifier)
+        """)
+    Optional<User> findByLoginIdentifier(@Param("identifier") String identifier);
 
         @Query("""
             SELECT u

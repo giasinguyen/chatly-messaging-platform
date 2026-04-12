@@ -8,6 +8,7 @@ import com.chatly.dto.request.RefreshTokenRequest;
 import com.chatly.dto.request.RegisterRequest;
 import com.chatly.dto.request.ResendVerificationRequest;
 import com.chatly.dto.request.IntrospectRequest;
+import com.chatly.dto.geo.GeoIpResolution;
 import com.chatly.dto.session.StartLoginSessionResult;
 import com.chatly.dto.response.AuthResponse;
 import com.chatly.dto.response.IntrospectResponse;
@@ -34,6 +35,9 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.util.StringUtils;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -62,6 +66,7 @@ public class AuthService {
     private final UserSessionService userSessionService;
     private final GeoIpLookupService geoIpLookupService;
     private final AsyncNotificationService asyncNotificationService;
+    private final TransactionTemplate transactionTemplate;
 
     @Value("${app.auth.verification.expiration-minutes:15}")
     private long verificationExpirationMinutes;
@@ -71,7 +76,9 @@ public class AuthService {
 
     @Value("${app.auth.verification-link-base-url:http://localhost:8080/api/auth/verify-email}")
     private String verificationLinkBaseUrl;
-    private static final String RANDOM_PASSWORD_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%^&*";
+    /** No 0/O, 1/l/I, or ! (often confused when retyped from email). */
+    private static final String RANDOM_PASSWORD_CHARS =
+        "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789@#$%^&*";
     private static final int RANDOM_PASSWORD_LENGTH = 12;
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
@@ -117,11 +124,12 @@ public class AuthService {
     }
 
     public AuthResponse login(LoginRequest request, HttpServletRequest httpRequest) {
-        User user = userRepository.findByUsernameOrEmailOrPhone(
-                request.getIdentifier(), request.getIdentifier(), request.getIdentifier())
+        String identifier = request.getIdentifier() != null ? request.getIdentifier().trim() : "";
+        User user = userRepository.findByLoginIdentifier(identifier)
             .orElseThrow(() -> new AppException(ErrorCode.INVALID_CREDENTIALS));
 
-        if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
+        String rawPassword = request.getPassword() != null ? request.getPassword().trim() : "";
+        if (!passwordEncoder.matches(rawPassword, user.getPassword())) {
             throw new AppException(ErrorCode.INVALID_CREDENTIALS);
         }
 
@@ -136,11 +144,12 @@ public class AuthService {
         String deviceHeader = httpRequest.getHeader("X-Device-Label");
         String userAgent = httpRequest.getHeader("User-Agent");
         String ip = HttpRequestMeta.clientIp(httpRequest);
-        String location = geoIpLookupService.summarizeLocation(ip);
+        GeoIpResolution geo = geoIpLookupService.resolve(ip);
+        String location = geo != null ? geo.locationLabel() : null;
         String deviceLabel = resolveDeviceLabel(deviceHeader, userAgent);
 
         StartLoginSessionResult sessionResult = userSessionService.startNewLoginSession(
-            user, platform, deviceLabel, userAgent, ip, location
+            user, platform, deviceLabel, userAgent, ip, geo
         );
         if (sessionResult.replacedSession() != null && StringUtils.hasText(user.getEmail())) {
             asyncNotificationService.sendConcurrentLoginAlertAsync(
@@ -157,7 +166,11 @@ public class AuthService {
 
     @Transactional
     public void changePassword(ChangePasswordRequest request) {
-        if (!request.getNewPassword().equals(request.getConfirmPassword())) {
+        String newPw = request.getNewPassword() != null ? request.getNewPassword().trim() : "";
+        String confirmPw = request.getConfirmPassword() != null ? request.getConfirmPassword().trim() : "";
+        String currentPw = request.getCurrentPassword() != null ? request.getCurrentPassword().trim() : "";
+
+        if (!newPw.equals(confirmPw)) {
             throw new AppException(ErrorCode.PASSWORD_CONFIRM_MISMATCH);
         }
 
@@ -166,18 +179,23 @@ public class AuthService {
             throw new AppException(ErrorCode.UNAUTHENTICATED);
         }
 
-        String userId = authentication.getPrincipal().toString();
+        Object principal = authentication.getPrincipal();
+        if (principal == null || "anonymousUser".equals(principal)) {
+            throw new AppException(ErrorCode.UNAUTHENTICATED);
+        }
+
+        String userId = principal.toString();
         User user = userRepository.findById(UUID.fromString(userId))
             .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
 
-        if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPassword())) {
+        if (!passwordEncoder.matches(currentPw, user.getPassword())) {
             throw new AppException(ErrorCode.CURRENT_PASSWORD_INCORRECT);
         }
 
         Instant changedAt = Instant.now();
-        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        user.setPassword(passwordEncoder.encode(newPw));
         user.setPasswordChangedAt(changedAt);
-        userRepository.save(user);
+        userRepository.saveAndFlush(user);
         userSessionService.revokeAllForUser(user.getId());
 
         if (StringUtils.hasText(user.getEmail())) {
@@ -185,15 +203,40 @@ public class AuthService {
         }
     }
 
-    @Transactional
     public void forgotPassword(ForgotPasswordRequest request) {
-        userRepository.findByEmail(request.getEmail()).ifPresent(user -> {
-            String newPassword = generateRandomPassword();
-            user.setPassword(passwordEncoder.encode(newPassword));
-            user.setPasswordChangedAt(Instant.now());
-            userRepository.save(user);
-            userSessionService.revokeAllForUser(user.getId());
-            emailVerificationMailService.sendNewPassword(user, newPassword);
+        String email = request.getEmail().trim();
+        if (!StringUtils.hasText(email)) {
+            return;
+        }
+        // Match registration regardless of stored email casing (avoids “email sent but login still old password” confusion)
+        userRepository.findByEmailIgnoreCase(email).ifPresent(user -> {
+            final String newPassword = generateRandomPassword();
+            final UUID userId = user.getId();
+            transactionTemplate.executeWithoutResult(status -> {
+                User u = userRepository.findById(userId)
+                    .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+                u.setPassword(passwordEncoder.encode(newPassword));
+                u.setPasswordChangedAt(Instant.now());
+                userRepository.saveAndFlush(u);
+                userSessionService.revokeAllForUser(userId);
+
+                // Email only after successful commit; then re-read DB and verify hash matches plaintext.
+                TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                    @Override
+                    public void afterCommit() {
+                        userRepository.findById(userId).ifPresentOrElse(mailUser -> {
+                            if (!passwordEncoder.matches(newPassword, mailUser.getPassword())) {
+                                log.error(
+                                    "Password reset: hash in DB does not match new password for user {} — email not sent",
+                                    userId
+                                );
+                                return;
+                            }
+                            emailVerificationMailService.sendNewPassword(mailUser, newPassword);
+                        }, () -> log.error("Password reset: user {} missing after commit — email not sent", userId));
+                    }
+                });
+            });
         });
     }
 

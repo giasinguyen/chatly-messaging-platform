@@ -7,6 +7,7 @@ import com.chatly.exception.ErrorCode;
 import com.chatly.model.enums.ClientPlatform;
 import com.chatly.model.postgres.User;
 import com.chatly.model.postgres.UserLoginSession;
+import com.chatly.dto.geo.GeoIpResolution;
 import com.chatly.repository.postgres.UserLoginSessionRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -34,7 +35,7 @@ public class UserSessionService {
         String deviceLabel,
         String userAgent,
         String ipAddress,
-        String locationLabel
+        GeoIpResolution geo
     ) {
         List<UserLoginSession> previous = userLoginSessionRepository
             .findByUserIdAndPlatformAndRevokedFalse(user.getId(), platform);
@@ -53,7 +54,8 @@ public class UserSessionService {
             .deviceLabel(deviceLabel)
             .userAgent(userAgent)
             .ipAddress(ipAddress)
-            .locationLabel(locationLabel)
+            .locationLabel(geo != null ? geo.locationLabel() : null)
+            .geoSnapshot(geo != null ? geo.snapshot() : null)
             .lastSeenAt(Instant.now())
             .build();
         session = userLoginSessionRepository.save(session);
@@ -85,18 +87,30 @@ public class UserSessionService {
     }
 
     public List<UserSessionResponse> listSessions(UUID userId, UUID currentSessionId) {
-        return userLoginSessionRepository.findByUserIdAndRevokedFalseOrderByCreatedAtDesc(userId).stream()
+        return userLoginSessionRepository.findByUserIdOrderByCreatedAtDesc(userId).stream()
             .map(s -> UserSessionResponse.builder()
                 .id(s.getId().toString())
                 .platform(s.getPlatform().name())
                 .deviceLabel(s.getDeviceLabel())
                 .ipAddress(s.getIpAddress())
                 .locationLabel(s.getLocationLabel())
+                .geoSnapshot(s.getGeoSnapshot())
                 .createdAt(s.getCreatedAt())
                 .lastSeenAt(s.getLastSeenAt())
-                .current(s.getId().equals(currentSessionId))
+                .current(!s.isRevoked() && currentSessionId != null && s.getId().equals(currentSessionId))
+                .revoked(s.isRevoked())
+                .revokedAt(s.getRevokedAt())
                 .build())
             .collect(Collectors.toList());
+    }
+
+    /**
+     * Deletes every session row for the user (ended + active). Current JWT/refresh will stop working;
+     * client must sign in again.
+     */
+    @Transactional
+    public void purgeAllSessionsForUser(UUID userId) {
+        userLoginSessionRepository.deleteByUserId(userId);
     }
 
     private void revokeSessionRecord(UserLoginSession s) {

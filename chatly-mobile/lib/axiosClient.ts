@@ -1,3 +1,12 @@
+/**
+ * Shared axios instance — same responsibility as `chatly-frontend/src/lib/axiosClient.ts`.
+ *
+ * `location_label` on login sessions is computed on the **server** from the client IP (GeoIP). Neither web nor
+ * mobile sends city/GPS in the body; matching the web app here means consistent default headers:
+ * `Content-Type`, `X-Client-Platform`, `X-Device-Label` (web uses `web` + navigator UA; we use `mobile` + device).
+ *
+ * Dev Tunnel: extra headers from `devTunnelHeaders.ts` mirror what browsers need to skip the tunnel interstitial.
+ */
 import axios, { type InternalAxiosRequestConfig, type AxiosError } from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { AuthResponse, ApiResponse } from '@/types/auth';
