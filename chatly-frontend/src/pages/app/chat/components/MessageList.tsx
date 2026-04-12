@@ -73,6 +73,7 @@ interface MessageListProps {
     onRetryMessage?: (id: string) => void;
     onRemoveFailedMessage?: (id: string) => void;
     highlightedMessageId?: string | null;
+    highlightKeyword?: string | null;
     onVotePoll?: (messageId: string, optionIndex: number) => void;
     onClosePoll?: (messageId: string) => void;
     onTogglePin?: (messageId: string) => void;
@@ -103,6 +104,7 @@ export function MessageList({
     onRetryMessage,
     onRemoveFailedMessage,
     highlightedMessageId,
+    highlightKeyword,
     onVotePoll,
     onClosePoll,
     onTogglePin,
@@ -290,7 +292,7 @@ export function MessageList({
 
     const canForward = (msg: Message): boolean => {
         if (msg.recalled) return false;
-        return ["TEXT", "IMAGE", "FILE"].includes(msg.type);
+        return ["TEXT", "IMAGE", "FILE", "GIF", "STICKER"].includes(msg.type);
     };
 
     const startEdit = (msg: Message) => {
@@ -309,6 +311,26 @@ export function MessageList({
     const cancelEdit = () => {
         setEditingId(null);
         setEditDraft("");
+    };
+
+    const renderHighlightedText = (text: string): React.ReactNode => {
+        if (!highlightKeyword?.trim()) return text;
+        const escaped = highlightKeyword.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        const parts = text.split(new RegExp(`(${escaped})`, "gi"));
+        if (parts.length === 1) return text;
+        return (
+            <>
+                {parts.map((part, i) =>
+                    i % 2 === 1 ? (
+                        <mark key={i} className="bg-yellow-200 dark:bg-yellow-800 text-inherit rounded px-0.5">
+                            {part}
+                        </mark>
+                    ) : (
+                        part
+                    ),
+                )}
+            </>
+        );
     };
 
     const renderMessage = (msg: Message, index: number) => {
@@ -502,6 +524,37 @@ export function MessageList({
                                     </div>
                                 );
                             })()
+                        ) : (msg.type === "GIF" || msg.type === "STICKER") ? (
+                            /* GIF / Sticker bubble — no background, just the image */
+                            <div>
+                                {repliedMsg && (
+                                    <div className={cn(
+                                        "px-3 py-1.5 mb-1 rounded-xl text-sm",
+                                        isMe
+                                            ? "bg-brand/10 border border-brand/20"
+                                            : "bg-muted/50 border border-border/40",
+                                    )}>
+                                        <ReplyPreview
+                                            replyMessage={repliedMsg}
+                                            participant={participant}
+                                            senderName={replySenderName}
+                                            currentUserId={currentUserId}
+                                            isMe={isMe}
+                                        />
+                                    </div>
+                                )}
+                                <img
+                                    src={msg.content}
+                                    alt={msg.type === "GIF" ? "GIF" : "Sticker"}
+                                    loading="lazy"
+                                    className={cn(
+                                        "rounded-xl object-contain",
+                                        msg.type === "GIF"
+                                            ? "max-w-60 max-h-50"
+                                            : "w-35 h-auto",
+                                    )}
+                                />
+                            </div>
                         ) : msg.type === "VCARD" ? (
                             /* Business card bubble — Zalo-style */
                             (() => {
@@ -586,7 +639,7 @@ export function MessageList({
                                     const COMBINED_REGEX = /(https?:\/\/[^\s<>"]+|@\S+)/g;
                                     const parts = msg.content.split(COMBINED_REGEX);
                                     const hasSpecial = parts.some(p => URL_REGEX.test(p) || MENTION_REGEX.test(p));
-                                    if (!hasSpecial) return <span>{msg.content}</span>;
+                                    if (!hasSpecial) return <span>{renderHighlightedText(msg.content)}</span>;
                                     return (
                                         <span>
                                             {parts.map((part, i) => {
@@ -629,7 +682,7 @@ export function MessageList({
                                                         </span>
                                                     );
                                                 }
-                                                return <span key={i}>{part}</span>;
+                                                return <span key={i}>{renderHighlightedText(part)}</span>;
                                             })}
                                         </span>
                                     );

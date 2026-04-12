@@ -8,5 +8,7 @@ public enum MessageType {
     AUDIO,
     SYSTEM,
     POLL,
+    GIF,
+    STICKER,
     VCARD
 }

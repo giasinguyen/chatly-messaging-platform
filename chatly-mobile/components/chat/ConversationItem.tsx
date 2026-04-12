@@ -58,6 +58,12 @@ export function ConversationItem({
       case 'AUDIO':
         preview = prefix + '🎵 Audio';
         break;
+      case 'GIF':
+        preview = prefix + '🎬 GIF';
+        break;
+      case 'STICKER':
+        preview = prefix + '🎨 Sticker';
+        break;
       case 'SYSTEM':
         preview = lastMessage.content;
         break;

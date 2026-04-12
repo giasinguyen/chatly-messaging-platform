@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef, forwardRef, useImperativeHandle, useMemo } from "react";
+import { useState, useCallback, useEffect, useRef, forwardRef, useImperativeHandle, lazy, Suspense, useMemo } from "react";
 import type { KeyboardEvent } from "react";
 import {
     SendHorizontal,
@@ -12,6 +12,8 @@ import {
     BarChart3,
     Plus,
     Trash2,
+    Clapperboard,
+    Sticker,
     Clock,
     MoreHorizontal,
     IdCard,
@@ -34,15 +36,19 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { fileService } from "@/services/file.service";
+import { getDisplayUrl, type KlipyItem } from "@/services/klipy.service";
 import { groupService } from "@/services/group.service";
+import { useAuthStore } from "@/store/auth.store";
 import type { Message, Attachment, Poll, ChatUser } from "@/types/message";
+
+const LazyMediaPicker = lazy(() => import("@/components/media-picker/MediaPicker").then(m => ({ default: m.MediaPicker })));
 
 interface ChatInputProps {
     conversationId?: string;
     replyingTo?: Message | null;
     senderName?: string;
     onCancelReply: () => void;
-    onSendMessage: (content: string, attachments?: Attachment[], poll?: Poll, mentions?: string[], priority?: string) => void;
+    onSendMessage: (content: string, attachments?: Attachment[], poll?: Poll, mentions?: string[], priority?: string, messageType?: string) => void;
     onSendVCard?: (user: ChatUser) => void;
     onTyping?: (typing: boolean) => void;
     groupMembers?: ChatUser[];
@@ -77,11 +83,13 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
     groupMembers = [],
     currentUserId,
 }, ref) => {
+    const { user } = useAuthStore();
     const [content, setContent] = useState("");
     const [isTyping, setIsTyping] = useState(false);
     const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([]);
     const [showEmojiPicker, setShowEmojiPicker] = useState(false);
     const [showPollDialog, setShowPollDialog] = useState(false);
+    const [activePicker, setActivePicker] = useState<"gif" | "sticker" | null>(null);
     const [pollQuestion, setPollQuestion] = useState("");
     const [pollOptions, setPollOptions] = useState(["", ""]);
     const [pollMultipleChoice, setPollMultipleChoice] = useState(false);
@@ -394,6 +402,19 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
         setPollMultipleChoice(false);
     };
 
+    const handleMediaSelect = (item: KlipyItem) => {
+        const displayUrl = getDisplayUrl(item);
+        const messageType = item.type === "sticker" ? "STICKER" : "GIF";
+        const attachment: Attachment = {
+            fileId: item.slug,
+            url: displayUrl,
+            name: item.title,
+            type: item.type === "sticker" ? "image/gif" : "image/webp",
+        };
+        onSendMessage(displayUrl, [attachment], undefined, undefined, undefined, messageType);
+        setActivePicker(null);
+    };
+
     const handleCreateReminder = async () => {
         if (!conversationId || !reminderTitle.trim()) return;
         setReminderSubmitting(true);
@@ -423,7 +444,22 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
     };
 
     return (
-        <div className="border-t border-border bg-background font-inter">
+        <div className="border-t border-border bg-background font-inter relative">
+            {/* MediaPicker overlay */}
+            {activePicker && user?.id && (
+                <Suspense fallback={
+                    <div className="absolute bottom-14.5 left-0 right-0 h-97.5 bg-background border-t border-border flex items-center justify-center z-20">
+                        <Loader2 size={24} className="animate-spin text-brand" />
+                    </div>
+                }>
+                    <LazyMediaPicker
+                        initialTab={activePicker}
+                        customerId={user.id}
+                        onSelect={handleMediaSelect}
+                        onClose={() => setActivePicker(null)}
+                    />
+                </Suspense>
+            )}
             {/* Reply preview bar */}
             {replyingTo && (
                 <div className="flex items-center gap-2 px-4 pt-2.5 pb-1.5 bg-muted/30 border-b border-border/50">
@@ -568,6 +604,38 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
                         title="Create poll"
                     >
                         <BarChart3 size={18} />
+                    </Button>
+
+                    {/* GIF picker button */}
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className={cn(
+                            "h-9 w-9 shrink-0",
+                            activePicker === "gif"
+                                ? "text-brand bg-brand/10"
+                                : "text-muted-foreground hover:text-foreground",
+                        )}
+                        onClick={() => { setActivePicker((p) => (p === "gif" ? null : "gif")); setShowEmojiPicker(false); }}
+                        title="Gửi GIF"
+                    >
+                        <Clapperboard size={18} />
+                    </Button>
+
+                    {/* Sticker picker button */}
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className={cn(
+                            "h-9 w-9 shrink-0",
+                            activePicker === "sticker"
+                                ? "text-brand bg-brand/10"
+                                : "text-muted-foreground hover:text-foreground",
+                        )}
+                        onClick={() => { setActivePicker((p) => (p === "sticker" ? null : "sticker")); setShowEmojiPicker(false); }}
+                        title="Gửi Sticker"
+                    >
+                        <Sticker size={18} />
                     </Button>
 
                     {/* Reminder creation button */}

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { View, Text, TouchableOpacity, Image, Linking } from 'react-native';
+import { Image as ExpoImage } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/theme';
 import { formatMessageTime } from '@/utils/format';
@@ -16,6 +17,7 @@ interface MessageBubbleProps {
   onReact?: (messageId: string, emoji: string) => void;
   onVotePoll?: (messageId: string, optionIndex: number) => void;
   replyToMessage?: Message | null;
+  highlightKeyword?: string | null;
 }
 
 export function MessageBubble({
@@ -28,6 +30,7 @@ export function MessageBubble({
   onReact,
   onVotePoll,
   replyToMessage,
+  highlightKeyword,
 }: MessageBubbleProps) {
   const { content, type, recalled, edited, createdAt, readBy, attachments } = message;
 
@@ -154,6 +157,26 @@ export function MessageBubble({
   };
 
   // Text with URL detection
+  const renderHighlightedText = (text: string, textColor: string) => {
+    if (!highlightKeyword?.trim()) return <Text style={{ color: textColor }}>{text}</Text>;
+    const escaped = highlightKeyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const parts = text.split(new RegExp(`(${escaped})`, 'gi'));
+    if (parts.length === 1) return <Text style={{ color: textColor }}>{text}</Text>;
+    return (
+      <Text style={{ color: textColor }}>
+        {parts.map((part, i) =>
+          i % 2 === 1 ? (
+            <Text key={i} style={{ backgroundColor: '#fef08a', color: '#1a1a1a', borderRadius: 2 }}>
+              {part}
+            </Text>
+          ) : (
+            part
+          ),
+        )}
+      </Text>
+    );
+  };
+
   const renderTextContent = () => {
     const URL_REGEX = /(https?:\/\/[^\s<>"]+)/g;
     const parts = content.split(URL_REGEX);
@@ -162,7 +185,7 @@ export function MessageBubble({
     if (!hasLinks) {
       return (
         <Text className="text-[15px] leading-5" style={{ color: textColor }}>
-          {content}
+          {renderHighlightedText(content, textColor)}
         </Text>
       );
     }
@@ -181,7 +204,7 @@ export function MessageBubble({
               {part}
             </Text>
           ) : (
-            <Text key={i}>{part}</Text>
+            <Text key={i}>{renderHighlightedText(part, textColor)}</Text>
           )
         )}
       </Text>
@@ -261,6 +284,24 @@ export function MessageBubble({
         return renderAudioContent();
       case 'FILE':
         return renderFileContent();
+      case 'GIF':
+        return (
+          <ExpoImage
+            source={{ uri: content }}
+            style={{ width: 220, height: 180, borderRadius: 12 }}
+            contentFit="cover"
+            autoplay
+          />
+        );
+      case 'STICKER':
+        return (
+          <ExpoImage
+            source={{ uri: content }}
+            style={{ width: 140, height: 140 }}
+            contentFit="contain"
+            autoplay
+          />
+        );
       case 'POLL':
         return renderPollContent();
       case 'SYSTEM':
@@ -279,6 +320,70 @@ export function MessageBubble({
   // System messages are centered
   if (type === 'SYSTEM') {
     return renderContent();
+  }
+
+  // GIF & Sticker messages — no bubble background
+  if (type === 'GIF' || type === 'STICKER') {
+    return (
+      <View className={`my-0.5 px-4 ${isMe ? 'items-end' : 'items-start'}`}>
+        {!isMe && showAvatar && senderName && (
+          <Text className="mb-0.5 ml-1 text-xs" style={{ color: Colors.textMuted }}>
+            {senderName}
+          </Text>
+        )}
+        <TouchableOpacity activeOpacity={0.8} onLongPress={onLongPress} delayLongPress={300}>
+          {renderContent()}
+          <View className="mt-0.5 flex-row items-center" style={{ alignSelf: isMe ? 'flex-end' : 'flex-start' }}>
+            <Text className="text-[10px]" style={{ color: Colors.textLight }}>
+              {formatMessageTime(createdAt)}
+            </Text>
+            {isMe && (
+              <Ionicons
+                name={readBy && readBy.length > 0 ? 'checkmark-done' : 'checkmark'}
+                size={14}
+                color={readBy && readBy.length > 0 ? '#60D4F2' : Colors.textLight}
+                style={{ marginLeft: 3 }}
+              />
+            )}
+          </View>
+        </TouchableOpacity>
+
+        {/* Reaction badges */}
+        {message.reactions && message.reactions.length > 0 && (
+          <View className={`mt-1 flex-row flex-wrap gap-1 ${isMe ? 'justify-end' : 'justify-start'}`}>
+            {Object.entries(
+              message.reactions.reduce<Record<string, string[]>>((acc, r) => {
+                (acc[r.emoji] ??= []).push(r.userId);
+                return acc;
+              }, {}),
+            ).map(([emoji, userIds]) => (
+              <TouchableOpacity
+                key={emoji}
+                onPress={() => onReact?.(message.id, emoji)}
+                activeOpacity={0.7}
+                className="flex-row items-center rounded-full px-1.5 py-0.5"
+                style={{
+                  backgroundColor: currentUserId && userIds.includes(currentUserId)
+                    ? 'rgba(99,102,241,0.15)'
+                    : 'rgba(0,0,0,0.06)',
+                  borderWidth: 1,
+                  borderColor: currentUserId && userIds.includes(currentUserId)
+                    ? 'rgba(99,102,241,0.4)'
+                    : 'rgba(0,0,0,0.08)',
+                }}
+              >
+                <Text className="text-xs">{emoji}</Text>
+                {userIds.length > 1 && (
+                  <Text className="ml-0.5 text-[10px]" style={{ color: Colors.textMuted }}>
+                    {userIds.length}
+                  </Text>
+                )}
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+      </View>
+    );
   }
 
   return (
@@ -342,6 +447,10 @@ export function MessageBubble({
                   ? '🖼 Image'
                   : replyToMessage.type === 'FILE'
                   ? '📎 Attachment'
+                  : replyToMessage.type === 'GIF'
+                  ? '🎬 GIF'
+                  : replyToMessage.type === 'STICKER'
+                  ? '🎨 Sticker'
                   : replyToMessage.content}
               </Text>
             </View>

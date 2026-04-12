@@ -2,6 +2,7 @@ import { View, Text, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { CustomAiIcon } from '@/components/ui/CustomAiIcon';
 import { Colors } from '@/constants/theme';
 
 interface AssistantHeaderProps {
@@ -39,7 +40,7 @@ export function AssistantHeader({ title, onPressSetting }: AssistantHeaderProps)
             className="h-9 w-9 rounded-xl items-center justify-center"
             style={{ backgroundColor: Colors.ctaLight }}
           >
-            <Ionicons name="sparkles" size={18} color={Colors.cta} />
+            <CustomAiIcon size={18} color={Colors.cta} />
           </View>
           <View className="ml-2.5 flex-1">
             <Text
