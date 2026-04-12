@@ -50,6 +50,9 @@ export function ActiveCallOverlay({
         // Also pipe audio to the hidden <audio> element (covers voice-only calls)
         if (remoteAudioRef.current && remoteStream) {
             remoteAudioRef.current.srcObject = remoteStream;
+            // Ensure audio has volume (browser autoplay policy may mute it initially)
+            remoteAudioRef.current.volume = 1.0;
+            remoteAudioRef.current.muted = false;
         }
     }, [remoteStream]);
     const {
@@ -75,6 +78,22 @@ export function ActiveCallOverlay({
     const [isExpanded, setIsExpanded] = useState(false);
     const [isSpeakerOn, setIsSpeakerOn] = useState(true);
     const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+    // Sync speaker state with actual remoteAudioRef muted status
+    useEffect(() => {
+        if (remoteAudioRef.current) {
+            setIsSpeakerOn(!remoteAudioRef.current.muted);
+        }
+    }, [remoteStream]);
+
+    // Try to play audio explicitly when stream is set (bypass autoplay policy if user interacted)
+    useEffect(() => {
+        if (remoteAudioRef.current && callStatus === "ONGOING") {
+            remoteAudioRef.current.play().catch((err) => {
+                console.warn("Audio autoplay failed (likely browser policy), user can click speaker to unmute:", err);
+            });
+        }
+    }, [remoteStream, callStatus]);
 
     // Fix mute: toggle audio tracks on localStream directly (reliable)
     const handleToggleMute = () => {

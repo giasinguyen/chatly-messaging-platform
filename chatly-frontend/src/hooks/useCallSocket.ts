@@ -62,8 +62,10 @@ export function useCallSocket() {
         webrtcRef.current.callbacksRef.current = {
             onIceCandidate: sendIceCandidate,
             onConnectionStateChange: (state) => {
-                if (state === "failed" || state === "disconnected") {
-                    console.warn("WebRTC connection state:", state);
+                console.log("[CallSocket] connection state:", state);
+                // Only end call on permanent failure — "disconnected" is temporary and can self-heal
+                if (state === "failed" || state === "closed") {
+                    console.warn("[CallSocket] Permanent connection failure, ending call:", state);
                     handleEndCall();
                 }
             },
