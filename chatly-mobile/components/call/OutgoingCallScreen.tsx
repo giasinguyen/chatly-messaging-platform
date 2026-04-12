@@ -11,13 +11,13 @@ import { useEffect } from 'react';
 import { Avatar } from '@/components/ui/Avatar';
 import { Colors } from '@/constants/theme';
 import { useCallStore } from '@/store/call.store';
-import { useCallSocket } from '@/hooks/useCallSocket';
+import { useCallContext } from '@/contexts/CallContext';
 
 export function OutgoingCallScreen() {
   const callStatus = useCallStore((s) => s.callStatus);
   const remoteParticipant = useCallStore((s) => s.remoteParticipant);
   const incomingCall = useCallStore((s) => s.incomingCall);
-  const { endCall } = useCallSocket();
+  const { endCall } = useCallContext();
 
   const pulseScale = useSharedValue(1);
   const pulseOpacity = useSharedValue(0.6);

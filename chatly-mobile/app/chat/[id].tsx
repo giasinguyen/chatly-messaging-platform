@@ -30,7 +30,7 @@ import { useMessageStore } from '@/store/message.store';
 import { useAuthStore } from '@/store/auth.store';
 import { useConversationStore } from '@/store/conversation.store';
 import { useChatSocket } from '@/hooks/useChatSocket';
-import { useCallSocket } from '@/hooks/useCallSocket';
+import { useCallContext } from '@/contexts/CallContext';
 import { usePresenceSocket } from '@/hooks/usePresenceSocket';
 import { Colors } from '@/constants/theme';
 import { formatDateSeparator } from '@/utils/format';
@@ -163,7 +163,7 @@ export default function ChatScreen() {
     },
   });
 
-  const { initiateCall } = useCallSocket();
+  const { initiateCall } = useCallContext();
 
   const { sendMessage: wsSendMessage, sendTyping, sendSeen } = useChatSocket({
     conversationId: conversationId ?? '',

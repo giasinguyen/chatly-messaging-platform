@@ -9,7 +9,7 @@ import { socketService } from '@/services/socket.service';
 import { usePresenceSocket, PresenceEvent } from '@/hooks/usePresenceSocket';
 import { useNotificationSocket } from '@/hooks/useNotificationSocket';
 import { useExpoPush } from '@/hooks/useExpoPush';
-import { useCallSocket } from '@/hooks/useCallSocket';
+import { CallSocketProvider, useCallContext } from '@/contexts/CallContext';
 import { useCallStore } from '@/store/call.store';
 import { CallScreen } from '@/components/call/CallScreen';
 import { OutgoingCallScreen } from '@/components/call/OutgoingCallScreen';
@@ -21,7 +21,7 @@ import { Colors } from '@/constants/theme';
 import { notificationService } from '@/services/notification.service';
 import { useNotificationStore } from '@/store/notification.store';
 
-function AuthGate({ children }: { children: React.ReactNode }) {
+function AuthGateInner({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, hydrated, hydrate, setAuth, clearAuth } = useAuthStore();
   const segments = useSegments();
   const router = useRouter();
@@ -64,7 +64,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   useExpoPush();
 
   // Khởi tạo signaling WebSocket cho cuộc gọi (hoạt động ở mọi màn hình)
-  const { answerCall: answerCallAction } = useCallSocket();
+  const { answerCall: answerCallAction } = useCallContext();
   const incomingCall = useCallStore((s) => s.incomingCall);
   const callStatus = useCallStore((s) => s.callStatus);
 
@@ -120,6 +120,14 @@ function AuthGate({ children }: { children: React.ReactNode }) {
       {/* Overlay cuộc gọi đang diễn ra */}
       {callStatus === 'ONGOING' && <ActiveCallOverlay />}
     </>
+  );
+}
+
+function AuthGate({ children }: { children: React.ReactNode }) {
+  return (
+    <CallSocketProvider>
+      <AuthGateInner>{children}</AuthGateInner>
+    </CallSocketProvider>
   );
 }
 
