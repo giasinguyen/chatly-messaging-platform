@@ -20,6 +20,8 @@ interface AssistantComposerProps {
   isStreaming?: boolean;
   onCancel?: () => void;
   disabled?: boolean;
+  mcpConfigVisible?: boolean;
+  onMcpConfigChange?: (visible: boolean) => void;
 }
 
 interface PendingFile {
@@ -36,6 +38,8 @@ export function AssistantComposer({
   isStreaming,
   onCancel,
   disabled,
+  mcpConfigVisible: mcpConfigVisibleProp,
+  onMcpConfigChange,
 }: AssistantComposerProps) {
   const {
     useWebSearch,
@@ -50,7 +54,12 @@ export function AssistantComposer({
   const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([]);
   const isUploading = pendingFiles.some((p) => !p.done && !p.error);
   const [showMcpPicker, setShowMcpPicker] = useState(false);
-  const [showMcpConfig, setShowMcpConfig] = useState(false);
+  const [internalMcpConfig, setInternalMcpConfig] = useState(false);
+  const showMcpConfig = mcpConfigVisibleProp ?? internalMcpConfig;
+  const setShowMcpConfig = (v: boolean) => {
+    if (onMcpConfigChange) onMcpConfigChange(v);
+    else setInternalMcpConfig(v);
+  };
 
   const handleSend = () => {
     const text = draft.trim();
@@ -208,13 +217,6 @@ export function AssistantComposer({
               {selectedMcpIds.length}
             </Text>
           )}
-        </TouchableOpacity>
-        <TouchableOpacity
-          onPress={() => setShowMcpConfig(true)}
-          className="h-8 w-8 items-center justify-center rounded-md"
-          hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-        >
-          <Ionicons name="settings-outline" size={17} color={Colors.textMuted} />
         </TouchableOpacity>
       </View>
 

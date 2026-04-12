@@ -56,6 +56,8 @@ export interface Message {
   pinned: boolean;
   pinnedAt: string | null;
   pinnedBy: string | null;
+  priority?: string | null;
+  mentions?: string[];
   createdAt: string;
   updatedAt: string;
 }

@@ -4,10 +4,12 @@ import {
   Text,
   FlatList,
   TouchableOpacity,
+  TouchableWithoutFeedback,
   TextInput,
   Alert,
   ActivityIndicator,
   KeyboardAvoidingView,
+  Keyboard,
   Platform,
   Modal,
   RefreshControl,
@@ -17,6 +19,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import { Colors } from '@/constants/theme';
+import { CustomAiIcon } from '@/components/ui/CustomAiIcon';
 import { agentService } from '@/services/agent.service';
 import { useChatbotStore } from '@/store/chatbot.store';
 import { useAgentStream } from '@/hooks/useAgentStream';
@@ -68,6 +71,7 @@ export default function AssistantScreen() {
   const [showScrollDown, setShowScrollDown] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState('');
+  const [mcpConfigVisible, setMcpConfigVisible] = useState(false);
 
   const session = sessions.find((s) => s.id === activeSessionId);
   const title = session?.title ?? 'AI Assistant';
@@ -309,7 +313,7 @@ export default function AssistantScreen() {
           className="h-10 w-10 rounded-xl items-center justify-center"
           style={{ backgroundColor: isActive ? Colors.cta : Colors.ctaLight }}
         >
-          <Ionicons name="sparkles" size={18} color={isActive ? Colors.white : Colors.cta} />
+          <CustomAiIcon size={18} color={isActive ? Colors.white : Colors.cta} />
         </View>
         <View className="ml-3 flex-1">
           {isEditing ? (
@@ -347,7 +351,7 @@ export default function AssistantScreen() {
       >
         <View className="flex-row items-center flex-1">
           <View className="h-8 w-8 rounded-lg items-center justify-center" style={{ backgroundColor: Colors.ctaLight }}>
-            <Ionicons name="sparkles" size={16} color={Colors.cta} />
+            <CustomAiIcon size={16} color={Colors.cta} />
           </View>
           <View className="ml-2.5 flex-1">
             <Text className="text-lg font-bold" style={{ color: Colors.text }} numberOfLines={1}>
@@ -356,6 +360,13 @@ export default function AssistantScreen() {
           </View>
         </View>
         <View className="flex-row items-center" style={{ gap: 4 }}>
+          <TouchableOpacity
+            onPress={() => setMcpConfigVisible(true)}
+            className="h-9 w-9 items-center justify-center rounded-full"
+            hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+          >
+            <Ionicons name="settings-outline" size={22} color={Colors.cta} />
+          </TouchableOpacity>
           <TouchableOpacity
             onPress={() => {
               loadSessions();
@@ -377,6 +388,7 @@ export default function AssistantScreen() {
       </View>
 
       {/* ── Body ── */}
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
       <KeyboardAvoidingView
         className="flex-1"
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -426,7 +438,7 @@ export default function AssistantScreen() {
             /* ── Empty state ── */
             <View className="flex-1 items-center justify-center px-8">
               <View className="h-20 w-20 rounded-2xl items-center justify-center mb-5" style={{ backgroundColor: Colors.ctaLight }}>
-                <Ionicons name="sparkles" size={36} color={Colors.cta} />
+                <CustomAiIcon size={36} color={Colors.cta} />
               </View>
               <Text className="text-xl font-semibold text-center" style={{ color: Colors.text }}>
                 Chatly AI Assistant
@@ -446,9 +458,12 @@ export default function AssistantScreen() {
           isStreaming={isStreaming}
           onCancel={cancelStream}
           disabled={isStreaming}
+          mcpConfigVisible={mcpConfigVisible}
+          onMcpConfigChange={setMcpConfigVisible}
         />
         <View style={{ height: insets.bottom, backgroundColor: Colors.white }} />
       </KeyboardAvoidingView>
+      </TouchableWithoutFeedback>
 
       {/* ── Session List Modal ── */}
       <Modal visible={showSessions} animationType="slide" presentationStyle="pageSheet">

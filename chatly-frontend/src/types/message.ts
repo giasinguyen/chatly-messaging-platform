@@ -72,6 +72,12 @@ export interface Message {
     pinnedAt: string | null;
     pinnedBy: string | null;
 
+    // Priority tag
+    priority?: string | null; // "IMPORTANT" | "URGENT" | null
+
+    // Mentions – user IDs mentioned in this message ("all" for @all)
+    mentions?: string[];
+
     createdAt: string;
     updatedAt: string;
 }

@@ -144,9 +144,11 @@ public class NotificationService {
                     if (user.getDeviceTokens() != null && !user.getDeviceTokens().isEmpty()) {
                         String title = "Chatly Notification";
                         if (notification.getType() == NotificationType.NEW_MESSAGE) {
-                            title = "Tin nhắn mới";
+                            title = "New message";
+                        } else if (notification.getType() == NotificationType.MENTION) {
+                            title = "You were mentioned";
                         } else if (notification.getType() == NotificationType.FRIEND_REQUEST) {
-                            title = "Lời mời kết bạn";
+                            title = "Friend request";
                         }
                         
                         Map<String, Object> data = Map.of(

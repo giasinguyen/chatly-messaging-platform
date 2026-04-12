@@ -51,6 +51,12 @@ public class MessageResponse {
     private Instant pinnedAt;
     private String pinnedBy;
 
+    // Priority tag
+    private String priority;
+
+    // Mentions
+    private List<String> mentions;
+
     private Instant createdAt;
     private Instant updatedAt;
 }

@@ -22,6 +22,9 @@ import {
     BarChart3,
     Forward,
     PhoneCall,
+    Star,
+    AlertTriangle,
+    IdCard,
 } from "lucide-react";
 import { toast } from "sonner";
 import type { Message, ChatUser } from "@/types/message";
@@ -71,10 +74,12 @@ interface MessageListProps {
     onRetryMessage?: (id: string) => void;
     onRemoveFailedMessage?: (id: string) => void;
     highlightedMessageId?: string | null;
+    highlightKeyword?: string | null;
     onVotePoll?: (messageId: string, optionIndex: number) => void;
     onClosePoll?: (messageId: string) => void;
     onTogglePin?: (messageId: string) => void;
     onCallAgain?: (calleeId: string, calleeName: string, calleeAvatar?: string) => void;
+    onTagPriority?: (messageId: string, priority: string) => void;
 }
 
 const RECALL_LIMIT_MS = 24 * 60 * 60 * 1000;
@@ -101,10 +106,12 @@ export function MessageList({
     onRetryMessage,
     onRemoveFailedMessage,
     highlightedMessageId,
+    highlightKeyword,
     onVotePoll,
     onClosePoll,
     onTogglePin,
     onCallAgain,
+    onTagPriority,
 }: MessageListProps) {
     const scrollEndRef = useRef<HTMLDivElement>(null);
     const sentinelRef = useRef<HTMLDivElement>(null);
@@ -288,7 +295,7 @@ export function MessageList({
 
     const canForward = (msg: Message): boolean => {
         if (msg.recalled) return false;
-        return ["TEXT", "IMAGE", "FILE"].includes(msg.type);
+        return ["TEXT", "IMAGE", "FILE", "GIF", "STICKER"].includes(msg.type);
     };
 
     const startEdit = (msg: Message) => {
@@ -307,6 +314,26 @@ export function MessageList({
     const cancelEdit = () => {
         setEditingId(null);
         setEditDraft("");
+    };
+
+    const renderHighlightedText = (text: string): React.ReactNode => {
+        if (!highlightKeyword?.trim()) return text;
+        const escaped = highlightKeyword.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        const parts = text.split(new RegExp(`(${escaped})`, "gi"));
+        if (parts.length === 1) return text;
+        return (
+            <>
+                {parts.map((part, i) =>
+                    i % 2 === 1 ? (
+                        <mark key={i} className="bg-yellow-200 dark:bg-yellow-800 text-inherit rounded px-0.5">
+                            {part}
+                        </mark>
+                    ) : (
+                        part
+                    ),
+                )}
+            </>
+        );
     };
 
     const renderMessage = (msg: Message, index: number) => {
@@ -546,6 +573,82 @@ export function MessageList({
                                     </div>
                                 );
                             })()
+                        ) : (msg.type === "GIF" || msg.type === "STICKER") ? (
+                            /* GIF / Sticker bubble — no background, just the image */
+                            <div>
+                                {repliedMsg && (
+                                    <div className={cn(
+                                        "px-3 py-1.5 mb-1 rounded-xl text-sm",
+                                        isMe
+                                            ? "bg-brand/10 border border-brand/20"
+                                            : "bg-muted/50 border border-border/40",
+                                    )}>
+                                        <ReplyPreview
+                                            replyMessage={repliedMsg}
+                                            participant={participant}
+                                            senderName={replySenderName}
+                                            currentUserId={currentUserId}
+                                            isMe={isMe}
+                                        />
+                                    </div>
+                                )}
+                                <img
+                                    src={msg.content}
+                                    alt={msg.type === "GIF" ? "GIF" : "Sticker"}
+                                    loading="lazy"
+                                    className={cn(
+                                        "rounded-xl object-contain",
+                                        msg.type === "GIF"
+                                            ? "max-w-60 max-h-50"
+                                            : "w-35 h-auto",
+                                    )}
+                                />
+                            </div>
+                        ) : msg.type === "VCARD" ? (
+                            /* Business card bubble — Zalo-style */
+                            (() => {
+                                let card: { id?: string; displayName?: string; username?: string; avatarUrl?: string } = {};
+                                try { card = JSON.parse(msg.content); } catch {}
+                                return (
+                                    <div className="w-60 rounded-2xl border border-border/60 bg-background dark:bg-zinc-900 shadow-sm overflow-hidden">
+                                        {/* Card header — mini label */}
+                                        <div className="flex items-center gap-1.5 px-3 py-2 bg-muted/40 border-b border-border/40">
+                                            <IdCard size={12} className="text-muted-foreground shrink-0" />
+                                            <span className="text-[11px] text-muted-foreground font-medium">Danh thiếp</span>
+                                        </div>
+                                        {/* Card body */}
+                                        <div className="flex items-center gap-3 px-3 py-3">
+                                            <div className="w-12 h-12 rounded-full bg-brand/15 flex items-center justify-center text-base font-bold text-brand shrink-0 overflow-hidden ring-2 ring-brand/20">
+                                                {card.avatarUrl ? (
+                                                    <img src={card.avatarUrl} alt="" className="w-12 h-12 object-cover" />
+                                                ) : (
+                                                    <span>{(card.displayName ?? "U").charAt(0).toUpperCase()}</span>
+                                                )}
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <p className="font-semibold text-sm text-foreground truncate">
+                                                    {card.displayName ?? "User"}
+                                                </p>
+                                                <p className="text-xs text-muted-foreground truncate mt-0.5">
+                                                    @{card.username ?? ""}
+                                                </p>
+                                            </div>
+                                        </div>
+                                        {/* Card footer — action button */}
+                                        {card.id && onOpenSenderProfile && (
+                                            <div className="border-t border-border/40">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => onOpenSenderProfile(card.id!)}
+                                                    className="w-full py-2 text-xs font-semibold text-brand hover:bg-brand/5 transition-colors"
+                                                >
+                                                    Xem hồ sơ
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })()
                         ) : (
                             /* Normal bubble */
                             <div
@@ -554,8 +657,22 @@ export function MessageList({
                                     isMe
                                         ? "bg-brand text-white rounded-2xl"
                                         : "bg-muted/75 border border-border/60 text-foreground dark:bg-zinc-800/90 dark:border-zinc-700 rounded-2xl",
+                                    msg.priority === "URGENT" && "ring-2 ring-red-500/60",
+                                    msg.priority === "IMPORTANT" && "ring-2 ring-amber-500/60",
                                 )}
                             >
+                                {/* Priority badge */}
+                                {msg.priority && (
+                                    <div className={cn(
+                                        "flex items-center gap-1 text-[10px] font-semibold mb-1 uppercase tracking-wide",
+                                        msg.priority === "URGENT" ? "text-red-500" : "text-amber-500",
+                                        isMe && msg.priority === "URGENT" && "text-red-200",
+                                        isMe && msg.priority === "IMPORTANT" && "text-amber-200",
+                                    )}>
+                                        {msg.priority === "URGENT" ? <AlertTriangle size={11} /> : <Star size={11} />}
+                                        {msg.priority}
+                                    </div>
+                                )}
                                 {repliedMsg && (
                                     <ReplyPreview
                                         replyMessage={repliedMsg}
@@ -567,21 +684,55 @@ export function MessageList({
                                 )}
                                 {msg.content && (() => {
                                     const URL_REGEX = /(https?:\/\/[^\s<>"]+)/g;
-                                    const parts = msg.content.split(URL_REGEX);
-                                    const hasLinks = parts.some(p => /^https?:\/\//.test(p));
-                                    if (!hasLinks) return <span>{msg.content}</span>;
+                                    const MENTION_REGEX = /(@\S+)/g;
+                                    const COMBINED_REGEX = /(https?:\/\/[^\s<>"]+|@\S+)/g;
+                                    const parts = msg.content.split(COMBINED_REGEX);
+                                    const hasSpecial = parts.some(p => URL_REGEX.test(p) || MENTION_REGEX.test(p));
+                                    if (!hasSpecial) return <span>{renderHighlightedText(msg.content)}</span>;
                                     return (
                                         <span>
-                                            {parts.map((part, i) =>
-                                                /^https?:\/\//.test(part) ? (
-                                                    <a key={i} href={part} target="_blank" rel="noopener noreferrer"
-                                                        className={cn("underline break-all", isMe ? "text-white/90 hover:text-white" : "text-brand hover:text-brand/80")}>
-                                                        {part}
-                                                    </a>
-                                                ) : (
-                                                    <span key={i}>{part}</span>
-                                                )
-                                            )}
+                                            {parts.map((part, i) => {
+                                                if (/^https?:\/\//.test(part)) {
+                                                    return (
+                                                        <a key={i} href={part} target="_blank" rel="noopener noreferrer"
+                                                            className={cn("underline break-all", isMe ? "text-white/90 hover:text-white" : "text-brand hover:text-brand/80")}>
+                                                            {part}
+                                                        </a>
+                                                    );
+                                                }
+                                                if (/^@\S+/.test(part)) {
+                                                    const mentionName = part.replace(/^@/, '');
+                                                    const mentionedUser = mentionName === 'all'
+                                                        ? null
+                                                        : Object.values(participantDirectory).find(
+                                                            (u) => u.displayName === mentionName || u.username === mentionName,
+                                                        );
+                                                    if (mentionedUser && onOpenSenderProfile) {
+                                                        return (
+                                                            <button
+                                                                key={i}
+                                                                type="button"
+                                                                onClick={() => onOpenSenderProfile(mentionedUser.id)}
+                                                                className={cn(
+                                                                    "font-semibold cursor-pointer hover:underline",
+                                                                    isMe ? "text-white/90" : "text-brand",
+                                                                )}
+                                                            >
+                                                                {part}
+                                                            </button>
+                                                        );
+                                                    }
+                                                    return (
+                                                        <span key={i} className={cn(
+                                                            "font-semibold",
+                                                            isMe ? "text-white/90" : "text-brand",
+                                                        )}>
+                                                            {part}
+                                                        </span>
+                                                    );
+                                                }
+                                                return <span key={i}>{renderHighlightedText(part)}</span>;
+                                            })}
                                         </span>
                                     );
                                 })()}
@@ -831,6 +982,24 @@ export function MessageList({
                             <Pin size={14} />
                             {msg.pinned ? "Unpin" : "Pin message"}
                         </ContextMenuItem>
+                    )}
+                    {!msg.recalled && onTagPriority && (
+                        <>
+                            <ContextMenuItem
+                                onClick={() => onTagPriority(msg.id, "IMPORTANT")}
+                                className="gap-2 text-amber-500 focus:text-amber-500"
+                            >
+                                <Star size={14} />
+                                {msg.priority === "IMPORTANT" ? "Remove important" : "Mark important"}
+                            </ContextMenuItem>
+                            <ContextMenuItem
+                                onClick={() => onTagPriority(msg.id, "URGENT")}
+                                className="gap-2 text-red-500 focus:text-red-500"
+                            >
+                                <AlertTriangle size={14} />
+                                {msg.priority === "URGENT" ? "Remove urgent" : "Mark urgent"}
+                            </ContextMenuItem>
+                        </>
                     )}
                     {canRecall(msg) && (
                         <>

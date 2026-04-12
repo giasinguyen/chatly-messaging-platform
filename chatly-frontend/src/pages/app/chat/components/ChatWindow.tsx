@@ -188,6 +188,7 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
     const [showSearch, setShowSearch] = useState(false);
     const [showInfoPanel, setShowInfoPanel] = useState(true);
     const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
+    const [highlightKeyword, setHighlightKeyword] = useState("");
     const [groupPanelDefaultTab, setGroupPanelDefaultTab] = useState<"members" | "settings">("members");
     const [createGroupFromPrivateOpen, setCreateGroupFromPrivateOpen] = useState(false);
     const [forwardingMessage, setForwardingMessage] = useState<Message | null>(null);
@@ -528,9 +529,12 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
             content: string,
             attachments?: import("@/types/message").Attachment[],
             poll?: import("@/types/message").Poll,
+            mentions?: string[],
+            priority?: string,
+            messageType?: string,
         ) => {
             if (!id || !currentUser) return;
-            const success = sendMessage(content, replyingTo?.id ?? null, attachments, poll);
+            const success = sendMessage(content, replyingTo?.id ?? null, attachments, poll, priority, mentions, messageType);
             if (!success) {
                 toast.error("Connection lost! Could not send message.");
                 setFailedMessages((prev) => [
@@ -539,6 +543,24 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
                 ]);
             }
             setReplyingTo(null);
+        },
+        [id, currentUser, replyingTo, sendMessage],
+    );
+
+    const handleSendVCard = useCallback(
+        (user: import("@/types/message").ChatUser) => {
+            if (!id || !currentUser) return;
+            const cardContent = JSON.stringify({
+                id: user.id,
+                displayName: user.displayName,
+                username: user.username,
+                avatarUrl: user.avatarUrl ?? null,
+            });
+            const success = sendMessage(cardContent, replyingTo?.id ?? null, undefined, undefined, undefined, undefined, "VCARD");
+            if (!success) {
+                toast.error("Connection lost! Could not send card.");
+            }
+            if (replyingTo) setReplyingTo(null);
         },
         [id, currentUser, replyingTo, sendMessage],
     );
@@ -763,6 +785,30 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
         },
         [id, initiateCall],
     );
+    const handleTagPriority = useCallback(
+        async (messageId: string, priority: string) => {
+            try {
+                const res = await messageService.tagPriority(messageId, priority);
+                setMessages((prev) =>
+                    prev.map((m) =>
+                        m.id === messageId
+                            ? { ...m, priority: res.result.priority }
+                            : m,
+                    ),
+                );
+                toast.success(
+                    res.result.priority
+                        ? `Marked as ${res.result.priority.toLowerCase()}`
+                        : "Priority removed",
+                );
+            } catch (err: any) {
+                const msg =
+                    err?.response?.data?.message ?? "Could not tag priority";
+                toast.error(msg);
+            }
+        },
+        [],
+    );
 
     const handleSendFriendRequest = useCallback(async () => {
         const targetUser =
@@ -975,7 +1021,10 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
                 }
                 onToggleSearch={() => {
                     setShowSearch((prev) => !prev);
-                    if (showSearch) setHighlightedMessageId(null);
+                    if (showSearch) {
+                        setHighlightedMessageId(null);
+                        setHighlightKeyword("");
+                    }
                 }}
                 onToggleInfoPanel={() => setShowInfoPanel((prev) => !prev)}
                 isInfoPanelOpen={showInfoPanel}
@@ -1076,8 +1125,10 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
                     onClose={() => {
                         setShowSearch(false);
                         setHighlightedMessageId(null);
+                        setHighlightKeyword("");
                     }}
                     onNavigateToMessage={setHighlightedMessageId}
+                    onKeywordChange={setHighlightKeyword}
                 />
             )}
 
@@ -1101,10 +1152,12 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
                 onRetryMessage={handleRetryMessage}
                 onRemoveFailedMessage={(fid) => setFailedMessages((p) => p.filter(m => m.id !== fid))}
                 highlightedMessageId={highlightedMessageId}
+                highlightKeyword={highlightKeyword}
                 onVotePoll={handleVotePoll}
                 onClosePoll={handleClosePoll}
                 onTogglePin={handleTogglePin}
                 onCallAgain={handleCallAgain}
+                onTagPriority={handleTagPriority}
             />
 
             {isTyping && (
@@ -1138,7 +1191,10 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
                 senderName={replyingSenderName}
                 onCancelReply={handleCancelReply}
                 onSendMessage={handleSendMessage}
+                onSendVCard={handleSendVCard}
                 onTyping={sendTyping}
+                groupMembers={groupMembers}
+                currentUserId={currentUser?.id}
             />
 
             <ForwardMessageDialog

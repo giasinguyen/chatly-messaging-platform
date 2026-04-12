@@ -20,4 +20,6 @@ public class ChatMessageRequest {
     private String replyToId;
     private List<Attachment> attachments;
     private Poll poll;
+    private String priority;
+    private List<String> mentions;
 }
