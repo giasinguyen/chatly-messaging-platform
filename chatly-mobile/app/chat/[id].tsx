@@ -66,6 +66,7 @@ export default function ChatScreen() {
   const [otherUserOnline, setOtherUserOnline] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
+  const [highlightKeyword, setHighlightKeyword] = useState('');
 
   const messages = messagesByConversation[conversationId ?? ''] ?? [];
   const currentPage = page[conversationId ?? ''] ?? 0;
@@ -482,7 +483,10 @@ export default function ChatScreen() {
         isOnline={!isGroup && otherUserOnline}
         onToggleSearch={() => {
           setShowSearch((prev) => !prev);
-          if (showSearch) setHighlightedMessageId(null);
+          if (showSearch) {
+            setHighlightedMessageId(null);
+            setHighlightKeyword('');
+          }
         }}
         onPressInfo={() => router.push(`/chat/${conversationId}/info`)}
       />
@@ -493,8 +497,10 @@ export default function ChatScreen() {
           onClose={() => {
             setShowSearch(false);
             setHighlightedMessageId(null);
+            setHighlightKeyword('');
           }}
           onNavigateToMessage={handleNavigateToMessage}
+          onKeywordChange={setHighlightKeyword}
         />
       )}
 
@@ -531,6 +537,7 @@ export default function ChatScreen() {
                     onReact={handleReact}
                     onVotePoll={handleVotePoll}
                     replyToMessage={msg.replyToId ? (messageById[msg.replyToId] ?? null) : null}
+                    highlightKeyword={highlightKeyword}
                   />
                 </View>
               );

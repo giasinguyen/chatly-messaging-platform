@@ -70,6 +70,7 @@ interface MessageListProps {
     onRetryMessage?: (id: string) => void;
     onRemoveFailedMessage?: (id: string) => void;
     highlightedMessageId?: string | null;
+    highlightKeyword?: string | null;
     onVotePoll?: (messageId: string, optionIndex: number) => void;
     onTogglePin?: (messageId: string) => void;
 }
@@ -98,6 +99,7 @@ export function MessageList({
     onRetryMessage,
     onRemoveFailedMessage,
     highlightedMessageId,
+    highlightKeyword,
     onVotePoll,
     onTogglePin,
 }: MessageListProps) {
@@ -304,6 +306,26 @@ export function MessageList({
         setEditDraft("");
     };
 
+    const renderHighlightedText = (text: string): React.ReactNode => {
+        if (!highlightKeyword?.trim()) return text;
+        const escaped = highlightKeyword.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        const parts = text.split(new RegExp(`(${escaped})`, "gi"));
+        if (parts.length === 1) return text;
+        return (
+            <>
+                {parts.map((part, i) =>
+                    i % 2 === 1 ? (
+                        <mark key={i} className="bg-yellow-200 dark:bg-yellow-800 text-inherit rounded px-0.5">
+                            {part}
+                        </mark>
+                    ) : (
+                        part
+                    ),
+                )}
+            </>
+        );
+    };
+
     const renderMessage = (msg: Message, index: number) => {
         // SYSTEM messages render as centered labels
         if (msg.type === "SYSTEM") {
@@ -503,7 +525,7 @@ export function MessageList({
                                     const URL_REGEX = /(https?:\/\/[^\s<>"]+)/g;
                                     const parts = msg.content.split(URL_REGEX);
                                     const hasLinks = parts.some(p => /^https?:\/\//.test(p));
-                                    if (!hasLinks) return <span>{msg.content}</span>;
+                                    if (!hasLinks) return <span>{renderHighlightedText(msg.content)}</span>;
                                     return (
                                         <span>
                                             {parts.map((part, i) =>
@@ -513,7 +535,7 @@ export function MessageList({
                                                         {part}
                                                     </a>
                                                 ) : (
-                                                    <span key={i}>{part}</span>
+                                                    <span key={i}>{renderHighlightedText(part)}</span>
                                                 )
                                             )}
                                         </span>

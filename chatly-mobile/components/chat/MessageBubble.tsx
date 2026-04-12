@@ -14,6 +14,7 @@ interface MessageBubbleProps {
   onReact?: (messageId: string, emoji: string) => void;
   onVotePoll?: (messageId: string, optionIndex: number) => void;
   replyToMessage?: Message | null;
+  highlightKeyword?: string | null;
 }
 
 export function MessageBubble({
@@ -26,6 +27,7 @@ export function MessageBubble({
   onReact,
   onVotePoll,
   replyToMessage,
+  highlightKeyword,
 }: MessageBubbleProps) {
   const { content, type, recalled, edited, createdAt, readBy, attachments } = message;
 
@@ -142,6 +144,26 @@ export function MessageBubble({
   };
 
   // Text with URL detection
+  const renderHighlightedText = (text: string, textColor: string) => {
+    if (!highlightKeyword?.trim()) return <Text style={{ color: textColor }}>{text}</Text>;
+    const escaped = highlightKeyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const parts = text.split(new RegExp(`(${escaped})`, 'gi'));
+    if (parts.length === 1) return <Text style={{ color: textColor }}>{text}</Text>;
+    return (
+      <Text style={{ color: textColor }}>
+        {parts.map((part, i) =>
+          i % 2 === 1 ? (
+            <Text key={i} style={{ backgroundColor: '#fef08a', color: '#1a1a1a', borderRadius: 2 }}>
+              {part}
+            </Text>
+          ) : (
+            part
+          ),
+        )}
+      </Text>
+    );
+  };
+
   const renderTextContent = () => {
     const URL_REGEX = /(https?:\/\/[^\s<>"]+)/g;
     const parts = content.split(URL_REGEX);
@@ -150,7 +172,7 @@ export function MessageBubble({
     if (!hasLinks) {
       return (
         <Text className="text-[15px] leading-5" style={{ color: textColor }}>
-          {content}
+          {renderHighlightedText(content, textColor)}
         </Text>
       );
     }
@@ -169,7 +191,7 @@ export function MessageBubble({
               {part}
             </Text>
           ) : (
-            <Text key={i}>{part}</Text>
+            <Text key={i}>{renderHighlightedText(part, textColor)}</Text>
           )
         )}
       </Text>

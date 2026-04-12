@@ -9,9 +9,10 @@ interface MessageSearchProps {
   conversationId: string;
   onClose: () => void;
   onNavigateToMessage: (messageId: string) => void;
+  onKeywordChange?: (keyword: string) => void;
 }
 
-export function MessageSearch({ conversationId, onClose, onNavigateToMessage }: MessageSearchProps) {
+export function MessageSearch({ conversationId, onClose, onNavigateToMessage, onKeywordChange }: MessageSearchProps) {
   const [keyword, setKeyword] = useState('');
   const [results, setResults] = useState<Message[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -43,6 +44,7 @@ export function MessageSearch({ conversationId, onClose, onNavigateToMessage }: 
 
   const handleChange = (value: string) => {
     setKeyword(value);
+    onKeywordChange?.(value);
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => doSearch(value), 400);
   };
