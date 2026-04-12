@@ -19,12 +19,12 @@ function formatLastSeen(lastSeen: string | null | undefined): string {
     const diffHours = Math.floor(diffMins / 60);
     const diffDays = Math.floor(diffHours / 24);
 
-    if (diffMins < 1) return "Vừa truy cập";
-    if (diffMins < 60) return `${diffMins} phút trước`;
-    if (diffHours < 24) return `${diffHours} giờ trước`;
-    if (diffDays < 7) return `${diffDays} ngày trước`;
+    if (diffMins < 1) return "Just now";
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays < 7) return `${diffDays}d ago`;
 
-    return new Intl.DateTimeFormat("vi-VN", {
+    return new Intl.DateTimeFormat("en-US", {
         day: "2-digit",
         month: "2-digit",
         year: "numeric",
@@ -60,10 +60,10 @@ export function PresenceIndicator({
             {showLabel && (
                 <span className="text-xs text-muted-foreground">
                     {isOnline
-                        ? "Đang hoạt động"
+                        ? "Online"
                         : lastSeen
                           ? formatLastSeen(lastSeen)
-                          : "Ngoại tuyến"}
+                          : "Offline"}
                 </span>
             )}
         </span>

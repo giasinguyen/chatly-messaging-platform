@@ -16,10 +16,10 @@ export function GeneralSettings() {
                 <section className="flex flex-col gap-4">
                     <div className="flex flex-col gap-1">
                         <h3 className="text-lg font-bold text-foreground">
-                            Danh bạ
+                            Contacts
                         </h3>
                         <p className="text-sm text-muted-foreground">
-                            Danh sách bạn bè được hiển thị trong danh bạ
+                            List of friends displayed in the contact list
                         </p>
                     </div>
 
@@ -33,7 +33,7 @@ export function GeneralSettings() {
                                     htmlFor="all-friends"
                                     className="text-sm font-medium leading-none cursor-pointer group-hover:text-foreground/80 transition-colors"
                                 >
-                                    Hiển thị tất cả bạn bè
+                                    Show all friends
                                 </Label>
                                 <RadioGroupItem
                                     value="all-friends"
@@ -45,7 +45,7 @@ export function GeneralSettings() {
                                     htmlFor="only-zalo"
                                     className="text-sm font-medium leading-none cursor-pointer group-hover:text-foreground/80 transition-colors"
                                 >
-                                    Chỉ hiển thị bạn bè đang sử dụng Chatly
+                                    Show only friends using Chatly
                                 </Label>
                                 <RadioGroupItem
                                     value="only-zalo"
@@ -60,22 +60,21 @@ export function GeneralSettings() {
                 <section className="flex flex-col gap-4">
                     <div className="flex flex-col gap-1">
                         <h3 className="text-lg font-bold text-foreground">
-                            Ngôn ngữ
+                            Language
                         </h3>
                     </div>
 
                     <div className="bg-card/40 border border-border rounded-xl p-6 transition-all hover:border-border/80 flex items-center justify-between">
                         <span className="text-sm font-medium">
-                            Thay đổi ngôn ngữ
+                            Change language
                         </span>
                         <Select defaultValue="vi">
                             <SelectTrigger className="w-[180px] bg-card border-border">
-                                <SelectValue placeholder="Chọn ngôn ngữ" />
+                                <SelectValue placeholder="Select language" />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="vi">Tiếng Việt</SelectItem>
-                                <SelectItem value="en">
-                                    English (Coming Soon)
+                                <SelectItem value="vi">Vietnamese (Coming Soon)</SelectItem>
+                                    English
                                 </SelectItem>
                             </SelectContent>
                         </Select>

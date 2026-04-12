@@ -10,7 +10,7 @@ export default function PrivacyPage() {
                         to="#"
                         className="text-[13px] font-medium text-brand hover:underline dark:text-brand-light"
                     >
-                        Phiên bản lưu trữ
+                        Archived versions
                     </Link>
                 </div>
 
@@ -19,25 +19,25 @@ export default function PrivacyPage() {
                 </h1>
 
                 <div className="mb-12 space-y-2 text-[17px] font-medium text-gray-800 dark:text-[#d1d3da]">
-                    <p>Có hiệu lực: 29 Tháng 9, 2025</p>
-                    <p>Cập nhật lần cuối: 29 Tháng 8, 2025</p>
+                    <p>Effective: September 29, 2025</p>
+                    <p>Last updated: August 29, 2025</p>
                 </div>
 
                 <div className="prose prose-blue dark:prose-invert max-w-none">
                     <ol className="list-decimal space-y-3 pl-5 text-[15px] font-medium text-[#0066cc] dark:text-[#5ac8fa]">
                         <li>
                             <a href="#welcome" className="hover:underline">
-                                Chào mừng!
+                                Welcome!
                             </a>
                         </li>
                         <li>
                             <a href="#about" className="hover:underline">
-                                Đôi nét về Chatly
+                                About Chatly
                             </a>
                         </li>
                         <li>
                             <a href="#info-collect" className="hover:underline">
-                                Thông tin chúng tôi thu thập
+                                Information we collect
                             </a>
                             <ul className="mt-2 list-disc space-y-2 pl-5">
                                 <li>
@@ -45,7 +45,7 @@ export default function PrivacyPage() {
                                         href="#info-provide"
                                         className="hover:underline"
                                     >
-                                        Thông tin bạn cung cấp cho chúng tôi
+                                        Information you provide to us
                                     </a>
                                 </li>
                                 <li>
@@ -53,7 +53,7 @@ export default function PrivacyPage() {
                                         href="#info-auto"
                                         className="hover:underline"
                                     >
-                                        Thông tin chúng tôi thu thập tự động
+                                        Information we collect automatically
                                     </a>
                                 </li>
                                 <li>
@@ -61,20 +61,19 @@ export default function PrivacyPage() {
                                         href="#info-other"
                                         className="hover:underline"
                                     >
-                                        Thông tin chúng tôi nhận từ các nguồn
-                                        khác
+                                        Information we receive from other sources
                                     </a>
                                 </li>
                             </ul>
                         </li>
                         <li>
                             <a href="#how-use" className="hover:underline">
-                                Cách chúng tôi sử dụng thông tin của bạn
+                                How we use your information
                             </a>
                         </li>
                         <li>
                             <a href="#how-disclose" className="hover:underline">
-                                Cách chúng tôi tiết lộ thông tin của bạn
+                                How we disclose your information
                             </a>
                         </li>
                         <li>
@@ -82,17 +81,17 @@ export default function PrivacyPage() {
                                 href="#data-retention"
                                 className="hover:underline"
                             >
-                                Lưu giữ dữ liệu
+                                Data retention
                             </a>
                         </li>
                         <li>
                             <a href="#how-protect" className="hover:underline">
-                                Cách chúng tôi bảo vệ thông tin của bạn
+                                How we protect your information
                             </a>
                         </li>
                         <li>
                             <a href="#how-control" className="hover:underline">
-                                Cách kiểm soát quyền riêng tư của bạn
+                                How to control your privacy
                             </a>
                         </li>
                         <li>
@@ -100,7 +99,7 @@ export default function PrivacyPage() {
                                 href="#international"
                                 className="hover:underline"
                             >
-                                Chuyển dữ liệu quốc tế
+                                International data transfers
                             </a>
                         </li>
                         <li>
@@ -108,17 +107,17 @@ export default function PrivacyPage() {
                                 href="#third-parties"
                                 className="hover:underline"
                             >
-                                Dịch vụ do bên thứ ba cung cấp
+                                Third-party services
                             </a>
                         </li>
                         <li>
                             <a href="#changes" className="hover:underline">
-                                Các thay đổi đối với Chính sách Bảo mật này
+                                Changes to this Privacy Policy
                             </a>
                         </li>
                         <li>
                             <a href="#contact" className="hover:underline">
-                                Liên hệ với chúng tôi
+                                Contact us
                             </a>
                         </li>
                     </ol>
@@ -127,90 +126,88 @@ export default function PrivacyPage() {
                     <div className="mt-16 space-y-12 text-[16px] leading-relaxed text-gray-700 dark:text-[#a0a3ab]">
                         <section id="welcome">
                             <h2 className="mb-4 text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
-                                1. Chào mừng!
+                                1. Welcome!
                             </h2>
                             <p>
-                                Cảm ơn bạn đã sử dụng Chatly! Chúng tôi rất vui
-                                mừng được kết nối bạn với những người bạn yêu
-                                thương. Chính sách Bảo mật này giải thích cách
-                                chúng tôi thực hiện việc thu thập, sử dụng và
-                                chia sẻ dữ liệu của bạn, đồng thời cung cấp các
-                                biện pháp kiểm soát quyền riêng tư tối ưu nhất.
+                                Thank you for using Chatly! We are excited to
+                                connect you with your loved ones. This Privacy
+                                Policy explains how we collect, use, and share
+                                your data, and provides the best privacy
+                                controls.
                             </p>
                         </section>
 
                         <section id="about">
                             <h2 className="mb-4 text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
-                                2. Đôi nét về Chatly
+                                2. About Chatly
                             </h2>
                             <p>
-                                Được thành lập với sứ mệnh tạo ra không gian trò
-                                chuyện an toàn và riêng tư, Chatly cam kết mang
-                                lại trải nghiệm ưu việt cho hàng triệu người
-                                dùng trên toàn thế giới. Bảo vệ dữ liệu cá nhân
-                                của bạn là tôn chỉ cốt lõi của chúng tôi.
+                                Founded with the mission of creating a safe and
+                                private chat space, Chatly is committed to
+                                providing a superior experience for millions of
+                                users worldwide. Protecting your personal data
+                                is our core principle.
                             </p>
                         </section>
 
                         <section id="info-collect">
                             <h2 className="mb-4 text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
-                                3. Thông tin chúng tôi thu thập
+                                3. Information we collect
                             </h2>
                             <p>
-                                Khi bạn tương tác với Chatly, chúng tôi thu thập
-                                thông tin để cung cấp và cải thiện dịch vụ.
-                                Thông tin này bao gồm những gì bạn trực tiếp
-                                cung cấp, thông tin thiết bị và các phân tích
-                                ngữ cảnh.
+                                When you interact with Chatly, we collect
+                                information to provide and improve our services.
+                                This includes information you provide directly,
+                                device information, and contextual analysis.
                             </p>
 
                             <h3
                                 id="info-provide"
                                 className="mt-6 mb-3 text-lg font-bold text-gray-900 dark:text-white"
                             >
-                                Thông tin bạn cung cấp cho chúng tôi
+                                Information you provide to us
                             </h3>
                             <p>
-                                Bao gồm tài khoản email, tên hiển thị, hình đại
-                                diện, danh bạ liên lạc (khi được cấp quyền) và
-                                nội dung tin nhắn bạn gửi trong ứng dụng. Chúng
-                                tôi không thu thập thông tin tài chính cá nhân
-                                ngoại trừ khi bạn đăng ký gói Chatly Pro.
+                                Including email account, display name, avatar,
+                                contacts (when permitted), and the content of
+                                messages you send in the app. We do not collect
+                                personal financial information except when you
+                                subscribe to Chatly Pro.
                             </p>
 
                             <h3
                                 id="info-auto"
                                 className="mt-6 mb-3 text-lg font-bold text-gray-900 dark:text-white"
                             >
-                                Thông tin chúng tôi thu thập tự động
+                                Information we collect automatically
                             </h3>
                             <p>
-                                Chúng tôi tự động ghi nhận địa chỉ IP, loại
-                                thiết bị, hệ điều hành mạng, thông tin định vị
-                                cơ bản (cấp độ khu vực) và lịch sử lỗi (crash
-                                logs) để đảm bảo ổn định của nền tảng.
+                                We automatically record IP addresses, device types,
+                                network operating systems, basic location information
+                                (region level), and crash logs to ensure platform
+                                stability.
                             </p>
                         </section>
 
                         <section id="how-use">
                             <h2 className="mb-4 text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
-                                4. Cách chúng tôi sử dụng thông tin của bạn
+                                4. How we use your information
                             </h2>
                             <p>
-                                Dữ liệu thu thập được dùng duy nhất vào mục đích
-                                duy trì hạ tầng tin nhắn thời gian thực, ngăn
-                                chặn gian lận, chặn tài khoản spam và nâng cấp
-                                hiệu năng thuật toán gọi video.
+                                Collected data is used solely for maintaining
+                                real-time messaging infrastructure, preventing
+                                fraud, blocking spam accounts, and improving
+                                video call algorithm performance.
                             </p>
                         </section>
 
                         {/* More generic text blocks can be simulated similarly */}
                         <div className="my-10 h-px w-full bg-gray-200 dark:bg-white/10" />
                         <p className="text-sm italic opacity-70">
-                            Lưu ý: Nội dung trên là văn bản giả lập
-                            (placeholder) nhằm minh họa cấu trúc tài liệu pháp
-                            lý của Chatly. Vui lòng tham khảo bộ phận pháp chế
-                            để có văn bản chính thức đưa vào khai thác.
+                            Note: The above content is placeholder text to
+                            illustrate the structure of Chatly's legal documentation.
+                            Please consult the legal department for official text
+                            for production use.
                         </p>
                     </div>
                 </div>

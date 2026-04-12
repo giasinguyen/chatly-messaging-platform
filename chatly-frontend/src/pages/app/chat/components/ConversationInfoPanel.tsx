@@ -66,10 +66,10 @@ interface ConversationInfoPanelProps {
 }
 
 const MUTE_OPTIONS = [
-    { value: "1h", label: "1 giờ", duration: 1 * 60 * 60 * 1000 },
-    { value: "4h", label: "4 giờ", duration: 4 * 60 * 60 * 1000 },
-    { value: "8h", label: "8 giờ", duration: 8 * 60 * 60 * 1000 },
-    { value: "forever", label: "Cho đến khi tôi bật lại", duration: null },
+    { value: "1h", label: "1 hour", duration: 1 * 60 * 60 * 1000 },
+    { value: "4h", label: "4 hours", duration: 4 * 60 * 60 * 1000 },
+    { value: "8h", label: "8 hours", duration: 8 * 60 * 60 * 1000 },
+    { value: "forever", label: "Until I turn it back on", duration: null },
 ] as const;
 
 export function ConversationInfoPanel({
@@ -191,15 +191,15 @@ export function ConversationInfoPanel({
             if (res.result) {
                 setInviteLink(`${window.location.origin}/join/${res.result.inviteToken}`);
             }
-            toast.success("Đã tạo mới link mời");
-        } catch { toast.error("Không thể tạo mới link mời"); }
+            toast.success("Invite link reset");
+        } catch { toast.error("Could not reset invite link"); }
         finally { setInviteLinkLoading(false); }
     };
 
     const handleCopyInviteLink = () => {
         if (inviteLink) {
             navigator.clipboard.writeText(inviteLink);
-            toast.success("Đã sao chép link mời");
+            toast.success("Invite link copied");
         }
     };
 
@@ -212,7 +212,7 @@ export function ConversationInfoPanel({
     const handleOpenMute = () => {
         if (isMuted) {
             setMute(conversation.id, false);
-            toast.success("Đã bật thông báo");
+            toast.success("Notifications turned on");
             return;
         }
         setShowMuteDialog(true);
@@ -225,18 +225,18 @@ export function ConversationInfoPanel({
             : null;
         setMute(conversation.id, true, mutedUntil);
         setShowMuteDialog(false);
-        toast.success(`Đã tắt thông báo · ${option?.label ?? ""}`);
+        toast.success(`Notifications silenced · ${option?.label ?? ""}`);
     };
 
     const handleTogglePin = () => {
         const pinnedConvs = Object.entries(useConversationPrefsStore.getState().prefs)
             .filter(([, p]) => p.isPinned);
         if (!isPinned && pinnedConvs.length >= 5) {
-            toast.warning("Chỉ có thể ghim tối đa 5 hội thoại");
+            toast.warning("You can only pin up to 5 conversations");
             return;
         }
         setPin(conversation.id, !isPinned);
-        toast.success(isPinned ? "Đã bỏ ghim hội thoại" : "Đã ghim hội thoại");
+        toast.success(isPinned ? "Conversation unpinned" : "Conversation pinned");
     };
 
     const handleSaveNickname = () => {
@@ -245,7 +245,7 @@ export function ConversationInfoPanel({
         storeSetNickname(conversation.id, trimmed);
         onNicknameChange?.(trimmed);
         setIsEditingNickname(false);
-        toast.success("Đã đặt biệt danh");
+        toast.success("Nickname set");
     };
 
     const handleSaveGroupName = async () => {
@@ -259,9 +259,9 @@ export function ConversationInfoPanel({
             onGroupUpdated?.(trimmed, participant.avatarUrl);
             _onConversationUpdate?.(updated.result as any);
             setIsEditingGroupName(false);
-            toast.success("Đã đổi tên nhóm");
+            toast.success("Group name changed");
         } catch {
-            toast.error("Không thể đổi tên nhóm");
+            toast.error("Could not change group name");
         } finally {
             setGroupNameSaving(false);
         }
@@ -278,9 +278,9 @@ export function ConversationInfoPanel({
             const updated = await conversationService.getById(conversation.id);
             onGroupUpdated?.(participant.displayName, res.url);
             _onConversationUpdate?.(updated.result as any);
-            toast.success("Đã cập nhật ảnh nhóm");
+            toast.success("Group avatar updated");
         } catch {
-            toast.error("Không thể cập nhật ảnh nhóm");
+            toast.error("Could not update group avatar");
         } finally {
             setAvatarUploading(false);
             if (avatarInputRef.current) avatarInputRef.current.value = "";
@@ -288,15 +288,15 @@ export function ConversationInfoPanel({
     };
 
     const handleDelete = async () => {
-        if (!window.confirm("Bạn có chắc chắn muốn xoá cuộc trò chuyện này?")) return;
+        if (!window.confirm("Are you sure you want to delete this conversation?")) return;
         try {
             setIsDeleting(true);
             await conversationService.delete(conversation.id);
             onDeleteConversation();
             navigate("/chat");
-            toast.success("Đã xoá cuộc trò chuyện");
+            toast.success("Conversation deleted");
         } catch {
-            toast.error("Không thể xoá cuộc trò chuyện. Vui lòng thử lại.");
+            toast.error("Could not delete conversation. Please try again.");
         } finally {
             setIsDeleting(false);
         }
@@ -307,7 +307,7 @@ export function ConversationInfoPanel({
             {/* Header */}
             <div className="h-16 flex items-center px-4 border-b border-border shrink-0">
                 <h3 className="text-sm font-semibold text-foreground">
-                    {isGroup ? "Thông tin nhóm" : "Thông tin hội thoại"}
+                    {isGroup ? "Group Information" : "Conversation Information"}
                 </h3>
             </div>
 
@@ -404,7 +404,7 @@ export function ConversationInfoPanel({
                                             setIsEditingNickname(true);
                                         }}
                                         className="shrink-0 text-muted-foreground hover:text-foreground transition"
-                                        title="Đặt biệt danh"
+                                        title="Set nickname"
                                     >
                                         <Pencil size={13} />
                                     </button>
@@ -416,7 +416,7 @@ export function ConversationInfoPanel({
                                             setIsEditingGroupName(true);
                                         }}
                                         className="shrink-0 text-muted-foreground hover:text-foreground transition"
-                                        title="Đổi tên nhóm"
+                                        title="Change group name"
                                     >
                                         <Pencil size={13} />
                                     </button>
@@ -442,7 +442,7 @@ export function ConversationInfoPanel({
                                 {isMuted ? <Bell size={18} /> : <BellOff size={18} />}
                             </div>
                             <span className="text-[11px] text-muted-foreground text-center leading-tight max-w-[60px]">
-                                {isMuted ? "Bật thông\nbáo" : "Tắt thông\nbáo"}
+                                {isMuted ? "Turn on\nnotifications" : "Turn off\nnotifications"}
                             </span>
                         </button>
 
@@ -461,7 +461,7 @@ export function ConversationInfoPanel({
                                 {isPinned ? <PinOff size={18} /> : <Pin size={18} />}
                             </div>
                             <span className="text-[11px] text-muted-foreground text-center leading-tight max-w-[60px]">
-                                {isPinned ? "Bỏ ghim" : "Ghim hội\nthoại"}
+                                {isPinned ? "Unpin" : "Pin\nconversation"}
                             </span>
                         </button>
 
@@ -476,7 +476,7 @@ export function ConversationInfoPanel({
                                     <UserPlus size={18} />
                                 </div>
                                 <span className="text-[11px] text-muted-foreground text-center leading-tight max-w-[60px]">
-                                    Thêm{"\n"}thành viên
+                                    Add{"\n"}member
                                 </span>
                             </button>
                         ) : (
@@ -489,7 +489,7 @@ export function ConversationInfoPanel({
                                     <UserPlus size={18} />
                                 </div>
                                 <span className="text-[11px] text-muted-foreground text-center leading-tight max-w-[60px]">
-                                    Tạo nhóm trò chuyện
+                                    Create group chat
                                 </span>
                             </button>
                         )}
@@ -505,7 +505,7 @@ export function ConversationInfoPanel({
                                     <Settings size={18} />
                                 </div>
                                 <span className="text-[11px] text-muted-foreground text-center leading-tight max-w-[60px]">
-                                    Quản lý nhóm
+                                    Group management
                                 </span>
                             </button>
                         )}
@@ -521,7 +521,7 @@ export function ConversationInfoPanel({
                                 className="w-full flex items-center justify-between px-4 py-3 hover:bg-muted/30 transition"
                                 onClick={() => setMembersExpanded((v) => !v)}
                             >
-                                <span className="text-sm font-medium text-foreground">Thành viên nhóm</span>
+                                <span className="text-sm font-medium text-foreground">Group members</span>
                                 <ChevronDown
                                     size={16}
                                     className={cn(
@@ -539,14 +539,14 @@ export function ConversationInfoPanel({
                                         onClick={onOpenGroupPanel}
                                     >
                                         <Users size={16} className="text-muted-foreground" />
-                                        <span className="text-muted-foreground">{conversation.participantIds.length} thành viên</span>
+                                        <span className="text-muted-foreground">{conversation.participantIds.length} members</span>
                                     </button>
                                     </div>
                                 </div>
                             )}
                             <Separator />
 
-                            {/* Link mời vào nhóm */}
+                            {/* Group invite link */}
                             <div className="px-4 py-3">
                                 <button
                                     type="button"
@@ -555,7 +555,7 @@ export function ConversationInfoPanel({
                                 >
                                     <div className="flex items-center gap-2">
                                         <LinkIcon size={15} className="text-muted-foreground" />
-                                        <span className="text-sm font-medium text-foreground">Link mời vào nhóm</span>
+                                        <span className="text-sm font-medium text-foreground">Group invite link</span>
                                     </div>
                                     <ChevronDown
                                         size={14}
@@ -584,7 +584,7 @@ export function ConversationInfoPanel({
                                                         variant="outline"
                                                         className="h-8 w-8 shrink-0"
                                                         onClick={handleCopyInviteLink}
-                                                        title="Sao chép"
+                                                        title="Copy"
                                                     >
                                                         <Copy size={13} />
                                                     </Button>
@@ -593,7 +593,7 @@ export function ConversationInfoPanel({
                                                         variant="outline"
                                                         className="h-8 w-8 shrink-0"
                                                         onClick={() => setShowQrDialog(true)}
-                                                        title="Mã QR"
+                                                        title="QR Code"
                                                     >
                                                         <QrCode size={13} />
                                                     </Button>
@@ -606,7 +606,7 @@ export function ConversationInfoPanel({
                                                     disabled={inviteLinkLoading}
                                                 >
                                                     <RefreshCw size={11} />
-                                                    Tạo mới link
+                                                    Reset link
                                                 </Button>
                                             </>
                                         ) : (
@@ -617,7 +617,7 @@ export function ConversationInfoPanel({
                                                 onClick={fetchInviteLink}
                                             >
                                                 <LinkIcon size={12} />
-                                                Tạo link mời
+                                                Create invite link
                                             </Button>
                                         )}
                                     </div>
@@ -625,7 +625,7 @@ export function ConversationInfoPanel({
                             </div>
                             <Separator />
 
-                            {/* Bảng tin nhóm */}
+                            {/* Group bulletin board */}
                             <div className="px-4 py-3">
                                 <button
                                     type="button"
@@ -634,7 +634,7 @@ export function ConversationInfoPanel({
                                 >
                                     <div className="flex items-center gap-2">
                                         <FileText size={15} className="text-muted-foreground" />
-                                        <span className="text-sm font-medium text-foreground">Bảng tin nhóm</span>
+                                        <span className="text-sm font-medium text-foreground">Group Bulletin Board</span>
                                     </div>
                                     <ChevronDown
                                         size={14}
@@ -654,7 +654,7 @@ export function ConversationInfoPanel({
                                             <div className="h-7 w-7 rounded bg-brand/10 flex items-center justify-center shrink-0">
                                                 <Image size={13} className="text-brand" />
                                             </div>
-                                            <span className="text-xs text-foreground">Danh sách nhắc hẹn</span>
+                                            <span className="text-xs text-foreground">Reminders list</span>
                                         </button>
                                         <button
                                             type="button"
@@ -664,7 +664,7 @@ export function ConversationInfoPanel({
                                             <div className="h-7 w-7 rounded bg-amber-500/10 flex items-center justify-center shrink-0">
                                                 <Pin size={13} className="text-amber-500" />
                                             </div>
-                                            <span className="text-xs text-foreground">Tin nhắn đã ghim</span>
+                                            <span className="text-xs text-foreground">Pinned messages</span>
                                         </button>
                                         <button
                                             type="button"
@@ -674,7 +674,7 @@ export function ConversationInfoPanel({
                                             <div className="h-7 w-7 rounded bg-brand/10 flex items-center justify-center shrink-0">
                                                 <FileText size={13} className="text-brand" />
                                             </div>
-                                            <span className="text-xs text-foreground">Ghi chú, ghim, bình chọn</span>
+                                            <span className="text-xs text-foreground">Notes, pins, polls</span>
                                         </button>
                                     </div>
                                 )}
@@ -683,25 +683,25 @@ export function ConversationInfoPanel({
                         </>
                     )}
 
-                    {/* Ảnh/Video */}
+                    {/* Photos/Videos */}
                     <div className="px-4 py-3">
                         <div className="flex items-center justify-between mb-2">
                             <div className="flex items-center gap-2">
                                 <Image size={15} className="text-muted-foreground" />
-                                <span className="text-sm font-medium text-foreground">Ảnh/Video</span>
+                                <span className="text-sm font-medium text-foreground">Media</span>
                             </div>
                             {mediaFiles.length > 6 && (
                                 <button
                                     type="button"
                                     className="flex items-center gap-0.5 text-[12px] text-brand hover:underline"
-                                    onClick={() => toast.info("Hiện đang hiển thị 6 mục gần nhất")}
+                                    onClick={() => toast.info("Showing the 6 most recent items")}
                                 >
-                                    Xem tất cả <ChevronRight size={12} />
+                                    View all <ChevronRight size={12} />
                                 </button>
                             )}
                         </div>
                         {mediaFiles.length === 0 ? (
-                            <p className="text-xs text-muted-foreground text-center py-3">Chưa có ảnh/video nào</p>
+                            <p className="text-xs text-muted-foreground text-center py-3">No media yet</p>
                         ) : (
                             <div className="grid grid-cols-3 gap-1">
                                 {mediaFiles.slice(0, 6).map((file) => (
@@ -734,7 +734,7 @@ export function ConversationInfoPanel({
                             </div>
                         </div>
                         {docFiles.length === 0 ? (
-                            <p className="text-xs text-muted-foreground text-center py-3">Chưa có file nào</p>
+                            <p className="text-xs text-muted-foreground text-center py-3">No files yet</p>
                         ) : (
                             <div className="flex flex-col gap-2">
                                 {docFiles.slice(0, 5).map((file) => {
@@ -744,7 +744,7 @@ export function ConversationInfoPanel({
                                             : `${(file.fileSize / 1024).toFixed(0)} KB`
                                         : "";
                                     const dateStr = file.createdAt
-                                        ? new Date(file.createdAt).toLocaleDateString("vi-VN")
+                                        ? new Date(file.createdAt).toLocaleDateString("en-US")
                                         : "";
                                     return (
                                         <a
@@ -807,7 +807,7 @@ export function ConversationInfoPanel({
                             disabled={isDeleting}
                         >
                             <Trash2 size={16} />
-                            {isDeleting ? "Đang xoá..." : "Xoá trò chuyện"}
+                            {isDeleting ? "Deleting..." : "Delete conversation"}
                         </Button>
                     </div>
                 </div>
@@ -817,7 +817,7 @@ export function ConversationInfoPanel({
             <Dialog open={showMuteDialog} onOpenChange={setShowMuteDialog}>
                 <DialogContent className="sm:max-w-xs">
                     <DialogHeader>
-                        <DialogTitle>Tắt thông báo</DialogTitle>
+                        <DialogTitle>Silence notifications</DialogTitle>
                     </DialogHeader>
                     <RadioGroup value={muteDuration} onValueChange={setMuteDuration} className="gap-3 py-1">
                         {MUTE_OPTIONS.map((opt) => (
@@ -830,8 +830,8 @@ export function ConversationInfoPanel({
                         ))}
                     </RadioGroup>
                     <DialogFooter className="gap-2 sm:gap-0">
-                        <Button variant="ghost" onClick={() => setShowMuteDialog(false)}>Huỷ</Button>
-                        <Button onClick={handleConfirmMute}>Xác nhận</Button>
+                        <Button variant="ghost" onClick={() => setShowMuteDialog(false)}>Cancel</Button>
+                        <Button onClick={handleConfirmMute}>Confirm</Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
@@ -871,13 +871,13 @@ export function ConversationInfoPanel({
             <Dialog open={showQrDialog} onOpenChange={setShowQrDialog}>
                 <DialogContent className="sm:max-w-xs flex flex-col items-center gap-4 py-8">
                     <DialogHeader>
-                        <DialogTitle className="text-center">Mã QR mời vào nhóm</DialogTitle>
+                        <DialogTitle className="text-center">Group QR Code</DialogTitle>
                     </DialogHeader>
                     {inviteLink && (
                         <QRCodeSVG value={inviteLink} size={200} level="M" />
                     )}
                     <p className="text-xs text-muted-foreground text-center">
-                        Quét mã QR để tham gia nhóm
+                        Scan QR code to join group
                     </p>
                 </DialogContent>
             </Dialog>

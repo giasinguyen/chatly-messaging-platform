@@ -150,12 +150,12 @@ export function MessageList({
     const formatSeenTime = (readAt: string): string => {
         const diff = Date.now() - new Date(readAt).getTime();
         const minutes = Math.floor(diff / 60000);
-        if (minutes < 1) return "vừa xem";
-        if (minutes < 60) return `${minutes} phút trước`;
+        if (minutes < 1) return "just seen";
+        if (minutes < 60) return `${minutes} minutes ago`;
         const hours = Math.floor(minutes / 60);
-        if (hours < 24) return `${hours} giờ trước`;
+        if (hours < 24) return `${hours} hours ago`;
         const days = Math.floor(hours / 24);
-        return `${days} ngày trước`;
+        return `${days} days ago`;
     };
 
     // Auto scroll to bottom only on first mount or new messages from bottom
@@ -259,7 +259,7 @@ export function MessageList({
         return (
             <div key={`time-sep-${msg.id}`} className="px-4 py-2 text-center">
                 <span className="text-[11px] text-muted-foreground/70 whitespace-nowrap">
-                    {new Date(msg.createdAt).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}
+                    {new Date(msg.createdAt).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}
                 </span>
             </div>
         );
@@ -318,13 +318,13 @@ export function MessageList({
 
         const isMe = msg.senderId === currentUserId;
         const sender = participantDirectory[msg.senderId] ?? participant;
-        const senderShortName = sender.displayName.split(" ").slice(-1)[0] || "Người dùng";
+        const senderShortName = sender.displayName.split(" ").slice(-1)[0] || "User";
         const repliedMsg = msg.replyToId
             ? messages.find((m) => m.id === msg.replyToId)
             : null;
         const replySenderName = repliedMsg
             ? repliedMsg.senderId === currentUserId
-                ? "Bạn"
+                ? "You"
                 : (participantDirectory[repliedMsg.senderId]?.displayName || participant.displayName).split(" ").slice(-1)[0]
             : undefined;
         const isBeingEdited = editingId === msg.id;
@@ -343,7 +343,7 @@ export function MessageList({
                         type="button"
                         onClick={() => onOpenSenderProfile?.(msg.senderId)}
                         className="shrink-0"
-                        title="Xem thông tin người dùng"
+                        title="View user info"
                     >
                         <Avatar className="h-8 w-8 align-bottom border border-border/30 shrink-0">
                             <AvatarImage src={sender.avatarUrl} />
@@ -361,7 +361,7 @@ export function MessageList({
                             type="button"
                             onClick={() => onOpenSenderProfile?.(msg.senderId)}
                             className="text-[11px] text-muted-foreground mb-1 px-1 hover:text-foreground transition-colors"
-                            title="Xem thông tin người dùng"
+                            title="View user info"
                         >
                             {senderShortName}
                         </button>
@@ -371,7 +371,7 @@ export function MessageList({
                     {msg.pinned && (
                         <div className={cn("flex items-center gap-1 px-1 mb-0.5", isMe ? "justify-end" : "justify-start")}>
                             <Pin size={10} className="text-amber-500" />
-                            <span className="text-[10px] text-amber-600 dark:text-amber-400">Đã ghim</span>
+                            <span className="text-[10px] text-amber-600 dark:text-amber-400">Pinned</span>
                         </div>
                     )}
 
@@ -389,7 +389,7 @@ export function MessageList({
                                 )}
                             >
                                 <RotateCcw size={12} className="inline mr-1.5 opacity-60" />
-                                Tin nhắn đã được thu hồi
+                                Message recalled
                             </div>
                         ) : isBeingEdited ? (
                             /* Inline edit input */
@@ -407,14 +407,14 @@ export function MessageList({
                                 <button
                                     onClick={commitEdit}
                                     className="p-1.5 rounded-full bg-brand text-white hover:bg-brand/80 shrink-0"
-                                    title="Lưu"
+                                    title="Save"
                                 >
                                     <Send size={12} />
                                 </button>
                                 <button
                                     onClick={cancelEdit}
                                     className="p-1.5 rounded-full hover:bg-muted text-muted-foreground shrink-0"
-                                    title="Hủy"
+                                    title="Cancel"
                                 >
                                     <X size={12} />
                                 </button>
@@ -474,8 +474,8 @@ export function MessageList({
                                         </div>
                                         {/* Poll footer */}
                                         <div className="px-3 py-1.5 text-[11px] text-muted-foreground border-t border-border/30 flex items-center justify-between">
-                                            <span>{totalVoters} người đã bình chọn</span>
-                                            <span>{poll.multipleChoice ? "Chọn nhiều" : "Chọn một"}</span>
+                                            <span>{totalVoters} voters</span>
+                                            <span>{poll.multipleChoice ? "Multiple choices" : "Single choice"}</span>
                                         </div>
                                     </div>
                                 );
@@ -565,11 +565,11 @@ export function MessageList({
                                     <Tooltip>
                                         <TooltipTrigger asChild>
                                             <span className={cn("ml-1.5 text-[10px] opacity-70 cursor-help")}>
-                                                (đã chỉnh sửa)
+                                                (edited)
                                             </span>
                                         </TooltipTrigger>
                                         <TooltipContent side="top">
-                                            {msg.editedAt && `Sửa lúc: ${new Date(msg.editedAt).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}, ${new Date(msg.editedAt).toLocaleDateString("vi-VN")}`}
+                                            {msg.editedAt && `Edited at: ${new Date(msg.editedAt).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}, ${new Date(msg.editedAt).toLocaleDateString("en-US")}`}
                                         </TooltipContent>
                                     </Tooltip>
                                 )}
@@ -582,7 +582,7 @@ export function MessageList({
                                 <div className="relative group/react">
                                     <button
                                         className="p-1.5 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground"
-                                        title="Bày tỏ cảm xúc"
+                                        title="React"
                                     >
                                         <SmilePlus size={14} />
                                     </button>
@@ -608,7 +608,7 @@ export function MessageList({
                                 <button
                                     onClick={() => onReply(msg)}
                                     className="p-1.5 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground"
-                                    title="Trả lời"
+                                    title="Reply"
                                 >
                                     <Reply size={14} />
                                 </button>
@@ -651,7 +651,7 @@ export function MessageList({
                             )}
                         >
                             <span className="text-[10px] text-muted-foreground">
-                                {new Date(msg.createdAt).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}
+                                {new Date(msg.createdAt).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}
                             </span>
                             {isMe && !msg.recalled && <span>{getStatusIcon(msg.status)}</span>}
                         </div>
@@ -676,7 +676,7 @@ export function MessageList({
                                         </Avatar>
                                     )}
                                     <span className="text-[10px] text-muted-foreground">
-                                        Đã xem {formatSeenTime(receipt.readAt)}
+                                        Seen {formatSeenTime(receipt.readAt)}
                                     </span>
                                 </div>
                             );
@@ -686,7 +686,7 @@ export function MessageList({
                         return (
                             <div className="flex items-center gap-0.5 px-1 mt-0.5 justify-end">
                                 <span className="text-[10px] text-muted-foreground mr-1">
-                                    Đã xem
+                                    Seen
                                 </span>
                                 {readers.slice(0, 3).map((r) => {
                                     const reader = participantDirectory[r.userId];
@@ -724,7 +724,7 @@ export function MessageList({
                             className="gap-2"
                         >
                             <Reply size={14} />
-                            Trả lời
+                            Reply
                         </ContextMenuItem>
                     )}
                     {canForward(msg) && (
@@ -733,19 +733,19 @@ export function MessageList({
                             className="gap-2"
                         >
                             <Forward size={14} />
-                            Chuyển tiếp
+                            Forward
                         </ContextMenuItem>
                     )}
                     {msg.type === "TEXT" && !msg.recalled && (
                         <ContextMenuItem
                             onClick={() => {
                                 navigator.clipboard.writeText(msg.content);
-                                toast.success("Đã copy tin nhắn");
+                                toast.success("Message copied");
                             }}
                             className="gap-2"
                         >
                             <Copy size={14} />
-                            Copy tin nhắn
+                            Copy message
                         </ContextMenuItem>
                     )}
                     {canEdit(msg) && (
@@ -754,7 +754,7 @@ export function MessageList({
                             className="gap-2"
                         >
                             <Pencil size={14} />
-                            Chỉnh sửa
+                            Edit
                         </ContextMenuItem>
                     )}
                     {!msg.recalled && onTogglePin && (
@@ -763,7 +763,7 @@ export function MessageList({
                             className="gap-2"
                         >
                             <Pin size={14} />
-                            {msg.pinned ? "Bỏ ghim" : "Ghim tin nhắn"}
+                            {msg.pinned ? "Unpin" : "Pin message"}
                         </ContextMenuItem>
                     )}
                     {canRecall(msg) && (
@@ -774,7 +774,7 @@ export function MessageList({
                                 className="gap-2 text-destructive focus:text-destructive"
                             >
                                 <RotateCcw size={14} />
-                                Thu hồi
+                                Recall
                             </ContextMenuItem>
                         </>
                     )}
@@ -784,7 +784,7 @@ export function MessageList({
                         className="gap-2 text-destructive focus:text-destructive"
                     >
                         <Trash2 size={14} />
-                        Xóa chỉ ở phía tôi
+                        Delete for me
                     </ContextMenuItem>
                 </ContextMenuContent>
             </ContextMenu>
@@ -802,12 +802,12 @@ export function MessageList({
                     >
                         {isLoadingMore && (
                             <span className="text-[11px] text-muted-foreground animate-pulse">
-                                Đang tải tin nhắn cũ hơn...
+                                Loading older messages...
                             </span>
                         )}
                         {!isLoadingMore && hasMore && (
                             <span className="text-[11px] text-muted-foreground/50">
-                                ↑ Kéo lên để xem thêm
+                                ↑ Pull up to see more
                             </span>
                         )}
                     </div>
@@ -824,19 +824,19 @@ export function MessageList({
                         <div key={fmsg.id} className="flex flex-col mb-4 items-end slide-in-from-right-2 animate-in duration-300">
                             <div className="flex max-w-[75%] gap-2 items-center">
                                 <span className="text-xs text-destructive flex items-center bg-destructive/10 px-2 py-1 rounded-full gap-1">
-                                    <AlertCircle size={12} /> Lỗi gửi
+                                    <AlertCircle size={12} /> Send failed
                                 </span>
                                 <div className="bg-destructive/20 text-foreground px-4 py-2.5 rounded-2xl rounded-tr-sm border border-destructive/20 opacity-80 break-words select-text">
-                                    {fmsg.content || (fmsg.attachments?.length ? "[Đính kèm]" : "")}
+                                    {fmsg.content || (fmsg.attachments?.length ? "[Attachment]" : "")}
                                 </div>
                             </div>
                             <div className="flex gap-2 items-center text-xs mt-1 mr-1 text-muted-foreground">
                                 <button onClick={() => onRetryMessage?.(fmsg.id)} className="flex items-center gap-1 hover:text-brand transition cursor-pointer">
-                                    <RefreshCcw size={12} /> Thử lại
+                                    <RefreshCcw size={12} /> Retry
                                 </button>
                                 <span>•</span>
                                 <button onClick={() => onRemoveFailedMessage?.(fmsg.id)} className="flex items-center gap-1 hover:text-destructive transition cursor-pointer">
-                                    <Trash2 size={12} /> Xoá
+                                    <Trash2 size={12} /> Delete
                                 </button>
                             </div>
                         </div>
@@ -850,14 +850,14 @@ export function MessageList({
             <Dialog open={!!recallConfirmId} onOpenChange={open => !open && setRecallConfirmId(null)}>
                 <DialogContent className="sm:max-w-xs">
                     <DialogHeader>
-                        <DialogTitle>Thu hồi tin nhắn?</DialogTitle>
+                        <DialogTitle>Recall message?</DialogTitle>
                         <DialogDescription>
-                            Tin nhắn sẽ bị đánh dấu là đã thu hồi với tất cả mọi người trong cuộc hội thoại. Hành động này không thể hoàn tác.
+                            The message will be recalled for everyone in the conversation. This action cannot be undone.
                         </DialogDescription>
                     </DialogHeader>
                     <DialogFooter className="gap-2 sm:gap-0">
                         <Button variant="ghost" onClick={() => setRecallConfirmId(null)}>
-                            Hủy
+                            Cancel
                         </Button>
                         <Button
                             variant="destructive"
@@ -866,7 +866,7 @@ export function MessageList({
                                 setRecallConfirmId(null);
                             }}
                         >
-                            Thu hồi
+                            Recall
                         </Button>
                     </DialogFooter>
                 </DialogContent>
@@ -876,14 +876,14 @@ export function MessageList({
             <Dialog open={!!deleteConfirmId} onOpenChange={open => !open && setDeleteConfirmId(null)}>
                 <DialogContent className="sm:max-w-xs">
                     <DialogHeader>
-                        <DialogTitle>Xóa tin nhắn?</DialogTitle>
+                        <DialogTitle>Delete message?</DialogTitle>
                         <DialogDescription>
-                            Tin nhắn sẽ bị xóa khỏi giao diện của bạn. Người khác vẫn có thể thấy tin nhắn này. Hành động này không thể hoàn tác.
+                            The message will be deleted from your view. Others will still see it. This action cannot be undone.
                         </DialogDescription>
                     </DialogHeader>
                     <DialogFooter className="gap-2 sm:gap-0">
                         <Button variant="ghost" onClick={() => setDeleteConfirmId(null)}>
-                            Hủy
+                            Cancel
                         </Button>
                         <Button
                             variant="destructive"
@@ -892,7 +892,7 @@ export function MessageList({
                                 setDeleteConfirmId(null);
                             }}
                         >
-                            Xóa
+                            Delete
                         </Button>
                     </DialogFooter>
                 </DialogContent>
@@ -922,7 +922,7 @@ export function MessageList({
                                 target="_blank" 
                                 rel="noreferrer"
                                 className="hover:text-white transition-colors"
-                                title="Tải xuống"
+                                title="Download"
                             >
                                 <Download size={20} />
                             </a>

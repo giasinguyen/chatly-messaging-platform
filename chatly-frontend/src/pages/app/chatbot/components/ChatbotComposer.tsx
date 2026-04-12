@@ -113,11 +113,11 @@ export function ChatbotComposer({ sessionId, onSend, disabled, isStreaming, onCa
                 setPendingFiles((prev) =>
                     prev.map((p) =>
                         p.localId === localId
-                            ? { ...p, error: "Upload thất bại" }
+                            ? { ...p, error: "Upload failed" }
                             : p,
                     ),
                 );
-                toast.error(`Upload ${file.name} thất bại`);
+                toast.error(`Upload ${file.name} failed`);
             }
         }
     };
@@ -149,9 +149,7 @@ export function ChatbotComposer({ sessionId, onSend, disabled, isStreaming, onCa
                                 {p.error ? (
                                     <p className="text-destructive">{p.error}</p>
                                 ) : p.done ? (
-                                    <p className="text-green-600 dark:text-green-400">
-                                        Xong
-                                    </p>
+                                    <p className="text-brand font-medium">Done</p>
                                 ) : (
                                     <div className="mt-1 h-1 w-full rounded-full bg-muted-foreground/20">
                                         <div
@@ -176,7 +174,7 @@ export function ChatbotComposer({ sessionId, onSend, disabled, isStreaming, onCa
             {/* Toolbar row */}
             <div className="flex items-center gap-1 px-4 pt-2">
                 {/* File upload */}
-                <label title="Upload tài liệu">
+                <label title="Upload document">
                     <input
                         type="file"
                         multiple
@@ -202,8 +200,8 @@ export function ChatbotComposer({ sessionId, onSend, disabled, isStreaming, onCa
                     onClick={() => setUseWebSearch(!useWebSearch)}
                     title={
                         useWebSearch
-                            ? "Tắt tìm kiếm web"
-                            : "Bật tìm kiếm web"
+                            ? "Turn off web search"
+                            : "Turn on web search"
                     }
                 >
                     <Globe className="h-4 w-4" />
@@ -220,7 +218,7 @@ export function ChatbotComposer({ sessionId, onSend, disabled, isStreaming, onCa
                             : "text-muted-foreground hover:text-foreground",
                     )}
                     onClick={() => setMcpOpen(true)}
-                    title="Chọn MCP servers"
+                    title="Choose MCP servers"
                 >
                     <Cpu className="h-4 w-4" />
                 </Button>
@@ -236,7 +234,7 @@ export function ChatbotComposer({ sessionId, onSend, disabled, isStreaming, onCa
             <div className="flex items-end gap-3 p-4 pt-2">
                 <textarea
                     id="chatbot-composer-input"
-                    placeholder="Nhập câu hỏi cho AI..."
+                    placeholder="Type a question for AI..."
                     value={draft}
                     onChange={handleChange}
                     onKeyDown={handleKeyDown}
@@ -247,7 +245,7 @@ export function ChatbotComposer({ sessionId, onSend, disabled, isStreaming, onCa
                     <Button
                         onClick={onCancel}
                         className="h-10 px-5 bg-muted-foreground text-white hover:bg-muted-foreground/80 transition-all active:scale-95 shrink-0"
-                        title="Dừng tạo câu trả lời"
+                        title="Stop generating response"
                     >
                         <Square size={18} />
                     </Button>

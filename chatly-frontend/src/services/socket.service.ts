@@ -3,14 +3,14 @@ import SockJS from "sockjs-client";
 
 /**
  * Socket Service
- * Quản lý kết nối STOMP qua SockJS tới Backend.
+ * Manages STOMP connections via SockJS to the Backend.
  */
 class SocketService {
     private client: Client | null = null;
     private connectionPromise: Promise<void> | null = null;
 
     /**
-     * Khởi tạo và kết nối
+     * Initialize and connect
      */
     async connect(token: string): Promise<void> {
         if (this.client?.connected) return;
@@ -52,7 +52,7 @@ class SocketService {
     }
 
     /**
-     * Ngắt kết nối
+     * Disconnect
      */
     disconnect() {
         if (this.client) {
@@ -63,14 +63,14 @@ class SocketService {
     }
 
     /**
-     * Lấy client hiện tại
+     * Get current client
      */
     getClient(): Client | null {
         return this.client;
     }
 
     /**
-     * Kiểm tra trạng thái kết nối
+     * Check connection status
      */
     isConnected(): boolean {
         return this.client?.connected ?? false;

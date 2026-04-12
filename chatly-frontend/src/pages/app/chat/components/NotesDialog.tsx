@@ -53,7 +53,7 @@ export function NotesDialog({
             const res = await groupService.getNotes(conversationId);
             setNotes(res.result ?? []);
         } catch {
-            toast.error("Không thể tải ghi chú");
+            toast.error("Could not load notes");
         } finally {
             setLoading(false);
         }
@@ -75,7 +75,7 @@ export function NotesDialog({
 
     const handleSave = async () => {
         if (!title.trim()) {
-            toast.error("Tiêu đề không được để trống");
+            toast.error("Title cannot be empty");
             return;
         }
         setSaving(true);
@@ -85,18 +85,18 @@ export function NotesDialog({
                     title: title.trim(),
                     content: content.trim() || undefined,
                 });
-                toast.success("Đã cập nhật ghi chú");
+                toast.success("Note updated");
             } else {
                 await groupService.createNote(conversationId, {
                     title: title.trim(),
                     content: content.trim() || undefined,
                 });
-                toast.success("Đã tạo ghi chú");
+                toast.success("Note created");
             }
             resetForm();
             fetchNotes();
         } catch {
-            toast.error("Không thể lưu ghi chú");
+            toast.error("Could not save note");
         } finally {
             setSaving(false);
         }
@@ -117,17 +117,17 @@ export function NotesDialog({
             });
             fetchNotes();
         } catch {
-            toast.error("Không thể cập nhật ghim");
+            toast.error("Could not update pin");
         }
     };
 
     const handleDelete = async (id: string) => {
         try {
             await groupService.deleteNote(id);
-            toast.success("Đã xóa ghi chú");
+            toast.success("Note deleted");
             fetchNotes();
         } catch {
-            toast.error("Không thể xóa ghi chú");
+            toast.error("Could not delete note");
         }
     };
 
@@ -137,7 +137,7 @@ export function NotesDialog({
                 <DialogHeader className="px-5 pt-5 pb-3 shrink-0">
                     <DialogTitle className="flex items-center gap-2 text-base">
                         <FileText size={16} className="text-brand" />
-                        Ghi chú, ghim, bình chọn
+                        Notes, Pins, Polls
                     </DialogTitle>
                 </DialogHeader>
 
@@ -153,20 +153,20 @@ export function NotesDialog({
                             }}
                         >
                             <Plus size={13} />
-                            Tạo ghi chú mới
+                            Create new note
                         </Button>
                     ) : (
                         <div className="space-y-2 rounded-lg border border-border/50 bg-muted/20 p-3">
                             <Input
                                 value={title}
                                 onChange={(e) => setTitle(e.target.value)}
-                                placeholder="Tiêu đề..."
+                                placeholder="Title..."
                                 className="h-8 text-sm"
                             />
                             <Textarea
                                 value={content}
                                 onChange={(e) => setContent(e.target.value)}
-                                placeholder="Nội dung ghi chú..."
+                                placeholder="Note content..."
                                 className="text-sm min-h-[80px] resize-none"
                             />
                             <div className="flex gap-2">
@@ -177,7 +177,7 @@ export function NotesDialog({
                                     disabled={saving}
                                 >
                                     {saving ? <Loader2 size={11} className="animate-spin" /> : <Save size={11} />}
-                                    {editingId ? "Cập nhật" : "Tạo"}
+                                    {editingId ? "Update" : "Create"}
                                 </Button>
                                 <Button
                                     size="sm"
@@ -185,7 +185,7 @@ export function NotesDialog({
                                     className="h-7 text-xs"
                                     onClick={resetForm}
                                 >
-                                    Hủy
+                                    Cancel
                                 </Button>
                             </div>
                         </div>
@@ -200,7 +200,7 @@ export function NotesDialog({
                     ) : notes.length === 0 ? (
                         <div className="flex flex-col items-center gap-2 py-10 text-muted-foreground">
                             <FileText size={24} className="opacity-30" />
-                            <p className="text-xs">Chưa có ghi chú nào</p>
+                            <p className="text-xs">No notes yet</p>
                         </div>
                     ) : (
                         <div className="space-y-1.5">
@@ -226,7 +226,7 @@ export function NotesDialog({
                                                 </p>
                                             )}
                                             <p className="text-[10px] text-muted-foreground/70 mt-1.5">
-                                                {new Date(note.createdAt).toLocaleString("vi-VN")}
+                                                {new Date(note.createdAt).toLocaleString("en-US")}
                                             </p>
                                         </div>
                                         <div className="flex gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -235,7 +235,7 @@ export function NotesDialog({
                                                 variant="ghost"
                                                 className="h-6 w-6 text-muted-foreground hover:text-brand"
                                                 onClick={() => handleTogglePin(note)}
-                                                title={note.pinned ? "Bỏ ghim" : "Ghim"}
+                                                title={note.pinned ? "Unpin" : "Pin"}
                                             >
                                                 {note.pinned ? <PinOff size={12} /> : <Pin size={12} />}
                                             </Button>
@@ -244,7 +244,7 @@ export function NotesDialog({
                                                 variant="ghost"
                                                 className="h-6 w-6 text-muted-foreground hover:text-foreground"
                                                 onClick={() => startEdit(note)}
-                                                title="Sửa"
+                                                title="Edit"
                                             >
                                                 <Pencil size={12} />
                                             </Button>
@@ -253,7 +253,7 @@ export function NotesDialog({
                                                 variant="ghost"
                                                 className="h-6 w-6 text-muted-foreground hover:text-destructive"
                                                 onClick={() => handleDelete(note.id)}
-                                                title="Xóa"
+                                                title="Delete"
                                             >
                                                 <Trash2 size={12} />
                                             </Button>

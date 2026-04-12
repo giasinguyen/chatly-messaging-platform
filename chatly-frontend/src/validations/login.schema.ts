@@ -2,7 +2,7 @@ import * as z from "zod";
 
 const identifierValidation = z
     .string()
-    .min(1, "Vui lòng nhập email, số điện thoại hoặc username")
+    .min(1, "Please enter email, phone number or username")
     .refine(
         (val) => {
             const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -15,26 +15,26 @@ const identifierValidation = z
             );
         },
         {
-            message: "Email, số điện thoại hoặc username không hợp lệ",
+            message: "Invalid email, phone number or username",
         },
     );
 
 const phoneOnlyValidation = z
     .string()
-    .min(1, "Vui lòng nhập số điện thoại")
+    .min(1, "Please enter phone number")
     .refine(
         (val) => {
             const phoneRegex = /^(0|\+84)[3|5|7|8|9][0-9]{8}$/;
             return phoneRegex.test(val);
         },
         {
-            message: "Số điện thoại không hợp lệ",
+            message: "Invalid phone number",
         },
     );
 
 export const loginSchema = z.object({
     identifier: identifierValidation,
-    password: z.string().min(6, "Mật khẩu phải chứa ít nhất 6 ký tự"),
+    password: z.string().min(6, "Password must be at least 6 characters"),
 });
 
 // For SMS login where password is not required

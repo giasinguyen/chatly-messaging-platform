@@ -126,22 +126,22 @@ export function NotificationBell() {
 
     const getLabel = (type: Notification["type"]) => {
         switch (type) {
-            case "NEW_MESSAGE": return "Tin nhắn mới";
-            case "FRIEND_REQUEST": return "Lời mời kết bạn";
-            case "GROUP_INVITE": return "Thêm vào nhóm";
-            default: return "Thông báo";
+            case "NEW_MESSAGE": return "New message";
+            case "FRIEND_REQUEST": return "Friend request";
+            case "GROUP_INVITE": return "Added to group";
+            default: return "Notifications";
         }
     };
 
     const formatTime = (createdAt: string) => {
         const diff = Date.now() - new Date(createdAt).getTime();
         const minutes = Math.floor(diff / 60000);
-        if (minutes < 1) return "vừa xong";
-        if (minutes < 60) return `${minutes} phút trước`;
+        if (minutes < 1) return "just now";
+        if (minutes < 60) return `${minutes}m ago`;
         const hours = Math.floor(minutes / 60);
-        if (hours < 24) return `${hours} giờ trước`;
+        if (hours < 24) return `${hours}h ago`;
         const days = Math.floor(hours / 24);
-        return `${days} ngày trước`;
+        return `${days}d ago`;
     };
 
     return (
@@ -149,7 +149,7 @@ export function NotificationBell() {
             {/* Bell button */}
             <button
                 onClick={() => setOpen((v) => !v)}
-                title="Thông báo"
+                title="Notifications"
                 className={cn(
                     "w-full flex justify-center py-3 relative transition-colors hover:bg-black/10 text-white/70",
                     open && "bg-black/20",
@@ -169,10 +169,10 @@ export function NotificationBell() {
                     {/* Header */}
                     <div className="flex items-center justify-between px-4 py-3 border-b border-border/60">
                         <span className="font-semibold text-sm text-foreground">
-                            Thông báo
+                            Notifications
                             {unreadOtherCount > 0 && (
                                 <span className="ml-2 text-[11px] bg-brand/10 text-brand px-1.5 py-0.5 rounded-full font-medium">
-                                    {unreadOtherCount} chưa đọc
+                                    {unreadOtherCount} unread
                                 </span>
                             )}
                         </span>
@@ -180,7 +180,7 @@ export function NotificationBell() {
                             {unreadOtherCount > 0 && (
                                 <button
                                     onClick={handleMarkAllRead}
-                                    title="Đánh dấu tất cả đã đọc"
+                                    title="Mark all as read"
                                     className="p-1.5 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
                                 >
                                     <CheckCheck size={14} />
@@ -206,7 +206,7 @@ export function NotificationBell() {
                         ) : otherNotifications.length === 0 ? (
                             <div className="flex flex-col items-center justify-center py-10 gap-2 text-muted-foreground">
                                 <Bell size={28} className="opacity-30" />
-                                <span className="text-xs">Chưa có thông báo nào</span>
+                                <span className="text-xs">No notifications yet</span>
                             </div>
                         ) : (
                             <ul className="py-1">

@@ -1,4 +1,4 @@
-﻿import { useState } from "react";
+import { useState } from "react";
 import type { ReactNode } from "react";
 import { ChevronRight, Check } from "lucide-react";
 import { Label } from "@/components/ui/label";
@@ -23,30 +23,30 @@ export function PrivacySettings() {
             <div className="mx-auto flex w-full max-w-3xl flex-col gap-8">
                 <section className="space-y-3">
                     <h3 className="text-2xl font-bold tracking-tight text-foreground">
-                        Quyền riêng tư
+                        Privacy
                     </h3>
                     <p className="text-sm text-muted-foreground">
-                        Quản lý hiển thị thông tin và ai có thể liên hệ với bạn.
+                        Manage what information you display and who can contact you.
                     </p>
                 </section>
 
                 <section className="space-y-4">
-                    <h4 className="text-xl font-semibold text-foreground">Cá nhân</h4>
+                    <h4 className="text-xl font-semibold text-foreground">Personal</h4>
                     <div className="space-y-1 rounded-xl border border-border bg-card/40 p-4 md:p-5">
-                        <SettingRow label="Hiện ngày sinh">
+                        <SettingRow label="Show date of birth">
                             <Select defaultValue="hidden">
                                 <SelectTrigger className="w-[170px] bg-background/60">
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="hidden">Không hiện</SelectItem>
-                                    <SelectItem value="friends">Bạn bè</SelectItem>
-                                    <SelectItem value="everyone">Mọi người</SelectItem>
+                                    <SelectItem value="hidden">Hide</SelectItem>
+                                    <SelectItem value="friends">Friends</SelectItem>
+                                    <SelectItem value="everyone">Everyone</SelectItem>
                                 </SelectContent>
                             </Select>
                         </SettingRow>
 
-                        <SettingRow label="Hiển thị trạng thái truy cập">
+                        <SettingRow label="Show online status">
                             <SettingSwitch
                                 checked={showOnlineStatus}
                                 onToggle={() => setShowOnlineStatus((prev) => !prev)}
@@ -56,9 +56,9 @@ export function PrivacySettings() {
                 </section>
 
                 <section className="space-y-4">
-                    <h4 className="text-xl font-semibold text-foreground">Tin nhắn và cuộc gọi</h4>
+                    <h4 className="text-xl font-semibold text-foreground">Messages and Calls</h4>
                     <div className="space-y-1 rounded-xl border border-border bg-card/40 p-4 md:p-5">
-                        <SettingRow label='Hiện trạng thái "Đã xem"'>
+                        <SettingRow label='Show "Seen" status'>
                             <SettingSwitch
                                 checked={showSeenStatus}
                                 onToggle={() => setShowSeenStatus((prev) => !prev)}
@@ -66,36 +66,35 @@ export function PrivacySettings() {
                         </SettingRow>
 
                         <SettingRow
-                            label="Cho phép nhắn tin"
-                            description="Ai được nhắn tin cho bạn"
+                            label="Allow messaging"
+                            description="Who can message you"
                         >
                             <Select defaultValue="all">
                                 <SelectTrigger className="w-[170px] bg-background/60">
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="all">Tất cả mọi người</SelectItem>
-                                    <SelectItem value="friends">Bạn bè</SelectItem>
-                                    <SelectItem value="none">Không ai</SelectItem>
+                                    <SelectItem value="all">Everyone</SelectItem>
+                                    <SelectItem value="friends">Friends</SelectItem>
+                                    <SelectItem value="none">None</SelectItem>
                                 </SelectContent>
                             </Select>
                         </SettingRow>
 
                         <SettingRow
-                            label="Cho phép gọi điện"
-                            description="Ai được gọi điện cho bạn"
+                            label="Allow calls"
+                            description="Who can call you"
                         >
                             <Select defaultValue="friends-contacted">
                                 <SelectTrigger className="w-[260px] bg-background/60">
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="all">Tất cả mọi người</SelectItem>
-                                    <SelectItem value="friends-contacted">
-                                        Bạn bè và người lạ từng liên hệ
+                                    <SelectItem value="all">Everyone</SelectItem>
+                                        Friends and previously contacted strangers
                                     </SelectItem>
-                                    <SelectItem value="friends">Chỉ bạn bè</SelectItem>
-                                    <SelectItem value="none">Không ai</SelectItem>
+                                    <SelectItem value="friends">Only friends</SelectItem>
+                                    <SelectItem value="none">None</SelectItem>
                                 </SelectContent>
                             </Select>
                         </SettingRow>
@@ -103,20 +102,20 @@ export function PrivacySettings() {
                 </section>
 
                 <section className="space-y-4">
-                    <h4 className="text-xl font-semibold text-foreground">Chặn tin nhắn</h4>
+                    <h4 className="text-xl font-semibold text-foreground">Blocked messages</h4>
                     <button
                         type="button"
                         className="flex w-full items-center justify-between rounded-xl border border-border bg-card/40 px-4 py-4 text-left transition hover:border-border/80"
                     >
-                        <span className="text-base font-medium text-foreground">Danh sách chặn</span>
+                        <span className="text-base font-medium text-foreground">Block list</span>
                         <ChevronRight className="h-5 w-5 text-muted-foreground" />
                     </button>
                 </section>
 
                 <section className="space-y-4">
-                    <h4 className="text-xl font-semibold text-foreground">Nguồn tìm kiếm</h4>
+                    <h4 className="text-xl font-semibold text-foreground">Search criteria</h4>
                     <div className="rounded-xl border border-border bg-card/40 p-4 md:p-5">
-                        <SettingRow label={`Cho phép người lạ tìm thấy và kết bạn qua số điện thoại ${user?.phone || "N/A"}`}>
+                        <SettingRow label={`Allow strangers to find and add you via phone number ${user?.phone || "N/A"}`}>
                             <SettingSwitch
                                 checked={allowSearchByPhone}
                                 onToggle={() => setAllowSearchByPhone((prev) => !prev)}
@@ -126,11 +125,11 @@ export function PrivacySettings() {
                 </section>
 
                 <section className="space-y-4">
-                    <h4 className="text-xl font-semibold text-foreground">Cho phép người lạ kết bạn</h4>
+                    <h4 className="text-xl font-semibold text-foreground">Allow strangers to add friend</h4>
                     <div className="space-y-1 rounded-xl border border-border bg-card/40 p-4 md:p-5">
-                        <CheckboxRow label="Mã QR của tôi" checked />
-                        <CheckboxRow label="Nhóm chung" checked />
-                        <CheckboxRow label="Danh thiếp Chatly" checked />
+                        <CheckboxRow label="My QR code" checked />
+                        <CheckboxRow label="Common groups" checked />
+                        <CheckboxRow label="Chatly business cards" checked />
                     </div>
                 </section>
             </div>

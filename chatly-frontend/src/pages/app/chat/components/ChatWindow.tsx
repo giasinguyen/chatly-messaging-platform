@@ -112,10 +112,10 @@ function getPrivacyFlag(user: Record<string, unknown>, field: "phone" | "dob") {
 }
 
 function formatDob(dob?: string) {
-    if (!dob) return "Chưa cập nhật";
+    if (!dob) return "Not set";
     const parsed = new Date(dob);
-    if (Number.isNaN(parsed.getTime())) return "Chưa cập nhật";
-    return new Intl.DateTimeFormat("vi-VN", {
+    if (Number.isNaN(parsed.getTime())) return "Not set";
+    return new Intl.DateTimeFormat("en-US", {
         day: "2-digit",
         month: "2-digit",
         year: "numeric",
@@ -162,7 +162,7 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
     // Typing indicators
     const [typingUserIds, setTypingUserIds] = useState<Set<string>>(new Set());
 
-    // Phân trang load-more
+    // Pagination load-more
     const [isLoadingMore, setIsLoadingMore] = useState(false);
     const [hasMore, setHasMore] = useState(false);
     const currentPageRef = useRef(0);
@@ -321,7 +321,7 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
                 currentPageRef.current = 0;
                 setHasMore(false);
 
-                // Fetch conversation detail và tất cả users song song
+                // Fetch conversation detail and all users in parallel
                 const [convRes, usersRes, contactsRes] = await Promise.all([
                     conversationService.getById(id),
                     userService.getAll(),
@@ -332,7 +332,7 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
                 const conv = convRes.result;
                 setConversation(conv);
 
-                // Lấy thông tin participant hiển thị
+                // Get participant info for display
                 const allUsers = usersRes.result ?? [];
                 setUserDirectory(
                     Object.fromEntries(allUsers.map((user) => [user.id, user])),
@@ -354,7 +354,7 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
                               }
                             : {
                                   id: participantId,
-                                  displayName: "Người dùng",
+                                  displayName: "User",
                                   username: "",
                               };
                         return [participantId, mapped];
@@ -392,7 +392,7 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
                               }
                             : {
                                   id: otherId ?? "",
-                                  displayName: "Người dùng",
+                                  displayName: "User",
                                   username: "",
                               },
                     );
@@ -423,7 +423,7 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
 
                     setParticipant({
                         id: conv.id,
-                        displayName: conv.name ?? "Nhóm chat",
+                        displayName: conv.name ?? "Chat group",
                         username: "group",
                         avatarUrl:
                             conv.avatarUrl ?? firstMemberWithAvatar?.avatarUrl,
@@ -431,7 +431,7 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
                     setContactStatus(null);
                 }
 
-                // Fetch trang đầu messages
+                // Fetch first page of messages
                 const msgRes = await messageService.getByConversation(
                     id,
                     0,
@@ -443,14 +443,14 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
                 setMessages([...fetched].reverse());
                 setHasMore(fetched.length === PAGE_SIZE);
 
-                // Đánh dấu các tin nhắn chưa đọc là seen
+                // Mark unread messages as seen
                 fetched.forEach((m) => {
                     if (m.senderId !== currentUser.id && m.status !== "READ") {
                         sendSeen(m.id);
                     }
                 });
             } catch (err) {
-                console.error("Lỗi load conversation:", err);
+                console.error("Error loading conversation:", err);
                 if (!cancelled) setNotFound(true);
             } finally {
                 if (!cancelled) setLoading(false);
@@ -464,7 +464,7 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
     }, [id, currentUser, sendSeen]);
 
     // ----------------------------------------------------------------
-    // 3. Load thêm tin nhắn cũ khi kéo lên trên
+    // 3. Load more old messages when scrolling up
     // ----------------------------------------------------------------
     const handleLoadMore = useCallback(async () => {
         if (isLoadingMore || !hasMore) return;
@@ -482,14 +482,14 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
             currentPageRef.current = nextPage;
             setHasMore(fetched.length === PAGE_SIZE);
         } catch (err) {
-            console.error("Lỗi load thêm tin nhắn:", err);
+            console.error("Error loading more messages:", err);
         } finally {
             setIsLoadingMore(false);
         }
     }, [id, isLoadingMore, hasMore]);
 
     // ----------------------------------------------------------------
-    // 4. Handlers: Gửi tin nhắn, Reply, Recall, Edit
+    // 4. Handlers: Send message, Reply, Recall, Edit
     // ----------------------------------------------------------------
     const handleSendMessage = useCallback(
         (
@@ -500,7 +500,7 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
             if (!id || !currentUser) return;
             const success = sendMessage(content, replyingTo?.id ?? null, attachments, poll);
             if (!success) {
-                toast.error("Mất kết nối! Không thể gửi tin nhắn.");
+                toast.error("Connection lost! Could not send message.");
                 setFailedMessages((prev) => [
                     ...prev,
                     { id: `failed-${Date.now()}`, content, attachments, replyToId: replyingTo?.id },
@@ -518,7 +518,7 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
         if (success) {
             setFailedMessages(prev => prev.filter(m => m.id !== failedId));
         } else {
-            toast.error("Vui lòng thử lại sau.");
+            toast.error("Please try again later.");
         }
     }, [failedMessages, sendMessage]);
 
@@ -545,7 +545,7 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
             } catch (err: any) {
                 const msg =
                     err?.response?.data?.message ??
-                    "Không thể thu hồi tin nhắn";
+                    "Could not recall message";
                 toast.error(msg);
             }
         },
@@ -572,7 +572,7 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
             } catch (err: any) {
                 const msg =
                     err?.response?.data?.message ??
-                    "Không thể chỉnh sửa tin nhắn";
+                    "Could not edit message";
                 toast.error(msg);
             }
         },
@@ -585,11 +585,11 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
                 await messageService.delete(messageId);
                 // Optimistic update
                 setMessages((prev) => prev.filter((m) => m.id !== messageId));
-                toast.success("Đã xóa tin nhắn");
+                toast.success("Message deleted");
             } catch (err: any) {
                 const msg =
                     err?.response?.data?.message ??
-                    "Không thể xóa tin nhắn";
+                    "Could not delete message";
                 toast.error(msg);
             }
         },
@@ -608,14 +608,14 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
                 await messageService.forward(forwardingMessage.id, targetConversationIds);
                 toast.success(
                     targetConversationIds.length > 1
-                        ? "Đã chuyển tiếp tin nhắn"
-                        : "Đã chuyển tiếp tin nhắn đến cuộc trò chuyện đã chọn",
+                        ? "Message forwarded"
+                        : "Message forwarded to selected conversation",
                 );
                 setForwardingMessage(null);
             } catch (err: any) {
                 const msg =
                     err?.response?.data?.message ??
-                    "Không thể chuyển tiếp tin nhắn";
+                    "Could not forward message";
                 toast.error(msg);
                 throw err;
             }
@@ -637,7 +637,7 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
             } catch (err: any) {
                 const msg =
                     err?.response?.data?.message ??
-                    "Không thể react tin nhắn";
+                    "Could not react to message";
                 toast.error(msg);
             }
         },
@@ -668,7 +668,7 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
             } catch (err: any) {
                 const msg =
                     err?.response?.data?.message ??
-                    "Không thể bình chọn";
+                    "Could not vote";
                 toast.error(msg);
             }
         },
@@ -686,11 +686,11 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
                             : m,
                     ),
                 );
-                toast.success(res.result.pinned ? "Đã ghim tin nhắn" : "Đã bỏ ghim tin nhắn");
+                toast.success(res.result.pinned ? "Message pinned" : "Message unpinned");
             } catch (err: any) {
                 const msg =
                     err?.response?.data?.message ??
-                    "Không thể ghim tin nhắn";
+                    "Could not pin message";
                 toast.error(msg);
             }
         },
@@ -708,9 +708,9 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
             setSendingContact(true);
             await contactService.sendRequest({ contactId: targetUser.id });
             setContactStatus("PENDING");
-            toast.success("Đã gửi lời mời kết bạn");
+            toast.success("Friend request sent");
         } catch (error) {
-            toast.error("Không thể gửi lời mời kết bạn");
+            toast.error("Could not send friend request");
         } finally {
             setSendingContact(false);
         }
@@ -727,7 +727,7 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
         }
 
         setGroupNameDraft(
-            participant.displayName || conversation.name || "Nhóm chat",
+            participant.displayName || conversation.name || "Chat group",
         );
         setGroupAvatarDraft(
             participant.avatarUrl || conversation.avatarUrl || "",
@@ -748,9 +748,9 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
         try {
             const res = await fileService.upload(file);
             setGroupAvatarDraft(res.url);
-            toast.success("Đã tải ảnh lên");
+            toast.success("Image uploaded");
         } catch {
-            toast.error("Không thể tải ảnh lên");
+            toast.error("Could not upload image");
         } finally {
             setGroupAvatarUploading(false);
             if (groupAvatarInputRef.current) groupAvatarInputRef.current.value = "";
@@ -762,7 +762,7 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
 
         const nextName = groupNameDraft.trim();
         if (!nextName) {
-            toast.error("Tên nhóm không được để trống");
+            toast.error("Group name cannot be empty");
             return;
         }
 
@@ -780,9 +780,9 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
                 prev ? { ...prev, name: nextName, avatarUrl: nextAvatar || prev.avatarUrl } : prev,
             );
             setIsEditingGroup(false);
-            toast.success("Đã cập nhật thông tin nhóm");
+            toast.success("Group information updated");
         } catch {
-            toast.error("Không thể cập nhật thông tin nhóm");
+            toast.error("Could not update group information");
         } finally {
             setGroupProfileSaving(false);
         }
@@ -824,7 +824,7 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
         return (
             <div className="flex-1 flex flex-col items-center justify-center bg-muted/10 text-muted-foreground gap-2">
                 <p className="text-sm">
-                    Hội thoại không tồn tại hoặc bạn không có quyền truy cập.
+                    Conversation not found or access denied.
                 </p>
             </div>
         );
@@ -832,7 +832,7 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
 
     const replyingSenderName =
         replyingTo?.senderId === currentUser?.id
-            ? "Bạn"
+            ? "You"
             : (
                   participantDirectory[replyingTo?.senderId ?? ""]
                       ?.displayName || participant.displayName
@@ -888,8 +888,8 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
                 <div className="absolute inset-0 z-50 bg-background/80 backdrop-blur-sm flex items-center justify-center border-4 border-dashed border-brand m-2 rounded-xl transition-all pointer-events-none">
                     <div className="flex flex-col items-center gap-4 text-brand">
                         <Upload size={48} className="animate-bounce" />
-                        <h3 className="text-2xl font-bold tracking-tight">Kéo thả file vào đây</h3>
-                        <p className="text-muted-foreground">Hỗ trợ hình ảnh, video và tài liệu</p>
+                        <h3 className="text-2xl font-bold tracking-tight">Drop files here</h3>
+                        <p className="text-muted-foreground">Supports images, videos, and documents</p>
                     </div>
                 </div>
             )}
@@ -971,7 +971,7 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
                             />
                         </div>
                         <span className="text-[11px] font-medium text-muted-foreground italic">
-                            {typingDisplayName} đang soạn tin...
+                            {typingDisplayName} is typing...
                         </span>
                     </div>
                 </div>
@@ -1014,10 +1014,9 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
                     {profileUser ? (
                         <>
                             <DialogHeader>
-                                <DialogTitle>Thông tin người dùng</DialogTitle>
+                                <DialogTitle>User Information</DialogTitle>
                                 <DialogDescription>
-                                    Hồ sơ hiển thị theo quyền riêng tư của người
-                                    này.
+                                    Profile visible based on privacy settings.
                                 </DialogDescription>
                             </DialogHeader>
                             <div className="space-y-4">
@@ -1057,25 +1056,25 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
                                     <div className="flex items-center justify-between gap-2 text-sm">
                                         <span className="inline-flex items-center gap-1 text-muted-foreground">
                                             <Phone size={14} />
-                                            Số điện thoại
+                                            Phone number
                                         </span>
                                         <span className="font-medium text-foreground">
                                             {showPhone
                                                 ? profileUser.phone ||
-                                                  "Chưa cập nhật"
-                                                : "Đã ẩn"}
+                                                  "Not updated"
+                                                : "Hidden"}
                                         </span>
                                     </div>
 
                                     <div className="flex items-center justify-between gap-2 text-sm">
                                         <span className="inline-flex items-center gap-1 text-muted-foreground">
                                             <CalendarDays size={14} />
-                                            Ngày sinh
+                                            Date of birth
                                         </span>
                                         <span className="font-medium text-foreground">
                                             {showDob
                                                 ? formatDob(profileUser.dob)
-                                                : "Đã ẩn"}
+                                                : "Hidden"}
                                         </span>
                                     </div>
                                 </div>
@@ -1083,12 +1082,12 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
                                 <div className="flex items-center gap-2">
                                     {contactStatus === "ACCEPTED" && (
                                         <Badge variant="secondary">
-                                            Đã là bạn bè
+                                            Already friends
                                         </Badge>
                                     )}
                                     {contactStatus === "PENDING" && (
                                         <Badge variant="outline">
-                                            Đã gửi lời mời
+                                            Request sent
                                         </Badge>
                                     )}
                                 </div>
@@ -1104,12 +1103,12 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
                                         {sendingContact ? (
                                             <>
                                                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                                Đang gửi...
+                                                Sending...
                                             </>
                                         ) : (
                                             <>
                                                 <UserPlus className="mr-2 h-4 w-4" />
-                                                Kết bạn
+                                                Add Friend
                                             </>
                                         )}
                                     </Button>
@@ -1119,9 +1118,9 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
                     ) : (
                         <>
                             <DialogHeader>
-                                <DialogTitle>Thông tin nhóm</DialogTitle>
+                                <DialogTitle>Group Information</DialogTitle>
                                 <DialogDescription>
-                                    Quản lý nhanh thông tin và thành viên nhóm.
+                                    Manage group info and members.
                                 </DialogDescription>
                             </DialogHeader>
 
@@ -1156,7 +1155,7 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
                                                                 e.target.value,
                                                             )
                                                         }
-                                                        placeholder="Tên nhóm"
+                                                        placeholder="Group Name"
                                                         className="h-8"
                                                     />
                                                 ) : (
@@ -1167,9 +1166,8 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
                                                     </p>
                                                 )}
                                                 <p className="text-xs text-muted-foreground">
-                                                    Nhóm chat •{" "}
-                                                    {groupMembers.length} thành
-                                                    viên
+                                                    Group Chat •{" "}
+                                                    {groupMembers.length} members
                                                 </p>
                                             </div>
                                         </div>
@@ -1204,9 +1202,9 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
                                                 onClick={() => groupAvatarInputRef.current?.click()}
                                             >
                                                 {groupAvatarUploading ? (
-                                                    <><Loader2 size={14} className="mr-2 animate-spin" />Đang tải ảnh...</>
+                                                    <><Loader2 size={14} className="mr-2 animate-spin" />Uploading image...</>
                                                 ) : (
-                                                    <><Upload size={14} className="mr-2" />{groupAvatarDraft ? "Đổi ảnh nhóm" : "Chọn ảnh nhóm"}</>
+                                                    <><Upload size={14} className="mr-2" />{groupAvatarDraft ? "Change avatar" : "Select avatar"}</>
                                                 )}
                                             </Button>
                                             <div className="flex items-center justify-end gap-2">
@@ -1219,7 +1217,7 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
                                                         setGroupNameDraft(
                                                             participant.displayName ||
                                                                 conversation.name ||
-                                                                "Nhóm chat",
+                                                                "Chat group",
                                                         );
                                                         setGroupAvatarDraft(
                                                             participant.avatarUrl ||
@@ -1228,14 +1226,14 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
                                                         );
                                                     }}
                                                 >
-                                                    Huỷ
+                                                    Cancel
                                                 </Button>
                                                 <Button
                                                     size="sm"
                                                     disabled={groupProfileSaving || groupAvatarUploading}
                                                     onClick={handleSaveGroupProfile}
                                                 >
-                                                    {groupProfileSaving ? <><Loader2 size={14} className="mr-1 animate-spin" />Lưu...</> : "Lưu"}
+                                                    {groupProfileSaving ? <><Loader2 size={14} className="mr-1 animate-spin" />Saving...</> : "Save"}
                                                 </Button>
                                             </div>
                                         </div>
@@ -1244,7 +1242,7 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
 
                                 <div className="rounded-lg border border-border bg-muted/20 p-3 space-y-3">
                                     <p className="text-sm font-semibold text-foreground">
-                                        Thành viên ({groupMembers.length})
+                                        Members ({groupMembers.length})
                                     </p>
                                     <div className="flex items-center -space-x-2">
                                         {groupMembers
@@ -1275,7 +1273,7 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
 
                                 <div className="rounded-lg border border-border bg-muted/20 p-3">
                                     <p className="text-sm font-medium text-foreground">
-                                        Link tham gia nhóm
+                                        Group Join Link
                                     </p>
                                     <div className="mt-2 flex items-center gap-2">
                                         <a
@@ -1296,11 +1294,11 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
                                                         inviteLink,
                                                     );
                                                     toast.success(
-                                                        "Đã sao chép link nhóm",
+                                                        "Group link copied",
                                                     );
                                                 } catch {
                                                     toast.error(
-                                                        "Không thể sao chép link",
+                                                        "Could not copy link",
                                                     );
                                                 }
                                             }}
@@ -1320,7 +1318,7 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
                                         }}
                                     >
                                         <Settings className="mr-2 h-4 w-4" />
-                                        Quản lý nhóm
+                                        Group management
                                     </Button>
                                     <Button
                                         variant="ghost"
@@ -1332,7 +1330,7 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
                                         }
                                     >
                                         <LogOut className="mr-2 h-4 w-4" />
-                                        Rời nhóm
+                                        Leave group
                                     </Button>
                                 </div>
                             </div>

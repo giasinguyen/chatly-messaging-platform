@@ -10,8 +10,8 @@ interface ProtectedRouteProps {
 /**
  * ProtectedRoute
  *
- * Chỉ cho phép người dùng đã đăng nhập.
- * Nếu chưa đăng nhập, sẽ đẩy về trang login (mặc định /auth).
+ * Only allows authenticated users.
+ * If not authenticated, redirects to login page (default /auth).
  */
 export const ProtectedRoute = ({
     children,

@@ -58,7 +58,7 @@ export function RemindersDialog({
             const res = await groupService.getReminders(conversationId);
             setReminders(res.result ?? []);
         } catch {
-            toast.error("Không thể tải danh sách nhắc hẹn");
+            toast.error("Could not load reminders");
         } finally {
             setLoading(false);
         }
@@ -76,7 +76,7 @@ export function RemindersDialog({
 
     const handleCreate = async () => {
         if (!title.trim()) {
-            toast.error("Tiêu đề không được để trống");
+            toast.error("Title cannot be empty");
             return;
         }
         setCreating(true);
@@ -86,14 +86,14 @@ export function RemindersDialog({
                 description: description.trim() || undefined,
                 remindAt: remindAt ? new Date(remindAt).toISOString() : undefined,
             });
-            toast.success("Đã tạo nhắc hẹn");
+            toast.success("Reminder created");
             setTitle("");
             setDescription("");
             setRemindAt("");
             setShowForm(false);
             fetchReminders();
         } catch {
-            toast.error("Không thể tạo nhắc hẹn");
+            toast.error("Could not create reminder");
         } finally {
             setCreating(false);
         }
@@ -104,17 +104,17 @@ export function RemindersDialog({
             await groupService.toggleReminder(id);
             fetchReminders();
         } catch {
-            toast.error("Không thể cập nhật nhắc hẹn");
+            toast.error("Could not update reminder");
         }
     };
 
     const handleDelete = async (id: string) => {
         try {
             await groupService.deleteReminder(id);
-            toast.success("Đã xóa nhắc hẹn");
+            toast.success("Reminder deleted");
             fetchReminders();
         } catch {
-            toast.error("Không thể xóa nhắc hẹn");
+            toast.error("Could not delete reminder");
         }
     };
 
@@ -129,7 +129,7 @@ export function RemindersDialog({
 
     const handleUpdate = async () => {
         if (!editingId || !editTitle.trim()) {
-            toast.error("Tiêu đề không được để trống");
+            toast.error("Title cannot be empty");
             return;
         }
         setUpdating(true);
@@ -139,11 +139,11 @@ export function RemindersDialog({
                 description: editDescription.trim() || undefined,
                 remindAt: editRemindAt ? new Date(editRemindAt).toISOString() : undefined,
             });
-            toast.success("Đã cập nhật nhắc hẹn");
+            toast.success("Reminder updated");
             setEditingId(null);
             fetchReminders();
         } catch {
-            toast.error("Không thể cập nhật nhắc hẹn");
+            toast.error("Could not update reminder");
         } finally {
             setUpdating(false);
         }
@@ -155,7 +155,7 @@ export function RemindersDialog({
                 <DialogHeader className="px-5 pt-5 pb-3 shrink-0">
                     <DialogTitle className="flex items-center gap-2 text-base">
                         <CalendarClock size={16} className="text-brand" />
-                        Danh sách nhắc hẹn
+                        Reminders list
                     </DialogTitle>
                 </DialogHeader>
 
@@ -168,20 +168,20 @@ export function RemindersDialog({
                             onClick={() => setShowForm(true)}
                         >
                             <Plus size={13} />
-                            Tạo nhắc hẹn mới
+                            Create new reminder
                         </Button>
                     ) : (
                         <div className="space-y-2 rounded-lg border border-border/50 bg-muted/20 p-3">
                             <Input
                                 value={title}
                                 onChange={(e) => setTitle(e.target.value)}
-                                placeholder="Tiêu đề nhắc hẹn..."
+                                placeholder="Reminder title..."
                                 className="h-8 text-sm"
                             />
                             <Input
                                 value={description}
                                 onChange={(e) => setDescription(e.target.value)}
-                                placeholder="Mô tả (tùy chọn)..."
+                                placeholder="Description (optional)..."
                                 className="h-8 text-sm"
                             />
                             <Input
@@ -198,7 +198,7 @@ export function RemindersDialog({
                                     disabled={creating}
                                 >
                                     {creating ? <Loader2 size={11} className="animate-spin" /> : <Plus size={11} />}
-                                    Tạo
+                                    Create
                                 </Button>
                                 <Button
                                     size="sm"
@@ -206,7 +206,7 @@ export function RemindersDialog({
                                     className="h-7 text-xs"
                                     onClick={() => setShowForm(false)}
                                 >
-                                    Hủy
+                                    Cancel
                                 </Button>
                             </div>
                         </div>
@@ -221,7 +221,7 @@ export function RemindersDialog({
                     ) : reminders.length === 0 ? (
                         <div className="flex flex-col items-center gap-2 py-10 text-muted-foreground">
                             <Clock size={24} className="opacity-30" />
-                            <p className="text-xs">Chưa có nhắc hẹn nào</p>
+                            <p className="text-xs">No reminders yet</p>
                         </div>
                     ) : (
                         <div className="space-y-1.5">
@@ -234,13 +234,13 @@ export function RemindersDialog({
                                         <Input
                                             value={editTitle}
                                             onChange={(e) => setEditTitle(e.target.value)}
-                                            placeholder="Tiêu đề nhắc hẹn..."
+                                            placeholder="Reminder title..."
                                             className="h-8 text-sm"
                                         />
                                         <Input
                                             value={editDescription}
                                             onChange={(e) => setEditDescription(e.target.value)}
-                                            placeholder="Mô tả (tùy chọn)..."
+                                            placeholder="Description (optional)..."
                                             className="h-8 text-sm"
                                         />
                                         <Input
@@ -257,7 +257,7 @@ export function RemindersDialog({
                                                 disabled={updating}
                                             >
                                                 {updating ? <Loader2 size={11} className="animate-spin" /> : <Pencil size={11} />}
-                                                Cập nhật
+                                                Update
                                             </Button>
                                             <Button
                                                 size="sm"
@@ -265,7 +265,7 @@ export function RemindersDialog({
                                                 className="h-7 text-xs"
                                                 onClick={() => setEditingId(null)}
                                             >
-                                                Hủy
+                                                Cancel
                                             </Button>
                                         </div>
                                     </div>
@@ -298,7 +298,7 @@ export function RemindersDialog({
                                         {r.remindAt && (
                                             <p className="text-[10px] text-brand mt-1 flex items-center gap-1">
                                                 <Clock size={10} />
-                                                {new Date(r.remindAt).toLocaleString("vi-VN")}
+                                                {new Date(r.remindAt).toLocaleString("en-US")}
                                             </p>
                                         )}
                                     </div>

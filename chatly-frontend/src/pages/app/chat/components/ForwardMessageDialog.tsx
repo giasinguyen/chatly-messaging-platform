@@ -112,9 +112,9 @@ export function ForwardMessageDialog({
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-lg">
                 <DialogHeader>
-                    <DialogTitle>Chuyển tiếp tin nhắn</DialogTitle>
+                    <DialogTitle>Forward Message</DialogTitle>
                     <DialogDescription>
-                        Chọn một hoặc nhiều cuộc trò chuyện để chuyển tiếp tin nhắn này.
+                        Select one or more conversations to forward this message.
                     </DialogDescription>
                 </DialogHeader>
 
@@ -123,7 +123,7 @@ export function ForwardMessageDialog({
                     <Input
                         value={searchQuery}
                         onChange={(event) => setSearchQuery(event.target.value)}
-                        placeholder="Tìm cuộc trò chuyện..."
+                        placeholder="Search conversations..."
                         className="pl-9"
                     />
                 </div>
@@ -132,11 +132,11 @@ export function ForwardMessageDialog({
                     <div className="p-2">
                         {loading ? (
                             <div className="px-3 py-8 text-center text-sm text-muted-foreground">
-                                Đang tải danh sách cuộc trò chuyện...
+                                Loading conversations...
                             </div>
                         ) : filteredConversations.length === 0 ? (
                             <div className="px-3 py-8 text-center text-sm text-muted-foreground">
-                                Không tìm thấy cuộc trò chuyện phù hợp.
+                                No matching conversations found.
                             </div>
                         ) : (
                             filteredConversations.map((conversation) => {
@@ -163,7 +163,7 @@ export function ForwardMessageDialog({
                                         <div className="min-w-0 flex-1">
                                             <p className="truncate text-sm font-medium text-foreground">{displayName}</p>
                                             <p className="truncate text-xs text-muted-foreground">
-                                                {conversation.type === "GROUP" ? "Nhóm chat" : "Trò chuyện riêng"}
+                                                {conversation.type === "GROUP" ? "Group chat" : "Private chat"}
                                             </p>
                                         </div>
                                     </label>
@@ -175,10 +175,10 @@ export function ForwardMessageDialog({
 
                 <DialogFooter>
                     <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={submitting}>
-                        Hủy
+                        Cancel
                     </Button>
                     <Button onClick={handleConfirm} disabled={selectedIds.length === 0 || submitting || loading}>
-                        {submitting ? "Đang chuyển tiếp..." : "Chuyển tiếp"}
+                        {submitting ? "Forwarding..." : "Forward"}
                         {!submitting && <Send className="ml-2 size-4" />}
                     </Button>
                 </DialogFooter>

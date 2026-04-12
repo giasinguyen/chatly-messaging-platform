@@ -22,9 +22,9 @@ export function ContactList({ activeTab, onTabChange }: ContactListProps) {
     const [isAddFriendOpen, setIsAddFriendOpen] = useState(false);
 
     const categories: { id: ContactTab; label: string; icon: any }[] = [
-        { id: "friends", label: "Danh sách bạn bè", icon: UserCircle },
-        { id: "requests", label: "Lời mời kết bạn", icon: UserPlus },
-        { id: "blocked", label: "Đã chặn", icon: UserMinus },
+        { id: "friends", label: "Friends list", icon: UserCircle },
+        { id: "requests", label: "Friend requests", icon: UserPlus },
+        { id: "blocked", label: "Blocked", icon: UserMinus },
     ];
 
     return (
@@ -34,7 +34,7 @@ export function ContactList({ activeTab, onTabChange }: ContactListProps) {
                 <div className="relative flex-1">
                     <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
-                        placeholder="Tìm kiếm"
+                        placeholder="Search"
                         className="h-8 pl-8 bg-muted/50 border-transparent focus-visible:ring-1 focus-visible:ring-brand focus-visible:border-brand rounded-full text-sm"
                     />
                 </div>
@@ -44,7 +44,7 @@ export function ContactList({ activeTab, onTabChange }: ContactListProps) {
                         variant="ghost"
                         size="icon"
                         className="h-8 w-8 rounded-full"
-                        title="Thêm bạn bè"
+                        title="Add friend"
                     >
                         <UserPlus size={16} />
                     </Button>

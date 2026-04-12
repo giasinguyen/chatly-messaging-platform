@@ -58,19 +58,19 @@ const ROLE_CONFIG: Record<
     { label: string; icon: React.ReactNode; className: string }
 > = {
     OWNER: {
-        label: "Trưởng nhóm",
+        label: "Owner",
         icon: <Crown size={11} />,
         className:
             "bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800",
     },
     ADMIN: {
-        label: "Quản trị viên",
+        label: "Admin",
         icon: <Shield size={11} />,
         className:
             "bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800",
     },
     MEMBER: {
-        label: "Thành viên",
+        label: "Member",
         icon: null,
         className: "bg-muted text-muted-foreground border-border",
     },
@@ -161,7 +161,7 @@ export function GroupManagementPanel({
             const res = await groupService.getMembers(conversationId);
             setMembers(res.result ?? []);
         } catch {
-            toast.error("Không thể tải danh sách thành viên");
+            toast.error("Failed to load member list");
         } finally {
             setLoading(false);
         }
@@ -186,9 +186,9 @@ export function GroupManagementPanel({
         try {
             const res = await fileService.upload(file);
             setGroupAvatar(res.url);
-            toast.success("Đã tải ảnh lên");
+            toast.success("Image uploaded");
         } catch {
-            toast.error("Không thể tải ảnh lên");
+            toast.error("Failed to upload image");
         } finally {
             setAvatarUploading(false);
             if (avatarInputRef.current) avatarInputRef.current.value = "";
@@ -204,10 +204,10 @@ export function GroupManagementPanel({
         if (!removingMember) return;
         try {
             await groupService.removeMember(conversationId, removingMember.userId);
-            toast.success(`Đã xóa ${removingMember.displayName} khỏi nhóm`);
+            toast.success(`Removed ${removingMember.displayName} from group`);
             fetchMembers();
         } catch {
-            toast.error("Không thể xóa thành viên");
+            toast.error("Failed to remove member");
         } finally {
             setRemovingMember(null);
         }
@@ -216,17 +216,17 @@ export function GroupManagementPanel({
     const handleUpdateRole = async (userId: string, role: GroupRole) => {
         try {
             await groupService.updateRole(conversationId, userId, { role });
-            toast.success("Đã cập nhật vai trò");
+            toast.success("Role updated");
             setRoleMenuOpenFor(null);
             fetchMembers();
         } catch {
-            toast.error("Không thể cập nhật vai trò");
+            toast.error("Failed to update role");
         }
     };
 
     const handleSaveSettings = async () => {
         if (!groupName.trim()) {
-            toast.error("Tên nhóm không được để trống");
+            toast.error("Group name cannot be empty");
             return;
         }
         setSettingsSaving(true);
@@ -237,10 +237,10 @@ export function GroupManagementPanel({
                 allowMembersUpdateInfo: allowMembersUpdate,
                 requireApproval,
             });
-            toast.success("Đã lưu thông tin nhóm");
+            toast.success("Group info saved");
             onGroupUpdated?.(groupName.trim(), groupAvatar.trim() || undefined);
         } catch {
-            toast.error("Không thể cập nhật nhóm");
+            toast.error("Failed to update group");
         } finally {
             setSettingsSaving(false);
         }
@@ -265,7 +265,7 @@ export function GroupManagementPanel({
                 setInviteLink(`${window.location.origin}/join/${data.inviteToken}`);
             }
         } catch {
-            toast.error("Không thể tạo link mời");
+            toast.error("Failed to create invite link");
         } finally {
             setInviteLinkLoading(false);
         }
@@ -280,9 +280,9 @@ export function GroupManagementPanel({
                 setInviteToken(data.inviteToken);
                 setInviteLink(`${window.location.origin}/join/${data.inviteToken}`);
             }
-            toast.success("Đã tạo mới link mời");
+            toast.success("Invite link reset");
         } catch {
-            toast.error("Không thể tạo mới link mời");
+            toast.error("Failed to reset invite link");
         } finally {
             setInviteLinkLoading(false);
         }
@@ -291,7 +291,7 @@ export function GroupManagementPanel({
     const handleCopyInviteLink = () => {
         if (inviteLink) {
             navigator.clipboard.writeText(inviteLink);
-            toast.success("Đã sao chép link mời");
+            toast.success("Invite link copied");
         }
     };
 
@@ -312,21 +312,21 @@ export function GroupManagementPanel({
     const handleApprovePending = async (userId: string) => {
         try {
             await groupService.approvePendingRequest(conversationId, userId);
-            toast.success("Đã duyệt yêu cầu");
+            toast.success("Request approved");
             fetchPendingRequests();
             fetchMembers();
         } catch {
-            toast.error("Không thể duyệt yêu cầu");
+            toast.error("Failed to approve request");
         }
     };
 
     const handleRejectPending = async (userId: string) => {
         try {
             await groupService.rejectPendingRequest(conversationId, userId);
-            toast.success("Đã từ chối yêu cầu");
+            toast.success("Request rejected");
             fetchPendingRequests();
         } catch {
-            toast.error("Không thể từ chối yêu cầu");
+            toast.error("Failed to reject request");
         }
     };
 
@@ -349,10 +349,10 @@ export function GroupManagementPanel({
                         <div className="flex h-7 w-7 items-center justify-center rounded-full bg-brand/10 text-brand">
                             <Users size={15} />
                         </div>
-                        Quản lý nhóm
+                        Group Management
                     </DialogTitle>
                     <p className="text-xs text-muted-foreground mt-0.5">
-                        {loading ? "Đang tải..." : `${members.length} thành viên`}
+                        {loading ? "Loading..." : `${members.length} members`}
                     </p>
                 </DialogHeader>
 
@@ -361,12 +361,12 @@ export function GroupManagementPanel({
                         <TabsList className="h-9 w-full bg-muted/50">
                             <TabsTrigger value="members" className="flex-1 gap-1.5 text-xs">
                                 <Users size={13} />
-                                Thành viên
+                                Members
                             </TabsTrigger>
                             {isOwnerOrAdmin && (
                                 <TabsTrigger value="settings" className="flex-1 gap-1.5 text-xs">
                                     <Settings size={13} />
-                                    Cài đặt nhóm
+                                    Group Settings
                                 </TabsTrigger>
                             )}
                         </TabsList>
@@ -385,7 +385,7 @@ export function GroupManagementPanel({
                                     className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
                                 />
                                 <Input
-                                    placeholder="Tìm thành viên..."
+                                    placeholder="Search members..."
                                     value={memberSearch}
                                     onChange={(e) => setMemberSearch(e.target.value)}
                                     className="h-8 pl-8 text-sm bg-muted/40 border-transparent focus-visible:border-brand/50 focus-visible:ring-1 focus-visible:ring-brand/30"
@@ -399,7 +399,7 @@ export function GroupManagementPanel({
                                     onClick={() => setShowAddMembersDialog(true)}
                                 >
                                     <UserPlus size={13} />
-                                    Thêm
+                                    Add
                                 </Button>
                             )}
                         </div>
@@ -413,7 +413,7 @@ export function GroupManagementPanel({
                             ) : filteredMembers.length === 0 ? (
                                 <div className="flex flex-col items-center gap-2 py-10 text-muted-foreground">
                                     <Users size={24} className="opacity-30" />
-                                    <p className="text-xs">Không có thành viên nào</p>
+                                    <p className="text-xs">No members found</p>
                                 </div>
                             ) : (
                                 <div className="space-y-px">
@@ -452,19 +452,19 @@ export function GroupManagementPanel({
                             <div className="space-y-4 pt-3">
                                 <div className="space-y-1.5">
                                     <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                                        Tên nhóm
+                                        Group Name
                                     </label>
                                     <Input
                                         value={groupName}
                                         onChange={(e) => setGroupName(e.target.value)}
-                                        placeholder="Nhập tên nhóm..."
+                                        placeholder="Enter group name..."
                                         className="h-9 text-sm"
                                     />
                                 </div>
 
                                 <div className="space-y-1.5">
                                     <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                                        Ảnh đại diện nhóm
+                                        Group Avatar
                                     </label>
                                     <div className="flex items-center gap-3">
                                         <Avatar className="h-14 w-14 shrink-0">
@@ -494,7 +494,7 @@ export function GroupManagementPanel({
                                                 ) : (
                                                     <Upload size={12} />
                                                 )}
-                                                {avatarUploading ? "Đang tải..." : "Chọn ảnh"}
+                                                {avatarUploading ? "Loading..." : "Select image"}
                                             </Button>
                                             {groupAvatar && (
                                                 <Button
@@ -505,7 +505,7 @@ export function GroupManagementPanel({
                                                     className="h-8 text-xs gap-1.5 text-muted-foreground hover:text-destructive"
                                                 >
                                                     <X size={12} />
-                                                    Xóa ảnh
+                                                    Remove image
                                                 </Button>
                                             )}
                                         </div>
@@ -517,7 +517,7 @@ export function GroupManagementPanel({
                                 {/* ── Invite link section ── */}
                                 <div className="space-y-2">
                                     <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
-                                        <LinkIcon size={12} /> Link mời vào nhóm
+                                        <LinkIcon size={12} /> Group Invite Link
                                     </label>
                                     {inviteLink ? (
                                         <div className="space-y-2">
@@ -532,7 +532,7 @@ export function GroupManagementPanel({
                                                     variant="outline"
                                                     className="h-8 w-8 shrink-0"
                                                     onClick={handleCopyInviteLink}
-                                                    title="Sao chép link"
+                                                    title="Copy link"
                                                 >
                                                     <Copy size={13} />
                                                 </Button>
@@ -541,7 +541,7 @@ export function GroupManagementPanel({
                                                     variant="outline"
                                                     className="h-8 w-8 shrink-0"
                                                     onClick={() => setShowQrDialog(true)}
-                                                    title="Mã QR"
+                                                    title="QR Code"
                                                 >
                                                     <QrCode size={13} />
                                                 </Button>
@@ -555,7 +555,7 @@ export function GroupManagementPanel({
                                                     disabled={inviteLinkLoading}
                                                 >
                                                     <RefreshCw size={11} />
-                                                    Tạo mới link
+                                                    Reset link
                                                 </Button>
                                             )}
                                         </div>
@@ -572,7 +572,7 @@ export function GroupManagementPanel({
                                             ) : (
                                                 <LinkIcon size={12} />
                                             )}
-                                            Tạo link mời
+                                            Create invite link
                                         </Button>
                                     )}
                                 </div>
@@ -583,10 +583,10 @@ export function GroupManagementPanel({
                                 <div className="flex items-center justify-between gap-3 rounded-lg border border-border/50 bg-muted/20 px-3 py-2.5">
                                     <div className="flex-1 min-w-0">
                                         <p className="text-sm font-medium text-foreground">
-                                            Cho phép thành viên cập nhật
+                                            Allow members to update info
                                         </p>
                                         <p className="mt-1 text-xs text-muted-foreground">
-                                            Nếu bật, tất cả thành viên có thể thay đổi tên và ảnh nhóm
+                                            If enabled, all members can change group name and avatar
                                         </p>
                                     </div>
                                     <button
@@ -609,10 +609,10 @@ export function GroupManagementPanel({
                                 <div className="flex items-center justify-between gap-3 rounded-lg border border-border/50 bg-muted/20 px-3 py-2.5">
                                     <div className="flex-1 min-w-0">
                                         <p className="text-sm font-medium text-foreground">
-                                            Duyệt thành viên mới
+                                            Approve new members
                                         </p>
                                         <p className="mt-1 text-xs text-muted-foreground">
-                                            Yêu cầu trưởng nhóm duyệt trước khi thêm thành viên mới
+                                            Require owner approval before adding new members
                                         </p>
                                     </div>
                                     <button
@@ -638,7 +638,7 @@ export function GroupManagementPanel({
                                         <Separator />
                                         <div className="space-y-2">
                                             <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
-                                                <UserCheck size={12} /> Yêu cầu chờ duyệt ({pendingRequests.length})
+                                                <UserCheck size={12} /> Pending requests ({pendingRequests.length})
                                             </label>
                                             <div className="space-y-1">
                                                 {pendingRequests.map((req) => (
@@ -662,7 +662,7 @@ export function GroupManagementPanel({
                                                                 variant="ghost"
                                                                 className="h-7 w-7 text-green-600 hover:text-green-700 hover:bg-green-50"
                                                                 onClick={() => handleApprovePending(req.userId)}
-                                                                title="Duyệt"
+                                                                title="Approve"
                                                             >
                                                                 <UserCheck size={14} />
                                                             </Button>
@@ -671,7 +671,7 @@ export function GroupManagementPanel({
                                                                 variant="ghost"
                                                                 className="h-7 w-7 text-destructive hover:text-destructive/90 hover:bg-destructive/10"
                                                                 onClick={() => handleRejectPending(req.userId)}
-                                                                title="Từ chối"
+                                                                title="Reject"
                                                             >
                                                                 <UserX size={14} />
                                                             </Button>
@@ -696,7 +696,7 @@ export function GroupManagementPanel({
                                     ) : (
                                         <Save size={13} />
                                     )}
-                                    Lưu thay đổi
+                                    Save changes
                                 </Button>
                             </div>
                             </ScrollArea>
@@ -710,17 +710,17 @@ export function GroupManagementPanel({
         <Dialog open={!!removingMember} onOpenChange={(o) => !o && setRemovingMember(null)}>
             <DialogContent className="sm:max-w-sm">
                 <DialogHeader>
-                    <DialogTitle>Xóa thành viên</DialogTitle>
+                    <DialogTitle>Remove Member</DialogTitle>
                     <DialogDescription>
-                        Bạn có chắc muốn xóa <strong>{removingMember?.displayName}</strong> khỏi nhóm?
+                        Are you sure you want to remove <strong>{removingMember?.displayName}</strong> from the group?
                     </DialogDescription>
                 </DialogHeader>
                 <DialogFooter className="gap-2 sm:gap-0">
                     <Button variant="outline" size="sm" onClick={() => setRemovingMember(null)}>
-                        Hủy
+                        Cancel
                     </Button>
                     <Button variant="destructive" size="sm" onClick={confirmRemoveMember}>
-                        Xóa
+                        Remove
                     </Button>
                 </DialogFooter>
             </DialogContent>
@@ -730,7 +730,7 @@ export function GroupManagementPanel({
         <Dialog open={showQrDialog} onOpenChange={setShowQrDialog}>
             <DialogContent className="sm:max-w-xs">
                 <DialogHeader>
-                    <DialogTitle className="text-center">Mã QR mời vào nhóm</DialogTitle>
+                    <DialogTitle className="text-center">Group Invite QR Code</DialogTitle>
                 </DialogHeader>
                 <div className="flex flex-col items-center gap-4 py-4">
                     {inviteLink && (
@@ -739,7 +739,7 @@ export function GroupManagementPanel({
                         </div>
                     )}
                     <p className="text-xs text-muted-foreground text-center">
-                        Quét mã QR để tham gia nhóm
+                        Scan QR code to join group
                     </p>
                 </div>
             </DialogContent>
@@ -802,7 +802,7 @@ function MemberRow({
                         {member.displayName}
                     </span>
                     {isCurrentUser && (
-                        <span className="text-[10px] text-muted-foreground">(Bạn)</span>
+                        <span className="text-[10px] text-muted-foreground">(You)</span>
                     )}
                     <RoleBadge role={member.role} />
                 </div>
@@ -818,7 +818,7 @@ function MemberRow({
                             variant="ghost"
                             size="icon"
                             className="h-7 w-7 text-muted-foreground hover:text-foreground"
-                            title="Thay đổi vai trò"
+                            title="Change role"
                             onClick={onOpenRoleMenu}
                         >
                             <ChevronDown size={13} />
@@ -833,7 +833,7 @@ function MemberRow({
                                 <div className="absolute right-0 top-8 z-50 w-40 overflow-hidden rounded-lg border border-border bg-popover shadow-lg">
                                     <div className="px-2 py-1.5">
                                         <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                                            Đổi vai trò
+                                            Update role
                                         </p>
                                     </div>
                                     <div className="divide-y divide-border/50">
@@ -868,7 +868,7 @@ function MemberRow({
                         variant="ghost"
                         size="icon"
                         className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                        title="Xóa khỏi nhóm"
+                        title="Remove from group"
                         onClick={onRemove}
                     >
                         <UserMinus size={13} />

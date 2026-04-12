@@ -13,15 +13,15 @@ export function ChangePasswordSettings() {
 
     const onChangePassword = async () => {
         if (!currentPassword || !newPassword || !confirmPassword) {
-            toast.error("Vui lòng điền đầy đủ thông tin.");
+            toast.error("Please fill in all information.");
             return;
         }
         if (newPassword.length < 6) {
-            toast.error("Mật khẩu mới phải có ít nhất 6 ký tự.");
+            toast.error("The new password must be at least 6 characters long.");
             return;
         }
         if (newPassword !== confirmPassword) {
-            toast.error("Xác nhận mật khẩu không khớp.");
+            toast.error("Password confirmation does not match.");
             return;
         }
 
@@ -32,13 +32,13 @@ export function ChangePasswordSettings() {
                 newPassword,
                 confirmPassword,
             });
-            toast.success(response.message || "Đổi mật khẩu thành công.");
+            toast.success(response.message || "Password changed successfully.");
             setCurrentPassword("");
             setNewPassword("");
             setConfirmPassword("");
         } catch (error: any) {
             toast.error(
-                error?.response?.data?.message || "Không thể đổi mật khẩu.",
+                error?.response?.data?.message || "Could not change password.",
             );
         } finally {
             setChangingPassword(false);
@@ -50,14 +50,14 @@ export function ChangePasswordSettings() {
             <div className="mx-auto flex max-w-2xl flex-col gap-6">
                 <section className="flex flex-col gap-4">
                     <div className="flex flex-col gap-1">
-                        <h3 className="text-lg font-bold text-foreground">Đổi mật khẩu</h3>
+                        <h3 className="text-lg font-bold text-foreground">Change Password</h3>
                         <p className="text-sm text-muted-foreground">
-                            Cập nhật mật khẩu để tăng bảo mật tài khoản của bạn.
+                            Update your password to increase account security.
                         </p>
                     </div>
                     <div className="space-y-4 rounded-xl border border-border bg-card/40 p-6 transition-all hover:border-border/80">
                         <div className="space-y-2">
-                            <Label htmlFor="current-password">Mật khẩu hiện tại</Label>
+                            <Label htmlFor="current-password">Current password</Label>
                             <Input
                                 id="current-password"
                                 type="password"
@@ -66,7 +66,7 @@ export function ChangePasswordSettings() {
                             />
                         </div>
                         <div className="space-y-2">
-                            <Label htmlFor="new-password">Mật khẩu mới</Label>
+                            <Label htmlFor="new-password">New password</Label>
                             <Input
                                 id="new-password"
                                 type="password"
@@ -75,7 +75,7 @@ export function ChangePasswordSettings() {
                             />
                         </div>
                         <div className="space-y-2">
-                            <Label htmlFor="confirm-password">Xác nhận mật khẩu mới</Label>
+                            <Label htmlFor="confirm-password">Confirm new password</Label>
                             <Input
                                 id="confirm-password"
                                 type="password"
@@ -89,7 +89,7 @@ export function ChangePasswordSettings() {
                                 disabled={changingPassword}
                                 className="bg-brand text-white hover:bg-brand-hover disabled:opacity-70"
                             >
-                                {changingPassword ? "Đang xử lý..." : "Đổi mật khẩu"}
+                                {changingPassword ? "Processing..." : "Change Password"}
                             </Button>
                         </div>
                     </div>

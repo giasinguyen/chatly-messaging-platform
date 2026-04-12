@@ -3,11 +3,11 @@ import type { ApiResponse, AuthResponse } from "@/types/auth";
 
 /**
  * AUTH SERVICE
- * Chứa các API liên quan đến Authentication: Login, Register, Refresh Token
+ * Contains APIs related to Authentication: Login, Register, Refresh Token
  */
 export const authService = {
     /**
-     * Đăng ký tài khoản mới
+     * Register a new account
      * @param payload
      * @returns
      */
@@ -20,7 +20,7 @@ export const authService = {
     },
 
     /**
-     * Đăng nhập (Mật khẩu hoặc OTP)
+     * Login (Password or OTP)
      * @param payload
      * @returns
      */
@@ -53,8 +53,8 @@ export const authService = {
     },
 
     /**
-     * Đăng xuất
-     * Gọi backend API để xóa session/token ở server
+     * Logout
+     * Call backend API to remove session/token on the server
      */
     logout: async () => {
         const token = localStorage.getItem("access_token");
