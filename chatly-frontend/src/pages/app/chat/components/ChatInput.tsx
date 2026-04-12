@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef, forwardRef, useImperativeHandle } from "react";
+import { useState, useCallback, useEffect, useRef, forwardRef, useImperativeHandle, useMemo } from "react";
 import type { KeyboardEvent } from "react";
 import {
     SendHorizontal,
@@ -19,6 +19,7 @@ import Picker from "@emoji-mart/react";
 import data from "@emoji-mart/data";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import {
     Dialog,
     DialogContent,
@@ -29,15 +30,17 @@ import {
 import { Label } from "@/components/ui/label";
 import { fileService } from "@/services/file.service";
 import { groupService } from "@/services/group.service";
-import type { Message, Attachment, Poll } from "@/types/message";
+import type { Message, Attachment, Poll, ChatUser } from "@/types/message";
 
 interface ChatInputProps {
     conversationId?: string;
     replyingTo?: Message | null;
     senderName?: string;
     onCancelReply: () => void;
-    onSendMessage: (content: string, attachments?: Attachment[], poll?: Poll) => void;
+    onSendMessage: (content: string, attachments?: Attachment[], poll?: Poll, mentions?: string[]) => void;
     onTyping?: (typing: boolean) => void;
+    groupMembers?: ChatUser[];
+    currentUserId?: string;
 }
 
 interface PendingFile {
@@ -64,6 +67,8 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
     onCancelReply,
     onSendMessage,
     onTyping,
+    groupMembers = [],
+    currentUserId,
 }, ref) => {
     const [content, setContent] = useState("");
     const [isTyping, setIsTyping] = useState(false);
@@ -79,6 +84,10 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
     const [reminderDate, setReminderDate] = useState("");
     const [reminderTime, setReminderTime] = useState("");
     const [reminderSubmitting, setReminderSubmitting] = useState(false);
+    // Mention autocomplete state
+    const [mentionQuery, setMentionQuery] = useState<string | null>(null);
+    const [mentionIndex, setMentionIndex] = useState(0);
+    const mentionListRef = useRef<HTMLDivElement>(null);
     const typingTimerRef = useRef<any>(null);
     const inputRef = useRef<HTMLInputElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -98,6 +107,17 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
     const handleContentChange = (newVal: string) => {
         setContent(newVal);
 
+        // Detect @mention trigger
+        const cursorPos = inputRef.current?.selectionStart ?? newVal.length;
+        const textBeforeCursor = newVal.slice(0, cursorPos);
+        const mentionMatch = textBeforeCursor.match(/@(\w*)$/);
+        if (mentionMatch) {
+            setMentionQuery(mentionMatch[1]);
+            setMentionIndex(0);
+        } else {
+            setMentionQuery(null);
+        }
+
         if (!isTyping && newVal.trim().length > 0) {
             setIsTyping(true);
             onTyping?.(true);
@@ -107,6 +127,40 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
         typingTimerRef.current = setTimeout(() => {
             stopTyping();
         }, TYPING_STOP_DELAY);
+    };
+
+    // Filtered mention suggestions
+    const mentionSuggestions = useMemo(() => {
+        if (mentionQuery === null) return [];
+        const q = mentionQuery.toLowerCase();
+        const results: { id: string; displayName: string; username: string }[] = [];
+        // Always show @all option first
+        if ("all".startsWith(q)) {
+            results.push({ id: "all", displayName: "All members", username: "all" });
+        }
+        for (const m of groupMembers) {
+            if (m.id === currentUserId) continue; // don't suggest self
+            if (
+                m.displayName.toLowerCase().includes(q) ||
+                m.username.toLowerCase().includes(q)
+            ) {
+                results.push(m);
+            }
+            if (results.length >= 8) break;
+        }
+        return results;
+    }, [mentionQuery, groupMembers, currentUserId]);
+
+    const insertMention = (user: { id: string; displayName: string; username: string }) => {
+        const cursorPos = inputRef.current?.selectionStart ?? content.length;
+        const textBeforeCursor = content.slice(0, cursorPos);
+        const textAfterCursor = content.slice(cursorPos);
+        const mentionStart = textBeforeCursor.lastIndexOf("@");
+        const insertName = user.id === "all" ? "@all" : `@${user.displayName}`;
+        const newContent = textBeforeCursor.slice(0, mentionStart) + insertName + " " + textAfterCursor;
+        setContent(newContent);
+        setMentionQuery(null);
+        inputRef.current?.focus();
     };
 
     useEffect(() => {
@@ -229,6 +283,26 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
     const isUploading = pendingFiles.some((p) => !p.uploaded && !p.error);
     const canSend = (content.trim().length > 0 || pendingFiles.some((p) => p.uploaded)) && !isUploading;
 
+    // Extract mention user IDs from the content text
+    const extractMentions = (text: string): string[] => {
+        const mentionIds: string[] = [];
+        const mentionRegex = /@(\S+)/g;
+        let match;
+        while ((match = mentionRegex.exec(text)) !== null) {
+            const name = match[1];
+            if (name === "all") {
+                mentionIds.push("all");
+            } else {
+                // Find user by displayName
+                const user = groupMembers.find(
+                    (m) => m.displayName === name || m.username === name,
+                );
+                if (user) mentionIds.push(user.id);
+            }
+        }
+        return [...new Set(mentionIds)];
+    };
+
     const handleSend = () => {
         if (!canSend) return;
 
@@ -239,12 +313,38 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
             .filter((p) => p.uploaded)
             .map((p) => p.uploaded!);
 
-        onSendMessage(content.trim(), attachments.length ? attachments : undefined);
+        const mentions = extractMentions(content);
+        onSendMessage(content.trim(), attachments.length ? attachments : undefined, undefined, mentions.length ? mentions : undefined);
         setContent("");
+        setMentionQuery(null);
         setPendingFiles([]);
     };
 
     const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+        // Handle mention autocomplete navigation
+        if (mentionQuery !== null && mentionSuggestions.length > 0) {
+            if (e.key === "ArrowDown") {
+                e.preventDefault();
+                setMentionIndex((prev) => (prev + 1) % mentionSuggestions.length);
+                return;
+            }
+            if (e.key === "ArrowUp") {
+                e.preventDefault();
+                setMentionIndex((prev) => (prev - 1 + mentionSuggestions.length) % mentionSuggestions.length);
+                return;
+            }
+            if (e.key === "Enter" || e.key === "Tab") {
+                e.preventDefault();
+                insertMention(mentionSuggestions[mentionIndex]);
+                return;
+            }
+            if (e.key === "Escape") {
+                e.preventDefault();
+                setMentionQuery(null);
+                return;
+            }
+        }
+
         if (e.key === "Enter" && !e.shiftKey) {
             e.preventDefault();
             handleSend();
@@ -455,9 +555,41 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
                     </Button>
 
                     <div className="flex-1 relative">
+                        {/* Mention autocomplete dropdown */}
+                        {mentionQuery !== null && mentionSuggestions.length > 0 && (
+                            <div
+                                ref={mentionListRef}
+                                className="absolute bottom-full left-0 mb-1 w-72 max-h-52 overflow-y-auto bg-popover border border-border rounded-lg shadow-lg z-50"
+                            >
+                                {mentionSuggestions.map((user, idx) => (
+                                    <button
+                                        key={user.id}
+                                        type="button"
+                                        className={cn(
+                                            "flex items-center gap-2 w-full px-3 py-2 text-sm text-left hover:bg-accent transition-colors",
+                                            idx === mentionIndex && "bg-accent",
+                                        )}
+                                        onMouseDown={(e) => {
+                                            e.preventDefault();
+                                            insertMention(user);
+                                        }}
+                                    >
+                                        <div className="w-7 h-7 rounded-full bg-brand/20 flex items-center justify-center text-xs font-semibold text-brand shrink-0">
+                                            {user.id === "all" ? "@" : user.displayName.charAt(0).toUpperCase()}
+                                        </div>
+                                        <div className="min-w-0">
+                                            <p className="font-medium truncate">{user.displayName}</p>
+                                            {user.id !== "all" && (
+                                                <p className="text-xs text-muted-foreground truncate">@{user.username}</p>
+                                            )}
+                                        </div>
+                                    </button>
+                                ))}
+                            </div>
+                        )}
                         <Input
                             ref={inputRef}
-                            placeholder="Type a message"
+                            placeholder="Type a message. Use @ to mention"
                             value={content}
                             onChange={(e) => handleContentChange(e.target.value)}
                             onKeyDown={handleKeyDown}

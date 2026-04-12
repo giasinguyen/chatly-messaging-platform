@@ -21,6 +21,8 @@ import {
     Pin,
     BarChart3,
     Forward,
+    Star,
+    AlertTriangle,
 } from "lucide-react";
 import { toast } from "sonner";
 import type { Message, ChatUser } from "@/types/message";
@@ -73,6 +75,7 @@ interface MessageListProps {
     onVotePoll?: (messageId: string, optionIndex: number) => void;
     onClosePoll?: (messageId: string) => void;
     onTogglePin?: (messageId: string) => void;
+    onTagPriority?: (messageId: string, priority: string) => void;
 }
 
 const RECALL_LIMIT_MS = 24 * 60 * 60 * 1000;
@@ -102,6 +105,7 @@ export function MessageList({
     onVotePoll,
     onClosePoll,
     onTogglePin,
+    onTagPriority,
 }: MessageListProps) {
     const scrollEndRef = useRef<HTMLDivElement>(null);
     const sentinelRef = useRef<HTMLDivElement>(null);
@@ -505,8 +509,22 @@ export function MessageList({
                                     isMe
                                         ? "bg-brand text-white rounded-2xl"
                                         : "bg-muted/75 border border-border/60 text-foreground dark:bg-zinc-800/90 dark:border-zinc-700 rounded-2xl",
+                                    msg.priority === "URGENT" && "ring-2 ring-red-500/60",
+                                    msg.priority === "IMPORTANT" && "ring-2 ring-amber-500/60",
                                 )}
                             >
+                                {/* Priority badge */}
+                                {msg.priority && (
+                                    <div className={cn(
+                                        "flex items-center gap-1 text-[10px] font-semibold mb-1 uppercase tracking-wide",
+                                        msg.priority === "URGENT" ? "text-red-500" : "text-amber-500",
+                                        isMe && msg.priority === "URGENT" && "text-red-200",
+                                        isMe && msg.priority === "IMPORTANT" && "text-amber-200",
+                                    )}>
+                                        {msg.priority === "URGENT" ? <AlertTriangle size={11} /> : <Star size={11} />}
+                                        {msg.priority}
+                                    </div>
+                                )}
                                 {repliedMsg && (
                                     <ReplyPreview
                                         replyMessage={repliedMsg}
@@ -518,21 +536,34 @@ export function MessageList({
                                 )}
                                 {msg.content && (() => {
                                     const URL_REGEX = /(https?:\/\/[^\s<>"]+)/g;
-                                    const parts = msg.content.split(URL_REGEX);
-                                    const hasLinks = parts.some(p => /^https?:\/\//.test(p));
-                                    if (!hasLinks) return <span>{msg.content}</span>;
+                                    const MENTION_REGEX = /(@\S+)/g;
+                                    const COMBINED_REGEX = /(https?:\/\/[^\s<>"]+|@\S+)/g;
+                                    const parts = msg.content.split(COMBINED_REGEX);
+                                    const hasSpecial = parts.some(p => URL_REGEX.test(p) || MENTION_REGEX.test(p));
+                                    if (!hasSpecial) return <span>{msg.content}</span>;
                                     return (
                                         <span>
-                                            {parts.map((part, i) =>
-                                                /^https?:\/\//.test(part) ? (
-                                                    <a key={i} href={part} target="_blank" rel="noopener noreferrer"
-                                                        className={cn("underline break-all", isMe ? "text-white/90 hover:text-white" : "text-brand hover:text-brand/80")}>
-                                                        {part}
-                                                    </a>
-                                                ) : (
-                                                    <span key={i}>{part}</span>
-                                                )
-                                            )}
+                                            {parts.map((part, i) => {
+                                                if (/^https?:\/\//.test(part)) {
+                                                    return (
+                                                        <a key={i} href={part} target="_blank" rel="noopener noreferrer"
+                                                            className={cn("underline break-all", isMe ? "text-white/90 hover:text-white" : "text-brand hover:text-brand/80")}>
+                                                            {part}
+                                                        </a>
+                                                    );
+                                                }
+                                                if (/^@\S+/.test(part)) {
+                                                    return (
+                                                        <span key={i} className={cn(
+                                                            "font-semibold",
+                                                            isMe ? "text-white/90" : "text-brand",
+                                                        )}>
+                                                            {part}
+                                                        </span>
+                                                    );
+                                                }
+                                                return <span key={i}>{part}</span>;
+                                            })}
                                         </span>
                                     );
                                 })()}
@@ -782,6 +813,24 @@ export function MessageList({
                             <Pin size={14} />
                             {msg.pinned ? "Unpin" : "Pin message"}
                         </ContextMenuItem>
+                    )}
+                    {!msg.recalled && onTagPriority && (
+                        <>
+                            <ContextMenuItem
+                                onClick={() => onTagPriority(msg.id, "IMPORTANT")}
+                                className="gap-2 text-amber-500 focus:text-amber-500"
+                            >
+                                <Star size={14} />
+                                {msg.priority === "IMPORTANT" ? "Remove important" : "Mark important"}
+                            </ContextMenuItem>
+                            <ContextMenuItem
+                                onClick={() => onTagPriority(msg.id, "URGENT")}
+                                className="gap-2 text-red-500 focus:text-red-500"
+                            >
+                                <AlertTriangle size={14} />
+                                {msg.priority === "URGENT" ? "Remove urgent" : "Mark urgent"}
+                            </ContextMenuItem>
+                        </>
                     )}
                     {canRecall(msg) && (
                         <>

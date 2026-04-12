@@ -527,9 +527,10 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
             content: string,
             attachments?: import("@/types/message").Attachment[],
             poll?: import("@/types/message").Poll,
+            mentions?: string[],
         ) => {
             if (!id || !currentUser) return;
-            const success = sendMessage(content, replyingTo?.id ?? null, attachments, poll);
+            const success = sendMessage(content, replyingTo?.id ?? null, attachments, poll, undefined, mentions);
             if (!success) {
                 toast.error("Connection lost! Could not send message.");
                 setFailedMessages((prev) => [
@@ -747,6 +748,31 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
                 const msg =
                     err?.response?.data?.message ??
                     "Could not end poll";
+                toast.error(msg);
+            }
+        },
+        [],
+    );
+
+    const handleTagPriority = useCallback(
+        async (messageId: string, priority: string) => {
+            try {
+                const res = await messageService.tagPriority(messageId, priority);
+                setMessages((prev) =>
+                    prev.map((m) =>
+                        m.id === messageId
+                            ? { ...m, priority: res.result.priority }
+                            : m,
+                    ),
+                );
+                toast.success(
+                    res.result.priority
+                        ? `Marked as ${res.result.priority.toLowerCase()}`
+                        : "Priority removed",
+                );
+            } catch (err: any) {
+                const msg =
+                    err?.response?.data?.message ?? "Could not tag priority";
                 toast.error(msg);
             }
         },
@@ -1091,6 +1117,7 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
                 onVotePoll={handleVotePoll}
                 onClosePoll={handleClosePoll}
                 onTogglePin={handleTogglePin}
+                onTagPriority={handleTagPriority}
             />
 
             {isTyping && (
@@ -1125,6 +1152,8 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
                 onCancelReply={handleCancelReply}
                 onSendMessage={handleSendMessage}
                 onTyping={sendTyping}
+                groupMembers={groupMembers}
+                currentUserId={currentUser?.id}
             />
 
             <ForwardMessageDialog

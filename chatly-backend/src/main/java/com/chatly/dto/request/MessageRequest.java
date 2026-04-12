@@ -27,4 +27,8 @@ public class MessageRequest {
     private List<Attachment> attachments;
 
     private Poll poll;
+
+    private String priority;
+
+    private List<String> mentions;
 }
