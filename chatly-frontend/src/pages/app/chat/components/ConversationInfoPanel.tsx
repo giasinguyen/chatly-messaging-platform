@@ -128,6 +128,7 @@ export function ConversationInfoPanel({
                     setDocFiles(docs);
                     const extracted: { url: string; domain: string }[] = [];
                     for (const msg of linkMsgs.result) {
+                        if (msg.type === "GIF" || msg.type === "STICKER") continue;
                         const matches = msg.content?.match(URL_REGEX) ?? [];
                         for (const url of matches) {
                             try {

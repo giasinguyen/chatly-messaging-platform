@@ -7,11 +7,14 @@ import EmojiPicker from 'rn-emoji-keyboard';
 import type { EmojiType } from 'rn-emoji-keyboard';
 import { Colors } from '@/constants/theme';
 import { fileService } from '@/services/file.service';
+import { getDisplayUrl, type KlipyItem } from '@/services/klipy.service';
+import { MediaPicker } from '@/components/chat/MediaPicker';
+import { useAuthStore } from '@/store/auth.store';
 import type { Message, Attachment } from '@/types/message';
 
 interface ChatInputProps {
   conversationId?: string;
-  onSend: (text: string, attachments?: Attachment[]) => void;
+  onSend: (text: string, attachments?: Attachment[], messageType?: string) => void;
   onTyping?: (isTyping: boolean) => void;
   replyingTo?: Message | null;
   onCancelReply?: () => void;
@@ -29,10 +32,12 @@ interface PendingFile {
 }
 
 export function ChatInput({ conversationId, onSend, onTyping, replyingTo, onCancelReply }: ChatInputProps) {
+  const { user } = useAuthStore();
   const [text, setText] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([]);
+  const [activePicker, setActivePicker] = useState<'gif' | 'sticker' | null>(null);
 
   const handleChangeText = (value: string) => {
     setText(value);
@@ -146,8 +151,31 @@ export function ChatInput({ conversationId, onSend, onTyping, replyingTo, onCanc
     setText((prev) => prev + emoji.emoji);
   };
 
+  const handleMediaSelect = (item: KlipyItem) => {
+    const displayUrl = getDisplayUrl(item);
+    const messageType = item.type === 'sticker' ? 'STICKER' : 'GIF';
+    const attachment: Attachment = {
+      fileId: item.slug,
+      url: displayUrl,
+      name: item.title,
+      type: item.type === 'sticker' ? 'image/gif' : 'image/webp',
+    };
+    onSend(displayUrl, [attachment], messageType);
+    setActivePicker(null);
+  };
+
   return (
     <View style={{ backgroundColor: Colors.white }}>
+      {/* MediaPicker overlay */}
+      {activePicker && user?.id && (
+        <MediaPicker
+          initialTab={activePicker}
+          customerId={user.id}
+          onSelect={handleMediaSelect}
+          onClose={() => setActivePicker(null)}
+        />
+      )}
+
       {/* Reply preview banner */}
       {replyingTo && (
         <View
@@ -176,6 +204,10 @@ export function ChatInput({ conversationId, onSend, onTyping, replyingTo, onCanc
                 ? '🖼 Hình ảnh'
                 : replyingTo.type === 'FILE'
                 ? '📎 Tệp đính kèm'
+                : replyingTo.type === 'GIF'
+                ? '🎬 GIF'
+                : replyingTo.type === 'STICKER'
+                ? '🎨 Sticker'
                 : replyingTo.content}
             </Text>
           </View>
@@ -269,6 +301,32 @@ export function ChatInput({ conversationId, onSend, onTyping, replyingTo, onCanc
           style={{ width: 36, height: 36 }}
         >
           <Ionicons name="happy-outline" size={24} color={Colors.cta} />
+        </TouchableOpacity>
+
+        {/* GIF picker button */}
+        <TouchableOpacity
+          onPress={() => { setActivePicker((p) => (p === 'gif' ? null : 'gif')); setShowEmojiPicker(false); }}
+          className="items-center justify-center pb-1"
+          style={{ width: 36, height: 36 }}
+        >
+          <Ionicons
+            name="film-outline"
+            size={22}
+            color={activePicker === 'gif' ? Colors.cta : Colors.textMuted}
+          />
+        </TouchableOpacity>
+
+        {/* Sticker picker button */}
+        <TouchableOpacity
+          onPress={() => { setActivePicker((p) => (p === 'sticker' ? null : 'sticker')); setShowEmojiPicker(false); }}
+          className="items-center justify-center pb-1"
+          style={{ width: 36, height: 36 }}
+        >
+          <Ionicons
+            name="flower-outline"
+            size={22}
+            color={activePicker === 'sticker' ? Colors.cta : Colors.textMuted}
+          />
         </TouchableOpacity>
 
         {/* Text input */}

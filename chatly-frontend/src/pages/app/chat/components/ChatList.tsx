@@ -522,6 +522,10 @@ export const ChatList = forwardRef(function ChatListComponent(_, ref) {
                                                           "STICKER"
                                                         ? "🎭 Sticker"
                                                         : conv.lastMessage
+                                                              .type ===
+                                                          "GIF"
+                                                        ? "🎬 GIF"
+                                                        : conv.lastMessage
                                                               .content}
                                             </>
                                         ) : (

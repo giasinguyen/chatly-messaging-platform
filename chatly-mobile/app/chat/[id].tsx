@@ -248,16 +248,16 @@ export default function ChatScreen() {
 
   // Send message (try WebSocket, fallback to REST)
   const handleSend = useCallback(
-    async (text: string, attachments?: Attachment[]) => {
+    async (text: string, attachments?: Attachment[], messageType?: string) => {
       if (!conversationId || !user) return;
       const replyToId = replyingTo?.id ?? null;
       const hasAttachments = attachments && attachments.length > 0;
-      const msgType = hasAttachments
+      const msgType = messageType ?? (hasAttachments
         ? attachments[0].type?.startsWith('image/') ? 'IMAGE'
           : attachments[0].type?.startsWith('video/') ? 'VIDEO'
           : attachments[0].type?.startsWith('audio/') ? 'AUDIO'
           : 'FILE'
-        : 'TEXT';
+        : 'TEXT');
 
       const optimisticLastMsg = {
         senderId: user.id,
@@ -267,7 +267,7 @@ export default function ChatScreen() {
       };
 
       // Try WebSocket first
-      const sent = wsSendMessage(text, replyToId, attachments);
+      const sent = wsSendMessage(text, replyToId, attachments, messageType);
       if (sent) {
         updateConversation(conversationId, { lastMessage: optimisticLastMsg });
         setReplyingTo(null);

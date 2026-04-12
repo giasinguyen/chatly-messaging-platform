@@ -52,7 +52,7 @@ public class MessageService {
     private static final long RECALL_LIMIT_HOURS = 24;
     private static final long EDIT_LIMIT_MINUTES = 15;
     private static final Set<String> ALLOWED_EMOJIS = Set.of("👍", "❤️", "😂", "😮", "😢", "😡", "🔥", "👏");
-        private static final Set<MessageType> FORWARDABLE_TYPES = Set.of(MessageType.TEXT, MessageType.IMAGE, MessageType.FILE);
+        private static final Set<MessageType> FORWARDABLE_TYPES = Set.of(MessageType.TEXT, MessageType.IMAGE, MessageType.FILE, MessageType.GIF, MessageType.STICKER);
 
     public MessageResponse send(String senderId, MessageRequest request) {
                 Conversation conversation = getConversationForParticipant(request.getConversationId(), senderId);

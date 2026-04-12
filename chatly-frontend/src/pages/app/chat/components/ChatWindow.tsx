@@ -497,9 +497,10 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
             content: string,
             attachments?: import("@/types/message").Attachment[],
             poll?: import("@/types/message").Poll,
+            messageType?: string,
         ) => {
             if (!id || !currentUser) return;
-            const success = sendMessage(content, replyingTo?.id ?? null, attachments, poll);
+            const success = sendMessage(content, replyingTo?.id ?? null, attachments, poll, messageType);
             if (!success) {
                 toast.error("Mất kết nối! Không thể gửi tin nhắn.");
                 setFailedMessages((prev) => [

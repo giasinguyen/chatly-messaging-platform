@@ -1,0 +1,270 @@
+/**
+ * mediapicker.css — KLIPY GIF & Sticker Picker styles
+ * -------------------------------------------------------
+ * Paste into your project's CSS (or import directly).
+ *
+ * The picker is positioned ABSOLUTE inside a relative parent.
+ * Adjust `.media-picker` positioning (bottom / left / right / height)
+ * to match your chat input bar height and layout.
+ *
+ * Color variables to customise:
+ *   --picker-accent : #0084ff   (tab underline, active chip, search focus)
+ *   --picker-bg     : #fff
+ *   --picker-border : #e4e6eb
+ *   --picker-muted  : #fafafa
+ */
+
+/* ── Picker Container ───────────────────────────────────────────────── */
+.media-picker {
+  position: absolute;
+  bottom: 58px;       /* ← adjust to match your input bar height */
+  left: 0;
+  right: 0;
+  height: 390px;
+  background: #fff;
+  border-top: 1px solid #e4e6eb;
+  display: flex;
+  flex-direction: column;
+  z-index: 20;
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.1);
+  animation: pickerSlideUp 0.18s ease-out;
+}
+
+@keyframes pickerSlideUp {
+  from { transform: translateY(16px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+
+/* ── Header / Tabs ──────────────────────────────────────────────────── */
+.picker-header {
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  border-bottom: 1px solid #e4e6eb;
+  flex-shrink: 0;
+  background: #fafafa;
+}
+
+.picker-tabs { display: flex; flex: 1; gap: 2px; }
+
+.picker-tab {
+  padding: 10px 18px;
+  border: none;
+  background: none;
+  font-size: 13px;
+  font-weight: 600;
+  color: #888;
+  cursor: pointer;
+  border-bottom: 2.5px solid transparent;
+  transition: color 0.15s, border-color 0.15s;
+  letter-spacing: 0.3px;
+}
+
+.picker-tab:hover  { color: #0084ff; }
+.picker-tab.active { color: #0084ff; border-bottom-color: #0084ff; }
+
+.picker-close-btn {
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 50%;
+  background: #f0f2f5;
+  color: #666;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background 0.15s;
+}
+
+.picker-close-btn:hover { background: #e4e6eb; color: #333; }
+
+/* ── Search ─────────────────────────────────────────────────────────── */
+.picker-search-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: #fafafa;
+  border-bottom: 1px solid #f0f0f0;
+  flex-shrink: 0;
+}
+
+.search-icon { color: #999; flex-shrink: 0; }
+
+.picker-search-input {
+  flex: 1;
+  border: none;
+  outline: none;
+  background: #f0f2f5;
+  border-radius: 20px;
+  padding: 7px 14px;
+  font-size: 13px;
+  color: #1c1c1e;
+  transition: background 0.15s;
+}
+
+.picker-search-input:focus       { background: #e8eaed; }
+.picker-search-input::placeholder { color: #aaa; font-style: italic; }
+
+/* ── Category Chips ─────────────────────────────────────────────────── */
+.categories-scroll {
+  display: flex;
+  gap: 6px;
+  padding: 8px 12px;
+  overflow-x: auto;
+  flex-shrink: 0;
+  border-bottom: 1px solid #f0f0f0;
+  scrollbar-width: none;
+}
+
+.categories-scroll::-webkit-scrollbar { display: none; }
+
+.category-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 5px 8px;
+  border: 1.5px solid #e4e6eb;
+  border-radius: 10px;
+  background: #fff;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: border-color 0.15s, background 0.15s;
+  min-width: 52px;
+}
+
+.category-chip:hover  { border-color: #0084ff; background: #f0f8ff; }
+.category-chip.active { border-color: #0084ff; background: #e7f3ff; }
+
+.category-chip-img {
+  width: 28px;
+  height: 20px;
+  object-fit: cover;
+  border-radius: 4px;
+}
+
+.category-chip span {
+  font-size: 10px;
+  color: #555;
+  white-space: nowrap;
+  font-weight: 500;
+  text-transform: capitalize;
+}
+
+/* ── Media Grid ─────────────────────────────────────────────────────── */
+.media-grid {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 8px;
+  display: grid;
+  gap: 4px;
+  align-content: start;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.12) transparent;
+}
+
+.media-grid::-webkit-scrollbar       { width: 4px; }
+.media-grid::-webkit-scrollbar-thumb { background: rgba(0, 0, 0, 0.12); border-radius: 4px; }
+
+/* Grid variants — explicit row heights prevent overlap before images load */
+.media-grid--gif     { grid-template-columns: repeat(3, 1fr); grid-auto-rows: 90px; }
+.media-grid--sticker { grid-template-columns: repeat(4, 1fr); grid-auto-rows: 90px; }
+
+/* ── Grid Items ─────────────────────────────────────────────────────── */
+.media-item {
+  border: none;
+  background: #f0f2f5;
+  border-radius: 8px;
+  overflow: hidden;
+  cursor: pointer;
+  padding: 0;
+  display: block;
+  position: relative;      /* must be at base state, not only :hover */
+  height: 90px;            /* matches grid-auto-rows */
+  transition: transform 0.12s, box-shadow 0.12s;
+}
+
+.media-item:hover  { transform: scale(1.04); box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15); z-index: 2; }
+.media-item:active { transform: scale(0.97); }
+
+.gif-thumb {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* Sticker items: transparent bg, centred, contain (not cover) */
+.media-item--sticker {
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+}
+
+.sticker-thumb {
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  display: block;
+}
+
+/* ── Loading spinner ────────────────────────────────────────────────── */
+.picker-loading {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
+  padding: 24px;
+}
+
+.spinner {
+  width: 8px;
+  height: 8px;
+  background: #0084ff;
+  border-radius: 50%;
+  display: inline-block;
+  animation: pickerBounce 0.8s infinite alternate;
+}
+
+.spinner:nth-child(2) { animation-delay: 0.15s; }
+.spinner:nth-child(3) { animation-delay: 0.30s; }
+
+@keyframes pickerBounce {
+  from { transform: translateY(0);    opacity: 0.4; }
+  to   { transform: translateY(-8px); opacity: 1;   }
+}
+
+/* ── Empty state ────────────────────────────────────────────────────── */
+.picker-empty {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 32px;
+  color: #aaa;
+  font-size: 13px;
+}
+
+/* ── Attribution (REQUIRED per KLIPY guidelines) ────────────────────── */
+.klipy-attribution {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 5px;
+  background: #fafafa;
+  border-top: 1px solid #f0f0f0;
+  color: #aaa;
+  font-size: 10px;
+  letter-spacing: 0.3px;
+  flex-shrink: 0;
+}

@@ -19,5 +19,12 @@ export default defineConfig({
         hmr: {
             overlay: true, // hiển thị lỗi trực tiếp trên màn hình browser
         },
+        proxy: {
+            "/klipy-api": {
+                target: "https://api.klipy.com",
+                changeOrigin: true,
+                rewrite: (path) => path.replace(/^\/klipy-api/, ""),
+            },
+        },
     },
 });

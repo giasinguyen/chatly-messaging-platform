@@ -285,7 +285,7 @@ export function MessageList({
 
     const canForward = (msg: Message): boolean => {
         if (msg.recalled) return false;
-        return ["TEXT", "IMAGE", "FILE"].includes(msg.type);
+        return ["TEXT", "IMAGE", "FILE", "GIF", "STICKER"].includes(msg.type);
     };
 
     const startEdit = (msg: Message) => {
@@ -502,6 +502,37 @@ export function MessageList({
                                     </div>
                                 );
                             })()
+                        ) : (msg.type === "GIF" || msg.type === "STICKER") ? (
+                            /* GIF / Sticker bubble — no background, just the image */
+                            <div>
+                                {repliedMsg && (
+                                    <div className={cn(
+                                        "px-3 py-1.5 mb-1 rounded-xl text-sm",
+                                        isMe
+                                            ? "bg-brand/10 border border-brand/20"
+                                            : "bg-muted/50 border border-border/40",
+                                    )}>
+                                        <ReplyPreview
+                                            replyMessage={repliedMsg}
+                                            participant={participant}
+                                            senderName={replySenderName}
+                                            currentUserId={currentUserId}
+                                            isMe={isMe}
+                                        />
+                                    </div>
+                                )}
+                                <img
+                                    src={msg.content}
+                                    alt={msg.type === "GIF" ? "GIF" : "Sticker"}
+                                    loading="lazy"
+                                    className={cn(
+                                        "rounded-xl object-contain",
+                                        msg.type === "GIF"
+                                            ? "max-w-60 max-h-50"
+                                            : "w-35 h-auto",
+                                    )}
+                                />
+                            </div>
                         ) : (
                             /* Normal bubble */
                             <div
