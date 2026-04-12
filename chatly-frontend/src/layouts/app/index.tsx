@@ -2,12 +2,22 @@ import { Outlet } from "react-router-dom";
 import { useAuthStore } from "@/store/auth.store";
 import { Sidebar } from "./Sidebar";
 import { useUiStore } from "@/store/ui.store";
+import { useCallStore } from "@/store/call.store";
+import { CallSocketProvider, useCallContext } from "@/contexts/CallContext";
+import { CallScreen } from "@/components/call/CallScreen";
+import { OutgoingCallScreen } from "@/components/call/OutgoingCallScreen";
+import { ActiveCallOverlay } from "@/components/call/ActiveCallOverlay";
 import { AnimatePresence, motion } from "framer-motion";
 
-export default function AppLayout() {
+// Inner layout has access to the shared CallSocketProvider
+function AppLayoutInner() {
     const { user } = useAuthStore();
     const mobileDrawerOpen = useUiStore((s) => s.mobileDrawerOpen);
     const setMobileDrawerOpen = useUiStore((s) => s.setMobileDrawerOpen);
+
+    const { answerCall, endCall, localStream, remoteStream, upgradeToVideo, toggleCamera } = useCallContext();
+    const incomingCall = useCallStore((s) => s.incomingCall);
+    const callStatus = useCallStore((s) => s.callStatus);
 
     return (
         <div className="flex h-screen w-full bg-background overflow-hidden font-sans">
@@ -44,7 +54,37 @@ export default function AppLayout() {
             <div className="flex-1 flex flex-col overflow-hidden relative min-w-0">
                 <Outlet />
             </div>
+
+            {/* Màn hình cuộc gọi đến */}
+            <CallScreen
+                visible={!!incomingCall && callStatus === "RINGING"}
+                incomingCall={incomingCall}
+                onAccept={() => answerCall(true)}
+                onReject={() => answerCall(false)}
+            />
+
+            {/* Màn hình cuộc gọi đi (caller đang đổ chuông / bị từ chối) */}
+            <OutgoingCallScreen onCancel={endCall} />
+
+            {/* Overlay cuộc gọi đang diễn ra */}
+            {callStatus === "ONGOING" && (
+                <ActiveCallOverlay
+                    localStream={localStream}
+                    remoteStream={remoteStream}
+                    onEndCall={endCall}
+                    onToggleCamera={toggleCamera}
+                    onUpgradeToVideo={upgradeToVideo}
+                />
+            )}
         </div>
+    );
+}
+
+export default function AppLayout() {
+    return (
+        <CallSocketProvider>
+            <AppLayoutInner />
+        </CallSocketProvider>
     );
 }
 

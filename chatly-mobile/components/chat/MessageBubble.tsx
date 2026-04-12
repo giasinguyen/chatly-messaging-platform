@@ -17,6 +17,8 @@ interface MessageBubbleProps {
   onReact?: (messageId: string, emoji: string) => void;
   onVotePoll?: (messageId: string, optionIndex: number) => void;
   replyToMessage?: Message | null;
+  onCallAgain?: (calleeId: string, calleeName: string, calleeAvatar?: string) => void;
+  calleeInfo?: { id: string; name: string; avatar?: string } | null;
   highlightKeyword?: string | null;
 }
 
@@ -30,6 +32,8 @@ export function MessageBubble({
   onReact,
   onVotePoll,
   replyToMessage,
+  onCallAgain,
+  calleeInfo,
   highlightKeyword,
 }: MessageBubbleProps) {
   const { content, type, recalled, edited, createdAt, readBy, attachments } = message;
@@ -304,6 +308,67 @@ export function MessageBubble({
         );
       case 'POLL':
         return renderPollContent();
+      case 'CALL': {
+        let callData: { callType?: string; status?: string; duration?: number } = {};
+        try { callData = JSON.parse(content); } catch { /* ignore */ }
+        const isMissed = callData.status === 'MISSED' || callData.status === 'REJECTED';
+        const isVideo = callData.callType === 'VIDEO';
+        const duration = callData.duration ?? 0;
+        const formatDur = (s: number) =>
+          `${Math.floor(s / 60).toString().padStart(2, '0')}:${(s % 60).toString().padStart(2, '0')}`;
+        const callLabel = isMissed
+          ? (isVideo ? 'Missed video call' : 'Missed audio call')
+          : (isVideo ? 'Video call' : 'Audio call');
+        const callColor = isMissed ? '#ef4444' : '#16a34a';
+        return (
+          <View style={{ marginVertical: 4, paddingHorizontal: 16, alignItems: isMe ? 'flex-end' : 'flex-start' }}>
+            <View
+              style={{
+                backgroundColor: isMissed ? '#fef2f2' : '#f0fdf4',
+                borderWidth: 1,
+                borderColor: isMissed ? '#fca5a5' : '#86efac',
+                borderRadius: 16,
+                paddingHorizontal: 14,
+                paddingVertical: 10,
+                maxWidth: 220,
+              }}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Ionicons
+                  name={isMissed ? 'call' : isVideo ? 'videocam' : 'call'}
+                  size={13}
+                  color={callColor}
+                />
+                <Text style={{ color: callColor, fontSize: 12, fontWeight: '500' }}>{callLabel}</Text>
+              </View>
+              {!isMissed && duration > 0 && (
+                <Text style={{ color: callColor, fontSize: 11, opacity: 0.7, marginTop: 2 }}>{formatDur(duration)}</Text>
+              )}
+              {isMissed && !isMe && onCallAgain && calleeInfo && (
+                <TouchableOpacity
+                  onPress={() => onCallAgain(calleeInfo.id, calleeInfo.name, calleeInfo.avatar)}
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    marginTop: 8,
+                    paddingVertical: 6,
+                    paddingHorizontal: 12,
+                    borderRadius: 10,
+                    backgroundColor: 'rgba(239,68,68,0.08)',
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="call" size={12} color="#ef4444" />
+                  <Text style={{ color: '#ef4444', fontSize: 11, fontWeight: '600', marginLeft: 4 }}>
+                    Call back
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
+        );
+      }
       case 'SYSTEM':
         return (
           <View className="my-1 items-center">
@@ -318,7 +383,7 @@ export function MessageBubble({
   };
 
   // System messages are centered
-  if (type === 'SYSTEM') {
+  if (type === 'SYSTEM' || type === 'CALL') {
     return renderContent();
   }
 

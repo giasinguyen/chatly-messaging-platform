@@ -21,6 +21,7 @@ import { useAuthStore } from "@/store/auth.store";
 import { useConversationPrefsStore } from "@/store/conversationPrefs.store";
 import { useNotificationStore } from "@/store/notification.store";
 import { useChatSocket } from "@/hooks/useChatSocket";
+import { useCallContext } from "@/contexts/CallContext";
 import {
     usePresenceSocket,
     type PresenceEvent,
@@ -775,6 +776,15 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
         [],
     );
 
+    // Use the shared call socket instance (same as AppLayout) to avoid duplicate peer connections
+    const { initiateCall } = useCallContext();
+
+    const handleCallAgain = useCallback(
+        (calleeId: string, calleeName: string, calleeAvatar?: string) => {
+            initiateCall(calleeId, id, "VOICE", calleeName, calleeAvatar);
+        },
+        [id, initiateCall],
+    );
     const handleTagPriority = useCallback(
         async (messageId: string, priority: string) => {
             try {
@@ -1004,6 +1014,8 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
                     setShowProfileDialog(true);
                 }}
                 isGroup={isGroup}
+                conversationId={id}
+                otherUserId={!isGroup ? participant.id : undefined}
                 onOpenGroupPanel={
                     isGroup ? () => setShowGroupPanel(true) : undefined
                 }
@@ -1144,6 +1156,7 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
                 onVotePoll={handleVotePoll}
                 onClosePoll={handleClosePoll}
                 onTogglePin={handleTogglePin}
+                onCallAgain={handleCallAgain}
                 onTagPriority={handleTagPriority}
             />
 

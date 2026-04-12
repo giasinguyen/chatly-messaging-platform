@@ -24,6 +24,7 @@ import { useMessageStore } from '@/store/message.store';
 import { useAuthStore } from '@/store/auth.store';
 import { useConversationStore } from '@/store/conversation.store';
 import { useChatSocket } from '@/hooks/useChatSocket';
+import { useCallSocket } from '@/hooks/useCallSocket';
 import { usePresenceSocket } from '@/hooks/usePresenceSocket';
 import { Colors } from '@/constants/theme';
 import { formatDateSeparator } from '@/utils/format';
@@ -150,6 +151,8 @@ export default function ChatScreen() {
       }
     },
   });
+
+  const { initiateCall } = useCallSocket();
 
   const { sendMessage: wsSendMessage, sendTyping, sendSeen } = useChatSocket({
     conversationId: conversationId ?? '',
@@ -424,6 +427,13 @@ export default function ChatScreen() {
     [conversationId, user, updateMessage],
   );
 
+  const handleCallAgain = useCallback(
+    (calleeId: string, calleeName: string, calleeAvatar?: string) => {
+      initiateCall(calleeId, conversationId ?? '', 'VOICE', calleeName, calleeAvatar);
+    },
+    [conversationId, initiateCall],
+  );
+
   // Build display data with date separators
   const displayData = useMemo(() => {
     const items: Array<{ type: 'date'; label: string } | { type: 'message'; data: Message }> = [];
@@ -481,6 +491,8 @@ export default function ChatScreen() {
         isGroup={isGroup}
         memberCount={conversation?.participantIds.length}
         isOnline={!isGroup && otherUserOnline}
+        conversationId={conversationId}
+        receiverId={otherUserId ?? undefined}
         onToggleSearch={() => {
           setShowSearch((prev) => !prev);
           if (showSearch) {
@@ -537,6 +549,8 @@ export default function ChatScreen() {
                     onReact={handleReact}
                     onVotePoll={handleVotePoll}
                     replyToMessage={msg.replyToId ? (messageById[msg.replyToId] ?? null) : null}
+                    onCallAgain={handleCallAgain}
+                    calleeInfo={isMe ? null : { id: msg.senderId, name: sender?.displayName ?? 'User', avatar: sender?.avatarUrl }}
                     highlightKeyword={highlightKeyword}
                   />
                 </View>

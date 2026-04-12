@@ -348,7 +348,7 @@ export default function CloudPage() {
             )}
 
             {/* ── Left Sidebar ─────────────────────────────────────────────── */}
-            <aside className="flex w-64 shrink-0 flex-col gap-5 border-r border-border bg-card px-4 py-6 overflow-y-auto">
+            <aside className="flex w-full md:w-85 lg:w-[350px] shrink-0 flex-col gap-5 border-r border-border bg-card px-4 py-6 overflow-y-auto">
                 {/* Brand */}
                 <div className="flex items-center gap-2.5 px-1">
                     <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
