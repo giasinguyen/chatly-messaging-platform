@@ -17,6 +17,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import { Colors } from '@/constants/theme';
+import { CustomAiIcon } from '@/components/ui/CustomAiIcon';
 import { agentService } from '@/services/agent.service';
 import { useChatbotStore } from '@/store/chatbot.store';
 import { useAgentStream } from '@/hooks/useAgentStream';
@@ -309,7 +310,7 @@ export default function AssistantScreen() {
           className="h-10 w-10 rounded-xl items-center justify-center"
           style={{ backgroundColor: isActive ? Colors.cta : Colors.ctaLight }}
         >
-          <Ionicons name="sparkles" size={18} color={isActive ? Colors.white : Colors.cta} />
+          <CustomAiIcon size={18} color={isActive ? Colors.white : Colors.cta} />
         </View>
         <View className="ml-3 flex-1">
           {isEditing ? (
@@ -347,7 +348,7 @@ export default function AssistantScreen() {
       >
         <View className="flex-row items-center flex-1">
           <View className="h-8 w-8 rounded-lg items-center justify-center" style={{ backgroundColor: Colors.ctaLight }}>
-            <Ionicons name="sparkles" size={16} color={Colors.cta} />
+            <CustomAiIcon size={16} color={Colors.cta} />
           </View>
           <View className="ml-2.5 flex-1">
             <Text className="text-lg font-bold" style={{ color: Colors.text }} numberOfLines={1}>
@@ -426,7 +427,7 @@ export default function AssistantScreen() {
             /* ── Empty state ── */
             <View className="flex-1 items-center justify-center px-8">
               <View className="h-20 w-20 rounded-2xl items-center justify-center mb-5" style={{ backgroundColor: Colors.ctaLight }}>
-                <Ionicons name="sparkles" size={36} color={Colors.cta} />
+                <CustomAiIcon size={36} color={Colors.cta} />
               </View>
               <Text className="text-xl font-semibold text-center" style={{ color: Colors.text }}>
                 Chatly AI Assistant

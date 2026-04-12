@@ -2,6 +2,7 @@ import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/theme';
 import { useNotificationStore } from '@/store/notification.store';
+import { CustomAiIcon } from '@/components/ui/CustomAiIcon';
 
 export default function TabLayout() {
   const unreadCount = useNotificationStore((s) => s.unreadCount);
@@ -43,7 +44,7 @@ export default function TabLayout() {
         options={{
           title: 'Assistant',
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="sparkles-outline" size={size} color={color} />
+            <CustomAiIcon size={size} color={color} />
           ),
         }}
       />
