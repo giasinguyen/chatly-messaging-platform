@@ -61,6 +61,18 @@ export function ConversationItem({
       case 'SYSTEM':
         preview = lastMessage.content;
         break;
+      case 'CALL': {
+        let callData: { callType?: string; status?: string } = {};
+        try { callData = JSON.parse(lastMessage.content); } catch { /* ignore */ }
+        const missed = callData.status === 'MISSED' || callData.status === 'REJECTED';
+        const video = callData.callType === 'VIDEO';
+        if (missed) {
+          preview = video ? '📵 Missed video call' : '📵 Missed audio call';
+        } else {
+          preview = video ? '🎥 Video call' : '📞 Audio call';
+        }
+        break;
+      }
       default:
         preview = prefix + lastMessage.content;
     }

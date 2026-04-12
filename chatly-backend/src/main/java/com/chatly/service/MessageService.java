@@ -6,6 +6,8 @@ import com.chatly.dto.response.MessageResponse;
 import com.chatly.exception.AppException;
 import com.chatly.exception.ErrorCode;
 import com.chatly.mapper.MessageMapper;
+import com.chatly.model.enums.CallStatus;
+import com.chatly.model.enums.CallType;
 import com.chatly.model.enums.MessageStatus;
 import com.chatly.model.enums.MessageType;
 import com.chatly.model.enums.NotificationType;
@@ -479,6 +481,14 @@ public class MessageService {
         }
 
         private String resolveNotificationContent(Message message) {
+                if (message.getType() == MessageType.CALL) {
+                        // Content is JSON - return human-readable text instead
+                        String content = message.getContent() != null ? message.getContent() : "";
+                        if (content.contains("MISSED")) return "📵 Cuộc gọi nhỡ";
+                        if (content.contains("REJECTED")) return "📵 Cuộc gọi bị từ chối";
+                        if (content.contains("VIDEO")) return "🎥 Cuộc gọi video";
+                        return "📞 Cuộc gọi thoại";
+                }
                 if (message.getContent() != null && !message.getContent().isBlank()) {
                         return message.getContent().length() > 100
                                         ? message.getContent().substring(0, 100) + "..."
@@ -492,6 +502,26 @@ public class MessageService {
                         case AUDIO -> "[Audio]";
                         default -> "[Message]";
                 };
+        }
+
+        /**
+         * Lưu tin nhắn hệ thống cuộc gọi vào lịch sử chat.
+         * Gọi từ CallWebSocketController sau khi cuộc gọi kết thúc/nhỡ/từ chối.
+         */
+        public void saveCallMessage(String conversationId, String initiatorId, CallType callType, CallStatus callStatus, long durationSeconds) {
+                conversationRepository.findById(conversationId).ifPresent(conversation -> {
+                        String content = String.format(
+                                "{\"callType\":\"%s\",\"status\":\"%s\",\"duration\":%d}",
+                                callType.name(), callStatus.name(), durationSeconds
+                        );
+                        Message message = Message.builder()
+                                .conversationId(conversationId)
+                                .senderId(initiatorId)
+                                .content(content)
+                                .type(MessageType.CALL)
+                                .build();
+                        persistAndBroadcast(conversation, message, initiatorId);
+                });
         }
 
         private List<String> sanitizeForwardTargets(String sourceConversationId, List<String> targetConversationIds) {

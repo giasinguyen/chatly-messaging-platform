@@ -21,6 +21,7 @@ import {
     Pin,
     BarChart3,
     Forward,
+    PhoneCall,
 } from "lucide-react";
 import { toast } from "sonner";
 import type { Message, ChatUser } from "@/types/message";
@@ -73,6 +74,7 @@ interface MessageListProps {
     onVotePoll?: (messageId: string, optionIndex: number) => void;
     onClosePoll?: (messageId: string) => void;
     onTogglePin?: (messageId: string) => void;
+    onCallAgain?: (calleeId: string, calleeName: string, calleeAvatar?: string) => void;
 }
 
 const RECALL_LIMIT_MS = 24 * 60 * 60 * 1000;
@@ -102,6 +104,7 @@ export function MessageList({
     onVotePoll,
     onClosePoll,
     onTogglePin,
+    onCallAgain,
 }: MessageListProps) {
     const scrollEndRef = useRef<HTMLDivElement>(null);
     const sentinelRef = useRef<HTMLDivElement>(null);
@@ -270,7 +273,7 @@ export function MessageList({
     const canRecall = (msg: Message): boolean => {
         if (msg.recalled) return false;
         if (msg.senderId !== currentUserId) return false;
-        if (msg.type === "SYSTEM") return false;
+        if (msg.type === "SYSTEM" || msg.type === "CALL") return false;
         const age = Date.now() - new Date(msg.createdAt).getTime();
         return age < RECALL_LIMIT_MS;
     };
@@ -313,6 +316,52 @@ export function MessageList({
                 <div key={msg.id} className="flex justify-center my-2 px-4">
                     <div className="inline-flex items-center gap-1.5 bg-muted/60 dark:bg-zinc-800/60 border border-border/40 rounded-full px-3.5 py-1.5 max-w-[85%]">
                         <span className="text-xs text-muted-foreground text-center">{msg.content}</span>
+                    </div>
+                </div>
+            );
+        }
+
+        // CALL messages — aligned to sender
+        if (msg.type === "CALL") {
+            let callData: { callType?: string; status?: string; duration?: number } = {};
+            try { callData = JSON.parse(msg.content); } catch { /* ignore */ }
+            const isMissed = callData.status === "MISSED" || callData.status === "REJECTED";
+            const isVideo = callData.callType === "VIDEO";
+            const duration = callData.duration ?? 0;
+            const formatDuration = (s: number) => `${Math.floor(s / 60).toString().padStart(2, "0")}:${(s % 60).toString().padStart(2, "0")}`;
+            const isMe = msg.senderId === currentUserId;
+            const sender = participantDirectory[msg.senderId] ?? participant;
+            // calleeId: if I started the call, call back targets the participant;
+            // if they started it (I missed), call back targets the sender.
+            const calleeId = isMe ? participant.id : msg.senderId;
+            const typeLabel = isVideo ? "video" : "audio";
+            const statusLabel = isMissed ? `Missed ${typeLabel} call` : `${isVideo ? "Video" : "Audio"} call`;
+            return (
+                <div key={msg.id} className={cn("flex my-2 px-4", isMe ? "justify-end" : "justify-start")}>
+                    <div className={cn(
+                        "inline-flex items-start gap-2 rounded-2xl px-4 py-2.5 border flex-col max-w-[240px]",
+                        isMissed
+                            ? "bg-red-50 dark:bg-red-950/40 border-red-200 dark:border-red-800 text-red-600 dark:text-red-400"
+                            : "bg-green-50 dark:bg-green-950/40 border-green-200 dark:border-green-800 text-green-700 dark:text-green-400"
+                    )}>
+                        <div className="flex items-center gap-2">
+                            <PhoneCall size={13} />
+                            <span className="text-xs font-medium">{statusLabel}</span>
+                        </div>
+                        {!isMissed && duration > 0 && (
+                            <span className="text-[11px] opacity-70">{formatDuration(duration)}</span>
+                        )}
+                        {isMissed && !isMe && onCallAgain && (
+                            <Button
+                                size="sm"
+                                variant="ghost"
+                                className="self-stretch h-7 text-[11px] px-2 hover:bg-red-200/50 dark:hover:bg-red-800/50 justify-center"
+                                onClick={() => onCallAgain(calleeId, sender.displayName, sender.avatarUrl)}
+                            >
+                                <PhoneCall size={12} className="mr-1" />
+                                Call back
+                            </Button>
+                        )}
                     </div>
                 </div>
             );

@@ -7,5 +7,6 @@ public enum MessageType {
     VIDEO,
     AUDIO,
     SYSTEM,
-    POLL
+    POLL,
+    CALL
 }

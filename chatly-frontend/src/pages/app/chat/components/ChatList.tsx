@@ -475,6 +475,7 @@ export const ChatList = forwardRef(function ChatListComponent(_, ref) {
                                                 <div className="flex items-center gap-0.5 shrink-0">
                                                     {categories.map((cat) => {
                                                         const meta = CATEGORY_META[cat];
+                                                        if (!meta) return null;
                                                         return (
                                                             <Tooltip key={cat}>
                                                                 <TooltipTrigger asChild>
@@ -520,6 +521,18 @@ export const ChatList = forwardRef(function ChatListComponent(_, ref) {
                                                           "STICKER"
                                                         ? "🎭 Sticker"
                                                         : conv.lastMessage
+                                                              .type ===
+                                                          "CALL"
+                                                          ? (() => {
+                                                              try {
+                                                                const d = JSON.parse(conv.lastMessage.content);
+                                                                const missed = d.status === "MISSED" || d.status === "REJECTED";
+                                                                const video = d.callType === "VIDEO";
+                                                                if (missed) return video ? "📵 Missed video call" : "📵 Missed audio call";
+                                                                return video ? "🎥 Video call" : "📞 Audio call";
+                                                              } catch { return "📞 Call"; }
+                                                            })()
+                                                          : conv.lastMessage
                                                               .content}
                                             </>
                                         ) : (

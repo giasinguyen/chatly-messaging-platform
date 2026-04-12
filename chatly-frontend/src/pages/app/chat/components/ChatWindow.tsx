@@ -21,6 +21,7 @@ import { useAuthStore } from "@/store/auth.store";
 import { useConversationPrefsStore } from "@/store/conversationPrefs.store";
 import { useNotificationStore } from "@/store/notification.store";
 import { useChatSocket } from "@/hooks/useChatSocket";
+import { useCallSocket } from "@/hooks/useCallSocket";
 import {
     usePresenceSocket,
     type PresenceEvent,
@@ -753,6 +754,16 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
         [],
     );
 
+    // Initialize call socket for handling call initiation from message history
+    const { initiateCall } = useCallSocket();
+
+    const handleCallAgain = useCallback(
+        (calleeId: string, calleeName: string, calleeAvatar?: string) => {
+            initiateCall(calleeId, id, "VOICE", calleeName, calleeAvatar);
+        },
+        [id, initiateCall],
+    );
+
     const handleSendFriendRequest = useCallback(async () => {
         const targetUser =
             selectedProfileUser ??
@@ -1093,6 +1104,7 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
                 onVotePoll={handleVotePoll}
                 onClosePoll={handleClosePoll}
                 onTogglePin={handleTogglePin}
+                onCallAgain={handleCallAgain}
             />
 
             {isTyping && (
