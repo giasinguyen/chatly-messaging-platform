@@ -26,12 +26,15 @@ export function PrivacySettings() {
                         Privacy
                     </h3>
                     <p className="text-sm text-muted-foreground">
-                        Manage what information you display and who can contact you.
+                        Manage what information you display and who can contact
+                        you.
                     </p>
                 </section>
 
                 <section className="space-y-4">
-                    <h4 className="text-xl font-semibold text-foreground">Personal</h4>
+                    <h4 className="text-xl font-semibold text-foreground">
+                        Personal
+                    </h4>
                     <div className="space-y-1 rounded-xl border border-border bg-card/40 p-4 md:p-5">
                         <SettingRow label="Show date of birth">
                             <Select defaultValue="hidden">
@@ -40,8 +43,12 @@ export function PrivacySettings() {
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="hidden">Hide</SelectItem>
-                                    <SelectItem value="friends">Friends</SelectItem>
-                                    <SelectItem value="everyone">Everyone</SelectItem>
+                                    <SelectItem value="friends">
+                                        Friends
+                                    </SelectItem>
+                                    <SelectItem value="everyone">
+                                        Everyone
+                                    </SelectItem>
                                 </SelectContent>
                             </Select>
                         </SettingRow>
@@ -49,19 +56,25 @@ export function PrivacySettings() {
                         <SettingRow label="Show online status">
                             <SettingSwitch
                                 checked={showOnlineStatus}
-                                onToggle={() => setShowOnlineStatus((prev) => !prev)}
+                                onToggle={() =>
+                                    setShowOnlineStatus((prev) => !prev)
+                                }
                             />
                         </SettingRow>
                     </div>
                 </section>
 
                 <section className="space-y-4">
-                    <h4 className="text-xl font-semibold text-foreground">Messages and Calls</h4>
+                    <h4 className="text-xl font-semibold text-foreground">
+                        Messages and Calls
+                    </h4>
                     <div className="space-y-1 rounded-xl border border-border bg-card/40 p-4 md:p-5">
                         <SettingRow label='Show "Seen" status'>
                             <SettingSwitch
                                 checked={showSeenStatus}
-                                onToggle={() => setShowSeenStatus((prev) => !prev)}
+                                onToggle={() =>
+                                    setShowSeenStatus((prev) => !prev)
+                                }
                             />
                         </SettingRow>
 
@@ -74,8 +87,12 @@ export function PrivacySettings() {
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="all">Everyone</SelectItem>
-                                    <SelectItem value="friends">Friends</SelectItem>
+                                    <SelectItem value="all">
+                                        Everyone
+                                    </SelectItem>
+                                    <SelectItem value="friends">
+                                        Friends
+                                    </SelectItem>
                                     <SelectItem value="none">None</SelectItem>
                                 </SelectContent>
                             </Select>
@@ -90,10 +107,16 @@ export function PrivacySettings() {
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="all">Everyone</SelectItem>
-                                        Friends and previously contacted strangers
+                                    <SelectItem value="all">
+                                        Everyone
                                     </SelectItem>
-                                    <SelectItem value="friends">Only friends</SelectItem>
+                                    <SelectItem value="friends-contacted">
+                                        Friends and previously contacted
+                                        strangers
+                                    </SelectItem>
+                                    <SelectItem value="friends">
+                                        Only friends
+                                    </SelectItem>
                                     <SelectItem value="none">None</SelectItem>
                                 </SelectContent>
                             </Select>
@@ -102,30 +125,42 @@ export function PrivacySettings() {
                 </section>
 
                 <section className="space-y-4">
-                    <h4 className="text-xl font-semibold text-foreground">Blocked messages</h4>
+                    <h4 className="text-xl font-semibold text-foreground">
+                        Blocked messages
+                    </h4>
                     <button
                         type="button"
                         className="flex w-full items-center justify-between rounded-xl border border-border bg-card/40 px-4 py-4 text-left transition hover:border-border/80"
                     >
-                        <span className="text-base font-medium text-foreground">Block list</span>
+                        <span className="text-base font-medium text-foreground">
+                            Block list
+                        </span>
                         <ChevronRight className="h-5 w-5 text-muted-foreground" />
                     </button>
                 </section>
 
                 <section className="space-y-4">
-                    <h4 className="text-xl font-semibold text-foreground">Search criteria</h4>
+                    <h4 className="text-xl font-semibold text-foreground">
+                        Search criteria
+                    </h4>
                     <div className="rounded-xl border border-border bg-card/40 p-4 md:p-5">
-                        <SettingRow label={`Allow strangers to find and add you via phone number ${user?.phone || "N/A"}`}>
+                        <SettingRow
+                            label={`Allow strangers to find and add you via phone number ${user?.phone || "N/A"}`}
+                        >
                             <SettingSwitch
                                 checked={allowSearchByPhone}
-                                onToggle={() => setAllowSearchByPhone((prev) => !prev)}
+                                onToggle={() =>
+                                    setAllowSearchByPhone((prev) => !prev)
+                                }
                             />
                         </SettingRow>
                     </div>
                 </section>
 
                 <section className="space-y-4">
-                    <h4 className="text-xl font-semibold text-foreground">Allow strangers to add friend</h4>
+                    <h4 className="text-xl font-semibold text-foreground">
+                        Allow strangers to add friend
+                    </h4>
                     <div className="space-y-1 rounded-xl border border-border bg-card/40 p-4 md:p-5">
                         <CheckboxRow label="My QR code" checked />
                         <CheckboxRow label="Common groups" checked />
@@ -151,7 +186,9 @@ function SettingRow({
             <div className="space-y-1">
                 <p className="text-base font-medium text-foreground">{label}</p>
                 {description && (
-                    <p className="text-sm text-muted-foreground">{description}</p>
+                    <p className="text-sm text-muted-foreground">
+                        {description}
+                    </p>
                 )}
             </div>
             {children}

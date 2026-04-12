@@ -6,6 +6,7 @@ import {
     CarouselNext,
     CarouselPrevious,
 } from "@/components/ui/carousel";
+import Autoplay from "embla-carousel-autoplay";
 
 const slides = [
     {
@@ -36,7 +37,11 @@ export function WelcomeState() {
                     </span>
                 </h2>
 
-                <Carousel className="w-full" opts={{ loop: true }}>
+                <Carousel 
+                    className="w-full" 
+                    opts={{ loop: true }}
+                    plugins={[Autoplay({ delay: 4500, stopOnInteraction: false })]}
+                >
                     <CarouselContent>
                         {slides.map((slide, index) => (
                             <CarouselItem key={index}>

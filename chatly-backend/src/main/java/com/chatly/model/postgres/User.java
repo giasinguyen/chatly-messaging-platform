@@ -64,6 +64,12 @@ public class User {
     @Builder.Default
     private Set<String> deviceTokens = new HashSet<>();
 
+    /**
+     * When the password was last set. JWTs issued before this instant are invalid.
+     * Null for legacy rows; validation falls back to {@link #createdAt}.
+     */
+    private Instant passwordChangedAt;
+
     @CreationTimestamp
     private Instant createdAt;
 

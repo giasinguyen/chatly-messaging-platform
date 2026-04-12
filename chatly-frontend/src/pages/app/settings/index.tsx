@@ -7,6 +7,7 @@ import { AppearanceSettings } from "./components/AppearanceSettings";
 import { NotificationsSettings } from "./components/NotificationsSettings";
 import { MessagesSettings } from "./components/MessagesSettings";
 import { ChangePasswordSettings } from "./components/ChangePasswordSettings";
+import { SessionSettings } from "./components/SessionSettings";
 import { UtilitiesSettings } from "./components/UtilitiesSettings";
 
 export default function SettingPage() {
@@ -28,6 +29,8 @@ export default function SettingPage() {
                 return <MessagesSettings />;
             case "change-password":
                 return <ChangePasswordSettings />;
+            case "sessions":
+                return <SessionSettings />;
             case "utilities":
                 return <UtilitiesSettings />;
             default:
