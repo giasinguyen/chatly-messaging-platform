@@ -38,7 +38,7 @@ export function PinnedMessagesDialog({
             const res = await messageService.getPinnedMessages(conversationId);
             setPinnedMessages(res.result ?? []);
         } catch {
-            toast.error("Không thể tải tin nhắn đã ghim");
+            toast.error("Could not load pinned messages");
         } finally {
             setLoading(false);
         }
@@ -51,11 +51,11 @@ export function PinnedMessagesDialog({
     const handleUnpin = async (msgId: string) => {
         try {
             await messageService.togglePin(msgId);
-            toast.success("Đã bỏ ghim tin nhắn");
+            toast.success("Message unpinned");
             onUnpin?.(msgId);
             fetchPinned();
         } catch {
-            toast.error("Không thể bỏ ghim tin nhắn");
+            toast.error("Could not unpin message");
         }
     };
 
@@ -64,10 +64,10 @@ export function PinnedMessagesDialog({
         if (msg.poll) return "📊 " + msg.poll.question;
         if (msg.attachments?.length) {
             const att = msg.attachments[0];
-            if (att.type?.startsWith("image/")) return "🖼️ Hình ảnh";
-            return "📎 " + (att.name ?? "File đính kèm");
+            if (att.type?.startsWith("image/")) return "🖼️ Image";
+            return "📎 " + (att.name ?? "Attachment");
         }
-        return "Tin nhắn";
+        return "Message";
     };
 
     return (
@@ -76,7 +76,7 @@ export function PinnedMessagesDialog({
                 <DialogHeader className="px-5 pt-5 pb-3 shrink-0">
                     <DialogTitle className="flex items-center gap-2 text-base">
                         <Pin size={16} className="text-amber-500" />
-                        Tin nhắn đã ghim
+                        Pinned messages
                     </DialogTitle>
                 </DialogHeader>
 
@@ -88,7 +88,7 @@ export function PinnedMessagesDialog({
                     ) : pinnedMessages.length === 0 ? (
                         <div className="flex flex-col items-center gap-2 py-10 text-muted-foreground">
                             <Pin size={24} className="opacity-30" />
-                            <p className="text-xs">Chưa có tin nhắn nào được ghim</p>
+                            <p className="text-xs">No pinned messages yet</p>
                         </div>
                     ) : (
                         <div className="space-y-1.5">
@@ -115,7 +115,7 @@ export function PinnedMessagesDialog({
                                             {getPreview(msg)}
                                         </p>
                                         <p className="text-[10px] text-muted-foreground mt-1">
-                                            {msg.createdAt && new Date(msg.createdAt).toLocaleString("vi-VN")}
+                                            {msg.createdAt && new Date(msg.createdAt).toLocaleString("en-US")}
                                         </p>
                                     </div>
                                     <Button
@@ -130,7 +130,7 @@ export function PinnedMessagesDialog({
                                             handleUnpin(msg.id);
                                         }}
                                     >
-                                        Bỏ ghim
+                                        Unpin
                                     </Button>
                                 </div>
                             ))}

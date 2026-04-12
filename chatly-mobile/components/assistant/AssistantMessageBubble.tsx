@@ -89,7 +89,7 @@ export function AssistantMessageBubble({
             {message.content}
           </Text>
           <Text className="text-[10px] mt-1" style={{ color: 'rgba(255,255,255,0.5)' }}>
-            {new Date(message.created_at).toLocaleTimeString('vi-VN', {
+            {new Date(message.created_at).toLocaleTimeString('en-US', {
               hour: '2-digit',
               minute: '2-digit',
             })}
@@ -114,7 +114,7 @@ export function AssistantMessageBubble({
         {/* Timestamp + actions */}
         <View className="flex-row items-center justify-between mt-1.5">
           <Text className="text-[10px]" style={{ color: Colors.textLight }}>
-            {new Date(message.created_at).toLocaleTimeString('vi-VN', {
+            {new Date(message.created_at).toLocaleTimeString('en-US', {
               hour: '2-digit',
               minute: '2-digit',
             })}
@@ -140,7 +140,7 @@ export function AssistantMessageBubble({
           >
             <Ionicons name="reload-outline" size={14} color={Colors.error} />
             <Text className="ml-1.5 text-xs font-medium" style={{ color: Colors.error }}>
-              Thử lại
+              Retry
             </Text>
           </TouchableOpacity>
         )}

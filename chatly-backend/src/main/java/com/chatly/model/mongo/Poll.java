@@ -27,4 +27,8 @@ public class Poll {
      */
     @Builder.Default
     private Map<String, List<String>> votes = new HashMap<>();
+
+    /** True when the creator has locked the poll — no more voting allowed */
+    @Builder.Default
+    private Boolean closed = false;
 }

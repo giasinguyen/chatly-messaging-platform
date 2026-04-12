@@ -31,19 +31,19 @@ export function useNotificationSocket() {
       if (!isMounted) return;
 
       const sub = socketService.subscribe('/user/queue/notifications', (payload) => {
-        console.log('--- NOTIFICATION RECEIVED ---');
+        if (__DEV__) console.log('--- NOTIFICATION RECEIVED ---');
         const event = JSON.parse(payload.body) as NotificationEvent;
-        console.log('Event type:', event.notification?.type);
-        console.log('Reference ID (Conv ID):', event.notification?.referenceId);
+        if (__DEV__) console.log('Event type:', event.notification?.type);
+        if (__DEV__) console.log('Reference ID (Conv ID):', event.notification?.referenceId);
         
         // Update unread count in store
         if (typeof event.unreadCount === 'number') {
-          console.log('Updating global unread count to:', event.unreadCount);
+          if (__DEV__) console.log('Updating global unread count to:', event.unreadCount);
           setUnreadCount(event.unreadCount);
         }
 
         if (event.notification) {
-          console.log('Adding notification to store:', event.notification.id);
+          if (__DEV__) console.log('Adding notification to store:', event.notification.id);
           addNotification(event.notification);
 
           // Logic to show banner only if NOT in the conversation mentioned
@@ -55,20 +55,20 @@ export function useNotificationSocket() {
 
           // Update conversation list real-time
           if (event.notification.type === 'NEW_MESSAGE') {
-            console.log('Triggering handleIncomingMessage for conv:', event.notification.referenceId);
+            if (__DEV__) console.log('Triggering handleIncomingMessage for conv:', event.notification.referenceId);
             handleIncomingMessage(event.notification);
           }
 
           if (!isAtThisChat) {
             const convPrefs = useConversationPrefsStore.getState().prefs[event.notification.referenceId ?? ''] ?? {};
             if (!isConvMuted(convPrefs)) {
-              console.log('Showing in-app banner');
+              if (__DEV__) console.log('Showing in-app banner');
               showBanner(event.notification);
             } else {
-              console.log('Conversation is muted, skipping banner');
+              if (__DEV__) console.log('Conversation is muted, skipping banner');
             }
           } else {
-            console.log('User is in this chat, skipping banner');
+            if (__DEV__) console.log('User is in this chat, skipping banner');
           }
         }
       });

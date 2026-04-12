@@ -16,11 +16,11 @@ import type {
 
 /**
  * GROUP SERVICE
- * API quản lý group chat: members, roles, group info.
+ * API for managing group chats: members, roles, group info.
  */
 export const groupService = {
     /**
-     * Thêm thành viên vào group
+     * Add member to group
      */
     addMember: async (
         conversationId: string,
@@ -34,7 +34,7 @@ export const groupService = {
     },
 
     /**
-     * Xóa thành viên khỏi group
+     * Remove member from group
      */
     removeMember: async (
         conversationId: string,
@@ -47,7 +47,7 @@ export const groupService = {
     },
 
     /**
-     * Thay đổi role của thành viên
+     * Update member role
      */
     updateRole: async (
         conversationId: string,
@@ -62,7 +62,7 @@ export const groupService = {
     },
 
     /**
-     * Cập nhật thông tin group (tên, avatar)
+     * Update group information (name, avatar)
      */
     updateGroup: async (
         conversationId: string,
@@ -76,7 +76,7 @@ export const groupService = {
     },
 
     /**
-     * Lấy danh sách thành viên của group
+     * Get member list of group
      */
     getMembers: async (
         conversationId: string,

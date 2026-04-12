@@ -5,6 +5,7 @@ import com.chatly.dto.request.ForwardMessageRequest;
 import com.chatly.dto.request.MessageRequest;
 import com.chatly.dto.request.PollVoteRequest;
 import com.chatly.dto.request.ReactRequest;
+import com.chatly.dto.request.TagPriorityRequest;
 import com.chatly.dto.response.ApiResponse;
 import com.chatly.dto.response.MessageResponse;
 import com.chatly.service.MessageService;
@@ -108,6 +109,14 @@ public class MessageController {
                 .build();
     }
 
+    // ── Close Poll ──────────────────────────────────────────────────
+    @PutMapping("/{messageId}/close-poll")
+    ApiResponse<MessageResponse> closePoll(@PathVariable String messageId) {
+        return ApiResponse.<MessageResponse>builder()
+                .result(messageService.closePoll(messageId, getAuthenticatedUserId()))
+                .build();
+    }
+
     // ── Pin / Unpin ─────────────────────────────────────────────────
     @PutMapping("/{messageId}/pin")
     ApiResponse<MessageResponse> togglePin(@PathVariable String messageId) {
@@ -120,6 +129,16 @@ public class MessageController {
     ApiResponse<List<MessageResponse>> getPinnedMessages(@PathVariable String conversationId) {
         return ApiResponse.<List<MessageResponse>>builder()
                 .result(messageService.getPinnedMessages(conversationId, getAuthenticatedUserId()))
+                .build();
+    }
+
+    // ── Tag Priority (Important / Urgent) ───────────────────────────
+    @PutMapping("/{messageId}/priority")
+    ApiResponse<MessageResponse> tagPriority(
+            @PathVariable String messageId,
+            @RequestBody @Valid TagPriorityRequest request) {
+        return ApiResponse.<MessageResponse>builder()
+                .result(messageService.tagPriority(messageId, getAuthenticatedUserId(), request.getPriority()))
                 .build();
     }
 

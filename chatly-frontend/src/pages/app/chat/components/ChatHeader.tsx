@@ -47,11 +47,6 @@ export function ChatHeader({ user, onOpenProfile, isGroup, onOpenGroupPanel, onT
                             {user.displayName.charAt(0)}
                         </AvatarFallback>
                     </Avatar>
-                    {!isGroup && presenceStatus && (
-                        <span className="absolute -bottom-0.5 -right-0.5">
-                            <PresenceIndicator status={presenceStatus} size="sm" />
-                        </span>
-                    )}
                 </div>
                 <div className="flex flex-col">
                     <div className="flex items-center gap-2">
@@ -80,7 +75,7 @@ export function ChatHeader({ user, onOpenProfile, isGroup, onOpenGroupPanel, onT
                         variant="ghost"
                         size="icon"
                         className="h-9 w-9"
-                        title="Quản lý nhóm"
+                        title="Group management"
                     >
                         <Users size={18} />
                     </Button>
@@ -90,7 +85,7 @@ export function ChatHeader({ user, onOpenProfile, isGroup, onOpenGroupPanel, onT
                     variant="ghost"
                     size="icon"
                     className="h-9 w-9"
-                    title="Tìm kiếm tin nhắn"
+                    title="Search messages"
                 >
                     <Search size={18} />
                 </Button>
@@ -120,7 +115,7 @@ export function ChatHeader({ user, onOpenProfile, isGroup, onOpenGroupPanel, onT
                         variant="ghost"
                         size="icon"
                         className="h-9 w-9 hidden lg:inline-flex"
-                        title={isInfoPanelOpen ? "Đóng thông tin" : "Mở thông tin"}
+                        title={isInfoPanelOpen ? "Close info panel" : "Open info panel"}
                     >
                         {isInfoPanelOpen ? <PanelRightClose size={18} /> : <PanelRightOpen size={18} />}
                     </Button>

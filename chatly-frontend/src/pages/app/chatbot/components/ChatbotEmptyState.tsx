@@ -30,7 +30,7 @@ export function ChatbotEmptyState({ sidebarCollapsed, onToggleSidebar }: Chatbot
             setDraft(session.id, text);
             navigate(`/chatbot/${session.id}?autoSend=1`);
         } catch {
-            toast.error("Không thể tạo cuộc trò chuyện mới");
+            toast.error("Failed to create new conversation");
         } finally {
             setCreating(false);
         }
@@ -70,8 +70,8 @@ export function ChatbotEmptyState({ sidebarCollapsed, onToggleSidebar }: Chatbot
                 Chatly AI Assistant
             </h2>
             <p className="text-sm text-muted-foreground max-w-sm">
-                Nhập câu hỏi để bắt đầu trò chuyện với AI. Bạn có thể upload tài
-                liệu, tìm kiếm web và sử dụng MCP tools.
+                Type a question to start chatting with AI.
+                You can upload documents, search the web, and use MCP tools.
             </p>
 
             {/* Quick-start composer */}
@@ -82,7 +82,7 @@ export function ChatbotEmptyState({ sidebarCollapsed, onToggleSidebar }: Chatbot
                         value={value}
                         onChange={(e) => setValue(e.target.value)}
                         onKeyDown={handleKeyDown}
-                        placeholder="Hỏi AI bất kỳ điều gì..."
+                        placeholder="Ask AI anything..."
                         rows={1}
                         className="flex-1 resize-none bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none max-h-32 min-h-9 py-2 px-2"
                     />

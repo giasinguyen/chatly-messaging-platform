@@ -54,6 +54,8 @@ public class MessageService {
     private static final Set<String> ALLOWED_EMOJIS = Set.of("👍", "❤️", "😂", "😮", "😢", "😡", "🔥", "👏");
         private static final Set<MessageType> FORWARDABLE_TYPES = Set.of(MessageType.TEXT, MessageType.IMAGE, MessageType.FILE, MessageType.GIF, MessageType.STICKER);
 
+    private static final Set<String> ALLOWED_PRIORITIES = Set.of("IMPORTANT", "URGENT");
+
     public MessageResponse send(String senderId, MessageRequest request) {
                 Conversation conversation = getConversationForParticipant(request.getConversationId(), senderId);
 
@@ -65,9 +67,17 @@ public class MessageService {
                 .replyToId(request.getReplyToId())
                 .attachments(request.getAttachments() != null ? request.getAttachments() : new ArrayList<>())
                 .poll(request.getPoll())
+                .priority(request.getPriority() != null && ALLOWED_PRIORITIES.contains(request.getPriority()) ? request.getPriority() : null)
+                .mentions(request.getMentions() != null ? request.getMentions() : new ArrayList<>())
                 .build();
 
         Message savedMessage = persistAndBroadcast(conversation, message, senderId);
+
+        // Send mention notifications (separate from normal notifications)
+        if (message.getMentions() != null && !message.getMentions().isEmpty()) {
+            notifyMentionedUsers(conversation, savedMessage, senderId);
+        }
+
         return messageMapper.toResponse(savedMessage);
     }
 
@@ -358,6 +368,33 @@ public class MessageService {
         return response;
     }
 
+    // ── Close Poll ───────────────────────────────────────────────
+    public MessageResponse closePoll(String messageId, String userId) {
+        Message message = messageRepository.findById(messageId)
+                .orElseThrow(() -> new AppException(ErrorCode.MESSAGE_NOT_FOUND));
+
+        if (message.getType() != MessageType.POLL || message.getPoll() == null) {
+            throw new AppException(ErrorCode.POLL_NOT_FOUND);
+        }
+
+        if (!message.getSenderId().equals(userId)) {
+            throw new AppException(ErrorCode.UNAUTHORIZED);
+        }
+
+        Poll poll = message.getPoll();
+        poll.setClosed(true);
+
+        mongoTemplate.updateFirst(
+                Query.query(Criteria.where("_id").is(messageId)),
+                new Update().set("poll.closed", true),
+                Message.class
+        );
+
+        MessageResponse response = messageMapper.toResponse(message);
+        broadcastEvent(message.getConversationId(), ChatEvent.ChatAction.EDIT, response);
+        return response;
+    }
+
     // ── Pin / Unpin Message ────────────────────────────────────────
     public MessageResponse togglePin(String messageId, String userId) {
         Message message = messageRepository.findById(messageId)
@@ -409,6 +446,32 @@ public class MessageService {
         return mongoTemplate.find(query, Message.class).stream()
                 .map(messageMapper::toResponse)
                 .toList();
+    }
+
+    // ── Tag Priority (Important / Urgent) ─────────────────────────
+    public MessageResponse tagPriority(String messageId, String userId, String priority) {
+        Message message = messageRepository.findById(messageId)
+                .orElseThrow(() -> new AppException(ErrorCode.MESSAGE_NOT_FOUND));
+
+        getConversationForParticipant(message.getConversationId(), userId);
+
+        if (message.isRecalled()) {
+            throw new AppException(ErrorCode.MESSAGE_ALREADY_RECALLED);
+        }
+
+        // Toggle: if same priority, remove it; otherwise set new priority
+        String newPriority = priority.equals(message.getPriority()) ? null : priority;
+
+        mongoTemplate.updateFirst(
+                Query.query(Criteria.where("_id").is(messageId)),
+                new Update().set("priority", newPriority),
+                Message.class
+        );
+
+        message.setPriority(newPriority);
+        MessageResponse response = messageMapper.toResponse(message);
+        broadcastEvent(message.getConversationId(), ChatEvent.ChatAction.EDIT, response);
+        return response;
     }
 
     private void broadcastEvent(String conversationId, ChatEvent.ChatAction action, MessageResponse message) {
@@ -496,6 +559,38 @@ public class MessageService {
                                                 .build())
                                 .collect(java.util.stream.Collectors.toCollection(ArrayList::new));
         }
+
+    private void notifyMentionedUsers(Conversation conversation, Message message, String senderId) {
+        Set<String> mentionedIds = new LinkedHashSet<>();
+
+        for (String mention : message.getMentions()) {
+            if ("all".equals(mention)) {
+                // @all → notify every participant except sender
+                mentionedIds.addAll(conversation.getParticipantIds());
+            } else {
+                mentionedIds.add(mention);
+            }
+        }
+
+        mentionedIds.remove(senderId); // never notify self
+
+        String contentPreview = message.getContent() != null && message.getContent().length() > 100
+                ? message.getContent().substring(0, 100) + "..."
+                : message.getContent();
+
+        for (String receiverId : mentionedIds) {
+            if (conversation.getParticipantIds().contains(receiverId)) {
+                notificationService.createAndPush(
+                        NotificationType.MENTION,
+                        senderId,
+                        receiverId,
+                        contentPreview,
+                        message.getConversationId()
+                );
+            }
+        }
+    }
+
     public MessageResponse sendSystemMessage(String conversationId, String content) {
         Message message = Message.builder()
                 .conversationId(conversationId)

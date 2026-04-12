@@ -29,7 +29,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="chats"
         options={{
-          title: 'Tin nhắn',
+          title: 'Chats',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="chatbubbles-outline" size={size} color={color} />
           ),
@@ -51,7 +51,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="contacts"
         options={{
-          title: 'Danh bạ',
+          title: 'Contacts',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="people-outline" size={size} color={color} />
           ),
@@ -60,7 +60,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="cloud"
         options={{
-          title: 'Kho lưu trữ',
+          title: 'Cloud',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="cloud-outline" size={size} color={color} />
           ),
@@ -69,7 +69,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="settings"
         options={{
-          title: 'Cài đặt',
+          title: 'Settings',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="settings-outline" size={size} color={color} />
           ),

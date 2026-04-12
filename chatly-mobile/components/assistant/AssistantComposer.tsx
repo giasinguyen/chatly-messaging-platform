@@ -105,7 +105,7 @@ export function AssistantComposer({
           );
         } catch {
           setPendingFiles((prev) =>
-            prev.map((p) => (p.localId === localId ? { ...p, error: 'Upload thất bại' } : p)),
+            prev.map((p) => (p.localId === localId ? { ...p, error: 'Upload failed' } : p)),
           );
         }
       }
@@ -151,7 +151,7 @@ export function AssistantComposer({
                   </Text>
                 ) : p.done ? (
                   <Text className="text-[10px]" style={{ color: Colors.success }}>
-                    Xong
+                    Done
                   </Text>
                 ) : (
                   <View
@@ -226,7 +226,7 @@ export function AssistantComposer({
           ref={inputRef}
           value={draft}
           onChangeText={(v) => setDraft(sessionId, v)}
-          placeholder="Hỏi AI bất kỳ điều gì..."
+          placeholder="Ask anything..."
           placeholderTextColor={Colors.textLight}
           multiline
           maxLength={4000}

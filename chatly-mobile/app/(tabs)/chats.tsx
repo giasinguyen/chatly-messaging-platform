@@ -109,22 +109,22 @@ export default function ChatsScreen() {
 
   const handleDeleteConversation = useCallback((conversation: ConversationResponse) => {
     const name = conversation.type === 'PRIVATE'
-      ? (participantMap[conversation.participantIds.find((id) => id !== user?.id) ?? '']?.displayName ?? 'cuộc trò chuyện này')
-      : (conversation.name ?? 'nhóm này');
+      ? (participantMap[conversation.participantIds.find((id) => id !== user?.id) ?? '']?.displayName ?? 'this conversation')
+      : (conversation.name ?? 'this group');
     Alert.alert(
-      'Xoá hội thoại',
-      `Bạn có chắc muốn xoá "${name}"?`,
+      'Delete Conversation',
+      `Are you sure you want to delete "${name}"?`,
       [
-        { text: 'Huỷ', style: 'cancel' },
+        { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Xoá',
+          text: 'Delete',
           style: 'destructive',
           onPress: async () => {
             try {
               await conversationService.delete(conversation.id);
               removeConversation(conversation.id);
             } catch (error: any) {
-              Alert.alert('Lỗi', error?.response?.data?.message ?? 'Không thể xoá hội thoại.');
+              Alert.alert('Error', error?.response?.data?.message ?? 'Could not delete conversation.');
             }
           },
         },
@@ -145,7 +145,7 @@ export default function ChatsScreen() {
       >
         <View className="flex-row items-center justify-between px-4 py-3">
           <Text className="text-2xl font-bold" style={{ color: Colors.text }}>
-            Tin nhắn
+            Messages
           </Text>
           <View className="flex-row items-center">
             <TouchableOpacity 
@@ -181,7 +181,7 @@ export default function ChatsScreen() {
             <Ionicons name="search-outline" size={18} color={Colors.textMuted} />
             <TextInput
               className="ml-2 flex-1 text-sm"
-              placeholder="Tìm kiếm cuộc trò chuyện..."
+              placeholder="Search conversations..."
               placeholderTextColor={Colors.textLight}
               style={{ color: Colors.text }}
               value={searchQuery}
@@ -230,12 +230,12 @@ export default function ChatsScreen() {
             <View className="flex-1 items-center justify-center pt-20">
               <Ionicons name="chatbubbles-outline" size={64} color={Colors.borderLight} />
               <Text className="mt-4 text-base" style={{ color: Colors.textMuted }}>
-                {searchQuery ? 'Không tìm thấy cuộc trò chuyện' : 'Chưa có tin nhắn nào'}
+                {searchQuery ? 'No conversations found' : 'No messages yet'}
               </Text>
               <Text className="mt-1 text-sm" style={{ color: Colors.textLight }}>
                 {searchQuery
-                  ? 'Thử từ khóa khác'
-                  : 'Bắt đầu cuộc trò chuyện mới!'}
+                  ? 'Try another keyword'
+                  : 'Start a new conversation!'}
               </Text>
             </View>
           }

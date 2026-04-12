@@ -8,23 +8,23 @@ import { persist } from "zustand/middleware";
  */
 
 export type ConversationCategory =
-    | "khach-hang"
-    | "gia-dinh"
-    | "cong-viec"
-    | "ban-be"
-    | "tra-loi-sau"
-    | "dong-nghiep";
+    | "customer"
+    | "family"
+    | "work"
+    | "friends"
+    | "reply-later"
+    | "colleagues";
 
 export const CATEGORY_META: Record<
     ConversationCategory,
     { label: string; color: string }
 > = {
-    "khach-hang": { label: "Khách hàng", color: "#ef4444" },
-    "gia-dinh":   { label: "Gia đình",   color: "#ec4899" },
-    "cong-viec":  { label: "Công việc",  color: "#f97316" },
-    "ban-be":     { label: "Bạn bè",     color: "#eab308" },
-    "tra-loi-sau":{ label: "Trả lời sau",color: "#22c55e" },
-    "dong-nghiep":{ label: "Đồng nghiệp",color: "#3b82f6" },
+    "customer":   { label: "Customer",    color: "#ef4444" },
+    "family":     { label: "Family",      color: "#ec4899" },
+    "work":       { label: "Work",        color: "#f97316" },
+    "friends":    { label: "Friends",     color: "#eab308" },
+    "reply-later":{ label: "Reply later", color: "#22c55e" },
+    "colleagues": { label: "Colleagues",  color: "#3b82f6" },
 };
 
 interface ConvPrefs {

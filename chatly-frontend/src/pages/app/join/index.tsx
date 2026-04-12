@@ -9,12 +9,12 @@ export default function JoinByInvitePage() {
     const navigate = useNavigate();
     const [status, setStatus] = useState<"loading" | "success" | "error">("loading");
     const [conversationId, setConversationId] = useState<string | null>(null);
-    const [errorMsg, setErrorMsg] = useState("Không thể tham gia nhóm");
+    const [errorMsg, setErrorMsg] = useState("Failed to join group");
 
     useEffect(() => {
         if (!token) {
             setStatus("error");
-            setErrorMsg("Link mời không hợp lệ");
+            setErrorMsg("Invalid invite link");
             return;
         }
 
@@ -25,8 +25,7 @@ export default function JoinByInvitePage() {
                 setStatus("success");
             })
             .catch((err) => {
-                const msg =
-                    err?.response?.data?.message ?? "Không thể tham gia nhóm. Link có thể đã hết hạn hoặc không hợp lệ.";
+                    err?.response?.data?.message ?? "Failed to join group. The link might have expired or is invalid.";
                 setErrorMsg(msg);
                 setStatus("error");
             });
@@ -38,22 +37,22 @@ export default function JoinByInvitePage() {
                 {status === "loading" && (
                     <>
                         <Loader2 className="h-10 w-10 animate-spin text-brand mx-auto" />
-                        <p className="text-muted-foreground">Đang tham gia nhóm...</p>
+                        <p className="text-muted-foreground">Joining group...</p>
                     </>
                 )}
 
                 {status === "success" && (
                     <>
                         <CheckCircle2 className="h-12 w-12 text-green-500 mx-auto" />
-                        <h2 className="text-lg font-semibold">Tham gia nhóm thành công!</h2>
+                        <h2 className="text-lg font-semibold">Joined group successfully!</h2>
                         <p className="text-sm text-muted-foreground">
-                            Bạn đã được thêm vào nhóm. Hãy bắt đầu trò chuyện ngay!
+                            You have been added to the group. Start chatting now!
                         </p>
                         <Button
                             className="w-full"
                             onClick={() => navigate(conversationId ? `/chat/${conversationId}` : "/chat")}
                         >
-                            Mở cuộc trò chuyện
+                            Open conversation
                         </Button>
                     </>
                 )}
@@ -61,7 +60,7 @@ export default function JoinByInvitePage() {
                 {status === "error" && (
                     <>
                         <XCircle className="h-12 w-12 text-destructive mx-auto" />
-                        <h2 className="text-lg font-semibold">Không thể tham gia</h2>
+                        <h2 className="text-lg font-semibold">Failed to join</h2>
                         <p className="text-sm text-muted-foreground">{errorMsg}</p>
                         <div className="flex gap-2">
                             <Button
@@ -69,13 +68,13 @@ export default function JoinByInvitePage() {
                                 className="flex-1"
                                 onClick={() => navigate("/")}
                             >
-                                Về trang chủ
+                                Go to home
                             </Button>
                             <Button
                                 className="flex-1"
                                 onClick={() => navigate("/chat")}
                             >
-                                Mở Chat
+                                Open Chat
                             </Button>
                         </div>
                     </>

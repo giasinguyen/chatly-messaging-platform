@@ -31,11 +31,12 @@ export interface Poll {
     options: string[];
     multipleChoice: boolean;
     votes: Record<string, string[]>; // optionIndex -> userIds
+    closed?: boolean;
 }
 
 /**
- * Message trả về từ API – khớp 100% với MessageResponse.java.
- * Thứ tự API trả về: mới nhất trước (descending), cần reverse trước khi render.
+ * Message returned from API – matches 100% with MessageResponse.java.
+ * API order: latest first (descending), needs reverse before rendering.
  */
 export interface Message {
     id: string;
@@ -71,6 +72,12 @@ export interface Message {
     pinnedAt: string | null;
     pinnedBy: string | null;
 
+    // Priority tag
+    priority?: string | null; // "IMPORTANT" | "URGENT" | null
+
+    // Mentions – user IDs mentioned in this message ("all" for @all)
+    mentions?: string[];
+
     createdAt: string;
     updatedAt: string;
 }
@@ -86,7 +93,7 @@ export interface ChatEvent {
 }
 
 /**
- * ChatUser – thông tin hiển thị của một participant trong cuộc trò chuyện.
+ * ChatUser – display information of a participant in the conversation.
  */
 export interface ChatUser {
     id: string;

@@ -7,6 +7,7 @@ import {
     MessageSquare,
     LayoutGrid,
     KeyRound,
+    MonitorSmartphone,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -20,20 +21,21 @@ export function SettingsSidebar({
     onCategoryChange,
 }: SettingsSidebarProps) {
     const categories = [
-        { id: "general", label: "Cài đặt chung", icon: Settings },
-        { id: "privacy", label: "Quyền riêng tư", icon: ShieldCheck },
-        { id: "sync", label: "Đồng bộ tin nhắn", icon: RefreshCcw },
-        { id: "appearance", label: "Giao diện", icon: Palette },
-        { id: "notifications", label: "Thông báo", icon: Bell },
-        { id: "messages", label: "Tin nhắn", icon: MessageSquare },
-        { id: "change-password", label: "Đổi mật khẩu", icon: KeyRound },
-        { id: "utilities", label: "Tiện ích", icon: LayoutGrid },
+        { id: "general", label: "General", icon: Settings },
+        { id: "privacy", label: "Privacy", icon: ShieldCheck },
+        { id: "sync", label: "Message Sync", icon: RefreshCcw },
+        { id: "appearance", label: "Appearance", icon: Palette },
+        { id: "notifications", label: "Notifications", icon: Bell },
+        { id: "messages", label: "Messages", icon: MessageSquare },
+        { id: "change-password", label: "Change Password", icon: KeyRound },
+        { id: "sessions", label: "Sessions", icon: MonitorSmartphone },
+        { id: "utilities", label: "Utilities", icon: LayoutGrid },
     ];
 
     return (
         <aside className="w-[340px] flex flex-col border-r border-border bg-card/50 shrink-0">
             <div className="px-6 py-6 border-b border-border/50">
-                <h2 className="text-xl font-bold text-foreground">Cài đặt</h2>
+                <h2 className="text-xl font-bold text-foreground">Settings</h2>
             </div>
 
             <div className="flex-1 py-2 px-2 overflow-y-auto">

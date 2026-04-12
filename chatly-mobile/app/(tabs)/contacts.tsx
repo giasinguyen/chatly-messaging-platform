@@ -113,7 +113,7 @@ export default function ContactsScreen() {
       fetchContacts();
       fetchPending();
     } catch (error: any) {
-      Alert.alert('Lỗi', error?.response?.data?.message ?? 'Không thể chấp nhận.');
+      Alert.alert('Error', error?.response?.data?.message ?? 'Could not accept invitation.');
     }
   };
 
@@ -123,7 +123,7 @@ export default function ContactsScreen() {
       await contactService.delete(contactId);
       fetchPending();
     } catch (error: any) {
-      Alert.alert('Lỗi', error?.response?.data?.message ?? 'Không thể từ chối.');
+      Alert.alert('Error', error?.response?.data?.message ?? 'Could not decline invitation.');
     }
   };
 
@@ -131,11 +131,11 @@ export default function ContactsScreen() {
   const handleUnblock = async (contactId: string) => {
     try {
       await contactService.delete(contactId);
-      Alert.alert('Thành công', 'Đã bỏ chặn');
+      Alert.alert('Success', 'Unblocked successfully');
       fetchContacts();
       fetchBlocked();
     } catch (error: any) {
-      Alert.alert('Lỗi', error?.response?.data?.message ?? 'Không thể bỏ chặn.');
+      Alert.alert('Error', error?.response?.data?.message ?? 'Could not unblock.');
     }
   };
 
@@ -143,10 +143,10 @@ export default function ContactsScreen() {
   const handleSendRequest = async (contactUserId: string) => {
     try {
       await contactService.sendRequest({ contactId: contactUserId });
-      Alert.alert('Thành công', 'Đã gửi lời mời kết bạn');
+      Alert.alert('Success', 'Friend request sent');
       fetchPending();
     } catch (error: any) {
-      Alert.alert('Lỗi', error?.response?.data?.message ?? 'Không thể gửi lời mời.');
+      Alert.alert('Error', error?.response?.data?.message ?? 'Could not send friend request.');
     }
   };
 
@@ -170,7 +170,7 @@ export default function ContactsScreen() {
       });
       router.push(`/chat/${res.result.id}`);
     } catch (error: any) {
-      Alert.alert('Lỗi', error?.response?.data?.message ?? 'Không thể tạo cuộc trò chuyện.');
+      Alert.alert('Error', error?.response?.data?.message ?? 'Could not create conversation.');
     }
   };
 
@@ -197,10 +197,10 @@ export default function ContactsScreen() {
   }, [contacts, user]);
 
   const tabs: { key: Tab; label: string; badge?: number }[] = [
-    { key: 'friends', label: 'Bạn bè' },
-    { key: 'pending', label: 'Chờ duyệt', badge: pendingContacts.length },
-    { key: 'blocked', label: 'Đã chặn' },
-    { key: 'search', label: 'Tìm kiếm' },
+    { key: 'friends', label: 'Friends' },
+    { key: 'pending', label: 'Pending', badge: pendingContacts.length },
+    { key: 'blocked', label: 'Blocked' },
+    { key: 'search', label: 'Search' },
   ];
 
   const renderContactItem = ({ item }: { item: ContactResponse }) => {
@@ -242,7 +242,7 @@ export default function ContactsScreen() {
             {contactUser.displayName}
           </Text>
           <Text className="mt-0.5 text-[13px]" style={{ color: Colors.textLight }}>
-            {isReceived ? 'Muốn kết bạn với bạn' : 'Đã gửi lời mời'}
+            {isReceived ? 'wants to connect' : 'Request sent'}
           </Text>
         </View>
         {isReceived && (
@@ -253,7 +253,7 @@ export default function ContactsScreen() {
               onPress={() => handleDecline(item.id)}
             >
               <Text className="text-[14px] font-semibold" style={{ color: Colors.white }}>
-                Từ chối
+                Decline
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -262,7 +262,7 @@ export default function ContactsScreen() {
               onPress={() => handleAccept(item.id)}
             >
               <Text className="text-[14px] font-semibold" style={{ color: Colors.white }}>
-                Chấp nhận
+                Accept
               </Text>
             </TouchableOpacity>
           </View>
@@ -293,7 +293,7 @@ export default function ContactsScreen() {
           onPress={() => handleUnblock(item.id)}
         >
           <Text className="text-[14px] font-semibold" style={{ color: Colors.white }}>
-            Bỏ chặn
+            Unblock
           </Text>
         </TouchableOpacity>
       </View>
@@ -320,7 +320,7 @@ export default function ContactsScreen() {
         onPress={() => handleSendRequest(item.id)}
       >
         <Text className="text-[14px] font-semibold" style={{ color: Colors.white }}>
-          Kết bạn
+          Add Friend
         </Text>
       </TouchableOpacity>
     </View>
@@ -334,7 +334,7 @@ export default function ContactsScreen() {
         style={{ borderBottomColor: Colors.borderLight, backgroundColor: Colors.white }}
       >
         <Text className="text-[22px] font-bold" style={{ color: Colors.text }}>
-          Danh bạ
+          Contacts
         </Text>
 
         {/* Tabs */}
@@ -380,7 +380,7 @@ export default function ContactsScreen() {
             <TextInput
               className="ml-2 flex-1 text-[15px]"
               style={{ color: Colors.text }}
-              placeholder="Tìm bạn bè theo tên hoặc email..."
+              placeholder="Search by name or email..."
               placeholderTextColor={Colors.textLight}
               value={searchQuery}
               onChangeText={setSearchQuery}
@@ -427,10 +427,10 @@ export default function ContactsScreen() {
             <View className="flex-1 items-center justify-center pt-20">
               <Ionicons name="people-outline" size={48} color={Colors.textLight} />
               <Text className="mt-3 text-[16px]" style={{ color: Colors.textLight }}>
-                Chưa có bạn bè
+                No friends yet
               </Text>
               <Text className="mt-1 text-[14px]" style={{ color: Colors.textLight }}>
-                Tìm kiếm và kết bạn ngay!
+                Search and connect now!
               </Text>
             </View>
           }
@@ -447,7 +447,7 @@ export default function ContactsScreen() {
             <View className="flex-1 items-center justify-center pt-20">
               <Ionicons name="hourglass-outline" size={48} color={Colors.textLight} />
               <Text className="mt-3 text-[16px]" style={{ color: Colors.textLight }}>
-                Không có lời mời nào
+                No pending invitations
               </Text>
             </View>
           }
@@ -464,7 +464,7 @@ export default function ContactsScreen() {
             <View className="flex-1 items-center justify-center pt-20">
               <Ionicons name="shield-checkmark-outline" size={48} color={Colors.textLight} />
               <Text className="mt-3 text-[16px]" style={{ color: Colors.textLight }}>
-                Không có liên hệ bị chặn
+                No blocked contacts
               </Text>
             </View>
           }
@@ -479,14 +479,14 @@ export default function ContactsScreen() {
               <View className="flex-1 items-center justify-center pt-20">
                 <Ionicons name="search-outline" size={48} color={Colors.textLight} />
                 <Text className="mt-3 text-[16px]" style={{ color: Colors.textLight }}>
-                  Không tìm thấy kết quả
+                  No results found
                 </Text>
               </View>
             ) : (
               <View className="flex-1 items-center justify-center pt-20">
                 <Ionicons name="search-outline" size={48} color={Colors.textLight} />
                 <Text className="mt-3 text-[16px]" style={{ color: Colors.textLight }}>
-                  Nhập tên hoặc email để tìm kiếm
+                  Enter name or email to search
                 </Text>
               </View>
             )

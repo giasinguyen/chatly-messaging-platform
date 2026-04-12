@@ -80,7 +80,7 @@ function formatJoinedAt(createdAt?: string) {
     const date = new Date(createdAt);
     if (Number.isNaN(date.getTime())) return "-";
 
-    return new Intl.DateTimeFormat("vi-VN", {
+    return new Intl.DateTimeFormat("en-US", {
         month: "long",
         year: "numeric",
     }).format(date);
@@ -159,7 +159,7 @@ export default function ProfilePage() {
         const timeoutId = window.setTimeout(() => {
             if (!active) return;
             setLoading(false);
-            toast.error("Tải hồ sơ quá lâu, vui lòng thử lại");
+            toast.error("Profile loading took too long, please try again");
         }, 12000);
 
         const loadProfile = async () => {
@@ -179,7 +179,7 @@ export default function ProfilePage() {
                     setForm(fallback);
                     setInitialForm(fallback);
                 }
-                toast.error("Không thể tải thông tin profile");
+                toast.error("Could not load profile information");
             } finally {
                 window.clearTimeout(timeoutId);
                 if (active) setLoading(false);
@@ -210,7 +210,7 @@ export default function ProfilePage() {
         if (!file) return;
 
         if (!file.type.startsWith("image/")) {
-            toast.error("Vui lòng chọn file ảnh hợp lệ");
+            toast.error("Please select a valid image file");
             return;
         }
 
@@ -226,7 +226,7 @@ export default function ProfilePage() {
             }
         };
         reader.onerror = () => {
-            toast.error("Không thể đọc file ảnh");
+            toast.error("Could not read image file");
         };
         reader.readAsDataURL(file);
     };
@@ -237,12 +237,12 @@ export default function ProfilePage() {
 
     const onSave = async () => {
         if (!user?.id) {
-            toast.error("Không xác định được người dùng hiện tại");
+            toast.error("Could not identify current user");
             return;
         }
 
         if (!form.displayName.trim() || !form.username.trim()) {
-            toast.error("Tên hiển thị và username không được để trống");
+            toast.error("Display name and username cannot be empty");
             return;
         }
 
@@ -250,7 +250,7 @@ export default function ProfilePage() {
             setSaving(true);
             let avatarUrl = form.avatarUrl;
 
-            // Nếu chọn ảnh mới (là data URL), upload lên S3 trước
+            // If new image selected, upload to S3 first
             if (selectedAvatarFile && avatarUrl?.startsWith("data:")) {
                 setUploadingAvatar(true);
                 try {
@@ -258,7 +258,7 @@ export default function ProfilePage() {
                     avatarUrl = uploaded.url;
                     setSelectedAvatarFile(null);
                 } catch {
-                    toast.error("Không thể tải ảnh lên, vui lòng thử lại");
+                    toast.error("Could not upload image, please try again");
                     return;
                 } finally {
                     setUploadingAvatar(false);
@@ -279,9 +279,9 @@ export default function ProfilePage() {
             const nextForm = mapUserToForm(response.result);
             setForm(nextForm);
             setInitialForm(nextForm);
-            toast.success("Đã lưu thông tin cá nhân");
+            toast.success("Profile saved successfully");
         } catch (error) {
-            toast.error("Lưu thông tin thất bại. Vui lòng thử lại");
+            toast.error("Failed to save profile. Please try again");
         } finally {
             setSaving(false);
         }
@@ -292,7 +292,7 @@ export default function ProfilePage() {
             <div className="flex h-full w-full items-center justify-center bg-background">
                 <div className="flex items-center gap-2 text-muted-foreground">
                     <Loader2 className="h-5 w-5 animate-spin" />
-                    <span className="text-sm">Đang tải hồ sơ...</span>
+                    <span className="text-sm">Loading profile...</span>
                 </div>
             </div>
         );
@@ -320,7 +320,7 @@ export default function ProfilePage() {
                                 <button
                                     type="button"
                                     className="absolute -bottom-1 -right-1 rounded-full border border-white bg-brand p-2 text-white shadow-md transition hover:scale-105 hover:bg-brand-hover disabled:opacity-60 disabled:cursor-not-allowed"
-                                    aria-label="Đổi ảnh đại diện"
+                                    aria-label="Change avatar"
                                     onClick={onPickAvatar}
                                     disabled={uploadingAvatar || saving}
                                 >
@@ -345,16 +345,13 @@ export default function ProfilePage() {
                                 <h1 className="text-2xl font-bold tracking-tight text-foreground md:text-3xl">
                                     {fullName}
                                 </h1>
-                                <Badge className="bg-brand/10 text-brand hover:bg-brand/10">
-                                    {user?.status || "Active"}
-                                </Badge>
                             </div>
 
                             <p className="text-sm font-medium text-muted-foreground">
                                 @{form.username || "username"}
                             </p>
                             <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground md:text-base">
-                                {form.bio || "Bạn chưa cập nhật tiểu sử."}
+                                {form.bio || "You haven't updated your bio yet."}
                             </p>
                         </div>
 
@@ -364,7 +361,7 @@ export default function ProfilePage() {
                                 onClick={onReset}
                                 disabled={!isDirty || saving}
                             >
-                                Hoàn tác
+                                Undo
                             </Button>
                             <Button
                                 className="gap-2 bg-brand text-white hover:bg-brand-hover"
@@ -374,12 +371,12 @@ export default function ProfilePage() {
                                 {saving ? (
                                     <>
                                         <Loader2 className="h-4 w-4 animate-spin" />
-                                        Đang lưu...
+                                        Saving...
                                     </>
                                 ) : (
                                     <>
                                         <Edit3 size={16} />
-                                        Lưu thay đổi
+                                        Save changes
                                     </>
                                 )}
                             </Button>
@@ -390,17 +387,17 @@ export default function ProfilePage() {
                 <section className="grid gap-4 md:grid-cols-2">
                     <article className="rounded-2xl border border-border bg-card p-5 shadow-sm dark:border-brand/20 dark:shadow-[0_16px_45px_-32px_rgba(52,170,220,0.5)] md:p-6">
                         <h2 className="mb-4 text-base font-semibold text-foreground md:text-lg">
-                            Thông tin liên hệ
+                            Contact Information
                         </h2>
 
                         <div className="space-y-4">
                             <div className="space-y-2">
-                                <Label htmlFor="display-name">Tên hiển thị</Label>
+                                <Label htmlFor="display-name">Display Name</Label>
                                 <Input
                                     id="display-name"
                                     value={form.displayName}
                                     onChange={onInputChange("displayName")}
-                                    placeholder="Nhập tên hiển thị"
+                                    placeholder="Enter display name"
                                 />
                             </div>
 
@@ -410,7 +407,7 @@ export default function ProfilePage() {
                                     id="username"
                                     value={form.username}
                                     onChange={onInputChange("username")}
-                                    placeholder="Nhập username"
+                                    placeholder="Enter username"
                                 />
                             </div>
 
@@ -426,7 +423,7 @@ export default function ProfilePage() {
                             </div>
 
                             <div className="space-y-2">
-                                <Label htmlFor="phone">Số điện thoại</Label>
+                                <Label htmlFor="phone">Phone number</Label>
                                 <Input
                                     id="phone"
                                     value={form.phone}
@@ -439,12 +436,12 @@ export default function ProfilePage() {
 
                     <article className="rounded-2xl border border-border bg-card p-5 shadow-sm dark:border-brand/20 dark:shadow-[0_16px_45px_-32px_rgba(52,170,220,0.5)] md:p-6">
                         <h2 className="mb-4 text-base font-semibold text-foreground md:text-lg">
-                            Trạng thái tài khoản
+                            Account Status
                         </h2>
 
                         <div className="space-y-4">
                             <div className="space-y-2">
-                                <Label htmlFor="dob">Ngày sinh</Label>
+                                <Label htmlFor="dob">Date of birth</Label>
                                 <Input
                                     id="dob"
                                     type="date"
@@ -454,28 +451,28 @@ export default function ProfilePage() {
                             </div>
 
                             <div className="space-y-2">
-                                <Label htmlFor="bio">Tiểu sử</Label>
+                                <Label htmlFor="bio">Bio</Label>
                                 <Textarea
                                     id="bio"
                                     value={form.bio}
                                     onChange={onInputChange("bio")}
-                                    placeholder="Giới thiệu ngắn về bạn"
+                                    placeholder="Short intro about yourself"
                                     className="min-h-28"
                                 />
                             </div>
 
                             <InfoRow icon={Mail} label="Email" value={form.email || "-"} />
-                            <InfoRow icon={Phone} label="Điện thoại" value={form.phone || "-"} />
+                            <InfoRow icon={Phone} label="Phone" value={form.phone || "-"} />
                             <InfoRow icon={MapPin} label="Username" value={form.username || "-"} />
-                            <InfoRow icon={CalendarDays} label="Tham gia từ" value={joinedAt} />
+                            <InfoRow icon={CalendarDays} label="Joined on" value={joinedAt} />
 
                             <div className="flex items-center justify-between rounded-xl bg-muted/60 px-4 py-3 dark:bg-muted/40">
                                 <div className="flex items-center gap-3 text-foreground">
                                     <ShieldCheck className="text-brand" size={18} />
-                                    <span className="text-sm font-medium">Trạng thái tài khoản</span>
+                                    <span className="text-sm font-medium">Account Status</span>
                                 </div>
                                 <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-500/20 dark:text-emerald-300 dark:hover:bg-emerald-500/20">
-                                    {user?.status || "Đang hoạt động"}
+                                    {user?.status || "Active"}
                                 </Badge>
                             </div>
                         </div>
@@ -487,9 +484,9 @@ export default function ProfilePage() {
         <Dialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
                 <DialogContent showCloseButton={false}>
                     <DialogHeader>
-                        <DialogTitle>Rời trang?</DialogTitle>
+                        <DialogTitle>Leave page?</DialogTitle>
                         <DialogDescription>
-                            Bạn có những thay đổi chưa lưu. Nếu rời trang, những thay đổi sẽ bị mất.
+                            You have unsaved changes. If you leave, these changes will be lost.
                         </DialogDescription>
                     </DialogHeader>
                     <DialogFooter>
@@ -497,13 +494,13 @@ export default function ProfilePage() {
                             variant="outline"
                             onClick={onCancelLeave}
                         >
-                            Huỷ
+                            Cancel
                         </Button>
                         <Button
                             variant="destructive"
                             onClick={onConfirmLeave}
                         >
-                            Rời trang
+                            Leave
                         </Button>
                     </DialogFooter>
                 </DialogContent>

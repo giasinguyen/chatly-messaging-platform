@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef, forwardRef, useImperativeHandle, lazy, Suspense } from "react";
+import { useState, useCallback, useEffect, useRef, forwardRef, useImperativeHandle, lazy, Suspense, useMemo } from "react";
 import type { KeyboardEvent } from "react";
 import {
     SendHorizontal,
@@ -14,7 +14,14 @@ import {
     Trash2,
     Clapperboard,
     Sticker,
+    Clock,
+    MoreHorizontal,
+    IdCard,
+    Star,
+    AlertTriangle,
+    Check,
 } from "lucide-react";
+import { toast } from "sonner";
 import Picker from "@emoji-mart/react";
 import data from "@emoji-mart/data";
 import { Input } from "@/components/ui/input";
@@ -30,8 +37,9 @@ import {
 import { Label } from "@/components/ui/label";
 import { fileService } from "@/services/file.service";
 import { getDisplayUrl, type KlipyItem } from "@/services/klipy.service";
+import { groupService } from "@/services/group.service";
 import { useAuthStore } from "@/store/auth.store";
-import type { Message, Attachment, Poll } from "@/types/message";
+import type { Message, Attachment, Poll, ChatUser } from "@/types/message";
 
 const LazyMediaPicker = lazy(() => import("@/components/media-picker/MediaPicker").then(m => ({ default: m.MediaPicker })));
 
@@ -40,8 +48,11 @@ interface ChatInputProps {
     replyingTo?: Message | null;
     senderName?: string;
     onCancelReply: () => void;
-    onSendMessage: (content: string, attachments?: Attachment[], poll?: Poll, messageType?: string) => void;
+    onSendMessage: (content: string, attachments?: Attachment[], poll?: Poll, mentions?: string[], priority?: string, messageType?: string) => void;
+    onSendVCard?: (user: ChatUser) => void;
     onTyping?: (typing: boolean) => void;
+    groupMembers?: ChatUser[];
+    currentUserId?: string;
 }
 
 interface PendingFile {
@@ -67,7 +78,10 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
     senderName,
     onCancelReply,
     onSendMessage,
+    onSendVCard,
     onTyping,
+    groupMembers = [],
+    currentUserId,
 }, ref) => {
     const { user } = useAuthStore();
     const [content, setContent] = useState("");
@@ -79,6 +93,23 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
     const [pollQuestion, setPollQuestion] = useState("");
     const [pollOptions, setPollOptions] = useState(["", ""]);
     const [pollMultipleChoice, setPollMultipleChoice] = useState(false);
+    const [showReminderDialog, setShowReminderDialog] = useState(false);
+    const [reminderTitle, setReminderTitle] = useState("");
+    const [reminderDescription, setReminderDescription] = useState("");
+    const [reminderDate, setReminderDate] = useState("");
+    const [reminderTime, setReminderTime] = useState("");
+    const [reminderSubmitting, setReminderSubmitting] = useState(false);
+    // Mention autocomplete state
+    const [mentionQuery, setMentionQuery] = useState<string | null>(null);
+    const [mentionIndex, setMentionIndex] = useState(0);
+    const mentionListRef = useRef<HTMLDivElement>(null);
+    // Priority menu state
+    const [showPriorityMenu, setShowPriorityMenu] = useState(false);
+    const [selectedPriority, setSelectedPriority] = useState<string | null>(null);
+    const priorityMenuRef = useRef<HTMLDivElement>(null);
+    // VCard dialog state
+    const [showVCardDialog, setShowVCardDialog] = useState(false);
+    const [vCardUser, setVCardUser] = useState<ChatUser | null>(null);
     const typingTimerRef = useRef<any>(null);
     const inputRef = useRef<HTMLInputElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -98,6 +129,17 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
     const handleContentChange = (newVal: string) => {
         setContent(newVal);
 
+        // Detect @mention trigger
+        const cursorPos = inputRef.current?.selectionStart ?? newVal.length;
+        const textBeforeCursor = newVal.slice(0, cursorPos);
+        const mentionMatch = textBeforeCursor.match(/@(\w*)$/);
+        if (mentionMatch) {
+            setMentionQuery(mentionMatch[1]);
+            setMentionIndex(0);
+        } else {
+            setMentionQuery(null);
+        }
+
         if (!isTyping && newVal.trim().length > 0) {
             setIsTyping(true);
             onTyping?.(true);
@@ -107,6 +149,40 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
         typingTimerRef.current = setTimeout(() => {
             stopTyping();
         }, TYPING_STOP_DELAY);
+    };
+
+    // Filtered mention suggestions
+    const mentionSuggestions = useMemo(() => {
+        if (mentionQuery === null) return [];
+        const q = mentionQuery.toLowerCase();
+        const results: { id: string; displayName: string; username: string }[] = [];
+        // Always show @all option first
+        if ("all".startsWith(q)) {
+            results.push({ id: "all", displayName: "All members", username: "all" });
+        }
+        for (const m of groupMembers) {
+            if (m.id === currentUserId) continue; // don't suggest self
+            if (
+                m.displayName.toLowerCase().includes(q) ||
+                m.username.toLowerCase().includes(q)
+            ) {
+                results.push(m);
+            }
+            if (results.length >= 8) break;
+        }
+        return results;
+    }, [mentionQuery, groupMembers, currentUserId]);
+
+    const insertMention = (user: { id: string; displayName: string; username: string }) => {
+        const cursorPos = inputRef.current?.selectionStart ?? content.length;
+        const textBeforeCursor = content.slice(0, cursorPos);
+        const textAfterCursor = content.slice(cursorPos);
+        const mentionStart = textBeforeCursor.lastIndexOf("@");
+        const insertName = user.id === "all" ? "@all" : `@${user.displayName}`;
+        const newContent = textBeforeCursor.slice(0, mentionStart) + insertName + " " + textAfterCursor;
+        setContent(newContent);
+        setMentionQuery(null);
+        inputRef.current?.focus();
     };
 
     useEffect(() => {
@@ -132,6 +208,18 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
         document.addEventListener("mousedown", handler);
         return () => document.removeEventListener("mousedown", handler);
     }, [showEmojiPicker]);
+
+    // Close priority menu on outside click
+    useEffect(() => {
+        if (!showPriorityMenu) return;
+        const handler = (e: MouseEvent) => {
+            if (priorityMenuRef.current && !priorityMenuRef.current.contains(e.target as Node)) {
+                setShowPriorityMenu(false);
+            }
+        };
+        document.addEventListener("mousedown", handler);
+        return () => document.removeEventListener("mousedown", handler);
+    }, [showPriorityMenu]);
 
     const handleEmojiSelect = (emoji: { native: string }) => {
         setContent((prev) => prev + emoji.native);
@@ -174,7 +262,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
             } catch {
                 setPendingFiles((prev) =>
                     prev.map((p) =>
-                        p.localId === localId ? { ...p, error: "Upload thất bại" } : p,
+                        p.localId === localId ? { ...p, error: "Upload failed" } : p,
                     ),
                 );
             }
@@ -229,6 +317,26 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
     const isUploading = pendingFiles.some((p) => !p.uploaded && !p.error);
     const canSend = (content.trim().length > 0 || pendingFiles.some((p) => p.uploaded)) && !isUploading;
 
+    // Extract mention user IDs from the content text
+    const extractMentions = (text: string): string[] => {
+        const mentionIds: string[] = [];
+        const mentionRegex = /@(\S+)/g;
+        let match;
+        while ((match = mentionRegex.exec(text)) !== null) {
+            const name = match[1];
+            if (name === "all") {
+                mentionIds.push("all");
+            } else {
+                // Find user by displayName
+                const user = groupMembers.find(
+                    (m) => m.displayName === name || m.username === name,
+                );
+                if (user) mentionIds.push(user.id);
+            }
+        }
+        return [...new Set(mentionIds)];
+    };
+
     const handleSend = () => {
         if (!canSend) return;
 
@@ -239,12 +347,39 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
             .filter((p) => p.uploaded)
             .map((p) => p.uploaded!);
 
-        onSendMessage(content.trim(), attachments.length ? attachments : undefined);
+        const mentions = extractMentions(content);
+        onSendMessage(content.trim(), attachments.length ? attachments : undefined, undefined, mentions.length ? mentions : undefined, selectedPriority ?? undefined);
         setContent("");
+        setMentionQuery(null);
         setPendingFiles([]);
+        setSelectedPriority(null);
     };
 
     const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+        // Handle mention autocomplete navigation
+        if (mentionQuery !== null && mentionSuggestions.length > 0) {
+            if (e.key === "ArrowDown") {
+                e.preventDefault();
+                setMentionIndex((prev) => (prev + 1) % mentionSuggestions.length);
+                return;
+            }
+            if (e.key === "ArrowUp") {
+                e.preventDefault();
+                setMentionIndex((prev) => (prev - 1 + mentionSuggestions.length) % mentionSuggestions.length);
+                return;
+            }
+            if (e.key === "Enter" || e.key === "Tab") {
+                e.preventDefault();
+                insertMention(mentionSuggestions[mentionIndex]);
+                return;
+            }
+            if (e.key === "Escape") {
+                e.preventDefault();
+                setMentionQuery(null);
+                return;
+            }
+        }
+
         if (e.key === "Enter" && !e.shiftKey) {
             e.preventDefault();
             handleSend();
@@ -276,8 +411,36 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
             name: item.title,
             type: item.type === "sticker" ? "image/gif" : "image/webp",
         };
-        onSendMessage(displayUrl, [attachment], undefined, messageType);
+        onSendMessage(displayUrl, [attachment], undefined, undefined, undefined, messageType);
         setActivePicker(null);
+    };
+
+    const handleCreateReminder = async () => {
+        if (!conversationId || !reminderTitle.trim()) return;
+        setReminderSubmitting(true);
+        try {
+            let remindAt: string | undefined;
+            if (reminderDate && reminderTime) {
+                remindAt = new Date(`${reminderDate}T${reminderTime}:00`).toISOString();
+            } else if (reminderDate) {
+                remindAt = new Date(`${reminderDate}T00:00:00`).toISOString();
+            }
+            await groupService.createReminder(conversationId, {
+                title: reminderTitle.trim(),
+                description: reminderDescription.trim() || undefined,
+                remindAt,
+            });
+            toast.success("Reminder created");
+            setShowReminderDialog(false);
+            setReminderTitle("");
+            setReminderDescription("");
+            setReminderDate("");
+            setReminderTime("");
+        } catch {
+            toast.error("Could not create reminder");
+        } finally {
+            setReminderSubmitting(false);
+        }
     };
 
     return (
@@ -303,7 +466,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
                     <CornerUpLeft size={14} className="text-brand shrink-0" />
                     <div className="flex-1 min-w-0">
                         <p className="text-[10px] font-semibold text-brand">
-                            {senderName ?? "Bạn"}
+                            {senderName ?? "You"}
                         </p>
                         <p className="text-[11px] text-muted-foreground truncate">
                             {replyingTo.content}
@@ -342,7 +505,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
                                 {p.error ? (
                                     <p className="text-destructive">{p.error}</p>
                                 ) : p.uploaded ? (
-                                    <p className="text-green-600 dark:text-green-400">Xong</p>
+                                    <p className="text-green-600 dark:text-green-400">Done</p>
                                 ) : (
                                     <div className="mt-1 h-1 w-full rounded-full bg-muted-foreground/20">
                                         <div
@@ -390,7 +553,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
                         size="icon"
                         className="h-9 w-9 shrink-0 text-muted-foreground hover:text-foreground"
                         onClick={() => imageInputRef.current?.click()}
-                        title="Gửi ảnh/video"
+                        title="Send image/video"
                     >
                         <ImagePlus size={18} />
                     </Button>
@@ -401,7 +564,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
                         size="icon"
                         className="h-9 w-9 shrink-0 text-muted-foreground hover:text-foreground"
                         onClick={() => fileInputRef.current?.click()}
-                        title="Đính kèm file"
+                        title="Attach file"
                     >
                         <Paperclip size={18} />
                     </Button>
@@ -413,7 +576,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
                             size="icon"
                             className="h-9 w-9 shrink-0 text-muted-foreground hover:text-foreground"
                             onClick={() => setShowEmojiPicker((prev) => !prev)}
-                            title="Chọn emoji"
+                            title="Select emoji"
                         >
                             <Smile size={18} />
                         </Button>
@@ -423,7 +586,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
                                     data={data}
                                     onEmojiSelect={handleEmojiSelect}
                                     theme="auto"
-                                    locale="vi"
+                                    locale="en"
                                     previewPosition="none"
                                     skinTonePosition="search"
                                     maxFrequentRows={2}
@@ -438,7 +601,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
                         size="icon"
                         className="h-9 w-9 shrink-0 text-muted-foreground hover:text-foreground"
                         onClick={() => setShowPollDialog(true)}
-                        title="Tạo bình chọn"
+                        title="Create poll"
                     >
                         <BarChart3 size={18} />
                     </Button>
@@ -475,10 +638,116 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
                         <Sticker size={18} />
                     </Button>
 
+                    {/* Reminder creation button */}
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-9 w-9 shrink-0 text-muted-foreground hover:text-foreground"
+                        onClick={() => setShowReminderDialog(true)}
+                        title="Create reminder"
+                    >
+                        <Clock size={18} />
+                    </Button>
+
+                    {/* Business card button */}
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-9 w-9 shrink-0 text-muted-foreground hover:text-foreground"
+                        onClick={() => { setVCardUser(null); setShowVCardDialog(true); }}
+                        title="Send business card"
+                    >
+                        <IdCard size={18} />
+                    </Button>
+
+                    {/* Priority menu button (3-dot) */}
+                    <div className="relative" ref={priorityMenuRef}>
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className={cn(
+                                "h-9 w-9 shrink-0 transition-colors",
+                                selectedPriority === "IMPORTANT" && "text-amber-500 bg-amber-50 dark:bg-amber-950/30 hover:bg-amber-100 dark:hover:bg-amber-900/40",
+                                selectedPriority === "URGENT" && "text-red-500 bg-red-50 dark:bg-red-950/30 hover:bg-red-100 dark:hover:bg-red-900/40",
+                                !selectedPriority && "text-muted-foreground hover:text-foreground",
+                            )}
+                            onClick={() => setShowPriorityMenu((prev) => !prev)}
+                            title="Message priority"
+                        >
+                            <MoreHorizontal size={18} />
+                        </Button>
+                        {showPriorityMenu && (
+                            <div className="absolute bottom-full mb-2 left-0 bg-popover border border-border rounded-lg shadow-lg z-50 min-w-[210px] py-1">
+                                <button
+                                    type="button"
+                                    className={cn(
+                                        "flex items-center gap-2.5 w-full px-3 py-2.5 text-sm text-left hover:bg-accent transition-colors",
+                                        selectedPriority === "IMPORTANT" && "text-amber-500",
+                                    )}
+                                    onClick={() => {
+                                        setSelectedPriority((prev) => (prev === "IMPORTANT" ? null : "IMPORTANT"));
+                                        setShowPriorityMenu(false);
+                                    }}
+                                >
+                                    <Star size={15} className="text-amber-500 shrink-0" />
+                                    Đánh dấu tin quan trọng
+                                    {selectedPriority === "IMPORTANT" && <Check size={13} className="ml-auto" />}
+                                </button>
+                                <button
+                                    type="button"
+                                    className={cn(
+                                        "flex items-center gap-2.5 w-full px-3 py-2.5 text-sm text-left hover:bg-accent transition-colors",
+                                        selectedPriority === "URGENT" && "text-red-500",
+                                    )}
+                                    onClick={() => {
+                                        setSelectedPriority((prev) => (prev === "URGENT" ? null : "URGENT"));
+                                        setShowPriorityMenu(false);
+                                    }}
+                                >
+                                    <AlertTriangle size={15} className="text-red-500 shrink-0" />
+                                    Đánh dấu tin khẩn cấp
+                                    {selectedPriority === "URGENT" && <Check size={13} className="ml-auto" />}
+                                </button>
+                            </div>
+                        )}
+                    </div>
+
                     <div className="flex-1 relative">
+                        {/* Mention autocomplete dropdown */}
+                        {mentionQuery !== null && mentionSuggestions.length > 0 && (
+                            <div
+                                ref={mentionListRef}
+                                className="absolute bottom-full left-0 mb-1 w-72 max-h-52 overflow-y-auto bg-popover border border-border rounded-lg shadow-lg z-50"
+                            >
+                                {mentionSuggestions.map((user, idx) => (
+                                    <button
+                                        key={user.id}
+                                        type="button"
+                                        className={cn(
+                                            "flex items-center gap-2 w-full px-3 py-2 text-sm text-left hover:bg-accent transition-colors",
+                                            idx === mentionIndex && "bg-accent",
+                                        )}
+                                        onMouseDown={(e) => {
+                                            e.preventDefault();
+                                            insertMention(user);
+                                        }}
+                                    >
+                                        <div className="w-7 h-7 rounded-full bg-brand/20 flex items-center justify-center text-xs font-semibold text-brand shrink-0">
+                                            {user.id === "all" ? "@" : user.displayName.charAt(0).toUpperCase()}
+                                        </div>
+                                        <div className="min-w-0">
+                                            <p className="font-medium truncate">{user.displayName}</p>
+                                            {user.id !== "all" && (
+                                                <p className="text-xs text-muted-foreground truncate">@{user.username}</p>
+                                            )}
+                                        </div>
+                                    </button>
+                                ))}
+                            </div>
+                        )}
                         <Input
                             ref={inputRef}
-                            placeholder="Nhập tin nhắn tới người này"
+                            placeholder="Type a message. Use @ to mention"
                             value={content}
                             onChange={(e) => handleContentChange(e.target.value)}
                             onKeyDown={handleKeyDown}
@@ -497,7 +766,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
                             ) : (
                                 <SendHorizontal size={18} className="mr-2" />
                             )}
-                            <span className="font-medium text-sm">Gửi</span>
+                            <span className="font-medium text-sm">Send</span>
                         </Button>
                     </div>
                 </div>
@@ -507,24 +776,24 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
             <Dialog open={showPollDialog} onOpenChange={setShowPollDialog}>
                 <DialogContent className="sm:max-w-md">
                     <DialogHeader>
-                        <DialogTitle>Tạo bình chọn</DialogTitle>
+                        <DialogTitle>Create poll</DialogTitle>
                     </DialogHeader>
                     <div className="space-y-4">
                         <div>
-                            <Label>Câu hỏi</Label>
+                            <Label>Question</Label>
                             <Input
-                                placeholder="Nhập câu hỏi bình chọn..."
+                                placeholder="Enter poll question..."
                                 value={pollQuestion}
                                 onChange={(e) => setPollQuestion(e.target.value)}
                                 className="mt-1"
                             />
                         </div>
                         <div className="space-y-2">
-                            <Label>Lựa chọn</Label>
+                            <Label>Options</Label>
                             {pollOptions.map((opt, idx) => (
                                 <div key={idx} className="flex items-center gap-2">
                                     <Input
-                                        placeholder={`Lựa chọn ${idx + 1}`}
+                                        placeholder={`Option ${idx + 1}`}
                                         value={opt}
                                         onChange={(e) => {
                                             const next = [...pollOptions];
@@ -551,7 +820,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
                                     className="w-full gap-1"
                                     onClick={() => setPollOptions([...pollOptions, ""])}
                                 >
-                                    <Plus size={14} /> Thêm lựa chọn
+                                    <Plus size={14} /> Add option
                                 </Button>
                             )}
                         </div>
@@ -563,18 +832,136 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
                                 onChange={(e) => setPollMultipleChoice(e.target.checked)}
                                 className="h-4 w-4 rounded border-border text-brand focus:ring-brand"
                             />
-                            <Label htmlFor="poll-multiple">Cho phép chọn nhiều</Label>
+                            <Label htmlFor="poll-multiple">Allow multiple choice</Label>
                         </div>
                     </div>
                     <DialogFooter>
                         <Button variant="ghost" onClick={() => setShowPollDialog(false)}>
-                            Hủy
+                            Cancel
                         </Button>
                         <Button
                             onClick={handleSendPoll}
                             disabled={!pollQuestion.trim() || pollOptions.filter(o => o.trim()).length < 2}
                         >
-                            Gửi bình chọn
+                            Send poll
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Reminder creation dialog */}
+            <Dialog open={showReminderDialog} onOpenChange={setShowReminderDialog}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>Create reminder</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                        <div>
+                            <Label>Title <span className="text-destructive">*</span></Label>
+                            <Input
+                                placeholder="Reminder title..."
+                                value={reminderTitle}
+                                onChange={(e) => setReminderTitle(e.target.value)}
+                                className="mt-1"
+                            />
+                        </div>
+                        <div>
+                            <Label>Description (optional)</Label>
+                            <Input
+                                placeholder="Add a description..."
+                                value={reminderDescription}
+                                onChange={(e) => setReminderDescription(e.target.value)}
+                                className="mt-1"
+                            />
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                            <div>
+                                <Label>Date</Label>
+                                <Input
+                                    type="date"
+                                    value={reminderDate}
+                                    onChange={(e) => setReminderDate(e.target.value)}
+                                    className="mt-1"
+                                />
+                            </div>
+                            <div>
+                                <Label>Time</Label>
+                                <Input
+                                    type="time"
+                                    value={reminderTime}
+                                    onChange={(e) => setReminderTime(e.target.value)}
+                                    className="mt-1"
+                                />
+                            </div>
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="ghost" onClick={() => setShowReminderDialog(false)}>
+                            Cancel
+                        </Button>
+                        <Button
+                            onClick={handleCreateReminder}
+                            disabled={!reminderTitle.trim() || reminderSubmitting}
+                        >
+                            {reminderSubmitting && <Loader2 size={14} className="mr-2 animate-spin" />}
+                            Create reminder
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Business card (VCard) dialog */}
+            <Dialog open={showVCardDialog} onOpenChange={setShowVCardDialog}>
+                <DialogContent className="sm:max-w-sm">
+                    <DialogHeader>
+                        <DialogTitle>Gửi danh thiếp</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-1 max-h-64 overflow-y-auto">
+                        {groupMembers.map((user) => (
+                            <button
+                                key={user.id}
+                                type="button"
+                                className={cn(
+                                    "flex items-center gap-3 w-full px-3 py-2 rounded-lg text-left hover:bg-accent transition-colors border",
+                                    vCardUser?.id === user.id ? "border-brand bg-brand/5" : "border-transparent",
+                                )}
+                                onClick={() => setVCardUser(user)}
+                            >
+                                <div className="w-9 h-9 rounded-full bg-brand/20 flex items-center justify-center text-sm font-semibold text-brand shrink-0">
+                                    {user.avatarUrl ? (
+                                        <img src={user.avatarUrl} alt="" className="w-9 h-9 rounded-full object-cover" />
+                                    ) : (
+                                        user.displayName.charAt(0).toUpperCase()
+                                    )}
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                    <p className="font-medium text-sm truncate">
+                                        {user.displayName}
+                                        {user.id === currentUserId && (
+                                            <span className="ml-1.5 text-xs text-muted-foreground">(Bạn)</span>
+                                        )}
+                                    </p>
+                                    <p className="text-xs text-muted-foreground truncate">@{user.username}</p>
+                                </div>
+                                {vCardUser?.id === user.id && <Check size={15} className="text-brand shrink-0" />}
+                            </button>
+                        ))}
+                    </div>
+                    <DialogFooter>
+                        <Button variant="ghost" onClick={() => setShowVCardDialog(false)}>
+                            Hủy
+                        </Button>
+                        <Button
+                            disabled={!vCardUser}
+                            onClick={() => {
+                                if (vCardUser) {
+                                    onSendVCard?.(vCardUser);
+                                    setShowVCardDialog(false);
+                                    setVCardUser(null);
+                                }
+                            }}
+                        >
+                            Gửi danh thiếp
                         </Button>
                     </DialogFooter>
                 </DialogContent>

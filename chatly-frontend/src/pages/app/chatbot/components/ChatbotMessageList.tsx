@@ -60,9 +60,9 @@ export function ChatbotMessageList({ messages, onEdit, onRetry, onRetryLast }: P
     const handleCopy = async (content: string) => {
         try {
             await navigator.clipboard.writeText(content);
-            toast.success("Đã copy");
+            toast.success("Copied");
         } catch {
-            toast.error("Không thể copy");
+            toast.error("Failed to copy");
         }
     };
 
@@ -144,7 +144,7 @@ export function ChatbotMessageList({ messages, onEdit, onRetry, onRetryLast }: P
                                         onClick={onRetryLast}
                                     >
                                         <RotateCcw className="h-3 w-3" />
-                                        Thử lại
+                                        Try again
                                     </Button>
                                 </div>
                             )}
@@ -159,7 +159,7 @@ export function ChatbotMessageList({ messages, onEdit, onRetry, onRetryLast }: P
                                 )}
                             >
                                 {new Date(msg.created_at).toLocaleTimeString(
-                                    "vi-VN",
+                                    "en-US",
                                     { hour: "2-digit", minute: "2-digit" },
                                 )}
                             </p>

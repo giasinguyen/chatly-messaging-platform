@@ -69,7 +69,7 @@ export function AddMembersDialog({
                     .filter((f) => !existingSet.has(f.id));
                 setFriends(opts);
             })
-            .catch(() => toast.error("Không thể tải danh sách bạn bè"))
+            .catch(() => toast.error("Failed to load friend list"))
             .finally(() => setLoading(false));
     }, [open, currentUser?.id]);
 
@@ -108,11 +108,11 @@ export function AddMembersDialog({
                 successCount++;
             } catch {
                 const f = friends.find((x) => x.id === userId);
-                toast.error(`Không thể thêm ${f?.displayName ?? userId}`);
+                toast.error(`Failed to add ${f?.displayName ?? userId}`);
             }
         }
         if (successCount > 0) {
-            toast.success(`Đã thêm ${successCount} thành viên vào nhóm`);
+            toast.success(`Added ${successCount} members to the group`);
             onAdded?.();
         }
         setSubmitting(false);
@@ -123,7 +123,7 @@ export function AddMembersDialog({
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-md p-0 gap-0 max-h-[85vh] flex flex-col">
                 <DialogHeader className="px-5 pt-5 pb-3 shrink-0">
-                    <DialogTitle>Thêm thành viên</DialogTitle>
+                    <DialogTitle>Add Members</DialogTitle>
                 </DialogHeader>
 
                 <div className="px-5 pb-3 shrink-0">
@@ -135,7 +135,7 @@ export function AddMembersDialog({
                         <Input
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            placeholder="Nhập tên, số điện thoại..."
+                            placeholder="Enter name, phone number..."
                             className="pl-9 h-9 text-sm"
                         />
                     </div>
@@ -154,8 +154,8 @@ export function AddMembersDialog({
                             <Users size={24} className="opacity-30" />
                             <p className="text-sm">
                                 {friends.length === 0
-                                    ? "Không có bạn bè để thêm"
-                                    : "Không tìm thấy"}
+                                    ? "No friends to add"
+                                    : "Not found"}
                             </p>
                         </div>
                     ) : (
@@ -212,15 +212,15 @@ export function AddMembersDialog({
                         onClick={() => onOpenChange(false)}
                         disabled={submitting}
                     >
-                        Hủy
+                        Cancel
                     </Button>
                     <Button onClick={handleConfirm} disabled={submitting}>
                         {submitting && (
                             <Loader2 size={13} className="animate-spin mr-1" />
                         )}
                         {submitting
-                            ? "Đang thêm..."
-                            : `Xác nhận${selected.size > 0 ? ` (${selected.size})` : ""}`}
+                            ? "Adding..."
+                            : `Confirm${selected.size > 0 ? ` (${selected.size})` : ""}`}
                     </Button>
                 </DialogFooter>
             </DialogContent>

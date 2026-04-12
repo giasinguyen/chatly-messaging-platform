@@ -31,33 +31,33 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const overviewStats = [
     {
-        label: "Tổng người dùng",
-        value: "68.245",
-        delta: "+18% so với tháng trước",
+        label: "Total Users",
+        value: "68,245",
+        delta: "+18% vs last month",
         icon: Users,
         accent: "from-[#5D5FEF]/80 to-[#5D9CFF]/60",
         trend: [12, 16, 11, 19, 15, 21, 18],
     },
     {
-        label: "Đang hoạt động",
-        value: "4.981",
-        delta: "512 phiên realtime",
+        label: "Active Now",
+        value: "4,981",
+        delta: "512 real-time sessions",
         icon: Activity,
         accent: "from-[#0EC5A5]/80 to-[#5BCEFA]/70",
         trend: [8, 12, 10, 14, 17, 20, 16],
     },
     {
-        label: "Yêu cầu mới",
+        label: "New Requests",
         value: "426",
-        delta: "64 báo cáo + 21 flagged",
+        delta: "64 reports + 21 flagged",
         icon: AlertTriangle,
         accent: "from-[#FF7B54]/80 to-[#FFB347]/60",
         trend: [4, 6, 5, 7, 6, 8, 9],
     },
     {
-        label: "Tỷ lệ giữ chân",
+        label: "Retention Rate",
         value: "92%",
-        delta: "+6% trong 30 ngày",
+        delta: "+6% in 30 days",
         icon: ShieldCheck,
         accent: "from-[#6A5ACD]/80 to-[#9B6BFF]/60",
         trend: [15, 14, 17, 18, 16, 20, 21],
@@ -65,16 +65,16 @@ const overviewStats = [
 ];
 
 const newUsers = [
-    { id: "#981", name: "Minh Tran", email: "minh.tran@chatly.app", plan: "Pro", country: "VN", lastActive: "5 phút trước" },
-    { id: "#982", name: "Sara Lee", email: "sara.lee@chatly.app", plan: "Starter", country: "SG", lastActive: "12 phút trước" },
-    { id: "#983", name: "Long Pham", email: "long.pham@chatly.app", plan: "Enterprise", country: "VN", lastActive: "30 phút trước" },
-    { id: "#984", name: "Daisy Ortega", email: "daisy@chatly.app", plan: "Pro", country: "PH", lastActive: "45 phút trước" },
+    { id: "#981", name: "Minh Tran", email: "minh.tran@chatly.app", plan: "Pro", country: "VN", lastActive: "5 mins ago" },
+    { id: "#982", name: "Sara Lee", email: "sara.lee@chatly.app", plan: "Starter", country: "SG", lastActive: "12 mins ago" },
+    { id: "#983", name: "Long Pham", email: "long.pham@chatly.app", plan: "Enterprise", country: "VN", lastActive: "30 mins ago" },
+    { id: "#984", name: "Daisy Ortega", email: "daisy@chatly.app", plan: "Pro", country: "PH", lastActive: "45 mins ago" },
 ];
 
 const moderationQueue = [
-    { id: "U-1822", name: "bao.nguyen", issue: "Spam tự động", severity: "high", openedAt: "09:14" },
-    { id: "U-1827", name: "quinn.do", issue: "Báo cáo nội dung", severity: "medium", openedAt: "08:52" },
-    { id: "U-1832", name: "lucas.ng", issue: "Truy cập đa thiết bị lạ", severity: "medium", openedAt: "08:21" },
+    { id: "U-1822", name: "bao.nguyen", issue: "Automated Spam", severity: "high", openedAt: "09:14" },
+    { id: "U-1827", name: "quinn.do", issue: "Content Report", severity: "medium", openedAt: "08:52" },
+    { id: "U-1832", name: "lucas.ng", issue: "Strange multi-device access", severity: "medium", openedAt: "08:21" },
 ];
 
 const usageSplit = [
@@ -84,9 +84,9 @@ const usageSplit = [
 ];
 
 const activityTimeline = [
-    { label: "Triển khai bản vá realtime", time: "09:45", owner: "Reliability", status: "Thành công" },
-    { label: "Sync dữ liệu người dùng", time: "08:20", owner: "Data Lake", status: "Đang xử lý" },
-    { label: "Đồng bộ webhook marketing", time: "07:05", owner: "Growth", status: "Hoàn tất" },
+    { label: "Deploy real-time patch", time: "09:45", owner: "Reliability", status: "Success" },
+    { label: "Sync user data", time: "08:20", owner: "Data Lake", status: "Processing" },
+    { label: "Sync marketing webhook", time: "07:05", owner: "Growth", status: "Completed" },
 ];
 
 export default function DashboardPage() {
@@ -104,14 +104,14 @@ export default function DashboardPage() {
                     <div className="relative flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
                         <div className="max-w-xl space-y-3">
                             <Badge className="bg-white/15 text-xs font-medium uppercase tracking-widest text-white">
-                                Bảng điều khiển Admin
+                                Admin Dashboard
                             </Badge>
                             <h1 className="text-3xl font-semibold leading-tight text-white sm:text-4xl">
-                                Toàn bộ hoạt động người dùng chỉ trong một màn hình.
+                                All user activities in one view.
                             </h1>
                             <p className="text-sm text-white/70">
-                                Theo dõi realtime sessions, xử lý báo cáo và phân bổ tài nguyên hệ thống.
-                                Số liệu hiển thị dựa trên dữ liệu 24h gần nhất.
+                                Monitor real-time sessions, process reports, and allocate system resources.
+                                Metrics based on the last 24h.
                             </p>
                         </div>
                         <div className="flex flex-col gap-3 rounded-2xl border border-white/15 bg-white/5 p-4 text-sm text-white/80 backdrop-blur">
@@ -120,18 +120,18 @@ export default function DashboardPage() {
                                 <span className="font-semibold text-white">142 ms</span>
                             </div>
                             <div className="flex items-center justify-between">
-                                <span>Thông lượng socket</span>
+                                <span>Socket throughput</span>
                                 <span className="font-semibold text-white">12.4k msg/s</span>
                             </div>
                             <div className="flex items-center justify-between">
-                                <span>Phiên truy cập quản trị</span>
+                                <span>Admin sessions</span>
                                 <span className="font-semibold text-white">5</span>
                             </div>
                         </div>
                     </div>
                     <div className="mt-6 flex flex-wrap gap-3 text-xs text-white/60">
                         <Badge variant="outline" className="border-white/20 bg-white/5 text-white">
-                            Sẵn sàng xử lý sự cố 24/7
+                            24/7 Incident response ready
                         </Badge>
                         <Badge variant="outline" className="border-white/20 bg-white/5 text-white">
                             SOC2 • GDPR • PDPA
@@ -180,29 +180,29 @@ export default function DashboardPage() {
                     <Card className="border-border/60 bg-background/95">
                         <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                             <div>
-                                <CardTitle>Người dùng gần đây</CardTitle>
+                                <CardTitle>Recent Users</CardTitle>
                                 <CardDescription>
-                                    Lọc nhanh theo trạng thái, gói cước và quốc gia.
+                                    Filter by status, plan, and country.
                                 </CardDescription>
                             </div>
                             <div className="flex flex-wrap gap-2">
                                 <Button variant="outline" size="sm" className="gap-2">
                                     <Filter className="h-4 w-4" />
-                                    Bộ lọc
+                                    Filters
                                 </Button>
                                 <Button variant="outline" size="sm" className="gap-2">
                                     <Download className="h-4 w-4" />
-                                    Xuất CSV
+                                    Export CSV
                                 </Button>
                             </div>
                         </CardHeader>
                         <CardContent className="space-y-4">
                             <div className="grid grid-cols-5 gap-3 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
                                 <span>ID</span>
-                                <span>Tên</span>
-                                <span>Gói</span>
-                                <span>Quốc gia</span>
-                                <span className="text-right">Hoạt động</span>
+                                <span>Name</span>
+                                <span>Plan</span>
+                                <span>Country</span>
+                                <span className="text-right">Activity</span>
                             </div>
                             <Separator />
                             <div className="space-y-6">
@@ -229,11 +229,11 @@ export default function DashboardPage() {
                             <CardHeader className="flex items-center justify-between">
                                 <div>
                                     <CardTitle>Moderation Queue</CardTitle>
-                                    <CardDescription>{totalFlagged} case ưu tiên cao</CardDescription>
+                                    <CardDescription>{totalFlagged} high priority cases</CardDescription>
                                 </div>
                                 <Button size="sm" variant="outline" className="gap-2">
                                     <RefreshCw className="h-4 w-4" />
-                                    Làm mới
+                                    Refresh
                                 </Button>
                             </CardHeader>
                             <CardContent className="space-y-4">
@@ -253,17 +253,17 @@ export default function DashboardPage() {
                                             </Badge>
                                         </div>
                                         <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
-                                            <span>Mã: {item.id}</span>
+                                            <span>ID: {item.id}</span>
                                             <span>Opened • {item.openedAt}</span>
                                         </div>
                                         <div className="mt-3 flex gap-2">
                                             <Button size="sm" className="gap-1">
                                                 <ShieldCheck className="h-4 w-4" />
-                                                Xử lý ngay
+                                                Process now
                                             </Button>
                                             <Button size="sm" variant="ghost" className="gap-1">
                                                 <MailOpen className="h-4 w-4" />
-                                                Gửi cảnh báo
+                                                Send warning
                                             </Button>
                                         </div>
                                     </div>
@@ -273,8 +273,8 @@ export default function DashboardPage() {
 
                         <Card className="border-border/60 bg-background/95">
                             <CardHeader>
-                                <CardTitle>Phân bổ gói dịch vụ</CardTitle>
-                                <CardDescription>Biểu đồ phần trăm theo tenant</CardDescription>
+                                <CardTitle>Service Plan Allocation</CardTitle>
+                                <CardDescription>Percentage chart by tenant</CardDescription>
                             </CardHeader>
                             <CardContent className="space-y-4">
                                 <div className="rounded-2xl border border-dashed border-border/70 p-5">
@@ -301,10 +301,10 @@ export default function DashboardPage() {
                                 </div>
                                 <Separator />
                                 <div className="flex items-center justify-between text-sm text-muted-foreground">
-                                    <span>Cập nhật 5 phút trước</span>
+                                    <span>Updated 5 mins ago</span>
                                     <Button variant="ghost" size="sm" className="gap-1">
                                         <ArrowUpRight className="h-4 w-4" />
-                                        Xem chi tiết
+                                        View details
                                     </Button>
                                 </div>
                             </CardContent>
@@ -316,28 +316,28 @@ export default function DashboardPage() {
                     <Card className="border-border/60 bg-background/95">
                         <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                             <div>
-                                <CardTitle>Quản lý người dùng</CardTitle>
+                                <CardTitle>User Management</CardTitle>
                                 <CardDescription>
-                                    Tabs thể hiện các trạng thái chính để thao tác nhanh.
+                                    Tabs for main status actions.
                                 </CardDescription>
                             </div>
                             <div className="flex gap-2">
                                 <Button size="sm" className="gap-2">
                                     <UserPlus className="h-4 w-4" />
-                                    Thêm người dùng
+                                    Add User
                                 </Button>
                                 <Button variant="outline" size="sm" className="gap-2">
                                     <Download className="h-4 w-4" />
-                                    Xuất báo cáo
+                                    Export Report
                                 </Button>
                             </div>
                         </CardHeader>
                         <CardContent>
                             <Tabs defaultValue="active">
                                 <TabsList>
-                                    <TabsTrigger value="active">Đang hoạt động</TabsTrigger>
-                                    <TabsTrigger value="pending">Chờ duyệt</TabsTrigger>
-                                    <TabsTrigger value="flagged">Cần xem xét</TabsTrigger>
+                                    <TabsTrigger value="active">Active</TabsTrigger>
+                                    <TabsTrigger value="pending">Pending</TabsTrigger>
+                                    <TabsTrigger value="flagged">Needs Review</TabsTrigger>
                                 </TabsList>
                                 <TabsContent value="active" className="mt-5 space-y-4">
                                     {newUsers.slice(0, 3).map((user) => (
@@ -366,7 +366,7 @@ export default function DashboardPage() {
                                                 </Badge>
                                                 <Button size="sm" variant="ghost" className="gap-1">
                                                     <MailOpen className="h-4 w-4" />
-                                                    Nhắn tin
+                                                    Message
                                                 </Button>
                                             </div>
                                         </div>
@@ -376,12 +376,12 @@ export default function DashboardPage() {
                                     {Array.from({ length: 2 }).map((_, idx) => (
                                         <div key={`pending-${idx}`} className="rounded-2xl border border-dashed border-border/60 p-4">
                                             <p className="text-sm font-medium text-muted-foreground">
-                                                #{203 + idx} • Đơn đăng ký chờ duyệt
+                                                #{203 + idx} • Pending application
                                             </p>
                                             <div className="mt-3 flex gap-2">
-                                                <Button size="sm">Phê duyệt</Button>
+                                                <Button size="sm">Approve</Button>
                                                 <Button size="sm" variant="ghost">
-                                                    Từ chối
+                                                    Reject
                                                 </Button>
                                             </div>
                                         </div>
@@ -395,10 +395,10 @@ export default function DashboardPage() {
                                             <div className="mt-3 flex gap-2">
                                                 <Button size="sm" className="gap-1">
                                                     <ShieldCheck className="h-4 w-4" />
-                                                    Giải quyết
+                                                    Resolve
                                                 </Button>
                                                 <Button size="sm" variant="ghost">
-                                                    Chuyển đội Trust & Safety
+                                                    Forward to Trust & Safety
                                                 </Button>
                                             </div>
                                         </div>
@@ -411,10 +411,10 @@ export default function DashboardPage() {
                     <Card className="border-border/60 bg-background/95">
                         <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                             <div>
-                                <CardTitle>Hoạt động hệ thống</CardTitle>
-                                <CardDescription>Nhật ký triển khai & lưu lượng realtime.</CardDescription>
+                                <CardTitle>System Activity</CardTitle>
+                                <CardDescription>Deployment logs & real-time traffic.</CardDescription>
                             </div>
-                            <Input placeholder="Tìm kiếm..." className="h-9 max-w-xs" />
+                            <Input placeholder="Search..." className="h-9 max-w-xs" />
                         </CardHeader>
                         <CardContent className="space-y-5">
                             {activityTimeline.map((activity) => (
@@ -428,7 +428,7 @@ export default function DashboardPage() {
                                         <Badge variant="outline" className="border-brand/40 text-brand">
                                             {activity.status}
                                         </Badge>
-                                        <span className="text-muted-foreground">Được tự động hoá bởi ChatOps</span>
+                                        <span className="text-muted-foreground">Automated by ChatOps</span>
                                     </div>
                                 </div>
                             ))}

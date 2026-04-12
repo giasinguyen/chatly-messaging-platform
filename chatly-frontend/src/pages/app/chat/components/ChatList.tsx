@@ -69,22 +69,22 @@ function formatZaloTime(dateString: string) {
     const now = new Date();
     const diffMs = now.getTime() - date.getTime();
 
-    // Tính số ngày chênh lệch dựa theo ngày hiện tại chứ không phải 24h
-    // Để "ngày hôm qua" là kể cả cách 1 tiếng nhưng qua 0h
-    // Nhưng đơn giản hơn:
+    // Calculate day difference based on current date, not 24h interval
+    // So "Yesterday" works even if it's only 1 hour ago but past midnight
+    // But simpler:
     const diffMins = Math.floor(diffMs / (1000 * 60));
     const diffHours = Math.floor(diffMins / 60);
     const diffDays = Math.floor(diffHours / 24);
 
     if (diffMins < 60) {
-        if (diffMins <= 0) return "Vừa xong";
-        return `${diffMins} phút`;
+        if (diffMins <= 0) return "Just now";
+        return `${diffMins} min`;
     }
     if (diffHours < 24) {
-        return `${diffHours} giờ`;
+        return `${diffHours} hour`;
     }
     if (diffDays < 7) {
-        return `${diffDays} ngày`;
+        return `${diffDays} day`;
     }
 
     const day = date.getDate().toString().padStart(2, "0");
@@ -129,7 +129,7 @@ export const ChatList = forwardRef(function ChatListComponent(_, ref) {
         const fetchData = async () => {
             try {
                 setLoading(true);
-                // Fetch conversations và users song song
+                // Fetch conversations and users in parallel
                 const [convsRes, usersRes] = await Promise.all([
                     conversationService.getMyConversations(),
                     userService.getAll(),
@@ -137,7 +137,7 @@ export const ChatList = forwardRef(function ChatListComponent(_, ref) {
                 setConversations(convsRes.result ?? []);
                 setUsers(usersRes.result ?? []);
             } catch (err) {
-                console.error("Lỗi load conversation list:", err);
+                console.error("Error loading conversation list:", err);
             } finally {
                 setLoading(false);
             }
@@ -261,7 +261,7 @@ export const ChatList = forwardRef(function ChatListComponent(_, ref) {
                 }
             } catch (error) {
                 console.error(
-                    "Không thể subscribe realtime conversations:",
+                    "Cannot subscribe to real-time conversations:",
                     error,
                 );
             }
@@ -313,10 +313,10 @@ export const ChatList = forwardRef(function ChatListComponent(_, ref) {
         try {
             await conversationService.delete(id);
             setConversations((prev) => prev.filter((c) => c.id !== id));
-            toast.success("Đã xoá hội thoại");
+            toast.success("Conversation deleted");
         } catch (error) {
             console.error("Delete conversation error:", error);
-            toast.error("Không thể xoá hội thoại. Vui lòng thử lại.");
+            toast.error("Could not delete conversation. Please try again.");
         }
     };
 
@@ -352,21 +352,21 @@ export const ChatList = forwardRef(function ChatListComponent(_, ref) {
                         onClick={() => {
                             const pinnedCount = Object.values(convPrefs).filter((p) => p.isPinned).length;
                             if (!isPinned && pinnedCount >= 5) {
-                                toast.warning("Chỉ có thể ghim tối đa 5 hội thoại");
+                                toast.warning("You can only pin up to 5 conversations");
                                 return;
                             }
                             storeSetPin(conv.id, !isPinned);
-                            toast.success(isPinned ? "Đã bỏ ghim hội thoại" : "Đã ghim hội thoại");
+                            toast.success(isPinned ? "Conversation unpinned" : "Conversation pinned");
                         }}
                     >
                         <Pin className="mr-2 h-4 w-4" />
-                        <span>{isPinned ? "Bỏ ghim" : "Ghim"}</span>
+                        <span>{isPinned ? "Unpin" : "Pin"}</span>
                     </Item>
 
                     <Sub>
                         <SubTrigger>
                             <Tags className="mr-2 h-4 w-4" />
-                            <span>Phân loại</span>
+                            <span>Category</span>
                         </SubTrigger>
                         <SubContent className="w-48">
                             {(Object.entries(CATEGORY_META) as [ConversationCategory, { label: string; color: string }][]).map(
@@ -396,18 +396,18 @@ export const ChatList = forwardRef(function ChatListComponent(_, ref) {
                     <Item
                         onClick={() => {
                             storeSetMute(conv.id, !isMuted);
-                            toast.success(isMuted ? "Đã bật thông báo" : "Đã tắt thông báo");
+                            toast.success(isMuted ? "Notifications turned on" : "Notifications silenced");
                         }}
                     >
                         <BellOff className="mr-2 h-4 w-4" />
-                        <span>{isMuted ? "Bật thông báo" : "Tắt thông báo"}</span>
+                        <span>{isMuted ? "Turn on notifications" : "Silence notifications"}</span>
                     </Item>
 
                     <Separator />
 
                     <Item disabled>
                         <Flag className="mr-2 h-4 w-4" />
-                        <span>Báo xấu</span>
+                        <span>Report</span>
                     </Item>
 
                     <Item
@@ -418,7 +418,7 @@ export const ChatList = forwardRef(function ChatListComponent(_, ref) {
                         }}
                     >
                         <Trash2 className="mr-2 h-4 w-4" />
-                        <span>Xoá hội thoại</span>
+                        <span>Delete conversation</span>
                     </Item>
                 </>
             );
@@ -509,11 +509,11 @@ export const ChatList = forwardRef(function ChatListComponent(_, ref) {
                                             <>
                                                 {conv.lastMessage.senderId ===
                                                     currentUser?.id && (
-                                                    <span>Bạn: </span>
+                                                    <span>You: </span>
                                                 )}
                                                 {conv.lastMessage.type ===
                                                 "IMAGE"
-                                                    ? "📷 Hình ảnh"
+                                                    ? "📷 Photo"
                                                     : conv.lastMessage.type ===
                                                         "FILE"
                                                       ? "📎 File"
@@ -529,7 +529,7 @@ export const ChatList = forwardRef(function ChatListComponent(_, ref) {
                                                               .content}
                                             </>
                                         ) : (
-                                            "Chưa có tin nhắn"
+                                            "No messages yet"
                                         )}
                                     </span>
                                     {unreadCount > 0 && (
@@ -547,7 +547,7 @@ export const ChatList = forwardRef(function ChatListComponent(_, ref) {
                                 <button
                                     className="absolute right-3 top-1/2 -translate-y-1/2 h-7 w-7 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 hover:bg-muted/60 transition-opacity focus:outline-none focus:opacity-100"
                                     onClick={(e) => e.preventDefault()}
-                                    title="Tuỳ chọn"
+                                    title="Options"
                                 >
                                     <MoreHorizontal size={15} />
                                 </button>
@@ -575,14 +575,14 @@ export const ChatList = forwardRef(function ChatListComponent(_, ref) {
                         variant="ghost"
                         size="icon"
                         className="md:hidden h-8 w-8 rounded-full shrink-0 -ml-2"
-                        title="Mở menu"
+                        title="Open menu"
                     >
                         <Menu size={18} />
                     </Button>
                     <div className="relative flex-1">
                         <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                         <Input
-                            placeholder="Tìm kiếm"
+                            placeholder="Search"
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                             className="h-8 pl-8 bg-muted/30 border-border/40 focus-visible:ring-1 focus-visible:ring-brand focus-visible:border-brand rounded-full text-sm"
@@ -603,7 +603,7 @@ export const ChatList = forwardRef(function ChatListComponent(_, ref) {
                             variant="ghost"
                             size="icon"
                             className="h-8 w-8 rounded-full"
-                            title="Tạo nhóm chat"
+                            title="Create Group"
                         >
                             <UsersRound size={16} />
                         </Button>
@@ -626,10 +626,10 @@ export const ChatList = forwardRef(function ChatListComponent(_, ref) {
                                         />
                                     </div>
                                     <p className="text-[14px] font-medium text-foreground/70">
-                                        Chưa có cuộc trò chuyện nào
+                                        No conversations yet
                                     </p>
                                     <p className="text-[12px] text-center max-w-[200px] text-muted-foreground/80">
-                                        Hãy tìm kiếm hoặc tạo nhóm để bắt đầu nhắn tin nhé.
+                                        Search for friends or create a group to start chatting.
                                     </p>
                                 </div>
                             ) : (

@@ -1,6 +1,3 @@
-/**
- * Format a date string or timestamp to relative time (e.g., "2 phút trước")
- */
 export function formatRelativeTime(dateStr: string): string {
   const date = new Date(dateStr);
   const now = new Date();
@@ -9,12 +6,12 @@ export function formatRelativeTime(dateStr: string): string {
   const diffHr = Math.floor(diffMs / 3600000);
   const diffDay = Math.floor(diffMs / 86400000);
 
-  if (diffMin < 1) return 'Vừa xong';
-  if (diffMin < 60) return `${diffMin} phút`;
-  if (diffHr < 24) return `${diffHr} giờ`;
-  if (diffDay < 7) return `${diffDay} ngày`;
+  if (diffMin < 1) return 'Just now';
+  if (diffMin < 60) return `${diffMin}m`;
+  if (diffHr < 24) return `${diffHr}h`;
+  if (diffDay < 7) return `${diffDay}d`;
 
-  return date.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' });
+  return date.toLocaleDateString('en-US', { day: '2-digit', month: '2-digit' });
 }
 
 /**
@@ -22,11 +19,11 @@ export function formatRelativeTime(dateStr: string): string {
  */
 export function formatMessageTime(dateStr: string): string {
   const date = new Date(dateStr);
-  return date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+  return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
 }
 
 /**
- * Format date separator (Hôm nay, Hôm qua, or dd/MM/yyyy)
+ * Format date separator (Today, Yesterday, or dd/MM/yyyy)
  */
 export function formatDateSeparator(dateStr: string): string {
   const date = new Date(dateStr);
@@ -44,10 +41,10 @@ export function formatDateSeparator(dateStr: string): string {
     date.getMonth() === yesterday.getMonth() &&
     date.getFullYear() === yesterday.getFullYear();
 
-  if (isToday) return 'Hôm nay';
-  if (isYesterday) return 'Hôm qua';
+  if (isToday) return 'Today';
+  if (isYesterday) return 'Yesterday';
 
-  return date.toLocaleDateString('vi-VN', {
+  return date.toLocaleDateString('en-US', {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',

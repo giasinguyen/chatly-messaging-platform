@@ -61,7 +61,7 @@ export function ChatbotWindow({ sessionId, sidebarCollapsed, onToggleSidebar }: 
                     }
                 }
             } catch {
-                toast.error("Không thể tải lịch sử chat");
+                toast.error("Failed to load chat history");
             }
         };
 

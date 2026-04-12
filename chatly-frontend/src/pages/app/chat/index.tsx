@@ -17,16 +17,16 @@ export default function ChatPage() {
     return (
         <div className="flex h-full w-full overflow-hidden bg-background">
             {/* 
-              Chế độ Mobile (<768px): Chỉ hiển thị ChatList nếu CHƯA chọn id.
-              Chế độ PC (md: Flex): Luôn hiện thẻ aside này với chiều rộng auto/360px.
+              Mobile Mode (<768px): Only show ChatList if NO id is selected.
+              PC Mode (md: Flex): Always show this aside tag with auto/360px width.
             */}
             <div className={cn("h-full shrink-0", id ? "hidden md:flex" : "w-full md:w-auto flex")}>
                 <ChatList ref={chatListRef} />
             </div>
 
             {/* 
-              Chế độ Mobile (<768px): Chỉ hiển thị ChatWindow nếu ĐÃ có id.
-              Chế độ PC (md: Flex): Luôn hiện.
+              Mobile Mode (<768px): Only show ChatWindow if ALREADY have id.
+              PC Mode (md: Flex): Always show.
             */}
             <div className={cn("flex-1 flex col min-w-0 h-full", !id ? "hidden md:flex" : "flex")}>
                 {id ? <ChatWindow id={id} onConversationUpdated={handleConversationUpdated} /> : <WelcomeState />}

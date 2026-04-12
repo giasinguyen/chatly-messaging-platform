@@ -73,7 +73,7 @@ export function MessageSearch({ conversationId, onClose, onNavigateToMessage, on
         autoFocus
         value={keyword}
         onChangeText={handleChange}
-        placeholder="Tìm kiếm tin nhắn..."
+        placeholder="Search messages..."
         placeholderTextColor={Colors.textLight}
         className="mx-2 flex-1 text-sm"
         style={{ color: Colors.text, height: 34 }}
@@ -86,7 +86,7 @@ export function MessageSearch({ conversationId, onClose, onNavigateToMessage, on
       )}
       {searched && !loading && results.length === 0 && keyword.trim() !== '' && (
         <Text className="mr-2 text-xs" style={{ color: Colors.textMuted }}>
-          Không tìm thấy
+          No results
         </Text>
       )}
       <TouchableOpacity onPress={navigatePrev} disabled={results.length === 0} className="p-1">

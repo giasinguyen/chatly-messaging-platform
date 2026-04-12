@@ -104,11 +104,11 @@ export function McpPickerModal({ visible, onClose }: Props) {
         >
           <View>
             <Text className="text-lg font-bold" style={{ color: Colors.text }}>
-              Chọn MCP Servers
+              Select MCP Servers
             </Text>
             {selectedMcpIds.length > 0 && (
               <Text className="text-xs" style={{ color: Colors.cta }}>
-                Đã chọn {selectedMcpIds.length} server
+                Selected {selectedMcpIds.length} servers
               </Text>
             )}
           </View>
@@ -116,13 +116,13 @@ export function McpPickerModal({ visible, onClose }: Props) {
             {selectedMcpIds.length > 0 && (
               <TouchableOpacity onPress={clearAll}>
                 <Text className="text-sm font-medium" style={{ color: Colors.error }}>
-                  Bỏ chọn
+                  Clear all
                 </Text>
               </TouchableOpacity>
             )}
             <TouchableOpacity onPress={onClose}>
               <Text className="text-sm font-semibold" style={{ color: Colors.cta }}>
-                Xong
+                Done
               </Text>
             </TouchableOpacity>
           </View>
@@ -143,8 +143,8 @@ export function McpPickerModal({ visible, onClose }: Props) {
               <View className="flex-1 items-center justify-center py-20">
                 <Ionicons name="hardware-chip-outline" size={48} color={Colors.textLight} />
                 <Text className="text-sm mt-3 text-center px-8" style={{ color: Colors.textMuted }}>
-                  Không có MCP server nào đang hoạt động.{'\n'}
-                  Thêm server trong phần cài đặt MCP.
+                  No active MCP servers found.{'\n'}
+                  Add servers in MCP settings.
                 </Text>
               </View>
             }

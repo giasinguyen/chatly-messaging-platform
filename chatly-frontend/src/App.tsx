@@ -12,8 +12,8 @@ import axios, { isAxiosError } from "axios";
 
 /**
  * SESSION BOOTSTRAP
- * Thành phần đảm bảo đồng bộ thông tin User từ backend khi ứng dụng khởi chạy
- * nếu đã có token (isAuthenticated = true).
+ * Component to sync user info from backend on app startup
+ * if already has token (isAuthenticated = true).
  */
 /** Error codes that mean the user no longer exists / session is dead */
 const FATAL_BUSINESS_CODES = new Set([1100, 1006, 1001]);
@@ -41,29 +41,29 @@ function SessionBootstrap() {
                     // ✅ Happy path: user exists, update store
                     updateUser(response.result);
                 } else if (FATAL_BUSINESS_CODES.has(response.code)) {
-                    // ⚠️ Backend trả HTTP 200 nhưng business code báo lỗi nghiêm trọng
+                    // Backend returns HTTP 200 but context code indicates a critical error
                     console.warn("[SessionBootstrap] Fatal business code", response.code);
                     clearAuth();
-                    toast.error("Tài khoản không tồn tại hoặc đã bị xóa. Vui lòng đăng nhập lại.");
+                    toast.error("Account does not exist or has been deleted. Please log in again.");
                 }
             } catch (error) {
                 if (isAxiosError(error)) {
                     const status = error.response?.status;
 
                     if (status && FATAL_HTTP_STATUSES.has(status)) {
-                        // ❌ Backend drop DB / xóa user → /me trả 404 → token vô nghĩa
-                        // Phải xóa hết token và đẩy về trang login
+                        // Backend dropped DB or deleted user → /me returns 404 → token is invalid.
+                        // Must clear tokens and redirect to login.
                         console.warn(
                             `[SessionBootstrap] /me returned HTTP ${status} – user no longer exists. Forcing logout.`,
                         );
                         clearAuth();
                         toast.error(
-                            "Tài khoản không tồn tại hoặc đã bị xóa. Vui lòng đăng nhập lại.",
+                            "Account does not exist or has been deleted. Please log in again.",
                         );
                         return;
                     }
                 }
-                // Lỗi khác (network timeout, 500...) → không logout, có thể server đang restart
+                // Other errors (network timeout, 500...) → do not logout, server might be restarting.
                 console.error("[SessionBootstrap] Session sync failed (non-fatal):", error);
             }
         };
@@ -76,7 +76,7 @@ function SessionBootstrap() {
 
 /**
  * GLOBAL BOOT
- * Kiểm tra HealthCheck và Introspect Token trước khi load Router
+ * Check Health and Introspect Token before loading Router
  */
 function GlobalBoot({ children }: { children: React.ReactNode }) {
     const [status, setStatus] = useState<"checking" | "maintenance" | "ready">("checking");
@@ -100,7 +100,7 @@ function GlobalBoot({ children }: { children: React.ReactNode }) {
                             localStorage.removeItem("refresh_token");
                         }
                     } catch (introspectErr) {
-                         // Nếu introspect lỗi (ví dụ không authorized, API lỗi...)
+                         // If introspect fails (e.g., unauthorized, API error...)
                          console.error("Introspect failed:", introspectErr);
                     }
                 }
@@ -114,7 +114,7 @@ function GlobalBoot({ children }: { children: React.ReactNode }) {
 
         boot();
         
-        // Cài đặt check định kỳ introspect mỗi phút
+        // Setup periodic introspect check every minute
         const interval = setInterval(async () => {
              const token = localStorage.getItem("access_token");
              if (token) {
@@ -125,7 +125,7 @@ function GlobalBoot({ children }: { children: React.ReactNode }) {
                          clearAuth();
                          localStorage.removeItem("access_token");
                          localStorage.removeItem("refresh_token");
-                         toast.error("Phiên làm việc đã hết hạn. Vui lòng đăng nhập lại.");
+                          toast.error("Session expired. Please log in again.");
                      }
                  } catch (err) {
                      // ignore
@@ -140,7 +140,7 @@ function GlobalBoot({ children }: { children: React.ReactNode }) {
         return (
             <div className="min-h-screen flex flex-col items-center justify-center bg-background">
                 <Loader2 className="h-8 w-8 animate-spin text-brand mb-4" />
-                <p className="text-muted-foreground">Đang kết nối đến hệ thống...</p>
+                <p className="text-muted-foreground">Connecting to system...</p>
             </div>
         );
     }
@@ -152,16 +152,16 @@ function GlobalBoot({ children }: { children: React.ReactNode }) {
                     <AlertTriangle className="h-10 w-10 text-destructive" />
                 </div>
                 <div className="space-y-2">
-                    <h1 className="text-2xl font-bold text-foreground">Hệ thống đang bảo trì</h1>
+                    <h1 className="text-2xl font-bold text-foreground">System under maintenance</h1>
                     <p className="text-muted-foreground text-sm max-w-xs">
-                        Máy chủ Chatly hiện tại đang khởi động hoặc tạm thời không thể truy cập. Vui lòng thử lại sau ít phút.
+                        Chatly server is currently starting or temporarily inaccessible. Please try again in a few minutes.
                     </p>
                 </div>
                 <button 
                   onClick={() => window.location.reload()} 
                   className="mt-4 px-4 py-2 bg-brand text-white rounded-md hover:bg-brand/90 transition-colors"
                 >
-                    Thử lại
+                    Retry
                 </button>
             </div>
         );
@@ -171,7 +171,7 @@ function GlobalBoot({ children }: { children: React.ReactNode }) {
 }
 
 /**
- * Chứa logic khởi tạo Interceptor và Router.
+ * Contains Interceptor and Router initialization logic.
  */
 function AppInit() {
     const setAuth = useAuthStore((s) => s.setAuth);
@@ -188,7 +188,7 @@ function AppInit() {
             onLogout: () => {
                 clearAuth();
                 toast.error(
-                    "Phiên làm việc đã hết hạn. Vui lòng đăng nhập lại.",
+                    "Session expired. Please log in again.",
                 );
                 console.log("Global Auth: Session expired.");
             },

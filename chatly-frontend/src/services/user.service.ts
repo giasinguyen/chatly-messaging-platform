@@ -8,11 +8,11 @@ import type {
 
 /**
  * USER SERVICE
- * Chứa các API liên quan đến thông tin người dùng: profile, update...
+ * Contains APIs related to user information: profile, update...
  */
 export const userService = {
     /**
-     * Lấy thông tin người dùng hiện tại từ session/token
+     * Get current user information from session/token
      */
     getMe: async (): Promise<ApiResponse<UserResponse>> => {
         const response =
@@ -21,7 +21,7 @@ export const userService = {
     },
 
     /**
-     * Danh sách tất cả người dùng
+     * List of all users
      */
     getAll: async (): Promise<ApiResponse<UserResponse[]>> => {
         const response =
@@ -30,7 +30,7 @@ export const userService = {
     },
 
     /**
-     * Tìm kiếm người dùng theo từ khóa (displayName, username, email, phone)
+     * Search for users by keyword (displayName, username, email, phone)
      */
     search: async (
         q: string,
@@ -46,7 +46,7 @@ export const userService = {
     },
 
     /**
-     * Cập nhật thông tin người dùng
+     * Update user information
      */
     update: async (
         id: string,

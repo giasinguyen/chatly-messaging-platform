@@ -131,7 +131,7 @@ export default function AssistantScreen() {
           sid = newSession.id;
           setActiveSessionId(sid);
         } catch {
-          Alert.alert('Lỗi', 'Không thể tạo cuộc trò chuyện mới');
+          Alert.alert('Error', 'Could not create new conversation');
           return;
         }
       }
@@ -195,10 +195,10 @@ export default function AssistantScreen() {
   };
 
   const handleDeleteSession = (sessionId: string, sessionTitle: string) => {
-    Alert.alert('Xóa cuộc trò chuyện?', `"${sessionTitle}" sẽ bị xóa vĩnh viễn.`, [
-      { text: 'Hủy', style: 'cancel' },
+    Alert.alert('Delete conversation?', `"${sessionTitle}" will be permanently deleted.`, [
+      { text: 'Cancel', style: 'cancel' },
       {
-        text: 'Xóa',
+        text: 'Delete',
         style: 'destructive',
         onPress: async () => {
           try {
@@ -209,7 +209,7 @@ export default function AssistantScreen() {
               resetStreaming();
             }
           } catch {
-            Alert.alert('Lỗi', 'Không thể xóa');
+            Alert.alert('Error', 'Could not delete');
           }
         },
       },
@@ -219,18 +219,18 @@ export default function AssistantScreen() {
   const handleLongPressSession = (s: AgentSession) => {
     Alert.alert(s.title, undefined, [
       {
-        text: 'Đổi tên',
+        text: 'Rename',
         onPress: () => {
           setEditingId(s.id);
           setEditTitle(s.title);
         },
       },
       {
-        text: 'Xóa',
+        text: 'Delete',
         style: 'destructive',
         onPress: () => handleDeleteSession(s.id, s.title),
       },
-      { text: 'Hủy', style: 'cancel' },
+      { text: 'Cancel', style: 'cancel' },
     ]);
   };
 
@@ -243,7 +243,7 @@ export default function AssistantScreen() {
       await agentService.renameSession(editingId, editTitle.trim());
       renameSession(editingId, editTitle.trim());
     } catch {
-      Alert.alert('Lỗi', 'Không thể đổi tên');
+      Alert.alert('Error', 'Could not rename');
     } finally {
       setEditingId(null);
     }
@@ -444,8 +444,8 @@ export default function AssistantScreen() {
                 Chatly AI Assistant
               </Text>
               <Text className="text-sm text-center mt-2.5 leading-5 max-w-xs" style={{ color: Colors.textMuted }}>
-                Nhập câu hỏi để bắt đầu trò chuyện với AI.{'\n'}
-                Bạn có thể upload tài liệu, tìm kiếm web và sử dụng MCP tools.
+                Enter a question to start chatting with AI.{'\n'}
+                You can upload documents, search the web and use MCP tools.
               </Text>
             </View>
           )}
@@ -474,7 +474,7 @@ export default function AssistantScreen() {
             style={{ backgroundColor: Colors.white, borderBottomWidth: 0.5, borderBottomColor: Colors.borderLight }}
           >
             <Text className="text-lg font-bold" style={{ color: Colors.text }}>
-              Lịch sử trò chuyện
+              Chat History
             </Text>
             <TouchableOpacity onPress={() => setShowSessions(false)} className="p-1">
               <Ionicons name="close" size={24} color={Colors.textMuted} />
@@ -494,7 +494,7 @@ export default function AssistantScreen() {
               <View className="flex-1 items-center justify-center py-20">
                 <Ionicons name="chatbubbles-outline" size={48} color={Colors.textLight} />
                 <Text className="text-sm mt-3" style={{ color: Colors.textMuted }}>
-                  Chưa có cuộc trò chuyện nào
+                  No conversations yet
                 </Text>
               </View>
             }

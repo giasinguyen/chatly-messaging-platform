@@ -20,6 +20,8 @@ import * as ImagePicker from 'expo-image-picker';
 
 import * as Clipboard from 'expo-clipboard';
 
+import { ImageLightbox } from '@/components/ui/ImageLightbox';
+
 import { groupService } from '@/services/group.service';
 import { contactService } from '@/services/contact.service';
 import { fileService, type FileUploadResponse } from '@/services/file.service';
@@ -54,8 +56,8 @@ export default function GroupInfoScreen() {
   const muteUntilLabel = !isEffMuted
     ? ''
     : muteUntil == null
-    ? 'Cho đến khi bật lại'
-    : `Đến ${new Date(muteUntil).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}`;
+    ? 'Until turned back on'
+    : `Until ${new Date(muteUntil).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}`;
 
   useEffect(() => { hydrate(); }, []);
 
@@ -76,6 +78,16 @@ export default function GroupInfoScreen() {
   // Media & files
   const [mediaFiles, setMediaFiles] = useState<FileUploadResponse[]>([]);
   const [docFiles, setDocFiles] = useState<FileUploadResponse[]>([]);
+
+  // Lightbox
+  const [lightboxVisible, setLightboxVisible] = useState(false);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
+  const mediaImageUrls = mediaFiles.slice(0, 4).map((f) => f.url);
+
+  const openMediaLightbox = (idx: number) => {
+    setLightboxIndex(idx);
+    setLightboxVisible(true);
+  };
 
   // Invite link
   const [inviteLink, setInviteLink] = useState<string | null>(null);
@@ -145,17 +157,17 @@ export default function GroupInfoScreen() {
 
   const handleChangeName = () => {
     if (!canManage) return;
-    Alert.prompt('Đổi tên nhóm', 'Nhập tên mới', [
-      { text: 'Hủy', style: 'cancel' },
+    Alert.prompt('Change Group Name', 'Enter new name', [
+      { text: 'Cancel', style: 'cancel' },
       {
-        text: 'Lưu',
+        text: 'Save',
         onPress: async (newName?: string) => {
           if (!newName || !newName.trim()) return;
           try {
             const res = await groupService.updateGroup(conversationId, { name: newName.trim() });
             setConversations(conversations.map((c) => (c.id === conversationId ? res.result : c)));
           } catch (e: any) {
-            Alert.alert('Lỗi', e?.response?.data?.message || 'Không thể đổi tên.');
+            Alert.alert('Error', e?.response?.data?.message || 'Could not change name.');
           }
         },
       },
@@ -167,7 +179,7 @@ export default function GroupInfoScreen() {
     try {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert('Lỗi', 'Cần cấp quyền truy cập thư viện ảnh.');
+        Alert.alert('Error', 'Need gallery access permission.');
         return;
       }
       const result = await ImagePicker.launchImageLibraryAsync({
@@ -191,7 +203,7 @@ export default function GroupInfoScreen() {
       }
     } catch (error) {
       console.error(error);
-      Alert.alert('Lỗi', 'Có lỗi xảy ra khi đổi ảnh đại diện.');
+      Alert.alert('Error', 'Error changing avatar.');
     }
   };
 
@@ -201,24 +213,24 @@ export default function GroupInfoScreen() {
     const options = [];
     if (canManage && member.role !== 'OWNER') {
       options.push({
-        text: 'Xóa khỏi nhóm',
+        text: 'Remove from group',
         style: 'destructive' as const,
         onPress: () => {
           Alert.alert(
-            'Xác nhận xóa',
-            `Bạn có chắc muốn xóa ${member.displayName} khỏi nhóm?`,
+            'Confirm Removal',
+            `Are you sure you want to remove ${member.displayName} from the group?`,
             [
-              { text: 'Hủy', style: 'cancel' },
+              { text: 'Cancel', style: 'cancel' },
               {
-                text: 'Xóa',
+                text: 'Remove',
                 style: 'destructive',
                 onPress: async () => {
                   try {
                     await groupService.removeMember(conversationId, member.userId);
                     setMembers((prev) => prev.filter((m) => m.userId !== member.userId));
-                    Alert.alert('Thành công', 'Đã xóa khỏi nhóm.');
+                    Alert.alert('Success', 'Removed from group.');
                   } catch (e: any) {
-                    Alert.alert('Lỗi', e?.response?.data?.message || 'Không thể xóa thành viên.');
+                    Alert.alert('Error', e?.response?.data?.message || 'Could not remove member.');
                   }
                 },
               },
@@ -231,38 +243,38 @@ export default function GroupInfoScreen() {
     if (currentUserRole === 'OWNER' && member.role !== 'OWNER') {
       const newRole = member.role === 'ADMIN' ? 'MEMBER' : 'ADMIN';
       options.push({
-        text: newRole === 'ADMIN' ? 'Chỉ định làm Quản trị viên' : 'Hủy Quản trị viên',
+        text: newRole === 'ADMIN' ? 'Make Admin' : 'Dismiss Admin',
         onPress: async () => {
           try {
             await groupService.updateRole(conversationId, member.userId, { role: newRole as GroupRole });
             setMembers((prev) => prev.map((m) => (m.userId === member.userId ? { ...m, role: newRole as GroupRole } : m)));
-            Alert.alert('Thành công', 'Đã cập nhật quyền.');
+            Alert.alert('Success', 'Privileges updated.');
           } catch (e: any) {
-            Alert.alert('Lỗi', e?.response?.data?.message || 'Không cập nhật được quyền.');
+            Alert.alert('Error', e?.response?.data?.message || 'Could not update privileges.');
           }
         },
       });
     }
 
-    options.push({ text: 'Hủy', style: 'cancel' as const });
+    options.push({ text: 'Cancel', style: 'cancel' as const });
 
     if (options.length > 1) {
-      Alert.alert(member.displayName, 'Chọn hành động', options);
+      Alert.alert(member.displayName, 'Select action', options);
     }
   };
 
   const handleLeaveGroup = () => {
-    Alert.alert('Rời nhóm', 'Bạn có chắc muốn rời khỏi nhóm này không?', [
-      { text: 'Hủy', style: 'cancel' },
+    Alert.alert('Leave Group', 'Are you sure you want to leave this group?', [
+      { text: 'Cancel', style: 'cancel' },
       {
-        text: 'Rời nhóm',
+        text: 'Leave Group',
         style: 'destructive',
         onPress: async () => {
           try {
             await groupService.removeMember(conversationId, user?.id || '');
             router.dismissAll();
           } catch (e: any) {
-            Alert.alert('Lỗi', e?.response?.data?.message || 'Không thể rời nhóm.');
+            Alert.alert('Error', e?.response?.data?.message || 'Could not leave group.');
           }
         },
       },
@@ -276,12 +288,12 @@ export default function GroupInfoScreen() {
 
   const handleSetNickname = () => {
     Alert.prompt(
-      'Đặt biệt danh',
-      `Biệt danh cho ${otherUser?.displayName ?? 'người dùng này'}`,
+      'Set Nickname',
+      `Nickname for ${otherUser?.displayName ?? 'this user'}`,
       [
-        { text: 'Hủy', style: 'cancel' },
+        { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Lưu',
+          text: 'Save',
           onPress: (value?: string) => {
             setNickname(conversationId, (value ?? '').trim());
           },
@@ -302,9 +314,9 @@ export default function GroupInfoScreen() {
       const res = await groupService.addMember(conversationId, { userId: contactUser.id });
       setMembers((prev) => [...prev, res.result]);
       setAddModalVisible(false);
-      Alert.alert('Thành công', 'Đã thêm thành viên mới.');
+      Alert.alert('Success', 'New member added.');
     } catch (e: any) {
-      Alert.alert('Lỗi', e?.response?.data?.message || 'Không thể thêm thành viên.');
+      Alert.alert('Error', e?.response?.data?.message || 'Could not add member.');
     } finally {
       setAddingMember(false);
     }
@@ -325,7 +337,7 @@ export default function GroupInfoScreen() {
     if (!inviteLink) return;
     const fullLink = `chatly://join/${inviteLink}`;
     await Clipboard.setStringAsync(fullLink);
-    Alert.alert('Đã sao chép', 'Link mời đã được sao chép.');
+    Alert.alert('Copied', 'Invite link copied to clipboard.');
   };
 
   const handleResetInviteLink = async () => {
@@ -333,9 +345,9 @@ export default function GroupInfoScreen() {
     try {
       const res = await groupService.resetInviteLink(conversationId);
       if (res.result) setInviteLink(res.result.inviteToken);
-      Alert.alert('Thành công', 'Đã tạo mới link mời.');
+      Alert.alert('Success', 'New invite link generated.');
     } catch {
-      Alert.alert('Lỗi', 'Không thể tạo mới link mời.');
+      Alert.alert('Error', 'Could not generate new invite link.');
     }
   };
 
@@ -353,14 +365,14 @@ export default function GroupInfoScreen() {
       await groupService.approvePendingRequest(conversationId, userId);
       fetchPendingRequests();
       fetchMembers();
-    } catch { Alert.alert('Lỗi', 'Không thể duyệt yêu cầu.'); }
+    } catch { Alert.alert('Error', 'Could not approve request.'); }
   };
 
   const handleRejectPending = async (userId: string) => {
     try {
       await groupService.rejectPendingRequest(conversationId, userId);
       fetchPendingRequests();
-    } catch { Alert.alert('Lỗi', 'Không thể từ chối yêu cầu.'); }
+    } catch { Alert.alert('Error', 'Could not reject request.'); }
   };
 
   // ── Require approval toggle ──
@@ -370,7 +382,7 @@ export default function GroupInfoScreen() {
       await groupService.updateGroup(conversationId, { requireApproval: val });
     } catch {
       setRequireApproval(!val);
-      Alert.alert('Lỗi', 'Không thể cập nhật cài đặt.');
+      Alert.alert('Error', 'Could not update settings.');
     }
   };
 
@@ -384,16 +396,16 @@ export default function GroupInfoScreen() {
   };
 
   const handleCreateReminder = () => {
-    Alert.prompt('Tạo nhắc hẹn', 'Nhập tiêu đề nhắc hẹn', [
-      { text: 'Hủy', style: 'cancel' },
+    Alert.prompt('Create Reminder', 'Enter reminder title', [
+      { text: 'Cancel', style: 'cancel' },
       {
-        text: 'Tạo',
+        text: 'Create',
         onPress: async (title?: string) => {
           if (!title?.trim()) return;
           try {
             await groupService.createReminder(conversationId, { title: title.trim() });
             fetchReminders();
-          } catch { Alert.alert('Lỗi', 'Không thể tạo nhắc hẹn.'); }
+          } catch { Alert.alert('Error', 'Could not create reminder.'); }
         },
       },
     ], 'plain-text');
@@ -401,15 +413,15 @@ export default function GroupInfoScreen() {
 
   const handleToggleReminder = async (id: string) => {
     try { await groupService.toggleReminder(id); fetchReminders(); }
-    catch { Alert.alert('Lỗi', 'Không thể cập nhật.'); }
+    catch { Alert.alert('Error', 'Could not update.'); }
   };
 
   const handleDeleteReminder = (id: string) => {
-    Alert.alert('Xóa nhắc hẹn', 'Bạn có chắc muốn xóa?', [
-      { text: 'Hủy', style: 'cancel' },
-      { text: 'Xóa', style: 'destructive', onPress: async () => {
+    Alert.alert('Delete Reminder', 'Are you sure you want to delete?', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Delete', style: 'destructive', onPress: async () => {
         try { await groupService.deleteReminder(id); fetchReminders(); }
-        catch { Alert.alert('Lỗi', 'Không thể xóa.'); }
+        catch { Alert.alert('Error', 'Could not delete.'); }
       }},
     ]);
   };
@@ -424,16 +436,16 @@ export default function GroupInfoScreen() {
   };
 
   const handleCreateNote = () => {
-    Alert.prompt('Tạo ghi chú', 'Nhập tiêu đề ghi chú', [
-      { text: 'Hủy', style: 'cancel' },
+    Alert.prompt('Create Note', 'Enter note title', [
+      { text: 'Cancel', style: 'cancel' },
       {
-        text: 'Tạo',
+        text: 'Create',
         onPress: async (title?: string) => {
           if (!title?.trim()) return;
           try {
             await groupService.createNote(conversationId, { title: title.trim() });
             fetchNotes();
-          } catch { Alert.alert('Lỗi', 'Không thể tạo ghi chú.'); }
+          } catch { Alert.alert('Error', 'Could not create note.'); }
         },
       },
     ], 'plain-text');
@@ -441,15 +453,15 @@ export default function GroupInfoScreen() {
 
   const handleTogglePin = async (noteId: string, currentPinned: boolean) => {
     try { await groupService.updateNote(noteId, { title: '', pinned: !currentPinned }); fetchNotes(); }
-    catch { Alert.alert('Lỗi', 'Không thể cập nhật ghim.'); }
+    catch { Alert.alert('Error', 'Could not update pin.'); }
   };
 
   const handleDeleteNote = (id: string) => {
-    Alert.alert('Xóa ghi chú', 'Bạn có chắc muốn xóa?', [
-      { text: 'Hủy', style: 'cancel' },
-      { text: 'Xóa', style: 'destructive', onPress: async () => {
+    Alert.alert('Delete Note', 'Are you sure you want to delete?', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Delete', style: 'destructive', onPress: async () => {
         try { await groupService.deleteNote(id); fetchNotes(); }
-        catch { Alert.alert('Lỗi', 'Không thể xóa.'); }
+        catch { Alert.alert('Error', 'Could not delete.'); }
       }},
     ]);
   };
@@ -512,7 +524,7 @@ export default function GroupInfoScreen() {
             <Ionicons name="chevron-back" size={24} color={Colors.text} />
           </TouchableOpacity>
           <Text style={{ flex: 1, textAlign: 'center', fontSize: 18, fontWeight: 'bold', color: Colors.text }}>
-            Tùy chọn
+            Options
           </Text>
           <View style={{ width: 24 }} />
         </View>
@@ -528,7 +540,7 @@ export default function GroupInfoScreen() {
             <View style={{ position: 'relative' }}>
               <Avatar
                 uri={isGroup ? (conversation?.avatarUrl ?? null) : (otherUser?.avatarUrl ?? null)}
-                name={isGroup ? (conversation?.name ?? 'Nhóm') : (otherUser?.displayName ?? '?')}
+                name={isGroup ? (conversation?.name ?? 'Group') : (otherUser?.displayName ?? '?')}
                 size={80}
               />
               {isGroup && canManage && (
@@ -544,7 +556,7 @@ export default function GroupInfoScreen() {
             disabled={!isGroup || !canManage}
           >
             <Text style={{ fontSize: 20, fontWeight: 'bold', color: Colors.text }}>
-              {isGroup ? (conversation?.name ?? 'Nhóm chưa đặt tên') : (otherUser?.displayName ?? '...')}
+              {isGroup ? (conversation?.name ?? 'Untitled Group') : (otherUser?.displayName ?? '...')}
             </Text>
             {isGroup && canManage && (
               <Ionicons name="pencil" size={15} color={Colors.textLight} style={{ marginLeft: 6 }} />
@@ -559,38 +571,38 @@ export default function GroupInfoScreen() {
             </>
           )}
           {isGroup && (
-            <Text style={{ marginTop: 4, color: Colors.textLight }}>{members.length} thành viên</Text>
+            <Text style={{ marginTop: 4, color: Colors.textLight }}>{members.length} members</Text>
           )}
 
           {/* ── Quick action buttons ── */}
           <View style={{ flexDirection: 'row', marginTop: 24, paddingHorizontal: 8, alignSelf: 'stretch', justifyContent: 'center', gap: 4 }}>
             <QuickActionBtn
               iconName="search-outline"
-              label={'Tìm\ntin nhắn'}
+              label={'Search\nmessages'}
               onPress={() => router.back()}
             />
             {isGroup ? (
               <QuickActionBtn
                 iconName="person-add-outline"
-                label={'Thêm\nthành viên'}
+                label={'Add\nmembers'}
                 onPress={handleOpenAddModal}
               />
             ) : (
               <QuickActionBtn
                 iconName="person-outline"
-                label={'Trang\ncá nhân'}
+                label={'User\nprofile'}
                 onPress={() => {}}
               />
             )}
             <QuickActionBtn
               iconName={isPinned ? 'bookmark' : 'bookmark-outline'}
-              label={isPinned ? 'Bỏ\nghim' : 'Ghim\nhội thoại'}
+              label={isPinned ? 'Unpin\nchat' : 'Pin\nchat'}
               onPress={() => setPin(conversationId, !isPinned)}
               active={isPinned}
             />
             <QuickActionBtn
               iconName={isEffMuted ? 'notifications-off-outline' : 'notifications-outline'}
-              label={isEffMuted ? 'Bật\nthông báo' : 'Tắt\nthông báo'}
+              label={isEffMuted ? 'Unmute' : 'Mute'}
               onPress={handleMutePress}
               active={isEffMuted}
             />
@@ -605,7 +617,7 @@ export default function GroupInfoScreen() {
               style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, height: 54, borderBottomWidth: 0.5, borderBottomColor: Colors.borderLight }}
             >
               <Ionicons name="pencil-outline" size={20} color={Colors.textMuted} style={{ marginRight: 14 }} />
-              <Text style={{ flex: 1, fontSize: 15, color: Colors.text }}>Đặt biệt danh</Text>
+              <Text style={{ flex: 1, fontSize: 15, color: Colors.text }}>Set nickname</Text>
               {nickname ? (
                 <Text style={{ fontSize: 13, color: Colors.textLight, maxWidth: 140 }} numberOfLines={1}>{nickname}</Text>
               ) : (
@@ -619,14 +631,20 @@ export default function GroupInfoScreen() {
         {mediaFiles.length > 0 && (
           <View style={{ backgroundColor: Colors.white, padding: 16, marginBottom: 8 }}>
             <Text style={{ fontWeight: '600', fontSize: 15, color: Colors.text, marginBottom: 10 }}>
-              Ảnh, file, link
+              Media, files, links
             </Text>
+            <ImageLightbox
+              images={mediaImageUrls}
+              initialIndex={lightboxIndex}
+              visible={lightboxVisible}
+              onClose={() => setLightboxVisible(false)}
+            />
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
               <View style={{ flexDirection: 'row', gap: 4 }}>
-                {mediaFiles.slice(0, 4).map((file) => (
+                {mediaFiles.slice(0, 4).map((file, idx) => (
                   <TouchableOpacity
                     key={file.fileId}
-                    onPress={() => Linking.openURL(file.url)}
+                    onPress={() => openMediaLightbox(idx)}
                     style={{ borderRadius: 8, overflow: 'hidden' }}
                   >
                     <Image source={{ uri: file.url }} style={{ width: 80, height: 80 }} resizeMode="cover" />
@@ -647,7 +665,7 @@ export default function GroupInfoScreen() {
           <View style={{ backgroundColor: Colors.white, marginBottom: 8 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12 }}>
               <Text style={{ fontWeight: '600', fontSize: 15, color: Colors.text }}>
-                Thành viên ({members.length})
+                Members ({members.length})
               </Text>
               {canManage && (
                 <TouchableOpacity
@@ -655,7 +673,7 @@ export default function GroupInfoScreen() {
                   style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8, backgroundColor: Colors.ctaLight }}
                 >
                   <Ionicons name="person-add" size={14} color={Colors.cta} />
-                  <Text style={{ marginLeft: 4, color: Colors.cta, fontSize: 13, fontWeight: '600' }}>Thêm</Text>
+                  <Text style={{ marginLeft: 4, color: Colors.cta, fontSize: 13, fontWeight: '600' }}>Add</Text>
                 </TouchableOpacity>
               )}
             </View>
@@ -670,14 +688,14 @@ export default function GroupInfoScreen() {
                 <Avatar uri={item.avatar} name={item.displayName} size={40} />
                 <View style={{ flex: 1, marginLeft: 12 }}>
                   <Text style={{ fontWeight: '500', color: Colors.text }}>
-                    {item.userId === user?.id ? 'Bạn' : item.displayName}
+                    {item.userId === user?.id ? 'You' : item.displayName}
                   </Text>
                   <Text style={{ fontSize: 12, marginTop: 1, color: Colors.textLight }}>@{item.username}</Text>
                 </View>
                 {item.role !== 'MEMBER' && (
                   <View style={{ borderRadius: 4, paddingHorizontal: 8, paddingVertical: 2, backgroundColor: item.role === 'OWNER' ? '#FFE8D6' : Colors.ctaLight }}>
                     <Text style={{ fontSize: 11, fontWeight: 'bold', color: item.role === 'OWNER' ? '#D08C60' : Colors.cta }}>
-                      {item.role === 'OWNER' ? 'Trưởng nhóm' : 'Quản trị viên'}
+                      {item.role === 'OWNER' ? 'Owner' : 'Admin'}
                     </Text>
                   </View>
                 )}
@@ -695,7 +713,7 @@ export default function GroupInfoScreen() {
             >
               <Ionicons name="link-outline" size={22} color={Colors.textMuted} style={{ marginRight: 14 }} />
               <Text style={{ flex: 1, fontSize: 15, color: Colors.text }}>
-                {inviteLink ? 'Sao chép link mời' : 'Tạo link mời'}
+                {inviteLink ? 'Copy invite link' : 'Create invite link'}
               </Text>
               {inviteLinkLoading ? (
                 <ActivityIndicator size="small" color={Colors.cta} />
@@ -711,7 +729,7 @@ export default function GroupInfoScreen() {
                 style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, height: 48, borderBottomWidth: 0.5, borderBottomColor: Colors.borderLight }}
               >
                 <Ionicons name="refresh-outline" size={20} color={Colors.cta} style={{ marginRight: 14 }} />
-                <Text style={{ fontSize: 14, color: Colors.cta }}>Tạo mới link mời</Text>
+                <Text style={{ fontSize: 14, color: Colors.cta }}>Reset invite link</Text>
               </TouchableOpacity>
             )}
 
@@ -720,8 +738,8 @@ export default function GroupInfoScreen() {
               <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, height: 54, borderBottomWidth: 0.5, borderBottomColor: Colors.borderLight }}>
                 <Ionicons name="shield-checkmark-outline" size={22} color={Colors.textMuted} style={{ marginRight: 14 }} />
                 <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 15, color: Colors.text }}>Duyệt thành viên mới</Text>
-                  <Text style={{ fontSize: 12, color: Colors.textLight, marginTop: 1 }}>Trưởng nhóm duyệt trước khi thêm</Text>
+                  <Text style={{ fontSize: 15, color: Colors.text }}>Approve new members</Text>
+                  <Text style={{ fontSize: 12, color: Colors.textLight, marginTop: 1 }}>Owner must approve join requests</Text>
                 </View>
                 <Switch
                   value={requireApproval}
@@ -739,7 +757,7 @@ export default function GroupInfoScreen() {
           <View style={{ backgroundColor: Colors.white, marginBottom: 8 }}>
             <View style={{ paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 0.5, borderBottomColor: Colors.borderLight }}>
               <Text style={{ fontWeight: '600', fontSize: 15, color: Colors.text }}>
-                Yêu cầu chờ duyệt ({pendingRequests.length})
+                Pending requests ({pendingRequests.length})
               </Text>
             </View>
             {pendingRequests.map((req) => (
@@ -773,14 +791,14 @@ export default function GroupInfoScreen() {
         {isGroup && (
           <View style={{ backgroundColor: Colors.white, marginBottom: 8 }}>
             <View style={{ paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 0.5, borderBottomColor: Colors.borderLight }}>
-              <Text style={{ fontWeight: '600', fontSize: 15, color: Colors.text }}>Bảng tin nhóm</Text>
+              <Text style={{ fontWeight: '600', fontSize: 15, color: Colors.text }}>Bulletin board</Text>
             </View>
             <TouchableOpacity
               onPress={() => { fetchReminders(); setRemindersVisible(true); }}
               style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, height: 54, borderBottomWidth: 0.5, borderBottomColor: Colors.borderLight }}
             >
               <Ionicons name="alarm-outline" size={22} color={Colors.textMuted} style={{ marginRight: 14 }} />
-              <Text style={{ flex: 1, fontSize: 15, color: Colors.text }}>Danh sách nhắc hẹn</Text>
+              <Text style={{ flex: 1, fontSize: 15, color: Colors.text }}>Reminder list</Text>
               <Ionicons name="chevron-forward" size={16} color={Colors.textLight} />
             </TouchableOpacity>
             <TouchableOpacity
@@ -788,7 +806,7 @@ export default function GroupInfoScreen() {
               style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, height: 54 }}
             >
               <Ionicons name="document-text-outline" size={22} color={Colors.textMuted} style={{ marginRight: 14 }} />
-              <Text style={{ flex: 1, fontSize: 15, color: Colors.text }}>Ghi chú, ghim, bình chọn</Text>
+              <Text style={{ flex: 1, fontSize: 15, color: Colors.text }}>Notes, pins, polls</Text>
               <Ionicons name="chevron-forward" size={16} color={Colors.textLight} />
             </TouchableOpacity>
           </View>
@@ -798,7 +816,7 @@ export default function GroupInfoScreen() {
         <View style={{ backgroundColor: Colors.white, marginBottom: 8 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, height: 54, borderBottomWidth: 0.5, borderBottomColor: Colors.borderLight }}>
             <Ionicons name="pin-outline" size={22} color={Colors.textMuted} style={{ marginRight: 14 }} />
-            <Text style={{ flex: 1, fontSize: 15, color: Colors.text }}>Ghim trò chuyện</Text>
+            <Text style={{ flex: 1, fontSize: 15, color: Colors.text }}>Pin conversation</Text>
             <Switch
               value={isPinned}
               onValueChange={(v) => setPin(conversationId, v)}
@@ -817,7 +835,7 @@ export default function GroupInfoScreen() {
               style={{ marginRight: 14 }}
             />
             <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 15, color: Colors.text }}>Tắt thông báo</Text>
+              <Text style={{ fontSize: 15, color: Colors.text }}>Mute notifications</Text>
               {isEffMuted && (
                 <Text style={{ fontSize: 12, color: Colors.cta, marginTop: 1 }}>{muteUntilLabel}</Text>
               )}
@@ -832,7 +850,7 @@ export default function GroupInfoScreen() {
             onPress={handleLeaveGroup}
             style={{ backgroundColor: Colors.white, paddingVertical: 16, alignItems: 'center', marginBottom: 8 }}
           >
-            <Text style={{ color: Colors.error, fontSize: 16, fontWeight: '600' }}>Rời khỏi nhóm</Text>
+            <Text style={{ color: Colors.error, fontSize: 16, fontWeight: '600' }}>Leave group</Text>
           </TouchableOpacity>
         )}
       </ScrollView>
@@ -841,13 +859,13 @@ export default function GroupInfoScreen() {
       <Modal visible={addModalVisible} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setAddModalVisible(false)}>
         <View className="flex-1" style={{ backgroundColor: Colors.bg }}>
           <View className="flex-row items-center justify-between px-4" style={{ height: 60, backgroundColor: Colors.white, borderBottomWidth: 0.5, borderBottomColor: Colors.borderLight }}>
-            <TouchableOpacity onPress={() => setAddModalVisible(false)}><Text style={{ color: Colors.text, fontSize: 16 }}>Hủy</Text></TouchableOpacity>
-            <Text style={{ fontSize: 18, fontWeight: 'bold' }}>Thêm thành viên</Text>
+            <TouchableOpacity onPress={() => setAddModalVisible(false)}><Text style={{ color: Colors.text, fontSize: 16 }}>Cancel</Text></TouchableOpacity>
+            <Text style={{ fontSize: 18, fontWeight: 'bold' }}>Add members</Text>
             <View style={{ width: 40 }} />
           </View>
           <View className="p-3" style={{ backgroundColor: Colors.white }}>
              <TextInput 
-               placeholder="Tìm kiếm..." 
+               placeholder="Search..." 
                value={searchQuery}
                onChangeText={setSearchQuery}
                style={{ backgroundColor: Colors.bg, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 8, fontSize: 15 }} 
@@ -856,7 +874,7 @@ export default function GroupInfoScreen() {
           <FlatList
              data={availableContacts}
              keyExtractor={(item) => item.id}
-             ListEmptyComponent={() => <View className="p-4 items-center"><Text style={{ color: Colors.textLight }}>Không có kết quả</Text></View>}
+             ListEmptyComponent={() => <View className="p-4 items-center"><Text style={{ color: Colors.textLight }}>No results found</Text></View>}
              renderItem={({ item }) => {
                const contactUser = item.user.id === user?.id ? item.contact : item.user;
                return (
@@ -890,7 +908,7 @@ export default function GroupInfoScreen() {
             {/* Header */}
             <View style={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 12, borderBottomWidth: 0.5, borderBottomColor: Colors.borderLight }}>
               <Text style={{ fontSize: 18, fontWeight: '700', color: Colors.text, textAlign: 'center' }}>
-                {isEffMuted ? 'Thông báo đang tắt' : 'Tắt thông báo'}
+                {isEffMuted ? 'Muted' : 'Mute notifications'}
               </Text>
               {isEffMuted && (
                 <Text style={{ fontSize: 13, color: Colors.textMuted, textAlign: 'center', marginTop: 4 }}>
@@ -909,15 +927,15 @@ export default function GroupInfoScreen() {
                   }}
                   style={{ backgroundColor: Colors.error, borderRadius: 10, paddingVertical: 12, alignItems: 'center' }}
                 >
-                  <Text style={{ fontSize: 15, fontWeight: '600', color: Colors.white }}>Bật lại ngay</Text>
+                  <Text style={{ fontSize: 15, fontWeight: '600', color: Colors.white }}>Unmute now</Text>
                 </TouchableOpacity>
               ) : (
                 <>
                   {[
-                    { label: '1 giờ', hours: 1 },
-                    { label: '4 giờ', hours: 4 },
-                    { label: '8 giờ', hours: 8 },
-                    { label: 'Cho đến khi tôi bật lại', hours: -1 },
+                    { label: '1 hour', hours: 1 },
+                    { label: '4 hours', hours: 4 },
+                    { label: '8 hours', hours: 8 },
+                    { label: 'Until I turn it back on', hours: -1 },
                   ].map(({ label, hours }) => (
                     <TouchableOpacity
                       key={label}
@@ -937,7 +955,7 @@ export default function GroupInfoScreen() {
                 onPress={() => setMuteModalVisible(false)}
                 style={{ backgroundColor: Colors.bg, borderRadius: 10, paddingVertical: 12, alignItems: 'center' }}
               >
-                <Text style={{ fontSize: 15, fontWeight: '600', color: Colors.text }}>Đóng</Text>
+                <Text style={{ fontSize: 15, fontWeight: '600', color: Colors.text }}>Close</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -949,9 +967,9 @@ export default function GroupInfoScreen() {
         <View style={{ flex: 1, backgroundColor: Colors.bg }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, height: 60, backgroundColor: Colors.white, borderBottomWidth: 0.5, borderBottomColor: Colors.borderLight }}>
             <TouchableOpacity onPress={() => setRemindersVisible(false)}>
-              <Text style={{ color: Colors.text, fontSize: 16 }}>Đóng</Text>
+              <Text style={{ color: Colors.text, fontSize: 16 }}>Close</Text>
             </TouchableOpacity>
-            <Text style={{ fontSize: 18, fontWeight: 'bold', color: Colors.text }}>Nhắc hẹn</Text>
+            <Text style={{ fontSize: 18, fontWeight: 'bold', color: Colors.text }}>Reminders</Text>
             <TouchableOpacity onPress={handleCreateReminder}>
               <Ionicons name="add" size={24} color={Colors.cta} />
             </TouchableOpacity>
@@ -963,7 +981,7 @@ export default function GroupInfoScreen() {
             ListEmptyComponent={() => (
               <View style={{ alignItems: 'center', paddingVertical: 40 }}>
                 <Ionicons name="alarm-outline" size={40} color={Colors.borderLight} />
-                <Text style={{ color: Colors.textLight, marginTop: 8 }}>Chưa có nhắc hẹn nào</Text>
+                <Text style={{ color: Colors.textLight, marginTop: 8 }}>No reminders yet</Text>
               </View>
             )}
             renderItem={({ item }) => (
@@ -984,7 +1002,7 @@ export default function GroupInfoScreen() {
                   ) : null}
                   {item.remindAt ? (
                     <Text style={{ fontSize: 11, color: Colors.cta, marginTop: 4 }}>
-                      {new Date(item.remindAt).toLocaleString('vi-VN')}
+                      {new Date(item.remindAt).toLocaleString('en-US')}
                     </Text>
                   ) : null}
                 </View>
@@ -1002,9 +1020,9 @@ export default function GroupInfoScreen() {
         <View style={{ flex: 1, backgroundColor: Colors.bg }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, height: 60, backgroundColor: Colors.white, borderBottomWidth: 0.5, borderBottomColor: Colors.borderLight }}>
             <TouchableOpacity onPress={() => setNotesVisible(false)}>
-              <Text style={{ color: Colors.text, fontSize: 16 }}>Đóng</Text>
+              <Text style={{ color: Colors.text, fontSize: 16 }}>Close</Text>
             </TouchableOpacity>
-            <Text style={{ fontSize: 18, fontWeight: 'bold', color: Colors.text }}>Ghi chú</Text>
+            <Text style={{ fontSize: 18, fontWeight: 'bold', color: Colors.text }}>Notes</Text>
             <TouchableOpacity onPress={handleCreateNote}>
               <Ionicons name="add" size={24} color={Colors.cta} />
             </TouchableOpacity>
@@ -1016,7 +1034,7 @@ export default function GroupInfoScreen() {
             ListEmptyComponent={() => (
               <View style={{ alignItems: 'center', paddingVertical: 40 }}>
                 <Ionicons name="document-text-outline" size={40} color={Colors.borderLight} />
-                <Text style={{ color: Colors.textLight, marginTop: 8 }}>Chưa có ghi chú nào</Text>
+                <Text style={{ color: Colors.textLight, marginTop: 8 }}>No notes yet</Text>
               </View>
             )}
             renderItem={({ item }) => (
@@ -1035,7 +1053,7 @@ export default function GroupInfoScreen() {
                   <Text style={{ fontSize: 14, color: Colors.textMuted, lineHeight: 20 }} numberOfLines={4}>{item.content}</Text>
                 ) : null}
                 <Text style={{ fontSize: 11, color: Colors.textLight, marginTop: 6 }}>
-                  {new Date(item.createdAt).toLocaleString('vi-VN')}
+                  {new Date(item.createdAt).toLocaleString('en-US')}
                 </Text>
               </View>
             )}

@@ -39,12 +39,12 @@ export function useNotificationSocket({ onEvent }: UseNotificationSocketProps) {
                     if (document.hidden && "Notification" in window && Notification.permission === "granted") {
                         let title = "Chatly";
                         switch (event.notification.type) {
-                            case "NEW_MESSAGE": title = "Tin nhắn mới"; break;
-                            case "FRIEND_REQUEST": title = "Lời mời kết bạn"; break;
-                            case "GROUP_INVITE": title = "Lời mời vào nhóm"; break;
+                            case "NEW_MESSAGE": title = "New message"; break;
+                            case "FRIEND_REQUEST": title = "Friend request"; break;
+                            case "GROUP_INVITE": title = "Group invitation"; break;
                         }
                         const options = {
-                            body: event.notification.content || "Bạn có thông báo mới",
+                            body: event.notification.content || "You have a new notification",
                             icon: "/favicon.ico"
                         };
                         const notif = new window.Notification(title, options);

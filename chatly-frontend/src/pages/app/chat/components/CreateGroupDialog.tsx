@@ -66,7 +66,7 @@ export function CreateGroupDialog({
                 });
                 setFriends(opts);
             } catch {
-                toast.error("Không thể tải danh sách bạn bè");
+                toast.error("Could not load friends list");
             } finally {
                 setLoadingFriends(false);
             }
@@ -90,11 +90,11 @@ export function CreateGroupDialog({
 
     const handleCreate = async () => {
         if (!groupName.trim()) {
-            toast.error("Vui lòng nhập tên nhóm");
+            toast.error("Please enter group name");
             return;
         }
         if (selected.size < 2) {
-            toast.error("Nhóm cần ít nhất 2 thành viên ngoài bạn");
+            toast.error("Group needs at least 2 members besides you");
             return;
         }
         try {
@@ -105,12 +105,12 @@ export function CreateGroupDialog({
                 participantIds: Array.from(selected),
             });
             if (res.result) {
-                toast.success(`Đã tạo nhóm "${groupName.trim()}"`);
+                toast.success(`Group "${groupName.trim()}" created`);
                 onCreated(res.result);
                 onOpenChange(false);
             }
         } catch {
-            toast.error("Không thể tạo nhóm. Vui lòng thử lại.");
+            toast.error("Could not create group. Please try again.");
         } finally {
             setSubmitting(false);
         }
@@ -122,7 +122,7 @@ export function CreateGroupDialog({
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
                         <Users size={18} className="text-brand" />
-                        Tạo nhóm chat
+                        Create Group Chat
                     </DialogTitle>
                 </DialogHeader>
 
@@ -130,10 +130,10 @@ export function CreateGroupDialog({
                     {/* Group name */}
                     <div className="flex flex-col gap-1.5">
                         <label className="text-sm font-medium text-foreground">
-                            Tên nhóm
+                            Group Name
                         </label>
                         <Input
-                            placeholder="Nhập tên nhóm..."
+                            placeholder="Enter group name..."
                             value={groupName}
                             onChange={(e) => setGroupName(e.target.value)}
                             maxLength={60}
@@ -144,9 +144,9 @@ export function CreateGroupDialog({
                     {/* Friend selection */}
                     <div className="flex flex-col gap-1.5">
                         <label className="text-sm font-medium text-foreground">
-                            Thêm thành viên{" "}
+                            Add members{" "}
                             <span className="text-muted-foreground font-normal">
-                                ({selected.size} đã chọn)
+                                ({selected.size} selected)
                             </span>
                         </label>
 
@@ -154,7 +154,7 @@ export function CreateGroupDialog({
                         <div className="relative">
                             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                             <Input
-                                placeholder="Tìm bạn bè..."
+                                placeholder="Search friends..."
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
                                 className="pl-8 h-8 text-sm"
@@ -165,11 +165,11 @@ export function CreateGroupDialog({
                         <ScrollArea className="h-52 rounded-md border border-border/60">
                             {loadingFriends ? (
                                 <div className="flex items-center justify-center h-full py-8 text-sm text-muted-foreground">
-                                    Đang tải...
+                                    Loading...
                                 </div>
                             ) : filtered.length === 0 ? (
                                 <div className="flex items-center justify-center h-full py-8 text-sm text-muted-foreground">
-                                    Không tìm thấy bạn bè
+                                    No friends found
                                 </div>
                             ) : (
                                 <div className="p-1">
@@ -207,7 +207,7 @@ export function CreateGroupDialog({
                         </ScrollArea>
 
                         <p className="text-[11px] text-muted-foreground">
-                            Nhóm cần ít nhất 2 thành viên ngoài bạn.
+                            A group must have at least 2 members besides you.
                         </p>
                     </div>
                 </div>
@@ -218,13 +218,13 @@ export function CreateGroupDialog({
                         onClick={() => onOpenChange(false)}
                         disabled={submitting}
                     >
-                        Hủy
+                        Cancel
                     </Button>
                     <Button
                         onClick={handleCreate}
                         disabled={submitting || !groupName.trim() || selected.size < 2}
                     >
-                        {submitting ? "Đang tạo..." : "Tạo nhóm"}
+                        {submitting ? "Creating..." : "Create Group"}
                     </Button>
                 </DialogFooter>
             </DialogContent>

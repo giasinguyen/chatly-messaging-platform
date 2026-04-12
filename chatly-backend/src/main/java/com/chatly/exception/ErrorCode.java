@@ -33,6 +33,11 @@ public enum ErrorCode {
     CONVERSATION_INVALID_PARTICIPANTS(1302, "Private conversation requires exactly 2 participants",
             HttpStatus.BAD_REQUEST),
     NOT_CONVERSATION_PARTICIPANT(1303, "You are not a participant of this conversation", HttpStatus.FORBIDDEN),
+    CONVERSATION_PIN_LIMIT(1304, "You can pin a maximum of 5 conversations", HttpStatus.BAD_REQUEST),
+    CONVERSATION_ALREADY_PINNED(1305, "Conversation is already pinned", HttpStatus.CONFLICT),
+    CONVERSATION_NOT_PINNED(1306, "Conversation is not pinned", HttpStatus.BAD_REQUEST),
+    CONVERSATION_ALREADY_MUTED(1307, "Conversation is already muted", HttpStatus.CONFLICT),
+    CONVERSATION_NOT_MUTED(1308, "Conversation is not muted", HttpStatus.BAD_REQUEST),
 
     MESSAGE_NOT_FOUND(1400, "Message not found", HttpStatus.NOT_FOUND),
     MESSAGE_ALREADY_RECALLED(1401, "Message has already been recalled", HttpStatus.CONFLICT),
@@ -70,9 +75,12 @@ public enum ErrorCode {
     UNAUTHORIZED(1600, "You do not have permission", HttpStatus.FORBIDDEN),
     UNAUTHENTICATED(1601, "Unauthenticated", HttpStatus.UNAUTHORIZED),
     INVALID_TOKEN(1602, "Invalid or expired token", HttpStatus.UNAUTHORIZED),
+    SESSION_NOT_FOUND(1603, "Session not found", HttpStatus.NOT_FOUND),
 
     AGENT_SERVICE_ERROR(2000, "AI service temporarily unavailable", HttpStatus.BAD_GATEWAY),
-    AGENT_BAD_REQUEST(2001, "Invalid AI service request", HttpStatus.BAD_REQUEST);
+    AGENT_BAD_REQUEST(2001, "Invalid AI service request", HttpStatus.BAD_REQUEST),
+
+    SETTINGS_INVALID_SECTION(1900, "Invalid settings section. Allowed: privacy, notifications, messages", HttpStatus.BAD_REQUEST);
 
     private final int code;
     private final String message;
