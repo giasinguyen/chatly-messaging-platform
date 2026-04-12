@@ -373,14 +373,14 @@ export function MessageList({
 
                     {/* Pinned indicator */}
                     {msg.pinned && (
-                        <div className={cn("flex items-center gap-1 px-1 mb-0.5", isMe ? "justify-end" : "justify-start")}>
+                        <div className={cn("flex items-center gap-1 px-1 mb-0.5", isPoll ? "justify-center" : (isMe ? "justify-end" : "justify-start"))}>
                             <Pin size={10} className="text-amber-500" />
                             <span className="text-[10px] text-amber-600 dark:text-amber-400">Pinned</span>
                         </div>
                     )}
 
                     {/* Bubble + Reply button */}
-                    <div className={cn("flex items-end gap-1", isMe ? "flex-row-reverse" : "flex-row")}>
+                    <div className={cn("flex items-end gap-1", isPoll ? "flex-row justify-center" : (isMe ? "flex-row-reverse" : "flex-row"))}>
                         {/* Bubble */}
                         {msg.recalled ? (
                             /* Recalled message placeholder */

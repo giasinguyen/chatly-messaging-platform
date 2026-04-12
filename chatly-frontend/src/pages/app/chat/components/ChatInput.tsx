@@ -12,7 +12,9 @@ import {
     BarChart3,
     Plus,
     Trash2,
+    Clock,
 } from "lucide-react";
+import { toast } from "sonner";
 import Picker from "@emoji-mart/react";
 import data from "@emoji-mart/data";
 import { Input } from "@/components/ui/input";
@@ -26,6 +28,7 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { fileService } from "@/services/file.service";
+import { groupService } from "@/services/group.service";
 import type { Message, Attachment, Poll } from "@/types/message";
 
 interface ChatInputProps {
@@ -70,6 +73,12 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
     const [pollQuestion, setPollQuestion] = useState("");
     const [pollOptions, setPollOptions] = useState(["", ""]);
     const [pollMultipleChoice, setPollMultipleChoice] = useState(false);
+    const [showReminderDialog, setShowReminderDialog] = useState(false);
+    const [reminderTitle, setReminderTitle] = useState("");
+    const [reminderDescription, setReminderDescription] = useState("");
+    const [reminderDate, setReminderDate] = useState("");
+    const [reminderTime, setReminderTime] = useState("");
+    const [reminderSubmitting, setReminderSubmitting] = useState(false);
     const typingTimerRef = useRef<any>(null);
     const inputRef = useRef<HTMLInputElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -258,6 +267,34 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
         setPollMultipleChoice(false);
     };
 
+    const handleCreateReminder = async () => {
+        if (!conversationId || !reminderTitle.trim()) return;
+        setReminderSubmitting(true);
+        try {
+            let remindAt: string | undefined;
+            if (reminderDate && reminderTime) {
+                remindAt = new Date(`${reminderDate}T${reminderTime}:00`).toISOString();
+            } else if (reminderDate) {
+                remindAt = new Date(`${reminderDate}T00:00:00`).toISOString();
+            }
+            await groupService.createReminder(conversationId, {
+                title: reminderTitle.trim(),
+                description: reminderDescription.trim() || undefined,
+                remindAt,
+            });
+            toast.success("Reminder created");
+            setShowReminderDialog(false);
+            setReminderTitle("");
+            setReminderDescription("");
+            setReminderDate("");
+            setReminderTime("");
+        } catch {
+            toast.error("Could not create reminder");
+        } finally {
+            setReminderSubmitting(false);
+        }
+    };
+
     return (
         <div className="border-t border-border bg-background font-inter">
             {/* Reply preview bar */}
@@ -406,6 +443,17 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
                         <BarChart3 size={18} />
                     </Button>
 
+                    {/* Reminder creation button */}
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-9 w-9 shrink-0 text-muted-foreground hover:text-foreground"
+                        onClick={() => setShowReminderDialog(true)}
+                        title="Create reminder"
+                    >
+                        <Clock size={18} />
+                    </Button>
+
                     <div className="flex-1 relative">
                         <Input
                             ref={inputRef}
@@ -506,6 +554,67 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
                             disabled={!pollQuestion.trim() || pollOptions.filter(o => o.trim()).length < 2}
                         >
                             Send poll
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Reminder creation dialog */}
+            <Dialog open={showReminderDialog} onOpenChange={setShowReminderDialog}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>Create reminder</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                        <div>
+                            <Label>Title <span className="text-destructive">*</span></Label>
+                            <Input
+                                placeholder="Reminder title..."
+                                value={reminderTitle}
+                                onChange={(e) => setReminderTitle(e.target.value)}
+                                className="mt-1"
+                            />
+                        </div>
+                        <div>
+                            <Label>Description (optional)</Label>
+                            <Input
+                                placeholder="Add a description..."
+                                value={reminderDescription}
+                                onChange={(e) => setReminderDescription(e.target.value)}
+                                className="mt-1"
+                            />
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                            <div>
+                                <Label>Date</Label>
+                                <Input
+                                    type="date"
+                                    value={reminderDate}
+                                    onChange={(e) => setReminderDate(e.target.value)}
+                                    className="mt-1"
+                                />
+                            </div>
+                            <div>
+                                <Label>Time</Label>
+                                <Input
+                                    type="time"
+                                    value={reminderTime}
+                                    onChange={(e) => setReminderTime(e.target.value)}
+                                    className="mt-1"
+                                />
+                            </div>
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="ghost" onClick={() => setShowReminderDialog(false)}>
+                            Cancel
+                        </Button>
+                        <Button
+                            onClick={handleCreateReminder}
+                            disabled={!reminderTitle.trim() || reminderSubmitting}
+                        >
+                            {reminderSubmitting && <Loader2 size={14} className="mr-2 animate-spin" />}
+                            Create reminder
                         </Button>
                     </DialogFooter>
                 </DialogContent>
