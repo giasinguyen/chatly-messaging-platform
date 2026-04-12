@@ -1,8 +1,17 @@
 import { View, Text, TouchableOpacity } from 'react-native';
 import { useEffect, useRef, useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
+
 import { RTCView } from 'react-native-webrtc';
 import { Audio } from 'expo-av';
+
+let RTCView: any;
+try {
+  RTCView = require('react-native-webrtc').RTCView;
+} catch (e) {
+  RTCView = View; // fallback for Expo Go
+}
+
 import { Avatar } from '@/components/ui/Avatar';
 import { Colors } from '@/constants/theme';
 import { useCallStore } from '@/store/call.store';

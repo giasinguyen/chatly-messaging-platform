@@ -60,7 +60,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import type { Message, ChatUser, ChatEvent } from "@/types/message";
-import type { ContactStatus } from "@/types/contact";
+import type { ContactStatus, ContactResponse } from "@/types/contact";
 import type { ConversationResponse } from "@/types/conversation";
 import type { UserResponse } from "@/types/auth";
 
@@ -178,6 +178,7 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
     const [contactStatus, setContactStatus] = useState<ContactStatus | null>(
         null,
     );
+    const [allContacts, setAllContacts] = useState<ContactResponse[]>([]);
     const [sendingContact, setSendingContact] = useState(false);
     const [isEditingGroup, setIsEditingGroup] = useState(false);
     const [groupNameDraft, setGroupNameDraft] = useState("");
@@ -362,6 +363,7 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
                     Object.fromEntries(allUsers.map((user) => [user.id, user])),
                 );
                 const allContacts = contactsRes.result ?? [];
+                setAllContacts(allContacts);
                 const directory = Object.fromEntries(
                     conv.participantIds.map((participantId) => {
                         const foundUser = allUsers.find(
@@ -1158,6 +1160,26 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
                 onTogglePin={handleTogglePin}
                 onCallAgain={handleCallAgain}
                 onTagPriority={handleTagPriority}
+                contacts={allContacts}
+                onAddFriend={async (userId: string) => {
+                    const existing = allContacts.find(
+                        (c) => c.contact.id === userId || c.user.id === userId,
+                    );
+                    if (existing?.status === "ACCEPTED" || existing?.status === "PENDING") return;
+                    try {
+                        await contactService.sendRequest({ contactId: userId });
+                        setAllContacts((prev) =>
+                            prev.map((c) =>
+                                c.contact.id === userId || c.user.id === userId
+                                    ? { ...c, status: "PENDING" as const }
+                                    : c,
+                            ),
+                        );
+                        toast.success("Đã gửi lời mời kết bạn");
+                    } catch {
+                        toast.error("Không thể gửi lời mời kết bạn");
+                    }
+                }}
             />
 
             {isTyping && (

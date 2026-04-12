@@ -29,6 +29,7 @@ import {
 import { toast } from "sonner";
 import type { Message, ChatUser } from "@/types/message";
 import type { ConversationType } from "@/types/conversation";
+import type { ContactResponse } from "@/types/contact";
 import { ReplyPreview } from "./ReplyPreview";
 import {
     ContextMenu,
@@ -80,6 +81,8 @@ interface MessageListProps {
     onTogglePin?: (messageId: string) => void;
     onCallAgain?: (calleeId: string, calleeName: string, calleeAvatar?: string) => void;
     onTagPriority?: (messageId: string, priority: string) => void;
+    contacts?: ContactResponse[];
+    onAddFriend?: (userId: string) => void;
 }
 
 const RECALL_LIMIT_MS = 24 * 60 * 60 * 1000;
@@ -112,6 +115,8 @@ export function MessageList({
     onTogglePin,
     onCallAgain,
     onTagPriority,
+    contacts = [],
+    onAddFriend,
 }: MessageListProps) {
     const scrollEndRef = useRef<HTMLDivElement>(null);
     const sentinelRef = useRef<HTMLDivElement>(null);
@@ -634,18 +639,44 @@ export function MessageList({
                                                 </p>
                                             </div>
                                         </div>
-                                        {/* Card footer — action button */}
-                                        {card.id && onOpenSenderProfile && (
-                                            <div className="border-t border-border/40">
-                                                <button
-                                                    type="button"
-                                                    onClick={() => onOpenSenderProfile(card.id!)}
-                                                    className="w-full py-2 text-xs font-semibold text-brand hover:bg-brand/5 transition-colors"
-                                                >
-                                                    Xem hồ sơ
-                                                </button>
-                                            </div>
-                                        )}
+                                        {/* Card footer — friend-status-aware */}
+                                        {card.id && (() => {
+                                            const friendContact = contacts.find(
+                                                (c) => c.contact.id === card.id || c.user.id === card.id,
+                                            );
+                                            const friendStatus = friendContact?.status;
+                                            const isSelf = card.id === currentUserId;
+                                            return (
+                                                <div className="border-t border-border/40 flex">
+                                                    {(isSelf || friendStatus === "ACCEPTED") ? (
+                                                        <span className="flex-1 py-2 text-xs font-semibold text-green-600 text-center">
+                                                            ✓ Đã kết bạn
+                                                        </span>
+                                                    ) : friendStatus === "PENDING" ? (
+                                                        <span className="flex-1 py-2 text-xs font-semibold text-muted-foreground text-center">
+                                                            Đã gửi lời mời
+                                                        </span>
+                                                    ) : (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => onAddFriend?.(card.id!)}
+                                                            className="flex-1 py-2 text-xs font-semibold text-brand hover:bg-brand/5 transition-colors"
+                                                        >
+                                                            Thêm bạn
+                                                        </button>
+                                                    )}
+                                                    {onOpenSenderProfile && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => onOpenSenderProfile(card.id!)}
+                                                            className="flex-1 py-2 text-xs font-semibold text-brand hover:bg-brand/5 transition-colors border-l border-border/40"
+                                                        >
+                                                            Xem hồ sơ
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            );
+                                        })()}
                                     </div>
                                 );
                             })()
@@ -1048,7 +1079,7 @@ export function MessageList({
                     </div>
 
                     {messages.map((msg, index) => (
-                        <div key={`msg-group-${msg.id}`}>
+                        <div key={`msg-group-${msg.id}-${index}`}>
                             {renderTimeSeparator(msg, index)}
                             {renderMessage(msg, index)}
                         </div>
