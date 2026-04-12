@@ -8,6 +8,8 @@ import com.chatly.dto.request.RefreshTokenRequest;
 import com.chatly.dto.request.RegisterRequest;
 import com.chatly.dto.request.ResendVerificationRequest;
 import com.chatly.dto.request.IntrospectRequest;
+import com.chatly.dto.geo.GeoIpResolution;
+import com.chatly.dto.session.StartLoginSessionResult;
 import com.chatly.dto.response.AuthResponse;
 import com.chatly.dto.response.IntrospectResponse;
 import com.chatly.dto.response.RegisterResponse;
@@ -15,12 +17,16 @@ import com.chatly.dto.response.UserResponse;
 import com.chatly.exception.AppException;
 import com.chatly.exception.ErrorCode;
 import com.chatly.mapper.UserMapper;
+import com.chatly.model.enums.ClientPlatform;
 import com.chatly.model.postgres.EmailVerificationOtp;
 import com.chatly.model.postgres.User;
 import com.chatly.repository.postgres.EmailVerificationOtpRepository;
 import com.chatly.repository.postgres.UserRepository;
 import com.chatly.security.JwtProvider;
 import com.chatly.security.PasswordChangeTokenValidator;
+import com.chatly.security.SessionTokenValidator;
+import com.chatly.util.ClientPlatformParser;
+import com.chatly.util.HttpRequestMeta;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -29,7 +35,12 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.util.StringUtils;
+
+import jakarta.servlet.http.HttpServletRequest;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
@@ -51,6 +62,11 @@ public class AuthService {
     private final EmailVerificationOtpRepository emailVerificationOtpRepository;
     private final EmailVerificationMailService emailVerificationMailService;
     private final PasswordChangeTokenValidator passwordChangeTokenValidator;
+    private final SessionTokenValidator sessionTokenValidator;
+    private final UserSessionService userSessionService;
+    private final GeoIpLookupService geoIpLookupService;
+    private final AsyncNotificationService asyncNotificationService;
+    private final TransactionTemplate transactionTemplate;
 
     @Value("${app.auth.verification.expiration-minutes:15}")
     private long verificationExpirationMinutes;
@@ -60,7 +76,9 @@ public class AuthService {
 
     @Value("${app.auth.verification-link-base-url:http://localhost:8080/api/auth/verify-email}")
     private String verificationLinkBaseUrl;
-    private static final String RANDOM_PASSWORD_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%^&*";
+    /** No 0/O, 1/l/I, or ! (often confused when retyped from email). */
+    private static final String RANDOM_PASSWORD_CHARS =
+        "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789@#$%^&*";
     private static final int RANDOM_PASSWORD_LENGTH = 12;
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
@@ -105,12 +123,13 @@ public class AuthService {
             .build();
     }
 
-    public AuthResponse login(LoginRequest request) {
-        User user = userRepository.findByUsernameOrEmailOrPhone(
-                request.getIdentifier(), request.getIdentifier(), request.getIdentifier())
+    public AuthResponse login(LoginRequest request, HttpServletRequest httpRequest) {
+        String identifier = request.getIdentifier() != null ? request.getIdentifier().trim() : "";
+        User user = userRepository.findByLoginIdentifier(identifier)
             .orElseThrow(() -> new AppException(ErrorCode.INVALID_CREDENTIALS));
 
-        if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
+        String rawPassword = request.getPassword() != null ? request.getPassword().trim() : "";
+        if (!passwordEncoder.matches(rawPassword, user.getPassword())) {
             throw new AppException(ErrorCode.INVALID_CREDENTIALS);
         }
 
@@ -121,12 +140,37 @@ public class AuthService {
             );
         }
 
-        return generateAuthResponse(user);
+        ClientPlatform platform = ClientPlatformParser.parse(httpRequest.getHeader("X-Client-Platform"));
+        String deviceHeader = httpRequest.getHeader("X-Device-Label");
+        String userAgent = httpRequest.getHeader("User-Agent");
+        String ip = HttpRequestMeta.clientIp(httpRequest);
+        GeoIpResolution geo = geoIpLookupService.resolve(ip);
+        String location = geo != null ? geo.locationLabel() : null;
+        String deviceLabel = resolveDeviceLabel(deviceHeader, userAgent);
+
+        StartLoginSessionResult sessionResult = userSessionService.startNewLoginSession(
+            user, platform, deviceLabel, userAgent, ip, geo
+        );
+        if (sessionResult.replacedSession() != null && StringUtils.hasText(user.getEmail())) {
+            asyncNotificationService.sendConcurrentLoginAlertAsync(
+                user,
+                platform,
+                deviceLabel,
+                ip,
+                location,
+                sessionResult.replacedSession()
+            );
+        }
+        return buildTokenResponse(user, sessionResult.session().getId());
     }
 
     @Transactional
     public void changePassword(ChangePasswordRequest request) {
-        if (!request.getNewPassword().equals(request.getConfirmPassword())) {
+        String newPw = request.getNewPassword() != null ? request.getNewPassword().trim() : "";
+        String confirmPw = request.getConfirmPassword() != null ? request.getConfirmPassword().trim() : "";
+        String currentPw = request.getCurrentPassword() != null ? request.getCurrentPassword().trim() : "";
+
+        if (!newPw.equals(confirmPw)) {
             throw new AppException(ErrorCode.PASSWORD_CONFIRM_MISMATCH);
         }
 
@@ -135,36 +179,64 @@ public class AuthService {
             throw new AppException(ErrorCode.UNAUTHENTICATED);
         }
 
-        String userId = authentication.getPrincipal().toString();
+        Object principal = authentication.getPrincipal();
+        if (principal == null || "anonymousUser".equals(principal)) {
+            throw new AppException(ErrorCode.UNAUTHENTICATED);
+        }
+
+        String userId = principal.toString();
         User user = userRepository.findById(UUID.fromString(userId))
             .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
 
-        if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPassword())) {
+        if (!passwordEncoder.matches(currentPw, user.getPassword())) {
             throw new AppException(ErrorCode.CURRENT_PASSWORD_INCORRECT);
         }
 
         Instant changedAt = Instant.now();
-        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        user.setPassword(passwordEncoder.encode(newPw));
         user.setPasswordChangedAt(changedAt);
-        userRepository.save(user);
+        userRepository.saveAndFlush(user);
+        userSessionService.revokeAllForUser(user.getId());
 
         if (StringUtils.hasText(user.getEmail())) {
-            try {
-                emailVerificationMailService.sendPasswordChangedNotice(user, changedAt);
-            } catch (Exception e) {
-                log.warn("Could not send password-changed notice email for user {}", user.getId(), e);
-            }
+            asyncNotificationService.sendPasswordChangedNoticeAsync(user, changedAt);
         }
     }
 
-    @Transactional
     public void forgotPassword(ForgotPasswordRequest request) {
-        userRepository.findByEmail(request.getEmail()).ifPresent(user -> {
-            String newPassword = generateRandomPassword();
-            user.setPassword(passwordEncoder.encode(newPassword));
-            user.setPasswordChangedAt(Instant.now());
-            userRepository.save(user);
-            emailVerificationMailService.sendNewPassword(user, newPassword);
+        String email = request.getEmail().trim();
+        if (!StringUtils.hasText(email)) {
+            return;
+        }
+        // Match registration regardless of stored email casing (avoids “email sent but login still old password” confusion)
+        userRepository.findByEmailIgnoreCase(email).ifPresent(user -> {
+            final String newPassword = generateRandomPassword();
+            final UUID userId = user.getId();
+            transactionTemplate.executeWithoutResult(status -> {
+                User u = userRepository.findById(userId)
+                    .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+                u.setPassword(passwordEncoder.encode(newPassword));
+                u.setPasswordChangedAt(Instant.now());
+                userRepository.saveAndFlush(u);
+                userSessionService.revokeAllForUser(userId);
+
+                // Email only after successful commit; then re-read DB and verify hash matches plaintext.
+                TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                    @Override
+                    public void afterCommit() {
+                        userRepository.findById(userId).ifPresentOrElse(mailUser -> {
+                            if (!passwordEncoder.matches(newPassword, mailUser.getPassword())) {
+                                log.error(
+                                    "Password reset: hash in DB does not match new password for user {} — email not sent",
+                                    userId
+                                );
+                                return;
+                            }
+                            emailVerificationMailService.sendNewPassword(mailUser, newPassword);
+                        }, () -> log.error("Password reset: user {} missing after commit — email not sent", userId));
+                    }
+                });
+            });
         });
     }
 
@@ -223,16 +295,39 @@ public class AuthService {
             throw new AppException(ErrorCode.INVALID_TOKEN);
         }
 
+        String sessionIdStr = jwtProvider.getSessionIdFromToken(refreshToken);
+        if (!StringUtils.hasText(sessionIdStr)) {
+            throw new AppException(ErrorCode.INVALID_TOKEN);
+        }
+
         String userId = jwtProvider.getUserIdFromToken(refreshToken);
-        User user = userRepository.findById(UUID.fromString(userId))
+        UUID userUuid = UUID.fromString(userId);
+        UUID sessionUuid = UUID.fromString(sessionIdStr);
+        userSessionService.requireActiveSession(sessionUuid, userUuid);
+        userSessionService.touchSession(sessionUuid);
+
+        User user = userRepository.findById(userUuid)
             .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
 
-        return generateAuthResponse(user);
+        return buildTokenResponse(user, sessionUuid);
     }
 
     public void logout(LogoutRequest request) {
         String token = request.getToken();
         String refreshToken = request.getRefreshToken();
+
+        if (token != null && !token.isBlank() && jwtProvider.validateToken(token)) {
+            String jti = jwtProvider.getSessionIdFromToken(token);
+            if (StringUtils.hasText(jti)) {
+                try {
+                    UUID sid = UUID.fromString(jti);
+                    UUID uid = UUID.fromString(jwtProvider.getUserIdFromToken(token));
+                    userSessionService.revokeSession(sid, uid);
+                } catch (Exception e) {
+                    log.debug("Could not revoke session on logout: {}", e.getMessage());
+                }
+            }
+        }
 
         // Validate and blacklist access token
         if (token != null && !token.isBlank() && jwtProvider.validateToken(token)) {
@@ -258,7 +353,8 @@ public class AuthService {
         try {
             isValid = jwtProvider.validateToken(token)
                 && !tokenBlacklistService.isTokenBlacklisted(token)
-                && passwordChangeTokenValidator.isTokenValidAgainstPasswordChange(token);
+                && passwordChangeTokenValidator.isTokenValidAgainstPasswordChange(token)
+                && sessionTokenValidator.isSessionTokenAcceptable(token);
         } catch (Exception e) {
             isValid = false;
         }
@@ -285,16 +381,29 @@ public class AuthService {
         emailVerificationMailService.sendVerificationLink(user, verificationLink);
     }
 
-    private AuthResponse generateAuthResponse(User user) {
-        String token = jwtProvider.generateToken(user.getId().toString());
-        String refreshToken = jwtProvider.generateRefreshToken(user.getId().toString());
+    private AuthResponse buildTokenResponse(User user, UUID sessionId) {
+        String uid = user.getId().toString();
+        String sid = sessionId.toString();
+        String token = jwtProvider.generateAccessToken(uid, sid);
+        String refreshToken = jwtProvider.generateRefreshToken(uid, sid);
         UserResponse userResponse = userMapper.toResponse(user);
 
         return AuthResponse.builder()
             .token(token)
             .refreshToken(refreshToken)
+            .sessionId(sid)
             .user(userResponse)
             .build();
+    }
+
+    private static String resolveDeviceLabel(String deviceHeader, String userAgent) {
+        if (StringUtils.hasText(deviceHeader)) {
+            return deviceHeader.trim();
+        }
+        if (!StringUtils.hasText(userAgent)) {
+            return "Unknown device";
+        }
+        return userAgent.length() > 200 ? userAgent.substring(0, 200) + "…" : userAgent;
     }
 
     private String generateRandomPassword() {

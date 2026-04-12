@@ -26,6 +26,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final JwtProvider jwtProvider;
     private final TokenBlacklistService tokenBlacklistService;
     private final PasswordChangeTokenValidator passwordChangeTokenValidator;
+    private final SessionTokenValidator sessionTokenValidator;
 
     @Override
     protected void doFilterInternal(
@@ -45,6 +46,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 }
 
                 if (!passwordChangeTokenValidator.isTokenValidAgainstPasswordChange(jwt)) {
+                    filterChain.doFilter(request, response);
+                    return;
+                }
+
+                if (!sessionTokenValidator.isSessionTokenAcceptable(jwt)) {
                     filterChain.doFilter(request, response);
                     return;
                 }

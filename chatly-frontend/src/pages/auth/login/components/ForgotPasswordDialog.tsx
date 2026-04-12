@@ -53,7 +53,8 @@ export function ForgotPasswordDialog() {
                         Forgot password
                     </DialogTitle>
                     <DialogDescription className="text-[15px] leading-relaxed text-gray-600 dark:text-[#a0a3ab]">
-                        Enter your account email. If it is valid, we will send a new random password to your inbox.
+                        Enter your account email. If it exists, we email a new password — copy it from the message
+                        (don’t retype; some characters look alike).
                     </DialogDescription>
                 </DialogHeader>
                 <input
