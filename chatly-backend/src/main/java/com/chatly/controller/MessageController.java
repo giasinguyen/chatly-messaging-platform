@@ -108,6 +108,14 @@ public class MessageController {
                 .build();
     }
 
+    // ── Close Poll ──────────────────────────────────────────────────
+    @PutMapping("/{messageId}/close-poll")
+    ApiResponse<MessageResponse> closePoll(@PathVariable String messageId) {
+        return ApiResponse.<MessageResponse>builder()
+                .result(messageService.closePoll(messageId, getAuthenticatedUserId()))
+                .build();
+    }
+
     // ── Pin / Unpin ─────────────────────────────────────────────────
     @PutMapping("/{messageId}/pin")
     ApiResponse<MessageResponse> togglePin(@PathVariable String messageId) {

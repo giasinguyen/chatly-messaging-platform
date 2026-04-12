@@ -9,6 +9,7 @@ import { GroupManagementPanel } from "./GroupManagementPanel";
 import { ConversationInfoPanel } from "./ConversationInfoPanel";
 import { CreateGroupDialog } from "./CreateGroupDialog";
 import { ForwardMessageDialog } from "./ForwardMessageDialog";
+import { PinnedMessagesDialog } from "./PinnedMessagesDialog";
 import { conversationService } from "@/services/conversation.service";
 import { contactService } from "@/services/contact.service";
 import { messageService } from "@/services/message.service";
@@ -49,6 +50,12 @@ import {
     Settings,
     UserPlus,
     Upload,
+    BarChart3,
+    Pin,
+    PinOff,
+    ChevronLeft,
+    ChevronRight,
+    X as XIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 import type { Message, ChatUser, ChatEvent } from "@/types/message";
@@ -184,6 +191,21 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
     const [createGroupFromPrivateOpen, setCreateGroupFromPrivateOpen] = useState(false);
     const [forwardingMessage, setForwardingMessage] = useState<Message | null>(null);
     const groupAvatarInputRef = useRef<HTMLInputElement>(null);
+
+    // Pinned messages banner state
+    const [pinnedMessages, setPinnedMessages] = useState<Message[]>([]);
+    const [currentPinnedIdx, setCurrentPinnedIdx] = useState(0);
+    const [showPinnedDialog, setShowPinnedDialog] = useState(false);
+    const [dismissedPollIds, setDismissedPollIds] = useState<Set<string>>(new Set());
+
+    // Derive the latest active (non-closed) poll from messages
+    const activePoll = useMemo(() => {
+        for (let i = messages.length - 1; i >= 0; i--) {
+            const m = messages[i];
+            if (m.type === "POLL" && m.poll && !m.poll.closed) return m;
+        }
+        return null;
+    }, [messages]);
 
     const [selectedProfileUser, setSelectedProfileUser] =
         useState<ChatUser | null>(null);
@@ -443,6 +465,15 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
                 setMessages([...fetched].reverse());
                 setHasMore(fetched.length === PAGE_SIZE);
 
+                // Load pinned messages for the banner
+                try {
+                    const pinnedRes = await messageService.getPinnedMessages(id);
+                    if (!cancelled) {
+                        setPinnedMessages(pinnedRes.result ?? []);
+                        setCurrentPinnedIdx(0);
+                    }
+                } catch { /* non-critical */ }
+
                 // Mark unread messages as seen
                 fetched.forEach((m) => {
                     if (m.senderId !== currentUser.id && m.status !== "READ") {
@@ -686,11 +717,36 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
                             : m,
                     ),
                 );
+                // Refresh pinned banner
+                const pinned = await messageService.getPinnedMessages(id);
+                setPinnedMessages(pinned.result);
+                setCurrentPinnedIdx(0);
                 toast.success(res.result.pinned ? "Message pinned" : "Message unpinned");
             } catch (err: any) {
                 const msg =
                     err?.response?.data?.message ??
                     "Could not pin message";
+                toast.error(msg);
+            }
+        },
+        [id],
+    );
+
+    const handleClosePoll = useCallback(
+        async (messageId: string) => {
+            try {
+                const res = await messageService.closePoll(messageId);
+                setMessages((prev) =>
+                    prev.map((m) =>
+                        m.id === messageId
+                            ? { ...m, poll: res.result.poll }
+                            : m,
+                    ),
+                );
+            } catch (err: any) {
+                const msg =
+                    err?.response?.data?.message ??
+                    "Could not end poll";
                 toast.error(msg);
             }
         },
@@ -918,6 +974,89 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
                 nickname={nickname}
             />
 
+            {/* ── Pinned Messages Banner (Zalo-style) ─────────────────────── */}
+            {pinnedMessages.length > 0 && (
+                <div className="flex items-center gap-2 px-3 py-1.5 border-b border-border/40 bg-amber-50/80 dark:bg-amber-950/30 text-sm shrink-0">
+                    <Pin size={13} className="text-amber-500 shrink-0" />
+                    <button
+                        type="button"
+                        className="flex-1 text-left truncate text-foreground/90 hover:text-foreground transition-colors text-xs"
+                        onClick={() => setHighlightedMessageId(pinnedMessages[currentPinnedIdx]?.id ?? null)}
+                    >
+                        <span className="font-medium text-amber-600 dark:text-amber-400 mr-1">Pinned</span>
+                        {pinnedMessages[currentPinnedIdx]?.content ??
+                            (pinnedMessages[currentPinnedIdx]?.type === "POLL"
+                                ? `Poll: ${pinnedMessages[currentPinnedIdx]?.poll?.question}`
+                                : "[attachment]")}
+                    </button>
+                    {pinnedMessages.length > 1 && (
+                        <div className="flex items-center gap-0.5 shrink-0">
+                            <button
+                                type="button"
+                                onClick={() => setCurrentPinnedIdx((i) => (i - 1 + pinnedMessages.length) % pinnedMessages.length)}
+                                className="p-0.5 rounded hover:bg-amber-200/60 dark:hover:bg-amber-800/40"
+                            >
+                                <ChevronLeft size={13} />
+                            </button>
+                            <span className="text-[11px] text-muted-foreground">{currentPinnedIdx + 1}/{pinnedMessages.length}</span>
+                            <button
+                                type="button"
+                                onClick={() => setCurrentPinnedIdx((i) => (i + 1) % pinnedMessages.length)}
+                                className="p-0.5 rounded hover:bg-amber-200/60 dark:hover:bg-amber-800/40"
+                            >
+                                <ChevronRight size={13} />
+                            </button>
+                        </div>
+                    )}
+                    <button
+                        type="button"
+                        title="Unpin"
+                        onClick={() => handleTogglePin(pinnedMessages[currentPinnedIdx]?.id)}
+                        className="p-1 rounded hover:bg-amber-200/60 dark:hover:bg-amber-800/40 shrink-0"
+                    >
+                        <PinOff size={13} className="text-amber-500" />
+                    </button>
+                    <button
+                        type="button"
+                        title="See all pinned"
+                        onClick={() => setShowPinnedDialog(true)}
+                        className="text-[11px] text-amber-600 dark:text-amber-400 hover:underline shrink-0 font-medium"
+                    >
+                        All
+                    </button>
+                </div>
+            )}
+
+            {/* ── Active Poll Banner (Zalo-style) ──────────────────────────── */}
+            {activePoll && !dismissedPollIds.has(activePoll.id) && (
+                <div className="flex items-center gap-2 px-3 py-1.5 border-b border-border/40 bg-brand/5 dark:bg-brand/10 text-sm shrink-0">
+                    <BarChart3 size={13} className="text-brand shrink-0" />
+                    <button
+                        type="button"
+                        className="flex-1 text-left truncate text-foreground/90 hover:text-foreground transition-colors text-xs"
+                        onClick={() => setHighlightedMessageId(activePoll.id)}
+                    >
+                        <span className="font-medium text-brand mr-1">Poll:</span>
+                        {activePoll.poll?.question}
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => setHighlightedMessageId(activePoll.id)}
+                        className="text-[11px] text-brand hover:underline shrink-0 font-medium"
+                    >
+                        Vote
+                    </button>
+                    <button
+                        type="button"
+                        title="Dismiss"
+                        onClick={() => setDismissedPollIds((prev) => new Set(prev).add(activePoll.id))}
+                        className="p-1 rounded hover:bg-brand/10 shrink-0"
+                    >
+                        <XIcon size={13} className="text-muted-foreground" />
+                    </button>
+                </div>
+            )}
+
             {showSearch && (
                 <MessageSearch
                     conversationId={id}
@@ -950,6 +1089,7 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
                 onRemoveFailedMessage={(fid) => setFailedMessages((p) => p.filter(m => m.id !== fid))}
                 highlightedMessageId={highlightedMessageId}
                 onVotePoll={handleVotePoll}
+                onClosePoll={handleClosePoll}
                 onTogglePin={handleTogglePin}
             />
 
@@ -995,6 +1135,14 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
                     if (!open) setForwardingMessage(null);
                 }}
                 onConfirm={handleForwardConfirm}
+            />
+
+            <PinnedMessagesDialog
+                conversationId={id}
+                open={showPinnedDialog}
+                onOpenChange={setShowPinnedDialog}
+                onUnpin={handleTogglePin}
+                onScrollToMessage={setHighlightedMessageId}
             />
 
             <Dialog
