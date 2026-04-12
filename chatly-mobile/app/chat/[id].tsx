@@ -251,7 +251,7 @@ export default function ChatScreen() {
 
   // Send message (try WebSocket, fallback to REST)
   const handleSend = useCallback(
-    async (text: string, attachments?: Attachment[], messageType?: string) => {
+    async (text: string, attachments?: Attachment[], messageType?: string, priority?: 'IMPORTANT' | 'URGENT') => {
       if (!conversationId || !user) return;
       const replyToId = replyingTo?.id ?? null;
       const hasAttachments = attachments && attachments.length > 0;
@@ -270,7 +270,7 @@ export default function ChatScreen() {
       };
 
       // Try WebSocket first
-      const sent = wsSendMessage(text, replyToId, attachments, messageType);
+      const sent = wsSendMessage(text, replyToId, attachments, messageType, priority);
       if (sent) {
         updateConversation(conversationId, { lastMessage: optimisticLastMsg });
         setReplyingTo(null);
@@ -286,6 +286,7 @@ export default function ChatScreen() {
           type: msgType,
           replyToId,
           attachments,
+          priority,
         });
         addMessage(conversationId, res.result);
         updateConversation(conversationId, { 
@@ -544,6 +545,7 @@ export default function ChatScreen() {
                     isMe={isMe}
                     showAvatar={isGroup}
                     senderName={sender?.displayName}
+                    senderAvatarUrl={isGroup ? sender?.avatarUrl : undefined}
                     currentUserId={user?.id}
                     onLongPress={() => handleLongPress(msg)}
                     onReact={handleReact}
@@ -599,6 +601,19 @@ export default function ChatScreen() {
           onTyping={sendTyping}
           replyingTo={replyingTo}
           onCancelReply={() => setReplyingTo(null)}
+          isGroup={isGroup}
+          groupMembers={
+            isGroup
+              ? Object.values(participantMap)
+                  .filter((m) => m.id !== user?.id)
+                  .map((m) => ({
+                    id: m.id,
+                    displayName: m.displayName,
+                    username: m.username ?? '',
+                    avatarUrl: m.avatarUrl,
+                  }))
+              : undefined
+          }
         />
       </View>
 
