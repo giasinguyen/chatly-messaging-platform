@@ -2,10 +2,11 @@ import { View, Text, TouchableOpacity } from 'react-native';
 import { useEffect, useRef, useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { RTCView } from 'react-native-webrtc';
+import { Audio } from 'expo-av';
 import { Avatar } from '@/components/ui/Avatar';
 import { Colors } from '@/constants/theme';
 import { useCallStore } from '@/store/call.store';
-import { useCallSocket } from '@/hooks/useCallSocket';
+import { useCallContext } from '@/contexts/CallContext';
 
 function formatDuration(seconds: number): string {
   const mins = Math.floor(seconds / 60);
@@ -26,9 +27,34 @@ export function ActiveCallOverlay() {
     incrementDuration,
   } = useCallStore();
 
-  const { endCall, localStream, remoteStream, toggleMute, toggleCamera } = useCallSocket();
+  const { endCall, localStream, remoteStream, toggleCamera } = useCallContext();
   const [isExpanded, setIsExpanded] = useState(false);
+  const [isSpeakerOn, setIsSpeakerOn] = useState(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Kích hoạt audio session khi cuộc gọi bắt đầu
+  useEffect(() => {
+    if (callStatus !== 'ONGOING') return;
+
+    Audio.setAudioModeAsync({
+      allowsRecordingIOS: true,
+      playsInSilentModeIOS: true,
+      staysActiveInBackground: true,
+      shouldDuckAndroid: false,
+      playThroughEarpieceAndroid: true, // mặc định dùng tai nghe (earpiece)
+    }).catch(console.error);
+
+    return () => {
+      // Reset về chế độ media thông thường sau khi kết thúc gọi
+      Audio.setAudioModeAsync({
+        allowsRecordingIOS: false,
+        playsInSilentModeIOS: false,
+        staysActiveInBackground: false,
+        shouldDuckAndroid: true,
+        playThroughEarpieceAndroid: false,
+      }).catch(console.error);
+    };
+  }, [callStatus]);
 
   // Timer đếm thời gian cuộc gọi
   useEffect(() => {
@@ -52,8 +78,24 @@ export function ActiveCallOverlay() {
   const isVideoCall = activeCall.type === 'VIDEO';
 
   const handleToggleMute = () => {
+    const newMuted = !isMuted;
+    // Bật/tắt audio track trực tiếp trên stream
+    localStream?.getAudioTracks().forEach((track) => {
+      track.enabled = !newMuted;
+    });
     toggleMuteStore();
-    toggleMute(!isMuted);
+  };
+
+  const handleToggleSpeaker = () => {
+    const next = !isSpeakerOn;
+    Audio.setAudioModeAsync({
+      allowsRecordingIOS: true,
+      playsInSilentModeIOS: true,
+      staysActiveInBackground: true,
+      shouldDuckAndroid: false,
+      playThroughEarpieceAndroid: !next, // false = loa ngoài, true = tai nghe
+    }).catch(console.error);
+    setIsSpeakerOn(next);
   };
 
   const handleToggleCamera = () => {
@@ -237,16 +279,21 @@ export function ActiveCallOverlay() {
 
         {/* Nút loa ngoài */}
         <TouchableOpacity
+          onPress={handleToggleSpeaker}
           className="items-center justify-center"
           style={{
             width: 56,
             height: 56,
             borderRadius: 28,
-            backgroundColor: 'rgba(255, 255, 255, 0.2)',
+            backgroundColor: isSpeakerOn ? Colors.cta : 'rgba(255, 255, 255, 0.2)',
           }}
           activeOpacity={0.7}
         >
-          <Ionicons name="volume-high" size={26} color={Colors.white} />
+          <Ionicons
+            name={isSpeakerOn ? 'volume-high' : 'volume-medium'}
+            size={26}
+            color={Colors.white}
+          />
         </TouchableOpacity>
 
         {/* Nút kết thúc cuộc gọi */}

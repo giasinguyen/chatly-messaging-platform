@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Avatar } from '@/components/ui/Avatar';
 import { Colors } from '@/constants/theme';
-import { useCallSocket } from '@/hooks/useCallSocket';
+import { useCallContext } from '@/contexts/CallContext';
 import { useCallStore } from '@/store/call.store';
 
 interface ChatHeaderProps {
@@ -32,7 +32,7 @@ export function ChatHeader({
 }: ChatHeaderProps) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { initiateCall } = useCallSocket();
+  const { initiateCall } = useCallContext();
   const callStatus = useCallStore((s) => s.callStatus);
 
   // Chỉ hiển thị nút gọi cho cuộc trò chuyện riêng tư

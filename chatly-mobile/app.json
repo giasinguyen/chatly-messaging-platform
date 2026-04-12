@@ -57,6 +57,13 @@
         "NSCameraUsageDescription": "Chatly cần quyền truy cập camera để thực hiện cuộc gọi video.",
         "NSMicrophoneUsageDescription": "Chatly cần quyền truy cập microphone để thực hiện cuộc gọi."
       }
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "f935a71f-badb-49b6-9a52-51363f470cea"
+      }
+    },
+    "owner": "daoquoctuan972"
   }
 }
