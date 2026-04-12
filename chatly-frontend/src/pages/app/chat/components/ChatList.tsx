@@ -477,6 +477,7 @@ export const ChatList = forwardRef(function ChatListComponent(_, ref) {
                                                 <div className="flex items-center gap-0.5 shrink-0">
                                                     {categories.map((cat) => {
                                                         const meta = CATEGORY_META[cat];
+                                                        if (!meta) return null;
                                                         return (
                                                             <Tooltip key={cat}>
                                                                 <TooltipTrigger asChild>
