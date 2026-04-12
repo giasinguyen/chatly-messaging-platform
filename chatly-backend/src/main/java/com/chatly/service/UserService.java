@@ -25,6 +25,7 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final UserMapper userMapper;
+    private final ContactService contactService;
 
     public UserResponse getCurrentUser() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
@@ -41,6 +42,21 @@ public class UserService {
     public UserResponse getById(UUID id) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+
+        // If the target user has blocked the requester, return a limited profile.
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.isAuthenticated()) {
+            UUID requesterId = UUID.fromString(auth.getPrincipal().toString());
+            if (!requesterId.equals(id) && contactService.isBlockedBy(requesterId, id)) {
+                return UserResponse.builder()
+                        .id(user.getId().toString())
+                        .displayName(user.getDisplayName())
+                        .avatarUrl(user.getAvatarUrl())
+                        .limited(true)
+                        .build();
+            }
+        }
+
         return userMapper.toResponse(user);
     }
 

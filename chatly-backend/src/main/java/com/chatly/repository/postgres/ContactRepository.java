@@ -26,4 +26,10 @@ public interface ContactRepository extends JpaRepository<Contact, UUID> {
      */
     @Query("SELECT c FROM Contact c WHERE (c.user.id = :userId OR c.contact.id = :userId) AND c.status = :status")
     List<Contact> findByParticipantIdAndStatus(@Param("userId") UUID userId, @Param("status") ContactStatus status);
+
+    /**
+     * Find a contact record between two users regardless of who initiated the request.
+     */
+    @Query("SELECT c FROM Contact c WHERE (c.user.id = :userId AND c.contact.id = :otherId) OR (c.user.id = :otherId AND c.contact.id = :userId)")
+    Optional<Contact> findByParticipants(@Param("userId") UUID userId, @Param("otherId") UUID otherId);
 }

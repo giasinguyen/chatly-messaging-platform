@@ -1,6 +1,6 @@
 import axiosClient from "@/lib/axiosClient";
 import type { ApiResponse } from "@/types/auth";
-import type { ContactResponse, ContactRequestPayload, ContactStatus } from "@/types/contact";
+import type { ContactResponse, ContactRequestPayload, ContactStatus, BlockStatusResponse } from "@/types/contact";
 
 export const contactService = {
     getAll: async (): Promise<ApiResponse<ContactResponse[]>> => {
@@ -39,9 +39,23 @@ export const contactService = {
         return response.data;
     },
 
+    unblock: async (id: string): Promise<ApiResponse<ContactResponse>> => {
+        const response = await axiosClient.put<ApiResponse<ContactResponse>>(
+            `/api/contacts/${id}/unblock`,
+        );
+        return response.data;
+    },
+
     delete: async (id: string): Promise<ApiResponse<void>> => {
         const response = await axiosClient.delete<ApiResponse<void>>(
             `/api/contacts/${id}`,
+        );
+        return response.data;
+    },
+
+    blockStatus: async (userId: string): Promise<ApiResponse<BlockStatusResponse>> => {
+        const response = await axiosClient.get<ApiResponse<BlockStatusResponse>>(
+            `/api/contacts/block-status/${userId}`,
         );
         return response.data;
     },
