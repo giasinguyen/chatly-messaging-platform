@@ -82,11 +82,11 @@ export function useChatSocket({
     }, [conversationId, user, onEvent, onTyping, onRead]);
 
     const sendMessage = useCallback(
-        (content: string, replyToId: string | null = null, attachments?: Attachment[], poll?: Poll, priority?: string, mentions?: string[]): boolean => {
+        (content: string, replyToId: string | null = null, attachments?: Attachment[], poll?: Poll, priority?: string, mentions?: string[], messageType?: string): boolean => {
             const client = socketService.getClient();
             if (client?.connected) {
                 const hasAttachments = attachments && attachments.length > 0;
-                const type = poll ? "POLL" : (hasAttachments ? resolveMessageType(attachments![0].type) : "TEXT");
+                const type = messageType ?? (poll ? "POLL" : (hasAttachments ? resolveMessageType(attachments![0].type) : "TEXT"));
                 client.publish({
                     destination: "/app/chat.send",
                     body: JSON.stringify({

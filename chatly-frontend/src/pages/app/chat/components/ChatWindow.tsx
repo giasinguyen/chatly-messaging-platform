@@ -528,9 +528,10 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
             attachments?: import("@/types/message").Attachment[],
             poll?: import("@/types/message").Poll,
             mentions?: string[],
+            priority?: string,
         ) => {
             if (!id || !currentUser) return;
-            const success = sendMessage(content, replyingTo?.id ?? null, attachments, poll, undefined, mentions);
+            const success = sendMessage(content, replyingTo?.id ?? null, attachments, poll, priority, mentions);
             if (!success) {
                 toast.error("Connection lost! Could not send message.");
                 setFailedMessages((prev) => [
@@ -539,6 +540,24 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
                 ]);
             }
             setReplyingTo(null);
+        },
+        [id, currentUser, replyingTo, sendMessage],
+    );
+
+    const handleSendVCard = useCallback(
+        (user: import("@/types/message").ChatUser) => {
+            if (!id || !currentUser) return;
+            const cardContent = JSON.stringify({
+                id: user.id,
+                displayName: user.displayName,
+                username: user.username,
+                avatarUrl: user.avatarUrl ?? null,
+            });
+            const success = sendMessage(cardContent, replyingTo?.id ?? null, undefined, undefined, undefined, undefined, "VCARD");
+            if (!success) {
+                toast.error("Connection lost! Could not send card.");
+            }
+            if (replyingTo) setReplyingTo(null);
         },
         [id, currentUser, replyingTo, sendMessage],
     );
@@ -1151,6 +1170,7 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
                 senderName={replyingSenderName}
                 onCancelReply={handleCancelReply}
                 onSendMessage={handleSendMessage}
+                onSendVCard={handleSendVCard}
                 onTyping={sendTyping}
                 groupMembers={groupMembers}
                 currentUserId={currentUser?.id}

@@ -13,6 +13,11 @@ import {
     Plus,
     Trash2,
     Clock,
+    MoreHorizontal,
+    IdCard,
+    Star,
+    AlertTriangle,
+    Check,
 } from "lucide-react";
 import { toast } from "sonner";
 import Picker from "@emoji-mart/react";
@@ -37,7 +42,8 @@ interface ChatInputProps {
     replyingTo?: Message | null;
     senderName?: string;
     onCancelReply: () => void;
-    onSendMessage: (content: string, attachments?: Attachment[], poll?: Poll, mentions?: string[]) => void;
+    onSendMessage: (content: string, attachments?: Attachment[], poll?: Poll, mentions?: string[], priority?: string) => void;
+    onSendVCard?: (user: ChatUser) => void;
     onTyping?: (typing: boolean) => void;
     groupMembers?: ChatUser[];
     currentUserId?: string;
@@ -66,6 +72,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
     senderName,
     onCancelReply,
     onSendMessage,
+    onSendVCard,
     onTyping,
     groupMembers = [],
     currentUserId,
@@ -88,6 +95,13 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
     const [mentionQuery, setMentionQuery] = useState<string | null>(null);
     const [mentionIndex, setMentionIndex] = useState(0);
     const mentionListRef = useRef<HTMLDivElement>(null);
+    // Priority menu state
+    const [showPriorityMenu, setShowPriorityMenu] = useState(false);
+    const [selectedPriority, setSelectedPriority] = useState<string | null>(null);
+    const priorityMenuRef = useRef<HTMLDivElement>(null);
+    // VCard dialog state
+    const [showVCardDialog, setShowVCardDialog] = useState(false);
+    const [vCardUser, setVCardUser] = useState<ChatUser | null>(null);
     const typingTimerRef = useRef<any>(null);
     const inputRef = useRef<HTMLInputElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -186,6 +200,18 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
         document.addEventListener("mousedown", handler);
         return () => document.removeEventListener("mousedown", handler);
     }, [showEmojiPicker]);
+
+    // Close priority menu on outside click
+    useEffect(() => {
+        if (!showPriorityMenu) return;
+        const handler = (e: MouseEvent) => {
+            if (priorityMenuRef.current && !priorityMenuRef.current.contains(e.target as Node)) {
+                setShowPriorityMenu(false);
+            }
+        };
+        document.addEventListener("mousedown", handler);
+        return () => document.removeEventListener("mousedown", handler);
+    }, [showPriorityMenu]);
 
     const handleEmojiSelect = (emoji: { native: string }) => {
         setContent((prev) => prev + emoji.native);
@@ -314,10 +340,11 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
             .map((p) => p.uploaded!);
 
         const mentions = extractMentions(content);
-        onSendMessage(content.trim(), attachments.length ? attachments : undefined, undefined, mentions.length ? mentions : undefined);
+        onSendMessage(content.trim(), attachments.length ? attachments : undefined, undefined, mentions.length ? mentions : undefined, selectedPriority ?? undefined);
         setContent("");
         setMentionQuery(null);
         setPendingFiles([]);
+        setSelectedPriority(null);
     };
 
     const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
@@ -554,6 +581,69 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
                         <Clock size={18} />
                     </Button>
 
+                    {/* Business card button */}
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-9 w-9 shrink-0 text-muted-foreground hover:text-foreground"
+                        onClick={() => { setVCardUser(null); setShowVCardDialog(true); }}
+                        title="Send business card"
+                    >
+                        <IdCard size={18} />
+                    </Button>
+
+                    {/* Priority menu button (3-dot) */}
+                    <div className="relative" ref={priorityMenuRef}>
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className={cn(
+                                "h-9 w-9 shrink-0 transition-colors",
+                                selectedPriority === "IMPORTANT" && "text-amber-500 bg-amber-50 dark:bg-amber-950/30 hover:bg-amber-100 dark:hover:bg-amber-900/40",
+                                selectedPriority === "URGENT" && "text-red-500 bg-red-50 dark:bg-red-950/30 hover:bg-red-100 dark:hover:bg-red-900/40",
+                                !selectedPriority && "text-muted-foreground hover:text-foreground",
+                            )}
+                            onClick={() => setShowPriorityMenu((prev) => !prev)}
+                            title="Message priority"
+                        >
+                            <MoreHorizontal size={18} />
+                        </Button>
+                        {showPriorityMenu && (
+                            <div className="absolute bottom-full mb-2 left-0 bg-popover border border-border rounded-lg shadow-lg z-50 min-w-[210px] py-1">
+                                <button
+                                    type="button"
+                                    className={cn(
+                                        "flex items-center gap-2.5 w-full px-3 py-2.5 text-sm text-left hover:bg-accent transition-colors",
+                                        selectedPriority === "IMPORTANT" && "text-amber-500",
+                                    )}
+                                    onClick={() => {
+                                        setSelectedPriority((prev) => (prev === "IMPORTANT" ? null : "IMPORTANT"));
+                                        setShowPriorityMenu(false);
+                                    }}
+                                >
+                                    <Star size={15} className="text-amber-500 shrink-0" />
+                                    Đánh dấu tin quan trọng
+                                    {selectedPriority === "IMPORTANT" && <Check size={13} className="ml-auto" />}
+                                </button>
+                                <button
+                                    type="button"
+                                    className={cn(
+                                        "flex items-center gap-2.5 w-full px-3 py-2.5 text-sm text-left hover:bg-accent transition-colors",
+                                        selectedPriority === "URGENT" && "text-red-500",
+                                    )}
+                                    onClick={() => {
+                                        setSelectedPriority((prev) => (prev === "URGENT" ? null : "URGENT"));
+                                        setShowPriorityMenu(false);
+                                    }}
+                                >
+                                    <AlertTriangle size={15} className="text-red-500 shrink-0" />
+                                    Đánh dấu tin khẩn cấp
+                                    {selectedPriority === "URGENT" && <Check size={13} className="ml-auto" />}
+                                </button>
+                            </div>
+                        )}
+                    </div>
+
                     <div className="flex-1 relative">
                         {/* Mention autocomplete dropdown */}
                         {mentionQuery !== null && mentionSuggestions.length > 0 && (
@@ -747,6 +837,63 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
                         >
                             {reminderSubmitting && <Loader2 size={14} className="mr-2 animate-spin" />}
                             Create reminder
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Business card (VCard) dialog */}
+            <Dialog open={showVCardDialog} onOpenChange={setShowVCardDialog}>
+                <DialogContent className="sm:max-w-sm">
+                    <DialogHeader>
+                        <DialogTitle>Gửi danh thiếp</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-1 max-h-64 overflow-y-auto">
+                        {groupMembers.map((user) => (
+                            <button
+                                key={user.id}
+                                type="button"
+                                className={cn(
+                                    "flex items-center gap-3 w-full px-3 py-2 rounded-lg text-left hover:bg-accent transition-colors border",
+                                    vCardUser?.id === user.id ? "border-brand bg-brand/5" : "border-transparent",
+                                )}
+                                onClick={() => setVCardUser(user)}
+                            >
+                                <div className="w-9 h-9 rounded-full bg-brand/20 flex items-center justify-center text-sm font-semibold text-brand shrink-0">
+                                    {user.avatarUrl ? (
+                                        <img src={user.avatarUrl} alt="" className="w-9 h-9 rounded-full object-cover" />
+                                    ) : (
+                                        user.displayName.charAt(0).toUpperCase()
+                                    )}
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                    <p className="font-medium text-sm truncate">
+                                        {user.displayName}
+                                        {user.id === currentUserId && (
+                                            <span className="ml-1.5 text-xs text-muted-foreground">(Bạn)</span>
+                                        )}
+                                    </p>
+                                    <p className="text-xs text-muted-foreground truncate">@{user.username}</p>
+                                </div>
+                                {vCardUser?.id === user.id && <Check size={15} className="text-brand shrink-0" />}
+                            </button>
+                        ))}
+                    </div>
+                    <DialogFooter>
+                        <Button variant="ghost" onClick={() => setShowVCardDialog(false)}>
+                            Hủy
+                        </Button>
+                        <Button
+                            disabled={!vCardUser}
+                            onClick={() => {
+                                if (vCardUser) {
+                                    onSendVCard?.(vCardUser);
+                                    setShowVCardDialog(false);
+                                    setVCardUser(null);
+                                }
+                            }}
+                        >
+                            Gửi danh thiếp
                         </Button>
                     </DialogFooter>
                 </DialogContent>

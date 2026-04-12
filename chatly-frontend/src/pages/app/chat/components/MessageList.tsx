@@ -23,6 +23,7 @@ import {
     Forward,
     Star,
     AlertTriangle,
+    IdCard,
 } from "lucide-react";
 import { toast } from "sonner";
 import type { Message, ChatUser } from "@/types/message";
@@ -501,6 +502,51 @@ export function MessageList({
                                     </div>
                                 );
                             })()
+                        ) : msg.type === "VCARD" ? (
+                            /* Business card bubble — Zalo-style */
+                            (() => {
+                                let card: { id?: string; displayName?: string; username?: string; avatarUrl?: string } = {};
+                                try { card = JSON.parse(msg.content); } catch {}
+                                return (
+                                    <div className="w-60 rounded-2xl border border-border/60 bg-background dark:bg-zinc-900 shadow-sm overflow-hidden">
+                                        {/* Card header — mini label */}
+                                        <div className="flex items-center gap-1.5 px-3 py-2 bg-muted/40 border-b border-border/40">
+                                            <IdCard size={12} className="text-muted-foreground shrink-0" />
+                                            <span className="text-[11px] text-muted-foreground font-medium">Danh thiếp</span>
+                                        </div>
+                                        {/* Card body */}
+                                        <div className="flex items-center gap-3 px-3 py-3">
+                                            <div className="w-12 h-12 rounded-full bg-brand/15 flex items-center justify-center text-base font-bold text-brand shrink-0 overflow-hidden ring-2 ring-brand/20">
+                                                {card.avatarUrl ? (
+                                                    <img src={card.avatarUrl} alt="" className="w-12 h-12 object-cover" />
+                                                ) : (
+                                                    <span>{(card.displayName ?? "U").charAt(0).toUpperCase()}</span>
+                                                )}
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <p className="font-semibold text-sm text-foreground truncate">
+                                                    {card.displayName ?? "User"}
+                                                </p>
+                                                <p className="text-xs text-muted-foreground truncate mt-0.5">
+                                                    @{card.username ?? ""}
+                                                </p>
+                                            </div>
+                                        </div>
+                                        {/* Card footer — action button */}
+                                        {card.id && onOpenSenderProfile && (
+                                            <div className="border-t border-border/40">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => onOpenSenderProfile(card.id!)}
+                                                    className="w-full py-2 text-xs font-semibold text-brand hover:bg-brand/5 transition-colors"
+                                                >
+                                                    Xem hồ sơ
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })()
                         ) : (
                             /* Normal bubble */
                             <div
@@ -553,6 +599,27 @@ export function MessageList({
                                                     );
                                                 }
                                                 if (/^@\S+/.test(part)) {
+                                                    const mentionName = part.replace(/^@/, '');
+                                                    const mentionedUser = mentionName === 'all'
+                                                        ? null
+                                                        : Object.values(participantDirectory).find(
+                                                            (u) => u.displayName === mentionName || u.username === mentionName,
+                                                        );
+                                                    if (mentionedUser && onOpenSenderProfile) {
+                                                        return (
+                                                            <button
+                                                                key={i}
+                                                                type="button"
+                                                                onClick={() => onOpenSenderProfile(mentionedUser.id)}
+                                                                className={cn(
+                                                                    "font-semibold cursor-pointer hover:underline",
+                                                                    isMe ? "text-white/90" : "text-brand",
+                                                                )}
+                                                            >
+                                                                {part}
+                                                            </button>
+                                                        );
+                                                    }
                                                     return (
                                                         <span key={i} className={cn(
                                                             "font-semibold",
