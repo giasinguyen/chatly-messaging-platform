@@ -12,6 +12,8 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { ContactTab } from "../index";
 import { AddFriendDialog } from "./AddFriendDialog";
+import { CreateGroupDialog } from "@/pages/app/chat/components/CreateGroupDialog";
+import { useNavigate } from "react-router-dom";
 
 interface ContactListProps {
     activeTab: ContactTab;
@@ -19,7 +21,9 @@ interface ContactListProps {
 }
 
 export function ContactList({ activeTab, onTabChange }: ContactListProps) {
+    const navigate = useNavigate();
     const [isAddFriendOpen, setIsAddFriendOpen] = useState(false);
+    const [isCreateGroupOpen, setIsCreateGroupOpen] = useState(false);
 
     const categories: { id: ContactTab; label: string; icon: any }[] = [
         { id: "friends", label: "Friends list", icon: UserCircle },
@@ -52,6 +56,8 @@ export function ContactList({ activeTab, onTabChange }: ContactListProps) {
                         variant="ghost"
                         size="icon"
                         className="h-8 w-8 rounded-full"
+                        onClick={() => setIsCreateGroupOpen(true)}
+                        title="Tạo nhóm chat"
                     >
                         <UsersRound size={16} />
                     </Button>
@@ -86,6 +92,11 @@ export function ContactList({ activeTab, onTabChange }: ContactListProps) {
             <AddFriendDialog
                 open={isAddFriendOpen}
                 onOpenChange={setIsAddFriendOpen}
+            />
+            <CreateGroupDialog
+                open={isCreateGroupOpen}
+                onOpenChange={setIsCreateGroupOpen}
+                onCreated={(conv) => navigate(`/chat/${conv.id}`)}
             />
         </aside>
     );

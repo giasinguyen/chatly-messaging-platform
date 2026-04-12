@@ -2,13 +2,16 @@ import { Phone, Video, Users, ChevronLeft, Search, Pin, BellOff, PanelRightOpen,
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { PresenceIndicator } from "@/components/customize/PresenceIndicator";
+import { useCallContext } from "@/contexts/CallContext";
+import { useCallStore } from "@/store/call.store";
 import type { ChatUser } from "@/types/message";
-import { toast } from "sonner";
 
 interface ChatHeaderProps {
     user: ChatUser;
     onOpenProfile: () => void;
     isGroup?: boolean;
+    conversationId?: string;
+    otherUserId?: string;
     onOpenGroupPanel?: () => void;
     onToggleSearch?: () => void;
     onToggleInfoPanel?: () => void;
@@ -21,7 +24,14 @@ interface ChatHeaderProps {
     nickname?: string | null;
 }
 
-export function ChatHeader({ user, onOpenProfile, isGroup, onOpenGroupPanel, onToggleSearch, onToggleInfoPanel, isInfoPanelOpen, presenceStatus, lastSeen, onBack, isPinned, isMuted, nickname }: ChatHeaderProps) {
+export function ChatHeader({ user, onOpenProfile, isGroup, conversationId, otherUserId, onOpenGroupPanel, onToggleSearch, onToggleInfoPanel, isInfoPanelOpen, presenceStatus, lastSeen, onBack, isPinned, isMuted, nickname }: ChatHeaderProps) {
+    const { initiateCall } = useCallContext();
+    const callStatus = useCallStore((s) => s.callStatus);
+
+    // Chỉ hiển thị nút gọi cho cuộc trò chuyện riêng tư (PRIVATE)
+    const showCallButtons = !isGroup && !!conversationId && !!otherUserId;
+    const callDisabled = callStatus !== "IDLE";
+
     return (
         <header className="h-16 border-b border-border flex items-center justify-between px-2 sm:px-4 shrink-0 bg-background dark:bg-[#22252b]">
             <div className="flex items-center">
@@ -89,26 +99,39 @@ export function ChatHeader({ user, onOpenProfile, isGroup, onOpenGroupPanel, onT
                 >
                     <Search size={18} />
                 </Button>
-                <Button
-                    onClick={() => {
-                        toast.info("Development in progress...");
-                    }}
-                    variant="ghost"
-                    size="icon"
-                    className="h-9 w-9"
-                >
-                    <Video size={18} />
-                </Button>
-                <Button
-                    onClick={() => {
-                        toast.info("Development in progress...");
-                    }}
-                    variant="ghost"
-                    size="icon"
-                    className="h-9 w-9"
-                >
-                    <Phone size={18} />
-                </Button>
+                {showCallButtons ? (
+                    <>
+                        <Button
+                            onClick={() => initiateCall(otherUserId!, conversationId!, "VIDEO", user.displayName, user.avatarUrl)}
+                            disabled={callDisabled}
+                            variant="ghost"
+                            size="icon"
+                            className="h-9 w-9 disabled:opacity-50 disabled:cursor-not-allowed"
+                            title="Gọi video"
+                        >
+                            <Video size={18} />
+                        </Button>
+                        <Button
+                            onClick={() => initiateCall(otherUserId!, conversationId!, "VOICE", user.displayName, user.avatarUrl)}
+                            disabled={callDisabled}
+                            variant="ghost"
+                            size="icon"
+                            className="h-9 w-9 disabled:opacity-50 disabled:cursor-not-allowed"
+                            title="Gọi thoại"
+                        >
+                            <Phone size={18} />
+                        </Button>
+                    </>
+                ) : (
+                    <>
+                        <Button variant="ghost" size="icon" className="h-9 w-9">
+                            <Video size={18} />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-9 w-9">
+                            <Phone size={18} />
+                        </Button>
+                    </>
+                )}
                 {onToggleInfoPanel && (
                     <Button
                         onClick={onToggleInfoPanel}

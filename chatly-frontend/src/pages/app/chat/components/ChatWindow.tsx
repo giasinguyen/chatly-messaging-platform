@@ -21,6 +21,7 @@ import { useAuthStore } from "@/store/auth.store";
 import { useConversationPrefsStore } from "@/store/conversationPrefs.store";
 import { useNotificationStore } from "@/store/notification.store";
 import { useChatSocket } from "@/hooks/useChatSocket";
+import { useCallContext } from "@/contexts/CallContext";
 import {
     usePresenceSocket,
     type PresenceEvent,
@@ -187,6 +188,7 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
     const [showSearch, setShowSearch] = useState(false);
     const [showInfoPanel, setShowInfoPanel] = useState(true);
     const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
+    const [highlightKeyword, setHighlightKeyword] = useState("");
     const [groupPanelDefaultTab, setGroupPanelDefaultTab] = useState<"members" | "settings">("members");
     const [createGroupFromPrivateOpen, setCreateGroupFromPrivateOpen] = useState(false);
     const [forwardingMessage, setForwardingMessage] = useState<Message | null>(null);
@@ -529,9 +531,10 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
             poll?: import("@/types/message").Poll,
             mentions?: string[],
             priority?: string,
+            messageType?: string,
         ) => {
             if (!id || !currentUser) return;
-            const success = sendMessage(content, replyingTo?.id ?? null, attachments, poll, priority, mentions);
+            const success = sendMessage(content, replyingTo?.id ?? null, attachments, poll, priority, mentions, messageType);
             if (!success) {
                 toast.error("Connection lost! Could not send message.");
                 setFailedMessages((prev) => [
@@ -773,6 +776,15 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
         [],
     );
 
+    // Use the shared call socket instance (same as AppLayout) to avoid duplicate peer connections
+    const { initiateCall } = useCallContext();
+
+    const handleCallAgain = useCallback(
+        (calleeId: string, calleeName: string, calleeAvatar?: string) => {
+            initiateCall(calleeId, id, "VOICE", calleeName, calleeAvatar);
+        },
+        [id, initiateCall],
+    );
     const handleTagPriority = useCallback(
         async (messageId: string, priority: string) => {
             try {
@@ -1002,12 +1014,17 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
                     setShowProfileDialog(true);
                 }}
                 isGroup={isGroup}
+                conversationId={id}
+                otherUserId={!isGroup ? participant.id : undefined}
                 onOpenGroupPanel={
                     isGroup ? () => setShowGroupPanel(true) : undefined
                 }
                 onToggleSearch={() => {
                     setShowSearch((prev) => !prev);
-                    if (showSearch) setHighlightedMessageId(null);
+                    if (showSearch) {
+                        setHighlightedMessageId(null);
+                        setHighlightKeyword("");
+                    }
                 }}
                 onToggleInfoPanel={() => setShowInfoPanel((prev) => !prev)}
                 isInfoPanelOpen={showInfoPanel}
@@ -1108,8 +1125,10 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
                     onClose={() => {
                         setShowSearch(false);
                         setHighlightedMessageId(null);
+                        setHighlightKeyword("");
                     }}
                     onNavigateToMessage={setHighlightedMessageId}
+                    onKeywordChange={setHighlightKeyword}
                 />
             )}
 
@@ -1133,9 +1152,11 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
                 onRetryMessage={handleRetryMessage}
                 onRemoveFailedMessage={(fid) => setFailedMessages((p) => p.filter(m => m.id !== fid))}
                 highlightedMessageId={highlightedMessageId}
+                highlightKeyword={highlightKeyword}
                 onVotePoll={handleVotePoll}
                 onClosePoll={handleClosePoll}
                 onTogglePin={handleTogglePin}
+                onCallAgain={handleCallAgain}
                 onTagPriority={handleTagPriority}
             />
 

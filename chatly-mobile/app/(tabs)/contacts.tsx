@@ -1,8 +1,9 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
   FlatList,
+  SectionList,
   TouchableOpacity,
   TextInput,
   RefreshControl,
@@ -177,6 +178,23 @@ export default function ContactsScreen() {
   const getContactUser = (contact: ContactResponse) => {
     return contact.user.id === user?.id ? contact.contact : contact.user;
   };
+
+  const friendSections = useMemo(() => {
+    const grouped: Record<string, ContactResponse[]> = {};
+    [...contacts]
+      .sort((a, b) =>
+        getContactUser(a).displayName.localeCompare(getContactUser(b).displayName, 'vi'),
+      )
+      .forEach((contact) => {
+        const letter = getContactUser(contact).displayName.charAt(0).toUpperCase();
+        if (!grouped[letter]) grouped[letter] = [];
+        grouped[letter].push(contact);
+      });
+    return Object.keys(grouped)
+      .sort()
+      .map((sectionTitle) => ({ title: sectionTitle, data: grouped[sectionTitle] }));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [contacts, user]);
 
   const tabs: { key: Tab; label: string; badge?: number }[] = [
     { key: 'friends', label: 'Friends' },
@@ -383,10 +401,25 @@ export default function ContactsScreen() {
           <ActivityIndicator size="large" color={Colors.cta} />
         </View>
       ) : activeTab === 'friends' ? (
-        <FlatList
-          data={contacts}
+        <SectionList
+          sections={friendSections}
           keyExtractor={(item) => item.id}
           renderItem={renderContactItem}
+          renderSectionHeader={({ section }) => (
+            <View
+              style={{
+                paddingHorizontal: 16,
+                paddingVertical: 5,
+                backgroundColor: Colors.bg,
+              }}
+            >
+              <Text
+                style={{ color: Colors.textMuted, fontSize: 12, fontWeight: '600' }}
+              >
+                {section.title}
+              </Text>
+            </View>
+          )}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={Colors.cta} />
           }

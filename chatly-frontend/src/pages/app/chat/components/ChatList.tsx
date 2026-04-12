@@ -60,6 +60,7 @@ import type { ChatEvent } from "@/types/message";
 import type { UserResponse } from "@/types/auth";
 import { toast } from "sonner";
 import { CreateGroupDialog } from "./CreateGroupDialog";
+import { AddFriendDialog } from "@/pages/app/contact/components/AddFriendDialog";
 import { useNotificationStore } from "@/store/notification.store";
 import { useUiStore } from "@/store/ui.store";
 
@@ -98,6 +99,7 @@ export const ChatList = forwardRef(function ChatListComponent(_, ref) {
         [],
     );
     const [createGroupOpen, setCreateGroupOpen] = useState(false);
+    const [addFriendOpen, setAddFriendOpen] = useState(false);
     const subscriptionsRef = useRef<Map<string, { unsubscribe: () => void }>>(new Map());
     const processedNotifIdsRef = useRef<Set<string>>(new Set());
     const [users, setUsers] = useState<UserResponse[]>([]);
@@ -475,6 +477,7 @@ export const ChatList = forwardRef(function ChatListComponent(_, ref) {
                                                 <div className="flex items-center gap-0.5 shrink-0">
                                                     {categories.map((cat) => {
                                                         const meta = CATEGORY_META[cat];
+                                                        if (!meta) return null;
                                                         return (
                                                             <Tooltip key={cat}>
                                                                 <TooltipTrigger asChild>
@@ -519,6 +522,24 @@ export const ChatList = forwardRef(function ChatListComponent(_, ref) {
                                                               .type ===
                                                           "STICKER"
                                                         ? "🎭 Sticker"
+                                                        : conv.lastMessage
+                                                              .type ===
+
+                                                          "CALL"
+                                                          ? (() => {
+                                                              try {
+                                                                const d = JSON.parse(conv.lastMessage.content);
+                                                                const missed = d.status === "MISSED" || d.status === "REJECTED";
+                                                                const video = d.callType === "VIDEO";
+                                                                if (missed) return video ? "📵 Missed video call" : "📵 Missed audio call";
+                                                                return video ? "🎥 Video call" : "📞 Audio call";
+                                                              } catch { return "📞 Call"; }
+                                                            })()
+                                                          : conv.lastMessage
+                                                        
+                                                                .type ===
+                                                          "GIF"
+                                                        ? "🎬 GIF"
                                                         : conv.lastMessage
                                                               .content}
                                             </>
@@ -584,12 +605,11 @@ export const ChatList = forwardRef(function ChatListComponent(_, ref) {
                     </div>
                     <div className="flex items-center gap-1">
                         <Button
-                            onClick={() =>
-                                toast.info("Development in progress...")
-                            }
+                            onClick={() => setAddFriendOpen(true)}
                             variant="ghost"
                             size="icon"
                             className="h-8 w-8 rounded-full"
+                            title="Thêm bạn bè"
                         >
                             <UserPlus size={16} />
                         </Button>
@@ -636,6 +656,10 @@ export const ChatList = forwardRef(function ChatListComponent(_, ref) {
                     </ScrollArea>
                 </div>
             </aside>
+            <AddFriendDialog
+                open={addFriendOpen}
+                onOpenChange={setAddFriendOpen}
+            />
             <CreateGroupDialog
                 open={createGroupOpen}
                 onOpenChange={setCreateGroupOpen}
