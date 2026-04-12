@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, Text, TouchableOpacity, Image, Linking } from 'react-native';
+import { View, Text, TouchableOpacity, Image, Linking, Modal, Pressable } from 'react-native';
 import { Image as ExpoImage } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/theme';
@@ -12,6 +12,7 @@ interface MessageBubbleProps {
   isMe: boolean;
   showAvatar?: boolean;
   senderName?: string;
+  senderAvatarUrl?: string;
   currentUserId?: string;
   onLongPress?: () => void;
   onReact?: (messageId: string, emoji: string) => void;
@@ -20,6 +21,7 @@ interface MessageBubbleProps {
   onCallAgain?: (calleeId: string, calleeName: string, calleeAvatar?: string) => void;
   calleeInfo?: { id: string; name: string; avatar?: string } | null;
   highlightKeyword?: string | null;
+  onMentionPress?: (displayName: string) => void;
 }
 
 export function MessageBubble({
@@ -27,6 +29,7 @@ export function MessageBubble({
   isMe,
   showAvatar = false,
   senderName,
+  senderAvatarUrl,
   currentUserId,
   onLongPress,
   onReact,
@@ -35,6 +38,7 @@ export function MessageBubble({
   onCallAgain,
   calleeInfo,
   highlightKeyword,
+  onMentionPress,
 }: MessageBubbleProps) {
   const { content, type, recalled, edited, createdAt, readBy, attachments } = message;
 
@@ -183,19 +187,43 @@ export function MessageBubble({
 
   const renderTextContent = () => {
     const URL_REGEX = /(https?:\/\/[^\s<>"]+)/g;
-    const parts = content.split(URL_REGEX);
-    const hasLinks = parts.some((p) => /^https?:\/\//.test(p));
+    const MENTION_REGEX = /(@[\w\s]+?)(?=\s@|\s|$)/g;
     const textColor = isMe ? Colors.bubbleSenderText : Colors.bubbleReceiverText;
+
+    // Split by URLs first, then parse mentions within non-URL parts
+    const urlParts = content.split(URL_REGEX);
+    const hasLinks = urlParts.some((p) => /^https?:\/\//.test(p));
+
+    const renderWithMentions = (text: string, color: string) => {
+      const mentionParts = text.split(MENTION_REGEX);
+      if (mentionParts.length === 1) return renderHighlightedText(text, color);
+      return mentionParts.map((part, i) => {
+        if (part.startsWith('@') && MENTION_REGEX.test(part)) {
+          MENTION_REGEX.lastIndex = 0;
+          return (
+            <Text
+              key={`m-${i}`}
+              onPress={() => onMentionPress?.(part.slice(1).trim())}
+              style={{ color: isMe ? '#93c5fd' : Colors.cta, fontWeight: '600' }}
+            >
+              {part}
+            </Text>
+          );
+        }
+        return renderHighlightedText(part, color);
+      });
+    };
+
     if (!hasLinks) {
       return (
         <Text className="text-[15px] leading-5" style={{ color: textColor }}>
-          {renderHighlightedText(content, textColor)}
+          {renderWithMentions(content, textColor)}
         </Text>
       );
     }
     return (
       <Text className="text-[15px] leading-5" style={{ color: textColor }}>
-        {parts.map((part, i) =>
+        {urlParts.map((part, i) =>
           /^https?:\/\//.test(part) ? (
             <Text
               key={i}
@@ -208,7 +236,7 @@ export function MessageBubble({
               {part}
             </Text>
           ) : (
-            <Text key={i}>{renderHighlightedText(part, textColor)}</Text>
+            <Text key={i}>{renderWithMentions(part, textColor)}</Text>
           )
         )}
       </Text>
@@ -306,6 +334,33 @@ export function MessageBubble({
             autoplay
           />
         );
+      case 'VCARD': {
+        let card: { id?: string; displayName?: string; username?: string; avatarUrl?: string } = {};
+        try { card = JSON.parse(content); } catch { /* ignore */ }
+        return (
+          <View style={{ width: 220, borderRadius: 16, borderWidth: 1, borderColor: 'rgba(0,0,0,0.08)', backgroundColor: '#fff', overflow: 'hidden' }}>
+            {/* Header */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8, backgroundColor: 'rgba(0,0,0,0.03)', borderBottomWidth: 0.5, borderBottomColor: 'rgba(0,0,0,0.06)' }}>
+              <Ionicons name="person-circle-outline" size={14} color={Colors.textMuted} />
+              <Text style={{ fontSize: 11, color: Colors.textMuted, fontWeight: '500', marginLeft: 4 }}>Danh thiếp</Text>
+            </View>
+            {/* Body */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', padding: 12, gap: 10 }}>
+              <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: Colors.cta, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                {card.avatarUrl ? (
+                  <Image source={{ uri: card.avatarUrl }} style={{ width: 44, height: 44, borderRadius: 22 }} />
+                ) : (
+                  <Text style={{ color: '#fff', fontSize: 16, fontWeight: 'bold' }}>{(card.displayName ?? 'U').charAt(0).toUpperCase()}</Text>
+                )}
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 14, fontWeight: '600', color: Colors.text }} numberOfLines={1}>{card.displayName ?? 'User'}</Text>
+                {card.username ? <Text style={{ fontSize: 11, color: Colors.textMuted, marginTop: 2 }} numberOfLines={1}>@{card.username}</Text> : null}
+              </View>
+            </View>
+          </View>
+        );
+      }
       case 'POLL':
         return renderPollContent();
       case 'CALL': {
@@ -455,7 +510,7 @@ export function MessageBubble({
     <View className={`my-0.5 px-4 ${isMe ? 'items-end' : 'items-start'}`}>
       {/* Sender name for group chats */}
       {!isMe && showAvatar && senderName && (
-        <Text className="mb-0.5 ml-1 text-xs" style={{ color: Colors.textMuted }}>
+        <Text className="mb-0.5 text-xs" style={{ color: Colors.textMuted, marginLeft: 38 }}>
           {senderName}
         </Text>
       )}
@@ -468,12 +523,37 @@ export function MessageBubble({
         </View>
       )}
 
-      <TouchableOpacity
-        activeOpacity={0.8}
-        onLongPress={onLongPress}
-        delayLongPress={300}
-        style={{ maxWidth: '78%' }}
-      >
+      <View style={{ flexDirection: 'row', alignItems: 'flex-end' }}>
+        {/* Avatar for group received messages */}
+        {!isMe && showAvatar && (
+          <View
+            style={{
+              width: 28,
+              height: 28,
+              borderRadius: 14,
+              backgroundColor: Colors.cta,
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginRight: 6,
+              overflow: 'hidden',
+            }}
+          >
+            {senderAvatarUrl ? (
+              <Image source={{ uri: senderAvatarUrl }} style={{ width: 28, height: 28, borderRadius: 14 }} />
+            ) : (
+              <Text style={{ fontSize: 11, fontWeight: 'bold', color: 'white' }}>
+                {(senderName ?? '?').charAt(0).toUpperCase()}
+              </Text>
+            )}
+          </View>
+        )}
+
+        <TouchableOpacity
+          activeOpacity={0.8}
+          onLongPress={onLongPress}
+          delayLongPress={300}
+          style={{ maxWidth: '78%' }}
+        >
         <View
           className="rounded-2xl px-4 py-2.5"
           style={{
@@ -550,6 +630,7 @@ export function MessageBubble({
           </View>
         </View>
       </TouchableOpacity>
+      </View>
 
       {/* Reaction badges */}
       {message.reactions && message.reactions.length > 0 && (

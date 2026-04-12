@@ -1,12 +1,22 @@
 import { useRef, useCallback, useState } from 'react';
-import {
-  RTCPeerConnection,
-  RTCSessionDescription,
-  RTCIceCandidate,
-  mediaDevices,
-  MediaStream,
-} from 'react-native-webrtc';
 import type { CallType } from '@/types/call';
+
+let RTCPeerConnection: any;
+let RTCSessionDescription: any;
+let RTCIceCandidate: any;
+let mediaDevices: any;
+let MediaStream: any;
+
+try {
+  const webrtc = require('react-native-webrtc');
+  RTCPeerConnection = webrtc.RTCPeerConnection;
+  RTCSessionDescription = webrtc.RTCSessionDescription;
+  RTCIceCandidate = webrtc.RTCIceCandidate;
+  mediaDevices = webrtc.mediaDevices;
+  MediaStream = webrtc.MediaStream;
+} catch (e) {
+  console.warn('react-native-webrtc is not available (Expo Go?)');
+}
 
 const ICE_SERVERS = {
   iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
