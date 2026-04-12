@@ -23,6 +23,7 @@ interface ActiveCallOverlayProps {
     localStream: MediaStream | null;
     remoteStream: MediaStream | null;
     onEndCall: () => void;
+    onToggleCamera?: () => Promise<void>;
     onUpgradeToVideo?: () => void;
 }
 
@@ -30,6 +31,7 @@ export function ActiveCallOverlay({
     localStream,
     remoteStream,
     onEndCall,
+    onToggleCamera,
     onUpgradeToVideo,
 }: ActiveCallOverlayProps) {
     // Video refs nội bộ — đảm bảo stream được attach đúng thời điểm overlay mount
@@ -44,13 +46,14 @@ export function ActiveCallOverlay({
     }, [localStream]);
 
     useEffect(() => {
-        if (remoteVideoRef.current && remoteStream) {
+        if (!remoteStream) return;
+        // Always re-attach — remoteStream may be a new MediaStream instance
+        // even if it contains the same tracks (e.g. after replaceTrack)
+        if (remoteVideoRef.current) {
             remoteVideoRef.current.srcObject = remoteStream;
         }
-        // Also pipe audio to the hidden <audio> element (covers voice-only calls)
-        if (remoteAudioRef.current && remoteStream) {
+        if (remoteAudioRef.current) {
             remoteAudioRef.current.srcObject = remoteStream;
-            // Ensure audio has volume (browser autoplay policy may mute it initially)
             remoteAudioRef.current.volume = 1.0;
             remoteAudioRef.current.muted = false;
         }
@@ -103,12 +106,15 @@ export function ActiveCallOverlay({
         toggleMute();
     };
 
-    // Fix camera: toggle video tracks on localStream directly
-    const handleToggleCamera = () => {
-        if (localStream) {
-            localStream.getVideoTracks().forEach((t) => { t.enabled = !t.enabled; });
+    // Fix camera: stop/restart via hook (turns LED off properly)
+    const handleToggleCamera = async () => {
+        if (onToggleCamera) {
+            await onToggleCamera();
+        } else {
+            // fallback: just toggle enabled state
+            localStream?.getVideoTracks().forEach((t) => { t.enabled = !t.enabled; });
+            toggleCamera();
         }
-        toggleCamera();
     };
 
     // Fix speaker: wire isSpeakerOn to the remoteAudio element

@@ -28,6 +28,7 @@ interface CallState {
     endCall: () => void;
     toggleMute: () => void;
     toggleCamera: () => void;
+    setCameraOff: (val: boolean) => void;
     upgradeCall: () => void;
     setParticipants: (participants: Participant[]) => void;
     incrementDuration: () => void;
@@ -77,6 +78,8 @@ export const useCallStore = create<CallState>((set) => ({
     toggleMute: () => set((state) => ({ isMuted: !state.isMuted })),
 
     toggleCamera: () => set((state) => ({ isCameraOff: !state.isCameraOff })),
+
+    setCameraOff: (val) => set({ isCameraOff: val }),
 
     upgradeCall: () =>
         set((state) =>

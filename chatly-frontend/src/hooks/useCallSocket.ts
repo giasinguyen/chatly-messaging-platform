@@ -358,9 +358,14 @@ export function useCallSocket() {
         setTimeout(() => endCallStore(), 1500);
     }, [user, setCallStatus, endCallStore]);
 
+    // Wrap toggleCamera: ties WebRTC track changes to store state
+    const handleToggleCamera = useCallback(async (): Promise<void> => {
+        const cameraOn = await webrtcRef.current.toggleCamera();
+        useCallStore.getState().setCameraOff(!cameraOn);
+    }, []);
+
     // Upgrade an active voice call to video (sends RENEGOTIATE_OFFER to peer)
-    const upgradeToVideo = useCallback(async () => {
-        if (!user) return;
+    const upgradeToVideo = useCallback(async () => {        if (!user) return;
         const client = socketService.getClient();
         const activeCall = useCallStore.getState().activeCall;
         if (!client?.connected || !activeCall) return;
@@ -395,6 +400,6 @@ export function useCallSocket() {
         localVideoRef: webrtc.localVideoRef,
         remoteVideoRef: webrtc.remoteVideoRef,
         toggleMute: webrtc.toggleMute,
-        toggleCamera: webrtc.toggleCamera,
+        toggleCamera: handleToggleCamera,
     };
 }

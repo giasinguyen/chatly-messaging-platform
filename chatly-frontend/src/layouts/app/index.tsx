@@ -15,7 +15,7 @@ export default function AppLayout() {
     const setMobileDrawerOpen = useUiStore((s) => s.setMobileDrawerOpen);
 
     // Khởi tạo signaling WebSocket cho cuộc gọi (ở root layout để nhận cuộc gọi từ mọi trang)
-    const { answerCall, endCall, localStream, remoteStream, upgradeToVideo } = useCallSocket();
+    const { answerCall, endCall, localStream, remoteStream, upgradeToVideo, toggleCamera } = useCallSocket();
     const incomingCall = useCallStore((s) => s.incomingCall);
     const callStatus = useCallStore((s) => s.callStatus);
 
@@ -72,6 +72,7 @@ export default function AppLayout() {
                     localStream={localStream}
                     remoteStream={remoteStream}
                     onEndCall={endCall}
+                    onToggleCamera={toggleCamera}
                     onUpgradeToVideo={upgradeToVideo}
                 />
             )}
