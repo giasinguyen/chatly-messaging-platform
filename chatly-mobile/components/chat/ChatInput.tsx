@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { View, TextInput, TouchableOpacity, Text, Image, ActivityIndicator, Alert } from 'react-native';
+import { useState, useMemo } from 'react';
+import { View, TextInput, TouchableOpacity, Text, Image, ActivityIndicator, Alert, Modal, FlatList, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
@@ -9,12 +9,21 @@ import { Colors } from '@/constants/theme';
 import { fileService } from '@/services/file.service';
 import type { Message, Attachment } from '@/types/message';
 
+interface GroupMember {
+  id: string;
+  displayName: string;
+  username: string;
+  avatarUrl?: string;
+}
+
 interface ChatInputProps {
   conversationId?: string;
-  onSend: (text: string, attachments?: Attachment[]) => void;
+  onSend: (text: string, attachments?: Attachment[], priority?: 'IMPORTANT' | 'URGENT') => void;
   onTyping?: (isTyping: boolean) => void;
   replyingTo?: Message | null;
   onCancelReply?: () => void;
+  isGroup?: boolean;
+  groupMembers?: GroupMember[];
 }
 
 interface PendingFile {
@@ -28,11 +37,32 @@ interface PendingFile {
   error?: string;
 }
 
-export function ChatInput({ conversationId, onSend, onTyping, replyingTo, onCancelReply }: ChatInputProps) {
+export function ChatInput({ conversationId, onSend, onTyping, replyingTo, onCancelReply, isGroup, groupMembers }: ChatInputProps) {
   const [text, setText] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([]);
+  const [showOptionsSheet, setShowOptionsSheet] = useState(false);
+  const [selectedPriority, setSelectedPriority] = useState<'IMPORTANT' | 'URGENT' | null>(null);
+
+  // Mention detection
+  const mentionQuery = useMemo(() => {
+    if (!isGroup || !groupMembers?.length) return null;
+    const match = text.match(/@(\w*)$/);
+    return match !== null ? match[1] : null;
+  }, [text, isGroup, groupMembers]);
+
+  const mentionSuggestions = useMemo<GroupMember[]>(() => {
+    if (mentionQuery === null || !groupMembers?.length) return [];
+    const q = mentionQuery.toLowerCase();
+    return groupMembers
+      .filter(
+        (m) =>
+          m.displayName.toLowerCase().includes(q) ||
+          m.username.toLowerCase().includes(q),
+      )
+      .slice(0, 6);
+  }, [mentionQuery, groupMembers]);
 
   const handleChangeText = (value: string) => {
     setText(value);
@@ -43,6 +73,11 @@ export function ChatInput({ conversationId, onSend, onTyping, replyingTo, onCanc
       setIsTyping(false);
       onTyping?.(false);
     }
+  };
+
+  const insertMention = (member: GroupMember) => {
+    const newText = text.replace(/@\w*$/, `@${member.displayName} `);
+    setText(newText);
   };
 
   const uploadFile = async (uri: string, fileName: string, mimeType: string) => {
@@ -134,10 +169,11 @@ export function ChatInput({ conversationId, onSend, onTyping, replyingTo, onCanc
       .filter((p) => p.uploaded)
       .map((p) => p.uploaded!);
 
-    onSend(text.trim(), attachments.length ? attachments : undefined);
+    onSend(text.trim(), attachments.length ? attachments : undefined, selectedPriority ?? undefined);
     setText('');
     setPendingFiles([]);
     setIsTyping(false);
+    setSelectedPriority(null);
     onTyping?.(false);
     onCancelReply?.();
   };
@@ -146,8 +182,113 @@ export function ChatInput({ conversationId, onSend, onTyping, replyingTo, onCanc
     setText((prev) => prev + emoji.emoji);
   };
 
+  const handleOptionSelect = (optionId: string) => {
+    setShowOptionsSheet(false);
+    if (optionId === 'important') {
+      setSelectedPriority((prev) => (prev === 'IMPORTANT' ? null : 'IMPORTANT'));
+    } else if (optionId === 'urgent') {
+      setSelectedPriority((prev) => (prev === 'URGENT' ? null : 'URGENT'));
+    } else if (optionId === 'reminder') {
+      Alert.alert('Nhắc hẹn', 'Tính năng đang phát triển...');
+    } else if (optionId === 'poll') {
+      Alert.alert('Bình chọn', 'Tính năng đang phát triển...');
+    }
+  };
+
   return (
     <View style={{ backgroundColor: Colors.white }}>
+      {/* Mention suggestions */}
+      {mentionSuggestions.length > 0 && (
+        <View
+          style={{
+            borderTopWidth: 0.5,
+            borderTopColor: Colors.borderLight,
+            backgroundColor: Colors.white,
+            maxHeight: 200,
+          }}
+        >
+          <FlatList
+            data={mentionSuggestions}
+            keyExtractor={(item) => item.id}
+            keyboardShouldPersistTaps="always"
+            renderItem={({ item }) => (
+              <TouchableOpacity
+                onPress={() => insertMention(item)}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  paddingHorizontal: 14,
+                  paddingVertical: 8,
+                  borderBottomWidth: 0.5,
+                  borderBottomColor: Colors.borderLight,
+                }}
+              >
+                <View
+                  style={{
+                    width: 32,
+                    height: 32,
+                    borderRadius: 16,
+                    backgroundColor: Colors.cta,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    marginRight: 10,
+                    overflow: 'hidden',
+                  }}
+                >
+                  {item.avatarUrl ? (
+                    <Image source={{ uri: item.avatarUrl }} style={{ width: 32, height: 32 }} />
+                  ) : (
+                    <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 13 }}>
+                      {item.displayName.charAt(0).toUpperCase()}
+                    </Text>
+                  )}
+                </View>
+                <View>
+                  <Text style={{ fontSize: 13, fontWeight: '600', color: Colors.text }}>
+                    {item.displayName}
+                  </Text>
+                  <Text style={{ fontSize: 11, color: Colors.textMuted }}>@{item.username}</Text>
+                </View>
+              </TouchableOpacity>
+            )}
+          />
+        </View>
+      )}
+
+      {/* Priority indicator banner */}
+      {selectedPriority && (
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            paddingHorizontal: 12,
+            paddingVertical: 6,
+            backgroundColor: selectedPriority === 'URGENT' ? '#fef2f2' : '#fffbeb',
+            borderTopWidth: 0.5,
+            borderTopColor: Colors.borderLight,
+          }}
+        >
+          <Ionicons
+            name={selectedPriority === 'URGENT' ? 'warning-outline' : 'star-outline'}
+            size={14}
+            color={selectedPriority === 'URGENT' ? '#ef4444' : '#d97706'}
+          />
+          <Text
+            style={{
+              marginLeft: 6,
+              fontSize: 12,
+              color: selectedPriority === 'URGENT' ? '#ef4444' : '#d97706',
+              flex: 1,
+            }}
+          >
+            {selectedPriority === 'URGENT' ? 'Tin nhắn khẩn cấp' : 'Tin nhắn quan trọng'}
+          </Text>
+          <TouchableOpacity onPress={() => setSelectedPriority(null)}>
+            <Ionicons name="close" size={16} color={Colors.textMuted} />
+          </TouchableOpacity>
+        </View>
+      )}
+
       {/* Reply preview banner */}
       {replyingTo && (
         <View
@@ -271,6 +412,19 @@ export function ChatInput({ conversationId, onSend, onTyping, replyingTo, onCanc
           <Ionicons name="happy-outline" size={24} color={Colors.cta} />
         </TouchableOpacity>
 
+        {/* 3-dot options button */}
+        <TouchableOpacity
+          onPress={() => setShowOptionsSheet(true)}
+          className="items-center justify-center pb-1"
+          style={{ width: 36, height: 36 }}
+        >
+          <Ionicons
+            name="ellipsis-horizontal"
+            size={22}
+            color={selectedPriority ? (selectedPriority === 'URGENT' ? '#ef4444' : '#d97706') : Colors.cta}
+          />
+        </TouchableOpacity>
+
         {/* Text input */}
         <View
           className="mx-2 flex-1 rounded-2xl px-4 py-2"
@@ -314,6 +468,108 @@ export function ChatInput({ conversationId, onSend, onTyping, replyingTo, onCanc
         enableSearchBar
         enableRecentlyUsed
       />
+
+      {/* Options bottom sheet */}
+      <Modal
+        visible={showOptionsSheet}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowOptionsSheet(false)}
+      >
+        <Pressable
+          style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.3)', justifyContent: 'flex-end' }}
+          onPress={() => setShowOptionsSheet(false)}
+        >
+          <Pressable
+            style={{
+              backgroundColor: Colors.white,
+              borderTopLeftRadius: 20,
+              borderTopRightRadius: 20,
+              paddingTop: 12,
+              paddingBottom: 28,
+            }}
+            onPress={() => {}}
+          >
+            {/* Handle bar */}
+            <View style={{ alignItems: 'center', marginBottom: 12 }}>
+              <View style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: Colors.borderLight }} />
+            </View>
+
+            {/* Priority options */}
+            <TouchableOpacity
+              onPress={() => handleOptionSelect('important')}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                paddingHorizontal: 20,
+                paddingVertical: 14,
+                backgroundColor: selectedPriority === 'IMPORTANT' ? '#fffbeb' : 'transparent',
+              }}
+            >
+              <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: '#fef3c7', alignItems: 'center', justifyContent: 'center', marginRight: 14 }}>
+                <Ionicons name={selectedPriority === 'IMPORTANT' ? 'star' : 'star-outline'} size={20} color="#d97706" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 15, fontWeight: '500', color: Colors.text }}>Tin quan trọng</Text>
+                <Text style={{ fontSize: 12, color: Colors.textMuted, marginTop: 1 }}>Đánh dấu tin nhắn này là quan trọng</Text>
+              </View>
+              {selectedPriority === 'IMPORTANT' && (
+                <Ionicons name="checkmark-circle" size={20} color="#d97706" />
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => handleOptionSelect('urgent')}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                paddingHorizontal: 20,
+                paddingVertical: 14,
+                backgroundColor: selectedPriority === 'URGENT' ? '#fef2f2' : 'transparent',
+              }}
+            >
+              <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: '#fee2e2', alignItems: 'center', justifyContent: 'center', marginRight: 14 }}>
+                <Ionicons name={selectedPriority === 'URGENT' ? 'warning' : 'warning-outline'} size={20} color="#ef4444" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 15, fontWeight: '500', color: Colors.text }}>Tin khẩn cấp</Text>
+                <Text style={{ fontSize: 12, color: Colors.textMuted, marginTop: 1 }}>Đánh dấu tin nhắn này là khẩn cấp</Text>
+              </View>
+              {selectedPriority === 'URGENT' && (
+                <Ionicons name="checkmark-circle" size={20} color="#ef4444" />
+              )}
+            </TouchableOpacity>
+
+            <View style={{ height: 1, backgroundColor: Colors.borderLight, marginHorizontal: 20, marginVertical: 4 }} />
+
+            <TouchableOpacity
+              onPress={() => handleOptionSelect('reminder')}
+              style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 14 }}
+            >
+              <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: '#e0e7ff', alignItems: 'center', justifyContent: 'center', marginRight: 14 }}>
+                <Ionicons name="alarm-outline" size={20} color={Colors.cta} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 15, fontWeight: '500', color: Colors.text }}>Tạo nhắc hẹn</Text>
+                <Text style={{ fontSize: 12, color: Colors.textMuted, marginTop: 1 }}>Nhắc nhở tin nhắn vào thời điểm cụ thể</Text>
+              </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => handleOptionSelect('poll')}
+              style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 14 }}
+            >
+              <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: '#e0f2fe', alignItems: 'center', justifyContent: 'center', marginRight: 14 }}>
+                <Ionicons name="bar-chart-outline" size={20} color="#0284c7" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 15, fontWeight: '500', color: Colors.text }}>Bình chọn</Text>
+                <Text style={{ fontSize: 12, color: Colors.textMuted, marginTop: 1 }}>Tạo cuộc bình chọn trong nhóm</Text>
+              </View>
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }

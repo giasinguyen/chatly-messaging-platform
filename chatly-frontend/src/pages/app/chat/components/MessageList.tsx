@@ -28,6 +28,7 @@ import {
 import { toast } from "sonner";
 import type { Message, ChatUser } from "@/types/message";
 import type { ConversationType } from "@/types/conversation";
+import type { ContactResponse } from "@/types/contact";
 import { ReplyPreview } from "./ReplyPreview";
 import {
     ContextMenu,
@@ -77,6 +78,8 @@ interface MessageListProps {
     onClosePoll?: (messageId: string) => void;
     onTogglePin?: (messageId: string) => void;
     onTagPriority?: (messageId: string, priority: string) => void;
+    contacts?: ContactResponse[];
+    onAddFriend?: (userId: string) => void;
 }
 
 const RECALL_LIMIT_MS = 24 * 60 * 60 * 1000;
@@ -107,6 +110,8 @@ export function MessageList({
     onClosePoll,
     onTogglePin,
     onTagPriority,
+    contacts = [],
+    onAddFriend,
 }: MessageListProps) {
     const scrollEndRef = useRef<HTMLDivElement>(null);
     const sentinelRef = useRef<HTMLDivElement>(null);
@@ -533,17 +538,71 @@ export function MessageList({
                                             </div>
                                         </div>
                                         {/* Card footer — action button */}
-                                        {card.id && onOpenSenderProfile && (
-                                            <div className="border-t border-border/40">
-                                                <button
-                                                    type="button"
-                                                    onClick={() => onOpenSenderProfile(card.id!)}
-                                                    className="w-full py-2 text-xs font-semibold text-brand hover:bg-brand/5 transition-colors"
-                                                >
-                                                    Xem hồ sơ
-                                                </button>
-                                            </div>
-                                        )}
+                                        {card.id && (() => {
+                                            const friendContact = contacts.find(
+                                                c => c.contact.id === card.id || c.user.id === card.id
+                                            );
+                                            const friendStatus = friendContact?.status;
+                                            const isSelf = card.id === currentUserId;
+                                            return (
+                                                <div className="border-t border-border/40">
+                                                    {isSelf || friendStatus === "ACCEPTED" ? (
+                                                        <div className="flex">
+                                                            {!isSelf && (
+                                                                <span className="flex-1 py-2 text-xs font-semibold text-green-600 text-center border-r border-border/40">
+                                                                    ✓ Đã kết bạn
+                                                                </span>
+                                                            )}
+                                                            {onOpenSenderProfile && (
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => onOpenSenderProfile(card.id!)}
+                                                                    className="flex-1 py-2 text-xs font-semibold text-brand hover:bg-brand/5 transition-colors"
+                                                                >
+                                                                    Xem hồ sơ
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                    ) : friendStatus === "PENDING" ? (
+                                                        <div className="flex">
+                                                            <span className="flex-1 py-2 text-xs font-semibold text-muted-foreground text-center border-r border-border/40">
+                                                                Đã gửi lời mời
+                                                            </span>
+                                                            {onOpenSenderProfile && (
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => onOpenSenderProfile(card.id!)}
+                                                                    className="flex-1 py-2 text-xs font-semibold text-brand hover:bg-brand/5 transition-colors"
+                                                                >
+                                                                    Xem hồ sơ
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                    ) : (
+                                                        <div className="flex">
+                                                            {onAddFriend && (
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => onAddFriend(card.id!)}
+                                                                    className="flex-1 py-2 text-xs font-semibold text-brand hover:bg-brand/5 transition-colors border-r border-border/40"
+                                                                >
+                                                                    Thêm bạn
+                                                                </button>
+                                                            )}
+                                                            {onOpenSenderProfile && (
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => onOpenSenderProfile(card.id!)}
+                                                                    className="flex-1 py-2 text-xs font-semibold text-muted-foreground hover:bg-muted/40 transition-colors"
+                                                                >
+                                                                    Xem hồ sơ
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            );
+                                        })()}
                                     </div>
                                 );
                             })()

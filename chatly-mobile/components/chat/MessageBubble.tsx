@@ -11,6 +11,7 @@ interface MessageBubbleProps {
   isMe: boolean;
   showAvatar?: boolean;
   senderName?: string;
+  senderAvatarUrl?: string;
   currentUserId?: string;
   onLongPress?: () => void;
   onReact?: (messageId: string, emoji: string) => void;
@@ -24,6 +25,7 @@ export function MessageBubble({
   isMe,
   showAvatar = false,
   senderName,
+  senderAvatarUrl,
   currentUserId,
   onLongPress,
   onReact,
@@ -327,7 +329,7 @@ export function MessageBubble({
     <View className={`my-0.5 px-4 ${isMe ? 'items-end' : 'items-start'}`}>
       {/* Sender name for group chats */}
       {!isMe && showAvatar && senderName && (
-        <Text className="mb-0.5 ml-1 text-xs" style={{ color: Colors.textMuted }}>
+        <Text className="mb-0.5 ml-1 text-xs" style={{ color: Colors.textMuted, marginLeft: 38 }}>
           {senderName}
         </Text>
       )}
@@ -340,11 +342,41 @@ export function MessageBubble({
         </View>
       )}
 
-      <TouchableOpacity
-        activeOpacity={0.8}
-        onLongPress={onLongPress}
-        delayLongPress={300}
-        style={{ maxWidth: '78%' }}
+      <View className={`flex-row ${isMe ? 'justify-end' : 'justify-start'} items-end`}>
+        {/* Avatar for group received messages */}
+        {!isMe && showAvatar && (
+          <View
+            style={{
+              width: 28,
+              height: 28,
+              borderRadius: 14,
+              backgroundColor: Colors.cta,
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginRight: 6,
+              marginBottom: 2,
+              overflow: 'hidden',
+              flexShrink: 0,
+            }}
+          >
+            {senderAvatarUrl ? (
+              <Image
+                source={{ uri: senderAvatarUrl }}
+                style={{ width: 28, height: 28, borderRadius: 14 }}
+              />
+            ) : (
+              <Text style={{ fontSize: 11, fontWeight: 'bold', color: 'white' }}>
+                {(senderName ?? '?').charAt(0).toUpperCase()}
+              </Text>
+            )}
+          </View>
+        )}
+
+        <TouchableOpacity
+          activeOpacity={0.8}
+          onLongPress={onLongPress}
+          delayLongPress={300}
+          style={{ maxWidth: '78%' }}
       >
         <View
           className={type === 'VCARD' ? '' : 'rounded-2xl px-4 py-2.5'}
@@ -418,6 +450,8 @@ export function MessageBubble({
           </View>
         </View>
       </TouchableOpacity>
+
+      </View>{/* end flex-row avatar+bubble */}
 
       {/* Reaction badges */}
       {message.reactions && message.reactions.length > 0 && (

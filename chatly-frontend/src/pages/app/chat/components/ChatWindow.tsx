@@ -59,7 +59,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import type { Message, ChatUser, ChatEvent } from "@/types/message";
-import type { ContactStatus } from "@/types/contact";
+import type { ContactStatus, ContactResponse } from "@/types/contact";
 import type { ConversationResponse } from "@/types/conversation";
 import type { UserResponse } from "@/types/auth";
 
@@ -177,6 +177,7 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
     const [contactStatus, setContactStatus] = useState<ContactStatus | null>(
         null,
     );
+    const [allContacts, setAllContacts] = useState<ContactResponse[]>([]);
     const [sendingContact, setSendingContact] = useState(false);
     const [isEditingGroup, setIsEditingGroup] = useState(false);
     const [groupNameDraft, setGroupNameDraft] = useState("");
@@ -360,6 +361,7 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
                     Object.fromEntries(allUsers.map((user) => [user.id, user])),
                 );
                 const allContacts = contactsRes.result ?? [];
+                setAllContacts(allContacts);
                 const directory = Object.fromEntries(
                     conv.participantIds.map((participantId) => {
                         const foundUser = allUsers.find(
@@ -817,6 +819,25 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
         }
     }, [selectedProfileUser, conversation?.type, participant, contactStatus]);
 
+    const handleAddFriendFromVCard = useCallback(async (userId: string) => {
+        const existing = allContacts.find(
+            c => c.contact.id === userId || c.user.id === userId
+        );
+        if (existing?.status === "ACCEPTED" || existing?.status === "PENDING") return;
+        try {
+            await contactService.sendRequest({ contactId: userId });
+            setAllContacts(prev => {
+                // Optimistically add a PENDING entry
+                const matched = prev.find(c => c.contact.id === userId || c.user.id === userId);
+                if (matched) return prev.map(c => c === matched ? { ...c, status: "PENDING" as const } : c);
+                return prev;
+            });
+            toast.success("Đã gửi lời mời kết bạn");
+        } catch {
+            toast.error("Không thể gửi lời mời kết bạn");
+        }
+    }, [allContacts]);
+
     useEffect(() => {
         if (
             !showProfileDialog ||
@@ -1137,6 +1158,8 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
                 onClosePoll={handleClosePoll}
                 onTogglePin={handleTogglePin}
                 onTagPriority={handleTagPriority}
+                contacts={allContacts}
+                onAddFriend={handleAddFriendFromVCard}
             />
 
             {isTyping && (

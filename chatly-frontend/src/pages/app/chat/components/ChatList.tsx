@@ -509,18 +509,15 @@ export const ChatList = forwardRef(function ChatListComponent(_, ref) {
                                                     currentUser?.id && (
                                                     <span>You: </span>
                                                 )}
-                                                {conv.lastMessage.type ===
-                                                "IMAGE"
+                                                {conv.lastMessage.type === "IMAGE"
                                                     ? "📷 Photo"
-                                                    : conv.lastMessage.type ===
-                                                        "FILE"
+                                                    : conv.lastMessage.type === "FILE"
                                                       ? "📎 File"
-                                                      : conv.lastMessage
-                                                              .type ===
-                                                          "STICKER"
+                                                      : conv.lastMessage.type === "STICKER"
                                                         ? "🎭 Sticker"
-                                                        : conv.lastMessage
-                                                              .content}
+                                                        : conv.lastMessage.type === "VCARD"
+                                                          ? "📇 Danh thiếp"
+                                                          : conv.lastMessage.content}
                                             </>
                                         ) : (
                                             "No messages yet"
