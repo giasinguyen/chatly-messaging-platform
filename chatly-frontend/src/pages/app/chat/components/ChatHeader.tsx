@@ -2,7 +2,7 @@ import { Phone, Video, Users, ChevronLeft, Search, Pin, BellOff, PanelRightOpen,
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { PresenceIndicator } from "@/components/customize/PresenceIndicator";
-import { useCallSocket } from "@/hooks/useCallSocket";
+import { useCallContext } from "@/contexts/CallContext";
 import { useCallStore } from "@/store/call.store";
 import type { ChatUser } from "@/types/message";
 
@@ -25,7 +25,7 @@ interface ChatHeaderProps {
 }
 
 export function ChatHeader({ user, onOpenProfile, isGroup, conversationId, otherUserId, onOpenGroupPanel, onToggleSearch, onToggleInfoPanel, isInfoPanelOpen, presenceStatus, lastSeen, onBack, isPinned, isMuted, nickname }: ChatHeaderProps) {
-    const { initiateCall } = useCallSocket();
+    const { initiateCall } = useCallContext();
     const callStatus = useCallStore((s) => s.callStatus);
 
     // Chỉ hiển thị nút gọi cho cuộc trò chuyện riêng tư (PRIVATE)

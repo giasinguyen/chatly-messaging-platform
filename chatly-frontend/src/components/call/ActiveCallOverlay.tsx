@@ -39,6 +39,15 @@ export function ActiveCallOverlay({
     const remoteVideoRef = useRef<HTMLVideoElement>(null);
     const remoteAudioRef = useRef<HTMLAudioElement>(null);
 
+    // Release camera/mic immediately when overlay unmounts (call ended)
+    useEffect(() => {
+        return () => {
+            if (localVideoRef.current) localVideoRef.current.srcObject = null;
+            if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
+            if (remoteAudioRef.current) remoteAudioRef.current.srcObject = null;
+        };
+    }, []);
+
     useEffect(() => {
         if (localVideoRef.current && localStream) {
             localVideoRef.current.srcObject = localStream;
