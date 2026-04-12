@@ -1,5 +1,6 @@
-import { Bot, PanelLeft } from "lucide-react";
+import { PanelLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { CustomAiIcon } from "@/components/customize/CustomAiIcon";
 
 interface ChatbotHeaderProps {
     title: string;
@@ -23,7 +24,7 @@ export function ChatbotHeader({ title, sidebarCollapsed, onToggleSidebar }: Chat
                 </Button>
             )}
             <div className="h-9 w-9 rounded-xl bg-linear-to-br from-brand/20 to-cyan-400/20 flex items-center justify-center">
-                <Bot className="h-5 w-5 text-brand" />
+                <CustomAiIcon className="h-7 w-7 text-brand" />
             </div>
             <div className="flex-1 min-w-0">
                 <h2 className="text-sm font-semibold text-foreground truncate">

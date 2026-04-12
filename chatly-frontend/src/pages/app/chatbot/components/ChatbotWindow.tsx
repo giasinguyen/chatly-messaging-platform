@@ -52,7 +52,14 @@ export function ChatbotWindow({ sessionId, sidebarCollapsed, onToggleSidebar }: 
         const loadHistory = async () => {
             try {
                 const data = await agentService.getHistory(sessionId);
-                if (!cancelled) setMessages(sessionId, data.messages);
+                if (!cancelled) {
+                    // Guard: don't overwrite messages that were already added optimistically
+                    // (e.g. auto-send from empty state appended the first user message)
+                    const current = useChatbotStore.getState().messagesBySession[sessionId];
+                    if (!current?.length) {
+                        setMessages(sessionId, data.messages);
+                    }
+                }
             } catch {
                 toast.error("Không thể tải lịch sử chat");
             }

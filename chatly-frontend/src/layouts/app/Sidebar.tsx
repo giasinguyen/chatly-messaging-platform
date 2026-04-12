@@ -1,4 +1,5 @@
-import { MessageCircle, Users, Settings, Cloud, LogOut, Bot } from "lucide-react";
+import { MessageCircle, Users, Settings, Cloud, LogOut } from "lucide-react";
+import { CustomAiIcon } from "@/components/customize/CustomAiIcon";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { NavLink, useNavigate } from "react-router-dom";
 import type { UserResponse } from "@/types/auth";
@@ -40,7 +41,7 @@ export function Sidebar({ user }: SidebarProps) {
         { to: "/chat", icon: MessageCircle, label: "Chat", badge: msgUnreadCount },
         { to: "/contact", icon: Users, label: "Contacts", badge: 0 },
         { to: "/cloud", icon: Cloud, label: "Cloud", badge: 0 },
-        { to: "/chatbot", icon: Bot, label: "AI Chat", badge: 0, highlight: true },
+        { to: "/chatbot", icon: CustomAiIcon, label: "AI Chat", badge: 0, highlight: true },
     ];
 
     return (

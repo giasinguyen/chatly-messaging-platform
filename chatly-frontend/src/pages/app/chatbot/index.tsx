@@ -14,9 +14,9 @@ export default function ChatbotPage() {
             {/* Session sidebar — hidden on mobile when a session is selected */}
             <div
                 className={cn(
-                    "h-full shrink-0 transition-all duration-200",
-                    sessionId ? "hidden md:flex" : "w-full md:w-auto flex",
-                    sidebarCollapsed && sessionId && "md:w-0 md:overflow-hidden",
+                    "h-full shrink-0 overflow-hidden transition-[width] duration-300 ease-in-out",
+                    sessionId ? "hidden md:block" : "w-full md:block",
+                    sidebarCollapsed ? "md:w-0" : "md:w-80",
                 )}
             >
                 <ChatbotSessionSidebar
@@ -40,7 +40,10 @@ export default function ChatbotPage() {
                         onToggleSidebar={() => setSidebarCollapsed((c) => !c)}
                     />
                 ) : (
-                    <ChatbotEmptyState />
+                    <ChatbotEmptyState
+                        sidebarCollapsed={sidebarCollapsed}
+                        onToggleSidebar={() => setSidebarCollapsed((c) => !c)}
+                    />
                 )}
             </div>
         </div>
