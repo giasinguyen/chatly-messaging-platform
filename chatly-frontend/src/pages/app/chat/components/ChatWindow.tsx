@@ -21,7 +21,7 @@ import { useAuthStore } from "@/store/auth.store";
 import { useConversationPrefsStore } from "@/store/conversationPrefs.store";
 import { useNotificationStore } from "@/store/notification.store";
 import { useChatSocket } from "@/hooks/useChatSocket";
-import { useCallSocket } from "@/hooks/useCallSocket";
+import { useCallContext } from "@/contexts/CallContext";
 import {
     usePresenceSocket,
     type PresenceEvent,
@@ -776,8 +776,8 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
         [],
     );
 
-    // Initialize call socket for handling call initiation from message history
-    const { initiateCall } = useCallSocket();
+    // Use the shared call socket instance (same as AppLayout) to avoid duplicate peer connections
+    const { initiateCall } = useCallContext();
 
     const handleCallAgain = useCallback(
         (calleeId: string, calleeName: string, calleeAvatar?: string) => {

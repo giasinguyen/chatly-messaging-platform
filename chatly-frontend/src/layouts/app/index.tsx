@@ -3,19 +3,19 @@ import { useAuthStore } from "@/store/auth.store";
 import { Sidebar } from "./Sidebar";
 import { useUiStore } from "@/store/ui.store";
 import { useCallStore } from "@/store/call.store";
-import { useCallSocket } from "@/hooks/useCallSocket";
+import { CallSocketProvider, useCallContext } from "@/contexts/CallContext";
 import { CallScreen } from "@/components/call/CallScreen";
 import { OutgoingCallScreen } from "@/components/call/OutgoingCallScreen";
 import { ActiveCallOverlay } from "@/components/call/ActiveCallOverlay";
 import { AnimatePresence, motion } from "framer-motion";
 
-export default function AppLayout() {
+// Inner layout has access to the shared CallSocketProvider
+function AppLayoutInner() {
     const { user } = useAuthStore();
     const mobileDrawerOpen = useUiStore((s) => s.mobileDrawerOpen);
     const setMobileDrawerOpen = useUiStore((s) => s.setMobileDrawerOpen);
 
-    // Khởi tạo signaling WebSocket cho cuộc gọi (ở root layout để nhận cuộc gọi từ mọi trang)
-    const { answerCall, endCall, localStream, remoteStream, upgradeToVideo, toggleCamera } = useCallSocket();
+    const { answerCall, endCall, localStream, remoteStream, upgradeToVideo, toggleCamera } = useCallContext();
     const incomingCall = useCallStore((s) => s.incomingCall);
     const callStatus = useCallStore((s) => s.callStatus);
 
@@ -77,6 +77,14 @@ export default function AppLayout() {
                 />
             )}
         </div>
+    );
+}
+
+export default function AppLayout() {
+    return (
+        <CallSocketProvider>
+            <AppLayoutInner />
+        </CallSocketProvider>
     );
 }
 
