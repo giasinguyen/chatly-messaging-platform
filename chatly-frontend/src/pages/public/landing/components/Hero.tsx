@@ -3,7 +3,6 @@ import cylinderImage from "@/assets/landing/cylinder.png";
 import noodleImage from "@/assets/landing/noodle.png";
 import appStoreImg from "@/assets/landing/appstore.png";
 import googlePlayImg from "@/assets/landing/google_play_transparent.png";
-import qrFake from "@/mocks/images/QR-fake.png";
 import { motion, useScroll, useTransform } from "framer-motion";
 import { useRef } from "react";
 import "./hero.css";
@@ -46,7 +45,7 @@ export const Hero = () => {
             <div className="relative z-10 container flex justify-center">
                 <div className="md:flex md:items-center md:gap-10 md:max-w-[1040px] w-full">
                     <div className="md:w-[420px] md:flex-shrink-0">
-                        <div className="tag">Version 1.0.0 comming soon</div>
+                        <div className="tag">Version 1.0.0 coming soon</div>
                         <h1 className="text-7xl md:text-8xl font-bold tracking-tighter bg-gradient-to-b from-black to-brand dark:from-white dark:to-brand-light text-transparent bg-clip-text mt-6">
                             Chatly
                         </h1>
@@ -58,13 +57,11 @@ export const Hero = () => {
                         {/* Download section */}
                         <div className="mt-8 flex items-center gap-5 mt-15">
                             {/* QR code */}
-                            <div className="flex-shrink-0 rounded-xl bg-white p-2 shadow-md">
-                                <img
-                                    src={qrFake}
-                                    alt="Scan to download Chatly"
-                                    className="h-[72px] w-[72px] rounded object-contain"
-                                />
-                            </div>
+                            {/* <div className="flex-shrink-0 rounded-xl bg-gray-100 dark:bg-gray-800 p-2 shadow-md border border-dashed border-gray-300 dark:border-gray-700 flex items-center justify-center h-[88px] w-[88px]">
+                                <p className="text-[10px] font-bold text-gray-400 uppercase text-center leading-tight">
+                                    Coming<br/>Soon
+                                </p>
+                            </div> */}
                             <div className="flex flex-col gap-2">
                                 <p className="text-xs font-semibold uppercase tracking-widest text-gray-500 dark:text-gray-400">
                                     Scan to download
@@ -73,6 +70,8 @@ export const Hero = () => {
                                     <a
                                         href="#"
                                         onClick={(e) => e.preventDefault()}
+                                        title="Coming soon"
+                                        className="cursor-not-allowed"
                                     >
                                         <img
                                             src={googlePlayImg}
@@ -83,6 +82,8 @@ export const Hero = () => {
                                     <a
                                         href="#"
                                         onClick={(e) => e.preventDefault()}
+                                        title="Coming soon"
+                                        className="cursor-not-allowed"
                                     >
                                         <img
                                             src={appStoreImg}

@@ -1,70 +1,62 @@
-"use client";
-import avatar1 from "@/assets/landing/avatar-1.png";
-import avatar2 from "@/assets/landing/avatar-2.png";
-import avatar3 from "@/assets/landing/avatar-3.png";
-import avatar4 from "@/assets/landing/avatar-4.png";
-import avatar5 from "@/assets/landing/avatar-5.png";
-import avatar6 from "@/assets/landing/avatar-6.png";
-import avatar7 from "@/assets/landing/avatar-7.png";
-import avatar8 from "@/assets/landing/avatar-8.png";
-import avatar9 from "@/assets/landing/avatar-9.png";
 import React from "react";
 import { motion } from "framer-motion";
 
 const testimonials = [
     {
         text: "The future of communication is fast, decentralized, and user-first. Platforms like this push the internet in the right direction.",
-        imageSrc: avatar1,
-        name: "Elon Musk",
-        username: "@elonmusk",
+        imageSrc: "https://avatars.githubusercontent.com/u/121565657?v=4",
+        name: "Nguyen Van Minh",
+        username: "@nvminh162",
     },
     {
         text: "Great products focus on simplicity and community. This platform shows how powerful digital communication can be.",
-        imageSrc: avatar2,
-        name: "Mark Zuckerberg",
-        username: "@zuck",
+        imageSrc: "https://avatars.githubusercontent.com/u/63839394?v=4",
+        name: "Nguyen Tran Gia Si",
+        username: "@giasinguyen ",
     },
     {
         text: "Technology should empower people to collaborate and build together. Tools like this make that possible.",
-        imageSrc: avatar3,
-        name: "Satya Nadella",
-        username: "@satyanadella",
+        imageSrc: "https://avatars.githubusercontent.com/u/156154739?v=4",
+        name: "Dao Quoc Tuan",
+        username: "@yezsudev",
     },
     {
         text: "Innovation happens when people connect and share ideas. Communication platforms are the backbone of the modern internet.",
-        imageSrc: avatar4,
-        name: "Bill Gates",
-        username: "@billgates",
+        imageSrc: "https://avatars.githubusercontent.com/u/126145466?v=4",
+        name: "Nguyen Trung Nguyen",
+        username: "@NguyenNguyen0",
     },
+
     {
         text: "The best products create communities. When people feel connected, amazing things happen.",
-        imageSrc: avatar5,
-        name: "Tim Cook",
-        username: "@tim_cook",
+        imageSrc: "https://avatars.githubusercontent.com/u/121565657?v=4",
+        name: "Paul Nguyen",
+        username: "@nvminh162",
     },
     {
         text: "Building tools that help creators and communities thrive is the future of the digital world.",
-        imageSrc: avatar6,
-        name: "MrBeast",
-        username: "@mrbeast",
+        imageSrc: "https://avatars.githubusercontent.com/u/63839394?v=4",
+        name: "Ja Si",
+        username: "@giasinguyen ",
     },
     {
         text: "Communication platforms shape culture. When designed well, they bring people closer together.",
-        imageSrc: avatar7,
-        name: "Sundar Pichai",
-        username: "@sundarpichai",
+        imageSrc: "https://avatars.githubusercontent.com/u/156154739?v=4",
+        name: "Yezsu",
+        username: "@yezsudev",
     },
     {
         text: "The power of the internet lies in how we connect and share ideas. Great platforms make that seamless.",
-        imageSrc: avatar8,
-        name: "Jack Dorsey",
-        username: "@jack",
+        imageSrc: "https://avatars.githubusercontent.com/u/126145466?v=4",
+        name: "Putin Nguyen",
+        username: "@NguyenNguyen0",
     },
+
     {
         text: "Communities are everything online. The right platform can turn a simple idea into a global movement.",
-        imageSrc: avatar9,
-        name: "Taylor Swift",
-        username: "@taylorswift13",
+        imageSrc: "https://avatars.githubusercontent.com/u/5250117?v=4",
+        name: "JUNO OKYO",
+        username: "@J2TEAM",
     },
 ];
 
