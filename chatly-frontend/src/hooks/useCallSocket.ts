@@ -173,23 +173,32 @@ export function useCallSocket() {
         [setIncomingCall, setCallStatus, endCallStore, setPendingOffer, upgradeCall],
     );
 
-    // Subscribe vào queue calls khi đã đăng nhập
+    // Subscribe vào queue calls — re-subscribe every time STOMP connects/reconnects
     useEffect(() => {
         if (!user) return;
 
-        const client = socketService.getClient();
-        if (!client?.connected) return;
+        let subscription: { unsubscribe: () => void } | null = null;
 
-        const subscription = client.subscribe(
-            `/user/queue/calls`,
-            (message) => {
-                const signal = JSON.parse(message.body) as CallSignal;
-                handleSignal(signal);
-            },
-        );
+        const unregister = socketService.onConnect(() => {
+            // Unsubscribe previous subscription before creating a new one
+            subscription?.unsubscribe();
+
+            const client = socketService.getClient();
+            if (!client?.connected) return;
+
+            subscription = client.subscribe(
+                `/user/queue/calls`,
+                (message) => {
+                    const signal = JSON.parse(message.body) as CallSignal;
+                    handleSignal(signal);
+                },
+            );
+            console.log("[CallSocket] Subscribed to /user/queue/calls");
+        });
 
         return () => {
-            subscription.unsubscribe();
+            unregister();
+            subscription?.unsubscribe();
         };
     }, [user, handleSignal]);
 
