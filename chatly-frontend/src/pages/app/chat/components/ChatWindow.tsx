@@ -901,6 +901,8 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
                     setShowProfileDialog(true);
                 }}
                 isGroup={isGroup}
+                conversationId={id}
+                otherUserId={!isGroup ? participant.id : undefined}
                 onOpenGroupPanel={
                     isGroup ? () => setShowGroupPanel(true) : undefined
                 }
