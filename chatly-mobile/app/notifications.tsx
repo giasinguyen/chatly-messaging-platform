@@ -95,9 +95,9 @@ export default function NotificationsScreen() {
           <TouchableOpacity onPress={() => router.back()} className="p-1">
             <Ionicons name="chevron-back" size={26} color={Colors.text} />
           </TouchableOpacity>
-          <Text className="flex-1 text-center text-lg font-bold" style={{ color: Colors.text }}>Thông báo</Text>
+          <Text className="flex-1 text-center text-lg font-bold" style={{ color: Colors.text }}>Notifications</Text>
           <TouchableOpacity onPress={handleMarkAllRead}>
-            <Text style={{ color: Colors.cta, fontWeight: '500' }}>Đọc hết</Text>
+            <Text style={{ color: Colors.cta, fontWeight: '500' }}>Mark all read</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -152,7 +152,7 @@ export default function NotificationsScreen() {
           ListEmptyComponent={
             <View className="flex-1 items-center justify-center pt-20">
               <Ionicons name="notifications-off-outline" size={64} color={Colors.borderLight} />
-              <Text className="mt-4 text-base" style={{ color: Colors.textMuted }}>Không có thông báo nào</Text>
+              <Text className="mt-4 text-base" style={{ color: Colors.textMuted }}>No notifications yet</Text>
             </View>
           }
         />

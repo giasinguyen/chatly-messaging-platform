@@ -30,10 +30,10 @@ export default function SettingsScreen() {
   const [localAvatarUri, setLocalAvatarUri] = useState<string | null>(null);
 
   const handleLogout = useCallback(async () => {
-    Alert.alert('Đăng xuất', 'Bạn có chắc muốn đăng xuất?', [
-      { text: 'Huỷ', style: 'cancel' },
+    Alert.alert('Logout', 'Are you sure you want to log out?', [
+      { text: 'Cancel', style: 'cancel' },
       {
-        text: 'Đăng xuất',
+        text: 'Log Out',
         style: 'destructive',
         onPress: async () => {
           try {
@@ -51,7 +51,7 @@ export default function SettingsScreen() {
   const handlePickAvatar = useCallback(async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Cần quyền truy cập', 'Vui lòng cấp quyền truy cập thư viện ảnh.');
+      Alert.alert('Permission Required', 'Please grant photo library access.');
       return;
     }
 
@@ -75,7 +75,7 @@ export default function SettingsScreen() {
     try {
       let avatarUrl = user.avatarUrl;
 
-      // Nếu đã chọn ảnh mới, upload lên S3 trước
+      // If a new avatar was picked, upload it first
       if (localAvatarUri) {
         const fileName = localAvatarUri.split('/').pop() ?? 'avatar.jpg';
         const mimeType = fileName.endsWith('.png') ? 'image/png' : 'image/jpeg';
@@ -90,9 +90,9 @@ export default function SettingsScreen() {
       });
       updateUser(res.result);
       setEditing(false);
-      Alert.alert('Thành công', 'Đã cập nhật hồ sơ');
+      Alert.alert('Success', 'Profile updated');
     } catch (error: any) {
-      Alert.alert('Lỗi', error?.response?.data?.message ?? 'Không thể cập nhật hồ sơ.');
+      Alert.alert('Error', error?.response?.data?.message ?? 'Could not update profile.');
     } finally {
       setSaving(false);
     }
@@ -101,28 +101,28 @@ export default function SettingsScreen() {
   const settingsItems = [
     {
       icon: 'notifications-outline' as const,
-      label: 'Thông báo',
-      onPress: () => Alert.alert('Thông báo', 'Tính năng đang phát triển'),
+      label: 'Notifications',
+      onPress: () => Alert.alert('Notifications', 'Feature coming soon'),
     },
     {
       icon: 'lock-closed-outline' as const,
-      label: 'Quyền riêng tư',
-      onPress: () => Alert.alert('Quyền riêng tư', 'Tính năng đang phát triển'),
+      label: 'Privacy',
+      onPress: () => Alert.alert('Privacy', 'Feature coming soon'),
     },
     {
       icon: 'color-palette-outline' as const,
-      label: 'Giao diện',
-      onPress: () => Alert.alert('Giao diện', 'Tính năng đang phát triển'),
+      label: 'Appearance',
+      onPress: () => Alert.alert('Appearance', 'Feature coming soon'),
     },
     {
       icon: 'help-circle-outline' as const,
-      label: 'Trợ giúp',
-      onPress: () => Alert.alert('Trợ giúp', 'Tính năng đang phát triển'),
+      label: 'Help & Support',
+      onPress: () => Alert.alert('Help', 'Feature coming soon'),
     },
     {
       icon: 'information-circle-outline' as const,
-      label: 'Về Chatly',
-      onPress: () => Alert.alert('Chatly', 'Phiên bản 1.0.0\nNhóm phát triển Chatly'),
+      label: 'About Chatly',
+      onPress: () => Alert.alert('Chatly', 'Version 1.0.0\nChatly Team'),
     },
   ];
 
@@ -138,7 +138,7 @@ export default function SettingsScreen() {
         style={{ borderBottomColor: Colors.borderLight, backgroundColor: Colors.white }}
       >
         <Text className="text-[22px] font-bold" style={{ color: Colors.text }}>
-          Cài đặt
+          Settings
         </Text>
       </View>
 
@@ -219,7 +219,7 @@ export default function SettingsScreen() {
                 setLocalAvatarUri(null);
               }}
             >
-              <Text style={{ color: Colors.textLight }}>Huỷ</Text>
+              <Text style={{ color: Colors.textLight }}>Cancel</Text>
             </TouchableOpacity>
             <TouchableOpacity
               className="rounded-lg px-4 py-2"
@@ -227,7 +227,7 @@ export default function SettingsScreen() {
               onPress={handleSaveProfile}
               disabled={saving}
             >
-              <Text style={{ color: Colors.white }}>{saving ? 'Đang lưu...' : 'Lưu'}</Text>
+              <Text style={{ color: Colors.white }}>{saving ? 'Saving...' : 'Save'}</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -257,7 +257,7 @@ export default function SettingsScreen() {
 
       {/* Logout */}
       <View className="mx-4 mt-4">
-        <PrimaryButton title="Đăng xuất" variant="outline" onPress={handleLogout} />
+        <PrimaryButton title="Log Out" variant="outline" onPress={handleLogout} />
       </View>
     </ScrollView>
   );

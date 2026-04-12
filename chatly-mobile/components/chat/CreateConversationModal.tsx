@@ -97,7 +97,7 @@ export function CreateConversationModal({ visible, onClose }: CreateConversation
       onClose();
       router.push(`/chat/${res.result.id}`);
     } catch (error: any) {
-      Alert.alert('Lỗi', error?.response?.data?.message || 'Không thể tạo cuộc trò chuyện.');
+      Alert.alert('Error', error?.response?.data?.message || 'Could not create conversation.');
     } finally {
       setSubmitting(false);
     }
@@ -105,11 +105,11 @@ export function CreateConversationModal({ visible, onClose }: CreateConversation
 
   const handleCreateGroup = async () => {
     if (!groupName.trim()) {
-      Alert.alert('Lỗi', 'Vui lòng nhập tên nhóm');
+      Alert.alert('Error', 'Please enter group name');
       return;
     }
     if (selectedContactIds.size < 2) {
-      Alert.alert('Lỗi', 'Cần chọn ít nhất 2 thành viên để tạo nhóm');
+      Alert.alert('Error', 'Select at least 2 members to create a group');
       return;
     }
 
@@ -123,7 +123,7 @@ export function CreateConversationModal({ visible, onClose }: CreateConversation
       onClose();
       router.push(`/chat/${res.result.id}`);
     } catch (error: any) {
-      Alert.alert('Lỗi', error?.response?.data?.message || 'Không thể tạo nhóm.');
+      Alert.alert('Error', error?.response?.data?.message || 'Could not create group.');
     } finally {
       setSubmitting(false);
     }
@@ -196,10 +196,10 @@ export function CreateConversationModal({ visible, onClose }: CreateConversation
         <View style={{ backgroundColor: Colors.white, borderBottomWidth: 0.5, borderBottomColor: Colors.borderLight }}>
           <View className="flex-row items-center justify-between px-4 py-3 pt-6">
             <TouchableOpacity onPress={onClose} disabled={submitting}>
-              <Text style={{ color: Colors.cta, fontSize: 16 }}>Hủy</Text>
+              <Text style={{ color: Colors.cta, fontSize: 16 }}>Cancel</Text>
             </TouchableOpacity>
             <Text style={{ fontSize: 18, fontWeight: 'bold', color: Colors.text }}>
-              Tạo cuộc trò chuyện
+              Create Conversation
             </Text>
             <TouchableOpacity 
               onPress={activeTab === 'group' ? handleCreateGroup : undefined}
@@ -213,7 +213,7 @@ export function CreateConversationModal({ visible, onClose }: CreateConversation
                   color: (selectedContactIds.size > 0 && groupName.trim()) ? Colors.cta : Colors.textMuted, 
                   fontSize: 16, fontWeight: 'bold' 
                 }}>
-                  Tạo
+                  Create
                 </Text>
               )}
             </TouchableOpacity>
@@ -227,7 +227,7 @@ export function CreateConversationModal({ visible, onClose }: CreateConversation
               onPress={() => setActiveTab('private')}
             >
               <Text style={{ color: activeTab === 'private' ? Colors.cta : Colors.textLight, fontWeight: '600', fontSize: 15 }}>
-                Chat 1-1
+                Direct Chat
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -236,7 +236,7 @@ export function CreateConversationModal({ visible, onClose }: CreateConversation
               onPress={() => setActiveTab('group')}
             >
               <Text style={{ color: activeTab === 'group' ? Colors.cta : Colors.textLight, fontWeight: '600', fontSize: 15 }}>
-                Nhóm
+                Groups
               </Text>
             </TouchableOpacity>
           </View>
@@ -245,7 +245,7 @@ export function CreateConversationModal({ visible, onClose }: CreateConversation
         {activeTab === 'group' && (
           <View className="px-4 py-3" style={{ backgroundColor: Colors.white, borderBottomWidth: 0.5, borderBottomColor: Colors.borderLight }}>
             <TextInput
-              placeholder="Tên nhóm..."
+              placeholder="Group name..."
               placeholderTextColor={Colors.textLight}
               value={groupName}
               onChangeText={setGroupName}
@@ -260,7 +260,7 @@ export function CreateConversationModal({ visible, onClose }: CreateConversation
             />
             {selectedContactIds.size > 0 && (
                <Text style={{ color: Colors.textLight, fontSize: 13, marginTop: 8 }}>
-                 Đã chọn {selectedContactIds.size} thành viên
+                 {selectedContactIds.size} members selected
                </Text>
             )}
           </View>
@@ -273,7 +273,7 @@ export function CreateConversationModal({ visible, onClose }: CreateConversation
             <TextInput
               className="ml-2 flex-1 text-[15px]"
               style={{ color: Colors.text }}
-              placeholder="Tìm kiếm bạn bè..."
+              placeholder="Search friends..."
               placeholderTextColor={Colors.textLight}
               value={searchQuery}
               onChangeText={setSearchQuery}
@@ -298,7 +298,7 @@ export function CreateConversationModal({ visible, onClose }: CreateConversation
             renderItem={renderContactItem}
             ListEmptyComponent={
               <View className="flex-1 items-center justify-center pt-10">
-                <Text style={{ color: Colors.textLight }}>Không tìm thấy bạn bè nào</Text>
+                <Text style={{ color: Colors.textLight }}>No friends found</Text>
               </View>
             }
           />

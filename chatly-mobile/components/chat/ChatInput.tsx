@@ -74,7 +74,7 @@ export function ChatInput({ conversationId, onSend, onTyping, replyingTo, onCanc
     } catch {
       setPendingFiles((prev) =>
         prev.map((p) =>
-          p.localId === localId ? { ...p, error: 'Upload thất bại' } : p,
+          p.localId === localId ? { ...p, error: 'Upload failed' } : p,
         ),
       );
     }
@@ -84,7 +84,7 @@ export function ChatInput({ conversationId, onSend, onTyping, replyingTo, onCanc
     try {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert('Lỗi', 'Cần cấp quyền truy cập thư viện ảnh.');
+        Alert.alert('Error', 'Need library permissions to pick images.');
         return;
       }
       const result = await ImagePicker.launchImageLibraryAsync({
@@ -167,15 +167,15 @@ export function ChatInput({ conversationId, onSend, onTyping, replyingTo, onCanc
             }}
           >
             <Text className="text-[11px] font-semibold mb-0.5" style={{ color: Colors.cta }}>
-              Đang trả lời
+              Replying to
             </Text>
             <Text className="text-[12px]" style={{ color: Colors.textMuted }} numberOfLines={1}>
               {replyingTo.recalled
-                ? 'Tin nhắn đã được thu hồi'
+                ? 'Message recalled'
                 : replyingTo.type === 'IMAGE'
-                ? '🖼 Hình ảnh'
+                ? '🖼 Image'
                 : replyingTo.type === 'FILE'
-                ? '📎 Tệp đính kèm'
+                ? '📎 Attachment'
                 : replyingTo.content}
             </Text>
           </View>
@@ -283,7 +283,7 @@ export function ChatInput({ conversationId, onSend, onTyping, replyingTo, onCanc
           <TextInput
             className="text-[15px]"
             style={{ color: Colors.text, maxHeight: 100 }}
-            placeholder="Nhập tin nhắn..."
+            placeholder="Type a message..."
             placeholderTextColor={Colors.textLight}
             value={text}
             onChangeText={handleChangeText}

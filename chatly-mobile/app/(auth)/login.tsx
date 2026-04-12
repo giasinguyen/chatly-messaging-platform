@@ -31,12 +31,12 @@ export default function LoginScreen() {
   const validate = () => {
     const newErrors: typeof errors = {};
     if (!identifier.trim()) {
-      newErrors.identifier = 'Vui lòng nhập email hoặc số điện thoại';
+      newErrors.identifier = 'Please enter email or phone number';
     }
     if (!password) {
-      newErrors.password = 'Vui lòng nhập mật khẩu';
+      newErrors.password = 'Please enter password';
     } else if (password.length < 6) {
-      newErrors.password = 'Mật khẩu ít nhất 6 ký tự';
+      newErrors.password = 'Password must be at least 6 characters';
     }
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -55,8 +55,8 @@ export default function LoginScreen() {
       await setAuth(response.result);
       router.replace('/(tabs)/chats');
     } catch (error: any) {
-      const message = getApiErrorMessage(error, 'Đăng nhập thất bại. Vui lòng thử lại.');
-      Alert.alert('Đăng nhập thất bại', message);
+      const message = getApiErrorMessage(error, 'Login failed. Please try again.');
+      Alert.alert('Login Failed', message);
     } finally {
       setLoading(false);
     }
@@ -85,14 +85,14 @@ export default function LoginScreen() {
             className="mt-3 text-center text-base"
             style={{ color: Colors.textMuted }}
           >
-            Kết nối mọi lúc, mọi nơi
+            Connect anytime, anywhere
           </Text>
         </View>
 
         {/* Form */}
         <View className="mb-6">
           <AuthInput
-            label="Email hoặc Số điện thoại"
+            label="Email or Phone Number"
             icon="person-outline"
             placeholder="example@email.com"
             value={identifier}
@@ -106,9 +106,9 @@ export default function LoginScreen() {
           />
 
           <AuthInput
-            label="Mật khẩu"
+            label="Password"
             icon="lock-closed-outline"
-            placeholder="Nhập mật khẩu"
+            placeholder="Enter password"
             value={password}
             onChangeText={(text) => {
               setPassword(text);
@@ -122,14 +122,14 @@ export default function LoginScreen() {
         </View>
 
         {/* Login Button */}
-        <PrimaryButton title="Đăng nhập" loading={loading} onPress={handleLogin} />
+        <PrimaryButton title="Sign In" loading={loading} onPress={handleLogin} />
 
         {/* Register Link */}
         <View className="mt-6 flex-row items-center justify-center">
-          <Text style={{ color: Colors.textMuted }}>Chưa có tài khoản? </Text>
+          <Text style={{ color: Colors.textMuted }}>Don't have an account? </Text>
           <TouchableOpacity onPress={() => router.push('/(auth)/register')}>
             <Text className="font-semibold" style={{ color: Colors.cta }}>
-              Đăng ký ngay
+              Sign Up
             </Text>
           </TouchableOpacity>
         </View>

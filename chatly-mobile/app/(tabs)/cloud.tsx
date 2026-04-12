@@ -24,9 +24,9 @@ import { useConversationStore } from '@/store/conversation.store';
 type Tab = 'all' | 'image' | 'file';
 
 const TAB_FILTERS: { key: Tab; label: string; icon: string }[] = [
-  { key: 'all',   label: 'Tất cả',  icon: 'albums-outline'         },
-  { key: 'image', label: 'Ảnh',     icon: 'image-outline'          },
-  { key: 'file',  label: 'Tài liệu', icon: 'document-text-outline' },
+  { key: 'all',   label: 'All',  icon: 'albums-outline'         },
+  { key: 'image', label: 'Images',     icon: 'image-outline'          },
+  { key: 'file',  label: 'Documents', icon: 'document-text-outline' },
 ];
 
 function formatSize(bytes: number): string {
@@ -83,9 +83,9 @@ export default function CloudScreen() {
 
   const convName = useCallback(
     (id?: string) => {
-      if (!id) return 'Không rõ';
+      if (!id) return 'Unknown';
       const c = conversations.find((c) => c.id === id);
-      return c?.name ?? 'Hội thoại';
+      return c?.name ?? 'Conversation';
     },
     [conversations],
   );
@@ -164,7 +164,7 @@ export default function CloudScreen() {
       >
         <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12 }}>
           <View style={{ flex: 1 }}>
-            <Text style={{ fontSize: 22, fontWeight: '700', color: Colors.text }}>Kho lưu trữ</Text>
+            <Text style={{ fontSize: 22, fontWeight: '700', color: Colors.text }}>Cloud Storage</Text>
           </View>
           <TouchableOpacity onPress={toggleSearch} style={{ padding: 4 }}>
             <Ionicons
@@ -197,7 +197,7 @@ export default function CloudScreen() {
             <Ionicons name="search-outline" size={16} color={Colors.textMuted} />
             <TextInput
               style={{ flex: 1, marginLeft: 8, fontSize: 14, color: Colors.text }}
-              placeholder="Tìm kiếm tên file..."
+              placeholder="Search file name..."
               placeholderTextColor={Colors.textLight}
               value={searchQuery}
               onChangeText={setSearchQuery}
@@ -269,10 +269,10 @@ export default function CloudScreen() {
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={{ color: Colors.white, fontWeight: '700', fontSize: 16 }}>
-                    {files.length} tệp · {formatSize(totalSize)}
+                    {files.length} files · {formatSize(totalSize)}
                   </Text>
                   <Text style={{ color: 'rgba(255,255,255,0.75)', fontSize: 12, marginTop: 2 }}>
-                    {imageCount} ảnh · {docCount} tài liệu
+                    {imageCount} images · {docCount} documents
                   </Text>
                 </View>
               </View>
@@ -282,10 +282,10 @@ export default function CloudScreen() {
             <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 80 }}>
               <Ionicons name="cloud-offline-outline" size={64} color={Colors.borderLight} />
               <Text style={{ marginTop: 16, fontSize: 16, color: Colors.textMuted }}>
-                {searchQuery ? 'Không tìm thấy tệp' : 'Chưa có tệp nào'}
+                {searchQuery ? 'No files found' : 'No files yet'}
               </Text>
               <Text style={{ marginTop: 4, fontSize: 13, color: Colors.textLight }}>
-                {searchQuery ? 'Thử từ khóa khác' : 'Ảnh và file bạn gửi sẽ lưu ở đây'}
+                {searchQuery ? 'Try a different keyword' : 'Photos and files you send will appear here'}
               </Text>
             </View>
           }

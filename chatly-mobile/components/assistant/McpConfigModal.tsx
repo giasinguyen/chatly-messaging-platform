@@ -64,15 +64,15 @@ export function McpConfigModal({ visible, onClose }: Props) {
       const updated = await mcpService.toggle(server.id, !server.is_active);
       setServers((prev) => prev.map((s) => (s.id === updated.id ? updated : s)));
     } catch {
-      Alert.alert('Lỗi', 'Không thể thay đổi trạng thái');
+      Alert.alert('Error', 'Could not change status');
     }
   };
 
   const handleDelete = (server: McpServer) => {
-    Alert.alert('Xóa MCP Server?', `"${server.name}" sẽ bị xóa vĩnh viễn.`, [
-      { text: 'Hủy', style: 'cancel' },
+    Alert.alert('Delete MCP Server?', `"${server.name}" will be permanently deleted.`, [
+      { text: 'Cancel', style: 'cancel' },
       {
-        text: 'Xóa',
+        text: 'Delete',
         style: 'destructive',
         onPress: async () => {
           try {
@@ -80,7 +80,7 @@ export function McpConfigModal({ visible, onClose }: Props) {
             setServers((prev) => prev.filter((s) => s.id !== server.id));
             if (expandedId === server.id) setExpandedId(null);
           } catch {
-            Alert.alert('Lỗi', 'Không thể xóa server');
+            Alert.alert('Error', 'Could not delete server');
           }
         },
       },
@@ -108,7 +108,7 @@ export function McpConfigModal({ visible, onClose }: Props) {
     const trimName = name.trim();
     const trimUrl = url.trim();
     if (!trimName || !trimUrl) {
-      Alert.alert('Thiếu thông tin', 'Vui lòng nhập tên và URL');
+      Alert.alert('Missing information', 'Please enter name and URL');
       return;
     }
     setCreating(true);
@@ -117,7 +117,7 @@ export function McpConfigModal({ visible, onClose }: Props) {
       setServers((prev) => [server, ...prev]);
       resetForm();
     } catch {
-      Alert.alert('Lỗi', 'Không thể thêm MCP server');
+      Alert.alert('Error', 'Could not add MCP server');
     } finally {
       setCreating(false);
     }
@@ -217,7 +217,7 @@ export function McpConfigModal({ visible, onClose }: Props) {
               <ActivityIndicator size="small" color={Colors.cta} />
             ) : tools.length === 0 ? (
               <Text className="text-xs" style={{ color: Colors.textLight }}>
-                Không có tools nào
+                No tools available
               </Text>
             ) : (
               tools.map((t) => (
@@ -278,12 +278,12 @@ export function McpConfigModal({ visible, onClose }: Props) {
               keyboardShouldPersistTaps="handled"
             >
               <Text className="text-sm font-semibold mb-2" style={{ color: Colors.text }}>
-                Thêm MCP Server
+                Add MCP Server
               </Text>
               <TextInput
                 value={name}
                 onChangeText={setName}
-                placeholder="Tên server"
+                placeholder="Server name"
                 placeholderTextColor={Colors.textLight}
                 className="rounded-lg px-3 py-2.5 text-sm mb-2"
                 style={{ backgroundColor: Colors.bg, color: Colors.text, borderWidth: 0.5, borderColor: Colors.borderLight }}
@@ -301,7 +301,7 @@ export function McpConfigModal({ visible, onClose }: Props) {
 
               {/* Custom headers */}
               <Text className="text-xs font-medium mb-1.5" style={{ color: Colors.textMuted }}>
-                Headers (tuỳ chọn)
+                Headers (optional)
               </Text>
               {Object.entries(headers).map(([k, v]) => (
                 <View key={k} className="flex-row items-center mb-1.5">
@@ -356,7 +356,7 @@ export function McpConfigModal({ visible, onClose }: Props) {
                   <ActivityIndicator size="small" color={Colors.white} />
                 ) : (
                   <Text className="text-sm font-semibold" style={{ color: Colors.white }}>
-                    Thêm server
+                    Add server
                   </Text>
                 )}
               </TouchableOpacity>
@@ -379,7 +379,7 @@ export function McpConfigModal({ visible, onClose }: Props) {
               <View className="flex-1 items-center justify-center py-20">
                 <Ionicons name="hardware-chip-outline" size={48} color={Colors.textLight} />
                 <Text className="text-sm mt-3" style={{ color: Colors.textMuted }}>
-                  Chưa có MCP server nào
+                  No MCP servers yet
                 </Text>
                 <TouchableOpacity
                   onPress={() => setShowAdd(true)}
@@ -388,7 +388,7 @@ export function McpConfigModal({ visible, onClose }: Props) {
                 >
                   <Ionicons name="add" size={16} color={Colors.white} />
                   <Text className="ml-1 text-sm font-semibold" style={{ color: Colors.white }}>
-                    Thêm server
+                    Add server
                   </Text>
                 </TouchableOpacity>
               </View>

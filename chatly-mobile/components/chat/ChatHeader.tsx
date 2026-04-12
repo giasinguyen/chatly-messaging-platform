@@ -28,10 +28,10 @@ export function ChatHeader({
   const insets = useSafeAreaInsets();
 
   const subtitle = isGroup
-    ? `${memberCount ?? 0} thành viên`
+    ? `${memberCount ?? 0} members`
     : isOnline
-      ? 'Đang hoạt động'
-      : 'Ngoại tuyến';
+      ? 'Active now'
+      : 'Offline';
 
   return (
     <View
