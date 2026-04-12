@@ -102,7 +102,7 @@ export function ChatHeader({ user, onOpenProfile, isGroup, conversationId, other
                 {showCallButtons ? (
                     <>
                         <Button
-                            onClick={() => initiateCall(otherUserId!, conversationId!, "VIDEO")}
+                            onClick={() => initiateCall(otherUserId!, conversationId!, "VIDEO", user.displayName, user.avatarUrl)}
                             disabled={callDisabled}
                             variant="ghost"
                             size="icon"
@@ -112,7 +112,7 @@ export function ChatHeader({ user, onOpenProfile, isGroup, conversationId, other
                             <Video size={18} />
                         </Button>
                         <Button
-                            onClick={() => initiateCall(otherUserId!, conversationId!, "VOICE")}
+                            onClick={() => initiateCall(otherUserId!, conversationId!, "VOICE", user.displayName, user.avatarUrl)}
                             disabled={callDisabled}
                             variant="ghost"
                             size="icon"

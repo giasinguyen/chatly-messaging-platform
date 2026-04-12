@@ -99,13 +99,12 @@ export function ChatHeader({
         <TouchableOpacity onPress={onToggleSearch} className="mx-1 p-2">
           <Ionicons name="search-outline" size={22} color={Colors.cta} />
         </TouchableOpacity>
-<<<<<<< HEAD
         {showCallButtons && (
           <>
             <TouchableOpacity
               className="mx-1 p-2"
               disabled={callDisabled}
-              onPress={() => initiateCall(receiverId!, conversationId!, 'VOICE')}
+              onPress={() => initiateCall(receiverId!, conversationId!, 'VOICE', name, avatarUrl ?? null)}
               style={{ opacity: callDisabled ? 0.4 : 1 }}
             >
               <Ionicons name="call-outline" size={22} color={Colors.cta} />
@@ -113,7 +112,7 @@ export function ChatHeader({
             <TouchableOpacity
               className="mx-1 p-2"
               disabled={callDisabled}
-              onPress={() => initiateCall(receiverId!, conversationId!, 'VIDEO')}
+              onPress={() => initiateCall(receiverId!, conversationId!, 'VIDEO', name, avatarUrl ?? null)}
               style={{ opacity: callDisabled ? 0.4 : 1 }}
             >
               <Ionicons name="videocam-outline" size={24} color={Colors.cta} />
@@ -130,20 +129,6 @@ export function ChatHeader({
             </TouchableOpacity>
           </>
         )}
-=======
-        <TouchableOpacity
-          onPress={() => Alert.alert('Thông báo', 'Tính năng gọi thoại đang được phát triển')}
-          className="mx-1 p-2"
-        >
-          <Ionicons name="call-outline" size={22} color={Colors.cta} />
-        </TouchableOpacity>
-        <TouchableOpacity
-          onPress={() => Alert.alert('Thông báo', 'Tính năng video call đang được phát triển')}
-          className="mx-1 p-2"
-        >
-          <Ionicons name="videocam-outline" size={24} color={Colors.cta} />
-        </TouchableOpacity>
->>>>>>> 10c1ebbc45588e1b8d738db62eca12cdde807a2d
         {onPressInfo && (
           <TouchableOpacity onPress={onPressInfo} className="mx-1 p-2">
             <Ionicons name="information-circle-outline" size={24} color={Colors.cta} />
