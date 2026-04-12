@@ -3,6 +3,8 @@ import {
   View,
   FlatList,
   KeyboardAvoidingView,
+  TouchableWithoutFeedback,
+  Keyboard,
   Platform,
   ActivityIndicator,
   TouchableOpacity,
@@ -51,6 +53,7 @@ export default function AssistantChatScreen() {
 
   const [loading, setLoading] = useState(false);
   const [showScrollDown, setShowScrollDown] = useState(false);
+  const [mcpConfigVisible, setMcpConfigVisible] = useState(false);
 
   const session = sessions.find((s) => s.id === sessionId);
   const title = session?.title ?? 'Cuộc trò chuyện mới';
@@ -187,8 +190,9 @@ export default function AssistantChatScreen() {
 
   return (
     <View className="flex-1" style={{ backgroundColor: Colors.white }}>
-      <AssistantHeader title={title} />
+      <AssistantHeader title={title} onPressSetting={() => setMcpConfigVisible(true)} />
 
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
       <KeyboardAvoidingView
         className="flex-1"
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -245,11 +249,14 @@ export default function AssistantChatScreen() {
           isStreaming={isStreaming}
           onCancel={cancelStream}
           disabled={isStreaming}
+          mcpConfigVisible={mcpConfigVisible}
+          onMcpConfigChange={setMcpConfigVisible}
         />
 
         {/* Bottom safe area */}
         <View style={{ height: insets.bottom, backgroundColor: Colors.white }} />
       </KeyboardAvoidingView>
+      </TouchableWithoutFeedback>
     </View>
   );
 }

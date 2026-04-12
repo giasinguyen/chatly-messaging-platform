@@ -4,10 +4,12 @@ import {
   Text,
   FlatList,
   TouchableOpacity,
+  TouchableWithoutFeedback,
   TextInput,
   Alert,
   ActivityIndicator,
   KeyboardAvoidingView,
+  Keyboard,
   Platform,
   Modal,
   RefreshControl,
@@ -69,6 +71,7 @@ export default function AssistantScreen() {
   const [showScrollDown, setShowScrollDown] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState('');
+  const [mcpConfigVisible, setMcpConfigVisible] = useState(false);
 
   const session = sessions.find((s) => s.id === activeSessionId);
   const title = session?.title ?? 'AI Assistant';
@@ -358,6 +361,13 @@ export default function AssistantScreen() {
         </View>
         <View className="flex-row items-center" style={{ gap: 4 }}>
           <TouchableOpacity
+            onPress={() => setMcpConfigVisible(true)}
+            className="h-9 w-9 items-center justify-center rounded-full"
+            hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+          >
+            <Ionicons name="settings-outline" size={22} color={Colors.cta} />
+          </TouchableOpacity>
+          <TouchableOpacity
             onPress={() => {
               loadSessions();
               setShowSessions(true);
@@ -378,6 +388,7 @@ export default function AssistantScreen() {
       </View>
 
       {/* ── Body ── */}
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
       <KeyboardAvoidingView
         className="flex-1"
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -447,9 +458,12 @@ export default function AssistantScreen() {
           isStreaming={isStreaming}
           onCancel={cancelStream}
           disabled={isStreaming}
+          mcpConfigVisible={mcpConfigVisible}
+          onMcpConfigChange={setMcpConfigVisible}
         />
         <View style={{ height: insets.bottom, backgroundColor: Colors.white }} />
       </KeyboardAvoidingView>
+      </TouchableWithoutFeedback>
 
       {/* ── Session List Modal ── */}
       <Modal visible={showSessions} animationType="slide" presentationStyle="pageSheet">
