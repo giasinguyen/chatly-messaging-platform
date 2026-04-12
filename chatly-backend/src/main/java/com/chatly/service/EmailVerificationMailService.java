@@ -9,6 +9,8 @@ import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 import org.thymeleaf.context.Context;
+
+import java.time.Instant;
 import org.thymeleaf.spring6.SpringTemplateEngine;
 
 @Service
@@ -41,6 +43,16 @@ public class EmailVerificationMailService {
 
         String htmlBody = templateEngine.process("forgot-password-new-password", context);
         sendHtmlEmail(user.getEmail(), "Chatly - Your new password", htmlBody);
+    }
+
+    /** Security notice after user changes password (sessions invalidated). */
+    public void sendPasswordChangedNotice(User user, Instant occurredAt) {
+        Context context = new Context();
+        context.setVariable("displayName", user.getDisplayName());
+        context.setVariable("occurredAt", occurredAt.toString());
+
+        String htmlBody = templateEngine.process("password-changed-notice", context);
+        sendHtmlEmail(user.getEmail(), "Chatly - Your password was changed", htmlBody);
     }
 
     private void sendHtmlEmail(String to, String subject, String htmlBody) {

@@ -7,6 +7,9 @@ import {
   Alert,
   TextInput,
   ActivityIndicator,
+  Modal,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
@@ -28,6 +31,12 @@ export default function SettingsScreen() {
   const [displayName, setDisplayName] = useState(user?.displayName ?? '');
   const [saving, setSaving] = useState(false);
   const [localAvatarUri, setLocalAvatarUri] = useState<string | null>(null);
+
+  const [pwdModalVisible, setPwdModalVisible] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [pwdSaving, setPwdSaving] = useState(false);
 
   const handleLogout = useCallback(async () => {
     Alert.alert('Logout', 'Are you sure you want to log out?', [
@@ -97,6 +106,49 @@ export default function SettingsScreen() {
       setSaving(false);
     }
   }, [user, displayName, localAvatarUri, updateUser]);
+
+  const handleChangePassword = useCallback(async () => {
+    if (!currentPassword.trim() || !newPassword.trim() || !confirmPassword.trim()) {
+      Alert.alert('Missing fields', 'Please fill in all password fields.');
+      return;
+    }
+    if (newPassword.length < 6) {
+      Alert.alert('Invalid password', 'New password must be at least 6 characters.');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      Alert.alert('Mismatch', 'New password and confirmation do not match.');
+      return;
+    }
+
+    setPwdSaving(true);
+    try {
+      await authService.changePassword({
+        currentPassword,
+        newPassword,
+        confirmPassword,
+      });
+      setPwdModalVisible(false);
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+      try {
+        await authService.logout();
+      } catch {
+        // ignore
+      }
+      socketService.disconnect();
+      await clearAuth();
+      Alert.alert(
+        'Password updated',
+        'Please sign in again with your new password.',
+      );
+    } catch (error: any) {
+      Alert.alert('Error', error?.response?.data?.message ?? 'Could not change password.');
+    } finally {
+      setPwdSaving(false);
+    }
+  }, [currentPassword, newPassword, confirmPassword, clearAuth]);
 
   const settingsItems = [
     {
@@ -232,6 +284,105 @@ export default function SettingsScreen() {
           </View>
         )}
       </View>
+
+      {/* Change password */}
+      <View className="mx-4 mt-4 rounded-2xl" style={{ backgroundColor: Colors.white }}>
+        <TouchableOpacity
+          className="flex-row items-center px-4 py-3.5"
+          onPress={() => setPwdModalVisible(true)}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="key-outline" size={22} color={Colors.text} />
+          <Text className="ml-3 flex-1 text-[15px]" style={{ color: Colors.text }}>
+            Change password
+          </Text>
+          <Ionicons name="chevron-forward" size={18} color={Colors.textLight} />
+        </TouchableOpacity>
+      </View>
+
+      <Modal
+        visible={pwdModalVisible}
+        animationType="slide"
+        transparent
+        onRequestClose={() => !pwdSaving && setPwdModalVisible(false)}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          className="flex-1 justify-end"
+          style={{ backgroundColor: 'rgba(0,0,0,0.45)' }}
+        >
+          <TouchableOpacity
+            className="flex-1"
+            activeOpacity={1}
+            onPress={() => !pwdSaving && setPwdModalVisible(false)}
+          />
+          <View
+            className="rounded-t-3xl px-4 pb-8 pt-4"
+            style={{ backgroundColor: Colors.white }}
+          >
+            <Text className="mb-4 text-[18px] font-bold" style={{ color: Colors.text }}>
+              Change password
+            </Text>
+            <Text className="mb-3 text-[13px]" style={{ color: Colors.textLight }}>
+              After changing your password you will need to sign in again on all devices.
+            </Text>
+            <Text className="mb-1 text-[13px]" style={{ color: Colors.text }}>
+              Current password
+            </Text>
+            <TextInput
+              className="mb-3 rounded-lg border px-3 py-2.5 text-[16px]"
+              style={{ borderColor: Colors.borderLight, color: Colors.text }}
+              secureTextEntry
+              value={currentPassword}
+              onChangeText={setCurrentPassword}
+              editable={!pwdSaving}
+            />
+            <Text className="mb-1 text-[13px]" style={{ color: Colors.text }}>
+              New password
+            </Text>
+            <TextInput
+              className="mb-3 rounded-lg border px-3 py-2.5 text-[16px]"
+              style={{ borderColor: Colors.borderLight, color: Colors.text }}
+              secureTextEntry
+              value={newPassword}
+              onChangeText={setNewPassword}
+              editable={!pwdSaving}
+            />
+            <Text className="mb-1 text-[13px]" style={{ color: Colors.text }}>
+              Confirm new password
+            </Text>
+            <TextInput
+              className="mb-4 rounded-lg border px-3 py-2.5 text-[16px]"
+              style={{ borderColor: Colors.borderLight, color: Colors.text }}
+              secureTextEntry
+              value={confirmPassword}
+              onChangeText={setConfirmPassword}
+              editable={!pwdSaving}
+            />
+            <View className="flex-row justify-end gap-2">
+              <TouchableOpacity
+                className="rounded-lg px-4 py-3"
+                onPress={() => !pwdSaving && setPwdModalVisible(false)}
+                disabled={pwdSaving}
+              >
+                <Text style={{ color: Colors.textLight }}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                className="rounded-lg px-5 py-3"
+                style={{ backgroundColor: Colors.cta }}
+                onPress={handleChangePassword}
+                disabled={pwdSaving}
+              >
+                {pwdSaving ? (
+                  <ActivityIndicator color={Colors.white} />
+                ) : (
+                  <Text style={{ color: Colors.white, fontWeight: '600' }}>Update</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
 
       {/* Settings List */}
       <View className="mx-4 mt-4 rounded-2xl" style={{ backgroundColor: Colors.white }}>

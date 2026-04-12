@@ -73,9 +73,10 @@ export function GeneralSettings() {
                                 <SelectValue placeholder="Select language" />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="vi">Vietnamese (Coming Soon)</SelectItem>
-                                    English
+                                <SelectItem value="vi">
+                                    Vietnamese (Coming Soon)
                                 </SelectItem>
+                                <SelectItem value="en">English</SelectItem>
                             </SelectContent>
                         </Select>
                     </div>
@@ -84,4 +85,3 @@ export function GeneralSettings() {
         </div>
     );
 }
-

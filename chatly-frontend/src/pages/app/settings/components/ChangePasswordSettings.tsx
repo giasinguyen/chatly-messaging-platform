@@ -1,11 +1,15 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { authService } from "@/services/auth.service";
+import { useAuthStore } from "@/store/auth.store";
 
 export function ChangePasswordSettings() {
+    const navigate = useNavigate();
+    const clearAuth = useAuthStore((s) => s.clearAuth);
     const [currentPassword, setCurrentPassword] = useState("");
     const [newPassword, setNewPassword] = useState("");
     const [confirmPassword, setConfirmPassword] = useState("");
@@ -27,15 +31,24 @@ export function ChangePasswordSettings() {
 
         try {
             setChangingPassword(true);
-            const response = await authService.changePassword({
+            await authService.changePassword({
                 currentPassword,
                 newPassword,
                 confirmPassword,
             });
-            toast.success(response.message || "Password changed successfully.");
+            toast.success(
+                "Password updated. Please sign in again with your new password.",
+            );
             setCurrentPassword("");
             setNewPassword("");
             setConfirmPassword("");
+            try {
+                await authService.logout();
+            } catch {
+                // Tokens may already be invalid; still clear client session
+            }
+            clearAuth();
+            navigate("/auth/login", { replace: true });
         } catch (error: any) {
             toast.error(
                 error?.response?.data?.message || "Could not change password.",

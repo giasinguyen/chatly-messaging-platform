@@ -20,13 +20,16 @@ import com.chatly.model.postgres.User;
 import com.chatly.repository.postgres.EmailVerificationOtpRepository;
 import com.chatly.repository.postgres.UserRepository;
 import com.chatly.security.JwtProvider;
+import com.chatly.security.PasswordChangeTokenValidator;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
@@ -37,6 +40,7 @@ import java.security.SecureRandom;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class AuthService {
 
     private final UserRepository userRepository;
@@ -46,6 +50,7 @@ public class AuthService {
     private final TokenBlacklistService tokenBlacklistService;
     private final EmailVerificationOtpRepository emailVerificationOtpRepository;
     private final EmailVerificationMailService emailVerificationMailService;
+    private final PasswordChangeTokenValidator passwordChangeTokenValidator;
 
     @Value("${app.auth.verification.expiration-minutes:15}")
     private long verificationExpirationMinutes;
@@ -79,6 +84,7 @@ public class AuthService {
             }
         }
 
+        Instant now = Instant.now();
         User user = User.builder()
             .username(request.getUsername())
             .email(request.getEmail())
@@ -87,6 +93,7 @@ public class AuthService {
             .password(passwordEncoder.encode(request.getPassword()))
             .displayName(request.getDisplayName())
             .emailVerified(false)
+            .passwordChangedAt(now)
             .build();
 
         user = userRepository.save(user);
@@ -136,8 +143,18 @@ public class AuthService {
             throw new AppException(ErrorCode.CURRENT_PASSWORD_INCORRECT);
         }
 
+        Instant changedAt = Instant.now();
         user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        user.setPasswordChangedAt(changedAt);
         userRepository.save(user);
+
+        if (StringUtils.hasText(user.getEmail())) {
+            try {
+                emailVerificationMailService.sendPasswordChangedNotice(user, changedAt);
+            } catch (Exception e) {
+                log.warn("Could not send password-changed notice email for user {}", user.getId(), e);
+            }
+        }
     }
 
     @Transactional
@@ -145,6 +162,7 @@ public class AuthService {
         userRepository.findByEmail(request.getEmail()).ifPresent(user -> {
             String newPassword = generateRandomPassword();
             user.setPassword(passwordEncoder.encode(newPassword));
+            user.setPasswordChangedAt(Instant.now());
             userRepository.save(user);
             emailVerificationMailService.sendNewPassword(user, newPassword);
         });
@@ -201,6 +219,10 @@ public class AuthService {
             throw new AppException(ErrorCode.INVALID_TOKEN);
         }
 
+        if (!passwordChangeTokenValidator.isTokenValidAgainstPasswordChange(refreshToken)) {
+            throw new AppException(ErrorCode.INVALID_TOKEN);
+        }
+
         String userId = jwtProvider.getUserIdFromToken(refreshToken);
         User user = userRepository.findById(UUID.fromString(userId))
             .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
@@ -234,7 +256,9 @@ public class AuthService {
         boolean isValid = true;
         
         try {
-            isValid = jwtProvider.validateToken(token) && !tokenBlacklistService.isTokenBlacklisted(token);
+            isValid = jwtProvider.validateToken(token)
+                && !tokenBlacklistService.isTokenBlacklisted(token)
+                && passwordChangeTokenValidator.isTokenValidAgainstPasswordChange(token);
         } catch (Exception e) {
             isValid = false;
         }

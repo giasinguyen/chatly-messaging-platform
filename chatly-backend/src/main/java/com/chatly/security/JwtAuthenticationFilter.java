@@ -25,6 +25,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtProvider jwtProvider;
     private final TokenBlacklistService tokenBlacklistService;
+    private final PasswordChangeTokenValidator passwordChangeTokenValidator;
 
     @Override
     protected void doFilterInternal(
@@ -39,6 +40,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 // Check if token is blacklisted (e.g., after logout)
                 if (tokenBlacklistService.isTokenBlacklisted(jwt)) {
                     log.warn("Attempted to use blacklisted token");
+                    filterChain.doFilter(request, response);
+                    return;
+                }
+
+                if (!passwordChangeTokenValidator.isTokenValidAgainstPasswordChange(jwt)) {
                     filterChain.doFilter(request, response);
                     return;
                 }

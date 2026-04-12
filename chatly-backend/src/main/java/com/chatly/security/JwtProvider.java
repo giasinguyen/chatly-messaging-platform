@@ -55,6 +55,11 @@ public class JwtProvider {
         }
     }
 
+    /** Issued-at time of the token (for comparing with password change timestamp). */
+    public Date getIssuedAt(String token) {
+        return parseClaims(token).getIssuedAt();
+    }
+
     private String buildToken(String userId, long expirationMs) {
         Date now = new Date();
         Date expiry = new Date(now.getTime() + expirationMs);
