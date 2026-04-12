@@ -37,6 +37,10 @@ export function useWebRTC() {
     // Callback refs — consumer gán trước khi gọi các method
     const callbacksRef = useRef<Partial<UseWebRTCCallbacks>>({});
 
+    // Buffer ICE candidates that arrive before setRemoteDescription is called
+    const pendingCandidates = useRef<RTCIceCandidateInit[]>([]);
+    const remoteDescriptionSet = useRef(false);
+
     // Auto-attach local stream to video element
     useEffect(() => {
         if (localVideoRef.current && localStream) {
@@ -148,18 +152,36 @@ export function useWebRTC() {
         async (sdp: RTCSessionDescriptionInit): Promise<void> => {
             const pc = createPeerConnection();
             await pc.setRemoteDescription(new RTCSessionDescription(sdp));
+            remoteDescriptionSet.current = true;
+
+            // Drain buffered ICE candidates now that remote description is set
+            const buffered = pendingCandidates.current.splice(0);
+            if (buffered.length > 0) {
+                console.log(`[WebRTC] Draining ${buffered.length} buffered ICE candidate(s)`);
+                for (const candidate of buffered) {
+                    try {
+                        await pc.addIceCandidate(new RTCIceCandidate(candidate));
+                    } catch (err) {
+                        console.warn("[WebRTC] Failed to add buffered ICE candidate:", err);
+                    }
+                }
+            }
         },
         [createPeerConnection],
     );
 
-    // Thêm ICE candidate từ peer
+    // Thêm ICE candidate từ peer (buffer if remote description not yet set)
     const addIceCandidate = useCallback(async (candidate: RTCIceCandidateInit): Promise<void> => {
         const pc = peerConnection.current;
-        if (!pc) return;
+        if (!pc || !remoteDescriptionSet.current) {
+            console.log("[WebRTC] Remote description not set yet, buffering ICE candidate");
+            pendingCandidates.current.push(candidate);
+            return;
+        }
         try {
             await pc.addIceCandidate(new RTCIceCandidate(candidate));
         } catch (error) {
-            console.error("Failed to add ICE candidate:", error);
+            console.error("[WebRTC] Failed to add ICE candidate:", error);
         }
     }, []);
 
@@ -179,6 +201,10 @@ export function useWebRTC() {
             peerConnection.current.close();
             peerConnection.current = null;
         }
+
+        // Reset ICE candidate buffer
+        pendingCandidates.current = [];
+        remoteDescriptionSet.current = false;
 
         // Reset video elements
         if (localVideoRef.current) {
