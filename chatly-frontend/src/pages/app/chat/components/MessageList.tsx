@@ -71,6 +71,7 @@ interface MessageListProps {
     onRemoveFailedMessage?: (id: string) => void;
     highlightedMessageId?: string | null;
     onVotePoll?: (messageId: string, optionIndex: number) => void;
+    onClosePoll?: (messageId: string) => void;
     onTogglePin?: (messageId: string) => void;
 }
 
@@ -99,6 +100,7 @@ export function MessageList({
     onRemoveFailedMessage,
     highlightedMessageId,
     onVotePoll,
+    onClosePoll,
     onTogglePin,
 }: MessageListProps) {
     const scrollEndRef = useRef<HTMLDivElement>(null);
@@ -329,16 +331,18 @@ export function MessageList({
             : undefined;
         const isBeingEdited = editingId === msg.id;
 
+        const isPoll = msg.type === "POLL";
+
         const bubble = (
             <div
                 data-message-id={msg.id}
                 className={cn(
                     "flex gap-2 group px-4 transition-colors duration-500",
                     isLastInGroup(msg, index) ? "mb-3" : "mb-0.5",
-                    isMe ? "flex-row-reverse" : "flex-row",
+                    isPoll ? "justify-center" : (isMe ? "flex-row-reverse" : "flex-row"),
                 )}
             >
-                {!isMe && shouldShowAvatar(msg, index) && (
+                {!isMe && !isPoll && shouldShowAvatar(msg, index) && (
                     <button
                         type="button"
                         onClick={() => onOpenSenderProfile?.(msg.senderId)}
@@ -351,12 +355,12 @@ export function MessageList({
                         </Avatar>
                     </button>
                 )}
-                {!isMe && !shouldShowAvatar(msg, index) && (
+                {!isMe && !isPoll && !shouldShowAvatar(msg, index) && (
                     <div className="h-8 w-8 shrink-0" />
                 )}
 
-                <div className={cn("flex flex-col max-w-[70%]", isMe ? "items-end" : "items-start")}>
-                    {!isMe && conversationType === "GROUP" && shouldShowAvatar(msg, index) && (
+                <div className={cn("flex flex-col", !isPoll && "max-w-[70%]", isPoll ? "items-center" : (isMe ? "items-end" : "items-start"))}>
+                    {!isMe && !isPoll && conversationType === "GROUP" && shouldShowAvatar(msg, index) && (
                         <button
                             type="button"
                             onClick={() => onOpenSenderProfile?.(msg.senderId)}
@@ -420,24 +424,23 @@ export function MessageList({
                                 </button>
                             </div>
                         ) : msg.type === "POLL" && msg.poll ? (
-                            /* Poll bubble */
+                            /* Poll bubble — centered, Zalo-style */
                             (() => {
                                 const poll = msg.poll;
+                                const isClosed = poll.closed === true;
                                 const totalVoters = new Set(Object.values(poll.votes ?? {}).flat()).size;
                                 const myVotedOptions = Object.entries(poll.votes ?? {})
                                     .filter(([, voters]) => voters.includes(currentUserId))
                                     .map(([idx]) => Number(idx));
                                 return (
-                                    <div className={cn(
-                                        "w-72 rounded-2xl shadow-sm overflow-hidden border",
-                                        isMe
-                                            ? "bg-brand/10 border-brand/30"
-                                            : "bg-muted/75 border-border/60 dark:bg-zinc-800/90 dark:border-zinc-700",
-                                    )}>
+                                    <div className="w-80 rounded-2xl shadow-sm overflow-hidden border border-border/50 bg-background dark:bg-zinc-900">
                                         {/* Poll header */}
-                                        <div className={cn("px-3 py-2.5 flex items-center gap-2", isMe ? "bg-brand/20" : "bg-muted/50 dark:bg-zinc-700/50")}>
+                                        <div className="px-4 py-3 flex items-center gap-2 bg-brand/10 border-b border-brand/20">
                                             <BarChart3 size={16} className="text-brand shrink-0" />
-                                            <span className="text-sm font-semibold text-foreground">{poll.question}</span>
+                                            <span className="text-sm font-semibold text-foreground flex-1">{poll.question}</span>
+                                            {isClosed && (
+                                                <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground border shrink-0">Ended</span>
+                                            )}
                                         </div>
                                         {/* Poll options */}
                                         <div className="px-3 py-2 space-y-1.5">
@@ -449,12 +452,15 @@ export function MessageList({
                                                     <button
                                                         key={idx}
                                                         type="button"
-                                                        onClick={() => onVotePoll?.(msg.id, idx)}
+                                                        disabled={isClosed}
+                                                        onClick={() => !isClosed && onVotePoll?.(msg.id, idx)}
                                                         className={cn(
                                                             "relative w-full text-left rounded-lg px-3 py-2 text-sm transition-all overflow-hidden border",
-                                                            isVoted
-                                                                ? "border-brand/60 bg-brand/10 font-medium"
-                                                                : "border-border/40 hover:border-brand/40 hover:bg-brand/5",
+                                                            isClosed
+                                                                ? "opacity-70 cursor-default border-border/30"
+                                                                : isVoted
+                                                                    ? "border-brand/60 bg-brand/10 font-medium"
+                                                                    : "border-border/40 hover:border-brand/40 hover:bg-brand/5",
                                                         )}
                                                     >
                                                         {/* Progress bar */}
@@ -473,9 +479,20 @@ export function MessageList({
                                             })}
                                         </div>
                                         {/* Poll footer */}
-                                        <div className="px-3 py-1.5 text-[11px] text-muted-foreground border-t border-border/30 flex items-center justify-between">
-                                            <span>{totalVoters} voters</span>
-                                            <span>{poll.multipleChoice ? "Multiple choices" : "Single choice"}</span>
+                                        <div className="px-3 py-2 text-[11px] text-muted-foreground border-t border-border/30 flex items-center justify-between">
+                                            <span>{totalVoters} voter{totalVoters !== 1 ? "s" : ""}</span>
+                                            <div className="flex items-center gap-2">
+                                                <span>{poll.multipleChoice ? "Multiple choices" : "Single choice"}</span>
+                                                {isMe && !isClosed && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => onClosePoll?.(msg.id)}
+                                                        className="text-[11px] text-red-500 hover:text-red-600 hover:underline font-medium transition-colors"
+                                                    >
+                                                        End poll
+                                                    </button>
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
                                 );

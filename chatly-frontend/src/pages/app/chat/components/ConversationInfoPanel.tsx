@@ -25,9 +25,9 @@ import {
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { AddMembersDialog } from "./AddMembersDialog";
-import { RemindersDialog } from "./RemindersDialog";
 import { NotesDialog } from "./NotesDialog";
 import { PinnedMessagesDialog } from "./PinnedMessagesDialog";
+import { RemindersDialog } from "./RemindersDialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -162,9 +162,9 @@ export function ConversationInfoPanel({
     const [boardExpanded, setBoardExpanded] = useState(false);
 
     // Bulletin board dialogs
-    const [showReminders, setShowReminders] = useState(false);
     const [showNotes, setShowNotes] = useState(false);
     const [showPinnedMessages, setShowPinnedMessages] = useState(false);
+    const [showReminders, setShowReminders] = useState(false);
 
     // Invite link
     const [inviteLink, setInviteLink] = useState<string | null>(null);
@@ -649,12 +649,12 @@ export function ConversationInfoPanel({
                                         <button
                                             type="button"
                                             className="flex items-center gap-2.5 p-2 rounded-lg bg-muted/30 border border-border/40 hover:bg-muted/50 cursor-pointer transition text-left"
-                                            onClick={() => setShowReminders(true)}
+                                            onClick={() => setShowNotes(true)}
                                         >
                                             <div className="h-7 w-7 rounded bg-brand/10 flex items-center justify-center shrink-0">
-                                                <Image size={13} className="text-brand" />
+                                                <FileText size={13} className="text-brand" />
                                             </div>
-                                            <span className="text-xs text-foreground">Reminders list</span>
+                                            <span className="text-xs text-foreground">Notes</span>
                                         </button>
                                         <button
                                             type="button"
@@ -664,17 +664,17 @@ export function ConversationInfoPanel({
                                             <div className="h-7 w-7 rounded bg-amber-500/10 flex items-center justify-center shrink-0">
                                                 <Pin size={13} className="text-amber-500" />
                                             </div>
-                                            <span className="text-xs text-foreground">Pinned messages</span>
+                                            <span className="text-xs text-foreground">Pinned Messages</span>
                                         </button>
                                         <button
                                             type="button"
                                             className="flex items-center gap-2.5 p-2 rounded-lg bg-muted/30 border border-border/40 hover:bg-muted/50 cursor-pointer transition text-left"
-                                            onClick={() => setShowNotes(true)}
+                                            onClick={() => setShowReminders(true)}
                                         >
-                                            <div className="h-7 w-7 rounded bg-brand/10 flex items-center justify-center shrink-0">
-                                                <FileText size={13} className="text-brand" />
+                                            <div className="h-7 w-7 rounded bg-green-500/10 flex items-center justify-center shrink-0">
+                                                <Bell size={13} className="text-green-500" />
                                             </div>
-                                            <span className="text-xs text-foreground">Notes, pins, polls</span>
+                                            <span className="text-xs text-foreground">Reminders</span>
                                         </button>
                                     </div>
                                 )}
@@ -848,23 +848,25 @@ export function ConversationInfoPanel({
 
             {/* Bulletin board dialogs */}
             {isGroup && (
-                <>
-                    <RemindersDialog
-                        conversationId={conversation.id}
-                        open={showReminders}
-                        onOpenChange={setShowReminders}
-                    />
-                    <NotesDialog
-                        conversationId={conversation.id}
-                        open={showNotes}
-                        onOpenChange={setShowNotes}
-                    />
-                    <PinnedMessagesDialog
-                        conversationId={conversation.id}
-                        open={showPinnedMessages}
-                        onOpenChange={setShowPinnedMessages}
-                    />
-                </>
+                <NotesDialog
+                    conversationId={conversation.id}
+                    open={showNotes}
+                    onOpenChange={setShowNotes}
+                />
+            )}
+            {isGroup && (
+                <PinnedMessagesDialog
+                    conversationId={conversation.id}
+                    open={showPinnedMessages}
+                    onOpenChange={setShowPinnedMessages}
+                />
+            )}
+            {isGroup && (
+                <RemindersDialog
+                    conversationId={conversation.id}
+                    open={showReminders}
+                    onOpenChange={setShowReminders}
+                />
             )}
 
             {/* QR Code Dialog */}

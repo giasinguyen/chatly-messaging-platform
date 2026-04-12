@@ -31,6 +31,7 @@ export interface Poll {
     options: string[];
     multipleChoice: boolean;
     votes: Record<string, string[]>; // optionIndex -> userIds
+    closed?: boolean;
 }
 
 /**

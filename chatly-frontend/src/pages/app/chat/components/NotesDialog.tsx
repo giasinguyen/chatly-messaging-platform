@@ -137,7 +137,7 @@ export function NotesDialog({
                 <DialogHeader className="px-5 pt-5 pb-3 shrink-0">
                     <DialogTitle className="flex items-center gap-2 text-base">
                         <FileText size={16} className="text-brand" />
-                        Notes, Pins, Polls
+                        Notes
                     </DialogTitle>
                 </DialogHeader>
 
