@@ -559,40 +559,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
                         )}
                     </div>
 
-                    {/* Poll creation button */}
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-9 w-9 shrink-0 text-muted-foreground hover:text-foreground"
-                        onClick={() => setShowPollDialog(true)}
-                        title="Create poll"
-                    >
-                        <BarChart3 size={18} />
-                    </Button>
-
-                    {/* Reminder creation button */}
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-9 w-9 shrink-0 text-muted-foreground hover:text-foreground"
-                        onClick={() => setShowReminderDialog(true)}
-                        title="Create reminder"
-                    >
-                        <Clock size={18} />
-                    </Button>
-
-                    {/* Business card button */}
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-9 w-9 shrink-0 text-muted-foreground hover:text-foreground"
-                        onClick={() => { setVCardUser(null); setShowVCardDialog(true); }}
-                        title="Send business card"
-                    >
-                        <IdCard size={18} />
-                    </Button>
-
-                    {/* Priority menu button (3-dot) */}
+                    {/* 3-dot menu (priority + reminder + poll) — right next to emoji */}
                     <div className="relative" ref={priorityMenuRef}>
                         <Button
                             variant="ghost"
@@ -604,12 +571,12 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
                                 !selectedPriority && "text-muted-foreground hover:text-foreground",
                             )}
                             onClick={() => setShowPriorityMenu((prev) => !prev)}
-                            title="Message priority"
+                            title="Thêm tùy chọn"
                         >
                             <MoreHorizontal size={18} />
                         </Button>
                         {showPriorityMenu && (
-                            <div className="absolute bottom-full mb-2 left-0 bg-popover border border-border rounded-lg shadow-lg z-50 min-w-[210px] py-1">
+                            <div className="absolute bottom-full mb-2 left-0 bg-popover border border-border rounded-lg shadow-lg z-50 min-w-55 py-1">
                                 <button
                                     type="button"
                                     className={cn(
@@ -640,9 +607,37 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
                                     Đánh dấu tin khẩn cấp
                                     {selectedPriority === "URGENT" && <Check size={13} className="ml-auto" />}
                                 </button>
+                                <div className="h-px bg-border/60 my-1 mx-2" />
+                                <button
+                                    type="button"
+                                    className="flex items-center gap-2.5 w-full px-3 py-2.5 text-sm text-left hover:bg-accent transition-colors text-foreground"
+                                    onClick={() => { setShowReminderDialog(true); setShowPriorityMenu(false); }}
+                                >
+                                    <Clock size={15} className="text-muted-foreground shrink-0" />
+                                    Tạo nhắc hẹn
+                                </button>
+                                <button
+                                    type="button"
+                                    className="flex items-center gap-2.5 w-full px-3 py-2.5 text-sm text-left hover:bg-accent transition-colors text-foreground"
+                                    onClick={() => { setShowPollDialog(true); setShowPriorityMenu(false); }}
+                                >
+                                    <BarChart3 size={15} className="text-muted-foreground shrink-0" />
+                                    Bình chọn
+                                </button>
                             </div>
                         )}
                     </div>
+
+                    {/* Business card button */}
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-9 w-9 shrink-0 text-muted-foreground hover:text-foreground"
+                        onClick={() => { setVCardUser(null); setShowVCardDialog(true); }}
+                        title="Send business card"
+                    >
+                        <IdCard size={18} />
+                    </Button>
 
                     <div className="flex-1 relative">
                         {/* Mention autocomplete dropdown */}

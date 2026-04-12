@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, Text, TouchableOpacity, Image, Linking } from 'react-native';
+import { View, Text, TouchableOpacity, Image, Linking, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/theme';
 import { formatMessageTime } from '@/utils/format';
@@ -16,6 +16,7 @@ interface MessageBubbleProps {
   onReact?: (messageId: string, emoji: string) => void;
   onVotePoll?: (messageId: string, optionIndex: number) => void;
   replyToMessage?: Message | null;
+  onViewProfile?: (userId: string) => void;
 }
 
 export function MessageBubble({
@@ -28,6 +29,7 @@ export function MessageBubble({
   onReact,
   onVotePoll,
   replyToMessage,
+  onViewProfile,
 }: MessageBubbleProps) {
   const { content, type, recalled, edited, createdAt, readBy, attachments } = message;
 
@@ -251,6 +253,44 @@ export function MessageBubble({
     );
   };
 
+  // VCard (business card) message
+  const renderVCardContent = () => {
+    let card: { id?: string; displayName?: string; username?: string; avatarUrl?: string } = {};
+    try { card = JSON.parse(message.content); } catch {}
+    const initial = (card.displayName ?? 'U').charAt(0).toUpperCase();
+    return (
+      <View style={{ width: 220, borderRadius: 16, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(0,0,0,0.1)', backgroundColor: '#fff' }}>
+        {/* Header */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 8, backgroundColor: 'rgba(0,0,0,0.04)', borderBottomWidth: 1, borderBottomColor: 'rgba(0,0,0,0.08)' }}>
+          <Ionicons name="card-outline" size={12} color="#888" />
+          <Text style={{ fontSize: 11, color: '#888', marginLeft: 5, fontWeight: '500' }}>Danh thiếp</Text>
+        </View>
+        {/* Body */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', padding: 12, gap: 10 }}>
+          <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: 'rgba(99,102,241,0.12)', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', borderWidth: 2, borderColor: 'rgba(99,102,241,0.2)' }}>
+            {card.avatarUrl ? (
+              <Image source={{ uri: card.avatarUrl }} style={{ width: 48, height: 48 }} />
+            ) : (
+              <Text style={{ fontSize: 18, fontWeight: '700', color: Colors.cta }}>{initial}</Text>
+            )}
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 14, fontWeight: '600', color: '#111' }} numberOfLines={1}>{card.displayName ?? 'User'}</Text>
+            <Text style={{ fontSize: 12, color: '#888', marginTop: 2 }} numberOfLines={1}>@{card.username ?? ''}</Text>
+          </View>
+        </View>
+        {/* Footer */}
+        <TouchableOpacity
+          onPress={() => card.id && onViewProfile?.(card.id)}
+          activeOpacity={0.7}
+          style={{ borderTopWidth: 1, borderTopColor: 'rgba(0,0,0,0.08)', paddingVertical: 10, alignItems: 'center' }}
+        >
+          <Text style={{ fontSize: 13, fontWeight: '600', color: Colors.cta }}>Xem hồ sơ</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  };
+
   const renderContent = () => {
     switch (type) {
       case 'IMAGE':
@@ -263,6 +303,8 @@ export function MessageBubble({
         return renderFileContent();
       case 'POLL':
         return renderPollContent();
+      case 'VCARD':
+        return renderVCardContent();
       case 'SYSTEM':
         return (
           <View className="my-1 items-center">
@@ -305,8 +347,8 @@ export function MessageBubble({
         style={{ maxWidth: '78%' }}
       >
         <View
-          className="rounded-2xl px-4 py-2.5"
-          style={{
+          className={type === 'VCARD' ? '' : 'rounded-2xl px-4 py-2.5'}
+          style={type === 'VCARD' ? undefined : {
             backgroundColor: isMe ? Colors.bubbleSender : Colors.bubbleReceiver,
             borderBottomRightRadius: isMe ? 6 : 20,
             borderBottomLeftRadius: isMe ? 20 : 6,

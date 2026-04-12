@@ -6,7 +6,11 @@ import {
   Platform,
   ActivityIndicator,
   Alert,
+  Text,
+  TouchableOpacity,
+  ScrollView,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ChatHeader } from '@/components/chat/ChatHeader';
@@ -467,6 +471,11 @@ export default function ChatScreen() {
     }
   }
 
+  // Banner data
+  const pinnedMessages = useMemo(() => messages.filter((m) => m.pinned && !m.recalled), [messages]);
+  const activePoll = useMemo(() => messages.find((m) => m.type === 'POLL' && m.poll && !m.poll.closed), [messages]);
+  const [showAllPinned, setShowAllPinned] = useState(false);
+
   return (
     <KeyboardAvoidingView
       className="flex-1"
@@ -496,6 +505,84 @@ export default function ChatScreen() {
           }}
           onNavigateToMessage={handleNavigateToMessage}
         />
+      )}
+
+      {/* Pinned messages banner */}
+      {pinnedMessages.length > 0 && (
+        <TouchableOpacity
+          activeOpacity={0.8}
+          onPress={() => setShowAllPinned((v) => !v)}
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            paddingHorizontal: 12,
+            paddingVertical: 8,
+            backgroundColor: '#fff',
+            borderBottomWidth: 1,
+            borderBottomColor: 'rgba(0,0,0,0.06)',
+          }}
+        >
+          <Ionicons name="pin" size={14} color="#f59e0b" style={{ marginRight: 8 }} />
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 11, color: '#d97706', fontWeight: '600', marginBottom: 1 }}>
+              {pinnedMessages.length} tin nhắn đã ghim
+            </Text>
+            {!showAllPinned && (
+              <Text style={{ fontSize: 12, color: '#555' }} numberOfLines={1}>
+                {pinnedMessages[0].recalled ? 'Tin nhắn đã thu hồi' : pinnedMessages[0].content}
+              </Text>
+            )}
+          </View>
+          <Ionicons name={showAllPinned ? 'chevron-up' : 'chevron-down'} size={14} color="#888" />
+        </TouchableOpacity>
+      )}
+      {showAllPinned && pinnedMessages.length > 0 && (
+        <ScrollView
+          style={{ maxHeight: 140, backgroundColor: '#fffbeb', borderBottomWidth: 1, borderBottomColor: 'rgba(0,0,0,0.06)' }}
+          contentContainerStyle={{ paddingVertical: 4 }}
+        >
+          {pinnedMessages.map((m) => (
+            <TouchableOpacity
+              key={m.id}
+              activeOpacity={0.7}
+              onPress={() => { handleNavigateToMessage(m.id); setShowAllPinned(false); }}
+              style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 6 }}
+            >
+              <Ionicons name="pin" size={11} color="#f59e0b" style={{ marginRight: 8 }} />
+              <Text style={{ flex: 1, fontSize: 12, color: '#444' }} numberOfLines={2}>
+                {m.recalled ? 'Tin nhắn đã thu hồi' : m.content}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      )}
+
+      {/* Active poll banner */}
+      {activePoll && activePoll.poll && (
+        <TouchableOpacity
+          activeOpacity={0.8}
+          onPress={() => handleNavigateToMessage(activePoll.id)}
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            paddingHorizontal: 12,
+            paddingVertical: 8,
+            backgroundColor: '#eef2ff',
+            borderBottomWidth: 1,
+            borderBottomColor: 'rgba(99,102,241,0.15)',
+          }}
+        >
+          <Ionicons name="bar-chart-outline" size={14} color={Colors.cta} style={{ marginRight: 8 }} />
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 11, color: Colors.cta, fontWeight: '600', marginBottom: 1 }}>
+              Bình chọn đang diễn ra
+            </Text>
+            <Text style={{ fontSize: 12, color: '#555' }} numberOfLines={1}>
+              {activePoll.poll.question}
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={14} color={Colors.cta} />
+        </TouchableOpacity>
       )}
 
       {/* Messages */}
@@ -531,6 +618,7 @@ export default function ChatScreen() {
                     onReact={handleReact}
                     onVotePoll={handleVotePoll}
                     replyToMessage={msg.replyToId ? (messageById[msg.replyToId] ?? null) : null}
+                    onViewProfile={(userId) => router.push(`/chat/${conversationId}/info`)}
                   />
                 </View>
               );

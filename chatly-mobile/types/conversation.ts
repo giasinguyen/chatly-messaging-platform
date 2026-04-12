@@ -1,6 +1,6 @@
 export type ConversationType = 'PRIVATE' | 'GROUP';
 
-export type MessageType = 'TEXT' | 'IMAGE' | 'FILE' | 'VIDEO' | 'AUDIO' | 'SYSTEM' | 'POLL';
+export type MessageType = 'TEXT' | 'IMAGE' | 'FILE' | 'VIDEO' | 'AUDIO' | 'SYSTEM' | 'POLL' | 'VCARD';
 
 export interface LastMessage {
   senderId: string;
