@@ -8,6 +8,7 @@ import com.chatly.dto.request.RefreshTokenRequest;
 import com.chatly.dto.request.RegisterRequest;
 import com.chatly.dto.request.ResendVerificationRequest;
 import com.chatly.dto.request.IntrospectRequest;
+import com.chatly.dto.session.StartLoginSessionResult;
 import com.chatly.dto.response.AuthResponse;
 import com.chatly.dto.response.IntrospectResponse;
 import com.chatly.dto.response.RegisterResponse;
@@ -15,12 +16,16 @@ import com.chatly.dto.response.UserResponse;
 import com.chatly.exception.AppException;
 import com.chatly.exception.ErrorCode;
 import com.chatly.mapper.UserMapper;
+import com.chatly.model.enums.ClientPlatform;
 import com.chatly.model.postgres.EmailVerificationOtp;
 import com.chatly.model.postgres.User;
 import com.chatly.repository.postgres.EmailVerificationOtpRepository;
 import com.chatly.repository.postgres.UserRepository;
 import com.chatly.security.JwtProvider;
 import com.chatly.security.PasswordChangeTokenValidator;
+import com.chatly.security.SessionTokenValidator;
+import com.chatly.util.ClientPlatformParser;
+import com.chatly.util.HttpRequestMeta;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -30,6 +35,8 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
+
+import jakarta.servlet.http.HttpServletRequest;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
@@ -51,6 +58,10 @@ public class AuthService {
     private final EmailVerificationOtpRepository emailVerificationOtpRepository;
     private final EmailVerificationMailService emailVerificationMailService;
     private final PasswordChangeTokenValidator passwordChangeTokenValidator;
+    private final SessionTokenValidator sessionTokenValidator;
+    private final UserSessionService userSessionService;
+    private final GeoIpLookupService geoIpLookupService;
+    private final AsyncNotificationService asyncNotificationService;
 
     @Value("${app.auth.verification.expiration-minutes:15}")
     private long verificationExpirationMinutes;
@@ -105,7 +116,7 @@ public class AuthService {
             .build();
     }
 
-    public AuthResponse login(LoginRequest request) {
+    public AuthResponse login(LoginRequest request, HttpServletRequest httpRequest) {
         User user = userRepository.findByUsernameOrEmailOrPhone(
                 request.getIdentifier(), request.getIdentifier(), request.getIdentifier())
             .orElseThrow(() -> new AppException(ErrorCode.INVALID_CREDENTIALS));
@@ -121,7 +132,27 @@ public class AuthService {
             );
         }
 
-        return generateAuthResponse(user);
+        ClientPlatform platform = ClientPlatformParser.parse(httpRequest.getHeader("X-Client-Platform"));
+        String deviceHeader = httpRequest.getHeader("X-Device-Label");
+        String userAgent = httpRequest.getHeader("User-Agent");
+        String ip = HttpRequestMeta.clientIp(httpRequest);
+        String location = geoIpLookupService.summarizeLocation(ip);
+        String deviceLabel = resolveDeviceLabel(deviceHeader, userAgent);
+
+        StartLoginSessionResult sessionResult = userSessionService.startNewLoginSession(
+            user, platform, deviceLabel, userAgent, ip, location
+        );
+        if (sessionResult.replacedSession() != null && StringUtils.hasText(user.getEmail())) {
+            asyncNotificationService.sendConcurrentLoginAlertAsync(
+                user,
+                platform,
+                deviceLabel,
+                ip,
+                location,
+                sessionResult.replacedSession()
+            );
+        }
+        return buildTokenResponse(user, sessionResult.session().getId());
     }
 
     @Transactional
@@ -147,13 +178,10 @@ public class AuthService {
         user.setPassword(passwordEncoder.encode(request.getNewPassword()));
         user.setPasswordChangedAt(changedAt);
         userRepository.save(user);
+        userSessionService.revokeAllForUser(user.getId());
 
         if (StringUtils.hasText(user.getEmail())) {
-            try {
-                emailVerificationMailService.sendPasswordChangedNotice(user, changedAt);
-            } catch (Exception e) {
-                log.warn("Could not send password-changed notice email for user {}", user.getId(), e);
-            }
+            asyncNotificationService.sendPasswordChangedNoticeAsync(user, changedAt);
         }
     }
 
@@ -164,6 +192,7 @@ public class AuthService {
             user.setPassword(passwordEncoder.encode(newPassword));
             user.setPasswordChangedAt(Instant.now());
             userRepository.save(user);
+            userSessionService.revokeAllForUser(user.getId());
             emailVerificationMailService.sendNewPassword(user, newPassword);
         });
     }
@@ -223,16 +252,39 @@ public class AuthService {
             throw new AppException(ErrorCode.INVALID_TOKEN);
         }
 
+        String sessionIdStr = jwtProvider.getSessionIdFromToken(refreshToken);
+        if (!StringUtils.hasText(sessionIdStr)) {
+            throw new AppException(ErrorCode.INVALID_TOKEN);
+        }
+
         String userId = jwtProvider.getUserIdFromToken(refreshToken);
-        User user = userRepository.findById(UUID.fromString(userId))
+        UUID userUuid = UUID.fromString(userId);
+        UUID sessionUuid = UUID.fromString(sessionIdStr);
+        userSessionService.requireActiveSession(sessionUuid, userUuid);
+        userSessionService.touchSession(sessionUuid);
+
+        User user = userRepository.findById(userUuid)
             .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
 
-        return generateAuthResponse(user);
+        return buildTokenResponse(user, sessionUuid);
     }
 
     public void logout(LogoutRequest request) {
         String token = request.getToken();
         String refreshToken = request.getRefreshToken();
+
+        if (token != null && !token.isBlank() && jwtProvider.validateToken(token)) {
+            String jti = jwtProvider.getSessionIdFromToken(token);
+            if (StringUtils.hasText(jti)) {
+                try {
+                    UUID sid = UUID.fromString(jti);
+                    UUID uid = UUID.fromString(jwtProvider.getUserIdFromToken(token));
+                    userSessionService.revokeSession(sid, uid);
+                } catch (Exception e) {
+                    log.debug("Could not revoke session on logout: {}", e.getMessage());
+                }
+            }
+        }
 
         // Validate and blacklist access token
         if (token != null && !token.isBlank() && jwtProvider.validateToken(token)) {
@@ -258,7 +310,8 @@ public class AuthService {
         try {
             isValid = jwtProvider.validateToken(token)
                 && !tokenBlacklistService.isTokenBlacklisted(token)
-                && passwordChangeTokenValidator.isTokenValidAgainstPasswordChange(token);
+                && passwordChangeTokenValidator.isTokenValidAgainstPasswordChange(token)
+                && sessionTokenValidator.isSessionTokenAcceptable(token);
         } catch (Exception e) {
             isValid = false;
         }
@@ -285,16 +338,29 @@ public class AuthService {
         emailVerificationMailService.sendVerificationLink(user, verificationLink);
     }
 
-    private AuthResponse generateAuthResponse(User user) {
-        String token = jwtProvider.generateToken(user.getId().toString());
-        String refreshToken = jwtProvider.generateRefreshToken(user.getId().toString());
+    private AuthResponse buildTokenResponse(User user, UUID sessionId) {
+        String uid = user.getId().toString();
+        String sid = sessionId.toString();
+        String token = jwtProvider.generateAccessToken(uid, sid);
+        String refreshToken = jwtProvider.generateRefreshToken(uid, sid);
         UserResponse userResponse = userMapper.toResponse(user);
 
         return AuthResponse.builder()
             .token(token)
             .refreshToken(refreshToken)
+            .sessionId(sid)
             .user(userResponse)
             .build();
+    }
+
+    private static String resolveDeviceLabel(String deviceHeader, String userAgent) {
+        if (StringUtils.hasText(deviceHeader)) {
+            return deviceHeader.trim();
+        }
+        if (!StringUtils.hasText(userAgent)) {
+            return "Unknown device";
+        }
+        return userAgent.length() > 200 ? userAgent.substring(0, 200) + "…" : userAgent;
     }
 
     private String generateRandomPassword() {

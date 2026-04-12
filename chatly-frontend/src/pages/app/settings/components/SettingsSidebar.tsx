@@ -7,6 +7,7 @@ import {
     MessageSquare,
     LayoutGrid,
     KeyRound,
+    MonitorSmartphone,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -27,6 +28,7 @@ export function SettingsSidebar({
         { id: "notifications", label: "Notifications", icon: Bell },
         { id: "messages", label: "Messages", icon: MessageSquare },
         { id: "change-password", label: "Change Password", icon: KeyRound },
+        { id: "sessions", label: "Sessions", icon: MonitorSmartphone },
         { id: "utilities", label: "Utilities", icon: LayoutGrid },
     ];
 

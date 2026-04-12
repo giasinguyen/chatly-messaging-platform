@@ -5,11 +5,19 @@ import type { AuthResponse, ApiResponse } from "@/types/auth";
  * AXIOS CLIENT CONFIGURATION
  * This is the shared axios instance used throughout the project.
  */
+function webDeviceLabel(): string {
+    if (typeof navigator === "undefined") return "Web browser";
+    const ua = navigator.userAgent;
+    return ua.length > 200 ? `${ua.slice(0, 200)}…` : ua;
+}
+
 const axiosClient = axios.create({
     baseURL: import.meta.env.VITE_BACKEND_BASE_URL,
     withCredentials: true,
     headers: {
         "Content-Type": "application/json",
+        "X-Client-Platform": "web",
+        "X-Device-Label": webDeviceLabel(),
     },
     timeout: 10000,
 });
@@ -54,7 +62,14 @@ const performRefreshToken = async (): Promise<string> => {
         const response = await axios.post<ApiResponse<AuthResponse>>(
             `${import.meta.env.VITE_BACKEND_BASE_URL}/api/auth/refresh`,
             { refreshToken },
-            { withCredentials: true },
+            {
+                withCredentials: true,
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-Client-Platform": "web",
+                    "X-Device-Label": webDeviceLabel(),
+                },
+            },
         );
 
         const payload = response.data.result;

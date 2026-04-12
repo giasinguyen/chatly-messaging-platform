@@ -13,6 +13,7 @@ import com.chatly.dto.response.AuthResponse;
 import com.chatly.dto.response.IntrospectResponse;
 import com.chatly.dto.response.RegisterResponse;
 import com.chatly.service.AuthService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -35,9 +36,11 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    ApiResponse<AuthResponse> login(@RequestBody @Valid LoginRequest request) {
+    ApiResponse<AuthResponse> login(
+        @RequestBody @Valid LoginRequest request,
+        HttpServletRequest httpRequest) {
         return ApiResponse.<AuthResponse>builder()
-            .result(authService.login(request))
+            .result(authService.login(request, httpRequest))
             .build();
     }
 

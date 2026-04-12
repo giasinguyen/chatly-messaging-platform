@@ -75,6 +75,7 @@ public enum ErrorCode {
     UNAUTHORIZED(1600, "You do not have permission", HttpStatus.FORBIDDEN),
     UNAUTHENTICATED(1601, "Unauthenticated", HttpStatus.UNAUTHORIZED),
     INVALID_TOKEN(1602, "Invalid or expired token", HttpStatus.UNAUTHORIZED),
+    SESSION_NOT_FOUND(1603, "Session not found", HttpStatus.NOT_FOUND),
 
     AGENT_SERVICE_ERROR(2000, "AI service temporarily unavailable", HttpStatus.BAD_GATEWAY),
     AGENT_BAD_REQUEST(2001, "Invalid AI service request", HttpStatus.BAD_REQUEST),

@@ -26,7 +26,19 @@ export interface UserUpdateRequest {
 export interface AuthResponse {
     token: string;
     refreshToken: string;
+    sessionId?: string;
     user: UserResponse;
+}
+
+export interface UserSessionInfo {
+    id: string;
+    platform: string;
+    deviceLabel?: string | null;
+    ipAddress?: string | null;
+    locationLabel?: string | null;
+    createdAt: string;
+    lastSeenAt?: string | null;
+    current: boolean;
 }
 
 export interface ApiResponse<T> {

@@ -10,6 +10,9 @@ import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 import org.thymeleaf.context.Context;
 
+import com.chatly.model.enums.ClientPlatform;
+import com.chatly.model.postgres.UserLoginSession;
+
 import java.time.Instant;
 import org.thymeleaf.spring6.SpringTemplateEngine;
 
@@ -53,6 +56,32 @@ public class EmailVerificationMailService {
 
         String htmlBody = templateEngine.process("password-changed-notice", context);
         sendHtmlEmail(user.getEmail(), "Chatly - Your password was changed", htmlBody);
+    }
+
+    /** Alert when a new login replaces an existing session on the same platform (WEB or MOBILE). */
+    public void sendConcurrentLoginAlert(
+        User user,
+        ClientPlatform platform,
+        String newDeviceLabel,
+        String newIp,
+        String newLocation,
+        UserLoginSession replacedSession
+    ) {
+        Context context = new Context();
+        context.setVariable("displayName", user.getDisplayName());
+        context.setVariable("platform", platform.name());
+        context.setVariable("newDevice", newDeviceLabel != null ? newDeviceLabel : "Unknown");
+        context.setVariable("newIp", newIp != null ? newIp : "Unknown");
+        context.setVariable("newLocation", newLocation != null ? newLocation : "Unknown");
+        context.setVariable("oldDevice", replacedSession.getDeviceLabel() != null ? replacedSession.getDeviceLabel() : "Unknown");
+        context.setVariable("oldIp", replacedSession.getIpAddress() != null ? replacedSession.getIpAddress() : "Unknown");
+        context.setVariable(
+            "oldLocation",
+            replacedSession.getLocationLabel() != null ? replacedSession.getLocationLabel() : "Unknown"
+        );
+
+        String htmlBody = templateEngine.process("concurrent-login-alert", context);
+        sendHtmlEmail(user.getEmail(), "Chatly - New sign-in on your account", htmlBody);
     }
 
     private void sendHtmlEmail(String to, String subject, String htmlBody) {

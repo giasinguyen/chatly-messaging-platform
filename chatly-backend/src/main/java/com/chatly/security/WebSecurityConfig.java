@@ -74,7 +74,13 @@ public class WebSecurityConfig {
                 .map(String::trim)
                 .collect(Collectors.toList()));
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        configuration.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "Accept"));
+        configuration.setAllowedHeaders(Arrays.asList(
+            "Authorization",
+            "Content-Type",
+            "Accept",
+            "X-Client-Platform",
+            "X-Device-Label"
+        ));
         configuration.setAllowCredentials(true);
         configuration.setMaxAge(3600L);
 

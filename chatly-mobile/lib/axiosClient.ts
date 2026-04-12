@@ -1,12 +1,24 @@
 import axios, { type InternalAxiosRequestConfig, type AxiosError } from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { AuthResponse, ApiResponse } from '@/types/auth';
+import { getApiBaseUrl } from '@/lib/apiConfig';
+import { getDevTunnelExtraHeaders } from '@/lib/devTunnelHeaders';
+import { getMobileDeviceLabel } from '@/lib/deviceLabel';
 
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL ?? 'http://10.0.2.2:8080';
+const API_BASE_URL = getApiBaseUrl();
+
+function buildCommonHeaders(): Record<string, string> {
+  return {
+    'Content-Type': 'application/json',
+    'X-Client-Platform': 'mobile',
+    'X-Device-Label': getMobileDeviceLabel(),
+    ...getDevTunnelExtraHeaders(API_BASE_URL),
+  };
+}
 
 const axiosClient = axios.create({
   baseURL: API_BASE_URL,
-  headers: { 'Content-Type': 'application/json' },
+  headers: buildCommonHeaders(),
   timeout: 10000,
 });
 
@@ -32,6 +44,7 @@ const performRefreshToken = async (): Promise<string> => {
     const response = await axios.post<ApiResponse<AuthResponse>>(
       `${API_BASE_URL}/api/auth/refresh`,
       { refreshToken },
+      { headers: buildCommonHeaders() },
     );
 
     const payload = response.data.result;
@@ -49,9 +62,10 @@ const performRefreshToken = async (): Promise<string> => {
   }
 };
 
-// Request interceptor: attach token
+// Request interceptor: client headers + token
 axiosClient.interceptors.request.use(
   async (config) => {
+    Object.assign(config.headers ?? {}, buildCommonHeaders());
     const token = await AsyncStorage.getItem('access_token');
     if (token && !config.url?.includes('/refresh')) {
       config.headers = config.headers ?? {};
@@ -73,8 +87,9 @@ axiosClient.interceptors.response.use(
     const status = error.response?.status;
     const isUnauthorized = status === 401 || status === 403;
 
-    // Log diagnostic info for Network Errors or other failures
-    console.error(`AXIOS ERROR: [${status || 'NETWORK'}] [${originalRequest?.method?.toUpperCase()}] [${originalRequest?.url}] - ${error.message}`);
+    console.error(
+      `AXIOS ERROR: [${status || 'NETWORK'}] [${originalRequest?.method?.toUpperCase()}] [${originalRequest?.url}] - ${error.message}`,
+    );
     if (!status && error.message === 'Network Error') {
       console.warn('Network Error detected. Check Dev Tunnel status and URL:', API_BASE_URL);
     }
@@ -101,6 +116,7 @@ axiosClient.interceptors.response.use(
     try {
       const newToken = await refreshPromise;
       originalRequest.headers = originalRequest.headers ?? {};
+      Object.assign(originalRequest.headers, buildCommonHeaders());
       originalRequest.headers.Authorization = `Bearer ${newToken}`;
       return axiosClient(originalRequest);
     } catch {
