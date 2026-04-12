@@ -148,4 +148,13 @@ export const messageService = {
         );
         return response.data;
     },
+
+    // ── Tag Priority (Important / Urgent) ───────────────────────────
+    tagPriority: async (messageId: string, priority: string): Promise<ApiResponse<Message>> => {
+        const response = await axiosClient.put<ApiResponse<Message>>(
+            `/api/messages/${messageId}/priority`,
+            { priority },
+        );
+        return response.data;
+    },
 };

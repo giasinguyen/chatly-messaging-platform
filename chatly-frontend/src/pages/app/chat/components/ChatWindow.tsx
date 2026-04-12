@@ -527,9 +527,11 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
             content: string,
             attachments?: import("@/types/message").Attachment[],
             poll?: import("@/types/message").Poll,
+            mentions?: string[],
+            priority?: string,
         ) => {
             if (!id || !currentUser) return;
-            const success = sendMessage(content, replyingTo?.id ?? null, attachments, poll);
+            const success = sendMessage(content, replyingTo?.id ?? null, attachments, poll, priority, mentions);
             if (!success) {
                 toast.error("Connection lost! Could not send message.");
                 setFailedMessages((prev) => [
@@ -538,6 +540,24 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
                 ]);
             }
             setReplyingTo(null);
+        },
+        [id, currentUser, replyingTo, sendMessage],
+    );
+
+    const handleSendVCard = useCallback(
+        (user: import("@/types/message").ChatUser) => {
+            if (!id || !currentUser) return;
+            const cardContent = JSON.stringify({
+                id: user.id,
+                displayName: user.displayName,
+                username: user.username,
+                avatarUrl: user.avatarUrl ?? null,
+            });
+            const success = sendMessage(cardContent, replyingTo?.id ?? null, undefined, undefined, undefined, undefined, "VCARD");
+            if (!success) {
+                toast.error("Connection lost! Could not send card.");
+            }
+            if (replyingTo) setReplyingTo(null);
         },
         [id, currentUser, replyingTo, sendMessage],
     );
@@ -747,6 +767,31 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
                 const msg =
                     err?.response?.data?.message ??
                     "Could not end poll";
+                toast.error(msg);
+            }
+        },
+        [],
+    );
+
+    const handleTagPriority = useCallback(
+        async (messageId: string, priority: string) => {
+            try {
+                const res = await messageService.tagPriority(messageId, priority);
+                setMessages((prev) =>
+                    prev.map((m) =>
+                        m.id === messageId
+                            ? { ...m, priority: res.result.priority }
+                            : m,
+                    ),
+                );
+                toast.success(
+                    res.result.priority
+                        ? `Marked as ${res.result.priority.toLowerCase()}`
+                        : "Priority removed",
+                );
+            } catch (err: any) {
+                const msg =
+                    err?.response?.data?.message ?? "Could not tag priority";
                 toast.error(msg);
             }
         },
@@ -1091,6 +1136,7 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
                 onVotePoll={handleVotePoll}
                 onClosePoll={handleClosePoll}
                 onTogglePin={handleTogglePin}
+                onTagPriority={handleTagPriority}
             />
 
             {isTyping && (
@@ -1124,7 +1170,10 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
                 senderName={replyingSenderName}
                 onCancelReply={handleCancelReply}
                 onSendMessage={handleSendMessage}
+                onSendVCard={handleSendVCard}
                 onTyping={sendTyping}
+                groupMembers={groupMembers}
+                currentUserId={currentUser?.id}
             />
 
             <ForwardMessageDialog

@@ -75,6 +75,13 @@ public class Message {
     private Instant pinnedAt;
     private String pinnedBy;
 
+    // Priority tag (NORMAL, IMPORTANT, URGENT)
+    private String priority;
+
+    // Mentions – list of user IDs mentioned in this message ("all" for @all)
+    @Builder.Default
+    private List<String> mentions = new ArrayList<>();
+
     @CreatedDate
     private Instant createdAt;
 
