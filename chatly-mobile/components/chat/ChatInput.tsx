@@ -628,7 +628,6 @@ export function ChatInput({ conversationId, onSend, onTyping, replyingTo, onCanc
 
             <View style={{ height: 1, backgroundColor: Colors.borderLight, marginHorizontal: 20, marginVertical: 4 }} />
 
-            {isGroup && (
             <TouchableOpacity
               onPress={() => handleOptionSelect('reminder')}
               style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 14 }}
@@ -641,8 +640,8 @@ export function ChatInput({ conversationId, onSend, onTyping, replyingTo, onCanc
                 <Text style={{ fontSize: 12, color: Colors.textMuted, marginTop: 1 }}>Nhắc nhở tin nhắn vào thời điểm cụ thể</Text>
               </View>
             </TouchableOpacity>
-            )}
 
+            {isGroup && (
             <TouchableOpacity
               onPress={() => handleOptionSelect('poll')}
               style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 14 }}
@@ -655,6 +654,7 @@ export function ChatInput({ conversationId, onSend, onTyping, replyingTo, onCanc
                 <Text style={{ fontSize: 12, color: Colors.textMuted, marginTop: 1 }}>Tạo cuộc bình chọn trong nhóm</Text>
               </View>
             </TouchableOpacity>
+            )}
           </Pressable>
         </Pressable>
       </Modal>

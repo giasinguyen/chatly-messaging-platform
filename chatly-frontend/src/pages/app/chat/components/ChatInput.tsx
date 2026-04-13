@@ -434,6 +434,11 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
             } else if (reminderDate) {
                 remindAt = new Date(`${reminderDate}T00:00:00`).toISOString();
             }
+            if (remindAt && new Date(remindAt) <= new Date()) {
+                toast.error("Thời gian nhắc hẹn phải ở trong tương lai");
+                setReminderSubmitting(false);
+                return;
+            }
             await groupService.createReminder(conversationId, {
                 title: reminderTitle.trim(),
                 description: reminderDescription.trim() || undefined,
@@ -694,16 +699,14 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
                                         Tạo cuộc bình chọn
                                     </button>
                                 )}
-                                {conversationType !== "PRIVATE" && (
-                                    <button
-                                        type="button"
-                                        className="flex items-center gap-2.5 w-full px-3 py-2.5 text-sm text-left hover:bg-accent transition-colors"
-                                        onClick={() => { setShowPriorityMenu(false); setShowReminderDialog(true); }}
-                                    >
-                                        <Clock size={15} className="text-muted-foreground shrink-0" />
-                                        Tạo nhắc nhở
-                                    </button>
-                                )}
+                                <button
+                                    type="button"
+                                    className="flex items-center gap-2.5 w-full px-3 py-2.5 text-sm text-left hover:bg-accent transition-colors"
+                                    onClick={() => { setShowPriorityMenu(false); setShowReminderDialog(true); }}
+                                >
+                                    <Clock size={15} className="text-muted-foreground shrink-0" />
+                                    Tạo nhắc nhở
+                                </button>
                                 <button
                                     type="button"
                                     className="flex items-center gap-2.5 w-full px-3 py-2.5 text-sm text-left hover:bg-accent transition-colors"
