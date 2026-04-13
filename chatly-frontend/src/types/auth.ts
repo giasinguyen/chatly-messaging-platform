@@ -11,6 +11,8 @@ export interface UserResponse {
     updatedAt?: string;
     status?: string;
     lastSeen?: string;
+    /** True when the profile is limited due to the user having blocked the requester */
+    limited?: boolean;
 }
 
 export interface UserUpdateRequest {

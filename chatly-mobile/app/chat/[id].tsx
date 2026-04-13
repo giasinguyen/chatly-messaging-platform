@@ -1,14 +1,17 @@
 import { useEffect, useCallback, useState, useRef, useMemo } from 'react';
 import {
   View,
+  Text,
   FlatList,
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
   Alert,
+  TouchableOpacity,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { ChatHeader } from '@/components/chat/ChatHeader';
 import { MessageBubble } from '@/components/chat/MessageBubble';
 import { ChatInput } from '@/components/chat/ChatInput';
@@ -19,10 +22,12 @@ import { TypingIndicator } from '@/components/chat/TypingIndicator';
 import { MessageSearch } from '@/components/chat/MessageSearch';
 import { messageService } from '@/services/message.service';
 import { conversationService } from '@/services/conversation.service';
+import { contactService } from '@/services/contact.service';
 import { userService } from '@/services/user.service';
 import { useMessageStore } from '@/store/message.store';
 import { useAuthStore } from '@/store/auth.store';
 import { useConversationStore } from '@/store/conversation.store';
+import { useContactStore } from '@/store/contact.store';
 import { useChatSocket } from '@/hooks/useChatSocket';
 import { usePresenceSocket } from '@/hooks/usePresenceSocket';
 import { Colors } from '@/constants/theme';
@@ -67,6 +72,9 @@ export default function ChatScreen() {
   const [showSearch, setShowSearch] = useState(false);
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
   const [highlightKeyword, setHighlightKeyword] = useState('');
+  const [blockDirection, setBlockDirection] = useState<'I_BLOCKED' | 'BLOCKED_ME' | null>(null);
+
+  const { getBlockDirection, fetchContacts, loaded: contactsLoaded, invalidate: invalidateContacts } = useContactStore();
 
   const messages = messagesByConversation[conversationId ?? ''] ?? [];
   const currentPage = page[conversationId ?? ''] ?? 0;
@@ -142,6 +150,16 @@ export default function ChatScreen() {
       setOtherUserOnline(participantMap[otherUserId].status === 'ONLINE');
     }
   }, [otherUserId, participantMap]);
+
+  // Compute block direction once contacts are loaded and otherUserId is known
+  useEffect(() => {
+    if (!user?.id || !otherUserId) return;
+    if (!contactsLoaded) {
+      fetchContacts();
+      return;
+    }
+    setBlockDirection(getBlockDirection(user.id, otherUserId));
+  }, [user?.id, otherUserId, contactsLoaded, fetchContacts, getBlockDirection]);
 
   usePresenceSocket({
     onPresenceChange: (event) => {
@@ -488,7 +506,13 @@ export default function ChatScreen() {
             setHighlightKeyword('');
           }
         }}
-        onPressInfo={() => router.push(`/chat/${conversationId}/info`)}
+        onPressInfo={() => {
+          if (!isGroup && otherUserId) {
+            router.push(`/profile/${otherUserId}`);
+          } else {
+            router.push(`/chat/${conversationId}/info`);
+          }
+        }}
       />
 
       {showSearch && conversationId && (
@@ -577,15 +601,75 @@ export default function ChatScreen() {
         />
       )}
 
-      {/* Input */}
+      {/* Input — blocked banner or ChatInput */}
       <View style={{ paddingBottom: insets.bottom }}>
-        <ChatInput
-          conversationId={conversationId}
-          onSend={handleSend}
-          onTyping={sendTyping}
-          replyingTo={replyingTo}
-          onCancelReply={() => setReplyingTo(null)}
-        />
+        {!isGroup && blockDirection ? (
+          <View
+            style={{
+              paddingHorizontal: 16,
+              paddingVertical: 14,
+              backgroundColor: Colors.white,
+              borderTopWidth: 0.5,
+              borderTopColor: Colors.borderLight,
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 10,
+            }}
+          >
+            <Ionicons
+              name={blockDirection === 'I_BLOCKED' ? 'ban-outline' : 'shield-outline'}
+              size={18}
+              color={Colors.textMuted}
+            />
+            <Text style={{ flex: 1, fontSize: 14, color: Colors.textMuted }}>
+              {blockDirection === 'I_BLOCKED'
+                ? "You can't send messages to this user."
+                : "You can't send messages to this user."}
+            </Text>
+            {blockDirection === 'I_BLOCKED' && (
+              <TouchableOpacity
+                onPress={() => {
+                  if (!otherUserId || !user) return;
+                  Alert.alert(
+                    'Unblock user?',
+                    'They will be able to message you and send friend requests again.',
+                    [
+                      { text: 'Cancel', style: 'cancel' },
+                      {
+                        text: 'Unblock',
+                        onPress: async () => {
+                          try {
+                            await contactService.unblockByUser(otherUserId);
+                            invalidateContacts();
+                            setBlockDirection(null);
+                          } catch (e: any) {
+                            Alert.alert('Error', e?.response?.data?.message ?? 'Could not unblock.');
+                          }
+                        },
+                      },
+                    ],
+                  );
+                }}
+                style={{
+                  paddingHorizontal: 14,
+                  paddingVertical: 7,
+                  borderRadius: 20,
+                  backgroundColor: Colors.ctaLight,
+                }}
+              >
+                <Text style={{ fontSize: 13, fontWeight: '600', color: Colors.cta }}>Unblock</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        ) : (
+          <ChatInput
+            conversationId={conversationId}
+            onSend={handleSend}
+            onTyping={sendTyping}
+            replyingTo={replyingTo}
+            onCancelReply={() => setReplyingTo(null)}
+          />
+        )}
       </View>
 
       {/* Message Actions Bottom Sheet */}

@@ -1,6 +1,6 @@
 import axiosClient from '@/lib/axiosClient';
 import type { ApiResponse } from '@/types/auth';
-import type { ContactResponse, ContactRequestPayload, ContactStatus } from '@/types/contact';
+import type { ContactResponse, ContactRequestPayload, ContactStatus, BlockStatusResponse } from '@/types/contact';
 
 export const contactService = {
   getAll: async (): Promise<ApiResponse<ContactResponse[]>> => {
@@ -46,6 +46,37 @@ export const contactService = {
 
   delete: async (id: string): Promise<ApiResponse<void>> => {
     const response = await axiosClient.delete<ApiResponse<void>>(`/api/contacts/${id}`);
+    return response.data;
+  },
+
+  blockStatus: async (userId: string): Promise<ApiResponse<BlockStatusResponse>> => {
+    const response = await axiosClient.get<ApiResponse<BlockStatusResponse>>(
+      `/api/contacts/block-status/${userId}`,
+    );
+    return response.data;
+  },
+
+  /** Block a user directly by userId — creates the contact record if needed. */
+  blockByUser: async (userId: string): Promise<ApiResponse<ContactResponse>> => {
+    const response = await axiosClient.put<ApiResponse<ContactResponse>>(
+      `/api/contacts/block-by-user/${userId}`,
+    );
+    return response.data;
+  },
+
+  /** Unblock a user directly by userId. */
+  unblockByUser: async (userId: string): Promise<ApiResponse<ContactResponse>> => {
+    const response = await axiosClient.put<ApiResponse<ContactResponse>>(
+      `/api/contacts/unblock-by-user/${userId}`,
+    );
+    return response.data;
+  },
+
+  /** Get the contact record between current user and another user (null if no relation). */
+  getByUser: async (userId: string): Promise<ApiResponse<ContactResponse | null>> => {
+    const response = await axiosClient.get<ApiResponse<ContactResponse | null>>(
+      `/api/contacts/by-user/${userId}`,
+    );
     return response.data;
   },
 };

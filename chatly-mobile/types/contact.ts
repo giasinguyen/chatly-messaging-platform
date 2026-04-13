@@ -4,6 +4,11 @@ export interface ContactRequestPayload {
   contactId: string;
 }
 
+export interface BlockStatusResponse {
+  blocked: boolean;
+  blockedBy: string | null;
+}
+
 export interface ContactUserInfo {
   id: string;
   username: string;

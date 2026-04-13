@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Loader2 } from "lucide-react";
+import { Ban, Loader2 } from "lucide-react";
 import {
     Dialog,
     DialogContent,
@@ -9,12 +9,15 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { userService } from "@/services/user.service";
 import { contactService } from "@/services/contact.service";
 import type { UserResponse } from "@/types/auth";
 import { toast } from "sonner";
 import { useAuthStore } from "@/store/auth.store";
+import { useContactStore } from "@/store/contact.store";
+import { useNavigate } from "react-router-dom";
 
 interface AddFriendDialogProps {
     open: boolean;
@@ -23,6 +26,8 @@ interface AddFriendDialogProps {
 
 export function AddFriendDialog({ open, onOpenChange }: AddFriendDialogProps) {
     const { user: currentUser } = useAuthStore();
+    const navigate = useNavigate();
+    const getBlockDirection = useContactStore((s) => s.getBlockDirection);
     const [searchQuery, setSearchQuery] = useState("");
     const [users, setUsers] = useState<UserResponse[]>([]);
     const [loading, setLoading] = useState(false);
@@ -98,28 +103,52 @@ export function AddFriendDialog({ open, onOpenChange }: AddFriendDialogProps) {
                             <span className="text-muted-foreground text-sm">Searching...</span>
                         </div>
                     ) : users.length > 0 ? (
-                        users.map((u) => (
-                            <div key={u.id} className="flex justify-between items-center bg-muted/40 p-2 rounded-lg">
-                                <div className="flex items-center gap-3">
-                                    <Avatar>
-                                        <AvatarImage src={u.avatarUrl} className="object-cover" />
-                                        <AvatarFallback>
-                                            {u.displayName?.charAt(0).toUpperCase()}
-                                        </AvatarFallback>
-                                    </Avatar>
-                                    <div>
-                                        <p className="text-sm font-medium">{u.displayName}</p>
-                                        <p className="text-xs text-muted-foreground">{u.email || u.phone || `@${u.username}`}</p>
-                                    </div>
+                        users.map((u) => {
+                            const blockDir = currentUser?.id
+                                ? getBlockDirection(currentUser.id, u.id)
+                                : null;
+                            return (
+                                <div key={u.id} className="flex justify-between items-center bg-muted/40 p-2 rounded-lg">
+                                    <button
+                                        type="button"
+                                        className="flex items-center gap-3 flex-1 min-w-0 text-left hover:opacity-80 transition-opacity"
+                                        onClick={() => {
+                                            onOpenChange(false);
+                                            navigate(`/profile/${u.id}`);
+                                        }}
+                                    >
+                                        <Avatar>
+                                            <AvatarImage src={u.avatarUrl} className="object-cover" />
+                                            <AvatarFallback>
+                                                {u.displayName?.charAt(0).toUpperCase()}
+                                            </AvatarFallback>
+                                        </Avatar>
+                                        <div className="min-w-0">
+                                            <div className="flex items-center gap-2">
+                                                <p className="text-sm font-medium truncate">{u.displayName}</p>
+                                                {blockDir === "I_BLOCKED" && (
+                                                    <Badge
+                                                        variant="secondary"
+                                                        className="gap-1 text-[10px] px-1.5 py-0 bg-destructive/10 text-destructive border-destructive/20 shrink-0"
+                                                    >
+                                                        <Ban className="h-2.5 w-2.5" /> Blocked
+                                                    </Badge>
+                                                )}
+                                            </div>
+                                            <p className="text-xs text-muted-foreground truncate">{u.email || u.phone || `@${u.username}`}</p>
+                                        </div>
+                                    </button>
+                                    {!blockDir && (
+                                        <Button
+                                            size="sm"
+                                            onClick={() => handleAddFriend(u.id)}
+                                        >
+                                            Add friend
+                                        </Button>
+                                    )}
                                 </div>
-                                <Button 
-                                    size="sm" 
-                                    onClick={() => handleAddFriend(u.id)}
-                                >
-                                    Add friend
-                                </Button>
-                            </div>
-                        ))
+                            );
+                        })
                     ) : searchQuery && !loading ? (
                         <div className="flex items-center justify-center p-4">
                             <span className="text-muted-foreground text-sm">No users found</span>

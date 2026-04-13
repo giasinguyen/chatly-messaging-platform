@@ -6,6 +6,7 @@ import { contactService } from "@/services/contact.service";
 import { conversationService } from "@/services/conversation.service";
 import type { ContactResponse } from "@/types/contact";
 import { useAuthStore } from "@/store/auth.store";
+import { useContactStore } from "@/store/contact.store";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { ContactFilters } from "./ContactFilters";
@@ -20,6 +21,7 @@ interface ContactDetailsProps {
 export function ContactDetails({ activeTab }: ContactDetailsProps) {
     const { user: currentUser } = useAuthStore();
     const navigate = useNavigate();
+    const invalidateContacts = useContactStore((s) => s.invalidate);
     const [contacts, setContacts] = useState<ContactResponse[]>([]);
     const [loading, setLoading] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
@@ -62,6 +64,7 @@ export function ContactDetails({ activeTab }: ContactDetailsProps) {
         try {
             await contactService.accept(id);
             toast.success("Friend request accepted");
+            invalidateContacts();
             fetchContacts();
         } catch {
             toast.error("Error accepting friend request");
@@ -91,6 +94,7 @@ export function ContactDetails({ activeTab }: ContactDetailsProps) {
                 await contactService.delete(confirmAction.contactId);
                 toast.success(`Removed ${confirmAction.name} from friends`);
             }
+            invalidateContacts();
             fetchContacts();
         } catch {
             toast.error("Action failed. Please try again.");

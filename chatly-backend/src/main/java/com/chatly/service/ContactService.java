@@ -143,6 +143,20 @@ public class ContactService {
 
     @Transactional(readOnly = true)
     public List<ContactResponse> getContacts(UUID userId, ContactStatus status) {
+        // For BLOCKED: only return records where this user issued the block,
+        // so the victim does not see the record in their own block list.
+        if (status == ContactStatus.BLOCKED) {
+            return contactRepository.findBlockedByUser(userId).stream()
+                    .map(contactMapper::toResponse)
+                    .toList();
+        }
+        // For ACCEPTED: include contacts blocked by others (victim still sees blocker as friend),
+        // but exclude contacts the current user has blocked themselves (those go to block list only).
+        if (status == ContactStatus.ACCEPTED) {
+            return contactRepository.findFriendsAndBlocked(userId).stream()
+                    .map(contactMapper::toResponse)
+                    .toList();
+        }
         return contactRepository.findByParticipantIdAndStatus(userId, status).stream()
                 .map(contactMapper::toResponse)
                 .toList();
@@ -153,6 +167,63 @@ public class ContactService {
         return contactRepository.findByUserIdOrContactId(userId, userId).stream()
                 .map(contactMapper::toResponse)
                 .toList();
+    }
+
+    /**
+     * Block a user by their userId. Finds (or creates) the contact record and marks it BLOCKED.
+     * Idempotent: returns the existing record if already blocked by this user.
+     */
+    @Transactional
+    public ContactResponse blockByUser(UUID targetUserId, UUID currentUserId) {
+        if (currentUserId.equals(targetUserId)) {
+            throw new AppException(ErrorCode.CONTACT_SELF_REQUEST);
+        }
+        Optional<Contact> existing = contactRepository.findByParticipants(currentUserId, targetUserId);
+        Contact contact;
+        if (existing.isPresent()) {
+            contact = existing.get();
+            if (ContactStatus.BLOCKED == contact.getStatus() && currentUserId.equals(contact.getBlockedBy())) {
+                return contactMapper.toResponse(contact); // already blocked by this user
+            }
+        } else {
+            User user = userRepository.findById(currentUserId)
+                    .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+            User target = userRepository.findById(targetUserId)
+                    .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+            contact = Contact.builder()
+                    .user(user)
+                    .contact(target)
+                    .build();
+        }
+        contact.setStatus(ContactStatus.BLOCKED);
+        contact.setBlockedBy(currentUserId);
+        return contactMapper.toResponse(contactRepository.save(contact));
+    }
+
+    /**
+     * Unblock a user by their userId. Restores the contact record to ACCEPTED.
+     * Only the user who issued the block may unblock.
+     */
+    @Transactional
+    public ContactResponse unblockByUser(UUID targetUserId, UUID currentUserId) {
+        Contact contact = contactRepository.findByParticipants(currentUserId, targetUserId)
+                .orElseThrow(() -> new AppException(ErrorCode.CONTACT_NOT_FOUND));
+        if (!currentUserId.equals(contact.getBlockedBy())) {
+            throw new AppException(ErrorCode.CONTACT_NOT_AUTHORIZED);
+        }
+        contact.setStatus(ContactStatus.ACCEPTED);
+        contact.setBlockedBy(null);
+        return contactMapper.toResponse(contactRepository.save(contact));
+    }
+
+    /**
+     * Returns the contact record between current user and another user, or null if none.
+     */
+    @Transactional(readOnly = true)
+    public ContactResponse getContactByUser(UUID currentUserId, UUID otherUserId) {
+        return contactRepository.findByParticipants(currentUserId, otherUserId)
+                .map(contactMapper::toResponse)
+                .orElse(null);
     }
 
     @Transactional

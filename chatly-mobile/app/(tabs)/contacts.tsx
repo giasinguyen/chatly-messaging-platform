@@ -21,6 +21,7 @@ import { userService } from '@/services/user.service';
 import { conversationService } from '@/services/conversation.service';
 import { useAuthStore } from '@/store/auth.store';
 import { useConversationStore } from '@/store/conversation.store';
+import { useContactStore } from '@/store/contact.store';
 import { Avatar } from '@/components/ui/Avatar';
 import { Colors } from '@/constants/theme';
 import { useRouter } from 'expo-router';
@@ -34,6 +35,7 @@ export default function ContactsScreen() {
   const user = useAuthStore((s) => s.user);
   const conversations = useConversationStore((s) => s.conversations);
   const router = useRouter();
+  const invalidateContacts = useContactStore((s) => s.invalidate);
 
   const [activeTab, setActiveTab] = useState<Tab>('friends');
   const [contacts, setContacts] = useState<ContactResponse[]>([]);
@@ -197,7 +199,8 @@ export default function ContactsScreen() {
   };
 
   // Block a friend
-  const handleBlock = async (contactId: string, displayName: string) => {
+  const handleBlock = async (contact: ContactResponse, displayName: string) => {
+    const contactUser = getContactUser(contact);
     Alert.alert(
       'Block user?',
       `${displayName} will no longer be able to message you or view your full profile. Your friendship will be frozen.`,
@@ -208,7 +211,8 @@ export default function ContactsScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
-              await contactService.block(contactId);
+              await contactService.blockByUser(contactUser.id);
+              invalidateContacts();
               fetchContacts();
               fetchBlocked();
             } catch (error: any) {
@@ -317,18 +321,19 @@ export default function ContactsScreen() {
   const renderContactItem = ({ item }: { item: ContactResponse }) => {
     const contactUser = getContactUser(item);
     const isOnline = onlineUserIds[contactUser.id] === 'ONLINE';
+    const isLimited = item.status === 'BLOCKED'; // backend only returns BLOCKED_ME in friends list
 
     return (
       <TouchableOpacity
         className="flex-row items-center px-4 py-3"
         style={{ borderBottomWidth: 0.5, borderBottomColor: Colors.borderLight }}
-        onPress={() => handleChat(contactUser)}
+        onPress={() => router.push(`/profile/${contactUser.id}`)}
         activeOpacity={0.7}
       >
         {/* Avatar with online indicator */}
         <View>
           <Avatar uri={contactUser.avatarUrl} name={contactUser.displayName} size={48} />
-          {isOnline && (
+          {isOnline && !isLimited && (
             <View
               style={{
                 position: 'absolute',
@@ -346,23 +351,43 @@ export default function ContactsScreen() {
         </View>
 
         <View className="ml-3 flex-1">
-          <Text className="text-[16px] font-semibold" style={{ color: Colors.text }}>
-            {contactUser.displayName}
-          </Text>
-          <Text className="mt-0.5 text-[13px]" style={{ color: isOnline ? Colors.online : Colors.textLight }}>
-            {isOnline ? 'Online' : `@${contactUser.username}`}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+            <Text className="text-[16px] font-semibold" style={{ color: Colors.text }}>
+              {contactUser.displayName}
+            </Text>
+            {isLimited && (
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 3,
+                  paddingHorizontal: 7,
+                  paddingVertical: 2,
+                  borderRadius: 99,
+                  backgroundColor: '#FFF8E1',
+                }}
+              >
+                <Ionicons name="shield-outline" size={10} color="#B08800" />
+                <Text style={{ fontSize: 11, color: '#B08800', fontWeight: '600' }}>Limited</Text>
+              </View>
+            )}
+          </View>
+          <Text className="mt-0.5 text-[13px]" style={{ color: isOnline && !isLimited ? Colors.online : Colors.textLight }}>
+            {isOnline && !isLimited ? 'Online' : `@${contactUser.username}`}
           </Text>
         </View>
 
-        {/* Action buttons */}
+        {/* Action buttons — only for non-limited contacts */}
         <View className="flex-row items-center">
-          <TouchableOpacity
-            onPress={() => handleChat(contactUser)}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            className="p-2"
-          >
-            <Ionicons name="chatbubble-outline" size={21} color={Colors.cta} />
-          </TouchableOpacity>
+          {!isLimited && (
+            <TouchableOpacity
+              onPress={() => handleChat(contactUser)}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              className="p-2"
+            >
+              <Ionicons name="chatbubble-outline" size={21} color={Colors.cta} />
+            </TouchableOpacity>
+          )}
           <TouchableOpacity
             onPress={() => openMenu(item)}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
@@ -448,9 +473,11 @@ export default function ContactsScreen() {
   };
 
   const renderSearchItem = ({ item }: { item: UserResponse }) => (
-    <View
+    <TouchableOpacity
       className="flex-row items-center px-4 py-3"
       style={{ borderBottomWidth: 0.5, borderBottomColor: Colors.borderLight }}
+      onPress={() => router.push(`/profile/${item.id}`)}
+      activeOpacity={0.7}
     >
       <Avatar uri={item.avatarUrl} name={item.displayName} size={48} />
       <View className="ml-3 flex-1">
@@ -470,7 +497,7 @@ export default function ContactsScreen() {
           Add Friend
         </Text>
       </TouchableOpacity>
-    </View>
+    </TouchableOpacity>
   );
 
   return (
@@ -761,9 +788,8 @@ export default function ContactsScreen() {
               className="flex-row items-center px-6 py-4"
               onPress={() => {
                 const cu = getContactUser(menuContact!);
-                const cId = menuContact!.id;
                 closeMenu();
-                handleBlock(cId, cu.displayName);
+                handleBlock(menuContact!, cu.displayName);
               }}
             >
               <Ionicons name="ban-outline" size={20} color={Colors.error} />

@@ -59,4 +59,28 @@ export const contactService = {
         );
         return response.data;
     },
+
+    /** Block a user directly by userId — no need to look up the contact record first. */
+    blockByUser: async (userId: string): Promise<ApiResponse<ContactResponse>> => {
+        const response = await axiosClient.put<ApiResponse<ContactResponse>>(
+            `/api/contacts/block-by-user/${userId}`,
+        );
+        return response.data;
+    },
+
+    /** Unblock a user directly by userId. */
+    unblockByUser: async (userId: string): Promise<ApiResponse<ContactResponse>> => {
+        const response = await axiosClient.put<ApiResponse<ContactResponse>>(
+            `/api/contacts/unblock-by-user/${userId}`,
+        );
+        return response.data;
+    },
+
+    /** Get the contact record between current user and another user (result null if no relation). */
+    getByUser: async (userId: string): Promise<ApiResponse<ContactResponse | null>> => {
+        const response = await axiosClient.get<ApiResponse<ContactResponse | null>>(
+            `/api/contacts/by-user/${userId}`,
+        );
+        return response.data;
+    },
 };

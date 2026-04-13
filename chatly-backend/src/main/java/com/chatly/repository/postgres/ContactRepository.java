@@ -23,9 +23,27 @@ public interface ContactRepository extends JpaRepository<Contact, UUID> {
     /**
      * Find all contact records where the given user is either sender or receiver,
      * filtered by status. This ensures both parties can see the relationship.
+     * NOTE: Do NOT use this for BLOCKED status — use findBlockedByUser instead to avoid
+     * the victim of a block seeing the record in their own BLOCKED list.
      */
     @Query("SELECT c FROM Contact c WHERE (c.user.id = :userId OR c.contact.id = :userId) AND c.status = :status")
     List<Contact> findByParticipantIdAndStatus(@Param("userId") UUID userId, @Param("status") ContactStatus status);
+
+    /**
+     * Returns only the contact records that the given user explicitly blocked
+     * (i.e. blockedBy = userId). This prevents the other party from seeing
+     * the block record in their own BLOCKED list.
+     */
+    @Query("SELECT c FROM Contact c WHERE (c.user.id = :userId OR c.contact.id = :userId) AND c.status = 'BLOCKED' AND c.blockedBy = :userId")
+    List<Contact> findBlockedByUser(@Param("userId") UUID userId);
+
+    /**
+     * Returns ACCEPTED contacts plus BLOCKED contacts where the current user is NOT the blocker.
+     * This ensures the blocker only sees the blocked user in their block list (not friends list),
+     * while the victim still sees the blocker in their own friends list (as a limited contact).
+     */
+    @Query("SELECT c FROM Contact c WHERE (c.user.id = :userId OR c.contact.id = :userId) AND (c.status = 'ACCEPTED' OR (c.status = 'BLOCKED' AND c.blockedBy <> :userId))")
+    List<Contact> findFriendsAndBlocked(@Param("userId") UUID userId);
 
     /**
      * Find a contact record between two users regardless of who initiated the request.

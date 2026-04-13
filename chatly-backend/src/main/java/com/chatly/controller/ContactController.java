@@ -67,6 +67,30 @@ public class ContactController {
                 .build();
     }
 
+    // Block a user directly by their userId (no need to look up the contact record first)
+    @PutMapping("/block-by-user/{userId}")
+    ApiResponse<ContactResponse> blockByUser(@PathVariable UUID userId) {
+        return ApiResponse.<ContactResponse>builder()
+                .result(contactService.blockByUser(userId, getAuthenticatedUserId()))
+                .build();
+    }
+
+    // Unblock a user directly by their userId
+    @PutMapping("/unblock-by-user/{userId}")
+    ApiResponse<ContactResponse> unblockByUser(@PathVariable UUID userId) {
+        return ApiResponse.<ContactResponse>builder()
+                .result(contactService.unblockByUser(userId, getAuthenticatedUserId()))
+                .build();
+    }
+
+    // Get the contact record between current user and another user (null if none)
+    @GetMapping("/by-user/{userId}")
+    ApiResponse<ContactResponse> getByUser(@PathVariable UUID userId) {
+        return ApiResponse.<ContactResponse>builder()
+                .result(contactService.getContactByUser(getAuthenticatedUserId(), userId))
+                .build();
+    }
+
     // Check block relationship between current user and another user
     @GetMapping("/block-status/{userId}")
     ApiResponse<BlockStatusResponse> blockStatus(@PathVariable UUID userId) {

@@ -880,18 +880,7 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
         if (!targetUser) return;
         setBlockActionLoading(true);
         try {
-            // Find the contact record id from all contacts
-            const allRes = await contactService.getAll();
-            const relation = (allRes.result ?? []).find(
-                (c) =>
-                    (c.user.id === currentUser?.id && c.contact.id === targetUser.id) ||
-                    (c.user.id === targetUser.id && c.contact.id === currentUser?.id),
-            );
-            if (!relation) {
-                toast.error("No contact relationship found");
-                return;
-            }
-            await contactService.block(relation.id);
+            await contactService.blockByUser(targetUser.id);
             setContactStatus("BLOCKED");
             setBlockStatus({ blocked: true, blockedBy: currentUser?.id ?? null, direction: "I_BLOCKED" });
             toast.success(`Blocked ${targetUser.displayName}`);
@@ -908,17 +897,7 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
         if (!targetUser) return;
         setBlockActionLoading(true);
         try {
-            const allRes = await contactService.getAll();
-            const relation = (allRes.result ?? []).find(
-                (c) =>
-                    (c.user.id === currentUser?.id && c.contact.id === targetUser.id) ||
-                    (c.user.id === targetUser.id && c.contact.id === currentUser?.id),
-            );
-            if (!relation) {
-                toast.error("No contact relationship found");
-                return;
-            }
-            await contactService.unblock(relation.id);
+            await contactService.unblockByUser(targetUser.id);
             setContactStatus("ACCEPTED");
             setBlockStatus(null);
             toast.success(`Unblocked ${targetUser.displayName}`);
@@ -1258,18 +1237,38 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
                 </div>
             )}
 
-            <ChatInput
-                ref={chatInputRef}
-                conversationId={id}
-                replyingTo={replyingTo}
-                senderName={replyingSenderName}
-                onCancelReply={handleCancelReply}
-                onSendMessage={handleSendMessage}
-                onSendVCard={handleSendVCard}
-                onTyping={sendTyping}
-                groupMembers={groupMembers}
-                currentUserId={currentUser?.id}
-            />
+            {!isGroup && blockStatus?.blocked ? (
+                <div className="border-t border-border bg-background px-6 py-4 flex items-center gap-3">
+                    <ShieldOff size={17} className="shrink-0 text-muted-foreground" />
+                    <p className="flex-1 text-sm text-muted-foreground">
+                        {blockStatus.direction === "I_BLOCKED"
+                            ? "You have blocked this user. Unblock to send messages."
+                            : "You can't send messages to this user."}
+                    </p>
+                    {blockStatus.direction === "I_BLOCKED" && (
+                        <button
+                            type="button"
+                            onClick={() => setBlockConfirmAction("unblock")}
+                            className="text-xs font-medium text-brand hover:underline shrink-0"
+                        >
+                            Unblock
+                        </button>
+                    )}
+                </div>
+            ) : (
+                <ChatInput
+                    ref={chatInputRef}
+                    conversationId={id}
+                    replyingTo={replyingTo}
+                    senderName={replyingSenderName}
+                    onCancelReply={handleCancelReply}
+                    onSendMessage={handleSendMessage}
+                    onSendVCard={handleSendVCard}
+                    onTyping={sendTyping}
+                    groupMembers={groupMembers}
+                    currentUserId={currentUser?.id}
+                />
+            )}
 
             <ForwardMessageDialog
                 open={!!forwardingMessage}
@@ -1444,6 +1443,19 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
                                     >
                                         <ShieldOff className="mr-2 h-4 w-4" />
                                         Block user
+                                    </Button>
+                                )}
+                                {profileUser?.id && profileUser.id !== currentUser?.id && (
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="w-full sm:w-auto ml-auto"
+                                        onClick={() => {
+                                            setShowProfileDialog(false);
+                                            navigate(`/profile/${profileUser.id}`);
+                                        }}
+                                    >
+                                        View full profile
                                     </Button>
                                 )}
                             </DialogFooter>
