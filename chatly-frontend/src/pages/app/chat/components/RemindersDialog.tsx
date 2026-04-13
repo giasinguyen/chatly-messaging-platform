@@ -23,6 +23,21 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import type { GroupReminderResponse } from "@/types/group";
 
+function toDatetimeLocalString(date: Date): string {
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return (
+        date.getFullYear() +
+        "-" +
+        pad(date.getMonth() + 1) +
+        "-" +
+        pad(date.getDate()) +
+        "T" +
+        pad(date.getHours()) +
+        ":" +
+        pad(date.getMinutes())
+    );
+}
+
 interface RemindersDialogProps {
     conversationId: string;
     open: boolean;
@@ -70,13 +85,17 @@ export function RemindersDialog({
             setShowForm(false);
             setTitle("");
             setDescription("");
-            setRemindAt("");
+            setRemindAt(toDatetimeLocalString(new Date()));
         }
     }, [open, fetchReminders]);
 
     const handleCreate = async () => {
         if (!title.trim()) {
             toast.error("Title cannot be empty");
+            return;
+        }
+        if (remindAt && new Date(remindAt) <= new Date()) {
+            toast.error("Reminder time must be in the future");
             return;
         }
         setCreating(true);
@@ -130,6 +149,10 @@ export function RemindersDialog({
     const handleUpdate = async () => {
         if (!editingId || !editTitle.trim()) {
             toast.error("Title cannot be empty");
+            return;
+        }
+        if (editRemindAt && new Date(editRemindAt) <= new Date()) {
+            toast.error("Reminder time must be in the future");
             return;
         }
         setUpdating(true);
@@ -187,6 +210,7 @@ export function RemindersDialog({
                             <Input
                                 type="datetime-local"
                                 value={remindAt}
+                                min={toDatetimeLocalString(new Date())}
                                 onChange={(e) => setRemindAt(e.target.value)}
                                 className="h-8 text-sm"
                             />
@@ -246,6 +270,7 @@ export function RemindersDialog({
                                         <Input
                                             type="datetime-local"
                                             value={editRemindAt}
+                                            min={toDatetimeLocalString(new Date())}
                                             onChange={(e) => setEditRemindAt(e.target.value)}
                                             className="h-8 text-sm"
                                         />
