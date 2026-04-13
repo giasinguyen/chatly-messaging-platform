@@ -523,7 +523,7 @@ export const ChatList = forwardRef(function ChatListComponent(_, ref) {
                                                           "STICKER"
                                                         ? "🎭 Sticker"
                                                         : conv.lastMessage.type === "VCARD"
-                                                          ? "📇 Danh thiếp"
+                                                          ? "📇 Contact card"
                                                         : conv.lastMessage
                                                               .type ===
 

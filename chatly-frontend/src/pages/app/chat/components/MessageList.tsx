@@ -619,7 +619,7 @@ export function MessageList({
                                         {/* Card header — mini label */}
                                         <div className="flex items-center gap-1.5 px-3 py-2 bg-muted/40 border-b border-border/40">
                                             <IdCard size={12} className="text-muted-foreground shrink-0" />
-                                            <span className="text-[11px] text-muted-foreground font-medium">Danh thiếp</span>
+                                            <span className="text-[11px] text-muted-foreground font-medium">Contact card</span>
                                         </div>
                                         {/* Card body */}
                                         <div className="flex items-center gap-3 px-3 py-3">
@@ -650,11 +650,11 @@ export function MessageList({
                                                 <div className="border-t border-border/40 flex">
                                                     {(isSelf || friendStatus === "ACCEPTED") ? (
                                                         <span className="flex-1 py-2 text-xs font-semibold text-green-600 text-center">
-                                                            ✓ Đã kết bạn
+                                                            ✓ Friends
                                                         </span>
                                                     ) : friendStatus === "PENDING" ? (
                                                         <span className="flex-1 py-2 text-xs font-semibold text-muted-foreground text-center">
-                                                            Đã gửi lời mời
+                                                            Request sent
                                                         </span>
                                                     ) : (
                                                         <button
@@ -662,7 +662,7 @@ export function MessageList({
                                                             onClick={() => onAddFriend?.(card.id!)}
                                                             className="flex-1 py-2 text-xs font-semibold text-brand hover:bg-brand/5 transition-colors"
                                                         >
-                                                            Thêm bạn
+                                                            Add friend
                                                         </button>
                                                     )}
                                                     {onOpenSenderProfile && (
@@ -671,7 +671,7 @@ export function MessageList({
                                                             onClick={() => onOpenSenderProfile(card.id!)}
                                                             className="flex-1 py-2 text-xs font-semibold text-brand hover:bg-brand/5 transition-colors border-l border-border/40"
                                                         >
-                                                            Xem hồ sơ
+                                                            View profile
                                                         </button>
                                                     )}
                                                 </div>
@@ -715,10 +715,16 @@ export function MessageList({
                                 )}
                                 {msg.content && (() => {
                                     const URL_REGEX = /(https?:\/\/[^\s<>"]+)/g;
-                                    const MENTION_REGEX = /(@\S+)/g;
-                                    const COMBINED_REGEX = /(https?:\/\/[^\s<>"]+|@\S+)/g;
+                                    // Build mention names from participants (sorted longest-first to avoid partial matches)
+                                    const mentionNames = [
+                                        ...Object.values(participantDirectory).flatMap(u => [u.displayName, u.username]),
+                                        'all',
+                                    ].filter(Boolean).sort((a, b) => b.length - a.length);
+                                    const escapedNames = mentionNames.map(n => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+                                    const MENTION_REGEX_STR = escapedNames.length > 0 ? `@(?:${escapedNames.join('|')})` : '@\\S+';
+                                    const COMBINED_REGEX = new RegExp(`(https?:\\/\\/[^\\s<>"]+|${MENTION_REGEX_STR})`, 'g');
                                     const parts = msg.content.split(COMBINED_REGEX);
-                                    const hasSpecial = parts.some(p => URL_REGEX.test(p) || MENTION_REGEX.test(p));
+                                    const hasSpecial = parts.some(p => /^https?:\/\//.test(p) || /^@/.test(p));
                                     if (!hasSpecial) return <span>{renderHighlightedText(msg.content)}</span>;
                                     return (
                                         <span>
@@ -731,7 +737,7 @@ export function MessageList({
                                                         </a>
                                                     );
                                                 }
-                                                if (/^@\S+/.test(part)) {
+                                                if (/^@/.test(part)) {
                                                     const mentionName = part.replace(/^@/, '');
                                                     const mentionedUser = mentionName === 'all'
                                                         ? null
@@ -1018,14 +1024,14 @@ export function MessageList({
                         <>
                             <ContextMenuItem
                                 onClick={() => onTagPriority(msg.id, "IMPORTANT")}
-                                className="gap-2 text-amber-500 focus:text-amber-500"
+                                className="gap-2"
                             >
                                 <Star size={14} />
                                 {msg.priority === "IMPORTANT" ? "Remove important" : "Mark important"}
                             </ContextMenuItem>
                             <ContextMenuItem
                                 onClick={() => onTagPriority(msg.id, "URGENT")}
-                                className="gap-2 text-red-500 focus:text-red-500"
+                                className="gap-2"
                             >
                                 <AlertTriangle size={14} />
                                 {msg.priority === "URGENT" ? "Remove urgent" : "Mark urgent"}
@@ -1037,7 +1043,7 @@ export function MessageList({
                             <ContextMenuSeparator />
                             <ContextMenuItem
                                 onClick={() => setRecallConfirmId(msg.id)}
-                                className="gap-2 text-destructive focus:text-destructive"
+                                className="gap-2"
                             >
                                 <RotateCcw size={14} />
                                 Recall

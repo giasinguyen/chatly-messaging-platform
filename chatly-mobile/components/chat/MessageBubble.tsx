@@ -22,6 +22,10 @@ interface MessageBubbleProps {
   calleeInfo?: { id: string; name: string; avatar?: string } | null;
   highlightKeyword?: string | null;
   onMentionPress?: (displayName: string) => void;
+  participantNames?: string[];
+  onVCardPress?: (userId: string) => void;
+  onAddFriend?: (userId: string) => void;
+  vcardFriendStatus?: (userId: string) => 'ACCEPTED' | 'PENDING' | null;
 }
 
 export function MessageBubble({
@@ -39,6 +43,10 @@ export function MessageBubble({
   calleeInfo,
   highlightKeyword,
   onMentionPress,
+  participantNames,
+  onVCardPress,
+  onAddFriend,
+  vcardFriendStatus,
 }: MessageBubbleProps) {
   const { content, type, recalled, edited, createdAt, readBy, attachments } = message;
 
@@ -187,8 +195,14 @@ export function MessageBubble({
 
   const renderTextContent = () => {
     const URL_REGEX = /(https?:\/\/[^\s<>"]+)/g;
-    const MENTION_REGEX = /(@[\w\s]+?)(?=\s@|\s|$)/g;
     const textColor = isMe ? Colors.bubbleSenderText : Colors.bubbleReceiverText;
+
+    // Build mention regex from known participant names (longest first to avoid partial matches)
+    const names = [...(participantNames ?? []), 'all'].filter(Boolean).sort((a, b) => b.length - a.length);
+    const escaped = names.map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+    const MENTION_REGEX = escaped.length > 0
+      ? new RegExp(`(@(?:${escaped.join('|')}))`, 'g')
+      : /(@\S+)/g;
 
     // Split by URLs first, then parse mentions within non-URL parts
     const urlParts = content.split(URL_REGEX);
@@ -198,8 +212,7 @@ export function MessageBubble({
       const mentionParts = text.split(MENTION_REGEX);
       if (mentionParts.length === 1) return renderHighlightedText(text, color);
       return mentionParts.map((part, i) => {
-        if (part.startsWith('@') && MENTION_REGEX.test(part)) {
-          MENTION_REGEX.lastIndex = 0;
+        if (part.startsWith('@')) {
           return (
             <Text
               key={`m-${i}`}
@@ -337,15 +350,21 @@ export function MessageBubble({
       case 'VCARD': {
         let card: { id?: string; displayName?: string; username?: string; avatarUrl?: string } = {};
         try { card = JSON.parse(content); } catch { /* ignore */ }
+        const isSelf = card.id === currentUserId;
+        const friendSt = card.id ? vcardFriendStatus?.(card.id) : null;
         return (
           <View style={{ width: 220, borderRadius: 16, borderWidth: 1, borderColor: 'rgba(0,0,0,0.08)', backgroundColor: '#fff', overflow: 'hidden' }}>
             {/* Header */}
             <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8, backgroundColor: 'rgba(0,0,0,0.03)', borderBottomWidth: 0.5, borderBottomColor: 'rgba(0,0,0,0.06)' }}>
               <Ionicons name="person-circle-outline" size={14} color={Colors.textMuted} />
-              <Text style={{ fontSize: 11, color: Colors.textMuted, fontWeight: '500', marginLeft: 4 }}>Danh thiếp</Text>
+              <Text style={{ fontSize: 11, color: Colors.textMuted, fontWeight: '500', marginLeft: 4 }}>Contact card</Text>
             </View>
             {/* Body */}
-            <View style={{ flexDirection: 'row', alignItems: 'center', padding: 12, gap: 10 }}>
+            <TouchableOpacity
+              onPress={() => card.id && onVCardPress?.(card.id)}
+              activeOpacity={0.7}
+              style={{ flexDirection: 'row', alignItems: 'center', padding: 12, gap: 10 }}
+            >
               <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: Colors.cta, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
                 {card.avatarUrl ? (
                   <Image source={{ uri: card.avatarUrl }} style={{ width: 44, height: 44, borderRadius: 22 }} />
@@ -357,7 +376,34 @@ export function MessageBubble({
                 <Text style={{ fontSize: 14, fontWeight: '600', color: Colors.text }} numberOfLines={1}>{card.displayName ?? 'User'}</Text>
                 {card.username ? <Text style={{ fontSize: 11, color: Colors.textMuted, marginTop: 2 }} numberOfLines={1}>@{card.username}</Text> : null}
               </View>
-            </View>
+            </TouchableOpacity>
+            {/* Footer — friend status */}
+            {card.id && (
+              <View style={{ borderTopWidth: 0.5, borderTopColor: 'rgba(0,0,0,0.06)', flexDirection: 'row' }}>
+                {(isSelf || friendSt === 'ACCEPTED') ? (
+                  <Text style={{ flex: 1, paddingVertical: 8, fontSize: 12, fontWeight: '600', color: '#16a34a', textAlign: 'center' }}>
+                    ✓ Friends
+                  </Text>
+                ) : friendSt === 'PENDING' ? (
+                  <Text style={{ flex: 1, paddingVertical: 8, fontSize: 12, fontWeight: '600', color: Colors.textMuted, textAlign: 'center' }}>
+                    Request sent
+                  </Text>
+                ) : (
+                  <TouchableOpacity
+                    onPress={() => onAddFriend?.(card.id!)}
+                    style={{ flex: 1, paddingVertical: 8 }}
+                  >
+                    <Text style={{ fontSize: 12, fontWeight: '600', color: Colors.cta, textAlign: 'center' }}>Add friend</Text>
+                  </TouchableOpacity>
+                )}
+                <TouchableOpacity
+                  onPress={() => onVCardPress?.(card.id!)}
+                  style={{ flex: 1, paddingVertical: 8, borderLeftWidth: 0.5, borderLeftColor: 'rgba(0,0,0,0.06)' }}
+                >
+                  <Text style={{ fontSize: 12, fontWeight: '600', color: Colors.cta, textAlign: 'center' }}>View profile</Text>
+                </TouchableOpacity>
+              </View>
+            )}
           </View>
         );
       }
