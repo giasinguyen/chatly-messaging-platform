@@ -1,5 +1,6 @@
 package com.chatly.dto.request;
 
+import jakarta.validation.constraints.Future;
 import jakarta.validation.constraints.NotBlank;
 import lombok.*;
 
@@ -17,5 +18,6 @@ public class GroupReminderRequest {
 
     private String description;
 
+    @Future(message = "REMINDER_TIME_IN_PAST")
     private Instant remindAt;
 }
