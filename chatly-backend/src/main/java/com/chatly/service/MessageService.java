@@ -582,10 +582,10 @@ public class MessageService {
                 return attachments.stream()
                                 .map(attachment -> Attachment.builder()
                                                 .fileId(attachment.getFileId())
-                                                .fileName(attachment.getFileName())
-                                                .fileUrl(attachment.getFileUrl())
-                                                .fileType(attachment.getFileType())
-                                                .fileSize(attachment.getFileSize())
+                                                .name(attachment.getName())
+                                                .url(attachment.getUrl())
+                                                .type(attachment.getType())
+                                                .size(attachment.getSize())
                                                 .build())
                                 .collect(java.util.stream.Collectors.toCollection(ArrayList::new));
         }
@@ -636,9 +636,19 @@ public class MessageService {
     }
 
     private void updateLastMessage(String conversationId, Message message) {
+        String content = message.getContent();
+        // For file-based messages with empty content, use the first attachment's filename
+        if ((content == null || content.isBlank())
+                && message.getAttachments() != null && !message.getAttachments().isEmpty()) {
+            String fileName = message.getAttachments().get(0).getName();
+            if (fileName != null && !fileName.isBlank()) {
+                content = fileName;
+            }
+        }
+
         LastMessage lastMessage = LastMessage.builder()
                 .senderId(message.getSenderId())
-                .content(message.getContent())
+                .content(content)
                 .type(message.getType())
                 .timestamp(message.getCreatedAt() != null ? message.getCreatedAt() : Instant.now())
                 .build();

@@ -23,8 +23,9 @@ public class FileUploadService {
 
     private static final Set<String> ALLOWED_MIME_TYPES = Set.of(
             "image/jpeg", "image/png", "image/gif", "image/webp", "image/svg+xml",
-            "video/mp4", "video/webm", "video/quicktime",
-            "audio/mpeg", "audio/ogg", "audio/wav", "audio/webm",
+            "image/heic", "image/heif", "image/bmp", "image/tiff",
+            "video/mp4", "video/webm", "video/quicktime", "video/3gpp", "video/x-msvideo",
+            "audio/mpeg", "audio/ogg", "audio/wav", "audio/webm", "audio/aac", "audio/mp4",
             "application/pdf",
             "application/msword",
             "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -33,7 +34,8 @@ public class FileUploadService {
             "application/vnd.ms-powerpoint",
             "application/vnd.openxmlformats-officedocument.presentationml.presentation",
             "text/plain",
-            "application/zip"
+            "application/zip",
+            "application/octet-stream"
     );
 
     @Value("${storage.max-file-size-mb:20}")
