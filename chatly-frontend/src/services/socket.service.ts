@@ -3,14 +3,23 @@ import SockJS from "sockjs-client";
 
 /**
  * Socket Service
- * Quản lý kết nối STOMP qua SockJS tới Backend.
+ * Manages STOMP connections via SockJS to the Backend.
  */
 class SocketService {
     private client: Client | null = null;
     private connectionPromise: Promise<void> | null = null;
+    private connectListeners: Set<() => void> = new Set();
+
+    /** Register a callback to be called every time the STOMP client connects/reconnects */
+    onConnect(cb: () => void): () => void {
+        this.connectListeners.add(cb);
+        // If already connected fire immediately
+        if (this.client?.connected) cb();
+        return () => this.connectListeners.delete(cb);
+    }
 
     /**
-     * Khởi tạo và kết nối
+     * Initialize and connect
      */
     async connect(token: string): Promise<void> {
         if (this.client?.connected) return;
@@ -31,6 +40,7 @@ class SocketService {
 
             client.onConnect = (frame) => {
                 console.log("Connected to WebSocket", frame);
+                this.connectListeners.forEach((cb) => cb());
                 resolve();
             };
 
@@ -52,7 +62,7 @@ class SocketService {
     }
 
     /**
-     * Ngắt kết nối
+     * Disconnect
      */
     disconnect() {
         if (this.client) {
@@ -63,14 +73,14 @@ class SocketService {
     }
 
     /**
-     * Lấy client hiện tại
+     * Get current client
      */
     getClient(): Client | null {
         return this.client;
     }
 
     /**
-     * Kiểm tra trạng thái kết nối
+     * Check connection status
      */
     isConnected(): boolean {
         return this.client?.connected ?? false;

@@ -8,11 +8,11 @@ import type {
 
 /**
  * USER SERVICE
- * Chứa các API liên quan đến thông tin người dùng: profile, update...
+ * Contains APIs related to user information: profile, update...
  */
 export const userService = {
     /**
-     * Lấy thông tin người dùng hiện tại từ session/token
+     * Get current user information from session/token
      */
     getMe: async (): Promise<ApiResponse<UserResponse>> => {
         const response =
@@ -21,7 +21,7 @@ export const userService = {
     },
 
     /**
-     * Danh sách tất cả người dùng
+     * List of all users
      */
     getAll: async (): Promise<ApiResponse<UserResponse[]>> => {
         const response =
@@ -30,7 +30,7 @@ export const userService = {
     },
 
     /**
-     * Tìm kiếm người dùng theo từ khóa (displayName, username, email, phone)
+     * Search for users by keyword (displayName, username, email, phone)
      */
     search: async (
         q: string,
@@ -46,7 +46,17 @@ export const userService = {
     },
 
     /**
-     * Cập nhật thông tin người dùng
+     * Get a user by ID. Returns a limited profile if the user has blocked the requester.
+     */
+    getUserById: async (id: string): Promise<ApiResponse<UserResponse>> => {
+        const response = await axiosClient.get<ApiResponse<UserResponse>>(
+            `/api/users/${id}`,
+        );
+        return response.data;
+    },
+
+    /**
+     * Update user information
      */
     update: async (
         id: string,
@@ -55,6 +65,13 @@ export const userService = {
         const response = await axiosClient.put<ApiResponse<UserResponse>>(
             `/api/users/${id}`,
             payload,
+        );
+        return response.data;
+    },
+
+    getById: async (id: string): Promise<ApiResponse<UserResponse>> => {
+        const response = await axiosClient.get<ApiResponse<UserResponse>>(
+            `/api/users/${id}`,
         );
         return response.data;
     },

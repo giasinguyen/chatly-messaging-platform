@@ -4,6 +4,11 @@ export interface ContactRequestPayload {
   contactId: string;
 }
 
+export interface BlockStatusResponse {
+  blocked: boolean;
+  blockedBy: string | null;
+}
+
 export interface ContactUserInfo {
   id: string;
   username: string;
@@ -18,5 +23,6 @@ export interface ContactResponse {
   user: ContactUserInfo;
   contact: ContactUserInfo;
   status: ContactStatus;
+  blockedBy?: string | null;
   createdAt: string;
 }

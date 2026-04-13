@@ -1,10 +1,14 @@
 package com.chatly.service;
 
+import com.chatly.dto.request.ForwardMessageRequest;
 import com.chatly.dto.request.MessageRequest;
 import com.chatly.dto.response.MessageResponse;
 import com.chatly.exception.AppException;
 import com.chatly.exception.ErrorCode;
 import com.chatly.mapper.MessageMapper;
+import com.chatly.model.enums.ConversationType;
+import com.chatly.model.enums.CallStatus;
+import com.chatly.model.enums.CallType;
 import com.chatly.model.enums.MessageStatus;
 import com.chatly.model.enums.MessageType;
 import com.chatly.model.enums.NotificationType;
@@ -12,6 +16,9 @@ import com.chatly.model.mongo.Conversation;
 import com.chatly.model.mongo.EditHistory;
 import com.chatly.model.mongo.LastMessage;
 import com.chatly.model.mongo.Message;
+import com.chatly.model.mongo.Attachment;
+import com.chatly.model.mongo.Poll;
+import com.chatly.model.mongo.Reaction;
 import com.chatly.model.mongo.ReadReceipt;
 import com.chatly.repository.mongo.ConversationRepository;
 import com.chatly.repository.mongo.MessageRepository;
@@ -29,8 +36,11 @@ import org.springframework.stereotype.Service;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -42,16 +52,27 @@ public class MessageService {
     private final MongoTemplate mongoTemplate;
     private final SimpMessagingTemplate messagingTemplate;
     private final NotificationService notificationService;
+    private final ContactService contactService;
 
     private static final long RECALL_LIMIT_HOURS = 24;
     private static final long EDIT_LIMIT_MINUTES = 15;
+    private static final Set<String> ALLOWED_EMOJIS = Set.of("👍", "❤️", "😂", "😮", "😢", "😡", "🔥", "👏");
+        private static final Set<MessageType> FORWARDABLE_TYPES = Set.of(MessageType.TEXT, MessageType.IMAGE, MessageType.FILE, MessageType.GIF, MessageType.STICKER);
+
+    private static final Set<String> ALLOWED_PRIORITIES = Set.of("IMPORTANT", "URGENT");
 
     public MessageResponse send(String senderId, MessageRequest request) {
-        Conversation conversation = conversationRepository.findById(request.getConversationId())
-                .orElseThrow(() -> new AppException(ErrorCode.CONVERSATION_NOT_FOUND));
+        Conversation conversation = getConversationForParticipant(request.getConversationId(), senderId);
 
-        if (!conversation.getParticipantIds().contains(senderId)) {
-            throw new AppException(ErrorCode.NOT_CONVERSATION_PARTICIPANT);
+        // Block guard: reject messages in PRIVATE conversations when either user has blocked the other
+        if (conversation.getType() == ConversationType.PRIVATE) {
+            String otherId = conversation.getParticipantIds().stream()
+                    .filter(id -> !id.equals(senderId))
+                    .findFirst()
+                    .orElse(null);
+            if (otherId != null && contactService.isBlocked(UUID.fromString(senderId), UUID.fromString(otherId))) {
+                throw new AppException(ErrorCode.CONTACT_BLOCKED);
+            }
         }
 
         Message message = Message.builder()
@@ -61,36 +82,60 @@ public class MessageService {
                 .type(request.getType() != null ? request.getType() : MessageType.TEXT)
                 .replyToId(request.getReplyToId())
                 .attachments(request.getAttachments() != null ? request.getAttachments() : new ArrayList<>())
+                .poll(request.getPoll())
+                .priority(request.getPriority() != null && ALLOWED_PRIORITIES.contains(request.getPriority()) ? request.getPriority() : null)
+                .mentions(request.getMentions() != null ? request.getMentions() : new ArrayList<>())
                 .build();
 
-        message = messageRepository.save(message);
-        updateLastMessage(request.getConversationId(), message);
+        Message savedMessage = persistAndBroadcast(conversation, message, senderId);
 
-        // Notify all conversation participants except the sender
-        final Message savedMessage = message;
-        String notifContent = savedMessage.getContent() != null && savedMessage.getContent().length() > 100
-                ? savedMessage.getContent().substring(0, 100) + "..."
-                : savedMessage.getContent();
-        conversation.getParticipantIds().stream()
-                .filter(pid -> !pid.equals(senderId))
-                .forEach(receiverId -> notificationService.createAndPush(
-                        NotificationType.NEW_MESSAGE,
-                        senderId,
-                        receiverId,
-                        notifContent,
-                        savedMessage.getConversationId()
-                ));
+        // Send mention notifications (separate from normal notifications)
+        if (message.getMentions() != null && !message.getMentions().isEmpty()) {
+            notifyMentionedUsers(conversation, savedMessage, senderId);
+        }
 
-        return messageMapper.toResponse(message);
+        return messageMapper.toResponse(savedMessage);
+    }
+
+    public List<MessageResponse> forward(String senderId, ForwardMessageRequest request) {
+        Message sourceMessage = messageRepository.findById(request.getMessageId())
+                .orElseThrow(() -> new AppException(ErrorCode.MESSAGE_NOT_FOUND));
+
+        Conversation sourceConversation = getConversationForParticipant(sourceMessage.getConversationId(), senderId);
+
+        if (sourceMessage.isRecalled()) {
+            throw new AppException(ErrorCode.CANNOT_FORWARD_RECALLED_MESSAGE);
+        }
+
+        if (!FORWARDABLE_TYPES.contains(sourceMessage.getType())) {
+            throw new AppException(ErrorCode.CANNOT_FORWARD_MESSAGE_TYPE);
+        }
+
+        List<String> targetConversationIds = sanitizeForwardTargets(sourceConversation.getId(), request.getTargetConversationIds());
+        if (targetConversationIds.isEmpty()) {
+            throw new AppException(ErrorCode.INVALID_FORWARD_TARGETS);
+        }
+
+        List<MessageResponse> forwardedMessages = new ArrayList<>();
+        for (String targetConversationId : targetConversationIds) {
+            Conversation targetConversation = getConversationForParticipant(targetConversationId, senderId);
+
+            Message forwardedMessage = Message.builder()
+                    .conversationId(targetConversationId)
+                    .senderId(senderId)
+                    .content(sourceMessage.getContent())
+                    .type(sourceMessage.getType())
+                    .attachments(copyAttachments(sourceMessage.getAttachments()))
+                    .build();
+
+            forwardedMessages.add(messageMapper.toResponse(persistAndBroadcast(targetConversation, forwardedMessage, senderId)));
+        }
+
+        return forwardedMessages;
     }
 
     public List<MessageResponse> getByConversation(String conversationId, String userId, int page, int size) {
-        Conversation conversation = conversationRepository.findById(conversationId)
-                .orElseThrow(() -> new AppException(ErrorCode.CONVERSATION_NOT_FOUND));
-
-        if (!conversation.getParticipantIds().contains(userId)) {
-            throw new AppException(ErrorCode.NOT_CONVERSATION_PARTICIPANT);
-        }
+        getConversationForParticipant(conversationId, userId);
 
         Page<Message> messages = messageRepository
                 .findByConversationIdOrderByCreatedAtDesc(conversationId, PageRequest.of(page, size));
@@ -235,6 +280,216 @@ public class MessageService {
         broadcastEvent(message.getConversationId(), ChatEvent.ChatAction.DELETE, response);
     }
 
+    public MessageResponse react(String messageId, String userId, String emoji) {
+        if (!ALLOWED_EMOJIS.contains(emoji)) {
+            throw new AppException(ErrorCode.INVALID_EMOJI);
+        }
+
+        Message message = messageRepository.findById(messageId)
+                .orElseThrow(() -> new AppException(ErrorCode.MESSAGE_NOT_FOUND));
+
+        if (message.isRecalled()) {
+            throw new AppException(ErrorCode.CANNOT_REACT_RECALLED_MESSAGE);
+        }
+
+        getConversationForParticipant(message.getConversationId(), userId);
+
+        // Toggle: remove if same emoji exists, otherwise add/replace
+        boolean removed = message.getReactions().removeIf(
+                r -> r.getUserId().equals(userId) && r.getEmoji().equals(emoji));
+
+        if (!removed) {
+            // Remove any existing reaction by this user (1 reaction per user)
+            message.getReactions().removeIf(r -> r.getUserId().equals(userId));
+            message.getReactions().add(Reaction.builder()
+                    .userId(userId)
+                    .emoji(emoji)
+                    .createdAt(Instant.now())
+                    .build());
+        }
+
+        mongoTemplate.updateFirst(
+                Query.query(Criteria.where("_id").is(messageId)),
+                new Update().set("reactions", message.getReactions()),
+                Message.class
+        );
+
+        MessageResponse response = messageMapper.toResponse(message);
+        broadcastEvent(message.getConversationId(), ChatEvent.ChatAction.REACT, response);
+        return response;
+    }
+
+    public List<MessageResponse> search(String conversationId, String userId, String keyword, int page, int size) {
+        getConversationForParticipant(conversationId, userId);
+
+        String escapedKeyword = java.util.regex.Pattern.quote(keyword);
+
+        Query query = new Query(
+                Criteria.where("conversationId").is(conversationId)
+                        .and("recalled").is(false)
+                        .and("content").regex(escapedKeyword, "i")
+        )
+                .with(org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC, "createdAt"))
+                .skip((long) page * size)
+                .limit(size);
+
+        return mongoTemplate.find(query, Message.class).stream()
+                .map(messageMapper::toResponse)
+                .toList();
+    }
+
+    // ── Poll Vote ────────────────────────────────────────────────────
+    public MessageResponse votePoll(String messageId, String userId, int optionIndex) {
+        Message message = messageRepository.findById(messageId)
+                .orElseThrow(() -> new AppException(ErrorCode.MESSAGE_NOT_FOUND));
+
+        if (message.getType() != MessageType.POLL || message.getPoll() == null) {
+            throw new AppException(ErrorCode.POLL_NOT_FOUND);
+        }
+
+        Conversation conversation = conversationRepository.findById(message.getConversationId())
+                .orElseThrow(() -> new AppException(ErrorCode.CONVERSATION_NOT_FOUND));
+
+        if (!conversation.getParticipantIds().contains(userId)) {
+            throw new AppException(ErrorCode.NOT_CONVERSATION_PARTICIPANT);
+        }
+
+        Poll poll = message.getPoll();
+        if (optionIndex < 0 || optionIndex >= poll.getOptions().size()) {
+            throw new AppException(ErrorCode.POLL_INVALID_OPTION);
+        }
+
+        String key = String.valueOf(optionIndex);
+
+        if (!poll.isMultipleChoice()) {
+            // Remove previous votes by this user
+            poll.getVotes().values().forEach(voters -> voters.remove(userId));
+        }
+
+        List<String> voters = poll.getVotes().computeIfAbsent(key, k -> new ArrayList<>());
+        if (voters.contains(userId)) {
+            voters.remove(userId); // toggle off
+        } else {
+            voters.add(userId);
+        }
+
+        mongoTemplate.updateFirst(
+                Query.query(Criteria.where("_id").is(messageId)),
+                new Update().set("poll", poll),
+                Message.class
+        );
+
+        MessageResponse response = messageMapper.toResponse(message);
+        broadcastEvent(message.getConversationId(), ChatEvent.ChatAction.EDIT, response);
+        return response;
+    }
+
+    // ── Close Poll ───────────────────────────────────────────────
+    public MessageResponse closePoll(String messageId, String userId) {
+        Message message = messageRepository.findById(messageId)
+                .orElseThrow(() -> new AppException(ErrorCode.MESSAGE_NOT_FOUND));
+
+        if (message.getType() != MessageType.POLL || message.getPoll() == null) {
+            throw new AppException(ErrorCode.POLL_NOT_FOUND);
+        }
+
+        if (!message.getSenderId().equals(userId)) {
+            throw new AppException(ErrorCode.UNAUTHORIZED);
+        }
+
+        Poll poll = message.getPoll();
+        poll.setClosed(true);
+
+        mongoTemplate.updateFirst(
+                Query.query(Criteria.where("_id").is(messageId)),
+                new Update().set("poll.closed", true),
+                Message.class
+        );
+
+        MessageResponse response = messageMapper.toResponse(message);
+        broadcastEvent(message.getConversationId(), ChatEvent.ChatAction.EDIT, response);
+        return response;
+    }
+
+    // ── Pin / Unpin Message ────────────────────────────────────────
+    public MessageResponse togglePin(String messageId, String userId) {
+        Message message = messageRepository.findById(messageId)
+                .orElseThrow(() -> new AppException(ErrorCode.MESSAGE_NOT_FOUND));
+
+        Conversation conversation = conversationRepository.findById(message.getConversationId())
+                .orElseThrow(() -> new AppException(ErrorCode.CONVERSATION_NOT_FOUND));
+
+        if (!conversation.getParticipantIds().contains(userId)) {
+            throw new AppException(ErrorCode.NOT_CONVERSATION_PARTICIPANT);
+        }
+
+        boolean newPinned = !message.isPinned();
+        Instant now = Instant.now();
+
+        mongoTemplate.updateFirst(
+                Query.query(Criteria.where("_id").is(messageId)),
+                new Update()
+                        .set("pinned", newPinned)
+                        .set("pinnedAt", newPinned ? now : null)
+                        .set("pinnedBy", newPinned ? userId : null),
+                Message.class
+        );
+
+        message.setPinned(newPinned);
+        message.setPinnedAt(newPinned ? now : null);
+        message.setPinnedBy(newPinned ? userId : null);
+
+        MessageResponse response = messageMapper.toResponse(message);
+        broadcastEvent(message.getConversationId(), ChatEvent.ChatAction.EDIT, response);
+        return response;
+    }
+
+    public List<MessageResponse> getPinnedMessages(String conversationId, String userId) {
+        Conversation conversation = conversationRepository.findById(conversationId)
+                .orElseThrow(() -> new AppException(ErrorCode.CONVERSATION_NOT_FOUND));
+
+        if (!conversation.getParticipantIds().contains(userId)) {
+            throw new AppException(ErrorCode.NOT_CONVERSATION_PARTICIPANT);
+        }
+
+        Query query = new Query(
+                Criteria.where("conversationId").is(conversationId)
+                        .and("pinned").is(true)
+        ).with(org.springframework.data.domain.Sort.by(
+                org.springframework.data.domain.Sort.Direction.DESC, "pinnedAt"
+        ));
+
+        return mongoTemplate.find(query, Message.class).stream()
+                .map(messageMapper::toResponse)
+                .toList();
+    }
+
+    // ── Tag Priority (Important / Urgent) ─────────────────────────
+    public MessageResponse tagPriority(String messageId, String userId, String priority) {
+        Message message = messageRepository.findById(messageId)
+                .orElseThrow(() -> new AppException(ErrorCode.MESSAGE_NOT_FOUND));
+
+        getConversationForParticipant(message.getConversationId(), userId);
+
+        if (message.isRecalled()) {
+            throw new AppException(ErrorCode.MESSAGE_ALREADY_RECALLED);
+        }
+
+        // Toggle: if same priority, remove it; otherwise set new priority
+        String newPriority = priority.equals(message.getPriority()) ? null : priority;
+
+        mongoTemplate.updateFirst(
+                Query.query(Criteria.where("_id").is(messageId)),
+                new Update().set("priority", newPriority),
+                Message.class
+        );
+
+        message.setPriority(newPriority);
+        MessageResponse response = messageMapper.toResponse(message);
+        broadcastEvent(message.getConversationId(), ChatEvent.ChatAction.EDIT, response);
+        return response;
+    }
+
     private void broadcastEvent(String conversationId, ChatEvent.ChatAction action, MessageResponse message) {
         messagingTemplate.convertAndSend(
                 "/topic/conversation." + conversationId,
@@ -242,10 +497,172 @@ public class MessageService {
         );
     }
 
+        private Conversation getConversationForParticipant(String conversationId, String userId) {
+                Conversation conversation = conversationRepository.findById(conversationId)
+                                .orElseThrow(() -> new AppException(ErrorCode.CONVERSATION_NOT_FOUND));
+
+                if (!conversation.getParticipantIds().contains(userId)) {
+                        throw new AppException(ErrorCode.NOT_CONVERSATION_PARTICIPANT);
+                }
+
+                return conversation;
+        }
+
+        private Message persistAndBroadcast(Conversation conversation, Message message, String actorId) {
+                Message savedMessage = messageRepository.save(message);
+                updateLastMessage(conversation.getId(), savedMessage);
+                notifyParticipants(conversation, savedMessage, actorId);
+                broadcastEvent(conversation.getId(), ChatEvent.ChatAction.SEND, messageMapper.toResponse(savedMessage));
+                return savedMessage;
+        }
+
+        private void notifyParticipants(Conversation conversation, Message message, String actorId) {
+                String notifContent = resolveNotificationContent(message);
+
+                conversation.getParticipantIds().stream()
+                                .filter(pid -> !pid.equals(actorId))
+                                .forEach(receiverId -> notificationService.createAndPush(
+                                                NotificationType.NEW_MESSAGE,
+                                                actorId,
+                                                receiverId,
+                                                notifContent,
+                                                message.getConversationId()
+                                ));
+        }
+
+        private String resolveNotificationContent(Message message) {
+                if (message.getType() == MessageType.CALL) {
+                        // Content is JSON - return human-readable text instead
+                        String content = message.getContent() != null ? message.getContent() : "";
+                        if (content.contains("MISSED")) return "📵 Cuộc gọi nhỡ";
+                        if (content.contains("REJECTED")) return "📵 Cuộc gọi bị từ chối";
+                        if (content.contains("VIDEO")) return "🎥 Cuộc gọi video";
+                        return "📞 Cuộc gọi thoại";
+                }
+                if (message.getContent() != null && !message.getContent().isBlank()) {
+                        return message.getContent().length() > 100
+                                        ? message.getContent().substring(0, 100) + "..."
+                                        : message.getContent();
+                }
+
+                return switch (message.getType()) {
+                        case IMAGE -> "[Image]";
+                        case FILE -> "[File]";
+                        case VIDEO -> "[Video]";
+                        case AUDIO -> "[Audio]";
+                        default -> "[Message]";
+                };
+        }
+
+        /**
+         * Lưu tin nhắn hệ thống cuộc gọi vào lịch sử chat.
+         * Gọi từ CallWebSocketController sau khi cuộc gọi kết thúc/nhỡ/từ chối.
+         */
+        public void saveCallMessage(String conversationId, String initiatorId, CallType callType, CallStatus callStatus, long durationSeconds) {
+                conversationRepository.findById(conversationId).ifPresent(conversation -> {
+                        String content = String.format(
+                                "{\"callType\":\"%s\",\"status\":\"%s\",\"duration\":%d}",
+                                callType.name(), callStatus.name(), durationSeconds
+                        );
+                        Message message = Message.builder()
+                                .conversationId(conversationId)
+                                .senderId(initiatorId)
+                                .content(content)
+                                .type(MessageType.CALL)
+                                .build();
+                        persistAndBroadcast(conversation, message, initiatorId);
+                });
+        }
+
+        private List<String> sanitizeForwardTargets(String sourceConversationId, List<String> targetConversationIds) {
+                if (targetConversationIds == null || targetConversationIds.isEmpty()) {
+                        return List.of();
+                }
+
+                return targetConversationIds.stream()
+                                .filter(targetId -> targetId != null && !targetId.isBlank())
+                                .filter(targetId -> !sourceConversationId.equals(targetId))
+                                .collect(java.util.stream.Collectors.collectingAndThen(
+                                                java.util.stream.Collectors.toCollection(LinkedHashSet::new),
+                                                ArrayList::new
+                                ));
+        }
+
+        private List<Attachment> copyAttachments(List<Attachment> attachments) {
+                if (attachments == null || attachments.isEmpty()) {
+                        return new ArrayList<>();
+                }
+
+                return attachments.stream()
+                                .map(attachment -> Attachment.builder()
+                                                .fileId(attachment.getFileId())
+                                                .name(attachment.getName())
+                                                .url(attachment.getUrl())
+                                                .type(attachment.getType())
+                                                .size(attachment.getSize())
+                                                .build())
+                                .collect(java.util.stream.Collectors.toCollection(ArrayList::new));
+        }
+
+    private void notifyMentionedUsers(Conversation conversation, Message message, String senderId) {
+        Set<String> mentionedIds = new LinkedHashSet<>();
+
+        for (String mention : message.getMentions()) {
+            if ("all".equals(mention)) {
+                // @all → notify every participant except sender
+                mentionedIds.addAll(conversation.getParticipantIds());
+            } else {
+                mentionedIds.add(mention);
+            }
+        }
+
+        mentionedIds.remove(senderId); // never notify self
+
+        String contentPreview = message.getContent() != null && message.getContent().length() > 100
+                ? message.getContent().substring(0, 100) + "..."
+                : message.getContent();
+
+        for (String receiverId : mentionedIds) {
+            if (conversation.getParticipantIds().contains(receiverId)) {
+                notificationService.createAndPush(
+                        NotificationType.MENTION,
+                        senderId,
+                        receiverId,
+                        contentPreview,
+                        message.getConversationId()
+                );
+            }
+        }
+    }
+
+    public MessageResponse sendSystemMessage(String conversationId, String content) {
+        Message message = Message.builder()
+                .conversationId(conversationId)
+                .senderId("SYSTEM")
+                .content(content)
+                .type(MessageType.SYSTEM)
+                .build();
+
+        message = messageRepository.save(message);
+        updateLastMessage(conversationId, message);
+        broadcastEvent(conversationId, ChatEvent.ChatAction.SEND, messageMapper.toResponse(message));
+        return messageMapper.toResponse(message);
+    }
+
     private void updateLastMessage(String conversationId, Message message) {
+        String content = message.getContent();
+        // For file-based messages with empty content, use the first attachment's filename
+        if ((content == null || content.isBlank())
+                && message.getAttachments() != null && !message.getAttachments().isEmpty()) {
+            String fileName = message.getAttachments().get(0).getName();
+            if (fileName != null && !fileName.isBlank()) {
+                content = fileName;
+            }
+        }
+
         LastMessage lastMessage = LastMessage.builder()
                 .senderId(message.getSenderId())
-                .content(message.getContent())
+                .content(content)
                 .type(message.getType())
                 .timestamp(message.getCreatedAt() != null ? message.getCreatedAt() : Instant.now())
                 .build();

@@ -27,12 +27,19 @@ public enum ErrorCode {
     CONTACT_NOT_FOUND(1200, "Contact not found", HttpStatus.NOT_FOUND),
     CONTACT_ALREADY_EXISTS(1201, "Contact relationship already exists", HttpStatus.CONFLICT),
     CONTACT_SELF_REQUEST(1202, "Cannot add yourself as a contact", HttpStatus.BAD_REQUEST),
+    CONTACT_NOT_AUTHORIZED(1203, "You are not authorized to perform this action on this contact", HttpStatus.FORBIDDEN),
+    CONTACT_BLOCKED(1204, "Action blocked due to contact restriction", HttpStatus.FORBIDDEN),
 
     CONVERSATION_NOT_FOUND(1300, "Conversation not found", HttpStatus.NOT_FOUND),
     CONVERSATION_ALREADY_EXISTS(1301, "Private conversation already exists", HttpStatus.CONFLICT),
     CONVERSATION_INVALID_PARTICIPANTS(1302, "Private conversation requires exactly 2 participants",
             HttpStatus.BAD_REQUEST),
     NOT_CONVERSATION_PARTICIPANT(1303, "You are not a participant of this conversation", HttpStatus.FORBIDDEN),
+    CONVERSATION_PIN_LIMIT(1304, "You can pin a maximum of 5 conversations", HttpStatus.BAD_REQUEST),
+    CONVERSATION_ALREADY_PINNED(1305, "Conversation is already pinned", HttpStatus.CONFLICT),
+    CONVERSATION_NOT_PINNED(1306, "Conversation is not pinned", HttpStatus.BAD_REQUEST),
+    CONVERSATION_ALREADY_MUTED(1307, "Conversation is already muted", HttpStatus.CONFLICT),
+    CONVERSATION_NOT_MUTED(1308, "Conversation is not muted", HttpStatus.BAD_REQUEST),
 
     MESSAGE_NOT_FOUND(1400, "Message not found", HttpStatus.NOT_FOUND),
     MESSAGE_ALREADY_RECALLED(1401, "Message has already been recalled", HttpStatus.CONFLICT),
@@ -42,10 +49,23 @@ public enum ErrorCode {
     EDIT_TIME_EXCEEDED(1405, "Edit time limit (15 minutes) has been exceeded", HttpStatus.UNPROCESSABLE_ENTITY),
     CANNOT_EDIT_NON_TEXT(1406, "Only text messages can be edited", HttpStatus.BAD_REQUEST),
     CANNOT_RECALL_SYSTEM_MESSAGE(1407, "System messages cannot be recalled", HttpStatus.BAD_REQUEST),
+    INVALID_EMOJI(1408, "Emoji is not in the allowed list", HttpStatus.BAD_REQUEST),
+    CANNOT_REACT_RECALLED_MESSAGE(1409, "Cannot react to a recalled message", HttpStatus.BAD_REQUEST),
+    INVALID_FORWARD_TARGETS(1410, "Please select at least one valid target conversation", HttpStatus.BAD_REQUEST),
+    CANNOT_FORWARD_MESSAGE_TYPE(1411, "Only text, image and file messages can be forwarded", HttpStatus.BAD_REQUEST),
+    CANNOT_FORWARD_RECALLED_MESSAGE(1412, "Recalled messages cannot be forwarded", HttpStatus.BAD_REQUEST),
+    POLL_NOT_FOUND(1410, "Poll not found in this message", HttpStatus.BAD_REQUEST),
+    POLL_INVALID_OPTION(1411, "Invalid poll option index", HttpStatus.BAD_REQUEST),
 
     GROUP_MEMBER_NOT_FOUND(1500, "Group member not found", HttpStatus.NOT_FOUND),
     GROUP_MEMBER_ALREADY_EXISTS(1501, "User is already a member of this group", HttpStatus.CONFLICT),
     GROUP_PERMISSION_DENIED(1502, "You do not have permission for this action", HttpStatus.FORBIDDEN),
+    GROUP_INVITE_TOKEN_INVALID(1503, "Invalid or expired invite link", HttpStatus.BAD_REQUEST),
+    GROUP_PENDING_REQUEST_EXISTS(1504, "A pending join request already exists", HttpStatus.CONFLICT),
+    GROUP_PENDING_REQUEST_NOT_FOUND(1505, "Pending join request not found", HttpStatus.NOT_FOUND),
+    GROUP_REMINDER_NOT_FOUND(1506, "Reminder not found", HttpStatus.NOT_FOUND),
+    GROUP_NOTE_NOT_FOUND(1507, "Note not found", HttpStatus.NOT_FOUND),
+    REMINDER_TIME_IN_PAST(1508, "Reminder time must be in the future", HttpStatus.BAD_REQUEST),
 
     NOTIFICATION_NOT_FOUND(1700, "Notification not found", HttpStatus.NOT_FOUND),
 
@@ -57,7 +77,13 @@ public enum ErrorCode {
 
     UNAUTHORIZED(1600, "You do not have permission", HttpStatus.FORBIDDEN),
     UNAUTHENTICATED(1601, "Unauthenticated", HttpStatus.UNAUTHORIZED),
-    INVALID_TOKEN(1602, "Invalid or expired token", HttpStatus.UNAUTHORIZED);
+    INVALID_TOKEN(1602, "Invalid or expired token", HttpStatus.UNAUTHORIZED),
+    SESSION_NOT_FOUND(1603, "Session not found", HttpStatus.NOT_FOUND),
+
+    AGENT_SERVICE_ERROR(2000, "AI service temporarily unavailable", HttpStatus.BAD_GATEWAY),
+    AGENT_BAD_REQUEST(2001, "Invalid AI service request", HttpStatus.BAD_REQUEST),
+
+    SETTINGS_INVALID_SECTION(1900, "Invalid settings section. Allowed: privacy, notifications, messages", HttpStatus.BAD_REQUEST);
 
     private final int code;
     private final String message;

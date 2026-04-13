@@ -90,14 +90,15 @@ export function useChatSocket({
 
   // Send a message via WebSocket
   const sendMessage = useCallback(
-    (content: string, replyToId: string | null = null, attachments?: Attachment[]): boolean => {
+    (content: string, replyToId: string | null = null, attachments?: Attachment[], messageType?: string, priority?: 'IMPORTANT' | 'URGENT'): boolean => {
       const hasAttachments = attachments && attachments.length > 0;
       return socketService.publish('/app/chat.send', {
         conversationId,
         content,
-        type: hasAttachments ? resolveMessageType(attachments![0].type) : 'TEXT',
+        type: messageType ?? (hasAttachments ? resolveMessageType(attachments![0].type) : 'TEXT'),
         replyToId,
         attachments: hasAttachments ? attachments : undefined,
+        priority: priority ?? undefined,
       });
     },
     [conversationId],

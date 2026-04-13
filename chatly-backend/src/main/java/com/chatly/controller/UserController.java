@@ -1,10 +1,12 @@
 package com.chatly.controller;
 
 import com.chatly.dto.request.UserUpdateRequest;
+import com.chatly.dto.request.DeviceTokenRequest;
 import com.chatly.dto.response.ApiResponse;
 import com.chatly.dto.response.PagedResponse;
 import com.chatly.dto.response.UserResponse;
 import com.chatly.service.UserService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
@@ -61,6 +63,22 @@ public class UserController {
         userService.delete(id);
         return ApiResponse.<Void>builder()
                 .message("User deleted successfully")
+                .build();
+    }
+
+    @PostMapping("/device-token")
+    ApiResponse<Void> addDeviceToken(@RequestBody @Valid DeviceTokenRequest request) {
+        userService.addDeviceToken(request.getToken());
+        return ApiResponse.<Void>builder()
+                .message("Device token added successfully")
+                .build();
+    }
+
+    @DeleteMapping("/device-token")
+    ApiResponse<Void> removeDeviceToken(@RequestBody @Valid DeviceTokenRequest request) {
+        userService.removeDeviceToken(request.getToken());
+        return ApiResponse.<Void>builder()
+                .message("Device token removed successfully")
                 .build();
     }
 }

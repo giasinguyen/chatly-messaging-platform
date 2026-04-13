@@ -9,10 +9,13 @@ interface MessageActionsProps {
   isMe: boolean;
   onClose: () => void;
   onReply: () => void;
+  onForward?: () => void;
   onCopy: () => void;
+  onReact?: (emoji: string) => void;
   onEdit?: () => void;
   onRecall?: () => void;
   onDelete?: () => void;
+  onTogglePin?: () => void;
 }
 
 interface ActionItem {
@@ -28,10 +31,13 @@ export function MessageActions({
   isMe,
   onClose,
   onReply,
+  onForward,
   onCopy,
+  onReact,
   onEdit,
   onRecall,
   onDelete,
+  onTogglePin,
 }: MessageActionsProps) {
   if (!message) return null;
 
@@ -42,18 +48,27 @@ export function MessageActions({
   const canRecall = isMe && diffMin <= 1440 && !message.recalled; // 24h
 
   const actions: ActionItem[] = [
-    { icon: 'arrow-undo-outline', label: 'Trả lời', onPress: onReply },
-    { icon: 'copy-outline', label: 'Sao chép', onPress: onCopy },
+    { icon: 'arrow-undo-outline', label: 'Reply', onPress: onReply },
+    ...(onForward ? [{ icon: 'arrow-redo-outline' as const, label: 'Forward', onPress: onForward }] : []),
+    { icon: 'copy-outline', label: 'Copy', onPress: onCopy },
   ];
 
   if (canEdit && onEdit) {
-    actions.push({ icon: 'pencil-outline', label: 'Chỉnh sửa', onPress: onEdit });
+    actions.push({ icon: 'pencil-outline', label: 'Edit', onPress: onEdit });
+  }
+
+  if (!message.recalled && onTogglePin) {
+    actions.push({
+      icon: 'pin-outline',
+      label: message.pinned ? 'Unpin' : 'Pin message',
+      onPress: onTogglePin,
+    });
   }
 
   if (canRecall && onRecall) {
     actions.push({
       icon: 'refresh-outline',
-      label: 'Thu hồi',
+      label: 'Recall',
       onPress: onRecall,
       destructive: true,
     });
@@ -62,7 +77,7 @@ export function MessageActions({
   if (isMe && onDelete) {
     actions.push({
       icon: 'trash-outline',
-      label: 'Xoá',
+      label: 'Delete',
       onPress: onDelete,
       destructive: true,
     });
@@ -81,6 +96,30 @@ export function MessageActions({
             className="mb-4 self-center rounded-full"
             style={{ width: 36, height: 4, backgroundColor: Colors.borderLight }}
           />
+
+          {/* Quick emoji reactions */}
+          {!message.recalled && onReact && (
+            <View className="mb-3 flex-row justify-center gap-2 px-6">
+              {['👍', '❤️', '😂', '😮', '😢', '😡'].map((emoji) => (
+                <TouchableOpacity
+                  key={emoji}
+                  onPress={() => {
+                    onReact(emoji);
+                    onClose();
+                  }}
+                  activeOpacity={0.7}
+                  className="items-center justify-center rounded-full"
+                  style={{
+                    width: 44,
+                    height: 44,
+                    backgroundColor: Colors.bg,
+                  }}
+                >
+                  <Text className="text-2xl">{emoji}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
 
           {actions.map((action, index) => (
             <TouchableOpacity

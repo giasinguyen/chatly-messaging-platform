@@ -35,14 +35,12 @@ public class ChatMessageController {
                 .type(request.getType())
                 .replyToId(request.getReplyToId())
                 .attachments(request.getAttachments())
+                .poll(request.getPoll())
+                .priority(request.getPriority())
+                .mentions(request.getMentions())
                 .build();
 
-        MessageResponse response = messageService.send(senderId, messageRequest);
-
-        messagingTemplate.convertAndSend(
-                "/topic/conversation." + request.getConversationId(),
-                ChatEvent.builder().action(ChatEvent.ChatAction.SEND).message(response).build()
-        );
+        messageService.send(senderId, messageRequest);
     }
 
     @MessageMapping("/chat.seen")

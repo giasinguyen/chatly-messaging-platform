@@ -1,0 +1,46 @@
+# docker-compose-mcp.yml
+# Chạy 2 MCP server đơn giản để test tính năng register_server.
+#
+# Khởi động:
+#   docker compose -f docker-compose-mcp.yml up --build -d
+#
+# Endpoint sau khi chạy:
+#   Math server  → http://localhost:8100/mcp
+#   Text server  → http://localhost:8101/mcp
+#
+# Health check:
+#   curl http://localhost:8100/health
+#   curl http://localhost:8101/health
+
+services:
+  mcp-math:
+    build:
+      context: ./mcp-servers/math
+      dockerfile: Dockerfile
+    container_name: mcp-math
+    restart: unless-stopped
+    ports:
+      - "8100:8080"
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import urllib.request; urllib.request.urlopen('http://localhost:8080/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+  mcp-text:
+    build:
+      context: ./mcp-servers/text
+      dockerfile: Dockerfile
+    container_name: mcp-text
+    restart: unless-stopped
+    ports:
+      - "8101:8080"
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import urllib.request; urllib.request.urlopen('http://localhost:8080/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s

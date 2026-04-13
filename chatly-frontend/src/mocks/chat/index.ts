@@ -1,8 +1,8 @@
-// Mock data đã được xoá - dữ liệu thực được tải từ API
-// Các types đã được chuyển sang:
+// Mock data has been removed - real data is loaded from API
+// Types have been moved to:
 //   - src/types/conversation.ts  (ConversationResponse, LastMessage)
 //   - src/types/auth.ts           (UserResponse)
-// Các services:
+// Services:
 //   - src/services/conversation.service.ts
 //   - src/services/user.service.ts
 // Utilities:

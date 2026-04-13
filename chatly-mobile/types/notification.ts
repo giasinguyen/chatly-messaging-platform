@@ -4,6 +4,8 @@ export interface NotificationResponse {
   id: string;
   type: NotificationType;
   senderId: string;
+  senderName?: string;
+  senderAvatar?: string;
   receiverId: string;
   referenceId: string;
   content: string;

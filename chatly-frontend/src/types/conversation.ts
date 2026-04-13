@@ -1,6 +1,7 @@
 export type ConversationType = "PRIVATE" | "GROUP";
 
-export type MessageType = "TEXT" | "IMAGE" | "FILE" | "STICKER" | "SYSTEM";
+export type MessageType = "TEXT" | "IMAGE" | "FILE" | "VIDEO" | "AUDIO" | "STICKER" | "GIF" | "SYSTEM" | "POLL" | "VCARD" | "CALL";
+
 
 export interface LastMessage {
     senderId: string;
@@ -19,4 +20,13 @@ export interface ConversationResponse {
     lastMessage: LastMessage | null;
     createdAt: string;
     updatedAt: string;
+    // User-specific metadata
+    isPinned?: boolean;
+    isMuted?: boolean;
+    mutedUntil?: string | null; // ISO datetime or null for muted forever
+    nickname?: string | null; // For PRIVATE conversations - custom name for the contact
+    // Group settings
+    allowMembersUpdateInfo?: boolean; // If true, all members can update group name/avatar; default true
+    requireApproval?: boolean;
+    inviteToken?: string | null;
 }

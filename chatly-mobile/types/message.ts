@@ -20,6 +20,19 @@ export interface EditHistoryEntry {
   editedAt: string;
 }
 
+export interface Reaction {
+  userId: string;
+  emoji: string;
+  createdAt: string;
+}
+
+export interface Poll {
+  question: string;
+  options: string[];
+  multipleChoice: boolean;
+  votes: Record<string, string[]>;
+}
+
 export interface Message {
   id: string;
   conversationId: string;
@@ -28,6 +41,8 @@ export interface Message {
   type: MessageType;
   status: MessageStatus;
   replyToId: string | null;
+  forwardedFromId: string | null;
+  forwardedFromConversationId: string | null;
   attachments: Attachment[];
   readBy: ReadReceipt[];
   recalled: boolean;
@@ -36,11 +51,18 @@ export interface Message {
   edited: boolean;
   editedAt: string | null;
   editHistory: EditHistoryEntry[];
+  reactions: Reaction[];
+  poll?: Poll | null;
+  pinned: boolean;
+  pinnedAt: string | null;
+  pinnedBy: string | null;
+  priority?: string | null;
+  mentions?: string[];
   createdAt: string;
   updatedAt: string;
 }
 
-export type ChatAction = 'SEND' | 'EDIT' | 'RECALL' | 'DELETE';
+export type ChatAction = 'SEND' | 'EDIT' | 'RECALL' | 'DELETE' | 'REACT';
 
 export interface ChatEvent {
   action: ChatAction;

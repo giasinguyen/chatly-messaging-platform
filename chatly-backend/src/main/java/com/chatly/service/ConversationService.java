@@ -1,6 +1,7 @@
 package com.chatly.service;
 
 import com.chatly.dto.request.ConversationRequest;
+import com.chatly.dto.request.MuteConversationRequest;
 import com.chatly.dto.response.ConversationResponse;
 import com.chatly.dto.response.PagedResponse;
 import com.chatly.exception.AppException;
@@ -8,14 +9,17 @@ import com.chatly.exception.ErrorCode;
 import com.chatly.mapper.ConversationMapper;
 import com.chatly.model.enums.ConversationType;
 import com.chatly.model.enums.GroupRole;
+import com.chatly.model.enums.NotificationType;
 import com.chatly.model.mongo.Conversation;
+import com.chatly.model.mongo.Message;
+import com.chatly.model.mongo.Notification;
 import com.chatly.model.postgres.GroupMember;
 import com.chatly.model.postgres.User;
 import com.chatly.repository.mongo.ConversationRepository;
+import com.chatly.repository.mongo.NotificationRepository;
 import com.chatly.repository.postgres.GroupMemberRepository;
 import com.chatly.repository.postgres.UserRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -23,11 +27,14 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
+import org.springframework.data.mongodb.core.query.Update;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.regex.Pattern;
 
@@ -36,6 +43,7 @@ import java.util.regex.Pattern;
 public class ConversationService {
 
     private final ConversationRepository conversationRepository;
+    private final NotificationRepository notificationRepository;
     private final GroupMemberRepository groupMemberRepository;
     private final UserRepository userRepository;
     private final ConversationMapper conversationMapper;
@@ -78,13 +86,27 @@ public class ConversationService {
             throw new AppException(ErrorCode.NOT_CONVERSATION_PARTICIPANT);
         }
 
-        return conversationMapper.toResponse(conversation);
+        ConversationResponse response = conversationMapper.toResponse(conversation);
+        response.setUnreadCount(getConversationUnreadCount(id, userId));
+        enrichPinMuteFlags(response, conversation, userId);
+        return response;
     }
 
     public List<ConversationResponse> getByUserId(String userId) {
-        return conversationRepository.findByParticipantIdsContainingOrderByUpdatedAtDesc(userId)
+        List<ConversationResponse> responses = conversationRepository
+                .findByParticipantIdsContainingOrderByUpdatedAtDesc(userId)
                 .stream()
-                .map(conversationMapper::toResponse)
+                .map(c -> {
+                    ConversationResponse res = conversationMapper.toResponse(c);
+                    res.setUnreadCount(getConversationUnreadCount(c.getId(), userId));
+                    enrichPinMuteFlags(res, c, userId);
+                    return res;
+                })
+                .toList();
+
+        // Sort: pinned first, then by updatedAt (already sorted)
+        return responses.stream()
+                .sorted((a, b) -> Boolean.compare(b.isPinned(), a.isPinned()))
                 .toList();
     }
 
@@ -122,7 +144,11 @@ public class ConversationService {
 
         List<ConversationResponse> items = mongoTemplate.find(query, Conversation.class)
                 .stream()
-                .map(conversationMapper::toResponse)
+                .map(c -> {
+                    ConversationResponse res = conversationMapper.toResponse(c);
+                    res.setUnreadCount(getConversationUnreadCount(c.getId(), userId));
+                    return res;
+                })
                 .toList();
 
         return PagedResponse.from(new PageImpl<>(items, pageable, total));
@@ -134,10 +160,34 @@ public class ConversationService {
                 .orElseThrow(() -> new AppException(ErrorCode.CONVERSATION_NOT_FOUND));
 
         if (!conversation.getParticipantIds().contains(userId)) {
-            throw new AppException(ErrorCode.GROUP_PERMISSION_DENIED);
+            throw new AppException(ErrorCode.NOT_CONVERSATION_PARTICIPANT);
         }
 
-        conversationRepository.deleteById(id);
+        // Authorization for GROUP deletion: only OWNER can delete
+        if (conversation.getType() == ConversationType.GROUP) {
+            GroupMember member = groupMemberRepository.findByConversationIdAndUserId(id, UUID.fromString(userId))
+                    .orElseThrow(() -> new AppException(ErrorCode.NOT_CONVERSATION_PARTICIPANT));
+            
+            if (member.getRole() != GroupRole.OWNER) {
+                throw new AppException(ErrorCode.GROUP_PERMISSION_DENIED);
+            }
+            
+            // Delete all group memberships in Postgres
+            List<GroupMember> members = groupMemberRepository.findByConversationId(id);
+            groupMemberRepository.deleteAllInBatch(members);
+        }
+
+        // Delete all associated data in MongoDB
+        mongoTemplate.remove(Query.query(Criteria.where("conversationId").is(id)), Message.class);
+        mongoTemplate.remove(Query.query(Criteria.where("referenceId").is(id)), Notification.class);
+
+        // Delete the conversation itself
+        conversationRepository.delete(conversation);
+    }
+
+    private long getConversationUnreadCount(String conversationId, String userId) {
+        return notificationRepository.countByReceiverIdAndTypeAndReferenceIdAndReadFalse(
+                userId, NotificationType.NEW_MESSAGE, conversationId);
     }
 
     private void createGroupMembers(String conversationId, String creatorId, List<String> participantIds) {
@@ -156,5 +206,108 @@ public class ConversationService {
 
             groupMemberRepository.save(member);
         }
+    }
+
+    // ==================== Pin / Unpin ====================
+
+    private static final int MAX_PINNED = 5;
+
+    public void pinConversation(String conversationId, String userId) {
+        Conversation conversation = getConversationForParticipant(conversationId, userId);
+
+        if (conversation.getPinnedBy() != null && conversation.getPinnedBy().contains(userId)) {
+            throw new AppException(ErrorCode.CONVERSATION_ALREADY_PINNED);
+        }
+
+        // Check pin limit
+        long pinnedCount = conversationRepository
+                .findByParticipantIdsContaining(userId)
+                .stream()
+                .filter(c -> c.getPinnedBy() != null && c.getPinnedBy().contains(userId))
+                .count();
+
+        if (pinnedCount >= MAX_PINNED) {
+            throw new AppException(ErrorCode.CONVERSATION_PIN_LIMIT);
+        }
+
+        mongoTemplate.updateFirst(
+                Query.query(Criteria.where("id").is(conversationId)),
+                new Update().addToSet("pinnedBy", userId),
+                Conversation.class
+        );
+    }
+
+    public void unpinConversation(String conversationId, String userId) {
+        Conversation conversation = getConversationForParticipant(conversationId, userId);
+
+        if (conversation.getPinnedBy() == null || !conversation.getPinnedBy().contains(userId)) {
+            throw new AppException(ErrorCode.CONVERSATION_NOT_PINNED);
+        }
+
+        mongoTemplate.updateFirst(
+                Query.query(Criteria.where("id").is(conversationId)),
+                new Update().pull("pinnedBy", userId),
+                Conversation.class
+        );
+    }
+
+    // ==================== Mute / Unmute ====================
+
+    public void muteConversation(String conversationId, String userId, MuteConversationRequest request) {
+        Conversation conversation = getConversationForParticipant(conversationId, userId);
+
+        Map<String, Instant> mutedBy = conversation.getMutedBy();
+        if (mutedBy != null && mutedBy.containsKey(userId)) {
+            Instant until = mutedBy.get(userId);
+            if (until == null || until.isAfter(Instant.now())) {
+                throw new AppException(ErrorCode.CONVERSATION_ALREADY_MUTED);
+            }
+        }
+
+        Instant muteUntil = (request != null) ? request.getMuteUntil() : null;
+
+        mongoTemplate.updateFirst(
+                Query.query(Criteria.where("id").is(conversationId)),
+                new Update().set("mutedBy." + userId, muteUntil),
+                Conversation.class
+        );
+    }
+
+    public void unmuteConversation(String conversationId, String userId) {
+        Conversation conversation = getConversationForParticipant(conversationId, userId);
+
+        if (conversation.getMutedBy() == null || !conversation.getMutedBy().containsKey(userId)) {
+            throw new AppException(ErrorCode.CONVERSATION_NOT_MUTED);
+        }
+
+        mongoTemplate.updateFirst(
+                Query.query(Criteria.where("id").is(conversationId)),
+                new Update().unset("mutedBy." + userId),
+                Conversation.class
+        );
+    }
+
+    // ==================== Helpers ====================
+
+    private Conversation getConversationForParticipant(String conversationId, String userId) {
+        Conversation conversation = conversationRepository.findById(conversationId)
+                .orElseThrow(() -> new AppException(ErrorCode.CONVERSATION_NOT_FOUND));
+
+        if (!conversation.getParticipantIds().contains(userId)) {
+            throw new AppException(ErrorCode.NOT_CONVERSATION_PARTICIPANT);
+        }
+
+        return conversation;
+    }
+
+    private void enrichPinMuteFlags(ConversationResponse response, Conversation conversation, String userId) {
+        response.setPinned(conversation.getPinnedBy() != null && conversation.getPinnedBy().contains(userId));
+
+        boolean muted = false;
+        if (conversation.getMutedBy() != null && conversation.getMutedBy().containsKey(userId)) {
+            Instant until = conversation.getMutedBy().get(userId);
+            muted = (until == null || until.isAfter(Instant.now()));
+        }
+        response.setMuted(muted);
     }
 }

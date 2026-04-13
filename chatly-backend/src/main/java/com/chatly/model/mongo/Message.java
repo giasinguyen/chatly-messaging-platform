@@ -39,6 +39,10 @@ public class Message {
 
     private String replyToId;
 
+    private String forwardedFromId;
+
+    private String forwardedFromConversationId;
+
     @Builder.Default
     private List<Attachment> attachments = new ArrayList<>();
 
@@ -58,6 +62,25 @@ public class Message {
 
     @Builder.Default
     private List<EditHistory> editHistory = new ArrayList<>();
+
+    @Builder.Default
+    private List<Reaction> reactions = new ArrayList<>();
+
+    // Poll (for POLL type messages)
+    private Poll poll;
+
+    // Pin
+    @Builder.Default
+    private boolean pinned = false;
+    private Instant pinnedAt;
+    private String pinnedBy;
+
+    // Priority tag (NORMAL, IMPORTANT, URGENT)
+    private String priority;
+
+    // Mentions – list of user IDs mentioned in this message ("all" for @all)
+    @Builder.Default
+    private List<String> mentions = new ArrayList<>();
 
     @CreatedDate
     private Instant createdAt;

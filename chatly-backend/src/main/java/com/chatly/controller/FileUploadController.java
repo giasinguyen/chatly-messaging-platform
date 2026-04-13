@@ -9,6 +9,8 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/api/files")
 @RequiredArgsConstructor
@@ -42,6 +44,34 @@ public class FileUploadController {
         fileUploadService.delete(fileId, getAuthenticatedUserId());
         return ApiResponse.<Void>builder()
                 .message("File deleted successfully")
+                .build();
+    }
+
+    /**
+     * List all files uploaded to a conversation.
+     * Optionally filter by type: "image", "video", "file" (documents/audio/other).
+     */
+    @GetMapping("/conversation/{conversationId}")
+    public ApiResponse<List<FileUploadResponse>> getByConversation(
+            @PathVariable String conversationId,
+            @RequestParam(value = "type", required = false) String type) {
+        List<FileUploadResponse> files = fileUploadService.getByConversation(conversationId, type);
+        return ApiResponse.<List<FileUploadResponse>>builder()
+                .result(files)
+                .build();
+    }
+
+    /**
+     * List all files uploaded by the authenticated user across all conversations.
+     * Optionally filter by type: "image", "video", "file".
+     */
+    @GetMapping("/my")
+    public ApiResponse<List<FileUploadResponse>> getMyFiles(
+            @RequestParam(value = "type", required = false) String type) {
+        String userId = getAuthenticatedUserId();
+        List<FileUploadResponse> files = fileUploadService.getByUploadedUser(userId, type);
+        return ApiResponse.<List<FileUploadResponse>>builder()
+                .result(files)
                 .build();
     }
 

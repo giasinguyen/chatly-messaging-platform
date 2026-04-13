@@ -1,4 +1,4 @@
-import type { MessageType } from "@/types/conversation";
+import type { MessageType, ConversationResponse } from "@/types/conversation";
 
 export type MessageStatus = "SENT" | "DELIVERED" | "READ";
 
@@ -20,9 +20,23 @@ export interface EditHistoryEntry {
     editedAt: string;
 }
 
+export interface Reaction {
+    userId: string;
+    emoji: string;
+    createdAt: string;
+}
+
+export interface Poll {
+    question: string;
+    options: string[];
+    multipleChoice: boolean;
+    votes: Record<string, string[]>; // optionIndex -> userIds
+    closed?: boolean;
+}
+
 /**
- * Message trả về từ API – khớp 100% với MessageResponse.java.
- * Thứ tự API trả về: mới nhất trước (descending), cần reverse trước khi render.
+ * Message returned from API – matches 100% with MessageResponse.java.
+ * API order: latest first (descending), needs reverse before rendering.
  */
 export interface Message {
     id: string;
@@ -32,6 +46,8 @@ export interface Message {
     type: MessageType;
     status: MessageStatus;
     replyToId: string | null;
+    forwardedFromId: string | null;
+    forwardedFromConversationId: string | null;
     attachments: Attachment[];
     readBy: ReadReceipt[];
 
@@ -45,22 +61,39 @@ export interface Message {
     editedAt: string | null;
     editHistory: EditHistoryEntry[];
 
+    // Reactions
+    reactions: Reaction[];
+
+    // Poll
+    poll?: Poll | null;
+
+    // Pin
+    pinned: boolean;
+    pinnedAt: string | null;
+    pinnedBy: string | null;
+
+    // Priority tag
+    priority?: string | null; // "IMPORTANT" | "URGENT" | null
+
+    // Mentions – user IDs mentioned in this message ("all" for @all)
+    mentions?: string[];
+
     createdAt: string;
     updatedAt: string;
 }
 
 /**
- * ChatEvent – wrapper for all realtime message events from WebSocket.
+ * ChatEvent – wrapper for all realtime message and group update events from WebSocket.
  */
-export type ChatAction = "SEND" | "EDIT" | "RECALL" | "DELETE";
-
+export type ChatAction = "SEND" | "EDIT" | "RECALL" | "DELETE" | "GROUP_UPDATE" | "REACT";
 export interface ChatEvent {
     action: ChatAction;
-    message: Message;
+    message?: Message;
+    conversationData?: ConversationResponse;
 }
 
 /**
- * ChatUser – thông tin hiển thị của một participant trong cuộc trò chuyện.
+ * ChatUser – display information of a participant in the conversation.
  */
 export interface ChatUser {
     id: string;

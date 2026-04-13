@@ -14,6 +14,9 @@ public interface NotificationRepository extends MongoRepository<Notification, St
 
     long countByReceiverIdAndReadFalse(String receiverId);
 
+    long countByReceiverIdAndTypeAndReferenceIdAndReadFalse(
+            String receiverId, NotificationType type, String referenceId);
+
     /** For deduplication: check if an unread notification already exists for the same receiver + type + referenceId */
     Optional<Notification> findByReceiverIdAndTypeAndReferenceIdAndReadFalse(
             String receiverId, NotificationType type, String referenceId);

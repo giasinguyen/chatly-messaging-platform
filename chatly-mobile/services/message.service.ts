@@ -20,8 +20,22 @@ export const messageService = {
     content: string;
     type?: string;
     replyToId?: string | null;
+    attachments?: import('@/types/message').Attachment[];
+    priority?: 'IMPORTANT' | 'URGENT';
+    poll?: import('@/types/message').Poll;
   }): Promise<ApiResponse<Message>> => {
     const response = await axiosClient.post<ApiResponse<Message>>('/api/messages', payload);
+    return response.data;
+  },
+
+  forward: async (
+    messageId: string,
+    targetConversationIds: string[],
+  ): Promise<ApiResponse<Message[]>> => {
+    const response = await axiosClient.post<ApiResponse<Message[]>>('/api/messages/forward', {
+      messageId,
+      targetConversationIds,
+    });
     return response.data;
   },
 
@@ -49,6 +63,49 @@ export const messageService = {
 
   delete: async (messageId: string): Promise<ApiResponse<void>> => {
     const response = await axiosClient.delete<ApiResponse<void>>(`/api/messages/${messageId}`);
+    return response.data;
+  },
+
+  react: async (messageId: string, emoji: string): Promise<ApiResponse<Message>> => {
+    const response = await axiosClient.put<ApiResponse<Message>>(
+      `/api/messages/${messageId}/react`,
+      { emoji },
+    );
+    return response.data;
+  },
+
+  search: async (
+    conversationId: string,
+    keyword: string,
+    page = 0,
+    size = 20,
+  ): Promise<ApiResponse<Message[]>> => {
+    const response = await axiosClient.get<ApiResponse<Message[]>>(
+      `/api/messages/conversation/${conversationId}/search`,
+      { params: { keyword, page, size } },
+    );
+    return response.data;
+  },
+
+  votePoll: async (messageId: string, optionIndex: number): Promise<ApiResponse<Message>> => {
+    const response = await axiosClient.put<ApiResponse<Message>>(
+      `/api/messages/${messageId}/vote`,
+      { optionIndex },
+    );
+    return response.data;
+  },
+
+  togglePin: async (messageId: string): Promise<ApiResponse<Message>> => {
+    const response = await axiosClient.put<ApiResponse<Message>>(
+      `/api/messages/${messageId}/pin`,
+    );
+    return response.data;
+  },
+
+  getPinnedMessages: async (conversationId: string): Promise<ApiResponse<Message[]>> => {
+    const response = await axiosClient.get<ApiResponse<Message[]>>(
+      `/api/messages/conversation/${conversationId}/pinned`,
+    );
     return response.data;
   },
 };

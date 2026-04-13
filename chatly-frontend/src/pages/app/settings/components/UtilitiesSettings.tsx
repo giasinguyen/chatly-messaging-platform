@@ -8,26 +8,26 @@ export function UtilitiesSettings() {
             <div className="mx-auto flex max-w-2xl flex-col gap-10">
                 <section className="flex flex-col gap-4">
                     <div className="flex flex-col gap-1">
-                        <h3 className="text-lg font-bold text-foreground">Bộ nhớ tạm</h3>
+                        <h3 className="text-lg font-bold text-foreground">Cache</h3>
                         <p className="text-sm text-muted-foreground">
-                            Kiểm tra dung lượng tạm và dọn dẹp để tăng hiệu năng
+                            Check temporary files and clean up to increase performance
                         </p>
                     </div>
 
                     <div className="flex items-center justify-between rounded-xl border border-border bg-card/40 p-6 transition-all hover:border-border/80">
                         <div>
-                            <p className="text-sm font-semibold text-foreground">1.2 GB dữ liệu tạm</p>
-                            <p className="text-xs text-muted-foreground">Bao gồm ảnh preview và lịch sử tìm kiếm cục bộ</p>
+                            <p className="text-sm font-semibold text-foreground">1.2 GB temporary data</p>
+                            <p className="text-xs text-muted-foreground">Includes preview images and local search history</p>
                         </div>
-                        <Button variant="outline">Dọn dẹp ngay</Button>
+                        <Button variant="outline">Clean up now</Button>
                     </div>
                 </section>
 
                 <section className="flex flex-col gap-4">
-                    <h3 className="text-lg font-bold text-foreground">Xuất dữ liệu cá nhân</h3>
+                    <h3 className="text-lg font-bold text-foreground">Export personal data</h3>
                     <div className="space-y-4 rounded-xl border border-border bg-card/40 p-6 transition-all hover:border-border/80">
                         <div className="space-y-2">
-                            <Label htmlFor="export-email">Email nhận file xuất</Label>
+                            <Label htmlFor="export-email">Email to receive exported file</Label>
                             <Input
                                 id="export-email"
                                 type="email"
@@ -36,18 +36,18 @@ export function UtilitiesSettings() {
                         </div>
                         <div className="flex justify-end">
                             <Button className="bg-brand text-white hover:bg-brand-hover">
-                                Yêu cầu xuất dữ liệu
+                                Request data export
                             </Button>
                         </div>
                     </div>
                 </section>
 
                 <section className="flex flex-col gap-4">
-                    <h3 className="text-lg font-bold text-foreground">Phím tắt nhanh</h3>
+                    <h3 className="text-lg font-bold text-foreground">Keyboard Shortcuts</h3>
                     <div className="space-y-3 rounded-xl border border-border bg-card/40 p-6 transition-all hover:border-border/80">
-                        <ShortcutRow shortcut="Ctrl + K" description="Tìm kiếm hội thoại" />
-                        <ShortcutRow shortcut="Ctrl + Shift + M" description="Tắt/Bật âm cuộc trò chuyện" />
-                        <ShortcutRow shortcut="Ctrl + /" description="Mở bảng phím tắt" />
+                        <ShortcutRow shortcut="Ctrl + K" description="Search conversation" />
+                        <ShortcutRow shortcut="Ctrl + Shift + M" description="Mute/Unmute conversation" />
+                        <ShortcutRow shortcut="Ctrl + /" description="Open shortcut panel" />
                     </div>
                 </section>
             </div>

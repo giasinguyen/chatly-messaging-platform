@@ -7,14 +7,25 @@ import { useAuthStore } from '@/store/auth.store';
 import { setupAxiosInterceptors } from '@/lib/axiosClient';
 import { socketService } from '@/services/socket.service';
 import { usePresenceSocket, PresenceEvent } from '@/hooks/usePresenceSocket';
+import { useNotificationSocket } from '@/hooks/useNotificationSocket';
+import { useExpoPush } from '@/hooks/useExpoPush';
+import { CallSocketProvider, useCallContext } from '@/contexts/CallContext';
+import { useCallStore } from '@/store/call.store';
+import { CallScreen } from '@/components/call/CallScreen';
+import { OutgoingCallScreen } from '@/components/call/OutgoingCallScreen';
+import { ActiveCallOverlay } from '@/components/call/ActiveCallOverlay';
+import { NotificationBanner } from '@/components/ui/NotificationBanner';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { View, ActivityIndicator } from 'react-native';
 import { Colors } from '@/constants/theme';
+import { notificationService } from '@/services/notification.service';
+import { useNotificationStore } from '@/store/notification.store';
 
-function AuthGate({ children }: { children: React.ReactNode }) {
+function AuthGateInner({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, hydrated, hydrate, setAuth, clearAuth } = useAuthStore();
   const segments = useSegments();
   const router = useRouter();
+  const setUnreadCount = useNotificationStore((s) => s.setUnreadCount);
 
   // Hydrate auth state from AsyncStorage on mount
   useEffect(() => {
@@ -40,10 +51,6 @@ function AuthGate({ children }: { children: React.ReactNode }) {
     } else {
       socketService.disconnect();
     }
-
-    return () => {
-      // Don't disconnect on unmount - layout persists
-    };
   }, [isAuthenticated, hydrated]);
 
   // Subscribe to presence events
@@ -53,6 +60,22 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   }, []);
 
   usePresenceSocket({ onPresenceChange: handlePresenceChange });
+  useNotificationSocket();
+  useExpoPush();
+
+  // Khởi tạo signaling WebSocket cho cuộc gọi (hoạt động ở mọi màn hình)
+  const { answerCall: answerCallAction } = useCallContext();
+  const incomingCall = useCallStore((s) => s.incomingCall);
+  const callStatus = useCallStore((s) => s.callStatus);
+
+  // Fetch initial unread count
+  useEffect(() => {
+    if (isAuthenticated && hydrated) {
+      notificationService.getUnreadCount()
+        .then(res => setUnreadCount(res.result))
+        .catch(err => console.error('Failed to fetch unread count', err));
+    }
+  }, [isAuthenticated, hydrated, setUnreadCount]);
 
   // Handle navigation based on auth state
   useEffect(() => {
@@ -76,7 +99,36 @@ function AuthGate({ children }: { children: React.ReactNode }) {
     );
   }
 
-  return <>{children}</>;
+  return (
+    <>
+      <NotificationBanner />
+      {children}
+
+      {/* Màn hình cuộc gọi đến */}
+      {incomingCall && callStatus === 'RINGING' && (
+        <CallScreen
+          visible
+          incomingCall={incomingCall}
+          onAccept={() => answerCallAction(true)}
+          onReject={() => answerCallAction(false)}
+        />
+      )}
+
+      {/* Màn hình đang gọi (caller side) */}
+      <OutgoingCallScreen />
+
+      {/* Overlay cuộc gọi đang diễn ra */}
+      {callStatus === 'ONGOING' && <ActiveCallOverlay />}
+    </>
+  );
+}
+
+function AuthGate({ children }: { children: React.ReactNode }) {
+  return (
+    <CallSocketProvider>
+      <AuthGateInner>{children}</AuthGateInner>
+    </CallSocketProvider>
+  );
 }
 
 export default function RootLayout() {

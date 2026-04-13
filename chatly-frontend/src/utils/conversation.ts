@@ -2,14 +2,14 @@ import type { ConversationResponse } from "@/types/conversation";
 import type { UserResponse } from "@/types/auth";
 
 /**
- * Lấy ID của người dùng đối phương trong một PRIVATE conversation.
+ * Get the ID of the other participant in a PRIVATE conversation.
  *
- * Logic: duyệt qua participantIds và lấy người KHÁC với currentUserId.
- * (creatorId chỉ là tham chiếu, không đủ tin cậy để dùng thay vì so sánh participantIds)
+ * Logic: iterate through participantIds and find the ID DIFFERENT from currentUserId.
+ * (creatorId is just a reference, not reliable enough compared to participantIds)
  *
- * @param conversation  - Dữ liệu conversation từ API
- * @param currentUserId - ID của user đang đăng nhập
- * @returns ID của người đối diện, hoặc null nếu không tìm thấy
+ * @param conversation  - Conversation data from API
+ * @param currentUserId - ID of the logged-in user
+ * @returns ID of the other participant, or null if not found
  */
 export function getOtherParticipantId(
     conversation: ConversationResponse,
@@ -21,11 +21,11 @@ export function getOtherParticipantId(
 }
 
 /**
- * Tìm UserResponse theo ID từ danh sách users đã fetch.
+ * Find UserResponse by ID from the fetched users list.
  *
- * @param users - Danh sách UserResponse đã tải về
- * @param userId - ID cần tìm
- * @returns UserResponse hoặc undefined
+ * @param users - List of downloaded UserResponse
+ * @param userId - ID to find
+ * @returns UserResponse or undefined
  */
 export function findUserById(
     users: UserResponse[],
@@ -36,9 +36,9 @@ export function findUserById(
 }
 
 /**
- * Lấy label hiển thị cho một conversation:
- * - PRIVATE: hiển thị displayName của người đối phương
- * - GROUP: hiển thị tên nhóm, hoặc fallback là "Nhóm chat"
+ * Get the display label for a conversation:
+ * - PRIVATE: display other participant's displayName
+ * - GROUP: display group name, or fallback to "Group chat"
  */
 export function getConversationDisplayName(
     conversation: ConversationResponse,
@@ -48,15 +48,15 @@ export function getConversationDisplayName(
     if (conversation.type === "PRIVATE") {
         const otherId = getOtherParticipantId(conversation, currentUserId);
         const other = findUserById(users, otherId);
-        return other?.displayName ?? other?.username ?? "Người dùng";
+        return other?.displayName ?? other?.username ?? "User";
     }
-    return conversation.name ?? "Nhóm chat";
+    return conversation.name ?? "Group chat";
 }
 
 /**
- * Lấy avatar URL cho một conversation:
- * - PRIVATE: avatar của người đối phương
- * - GROUP: avatarUrl của nhóm
+ * Get the avatar URL for a conversation:
+ * - PRIVATE: other participant's avatar
+ * - GROUP: group avatarUrl
  */
 export function getConversationAvatar(
     conversation: ConversationResponse,

@@ -16,5 +16,6 @@ public class ContactResponse {
     private UserResponse user;
     private UserResponse contact;
     private ContactStatus status;
+    private String blockedBy;
     private Instant createdAt;
 }

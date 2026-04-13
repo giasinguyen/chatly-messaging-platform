@@ -3,8 +3,8 @@ import type { UserResponse, AuthResponse } from "@/types/auth";
 
 /**
  * AUTH STORE (Zustand)
- * Quản lý trạng thái đăng nhập và thông tin người dùng toàn cục.
- * Phục hồi trạng thái gốc bằng access_token lưu dưới localStorage.
+ * Manages the login state and global user information.
+ * Restores initial state using the access_token stored in localStorage.
  */
 interface AuthState {
     user: UserResponse | null;
@@ -20,12 +20,12 @@ interface AuthState {
 
 export const useAuthStore = create<AuthState>((set) => ({
     user: null,
-    // Khởi tạo isAuthenticated dựa trên việc có token trong localStorage hay không
+    // Initialize isAuthenticated based on whether there's a token in localStorage
     isAuthenticated: !!localStorage.getItem("access_token"),
     loading: false,
 
     setAuth: (payload) => {
-        // Lưu token vào localStorage để axiosClient có thể sử dụng
+        // Store tokens in localStorage for axiosClient to use
         localStorage.setItem("access_token", payload.token);
         localStorage.setItem("refresh_token", payload.refreshToken);
 
@@ -36,7 +36,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     },
 
     clearAuth: () => {
-        // Xóa cả trong store và trong localStorage (tokens)
+        // Clears both the store and localStorage (tokens)
         localStorage.removeItem("access_token");
         localStorage.removeItem("refresh_token");
         // Remove left-over zustand persistence key

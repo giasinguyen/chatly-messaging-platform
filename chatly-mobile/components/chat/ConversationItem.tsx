@@ -1,4 +1,5 @@
 import { View, Text, TouchableOpacity } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { Avatar } from '@/components/ui/Avatar';
 import { Colors } from '@/constants/theme';
 import { formatRelativeTime, truncateText } from '@/utils/format';
@@ -11,6 +12,9 @@ interface ConversationItemProps {
   onLongPress?: () => void;
   participantNames?: Record<string, string>;
   participantAvatars?: Record<string, string | undefined>;
+  onlineUserIds?: Set<string>;
+  isPinned?: boolean;
+  isMuted?: boolean;
 }
 
 export function ConversationItem({
@@ -20,42 +24,73 @@ export function ConversationItem({
   onLongPress,
   participantNames = {},
   participantAvatars = {},
+  onlineUserIds = new Set(),
+  isPinned = false,
+  isMuted = false,
 }: ConversationItemProps) {
   const { type, name, avatarUrl, lastMessage, participantIds, updatedAt } = conversation;
 
   // Resolve display name
-  let displayName = name ?? 'Cuộc trò chuyện';
+  let displayName = name ?? 'Conversation';
   let displayAvatar = avatarUrl;
+  let isOnline = false;
 
   if (type === 'PRIVATE') {
     const otherId = participantIds.find((id) => id !== currentUserId);
     if (otherId) {
-      displayName = participantNames[otherId] ?? 'Người dùng';
+      displayName = participantNames[otherId] ?? 'User';
       displayAvatar = participantAvatars[otherId] ?? null;
+      isOnline = onlineUserIds.has(otherId);
     }
+  } else {
+    // Group: online if any other member is online
+    isOnline = participantIds.some(
+      (pid) => pid !== currentUserId && onlineUserIds.has(pid),
+    );
   }
 
   // Last message preview
-  let preview = 'Chưa có tin nhắn';
+  let preview = 'No messages yet';
   if (lastMessage) {
     const isMe = lastMessage.senderId === currentUserId;
-    const prefix = isMe ? 'Bạn: ' : '';
+    const prefix = isMe ? 'You: ' : '';
     switch (lastMessage.type) {
       case 'IMAGE':
-        preview = prefix + '📷 Hình ảnh';
+        preview = prefix + '📷 Image';
         break;
       case 'FILE':
-        preview = prefix + '📎 Tệp đính kèm';
+        preview = prefix + '📎 ' + (lastMessage.content || 'Attachment');
         break;
       case 'VIDEO':
-        preview = prefix + '🎬 Video';
+        preview = prefix + '🎬 ' + (lastMessage.content || 'Video');
         break;
       case 'AUDIO':
-        preview = prefix + '🎵 Âm thanh';
+        preview = prefix + '🎵 ' + (lastMessage.content || 'Audio');
+        break;
+      case 'GIF':
+        preview = prefix + '🎬 GIF';
+        break;
+      case 'STICKER':
+        preview = prefix + '🎨 Sticker';
+        break;
+      case 'VCARD':
+        preview = prefix + '📇 Contact card';
         break;
       case 'SYSTEM':
         preview = lastMessage.content;
         break;
+      case 'CALL': {
+        let callData: { callType?: string; status?: string } = {};
+        try { callData = JSON.parse(lastMessage.content); } catch { /* ignore */ }
+        const missed = callData.status === 'MISSED' || callData.status === 'REJECTED';
+        const video = callData.callType === 'VIDEO';
+        if (missed) {
+          preview = video ? '📵 Missed video call' : '📵 Missed audio call';
+        } else {
+          preview = video ? '🎥 Video call' : '📞 Audio call';
+        }
+        break;
+      }
       default:
         preview = prefix + lastMessage.content;
     }
@@ -72,12 +107,12 @@ export function ConversationItem({
       activeOpacity={0.7}
       className="flex-row items-center px-4 py-3"
       style={{
-        backgroundColor: Colors.white,
+        backgroundColor: isPinned ? Colors.ctaLight : Colors.white,
         borderBottomWidth: 0.5,
         borderBottomColor: Colors.borderLight,
       }}
     >
-      <Avatar uri={displayAvatar} name={displayName} size={52} showOnline />
+      <Avatar uri={displayAvatar} name={displayName} size={52} showOnline isOnline={isOnline} />
 
       <View className="ml-3 flex-1">
         <View className="flex-row items-center justify-between">
@@ -88,17 +123,40 @@ export function ConversationItem({
           >
             {displayName}
           </Text>
-          <Text className="ml-2 text-xs" style={{ color: Colors.textMuted }}>
-            {timeStr}
-          </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginLeft: 6 }}>
+            {isPinned && (
+              <Ionicons name="bookmark" size={13} color={Colors.cta} />
+            )}
+            {isMuted && (
+              <Ionicons name="notifications-off-outline" size={13} color={Colors.textLight} />
+            )}
+            <Text className="text-xs" style={{ color: Colors.textMuted }}>
+              {timeStr}
+            </Text>
+          </View>
         </View>
-        <Text
-          className="mt-0.5 text-sm"
-          style={{ color: Colors.textMuted }}
-          numberOfLines={1}
-        >
-          {truncateText(preview, 40)}
-        </Text>
+        <View className="flex-row items-center justify-between mt-0.5">
+          <Text
+            className="flex-1 text-sm"
+            style={{ 
+              color: conversation.unreadCount > 0 ? Colors.text : Colors.textMuted,
+              fontWeight: conversation.unreadCount > 0 ? '600' : 'normal'
+            }}
+            numberOfLines={1}
+          >
+            {truncateText(preview, 35)}
+          </Text>
+          {conversation.unreadCount > 0 && (
+            <View 
+              className="ml-2 h-5 min-w-[20px] items-center justify-center rounded-full px-1.5"
+              style={{ backgroundColor: Colors.cta }}
+            >
+              <Text className="text-[10px] font-bold text-white">
+                {conversation.unreadCount > 99 ? '99+' : conversation.unreadCount}
+              </Text>
+            </View>
+          )}
+        </View>
       </View>
     </TouchableOpacity>
   );

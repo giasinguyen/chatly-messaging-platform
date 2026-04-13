@@ -1,4 +1,4 @@
-﻿import { Monitor, MoonStar, Sun } from "lucide-react";
+import { Monitor, MoonStar, Sun } from "lucide-react";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useThemeStore, getResolvedTheme } from "@/store/theme.store";
 import { cn } from "@/lib/utils";
@@ -10,9 +10,9 @@ const appearanceOptions: Array<{
     title: string;
     Icon: typeof Sun;
 }> = [
-    { value: "light", title: "Sáng", Icon: Sun },
-    { value: "dark", title: "Tối", Icon: MoonStar },
-    { value: "system", title: "Hệ thống", Icon: Monitor },
+    { value: "light", title: "Light", Icon: Sun },
+    { value: "dark", title: "Dark", Icon: MoonStar },
+    { value: "system", title: "System", Icon: Monitor },
 ];
 
 export function AppearanceSettings() {
@@ -25,10 +25,10 @@ export function AppearanceSettings() {
             <div className="mx-auto flex w-full max-w-3xl flex-col gap-8">
                 <section className="space-y-3">
                     <h3 className="text-2xl font-bold tracking-tight text-foreground">
-                        Cài đặt giao diện
+                        Appearance Settings
                     </h3>
                     <p className="text-sm text-muted-foreground">
-                        Chọn chế độ hiển thị bạn thấy dễ chịu nhất.
+                        Select the theme you find most comfortable.
                     </p>
                 </section>
 
@@ -69,18 +69,18 @@ export function AppearanceSettings() {
                     </RadioGroup>
 
                     <div className="mt-5 rounded-lg bg-background/60 px-4 py-3 text-sm text-muted-foreground">
-                        Chế độ hiện tại:{" "}
+                        Current mode:{" "}
                         <span className="font-semibold text-foreground">
                             {theme === "light"
-                                ? "Sáng"
+                                ? "Light"
                                 : theme === "dark"
-                                  ? "Tối"
-                                  : "Theo hệ thống"}
+                                  ? "Dark"
+                                  : "System"}
                         </span>
                         {theme === "system" && (
                             <>
                                 {" "}
-                                (đang hiển thị {resolvedTheme === "dark" ? "Tối" : "Sáng"})
+                                (currently displaying {resolvedTheme === "dark" ? "Dark" : "Light"})
                             </>
                         )}
                     </div>

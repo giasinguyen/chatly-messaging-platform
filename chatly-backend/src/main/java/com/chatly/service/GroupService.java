@@ -1,22 +1,25 @@
 package com.chatly.service;
 
+import com.chatly.dto.request.GroupNoteRequest;
+import com.chatly.dto.request.GroupReminderRequest;
 import com.chatly.dto.request.GroupUpdateRequest;
 import com.chatly.dto.request.UpdateRoleRequest;
-import com.chatly.dto.response.ConversationResponse;
-import com.chatly.dto.response.GroupMemberResponse;
+import com.chatly.dto.response.*;
 import com.chatly.exception.AppException;
 import com.chatly.exception.ErrorCode;
 import com.chatly.mapper.ConversationMapper;
 import com.chatly.model.enums.ConversationType;
 import com.chatly.model.enums.GroupRole;
 import com.chatly.model.enums.NotificationType;
-import com.chatly.model.mongo.Conversation;
+import com.chatly.model.mongo.*;
 import com.chatly.model.postgres.GroupMember;
 import com.chatly.model.postgres.User;
-import com.chatly.repository.mongo.ConversationRepository;
+import com.chatly.repository.mongo.*;
 import com.chatly.repository.postgres.GroupMemberRepository;
 import com.chatly.repository.postgres.UserRepository;
+import com.chatly.websocket.ChatEvent;
 import lombok.RequiredArgsConstructor;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,6 +35,11 @@ public class GroupService {
     private final UserRepository userRepository;
     private final ConversationMapper conversationMapper;
     private final NotificationService notificationService;
+    private final SimpMessagingTemplate messagingTemplate;
+    private final PendingJoinRequestRepository pendingJoinRequestRepository;
+    private final GroupReminderRepository groupReminderRepository;
+    private final GroupNoteRepository groupNoteRepository;
+    private final MessageService messageService;
 
     /**
      * Add a member to a group conversation.
@@ -40,7 +48,7 @@ public class GroupService {
     @Transactional
     public GroupMemberResponse addMember(String conversationId, String targetUserId, String requesterId) {
         Conversation conversation = getGroupConversation(conversationId);
-        requireOwnerOrAdmin(conversationId, requesterId);
+        GroupMember requester = requireOwnerOrAdmin(conversationId, requesterId);
 
         UUID targetUid = UUID.fromString(targetUserId);
 
@@ -48,18 +56,46 @@ public class GroupService {
             throw new AppException(ErrorCode.GROUP_MEMBER_ALREADY_EXISTS);
         }
 
+        // Check if requireApproval is enabled and requester is not OWNER
+        if (Boolean.TRUE.equals(conversation.getRequireApproval()) && requester.getRole() != GroupRole.OWNER) {
+            // Create pending request instead
+            if (pendingJoinRequestRepository.existsByConversationIdAndUserId(conversationId, targetUserId)) {
+                throw new AppException(ErrorCode.GROUP_PENDING_REQUEST_EXISTS);
+            }
+            pendingJoinRequestRepository.save(PendingJoinRequest.builder()
+                    .conversationId(conversationId)
+                    .userId(targetUserId)
+                    .invitedBy(requesterId)
+                    .build());
+            // Return a special response with userId so frontend knows it's pending
+            User targetUser = userRepository.findById(targetUid)
+                    .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+            return GroupMemberResponse.builder()
+                    .userId(targetUser.getId().toString())
+                    .username(targetUser.getUsername())
+                    .displayName(targetUser.getDisplayName())
+                    .avatar(targetUser.getAvatarUrl())
+                    .role(null) // null role signals pending
+                    .build();
+        }
+
+        return doAddMember(conversation, targetUserId, requesterId);
+    }
+
+    private GroupMemberResponse doAddMember(Conversation conversation, String targetUserId, String requesterId) {
+        UUID targetUid = UUID.fromString(targetUserId);
+
         User targetUser = userRepository.findById(targetUid)
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
 
         GroupMember member = GroupMember.builder()
-                .conversationId(conversationId)
+                .conversationId(conversation.getId())
                 .user(targetUser)
                 .role(GroupRole.MEMBER)
                 .build();
 
         groupMemberRepository.save(member);
 
-        // Update participantIds in MongoDB conversation
         conversation.getParticipantIds().add(targetUserId);
         conversationRepository.save(conversation);
 
@@ -67,9 +103,22 @@ public class GroupService {
                 NotificationType.GROUP_INVITE,
                 requesterId,
                 targetUserId,
-                "Bạn đã được thêm vào nhóm " + (conversation.getName() != null ? conversation.getName() : "chat"),
-                conversationId
+                "You have been added to group " + (conversation.getName() != null ? conversation.getName() : "chat"),
+                conversation.getId()
         );
+
+        // Send system message about new member
+        try {
+            User requesterUser = requesterId.equals(targetUserId) ? targetUser
+                    : userRepository.findById(UUID.fromString(requesterId)).orElse(null);
+            String requesterName = requesterUser != null ? requesterUser.getDisplayName() : "Someone";
+            String content = requesterId.equals(targetUserId)
+                    ? targetUser.getDisplayName() + " joined the group"
+                    : requesterName + " added " + targetUser.getDisplayName() + " to the group";
+            messageService.sendSystemMessage(conversation.getId(), content);
+        } catch (Exception e) {
+            // Don't fail if system message fails
+        }
 
         return toMemberResponse(member);
     }
@@ -100,6 +149,18 @@ public class GroupService {
         // Update participantIds in MongoDB conversation
         conversation.getParticipantIds().remove(targetUserId);
         conversationRepository.save(conversation);
+
+        // Send system message about removed member
+        try {
+            User targetUser = userRepository.findById(targetUid).orElse(null);
+            User requesterUser = userRepository.findById(UUID.fromString(requesterId)).orElse(null);
+            String targetName = targetUser != null ? targetUser.getDisplayName() : "A member";
+            String requesterName = requesterUser != null ? requesterUser.getDisplayName() : "Someone";
+            String content = requesterName + " removed " + targetName + " from the group";
+            messageService.sendSystemMessage(conversationId, content);
+        } catch (Exception e) {
+            // Don't fail if system message fails
+        }
     }
 
     /**
@@ -139,12 +200,21 @@ public class GroupService {
     }
 
     /**
-     * Update group conversation info (name, avatar).
+     * Update group conversation info (name, avatar, permissions).
      */
     @Transactional
     public ConversationResponse updateGroup(String conversationId, GroupUpdateRequest request, String requesterId) {
         Conversation conversation = getGroupConversation(conversationId);
-        requireOwnerOrAdmin(conversationId, requesterId);
+        
+        // Check permission: only owner/admin can always update; members can update only if allowMembersUpdateInfo is true
+        // Treat null as true (field didn't exist for older groups; default is "allowed")
+        GroupMember requester = requireGroupMember(conversationId, requesterId);
+        boolean isOwnerOrAdmin = requester.getRole() == GroupRole.OWNER || requester.getRole() == GroupRole.ADMIN;
+        boolean canUpdate = isOwnerOrAdmin || !Boolean.FALSE.equals(conversation.getAllowMembersUpdateInfo());
+        
+        if (!canUpdate) {
+            throw new AppException(ErrorCode.GROUP_PERMISSION_DENIED);
+        }
 
         if (request.getName() != null) {
             conversation.setName(request.getName());
@@ -152,9 +222,21 @@ public class GroupService {
         if (request.getAvatar() != null) {
             conversation.setAvatarUrl(request.getAvatar());
         }
+        if (request.getAllowMembersUpdateInfo() != null && isOwnerOrAdmin) {
+            // Only owner/admin can change this setting
+            conversation.setAllowMembersUpdateInfo(request.getAllowMembersUpdateInfo());
+        }
+        if (request.getRequireApproval() != null && isOwnerOrAdmin) {
+            conversation.setRequireApproval(request.getRequireApproval());
+        }
 
         conversation = conversationRepository.save(conversation);
-        return conversationMapper.toResponse(conversation);
+        ConversationResponse response = conversationMapper.toResponse(conversation);
+        
+        // Broadcast GROUP_UPDATE event to all participants
+        broadcastGroupUpdate(conversationId, response);
+        
+        return response;
     }
 
     /**
@@ -173,6 +255,250 @@ public class GroupService {
                 .stream()
                 .map(this::toMemberResponse)
                 .toList();
+    }
+
+    // ── Invite Link ───────────────────────────────────────────────────
+
+    public InviteLinkResponse getOrCreateInviteLink(String conversationId, String requesterId) {
+        Conversation conversation = getGroupConversation(conversationId);
+        requireGroupMember(conversationId, requesterId);
+
+        if (conversation.getInviteToken() == null || conversation.getInviteToken().isBlank()) {
+            conversation.setInviteToken(UUID.randomUUID().toString().replace("-", ""));
+            conversationRepository.save(conversation);
+        }
+
+        return InviteLinkResponse.builder()
+                .inviteToken(conversation.getInviteToken())
+                .inviteLink("/join/" + conversation.getInviteToken())
+                .build();
+    }
+
+    public InviteLinkResponse resetInviteLink(String conversationId, String requesterId) {
+        Conversation conversation = getGroupConversation(conversationId);
+        requireOwnerOrAdmin(conversationId, requesterId);
+
+        conversation.setInviteToken(UUID.randomUUID().toString().replace("-", ""));
+        conversationRepository.save(conversation);
+
+        return InviteLinkResponse.builder()
+                .inviteToken(conversation.getInviteToken())
+                .inviteLink("/join/" + conversation.getInviteToken())
+                .build();
+    }
+
+    @Transactional
+    public GroupMemberResponse joinByInviteLink(String inviteToken, String userId) {
+        Conversation conversation = conversationRepository.findAll().stream()
+                .filter(c -> inviteToken.equals(c.getInviteToken()) && c.getType() == ConversationType.GROUP)
+                .findFirst()
+                .orElseThrow(() -> new AppException(ErrorCode.GROUP_INVITE_TOKEN_INVALID));
+
+        UUID uid = UUID.fromString(userId);
+        if (groupMemberRepository.existsByConversationIdAndUserId(conversation.getId(), uid)) {
+            // Already a member — return existing member info instead of error
+            User existingUser = userRepository.findById(uid)
+                    .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+            GroupMember existingMember = groupMemberRepository.findByConversationIdAndUserId(conversation.getId(), uid)
+                    .orElseThrow(() -> new AppException(ErrorCode.GROUP_MEMBER_NOT_FOUND));
+            return GroupMemberResponse.builder()
+                    .conversationId(conversation.getId())
+                    .userId(existingUser.getId().toString())
+                    .username(existingUser.getUsername())
+                    .displayName(existingUser.getDisplayName())
+                    .avatar(existingUser.getAvatarUrl())
+                    .role(existingMember.getRole())
+                    .joinedAt(existingMember.getJoinedAt())
+                    .build();
+        }
+
+        // If requireApproval is on, create pending request
+        if (Boolean.TRUE.equals(conversation.getRequireApproval())) {
+            if (pendingJoinRequestRepository.existsByConversationIdAndUserId(conversation.getId(), userId)) {
+                // Already has a pending request — return pending info instead of error
+                User u = userRepository.findById(uid).orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+                return GroupMemberResponse.builder()
+                        .conversationId(conversation.getId())
+                        .userId(u.getId().toString()).username(u.getUsername())
+                        .displayName(u.getDisplayName()).avatar(u.getAvatarUrl())
+                        .role(null) // null = pending
+                        .build();
+            }
+            pendingJoinRequestRepository.save(PendingJoinRequest.builder()
+                    .conversationId(conversation.getId())
+                    .userId(userId)
+                    .invitedBy(null)
+                    .build());
+            User u = userRepository.findById(uid).orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+            return GroupMemberResponse.builder()
+                    .userId(u.getId().toString()).username(u.getUsername())
+                    .displayName(u.getDisplayName()).avatar(u.getAvatarUrl())
+                    .role(null) // null = pending
+                    .build();
+        }
+
+        return doAddMember(conversation, userId, userId);
+    }
+
+    // ── Pending Join Requests ────────────────────────────────────────
+
+    public List<PendingJoinResponse> getPendingRequests(String conversationId, String requesterId) {
+        getGroupConversation(conversationId);
+        requireOwnerOrAdmin(conversationId, requesterId);
+
+        return pendingJoinRequestRepository.findByConversationId(conversationId).stream()
+                .map(req -> {
+                    User u = userRepository.findById(UUID.fromString(req.getUserId())).orElse(null);
+                    return PendingJoinResponse.builder()
+                            .id(req.getId())
+                            .conversationId(req.getConversationId())
+                            .userId(req.getUserId())
+                            .displayName(u != null ? u.getDisplayName() : "Unknown")
+                            .username(u != null ? u.getUsername() : "unknown")
+                            .avatarUrl(u != null ? u.getAvatarUrl() : null)
+                            .invitedBy(req.getInvitedBy())
+                            .createdAt(req.getCreatedAt())
+                            .build();
+                })
+                .toList();
+    }
+
+    @Transactional
+    public GroupMemberResponse approvePendingRequest(String conversationId, String targetUserId, String requesterId) {
+        Conversation conversation = getGroupConversation(conversationId);
+        // Only OWNER or ADMIN can approve
+        GroupMember requester = requireOwnerOrAdmin(conversationId, requesterId);
+
+        PendingJoinRequest pending = pendingJoinRequestRepository.findFirstByConversationIdAndUserId(conversationId, targetUserId)
+                .orElseThrow(() -> new AppException(ErrorCode.GROUP_PENDING_REQUEST_NOT_FOUND));
+
+        pendingJoinRequestRepository.deleteByConversationIdAndUserId(conversationId, targetUserId);
+        return doAddMember(conversation, targetUserId, requesterId);
+    }
+
+    @Transactional
+    public void rejectPendingRequest(String conversationId, String targetUserId, String requesterId) {
+        getGroupConversation(conversationId);
+        requireOwnerOrAdmin(conversationId, requesterId);
+        PendingJoinRequest pending = pendingJoinRequestRepository.findFirstByConversationIdAndUserId(conversationId, targetUserId)
+                .orElseThrow(() -> new AppException(ErrorCode.GROUP_PENDING_REQUEST_NOT_FOUND));
+        pendingJoinRequestRepository.deleteByConversationIdAndUserId(conversationId, targetUserId);
+    }
+
+    // ── Reminders ────────────────────────────────────────────────────
+
+    public List<GroupReminderResponse> getReminders(String conversationId, String requesterId) {
+        requireAnyConversationParticipant(conversationId, requesterId);
+
+        return groupReminderRepository.findByConversationIdOrderByRemindAtAsc(conversationId).stream()
+                .map(this::toReminderResponse)
+                .toList();
+    }
+
+    public GroupReminderResponse createReminder(String conversationId, GroupReminderRequest request, String requesterId) {
+        requireAnyConversationParticipant(conversationId, requesterId);
+
+        GroupReminder reminder = GroupReminder.builder()
+                .conversationId(conversationId)
+                .creatorId(requesterId)
+                .title(request.getTitle())
+                .description(request.getDescription())
+                .remindAt(request.getRemindAt())
+                .build();
+
+        GroupReminder saved = groupReminderRepository.save(reminder);
+
+        // Broadcast SYSTEM message to group chat
+        try {
+            User creator = userRepository.findById(UUID.fromString(requesterId)).orElse(null);
+            String creatorName = creator != null ? creator.getDisplayName() : "Member";
+            String timeInfo = request.getRemindAt() != null
+                    ? " — Scheduled: " + java.time.format.DateTimeFormatter
+                        .ofPattern("HH:mm dd/MM/yyyy")
+                        .withZone(java.time.ZoneId.of("Asia/Ho_Chi_Minh"))
+                        .format(request.getRemindAt())
+                    : "";
+            String content = "📋 " + creatorName + " created a reminder: " + request.getTitle() + timeInfo;
+            messageService.sendSystemMessage(conversationId, content);
+        } catch (Exception e) {
+            // Don't fail the create if broadcast fails
+        }
+
+        return toReminderResponse(saved);
+    }
+
+    public GroupReminderResponse toggleReminderComplete(String reminderId, String requesterId) {
+        GroupReminder reminder = groupReminderRepository.findById(reminderId)
+                .orElseThrow(() -> new AppException(ErrorCode.GROUP_REMINDER_NOT_FOUND));
+        requireAnyConversationParticipant(reminder.getConversationId(), requesterId);
+
+        reminder.setCompleted(!Boolean.TRUE.equals(reminder.getCompleted()));
+        return toReminderResponse(groupReminderRepository.save(reminder));
+    }
+
+    public void deleteReminder(String reminderId, String requesterId) {
+        GroupReminder reminder = groupReminderRepository.findById(reminderId)
+                .orElseThrow(() -> new AppException(ErrorCode.GROUP_REMINDER_NOT_FOUND));
+        requireAnyConversationParticipant(reminder.getConversationId(), requesterId);
+        groupReminderRepository.delete(reminder);
+    }
+
+    public GroupReminderResponse updateReminder(String reminderId, GroupReminderRequest request, String requesterId) {
+        GroupReminder reminder = groupReminderRepository.findById(reminderId)
+                .orElseThrow(() -> new AppException(ErrorCode.GROUP_REMINDER_NOT_FOUND));
+        requireAnyConversationParticipant(reminder.getConversationId(), requesterId);
+
+        if (request.getTitle() != null) reminder.setTitle(request.getTitle());
+        if (request.getDescription() != null) reminder.setDescription(request.getDescription());
+        if (request.getRemindAt() != null) {
+            reminder.setRemindAt(request.getRemindAt());
+            reminder.setNotified(false); // reset notification if time changed
+        }
+
+        return toReminderResponse(groupReminderRepository.save(reminder));
+    }
+
+    // ── Notes ────────────────────────────────────────────────────────
+
+    public List<GroupNoteResponse> getNotes(String conversationId, String requesterId) {
+        requireAnyConversationParticipant(conversationId, requesterId);
+
+        return groupNoteRepository.findByConversationIdOrderByPinnedDescCreatedAtDesc(conversationId).stream()
+                .map(this::toNoteResponse)
+                .toList();
+    }
+
+    public GroupNoteResponse createNote(String conversationId, GroupNoteRequest request, String requesterId) {
+        requireAnyConversationParticipant(conversationId, requesterId);
+
+        GroupNote note = GroupNote.builder()
+                .conversationId(conversationId)
+                .creatorId(requesterId)
+                .title(request.getTitle())
+                .content(request.getContent())
+                .pinned(request.getPinned() != null && request.getPinned())
+                .build();
+
+        return toNoteResponse(groupNoteRepository.save(note));
+    }
+
+    public GroupNoteResponse updateNote(String noteId, GroupNoteRequest request, String requesterId) {
+        GroupNote note = groupNoteRepository.findById(noteId)
+                .orElseThrow(() -> new AppException(ErrorCode.GROUP_NOTE_NOT_FOUND));
+        requireAnyConversationParticipant(note.getConversationId(), requesterId);
+
+        if (request.getTitle() != null) note.setTitle(request.getTitle());
+        if (request.getContent() != null) note.setContent(request.getContent());
+        if (request.getPinned() != null) note.setPinned(request.getPinned());
+
+        return toNoteResponse(groupNoteRepository.save(note));
+    }
+
+    public void deleteNote(String noteId, String requesterId) {
+        GroupNote note = groupNoteRepository.findById(noteId)
+                .orElseThrow(() -> new AppException(ErrorCode.GROUP_NOTE_NOT_FOUND));
+        requireAnyConversationParticipant(note.getConversationId(), requesterId);
+        groupNoteRepository.delete(note);
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────
@@ -200,9 +526,28 @@ public class GroupService {
         return member;
     }
 
+    private GroupMember requireGroupMember(String conversationId, String userId) {
+        UUID uid = UUID.fromString(userId);
+        return groupMemberRepository.findByConversationIdAndUserId(conversationId, uid)
+                .orElseThrow(() -> new AppException(ErrorCode.GROUP_MEMBER_NOT_FOUND));
+    }
+
+    private void requireAnyConversationParticipant(String conversationId, String userId) {
+        Conversation conversation = conversationRepository.findById(conversationId)
+                .orElseThrow(() -> new AppException(ErrorCode.CONVERSATION_NOT_FOUND));
+        if (conversation.getType() == ConversationType.GROUP) {
+            requireGroupMember(conversationId, userId);
+        } else {
+            if (!conversation.getParticipantIds().contains(userId)) {
+                throw new AppException(ErrorCode.GROUP_PERMISSION_DENIED);
+            }
+        }
+    }
+
     private GroupMemberResponse toMemberResponse(GroupMember member) {
         User user = member.getUser();
         return GroupMemberResponse.builder()
+                .conversationId(member.getConversationId())
                 .userId(user.getId().toString())
                 .username(user.getUsername())
                 .displayName(user.getDisplayName())
@@ -210,5 +555,38 @@ public class GroupService {
                 .role(member.getRole())
                 .joinedAt(member.getJoinedAt())
                 .build();
+    }
+
+    private GroupReminderResponse toReminderResponse(GroupReminder r) {
+        return GroupReminderResponse.builder()
+                .id(r.getId()).conversationId(r.getConversationId())
+                .creatorId(r.getCreatorId()).title(r.getTitle())
+                .description(r.getDescription()).remindAt(r.getRemindAt())
+                .completed(r.getCompleted()).createdAt(r.getCreatedAt())
+                .build();
+    }
+
+    private GroupNoteResponse toNoteResponse(GroupNote n) {
+        return GroupNoteResponse.builder()
+                .id(n.getId()).conversationId(n.getConversationId())
+                .creatorId(n.getCreatorId()).title(n.getTitle())
+                .content(n.getContent()).pinned(n.getPinned())
+                .createdAt(n.getCreatedAt()).updatedAt(n.getUpdatedAt())
+                .build();
+    }
+
+    private void broadcastGroupUpdate(String conversationId, ConversationResponse updatedConversation) {
+        try {
+            messagingTemplate.convertAndSend(
+                    "/topic/conversation." + conversationId,
+                    ChatEvent.builder()
+                            .action(ChatEvent.ChatAction.GROUP_UPDATE)
+                            .conversationData(updatedConversation)
+                            .build()
+            );
+        } catch (Exception e) {
+            // Log but don't throw - broadcast failure shouldn't break the update
+            System.err.println("Failed to broadcast group update: " + e.getMessage());
+        }
     }
 }

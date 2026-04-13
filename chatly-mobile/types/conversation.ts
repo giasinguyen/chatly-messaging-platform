@@ -1,6 +1,7 @@
 export type ConversationType = 'PRIVATE' | 'GROUP';
 
-export type MessageType = 'TEXT' | 'IMAGE' | 'FILE' | 'VIDEO' | 'AUDIO' | 'SYSTEM';
+export type MessageType = 'TEXT' | 'IMAGE' | 'FILE' | 'VIDEO' | 'AUDIO' | 'GIF' | 'STICKER' | 'SYSTEM' | 'POLL' | 'CALL' | 'VCARD';
+
 
 export interface LastMessage {
   senderId: string;
@@ -17,6 +18,14 @@ export interface ConversationResponse {
   creatorId: string;
   participantIds: string[];
   lastMessage: LastMessage | null;
+  unreadCount: number;
   createdAt: string;
   updatedAt: string;
+  isPinned?: boolean;
+  isMuted?: boolean;
+  mutedUntil?: string | null;
+  nickname?: string | null;
+  allowMembersUpdateInfo?: boolean;
+  requireApproval?: boolean;
+  inviteToken?: string | null;
 }

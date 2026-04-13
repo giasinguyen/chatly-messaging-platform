@@ -6,10 +6,15 @@ import com.chatly.exception.ErrorCode;
 import com.chatly.mapper.NotificationMapper;
 import com.chatly.model.enums.NotificationType;
 import com.chatly.model.mongo.Notification;
+import com.chatly.model.postgres.User;
 import com.chatly.repository.mongo.NotificationRepository;
+import com.chatly.repository.postgres.UserRepository;
 import com.chatly.websocket.NotificationEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+
+import java.util.Map;
+import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.mongodb.core.MongoTemplate;
@@ -30,11 +35,11 @@ public class NotificationService {
     private final NotificationMapper notificationMapper;
     private final MongoTemplate mongoTemplate;
     private final SimpMessagingTemplate messagingTemplate;
+    private final UserRepository userRepository;
+    private final ExpoPushService expoPushService;
 
     /**
      * Create a notification and push it via WebSocket.
-     * Skips if the receiver is the same as the sender.
-     * Skips if an identical unread notification already exists (deduplication).
      */
     public void createAndPush(NotificationType type,
                               String senderId,
@@ -43,35 +48,36 @@ public class NotificationService {
                               String referenceId) {
         if (senderId != null && senderId.equals(receiverId)) return;
 
-        // Deduplication: skip if an unread notification already exists for same (receiver, type, referenceId)
-        if (referenceId != null &&
-            notificationRepository
-                .findByReceiverIdAndTypeAndReferenceIdAndReadFalse(receiverId, type, referenceId)
-                .isPresent()) {
-            return;
+        Notification notification;
+        var existing = notificationRepository
+                .findByReceiverIdAndTypeAndReferenceIdAndReadFalse(receiverId, type, referenceId);
+
+        if (existing.isPresent()) {
+            notification = existing.get();
+            notification.setContent(content);
+            notification = notificationRepository.save(notification);
+        } else {
+            notification = Notification.builder()
+                    .type(type)
+                    .senderId(senderId)
+                    .receiverId(receiverId)
+                    .referenceId(referenceId)
+                    .content(content)
+                    .build();
+            notification = notificationRepository.save(notification);
         }
 
-        Notification notification = Notification.builder()
-                .type(type)
-                .senderId(senderId)
-                .receiverId(receiverId)
-                .referenceId(referenceId)
-                .content(content)
-                .build();
+        NotificationResponse response = toResponse(notification);
+        long totalUnreadCount = notificationRepository.countByReceiverIdAndReadFalse(receiverId);
 
-        notification = notificationRepository.save(notification);
-
-        NotificationResponse response = notificationMapper.toResponse(notification);
-        long unreadCount = notificationRepository.countByReceiverIdAndReadFalse(receiverId);
-
-        pushToUser(receiverId, response, unreadCount);
+        pushToUser(receiverId, response, totalUnreadCount);
     }
 
     public List<NotificationResponse> getNotifications(String userId, int page, int size) {
         Page<Notification> result = notificationRepository
                 .findByReceiverIdOrderByCreatedAtDesc(userId, PageRequest.of(page, size));
         return result.getContent().stream()
-                .map(notificationMapper::toResponse)
+                .map(this::toResponse)
                 .toList();
     }
 
@@ -92,7 +98,7 @@ public class NotificationService {
             notificationRepository.save(notification);
         }
 
-        return notificationMapper.toResponse(notification);
+        return toResponse(notification);
     }
 
     public void markAllAsRead(String userId) {
@@ -103,8 +109,25 @@ public class NotificationService {
         );
     }
 
+    private NotificationResponse toResponse(Notification notification) {
+        NotificationResponse response = notificationMapper.toResponse(notification);
+        if (notification.getSenderId() != null) {
+            try {
+                userRepository.findById(UUID.fromString(notification.getSenderId())).ifPresent(user -> {
+                    response.setSenderName(user.getDisplayName());
+                    response.setSenderAvatar(user.getAvatarUrl());
+                });
+            } catch (Exception e) {
+                // Ignore if senderId is not a valid UUID
+            }
+        }
+        return response;
+    }
+
     private void pushToUser(String userId, NotificationResponse notification, long unreadCount) {
         try {
+            log.info("Pushing notification to user {}: unreadCount={}", userId, unreadCount);
+            
             messagingTemplate.convertAndSendToUser(
                     userId,
                     "/queue/notifications",
@@ -113,8 +136,40 @@ public class NotificationService {
                             .unreadCount(unreadCount)
                             .build()
             );
+
+            // Also send Push Notification if user has device tokens
+            try {
+                UUID uuid = UUID.fromString(userId);
+                userRepository.findById(uuid).ifPresent(user -> {
+                    if (user.getDeviceTokens() != null && !user.getDeviceTokens().isEmpty()) {
+                        String title = "Chatly Notification";
+                        if (notification.getType() == NotificationType.NEW_MESSAGE) {
+                            title = "New message";
+                        } else if (notification.getType() == NotificationType.MENTION) {
+                            title = "You were mentioned";
+                        } else if (notification.getType() == NotificationType.FRIEND_REQUEST) {
+                            title = "Friend request";
+                        }
+                        
+                        Map<String, Object> data = Map.of(
+                            "type", notification.getType().toString(),
+                            "referenceId", notification.getReferenceId() != null ? notification.getReferenceId() : "",
+                            "notificationId", notification.getId() != null ? notification.getId() : ""
+                        );
+
+                        expoPushService.sendPushNotification(
+                            user.getDeviceTokens(),
+                            title,
+                            notification.getContent(),
+                            data
+                        );
+                    }
+                });
+            } catch (IllegalArgumentException e) {
+                log.warn("UserId {} is not a valid UUID, skipping push notification", userId);
+            }
         } catch (Exception e) {
-            log.warn("Failed to push notification to user {}: {}", userId, e.getMessage());
+            log.error("Failed to push notification to user {}: {}", userId, e.getMessage(), e);
         }
     }
 }

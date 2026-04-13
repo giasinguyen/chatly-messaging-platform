@@ -3,24 +3,40 @@ import type { AuthResponse, ApiResponse } from "@/types/auth";
 
 /**
  * AXIOS CLIENT CONFIGURATION
- * Đây là instance axios dùng chung cho toàn bộ dự án.
+ * This is the shared axios instance used throughout the project.
  */
+function webDeviceLabel(): string {
+    if (typeof navigator === "undefined") return "Web browser";
+    const ua = navigator.userAgent;
+    return ua.length > 200 ? `${ua.slice(0, 200)}…` : ua;
+}
+
 const axiosClient = axios.create({
     baseURL: import.meta.env.VITE_BACKEND_BASE_URL,
     withCredentials: true,
     headers: {
         "Content-Type": "application/json",
+        "X-Client-Platform": "web",
+        "X-Device-Label": webDeviceLabel(),
     },
     timeout: 10000,
 });
 
 // ============================================================
 // STORE BRIDGE (Zustand/External components)
-// Các biến này dùng để cập nhật dữ liệu vào Store (Zustand/Redux) khi token thay đổi
-// hoặc khi cần đá người dùng ra (logout) từ interceptor này.
+// These variables are used to update store data (Zustand/Redux) when tokens change
+// or to force logout from this interceptor.
 // ============================================================
 let onTokenRefreshed: ((payload: AuthResponse) => void) | null = null;
 let onLogout: (() => void) | null = null;
+
+/**
+ * Business error codes that indicate the current user/session is no longer valid.
+ * Code 1100 = User not found (e.g. user was deleted from DB while token still alive)
+ * Code 1006 = Account locked / deactivated
+ * Code 1001 = Unauthenticated (should be caught by 401 but added as safety net)
+ */
+const FATAL_AUTH_CODES = new Set([1100, 1006, 1001]);
 
 export function setupAxiosInterceptors(opts: {
     onTokenRefreshed?: (payload: AuthResponse) => void;
@@ -32,9 +48,9 @@ export function setupAxiosInterceptors(opts: {
 
 // ============================================================
 // REFRESH TOKEN LOGIC & SHARED PROMISE
-// Biến refreshPromise đóng vai trò là một "cái khóa" (lock).
-// Nếu có 10 request cùng bị lỗi 401, chỉ 1 request gọi API refresh,
-// 9 request còn lại sẽ cùng đợi (await) kết quả của cái đó.
+// The refreshPromise variable acts as a lock.
+// If multiple requests fail with 401, only one calls the refresh API;
+// the others wait (await) for its result.
 // ============================================================
 let refreshPromise: Promise<string> | null = null;
 
@@ -42,25 +58,32 @@ const performRefreshToken = async (): Promise<string> => {
     try {
         const refreshToken = localStorage.getItem("refresh_token");
 
-        // Gọi API /refresh để lấy Access Token mới
+        // Call /refresh API to get new Access Token
         const response = await axios.post<ApiResponse<AuthResponse>>(
             `${import.meta.env.VITE_BACKEND_BASE_URL}/api/auth/refresh`,
             { refreshToken },
-            { withCredentials: true },
+            {
+                withCredentials: true,
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-Client-Platform": "web",
+                    "X-Device-Label": webDeviceLabel(),
+                },
+            },
         );
 
         const payload = response.data.result;
 
-        // Lưu token mới vào local storage
+        // Save new tokens to local storage
         localStorage.setItem("access_token", payload.token);
         localStorage.setItem("refresh_token", payload.refreshToken);
 
-        // Thông báo cho Store cập nhật user data mới (nếu có)
+        // Notify Store to update user data (if any)
         if (onTokenRefreshed) onTokenRefreshed(payload);
 
         return payload.token;
     } catch (error) {
-        // Nếu refresh cũng lỗi (hết hạn hoàn toàn) thì xóa sạch và logout
+        // If refresh also fails (completely expired), clear storage and logout
         localStorage.removeItem("access_token");
         localStorage.removeItem("refresh_token");
         if (onLogout) {
@@ -70,15 +93,14 @@ const performRefreshToken = async (): Promise<string> => {
     }
 };
 
-// ============================================================
-// REQUEST INTERCEPTOR: Gắn Token vào Header
-// Chạy TRƯỚC khi request được gửi đi.
+// REQUEST INTERCEPTOR: Attach Token to Header
+// Runs BEFORE the request is sent.
 // ============================================================
 axiosClient.interceptors.request.use(
     (config) => {
         const token = localStorage.getItem("access_token");
 
-        // Nếu có token và không phải đang gọi API refresh thì gắn vào Authorization
+        // Attach to Authorization header if token exists and not a refresh call
         if (token && !config.url?.includes("/refresh")) {
             config.headers = config.headers ?? {};
             config.headers.Authorization = `Bearer ${token}`;
@@ -88,28 +110,75 @@ axiosClient.interceptors.request.use(
     (error) => Promise.reject(error),
 );
 
-// ============================================================
-// RESPONSE INTERCEPTOR: Xử lý lỗi 401 (Hết hạn Token)
-// Chạy SAU khi nhận được response từ server.
+// RESPONSE INTERCEPTOR: Handle 401 (Token Expired)
+// Runs AFTER the response is received.
 // ============================================================
 axiosClient.interceptors.response.use(
-    (res) => res,
+    (res) => {
+        // ============================================================
+        // BUSINESS ERROR INTERCEPTOR
+        // Server returns HTTP 200 but body code indicates user doesn't exist.
+        // This happens when DB is dropped or user is deleted while token is still valid.
+        // ============================================================
+        const data = res.data as { code?: number } | undefined;
+        if (data?.code !== undefined && FATAL_AUTH_CODES.has(data.code)) {
+            // Ignore auth endpoints to avoid loops
+            const url = res.config?.url ?? "";
+            const isAuthEndpoint =
+                url.includes("/auth/login") ||
+                url.includes("/auth/register") ||
+                url.includes("/auth/refresh") ||
+                url.includes("/auth/introspect");
+
+            if (!isAuthEndpoint) {
+                console.warn(
+                    `[axiosClient] Fatal business error code ${data.code} from ${url}. Forcing logout.`,
+                );
+                localStorage.removeItem("access_token");
+                localStorage.removeItem("refresh_token");
+                if (onLogout) onLogout();
+            }
+        }
+        return res;
+    },
     async (error: AxiosError) => {
         const originalRequest = error.config as InternalAxiosRequestConfig & {
             _retry?: boolean;
         };
 
-        // 1. Chỉ retry khi lỗi là 401 (Unauthorized / token hết hạn)
-        // 403 là lỗi authorization (không có quyền), KHÔNG phải auth failure → không retry
         const status = error.response?.status;
+        const url = originalRequest?.url ?? "";
+
+        // ============================================================
+        // DETECT "USER DELETED FROM DB" SCENARIO
+        // When DB is dropped or user is deleted, /me returns 404 even if token is alive.
+        // This is a sign the user no longer exists -> force logout.
+        // Applies ONLY to /users/me, NOT standard 404s.
+        // ============================================================
+        const isMeEndpoint = url.includes("/users/me");
+        const isUserGone = status === 404 || status === 410;
+
+        if (isMeEndpoint && isUserGone) {
+            console.warn(
+                `[axiosClient] /me returned HTTP ${status} – user deleted from DB. Forcing logout.`,
+            );
+            localStorage.removeItem("access_token");
+            localStorage.removeItem("refresh_token");
+            if (onLogout) onLogout();
+            return Promise.reject(error);
+        }
+
+        // 1. Only retry on 401 (Unauthorized / expired)
+        // 403 is forbidden (insufficient permissions), not auth failure -> do not retry
         const isUnauthorized = status === 401;
 
-        // Nếu không phải 401 hoặc request này đã từng thử refresh rồi thì thôi
+        // Reject if not 401 or already retried
         if (!isUnauthorized || !originalRequest || originalRequest._retry) {
             return Promise.reject(error);
         }
 
-        // 2. Chặn vòng lặp vô hạn (Tránh việc login/refresh bị lỗi 401 rồi lại gọi chính nó)
+
+        // 2. Prevent infinite loops (avoid 401 on login/refresh calling themselves)
         if (
             originalRequest.url?.includes("/auth/login") ||
             originalRequest.url?.includes("/auth/refresh")
@@ -117,22 +186,22 @@ axiosClient.interceptors.response.use(
             return Promise.reject(error);
         }
 
-        // Đánh dấu request này đã đang trong quá trình "thử lại"
+        // Mark request as retrying
         originalRequest._retry = true;
 
-        // 3. Thực hiện Refresh Token
-        // Nếu chưa có request nào đang refresh thì bắt đầu gọi refresh API
+        // 3. Perform Refresh Token
+        // Start refresh API call if not already in progress
         if (!refreshPromise) {
             refreshPromise = performRefreshToken().finally(() => {
-                refreshPromise = null; // Hoàn thành thì mở khóa
+                refreshPromise = null; // Unlock when finished
             });
         }
 
         try {
-            // Đợi lấy token mới (hoặc dùng chung kết quả từ request đang chạy)
+            // Wait for new token (or shared result from ongoing request)
             const newToken = await refreshPromise;
 
-            // Gắn token mới vào request cũ và thực thi lại request đó
+            // Attach new token and retry the original request
             originalRequest.headers = originalRequest.headers ?? {};
             originalRequest.headers.Authorization = `Bearer ${newToken}`;
 

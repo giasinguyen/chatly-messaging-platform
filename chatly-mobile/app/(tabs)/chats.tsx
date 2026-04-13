@@ -13,11 +13,16 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { ConversationItem } from '@/components/chat/ConversationItem';
+import { CreateConversationModal } from '@/components/chat/CreateConversationModal';
 import { conversationService } from '@/services/conversation.service';
 import { userService } from '@/services/user.service';
 import { useConversationStore } from '@/store/conversation.store';
 import { useAuthStore } from '@/store/auth.store';
+import { usePresenceSocket } from '@/hooks/usePresenceSocket';
 import { Colors } from '@/constants/theme';
+import { useNotificationStore } from '@/store/notification.store';
+import { useConversationPrefsStore } from '@/store/conversationPrefs.store';
+import { isConvMuted } from '@/store/conversationPrefs.store';
 import type { ConversationResponse } from '@/types/conversation';
 import type { UserResponse } from '@/types/auth';
 
@@ -25,59 +30,91 @@ export default function ChatsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const user = useAuthStore((s) => s.user);
-  const { conversations, setConversations, removeConversation, loading, setLoading } = useConversationStore();
+  const { conversations, fetchConversations, removeConversation, loading } = useConversationStore();
 
   const [refreshing, setRefreshing] = useState(false);
+  const [isModalVisible, setIsModalVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [participantMap, setParticipantMap] = useState<Record<string, UserResponse>>({});
+  const [onlineUserIds, setOnlineUserIds] = useState<Set<string>>(new Set());
 
-  const fetchConversations = useCallback(async () => {
+  // Track presence changes
+  usePresenceSocket({
+    onPresenceChange: (event) => {
+      setOnlineUserIds((prev) => {
+        const next = new Set(prev);
+        if (event.status === 'ONLINE') {
+          next.add(event.userId);
+        } else {
+          next.delete(event.userId);
+        }
+        return next;
+      });
+    },
+  });
+
+  const loadData = useCallback(async () => {
     try {
-      setLoading(true);
-      const res = await conversationService.getMyConversations();
-      setConversations(res.result);
+      await fetchConversations();
 
-      // Collect unique participant IDs to fetch their names
-      const allIds = new Set<string>();
-      res.result.forEach((c) => c.participantIds.forEach((id) => allIds.add(id)));
-      // Remove current user
-      if (user?.id) allIds.delete(user.id);
+      // Collect unique participant IDs to fetch their names (using the updated conversations from store)
+      // Note: We need to access the store's latest state or wait for fetchConversations to finish.
+      // Since fetchConversations is async and updates the store, we might need a small delay or refetch logic.
+      // Better: Fetch users once on mount.
+    } catch (error) {
+      console.error('Failed to load chats data:', error);
+    }
+  }, [fetchConversations]);
 
-      // Fetch participant details (batch)
+  const loadParticipants = useCallback(async () => {
+    try {
       const usersRes = await userService.getAll();
       const map: Record<string, UserResponse> = {};
+      const online = new Set<string>();
       usersRes.result.forEach((u) => {
-        if (allIds.has(u.id)) map[u.id] = u;
+        map[u.id] = u;
+        if (u.status === 'ONLINE') online.add(u.id);
       });
       setParticipantMap(map);
+      setOnlineUserIds(online);
     } catch (error) {
-      console.error('Failed to fetch conversations:', error);
-    } finally {
-      setLoading(false);
+      console.error('Failed to fetch participants:', error);
     }
-  }, [setConversations, setLoading, user?.id]);
+  }, []);
 
   useEffect(() => {
     fetchConversations();
-  }, [fetchConversations]);
+    loadParticipants();
+  }, [fetchConversations, loadParticipants]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await fetchConversations();
+    await Promise.all([fetchConversations(), loadParticipants()]);
     setRefreshing(false);
-  }, [fetchConversations]);
+  }, [fetchConversations, loadParticipants]);
 
-  // Filter conversations by search query
-  const filtered = searchQuery.trim()
-    ? conversations.filter((c) => {
-        const q = searchQuery.toLowerCase();
-        if (c.name?.toLowerCase().includes(q)) return true;
-        // Search by participant names
-        return c.participantIds.some((id) =>
-          participantMap[id]?.displayName?.toLowerCase().includes(q),
-        );
-      })
-    : conversations;
+  const unreadCount = useNotificationStore((s) => s.unreadCount);
+  const { prefs, hydrate } = useConversationPrefsStore();
+
+  useEffect(() => { hydrate(); }, []);
+
+  // Filter conversations by search query, then sort pinned first
+  const filtered = (() => {
+    const list = searchQuery.trim()
+      ? conversations.filter((c) => {
+          const q = searchQuery.toLowerCase();
+          if (c.name?.toLowerCase().includes(q)) return true;
+          return c.participantIds.some((id) =>
+            participantMap[id]?.displayName?.toLowerCase().includes(q),
+          );
+        })
+      : conversations;
+    return [...list].sort((a, b) => {
+      const aPinned = prefs[a.id]?.isPinned ? 1 : 0;
+      const bPinned = prefs[b.id]?.isPinned ? 1 : 0;
+      return bPinned - aPinned;
+    });
+  })();
 
   const participantNames: Record<string, string> = {};
   const participantAvatars: Record<string, string | undefined> = {};
@@ -92,22 +129,22 @@ export default function ChatsScreen() {
 
   const handleDeleteConversation = useCallback((conversation: ConversationResponse) => {
     const name = conversation.type === 'PRIVATE'
-      ? (participantMap[conversation.participantIds.find((id) => id !== user?.id) ?? '']?.displayName ?? 'cuộc trò chuyện này')
-      : (conversation.name ?? 'nhóm này');
+      ? (participantMap[conversation.participantIds.find((id) => id !== user?.id) ?? '']?.displayName ?? 'this conversation')
+      : (conversation.name ?? 'this group');
     Alert.alert(
-      'Xoá hội thoại',
-      `Bạn có chắc muốn xoá "${name}"?`,
+      'Delete Conversation',
+      `Are you sure you want to delete "${name}"?`,
       [
-        { text: 'Huỷ', style: 'cancel' },
+        { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Xoá',
+          text: 'Delete',
           style: 'destructive',
           onPress: async () => {
             try {
               await conversationService.delete(conversation.id);
               removeConversation(conversation.id);
             } catch (error: any) {
-              Alert.alert('Lỗi', error?.response?.data?.message ?? 'Không thể xoá hội thoại.');
+              Alert.alert('Error', error?.response?.data?.message ?? 'Could not delete conversation.');
             }
           },
         },
@@ -120,59 +157,63 @@ export default function ChatsScreen() {
       {/* Header */}
       <View
         style={{
-          paddingTop: insets.top + 8,
-          paddingHorizontal: 16,
-          paddingBottom: 8,
+          paddingTop: insets.top,
           backgroundColor: Colors.white,
           borderBottomWidth: 0.5,
           borderBottomColor: Colors.borderLight,
         }}
       >
-        <View className="mb-3 flex-row items-center justify-between">
+        <View className="flex-row items-center justify-between px-4 py-3">
           <Text className="text-2xl font-bold" style={{ color: Colors.text }}>
-            Tin nhắn
+            Messages
           </Text>
-          <TouchableOpacity
-            onPress={() => {
-              // TODO: New conversation modal
-            }}
-            style={{
-              width: 36,
-              height: 36,
-              borderRadius: 18,
-              backgroundColor: Colors.ctaLight,
-              justifyContent: 'center',
-              alignItems: 'center',
-            }}
-          >
-            <Ionicons name="create-outline" size={20} color={Colors.cta} />
-          </TouchableOpacity>
+          <View className="flex-row items-center">
+            <TouchableOpacity 
+              onPress={() => router.push('/notifications')}
+              className="mr-2 p-2 relative"
+            >
+              <Ionicons name="notifications-outline" size={24} color={Colors.text} />
+              {unreadCount > 0 && (
+                <View 
+                  className="absolute top-1.5 right-1.5 w-2.5 h-2.5 rounded-full border-2 border-white"
+                  style={{ backgroundColor: Colors.error }}
+                />
+              )}
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => setIsModalVisible(true)} className="p-2 mr-1">
+              <Ionicons name="add-circle-outline" size={26} color={Colors.cta} />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => fetchConversations()} className="p-2">
+              <Ionicons name="refresh" size={24} color={Colors.text} />
+            </TouchableOpacity>
+          </View>
         </View>
 
-        {/* Search Bar */}
-        <View
-          className="flex-row items-center rounded-xl px-3"
-          style={{
-            backgroundColor: Colors.bg,
-            height: 38,
-            marginBottom: 4,
-          }}
-        >
-          <Ionicons name="search-outline" size={18} color={Colors.textMuted} />
-          <TextInput
-            className="ml-2 flex-1 text-sm"
-            placeholder="Tìm kiếm cuộc trò chuyện..."
-            placeholderTextColor={Colors.textLight}
-            style={{ color: Colors.text }}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            autoCapitalize="none"
-          />
-          {searchQuery.length > 0 && (
-            <TouchableOpacity onPress={() => setSearchQuery('')}>
-              <Ionicons name="close-circle" size={18} color={Colors.textMuted} />
-            </TouchableOpacity>
-          )}
+        {/* Search Bar - moved inside header container */}
+        <View className="px-4 pb-2">
+          <View
+            className="flex-row items-center rounded-xl px-3"
+            style={{
+              backgroundColor: Colors.bg,
+              height: 38,
+            }}
+          >
+            <Ionicons name="search-outline" size={18} color={Colors.textMuted} />
+            <TextInput
+              className="ml-2 flex-1 text-sm"
+              placeholder="Search conversations..."
+              placeholderTextColor={Colors.textLight}
+              style={{ color: Colors.text }}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              autoCapitalize="none"
+            />
+            {searchQuery.length > 0 && (
+              <TouchableOpacity onPress={() => setSearchQuery('')}>
+                <Ionicons name="close-circle" size={18} color={Colors.textMuted} />
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
       </View>
 
@@ -191,6 +232,9 @@ export default function ChatsScreen() {
               currentUserId={user?.id ?? ''}
               participantNames={participantNames}
               participantAvatars={participantAvatars}
+              onlineUserIds={onlineUserIds}
+              isPinned={prefs[item.id]?.isPinned ?? false}
+              isMuted={isConvMuted(prefs[item.id] ?? {})}
               onPress={() => handleConversationPress(item)}
               onLongPress={() => handleDeleteConversation(item)}
             />
@@ -207,12 +251,12 @@ export default function ChatsScreen() {
             <View className="flex-1 items-center justify-center pt-20">
               <Ionicons name="chatbubbles-outline" size={64} color={Colors.borderLight} />
               <Text className="mt-4 text-base" style={{ color: Colors.textMuted }}>
-                {searchQuery ? 'Không tìm thấy cuộc trò chuyện' : 'Chưa có tin nhắn nào'}
+                {searchQuery ? 'No conversations found' : 'No messages yet'}
               </Text>
               <Text className="mt-1 text-sm" style={{ color: Colors.textLight }}>
                 {searchQuery
-                  ? 'Thử từ khóa khác'
-                  : 'Bắt đầu cuộc trò chuyện mới!'}
+                  ? 'Try another keyword'
+                  : 'Start a new conversation!'}
               </Text>
             </View>
           }
@@ -220,6 +264,11 @@ export default function ChatsScreen() {
           showsVerticalScrollIndicator={false}
         />
       )}
+
+      <CreateConversationModal
+        visible={isModalVisible}
+        onClose={() => setIsModalVisible(false)}
+      />
     </View>
   );
 }

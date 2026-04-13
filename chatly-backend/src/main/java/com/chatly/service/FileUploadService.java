@@ -13,6 +13,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.List;
 import java.util.Set;
 
 @Slf4j
@@ -22,8 +23,9 @@ public class FileUploadService {
 
     private static final Set<String> ALLOWED_MIME_TYPES = Set.of(
             "image/jpeg", "image/png", "image/gif", "image/webp", "image/svg+xml",
-            "video/mp4", "video/webm", "video/quicktime",
-            "audio/mpeg", "audio/ogg", "audio/wav", "audio/webm",
+            "image/heic", "image/heif", "image/bmp", "image/tiff",
+            "video/mp4", "video/webm", "video/quicktime", "video/3gpp", "video/x-msvideo",
+            "audio/mpeg", "audio/ogg", "audio/wav", "audio/webm", "audio/aac", "audio/mp4",
             "application/pdf",
             "application/msword",
             "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -32,7 +34,8 @@ public class FileUploadService {
             "application/vnd.ms-powerpoint",
             "application/vnd.openxmlformats-officedocument.presentationml.presentation",
             "text/plain",
-            "application/zip"
+            "application/zip",
+            "application/octet-stream"
     );
 
     @Value("${storage.max-file-size-mb:20}")
@@ -83,6 +86,71 @@ public class FileUploadService {
         storageProvider.delete(metadata.getStorageKey());
         fileMetadataRepository.delete(metadata);
         log.debug("FileMetadata deleted: id={}", fileId);
+    }
+
+    public List<FileUploadResponse> getByConversation(String conversationId, String type) {
+        List<FileMetadata> files = fileMetadataRepository.findByConversationIdOrderByCreatedAtDesc(conversationId);
+
+        if (type != null && !type.isBlank()) {
+            files = files.stream().filter(f -> {
+                String ft = f.getFileType();
+                if (ft == null) return false;
+                return switch (type.toLowerCase()) {
+                    case "image" -> ft.startsWith("image/");
+                    case "video" -> ft.startsWith("video/");
+                    case "file" -> !ft.startsWith("image/") && !ft.startsWith("video/");
+                    default -> true;
+                };
+            }).toList();
+        }
+
+        return files.stream().map(m -> FileUploadResponse.builder()
+                .fileId(m.getId())
+                .provider(m.getProvider())
+                .url(m.getUrl())
+                .fileName(m.getFileName())
+                .fileType(m.getFileType())
+                .fileSize(m.getFileSize())
+                .conversationId(m.getConversationId())
+                .createdAt(m.getCreatedAt())
+                .build()
+        ).toList();
+    }
+
+    public List<FileUploadResponse> getByUploadedUser(String userId, String type) {
+        List<FileMetadata> files = fileMetadataRepository.findByUploadedBy(userId)
+                .stream()
+                .sorted((a, b) -> {
+                    if (a.getCreatedAt() == null) return 1;
+                    if (b.getCreatedAt() == null) return -1;
+                    return b.getCreatedAt().compareTo(a.getCreatedAt());
+                })
+                .toList();
+
+        if (type != null && !type.isBlank()) {
+            files = files.stream().filter(f -> {
+                String ft = f.getFileType();
+                if (ft == null) return false;
+                return switch (type.toLowerCase()) {
+                    case "image" -> ft.startsWith("image/");
+                    case "video" -> ft.startsWith("video/");
+                    case "file" -> !ft.startsWith("image/") && !ft.startsWith("video/");
+                    default -> true;
+                };
+            }).toList();
+        }
+
+        return files.stream().map(m -> FileUploadResponse.builder()
+                .fileId(m.getId())
+                .provider(m.getProvider())
+                .url(m.getUrl())
+                .fileName(m.getFileName())
+                .fileType(m.getFileType())
+                .fileSize(m.getFileSize())
+                .conversationId(m.getConversationId())
+                .createdAt(m.getCreatedAt())
+                .build()
+        ).toList();
     }
 
     // -------------------------------------------------------------------------

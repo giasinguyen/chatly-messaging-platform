@@ -6,7 +6,7 @@ interface ReplyPreviewProps {
     participant: ChatUser;
     currentUserId: string;
     senderName?: string;
-    /** nếu là tin nhắn của mình thì màu sẽ đảo ngược */
+    /** if it's my own message, the color will be inverted */
     isMe?: boolean;
 }
 
@@ -14,7 +14,7 @@ export function ReplyPreview({ replyMessage, participant, currentUserId, senderN
     const resolvedSenderName =
         senderName ??
         (replyMessage.senderId === currentUserId
-            ? "Bạn"
+            ? "You"
             : participant.displayName.split(" ").slice(-1)[0]);
 
     return (
