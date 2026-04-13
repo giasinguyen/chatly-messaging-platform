@@ -48,6 +48,8 @@ export default function ChatScreen() {
   const insets = useSafeAreaInsets();
   const user = useAuthStore((s) => s.user);
   const flatListRef = useRef<FlatList>(null);
+  // Guard: don't trigger loadMore until the initial page has fully loaded
+  const initialLoadDoneRef = useRef(false);
 
   const {
     messagesByConversation,
@@ -109,7 +111,8 @@ export default function ChatScreen() {
             },
           });
 
-          setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
+          // offset 0 = visual bottom in inverted FlatList (newest messages)
+          flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
           break;
         case 'EDIT':
         case 'RECALL':
@@ -229,16 +232,17 @@ export default function ChatScreen() {
   // Fetch initial messages
   useEffect(() => {
     if (!conversationId) return;
+    initialLoadDoneRef.current = false;
 
     const fetchMessages = async () => {
       setLoadingMessages(true);
       try {
         const res = await messageService.getByConversation(conversationId, 0, PAGE_SIZE);
-        // API returns newest first, reverse for display (oldest → newest)
-        const reversed = [...res.result].reverse();
-        setMessages(conversationId, reversed);
+        // API returns newest first — store as-is (newest at index 0)
+        setMessages(conversationId, res.result);
         setPage(conversationId, 0);
         setHasMore(conversationId, res.result.length >= PAGE_SIZE);
+        initialLoadDoneRef.current = true;
 
         // Mark unread messages from others as seen
         for (const m of res.result) {
@@ -258,14 +262,14 @@ export default function ChatScreen() {
 
   // Load older messages
   const loadMore = useCallback(async () => {
-    if (!conversationId || !canLoadMore || loadingMessages) return;
+    if (!conversationId || !canLoadMore || loadingMessages || !initialLoadDoneRef.current) return;
 
     const nextPage = currentPage + 1;
     setLoadingMessages(true);
     try {
       const res = await messageService.getByConversation(conversationId, nextPage, PAGE_SIZE);
-      const reversed = [...res.result].reverse();
-      appendOlderMessages(conversationId, reversed);
+      // API returns newest-first per page; appendOlderMessages puts them at the end
+      appendOlderMessages(conversationId, res.result);
       setPage(conversationId, nextPage);
       setHasMore(conversationId, res.result.length >= PAGE_SIZE);
     } catch (error) {
@@ -312,7 +316,7 @@ export default function ChatScreen() {
       if (sent) {
         updateConversation(conversationId, { lastMessage: optimisticLastMsg });
         setReplyingTo(null);
-        setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
+        flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
         return;
       }
 
@@ -336,7 +340,7 @@ export default function ChatScreen() {
           } 
         });
         setReplyingTo(null);
-        setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
+        flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
       } catch (error) {
         Alert.alert('Error', 'Could not send message. Please try again.');
       }
@@ -540,19 +544,22 @@ export default function ChatScreen() {
     [participantMap, userDirectory],
   );
 
-  // Build display data with date separators
   const displayData = useMemo(() => {
     const items: Array<{ type: 'date'; label: string } | { type: 'message'; data: Message }> = [];
-    let lastDateLabel = '';
 
-    messages.forEach((msg) => {
-      const dateLabel = formatDateSeparator(msg.createdAt);
-      if (dateLabel !== lastDateLabel) {
-        items.push({ type: 'date', label: dateLabel });
-        lastDateLabel = dateLabel;
-      }
+    for (let i = 0; i < messages.length; i++) {
+      const msg = messages[i];
       items.push({ type: 'message', data: msg });
-    });
+
+      const nextMsg = messages[i + 1];
+      if (nextMsg) {
+        const dateLabel = formatDateSeparator(msg.createdAt);
+        const nextDateLabel = formatDateSeparator(nextMsg.createdAt);
+        if (nextDateLabel !== dateLabel) {
+          items.push({ type: 'date', label: nextDateLabel });
+        }
+      }
+    }
 
     return items;
   }, [messages]);
@@ -632,8 +639,8 @@ export default function ChatScreen() {
           <FlatList
             ref={flatListRef}
             data={displayData}
-            keyExtractor={(item, index) =>
-              item.type === 'date' ? `date-${item.label}-${index}` : `msg-${item.data.id}`
+            keyExtractor={(item) =>
+              item.type === 'date' ? `date-${item.label}` : `msg-${item.data.id}`
             }
             renderItem={({ item }) => {
               if (item.type === 'date') {
@@ -669,14 +676,11 @@ export default function ChatScreen() {
               );
             }}
             onEndReached={loadMore}
-            onEndReachedThreshold={0.3}
-            inverted={false}
-            onContentSizeChange={() => {
-              if (messages.length > 0 && currentPage === 0) {
-                flatListRef.current?.scrollToEnd({ animated: false });
-              }
-            }}
-            ListHeaderComponent={
+            onEndReachedThreshold={0.5}
+            inverted
+            // Prevent scroll position from jumping when older messages are appended
+            maintainVisibleContentPosition={{ minIndexForVisible: 0 }}
+            ListFooterComponent={
               canLoadMore && loadingMessages ? (
                 <View className="py-4">
                   <ActivityIndicator size="small" color={Colors.cta} />
