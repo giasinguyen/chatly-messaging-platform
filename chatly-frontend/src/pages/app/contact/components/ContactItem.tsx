@@ -82,15 +82,15 @@ export function ContactItem({
         <div className="flex items-center justify-between px-6 py-3 hover:bg-muted/50 cursor-pointer transition-colors group">
             <div className="flex items-center gap-4">
                 <div className="relative">
-                <Avatar className="h-10 w-10">
-                    <AvatarImage src={otherUser.avatarUrl} className="object-cover" />
-                    <AvatarFallback className="bg-muted text-muted-foreground font-medium">
-                        {otherUser.displayName?.charAt(0).toUpperCase()}
-                    </AvatarFallback>
-                </Avatar>
-                {activeTab === "friends" && isOnline && (
-                    <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full bg-green-500 ring-2 ring-background" />
-                )}
+                    <Avatar className="h-10 w-10">
+                        <AvatarImage src={otherUser.avatarUrl} className="object-cover" />
+                        <AvatarFallback className="bg-muted text-muted-foreground font-medium">
+                            {otherUser.displayName?.charAt(0).toUpperCase()}
+                        </AvatarFallback>
+                    </Avatar>
+                    {activeTab === "friends" && isOnline && (
+                        <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full bg-green-500 ring-2 ring-background" />
+                    )}
                 </div>
                 <div className="flex flex-col">
                     <span className="text-sm font-medium text-foreground">{otherUser.displayName}</span>

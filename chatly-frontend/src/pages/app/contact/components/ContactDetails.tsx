@@ -53,6 +53,9 @@ export function ContactDetails({ activeTab }: ContactDetailsProps) {
 
     useEffect(() => {
         fetchContacts();
+        setSearchQuery("");
+        setSortDir("name-asc");
+        setOnlineFilter("all");
     }, [activeTab]);
 
     const handleAccept = async (id: string) => {
@@ -144,6 +147,17 @@ export function ContactDetails({ activeTab }: ContactDetailsProps) {
         return acc;
     }, {} as Record<string, ContactResponse[]>);
 
+    const sortedEntries = Object.entries(grouped)
+        .sort(([a], [b]) => sortDir === "name-asc" ? a.localeCompare(b) : b.localeCompare(a))
+        .map(([letter, items]) => ([
+            letter,
+            [...items].sort((a, b) => {
+                const aName = (a.user.id === currentUser?.id ? a.contact : a.user).displayName ?? "";
+                const bName = (b.user.id === currentUser?.id ? b.contact : b.user).displayName ?? "";
+                return sortDir === "name-asc" ? aName.localeCompare(bName) : bName.localeCompare(aName);
+            }),
+        ] as [string, ContactResponse[]]));
+
     return (
         <main className="flex-1 bg-background flex flex-col overflow-hidden">
             <header className="h-16 border-b border-border flex items-center justify-between px-6 shrink-0">
@@ -172,8 +186,7 @@ export function ContactDetails({ activeTab }: ContactDetailsProps) {
                         </div>
                     ) : (
                         <div className="py-2">
-                            {Object.entries(grouped)
-                                .sort(([a], [b]) => sortDir === "name-asc" ? a.localeCompare(b) : b.localeCompare(a))
+                            {sortedEntries
                                 .map(([letter, items]) => (
                                     <div key={letter} className="mb-4">
                                         {activeTab === "friends" && (
