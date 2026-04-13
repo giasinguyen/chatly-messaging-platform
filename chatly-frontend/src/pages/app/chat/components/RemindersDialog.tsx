@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import axios from "axios";
 import { groupService } from "@/services/group.service";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,6 +24,34 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import type { GroupReminderResponse } from "@/types/group";
 
+const pad = (n: number) => String(n).padStart(2, "0");
+
+function todayString(): string {
+    const d = new Date();
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+function nowPlusOneMinute(): { date: string; time: string } {
+    const d = new Date(Date.now() + 60_000);
+    return {
+        date: `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`,
+        time: `${pad(d.getHours())}:${pad(d.getMinutes())}`,
+    };
+}
+
+function localDateParts(iso: string): { date: string; time: string } {
+    const d = new Date(iso);
+    return {
+        date: `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`,
+        time: `${pad(d.getHours())}:${pad(d.getMinutes())}`,
+    };
+}
+
+function combineDateTime(date: string, time: string): string | undefined {
+    if (!date) return undefined;
+    return new Date(`${date}T${time || "00:00"}`).toISOString();
+}
+
 interface RemindersDialogProps {
     conversationId: string;
     open: boolean;
@@ -41,14 +70,16 @@ export function RemindersDialog({
     const [showForm, setShowForm] = useState(false);
     const [title, setTitle] = useState("");
     const [description, setDescription] = useState("");
-    const [remindAt, setRemindAt] = useState("");
+    const [remindDate, setRemindDate] = useState("");
+    const [remindTime, setRemindTime] = useState("");
     const [creating, setCreating] = useState(false);
 
     // Edit reminder state
     const [editingId, setEditingId] = useState<string | null>(null);
     const [editTitle, setEditTitle] = useState("");
     const [editDescription, setEditDescription] = useState("");
-    const [editRemindAt, setEditRemindAt] = useState("");
+    const [editRemindDate, setEditRemindDate] = useState("");
+    const [editRemindTime, setEditRemindTime] = useState("");
     const [updating, setUpdating] = useState(false);
 
     const fetchReminders = useCallback(async () => {
@@ -70,7 +101,9 @@ export function RemindersDialog({
             setShowForm(false);
             setTitle("");
             setDescription("");
-            setRemindAt("");
+            const { date, time } = nowPlusOneMinute();
+            setRemindDate(date);
+            setRemindTime(time);
         }
     }, [open, fetchReminders]);
 
@@ -79,21 +112,31 @@ export function RemindersDialog({
             toast.error("Title cannot be empty");
             return;
         }
+        const remindAt = combineDateTime(remindDate, remindTime);
+        if (remindAt && new Date(remindAt) <= new Date()) {
+            toast.error("Reminder time must be in the future");
+            return;
+        }
         setCreating(true);
         try {
             await groupService.createReminder(conversationId, {
                 title: title.trim(),
                 description: description.trim() || undefined,
-                remindAt: remindAt ? new Date(remindAt).toISOString() : undefined,
+                remindAt,
             });
             toast.success("Reminder created");
             setTitle("");
             setDescription("");
-            setRemindAt("");
+            const { date, time } = nowPlusOneMinute();
+            setRemindDate(date);
+            setRemindTime(time);
             setShowForm(false);
             fetchReminders();
-        } catch {
-            toast.error("Could not create reminder");
+        } catch (err) {
+            const msg = axios.isAxiosError(err)
+                ? (err.response?.data as { message?: string })?.message
+                : undefined;
+            toast.error(msg ?? "Could not create reminder");
         } finally {
             setCreating(false);
         }
@@ -122,9 +165,14 @@ export function RemindersDialog({
         setEditingId(r.id);
         setEditTitle(r.title);
         setEditDescription(r.description ?? "");
-        setEditRemindAt(
-            r.remindAt ? new Date(r.remindAt).toISOString().slice(0, 16) : "",
-        );
+        if (r.remindAt) {
+            const { date, time } = localDateParts(r.remindAt);
+            setEditRemindDate(date);
+            setEditRemindTime(time);
+        } else {
+            setEditRemindDate("");
+            setEditRemindTime("");
+        }
     };
 
     const handleUpdate = async () => {
@@ -132,18 +180,26 @@ export function RemindersDialog({
             toast.error("Title cannot be empty");
             return;
         }
+        const editRemindAt = combineDateTime(editRemindDate, editRemindTime);
+        if (editRemindAt && new Date(editRemindAt) <= new Date()) {
+            toast.error("Reminder time must be in the future");
+            return;
+        }
         setUpdating(true);
         try {
             await groupService.updateReminder(editingId, {
                 title: editTitle.trim(),
                 description: editDescription.trim() || undefined,
-                remindAt: editRemindAt ? new Date(editRemindAt).toISOString() : undefined,
+                remindAt: editRemindAt,
             });
             toast.success("Reminder updated");
             setEditingId(null);
             fetchReminders();
-        } catch {
-            toast.error("Could not update reminder");
+        } catch (err) {
+            const msg = axios.isAxiosError(err)
+                ? (err.response?.data as { message?: string })?.message
+                : undefined;
+            toast.error(msg ?? "Could not update reminder");
         } finally {
             setUpdating(false);
         }
@@ -184,12 +240,22 @@ export function RemindersDialog({
                                 placeholder="Description (optional)..."
                                 className="h-8 text-sm"
                             />
-                            <Input
-                                type="datetime-local"
-                                value={remindAt}
-                                onChange={(e) => setRemindAt(e.target.value)}
-                                className="h-8 text-sm"
-                            />
+                            <div className="flex gap-2">
+                                <Input
+                                    type="text"
+                                    value={remindDate}
+                                    placeholder="YYYY-MM-DD"
+                                    onChange={(e) => setRemindDate(e.target.value)}
+                                    className="h-8 text-sm flex-1"
+                                />
+                                <Input
+                                    type="text"
+                                    value={remindTime}
+                                    placeholder="HH:MM"
+                                    onChange={(e) => setRemindTime(e.target.value)}
+                                    className="h-8 text-sm w-28"
+                                />
+                            </div>
                             <div className="flex gap-2">
                                 <Button
                                     size="sm"
@@ -243,12 +309,22 @@ export function RemindersDialog({
                                             placeholder="Description (optional)..."
                                             className="h-8 text-sm"
                                         />
-                                        <Input
-                                            type="datetime-local"
-                                            value={editRemindAt}
-                                            onChange={(e) => setEditRemindAt(e.target.value)}
-                                            className="h-8 text-sm"
-                                        />
+                                        <div className="flex gap-2">
+                                            <Input
+                                                type="text"
+                                                value={editRemindDate}
+                                                placeholder="YYYY-MM-DD"
+                                                onChange={(e) => setEditRemindDate(e.target.value)}
+                                                className="h-8 text-sm flex-1"
+                                            />
+                                            <Input
+                                                type="text"
+                                                value={editRemindTime}
+                                                placeholder="HH:MM"
+                                                onChange={(e) => setEditRemindTime(e.target.value)}
+                                                className="h-8 text-sm w-28"
+                                            />
+                                        </div>
                                         <div className="flex gap-2">
                                             <Button
                                                 size="sm"

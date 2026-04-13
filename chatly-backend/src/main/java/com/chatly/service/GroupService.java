@@ -388,8 +388,7 @@ public class GroupService {
     // ── Reminders ────────────────────────────────────────────────────
 
     public List<GroupReminderResponse> getReminders(String conversationId, String requesterId) {
-        getGroupConversation(conversationId);
-        requireGroupMember(conversationId, requesterId);
+        requireAnyConversationParticipant(conversationId, requesterId);
 
         return groupReminderRepository.findByConversationIdOrderByRemindAtAsc(conversationId).stream()
                 .map(this::toReminderResponse)
@@ -397,8 +396,7 @@ public class GroupService {
     }
 
     public GroupReminderResponse createReminder(String conversationId, GroupReminderRequest request, String requesterId) {
-        getGroupConversation(conversationId);
-        requireGroupMember(conversationId, requesterId);
+        requireAnyConversationParticipant(conversationId, requesterId);
 
         GroupReminder reminder = GroupReminder.builder()
                 .conversationId(conversationId)
@@ -432,7 +430,7 @@ public class GroupService {
     public GroupReminderResponse toggleReminderComplete(String reminderId, String requesterId) {
         GroupReminder reminder = groupReminderRepository.findById(reminderId)
                 .orElseThrow(() -> new AppException(ErrorCode.GROUP_REMINDER_NOT_FOUND));
-        requireGroupMember(reminder.getConversationId(), requesterId);
+        requireAnyConversationParticipant(reminder.getConversationId(), requesterId);
 
         reminder.setCompleted(!Boolean.TRUE.equals(reminder.getCompleted()));
         return toReminderResponse(groupReminderRepository.save(reminder));
@@ -441,14 +439,14 @@ public class GroupService {
     public void deleteReminder(String reminderId, String requesterId) {
         GroupReminder reminder = groupReminderRepository.findById(reminderId)
                 .orElseThrow(() -> new AppException(ErrorCode.GROUP_REMINDER_NOT_FOUND));
-        requireGroupMember(reminder.getConversationId(), requesterId);
+        requireAnyConversationParticipant(reminder.getConversationId(), requesterId);
         groupReminderRepository.delete(reminder);
     }
 
     public GroupReminderResponse updateReminder(String reminderId, GroupReminderRequest request, String requesterId) {
         GroupReminder reminder = groupReminderRepository.findById(reminderId)
                 .orElseThrow(() -> new AppException(ErrorCode.GROUP_REMINDER_NOT_FOUND));
-        requireGroupMember(reminder.getConversationId(), requesterId);
+        requireAnyConversationParticipant(reminder.getConversationId(), requesterId);
 
         if (request.getTitle() != null) reminder.setTitle(request.getTitle());
         if (request.getDescription() != null) reminder.setDescription(request.getDescription());
@@ -463,8 +461,7 @@ public class GroupService {
     // ── Notes ────────────────────────────────────────────────────────
 
     public List<GroupNoteResponse> getNotes(String conversationId, String requesterId) {
-        getGroupConversation(conversationId);
-        requireGroupMember(conversationId, requesterId);
+        requireAnyConversationParticipant(conversationId, requesterId);
 
         return groupNoteRepository.findByConversationIdOrderByPinnedDescCreatedAtDesc(conversationId).stream()
                 .map(this::toNoteResponse)
@@ -472,8 +469,7 @@ public class GroupService {
     }
 
     public GroupNoteResponse createNote(String conversationId, GroupNoteRequest request, String requesterId) {
-        getGroupConversation(conversationId);
-        requireGroupMember(conversationId, requesterId);
+        requireAnyConversationParticipant(conversationId, requesterId);
 
         GroupNote note = GroupNote.builder()
                 .conversationId(conversationId)
@@ -489,7 +485,7 @@ public class GroupService {
     public GroupNoteResponse updateNote(String noteId, GroupNoteRequest request, String requesterId) {
         GroupNote note = groupNoteRepository.findById(noteId)
                 .orElseThrow(() -> new AppException(ErrorCode.GROUP_NOTE_NOT_FOUND));
-        requireGroupMember(note.getConversationId(), requesterId);
+        requireAnyConversationParticipant(note.getConversationId(), requesterId);
 
         if (request.getTitle() != null) note.setTitle(request.getTitle());
         if (request.getContent() != null) note.setContent(request.getContent());
@@ -501,7 +497,7 @@ public class GroupService {
     public void deleteNote(String noteId, String requesterId) {
         GroupNote note = groupNoteRepository.findById(noteId)
                 .orElseThrow(() -> new AppException(ErrorCode.GROUP_NOTE_NOT_FOUND));
-        requireGroupMember(note.getConversationId(), requesterId);
+        requireAnyConversationParticipant(note.getConversationId(), requesterId);
         groupNoteRepository.delete(note);
     }
 
@@ -534,6 +530,18 @@ public class GroupService {
         UUID uid = UUID.fromString(userId);
         return groupMemberRepository.findByConversationIdAndUserId(conversationId, uid)
                 .orElseThrow(() -> new AppException(ErrorCode.GROUP_MEMBER_NOT_FOUND));
+    }
+
+    private void requireAnyConversationParticipant(String conversationId, String userId) {
+        Conversation conversation = conversationRepository.findById(conversationId)
+                .orElseThrow(() -> new AppException(ErrorCode.CONVERSATION_NOT_FOUND));
+        if (conversation.getType() == ConversationType.GROUP) {
+            requireGroupMember(conversationId, userId);
+        } else {
+            if (!conversation.getParticipantIds().contains(userId)) {
+                throw new AppException(ErrorCode.GROUP_PERMISSION_DENIED);
+            }
+        }
     }
 
     private GroupMemberResponse toMemberResponse(GroupMember member) {

@@ -36,7 +36,7 @@ import { useCallContext } from '@/contexts/CallContext';
 import { usePresenceSocket } from '@/hooks/usePresenceSocket';
 import { Colors } from '@/constants/theme';
 import { formatDateSeparator } from '@/utils/format';
-import type { Message, ChatEvent, Attachment } from '@/types/message';
+import type { Message, ChatEvent, Attachment, Poll } from '@/types/message';
 import type { ConversationResponse } from '@/types/conversation';
 import type { UserResponse } from '@/types/auth';
 import type { ContactResponse } from '@/types/contact';
@@ -335,7 +335,8 @@ export default function ChatScreen() {
       text: string,
       attachments?: Attachment[],
       messageType?: string,
-      priority?: 'IMPORTANT' | 'URGENT'
+      priority?: 'IMPORTANT' | 'URGENT',
+      poll?: Poll,
     ) => {
       if (!conversationId || !user) return;
       const replyToId = replyingTo?.id ?? null;
@@ -359,8 +360,8 @@ export default function ChatScreen() {
         timestamp: new Date().toISOString(),
       };
 
-      // Try WebSocket first
-      const sent = wsSendMessage(text, replyToId, attachments, messageType, priority);
+      // Try WebSocket first (skip for poll — REST handles complex payloads)
+      const sent = !poll && wsSendMessage(text, replyToId, attachments, messageType, priority);
       if (sent) {
         updateConversation(conversationId, { lastMessage: optimisticLastMsg });
         setReplyingTo(null);
@@ -377,6 +378,7 @@ export default function ChatScreen() {
           replyToId,
           attachments,
           priority,
+          poll,
         });
         addMessage(conversationId, res.result);
         updateConversation(conversationId, {
