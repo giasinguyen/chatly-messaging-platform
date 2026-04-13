@@ -1065,7 +1065,7 @@ export function MessageList({
 
     return (
         <TooltipProvider>
-            <div ref={containerRef} className="flex-1 overflow-y-auto bg-muted/20">
+            <div ref={containerRef} className="flex-1 overflow-y-auto bg-muted/20 hide-scrollbar">
                 <div className="py-6 flex flex-col min-h-full">
                     {/* Lazy load sentinel */}
                     <div

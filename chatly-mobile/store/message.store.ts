@@ -42,7 +42,7 @@ export const useMessageStore = create<MessageState>((set) => ({
       return {
         messagesByConversation: {
           ...state.messagesByConversation,
-          [conversationId]: [...newMessages, ...existing],
+          [conversationId]: [...existing, ...newMessages],
         },
       };
     }),
@@ -52,10 +52,11 @@ export const useMessageStore = create<MessageState>((set) => ({
       const existing = state.messagesByConversation[conversationId] ?? [];
       // Avoid duplicates
       if (existing.some((m) => m.id === message.id)) return state;
+      // Newest message goes at the START (list is stored newest-first)
       return {
         messagesByConversation: {
           ...state.messagesByConversation,
-          [conversationId]: [...existing, message],
+          [conversationId]: [message, ...existing],
         },
       };
     }),

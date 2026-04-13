@@ -29,6 +29,24 @@ export function useCallSocket() {
     const webrtcRef = useRef(webrtc);
     webrtcRef.current = webrtc;
 
+    // Ringtone for incoming calls
+    const ringtoneRef = useRef<HTMLAudioElement | null>(null);
+
+    const playRingtone = useCallback(() => {
+        if (ringtoneRef.current) return; // already playing
+        const audio = new Audio('/sounds/call-sound.mp3');
+        audio.loop = true;
+        audio.play().catch(() => { /* autoplay may be blocked */ });
+        ringtoneRef.current = audio;
+    }, []);
+
+    const stopRingtone = useCallback(() => {
+        if (!ringtoneRef.current) return;
+        ringtoneRef.current.pause();
+        ringtoneRef.current.currentTime = 0;
+        ringtoneRef.current = null;
+    }, []);
+
     // Offer SDP lưu trong Zustand store để bền vững hơn hook-local ref
 
     // Gửi ICE candidate đến peer qua STOMP
@@ -94,6 +112,7 @@ export function useCallSocket() {
                         type: payload.callType,
                     });
                     setCallStatus("RINGING");
+                    playRingtone();
                     break;
                 }
 
@@ -112,6 +131,7 @@ export function useCallSocket() {
                         setCallStatus("REJECTED");
                         setTimeout(() => endCallStore(), 2000);
                     }
+                    stopRingtone();
                     break;
                 }
 
@@ -126,6 +146,7 @@ export function useCallSocket() {
                 case "END": {
                     // Đối phương kết thúc cuộc gọi
                     webrtcRef.current.cleanup();
+                    stopRingtone();
                     setCallStatus("ENDED");
                     setTimeout(() => endCallStore(), 2000);
                     break;
@@ -170,7 +191,7 @@ export function useCallSocket() {
                     console.warn("Unknown call signal type:", signal.type);
             }
         },
-        [setIncomingCall, setCallStatus, endCallStore, setPendingOffer, upgradeCall],
+        [setIncomingCall, setCallStatus, endCallStore, setPendingOffer, upgradeCall, playRingtone, stopRingtone],
     );
 
     // Subscribe vào queue calls — re-subscribe every time STOMP connects/reconnects
@@ -273,6 +294,7 @@ export function useCallSocket() {
 
             if (accept) {
                 try {
+                    stopRingtone();
                     // startCall TRƯỚC initLocalStream để activeCall được set
                     // trước khi ICE candidates bắt đầu fire
                     const session: CallSession = {
@@ -320,6 +342,7 @@ export function useCallSocket() {
                 }
             } else {
                 // Từ chối cuộc gọi
+                stopRingtone();
                 setPendingOffer(null);
 
                 client.publish({
@@ -338,7 +361,7 @@ export function useCallSocket() {
                 setTimeout(() => endCallStore(), 1000);
             }
         },
-        [user, setIncomingCall, setCallStatus, setPendingOffer, startCall, endCallStore],
+        [user, setIncomingCall, setCallStatus, setPendingOffer, startCall, endCallStore, stopRingtone],
     );
 
     // Kết thúc cuộc gọi đang diễn ra
