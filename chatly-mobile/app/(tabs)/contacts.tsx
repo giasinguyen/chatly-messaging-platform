@@ -1,8 +1,11 @@
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import {
   View,
   Text,
   FlatList,
+  Modal,
+  Animated,
+  StyleSheet,
   SectionList,
   TouchableOpacity,
   TextInput,
@@ -10,6 +13,7 @@ import {
   Alert,
   ActivityIndicator,
 } from 'react-native';
+import { usePresenceSocket, type PresenceEvent } from '@/hooks/usePresenceSocket';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { contactService } from '@/services/contact.service';
@@ -39,6 +43,42 @@ export default function ContactsScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+
+  // Friends tab — local filter state
+  const [friendSearchQuery, setFriendSearchQuery] = useState('');
+  const [onlineFilter, setOnlineFilter] = useState<'all' | 'online'>('all');
+  const [onlineUserIds, setOnlineUserIds] = useState<Record<string, 'ONLINE' | 'OFFLINE'>>({});
+  const [menuContact, setMenuContact] = useState<ContactResponse | null>(null);
+  const [sheetVisible, setSheetVisible] = useState(false);
+  const overlayOpacity = useRef(new Animated.Value(0)).current;
+  const sheetTranslateY = useRef(new Animated.Value(300)).current;
+
+  const openMenu = useCallback((contact: ContactResponse) => {
+    setMenuContact(contact);
+    setSheetVisible(true);
+    overlayOpacity.setValue(0);
+    sheetTranslateY.setValue(300);
+    Animated.parallel([
+      Animated.timing(overlayOpacity, { toValue: 1, duration: 200, useNativeDriver: true }),
+      Animated.timing(sheetTranslateY, { toValue: 0, duration: 280, useNativeDriver: true }),
+    ]).start();
+  }, [overlayOpacity, sheetTranslateY]);
+
+  const closeMenu = useCallback(() => {
+    Animated.parallel([
+      Animated.timing(overlayOpacity, { toValue: 0, duration: 180, useNativeDriver: true }),
+      Animated.timing(sheetTranslateY, { toValue: 300, duration: 250, useNativeDriver: true }),
+    ]).start(() => {
+      setMenuContact(null);
+      setSheetVisible(false);
+    });
+  }, [overlayOpacity, sheetTranslateY]);
+
+  usePresenceSocket({
+    onPresenceChange: useCallback((event: PresenceEvent) => {
+      setOnlineUserIds((prev) => ({ ...prev, [event.userId]: event.status }));
+    }, []),
+  });
 
   // Fetch accepted contacts
   const fetchContacts = useCallback(async () => {
@@ -75,6 +115,12 @@ export default function ContactsScreen() {
     setLoading(true);
     Promise.all([fetchContacts(), fetchPending(), fetchBlocked()]).finally(() => setLoading(false));
   }, [fetchContacts, fetchPending, fetchBlocked]);
+
+  // Reset friends filters on tab change
+  useEffect(() => {
+    setFriendSearchQuery('');
+    setOnlineFilter('all');
+  }, [activeTab]);
 
   // Refresh
   const handleRefresh = async () => {
@@ -128,15 +174,73 @@ export default function ContactsScreen() {
   };
 
   // Unblock contact
-  const handleUnblock = async (contactId: string) => {
-    try {
-      await contactService.delete(contactId);
-      Alert.alert('Success', 'Unblocked successfully');
-      fetchContacts();
-      fetchBlocked();
-    } catch (error: any) {
-      Alert.alert('Error', error?.response?.data?.message ?? 'Could not unblock.');
-    }
+  const handleUnblock = async (contactId: string, displayName: string) => {
+    Alert.alert(
+      'Unblock user?',
+      `${displayName} will be able to message you and send friend requests again. Your friendship will be restored.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Unblock',
+          onPress: async () => {
+            try {
+              await contactService.unblock(contactId);
+              fetchContacts();
+              fetchBlocked();
+            } catch (error: any) {
+              Alert.alert('Error', error?.response?.data?.message ?? 'Could not unblock.');
+            }
+          },
+        },
+      ],
+    );
+  };
+
+  // Block a friend
+  const handleBlock = async (contactId: string, displayName: string) => {
+    Alert.alert(
+      'Block user?',
+      `${displayName} will no longer be able to message you or view your full profile. Your friendship will be frozen.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Block',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await contactService.block(contactId);
+              fetchContacts();
+              fetchBlocked();
+            } catch (error: any) {
+              Alert.alert('Error', error?.response?.data?.message ?? 'Could not block user.');
+            }
+          },
+        },
+      ],
+    );
+  };
+
+  // Remove a friend
+  const handleRemove = async (contactId: string, displayName: string) => {
+    Alert.alert(
+      'Remove friend?',
+      `Are you sure you want to remove ${displayName} from your friends? You'll need to send a new request to reconnect.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Remove',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await contactService.delete(contactId);
+              fetchContacts();
+            } catch (error: any) {
+              Alert.alert('Error', error?.response?.data?.message ?? 'Could not remove friend.');
+            }
+          },
+        },
+      ],
+    );
   };
 
   // Send contact request
@@ -180,8 +284,15 @@ export default function ContactsScreen() {
   };
 
   const friendSections = useMemo(() => {
+    const query = friendSearchQuery.trim().toLowerCase();
+    const filtered = contacts.filter((c) => {
+      const cu = getContactUser(c);
+      if (query && !cu.displayName.toLowerCase().includes(query) && !cu.username.toLowerCase().includes(query)) return false;
+      if (onlineFilter === 'online' && onlineUserIds[cu.id] !== 'ONLINE') return false;
+      return true;
+    });
     const grouped: Record<string, ContactResponse[]> = {};
-    [...contacts]
+    [...filtered]
       .sort((a, b) =>
         getContactUser(a).displayName.localeCompare(getContactUser(b).displayName, 'vi'),
       )
@@ -194,7 +305,7 @@ export default function ContactsScreen() {
       .sort()
       .map((sectionTitle) => ({ title: sectionTitle, data: grouped[sectionTitle] }));
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [contacts, user]);
+  }, [contacts, user, friendSearchQuery, onlineFilter, onlineUserIds]);
 
   const tabs: { key: Tab; label: string; badge?: number }[] = [
     { key: 'friends', label: 'Friends' },
@@ -205,6 +316,8 @@ export default function ContactsScreen() {
 
   const renderContactItem = ({ item }: { item: ContactResponse }) => {
     const contactUser = getContactUser(item);
+    const isOnline = onlineUserIds[contactUser.id] === 'ONLINE';
+
     return (
       <TouchableOpacity
         className="flex-row items-center px-4 py-3"
@@ -212,18 +325,52 @@ export default function ContactsScreen() {
         onPress={() => handleChat(contactUser)}
         activeOpacity={0.7}
       >
-        <Avatar uri={contactUser.avatarUrl} name={contactUser.displayName} size={48} />
+        {/* Avatar with online indicator */}
+        <View>
+          <Avatar uri={contactUser.avatarUrl} name={contactUser.displayName} size={48} />
+          {isOnline && (
+            <View
+              style={{
+                position: 'absolute',
+                bottom: 1,
+                right: 1,
+                width: 12,
+                height: 12,
+                borderRadius: 6,
+                backgroundColor: Colors.online,
+                borderWidth: 2,
+                borderColor: Colors.white,
+              }}
+            />
+          )}
+        </View>
+
         <View className="ml-3 flex-1">
           <Text className="text-[16px] font-semibold" style={{ color: Colors.text }}>
             {contactUser.displayName}
           </Text>
-          <Text className="mt-0.5 text-[13px]" style={{ color: Colors.textLight }}>
-            @{contactUser.username}
+          <Text className="mt-0.5 text-[13px]" style={{ color: isOnline ? Colors.online : Colors.textLight }}>
+            {isOnline ? 'Online' : `@${contactUser.username}`}
           </Text>
         </View>
-        <TouchableOpacity onPress={() => handleChat(contactUser)}>
-          <Ionicons name="chatbubble-outline" size={22} color={Colors.cta} />
-        </TouchableOpacity>
+
+        {/* Action buttons */}
+        <View className="flex-row items-center">
+          <TouchableOpacity
+            onPress={() => handleChat(contactUser)}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            className="p-2"
+          >
+            <Ionicons name="chatbubble-outline" size={21} color={Colors.cta} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => openMenu(item)}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            className="p-2"
+          >
+            <Ionicons name="ellipsis-vertical" size={19} color={Colors.textLight} />
+          </TouchableOpacity>
+        </View>
       </TouchableOpacity>
     );
   };
@@ -290,7 +437,7 @@ export default function ContactsScreen() {
         <TouchableOpacity
           className="rounded-full px-4 py-1.5"
           style={{ backgroundColor: Colors.textLight }}
-          onPress={() => handleUnblock(item.id)}
+          onPress={() => handleUnblock(item.id, contactUser.displayName)}
         >
           <Text className="text-[14px] font-semibold" style={{ color: Colors.white }}>
             Unblock
@@ -401,7 +548,61 @@ export default function ContactsScreen() {
           <ActivityIndicator size="large" color={Colors.cta} />
         </View>
       ) : activeTab === 'friends' ? (
-        <SectionList
+        <View className="flex-1">
+          {/* Friends search + online filter toolbar */}
+          <View
+            className="flex-row items-center gap-2 px-4 py-2"
+            style={{
+              backgroundColor: Colors.white,
+              borderBottomWidth: 0.5,
+              borderBottomColor: Colors.borderLight,
+            }}
+          >
+            <View
+              className="flex-1 flex-row items-center rounded-lg px-3"
+              style={{ backgroundColor: Colors.bg, height: 36 }}
+            >
+              <Ionicons name="search" size={15} color={Colors.textLight} />
+              <TextInput
+                className="ml-2 flex-1 text-[14px]"
+                style={{ color: Colors.text }}
+                placeholder="Find friends..."
+                placeholderTextColor={Colors.textLight}
+                value={friendSearchQuery}
+                onChangeText={setFriendSearchQuery}
+              />
+              {friendSearchQuery.length > 0 && (
+                <TouchableOpacity onPress={() => setFriendSearchQuery('')}>
+                  <Ionicons name="close-circle" size={15} color={Colors.textLight} />
+                </TouchableOpacity>
+              )}
+            </View>
+            <TouchableOpacity
+              onPress={() => setOnlineFilter((f) => (f === 'all' ? 'online' : 'all'))}
+              className="rounded-lg px-3 py-1.5"
+              style={{ backgroundColor: onlineFilter === 'online' ? Colors.cta : Colors.bg }}
+            >
+              <Text
+                className="text-[13px] font-medium"
+                style={{ color: onlineFilter === 'online' ? Colors.white : Colors.textLight }}
+              >
+                Online
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Count */}
+          {(friendSearchQuery.trim() || onlineFilter === 'online') && (
+            <View className="px-4 py-1.5" style={{ backgroundColor: Colors.bg }}>
+              <Text className="text-[12px]" style={{ color: Colors.textMuted }}>
+                {friendSearchQuery.trim() ? `Found ` : ``}
+                {friendSections.reduce((n, s) => n + s.data.length, 0)} friends
+                {onlineFilter === 'online' ? ' online' : ''}
+              </Text>
+            </View>
+          )}
+
+          <SectionList
           sections={friendSections}
           keyExtractor={(item) => item.id}
           renderItem={renderContactItem}
@@ -427,14 +628,17 @@ export default function ContactsScreen() {
             <View className="flex-1 items-center justify-center pt-20">
               <Ionicons name="people-outline" size={48} color={Colors.textLight} />
               <Text className="mt-3 text-[16px]" style={{ color: Colors.textLight }}>
-                No friends yet
+                {friendSearchQuery.trim() || onlineFilter === 'online' ? 'No results found' : 'No friends yet'}
               </Text>
-              <Text className="mt-1 text-[14px]" style={{ color: Colors.textLight }}>
-                Search and connect now!
-              </Text>
+              {!friendSearchQuery.trim() && onlineFilter === 'all' && (
+                <Text className="mt-1 text-[14px]" style={{ color: Colors.textLight }}>
+                  Search and connect now!
+                </Text>
+              )}
             </View>
           }
         />
+        </View>
       ) : activeTab === 'pending' ? (
         <FlatList
           data={pendingContacts}
@@ -493,6 +697,110 @@ export default function ContactsScreen() {
           }
         />
       )}
+
+      {/* Friend action sheet */}
+      <Modal
+        visible={sheetVisible}
+        transparent
+        animationType="none"
+        onRequestClose={closeMenu}
+      >
+        <View style={{ flex: 1 }}>
+          {/* Overlay — fades in/out */}
+          <Animated.View
+            style={[StyleSheet.absoluteFill, { backgroundColor: Colors.overlay, opacity: overlayOpacity }]}
+          />
+          {/* Tap-to-dismiss area */}
+          <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={closeMenu} />
+
+          {/* Sheet — slides up/down */}
+          <Animated.View
+            style={{
+              position: 'absolute',
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundColor: Colors.white,
+              borderTopLeftRadius: 16,
+              borderTopRightRadius: 16,
+              paddingBottom: insets.bottom + 8,
+              transform: [{ translateY: sheetTranslateY }],
+            }}
+          >
+            {/* Handle + name */}
+            <View
+              className="items-center py-3"
+              style={{ borderBottomWidth: 0.5, borderBottomColor: Colors.borderLight }}
+            >
+              <View
+                className="w-10 h-1 rounded-full mb-3"
+                style={{ backgroundColor: Colors.borderLight }}
+              />
+              <Text className="text-[16px] font-semibold" style={{ color: Colors.text }}>
+                {menuContact ? getContactUser(menuContact).displayName : ''}
+              </Text>
+            </View>
+
+            {/* Message */}
+            <TouchableOpacity
+              className="flex-row items-center px-6 py-4"
+              onPress={() => {
+                const cu = getContactUser(menuContact!);
+                closeMenu();
+                handleChat(cu);
+              }}
+            >
+              <Ionicons name="chatbubble-outline" size={20} color={Colors.text} />
+              <Text className="ml-3 text-[15px]" style={{ color: Colors.text }}>
+                Message
+              </Text>
+            </TouchableOpacity>
+
+            {/* Block */}
+            <TouchableOpacity
+              className="flex-row items-center px-6 py-4"
+              onPress={() => {
+                const cu = getContactUser(menuContact!);
+                const cId = menuContact!.id;
+                closeMenu();
+                handleBlock(cId, cu.displayName);
+              }}
+            >
+              <Ionicons name="ban-outline" size={20} color={Colors.error} />
+              <Text className="ml-3 text-[15px]" style={{ color: Colors.error }}>
+                Block
+              </Text>
+            </TouchableOpacity>
+
+            {/* Remove friend */}
+            <TouchableOpacity
+              className="flex-row items-center px-6 py-4"
+              onPress={() => {
+                const cu = getContactUser(menuContact!);
+                const cId = menuContact!.id;
+                closeMenu();
+                handleRemove(cId, cu.displayName);
+              }}
+            >
+              <Ionicons name="person-remove-outline" size={20} color={Colors.error} />
+              <Text className="ml-3 text-[15px]" style={{ color: Colors.error }}>
+                Remove friend
+              </Text>
+            </TouchableOpacity>
+
+            {/* Cancel */}
+            <TouchableOpacity
+              className="mx-4 mt-2 rounded-xl py-3 items-center"
+              style={{ backgroundColor: Colors.bg }}
+              onPress={closeMenu}
+            >
+              <Text className="text-[15px] font-medium" style={{ color: Colors.text }}>
+                Cancel
+              </Text>
+            </TouchableOpacity>
+          </Animated.View>
+        </View>
+      </Modal>
     </View>
   );
 }

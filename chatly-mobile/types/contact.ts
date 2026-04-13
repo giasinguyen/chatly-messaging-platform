@@ -18,5 +18,6 @@ export interface ContactResponse {
   user: ContactUserInfo;
   contact: ContactUserInfo;
   status: ContactStatus;
+  blockedBy?: string | null;
   createdAt: string;
 }

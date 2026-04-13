@@ -37,6 +37,13 @@ export const contactService = {
     return response.data;
   },
 
+  unblock: async (id: string): Promise<ApiResponse<ContactResponse>> => {
+    const response = await axiosClient.put<ApiResponse<ContactResponse>>(
+      `/api/contacts/${id}/unblock`,
+    );
+    return response.data;
+  },
+
   delete: async (id: string): Promise<ApiResponse<void>> => {
     const response = await axiosClient.delete<ApiResponse<void>>(`/api/contacts/${id}`);
     return response.data;
