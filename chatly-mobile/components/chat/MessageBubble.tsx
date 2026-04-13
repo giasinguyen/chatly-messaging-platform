@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, Text, TouchableOpacity, Image, Linking } from 'react-native';
+import { View, Text, TouchableOpacity, Image, Linking, Modal, Pressable } from 'react-native';
 import { Image as ExpoImage } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/theme';
@@ -12,12 +12,20 @@ interface MessageBubbleProps {
   isMe: boolean;
   showAvatar?: boolean;
   senderName?: string;
+  senderAvatarUrl?: string;
   currentUserId?: string;
   onLongPress?: () => void;
   onReact?: (messageId: string, emoji: string) => void;
   onVotePoll?: (messageId: string, optionIndex: number) => void;
   replyToMessage?: Message | null;
+  onCallAgain?: (calleeId: string, calleeName: string, calleeAvatar?: string) => void;
+  calleeInfo?: { id: string; name: string; avatar?: string } | null;
   highlightKeyword?: string | null;
+  onMentionPress?: (displayName: string) => void;
+  participantNames?: string[];
+  onVCardPress?: (userId: string) => void;
+  onAddFriend?: (userId: string) => void;
+  vcardFriendStatus?: (userId: string) => 'ACCEPTED' | 'PENDING' | null;
 }
 
 export function MessageBubble({
@@ -25,12 +33,20 @@ export function MessageBubble({
   isMe,
   showAvatar = false,
   senderName,
+  senderAvatarUrl,
   currentUserId,
   onLongPress,
   onReact,
   onVotePoll,
   replyToMessage,
+  onCallAgain,
+  calleeInfo,
   highlightKeyword,
+  onMentionPress,
+  participantNames,
+  onVCardPress,
+  onAddFriend,
+  vcardFriendStatus,
 }: MessageBubbleProps) {
   const { content, type, recalled, edited, createdAt, readBy, attachments } = message;
 
@@ -157,20 +173,20 @@ export function MessageBubble({
   };
 
   // Text with URL detection
-  const renderHighlightedText = (text: string, textColor: string) => {
-    if (!highlightKeyword?.trim()) return <Text style={{ color: textColor }}>{text}</Text>;
+  const renderHighlightedText = (text: string, textColor: string, keyPrefix = 'hl') => {
+    if (!highlightKeyword?.trim()) return <Text key={keyPrefix} style={{ color: textColor }}>{text}</Text>;
     const escaped = highlightKeyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const parts = text.split(new RegExp(`(${escaped})`, 'gi'));
-    if (parts.length === 1) return <Text style={{ color: textColor }}>{text}</Text>;
+    if (parts.length === 1) return <Text key={keyPrefix} style={{ color: textColor }}>{text}</Text>;
     return (
-      <Text style={{ color: textColor }}>
+      <Text key={keyPrefix} style={{ color: textColor }}>
         {parts.map((part, i) =>
           i % 2 === 1 ? (
             <Text key={i} style={{ backgroundColor: '#fef08a', color: '#1a1a1a', borderRadius: 2 }}>
               {part}
             </Text>
           ) : (
-            part
+            <Text key={i}>{part}</Text>
           ),
         )}
       </Text>
@@ -179,19 +195,48 @@ export function MessageBubble({
 
   const renderTextContent = () => {
     const URL_REGEX = /(https?:\/\/[^\s<>"]+)/g;
-    const parts = content.split(URL_REGEX);
-    const hasLinks = parts.some((p) => /^https?:\/\//.test(p));
     const textColor = isMe ? Colors.bubbleSenderText : Colors.bubbleReceiverText;
+
+    // Build mention regex from known participant names (longest first to avoid partial matches)
+    const names = [...(participantNames ?? []), 'all'].filter(Boolean).sort((a, b) => b.length - a.length);
+    const escaped = names.map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+    const MENTION_REGEX = escaped.length > 0
+      ? new RegExp(`(@(?:${escaped.join('|')}))`, 'g')
+      : /(@\S+)/g;
+
+    // Split by URLs first, then parse mentions within non-URL parts
+    const urlParts = content.split(URL_REGEX);
+    const hasLinks = urlParts.some((p) => /^https?:\/\//.test(p));
+
+    const renderWithMentions = (text: string, color: string) => {
+      const mentionParts = text.split(MENTION_REGEX);
+      if (mentionParts.length === 1) return renderHighlightedText(text, color);
+      return mentionParts.map((part, i) => {
+        if (part.startsWith('@')) {
+          return (
+            <Text
+              key={`m-${i}`}
+              onPress={() => onMentionPress?.(part.slice(1).trim())}
+              style={{ color: isMe ? '#93c5fd' : Colors.cta, fontWeight: '600' }}
+            >
+              {part}
+            </Text>
+          );
+        }
+        return renderHighlightedText(part, color, `t-${i}`);
+      });
+    };
+
     if (!hasLinks) {
       return (
         <Text className="text-[15px] leading-5" style={{ color: textColor }}>
-          {renderHighlightedText(content, textColor)}
+          {renderWithMentions(content, textColor)}
         </Text>
       );
     }
     return (
       <Text className="text-[15px] leading-5" style={{ color: textColor }}>
-        {parts.map((part, i) =>
+        {urlParts.map((part, i) =>
           /^https?:\/\//.test(part) ? (
             <Text
               key={i}
@@ -204,7 +249,7 @@ export function MessageBubble({
               {part}
             </Text>
           ) : (
-            <Text key={i}>{renderHighlightedText(part, textColor)}</Text>
+            <Text key={i}>{renderWithMentions(part, textColor)}</Text>
           )
         )}
       </Text>
@@ -302,8 +347,129 @@ export function MessageBubble({
             autoplay
           />
         );
+      case 'VCARD': {
+        let card: { id?: string; displayName?: string; username?: string; avatarUrl?: string } = {};
+        try { card = JSON.parse(content); } catch { /* ignore */ }
+        const isSelf = card.id === currentUserId;
+        const friendSt = card.id ? vcardFriendStatus?.(card.id) : null;
+        return (
+          <View style={{ width: 220, borderRadius: 16, borderWidth: 1, borderColor: 'rgba(0,0,0,0.08)', backgroundColor: '#fff', overflow: 'hidden' }}>
+            {/* Header */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8, backgroundColor: 'rgba(0,0,0,0.03)', borderBottomWidth: 0.5, borderBottomColor: 'rgba(0,0,0,0.06)' }}>
+              <Ionicons name="person-circle-outline" size={14} color={Colors.textMuted} />
+              <Text style={{ fontSize: 11, color: Colors.textMuted, fontWeight: '500', marginLeft: 4 }}>Contact card</Text>
+            </View>
+            {/* Body */}
+            <TouchableOpacity
+              onPress={() => card.id && onVCardPress?.(card.id)}
+              activeOpacity={0.7}
+              style={{ flexDirection: 'row', alignItems: 'center', padding: 12, gap: 10 }}
+            >
+              <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: Colors.cta, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                {card.avatarUrl ? (
+                  <Image source={{ uri: card.avatarUrl }} style={{ width: 44, height: 44, borderRadius: 22 }} />
+                ) : (
+                  <Text style={{ color: '#fff', fontSize: 16, fontWeight: 'bold' }}>{(card.displayName ?? 'U').charAt(0).toUpperCase()}</Text>
+                )}
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 14, fontWeight: '600', color: Colors.text }} numberOfLines={1}>{card.displayName ?? 'User'}</Text>
+                {card.username ? <Text style={{ fontSize: 11, color: Colors.textMuted, marginTop: 2 }} numberOfLines={1}>@{card.username}</Text> : null}
+              </View>
+            </TouchableOpacity>
+            {/* Footer — friend status */}
+            {card.id && (
+              <View style={{ borderTopWidth: 0.5, borderTopColor: 'rgba(0,0,0,0.06)', flexDirection: 'row' }}>
+                {(isSelf || friendSt === 'ACCEPTED') ? (
+                  <Text style={{ flex: 1, paddingVertical: 8, fontSize: 12, fontWeight: '600', color: '#16a34a', textAlign: 'center' }}>
+                    ✓ Friends
+                  </Text>
+                ) : friendSt === 'PENDING' ? (
+                  <Text style={{ flex: 1, paddingVertical: 8, fontSize: 12, fontWeight: '600', color: Colors.textMuted, textAlign: 'center' }}>
+                    Request sent
+                  </Text>
+                ) : (
+                  <TouchableOpacity
+                    onPress={() => onAddFriend?.(card.id!)}
+                    style={{ flex: 1, paddingVertical: 8 }}
+                  >
+                    <Text style={{ fontSize: 12, fontWeight: '600', color: Colors.cta, textAlign: 'center' }}>Add friend</Text>
+                  </TouchableOpacity>
+                )}
+                <TouchableOpacity
+                  onPress={() => onVCardPress?.(card.id!)}
+                  style={{ flex: 1, paddingVertical: 8, borderLeftWidth: 0.5, borderLeftColor: 'rgba(0,0,0,0.06)' }}
+                >
+                  <Text style={{ fontSize: 12, fontWeight: '600', color: Colors.cta, textAlign: 'center' }}>View profile</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+        );
+      }
       case 'POLL':
         return renderPollContent();
+      case 'CALL': {
+        let callData: { callType?: string; status?: string; duration?: number } = {};
+        try { callData = JSON.parse(content); } catch { /* ignore */ }
+        const isMissed = callData.status === 'MISSED' || callData.status === 'REJECTED';
+        const isVideo = callData.callType === 'VIDEO';
+        const duration = callData.duration ?? 0;
+        const formatDur = (s: number) =>
+          `${Math.floor(s / 60).toString().padStart(2, '0')}:${(s % 60).toString().padStart(2, '0')}`;
+        const callLabel = isMissed
+          ? (isVideo ? 'Missed video call' : 'Missed audio call')
+          : (isVideo ? 'Video call' : 'Audio call');
+        const callColor = isMissed ? '#ef4444' : '#16a34a';
+        return (
+          <View style={{ marginVertical: 4, paddingHorizontal: 16, alignItems: isMe ? 'flex-end' : 'flex-start' }}>
+            <View
+              style={{
+                backgroundColor: isMissed ? '#fef2f2' : '#f0fdf4',
+                borderWidth: 1,
+                borderColor: isMissed ? '#fca5a5' : '#86efac',
+                borderRadius: 16,
+                paddingHorizontal: 14,
+                paddingVertical: 10,
+                maxWidth: 220,
+              }}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Ionicons
+                  name={isMissed ? 'call' : isVideo ? 'videocam' : 'call'}
+                  size={13}
+                  color={callColor}
+                />
+                <Text style={{ color: callColor, fontSize: 12, fontWeight: '500' }}>{callLabel}</Text>
+              </View>
+              {!isMissed && duration > 0 && (
+                <Text style={{ color: callColor, fontSize: 11, opacity: 0.7, marginTop: 2 }}>{formatDur(duration)}</Text>
+              )}
+              {isMissed && !isMe && onCallAgain && calleeInfo && (
+                <TouchableOpacity
+                  onPress={() => onCallAgain(calleeInfo.id, calleeInfo.name, calleeInfo.avatar)}
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    marginTop: 8,
+                    paddingVertical: 6,
+                    paddingHorizontal: 12,
+                    borderRadius: 10,
+                    backgroundColor: 'rgba(239,68,68,0.08)',
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="call" size={12} color="#ef4444" />
+                  <Text style={{ color: '#ef4444', fontSize: 11, fontWeight: '600', marginLeft: 4 }}>
+                    Call back
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
+        );
+      }
       case 'SYSTEM':
         return (
           <View className="my-1 items-center">
@@ -318,7 +484,7 @@ export function MessageBubble({
   };
 
   // System messages are centered
-  if (type === 'SYSTEM') {
+  if (type === 'SYSTEM' || type === 'CALL') {
     return renderContent();
   }
 
@@ -390,7 +556,7 @@ export function MessageBubble({
     <View className={`my-0.5 px-4 ${isMe ? 'items-end' : 'items-start'}`}>
       {/* Sender name for group chats */}
       {!isMe && showAvatar && senderName && (
-        <Text className="mb-0.5 ml-1 text-xs" style={{ color: Colors.textMuted }}>
+        <Text className="mb-0.5 text-xs" style={{ color: Colors.textMuted, marginLeft: 38 }}>
           {senderName}
         </Text>
       )}
@@ -403,12 +569,37 @@ export function MessageBubble({
         </View>
       )}
 
-      <TouchableOpacity
-        activeOpacity={0.8}
-        onLongPress={onLongPress}
-        delayLongPress={300}
-        style={{ maxWidth: '78%' }}
-      >
+      <View style={{ flexDirection: 'row', alignItems: 'flex-end' }}>
+        {/* Avatar for group received messages */}
+        {!isMe && showAvatar && (
+          <View
+            style={{
+              width: 28,
+              height: 28,
+              borderRadius: 14,
+              backgroundColor: Colors.cta,
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginRight: 6,
+              overflow: 'hidden',
+            }}
+          >
+            {senderAvatarUrl ? (
+              <Image source={{ uri: senderAvatarUrl }} style={{ width: 28, height: 28, borderRadius: 14 }} />
+            ) : (
+              <Text style={{ fontSize: 11, fontWeight: 'bold', color: 'white' }}>
+                {(senderName ?? '?').charAt(0).toUpperCase()}
+              </Text>
+            )}
+          </View>
+        )}
+
+        <TouchableOpacity
+          activeOpacity={0.8}
+          onLongPress={onLongPress}
+          delayLongPress={300}
+          style={{ maxWidth: '78%' }}
+        >
         <View
           className="rounded-2xl px-4 py-2.5"
           style={{
@@ -485,6 +676,7 @@ export function MessageBubble({
           </View>
         </View>
       </TouchableOpacity>
+      </View>
 
       {/* Reaction badges */}
       {message.reactions && message.reactions.length > 0 && (

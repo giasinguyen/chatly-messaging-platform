@@ -249,12 +249,34 @@ export default function ContactsScreen() {
 
   // Send contact request
   const handleSendRequest = async (contactUserId: string) => {
+    // Check if already a contact
+    const allContacts = [...contacts, ...pendingContacts, ...blockedContacts];
+    const existing = allContacts.find(
+      (c) => c.contact.id === contactUserId || c.user.id === contactUserId,
+    );
+    if (existing) {
+      const status = existing.status;
+      if (status === 'ACCEPTED') {
+        Alert.alert('Info', 'You are already friends with this user.');
+        return;
+      }
+      if (status === 'PENDING') {
+        Alert.alert('Info', 'A friend request is already pending.');
+        return;
+      }
+    }
     try {
       await contactService.sendRequest({ contactId: contactUserId });
       Alert.alert('Success', 'Friend request sent');
       fetchPending();
     } catch (error: any) {
-      Alert.alert('Error', error?.response?.data?.message ?? 'Could not send friend request.');
+      const msg = error?.response?.data?.message ?? '';
+      if (msg.includes('ALREADY') || error?.response?.status === 409) {
+        Alert.alert('Info', 'A friend request already exists.');
+        fetchPending();
+      } else {
+        Alert.alert('Error', msg || 'Could not send friend request.');
+      }
     }
   };
 
@@ -280,6 +302,29 @@ export default function ContactsScreen() {
     } catch (error: any) {
       Alert.alert('Error', error?.response?.data?.message ?? 'Could not create conversation.');
     }
+  };
+
+  // Unfriend contact
+  const handleUnfriend = (contactId: string, displayName: string) => {
+    Alert.alert(
+      'Unfriend',
+      `Are you sure you want to unfriend ${displayName}?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Unfriend',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await contactService.delete(contactId);
+              fetchContacts();
+            } catch (error: any) {
+              Alert.alert('Error', error?.response?.data?.message ?? 'Could not unfriend.');
+            }
+          },
+        },
+      ],
+    );
   };
 
   // Get the other user from a contact record
@@ -324,11 +369,9 @@ export default function ContactsScreen() {
     const isLimited = item.status === 'BLOCKED'; // backend only returns BLOCKED_ME in friends list
 
     return (
-      <TouchableOpacity
+      <View
         className="flex-row items-center px-4 py-3"
         style={{ borderBottomWidth: 0.5, borderBottomColor: Colors.borderLight }}
-        onPress={() => router.push(`/profile/${contactUser.id}`)}
-        activeOpacity={0.7}
       >
         {/* Avatar with online indicator */}
         <View>
@@ -396,7 +439,7 @@ export default function ContactsScreen() {
             <Ionicons name="ellipsis-vertical" size={19} color={Colors.textLight} />
           </TouchableOpacity>
         </View>
-      </TouchableOpacity>
+      </View>
     );
   };
 
@@ -472,33 +515,56 @@ export default function ContactsScreen() {
     );
   };
 
-  const renderSearchItem = ({ item }: { item: UserResponse }) => (
-    <TouchableOpacity
-      className="flex-row items-center px-4 py-3"
-      style={{ borderBottomWidth: 0.5, borderBottomColor: Colors.borderLight }}
-      onPress={() => router.push(`/profile/${item.id}`)}
-      activeOpacity={0.7}
-    >
-      <Avatar uri={item.avatarUrl} name={item.displayName} size={48} />
-      <View className="ml-3 flex-1">
-        <Text className="text-[16px] font-semibold" style={{ color: Colors.text }}>
-          {item.displayName}
-        </Text>
-        <Text className="mt-0.5 text-[13px]" style={{ color: Colors.textLight }}>
-          @{item.username}
-        </Text>
-      </View>
+  const renderSearchItem = ({ item }: { item: UserResponse }) => {
+    // Check existing contact status
+    const allContacts = [...contacts, ...pendingContacts, ...blockedContacts];
+    const existing = allContacts.find(
+      (c) => c.contact.id === item.id || c.user.id === item.id,
+    );
+    const status = existing?.status;
+
+    return (
       <TouchableOpacity
-        className="rounded-full px-4 py-1.5"
-        style={{ backgroundColor: Colors.cta }}
-        onPress={() => handleSendRequest(item.id)}
+        className="flex-row items-center px-4 py-3"
+        style={{ borderBottomWidth: 0.5, borderBottomColor: Colors.borderLight }}
+        onPress={() => router.push(`/profile/${item.id}`)}
+        activeOpacity={0.7}
       >
-        <Text className="text-[14px] font-semibold" style={{ color: Colors.white }}>
-          Add Friend
-        </Text>
+        <Avatar uri={item.avatarUrl} name={item.displayName} size={48} />
+        <View className="ml-3 flex-1">
+          <Text className="text-[16px] font-semibold" style={{ color: Colors.text }}>
+            {item.displayName}
+          </Text>
+          <Text className="mt-0.5 text-[13px]" style={{ color: Colors.textLight }}>
+            @{item.username}
+          </Text>
+        </View>
+        {status === 'ACCEPTED' ? (
+          <View className="rounded-full px-4 py-1.5" style={{ backgroundColor: Colors.borderLight }}>
+            <Text className="text-[14px] font-semibold" style={{ color: Colors.textMuted }}>
+              Friends
+            </Text>
+          </View>
+        ) : status === 'PENDING' ? (
+          <View className="rounded-full px-4 py-1.5" style={{ backgroundColor: Colors.borderLight }}>
+            <Text className="text-[14px] font-semibold" style={{ color: Colors.textMuted }}>
+              Pending
+            </Text>
+          </View>
+        ) : (
+          <TouchableOpacity
+            className="rounded-full px-4 py-1.5"
+            style={{ backgroundColor: Colors.cta }}
+            onPress={(e) => { e.stopPropagation?.(); handleSendRequest(item.id); }}
+          >
+            <Text className="text-[14px] font-semibold" style={{ color: Colors.white }}>
+              Add Friend
+            </Text>
+          </TouchableOpacity>
+        )}
       </TouchableOpacity>
-    </TouchableOpacity>
-  );
+    );
+  };
 
   return (
     <View className="flex-1" style={{ backgroundColor: Colors.bg, paddingTop: insets.top }}>

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Ban, Loader2 } from "lucide-react";
+import { Ban, Loader2, Check, Clock } from "lucide-react";
 import {
     Dialog,
     DialogContent,
@@ -14,6 +14,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { userService } from "@/services/user.service";
 import { contactService } from "@/services/contact.service";
 import type { UserResponse } from "@/types/auth";
+import type { ContactResponse } from "@/types/contact";
 import { toast } from "sonner";
 import { useAuthStore } from "@/store/auth.store";
 import { useContactStore } from "@/store/contact.store";
@@ -31,13 +32,28 @@ export function AddFriendDialog({ open, onOpenChange }: AddFriendDialogProps) {
     const [searchQuery, setSearchQuery] = useState("");
     const [users, setUsers] = useState<UserResponse[]>([]);
     const [loading, setLoading] = useState(false);
-    
+    const [contacts, setContacts] = useState<ContactResponse[]>([]);
+    const [sendingIds, setSendingIds] = useState<Set<string>>(new Set());
+
     useEffect(() => {
-        if (!open) {
+        if (open) {
+            contactService.getAll().then((res) => {
+                if (res.result) setContacts(res.result);
+            }).catch(() => {});
+        } else {
             setSearchQuery("");
             setUsers([]);
         }
     }, [open]);
+
+    const getContactStatus = (userId: string) => {
+        if (!currentUser) return null;
+        return contacts.find(
+            (c) =>
+                (c.user.id === currentUser.id && c.contact.id === userId) ||
+                (c.contact.id === currentUser.id && c.user.id === userId),
+        ) ?? null;
+    };
 
     const handleSearch = async () => {
         if (!searchQuery.trim()) return;
@@ -45,7 +61,6 @@ export function AddFriendDialog({ open, onOpenChange }: AddFriendDialogProps) {
         try {
             const res = await userService.getAll();
             if (res.result) {
-                // Filter users locally based on query and exclude current user
                 const filtered = res.result.filter((u) => {
                     if (u.id === currentUser?.id) return false;
                     const query = searchQuery.toLowerCase();
@@ -66,12 +81,22 @@ export function AddFriendDialog({ open, onOpenChange }: AddFriendDialogProps) {
     };
 
     const handleAddFriend = async (userId: string) => {
+        setSendingIds((prev) => new Set(prev).add(userId));
         try {
             await contactService.sendRequest({ contactId: userId });
             toast.success("Friend request sent");
-            // Update user list after sending if needed
+            // Refresh contacts so button updates immediately
+            const res = await contactService.getAll();
+            if (res.result) setContacts(res.result);
         } catch (err: any) {
-            toast.error(err.response?.data?.message || "Could not send friend request");
+            const msg = err.response?.data?.message;
+            toast.error(msg || "Could not send friend request");
+        } finally {
+            setSendingIds((prev) => {
+                const next = new Set(prev);
+                next.delete(userId);
+                return next;
+            });
         }
     };
 
@@ -107,6 +132,10 @@ export function AddFriendDialog({ open, onOpenChange }: AddFriendDialogProps) {
                             const blockDir = currentUser?.id
                                 ? getBlockDirection(currentUser.id, u.id)
                                 : null;
+                            const contactRecord = getContactStatus(u.id);
+                            const status = contactRecord?.status;
+                            const isSending = sendingIds.has(u.id);
+
                             return (
                                 <div key={u.id} className="flex justify-between items-center bg-muted/40 p-2 rounded-lg">
                                     <button
@@ -138,14 +167,23 @@ export function AddFriendDialog({ open, onOpenChange }: AddFriendDialogProps) {
                                             <p className="text-xs text-muted-foreground truncate">{u.email || u.phone || `@${u.username}`}</p>
                                         </div>
                                     </button>
-                                    {!blockDir && (
+                                    {status === "ACCEPTED" ? (
+                                        <Button size="sm" variant="ghost" disabled className="gap-1 text-muted-foreground">
+                                            <Check className="h-3 w-3" /> Friends
+                                        </Button>
+                                    ) : status === "PENDING" ? (
+                                        <Button size="sm" variant="ghost" disabled className="gap-1 text-muted-foreground">
+                                            <Clock className="h-3 w-3" /> Pending
+                                        </Button>
+                                    ) : !blockDir ? (
                                         <Button
                                             size="sm"
+                                            disabled={isSending}
                                             onClick={() => handleAddFriend(u.id)}
                                         >
-                                            Add friend
+                                            {isSending ? <Loader2 className="animate-spin h-3 w-3" /> : "Add friend"}
                                         </Button>
-                                    )}
+                                    ) : null}
                                 </div>
                             );
                         })

@@ -103,9 +103,22 @@ public class GroupService {
                 NotificationType.GROUP_INVITE,
                 requesterId,
                 targetUserId,
-                "Bạn đã được thêm vào nhóm " + (conversation.getName() != null ? conversation.getName() : "chat"),
+                "You have been added to group " + (conversation.getName() != null ? conversation.getName() : "chat"),
                 conversation.getId()
         );
+
+        // Send system message about new member
+        try {
+            User requesterUser = requesterId.equals(targetUserId) ? targetUser
+                    : userRepository.findById(UUID.fromString(requesterId)).orElse(null);
+            String requesterName = requesterUser != null ? requesterUser.getDisplayName() : "Someone";
+            String content = requesterId.equals(targetUserId)
+                    ? targetUser.getDisplayName() + " joined the group"
+                    : requesterName + " added " + targetUser.getDisplayName() + " to the group";
+            messageService.sendSystemMessage(conversation.getId(), content);
+        } catch (Exception e) {
+            // Don't fail if system message fails
+        }
 
         return toMemberResponse(member);
     }
@@ -136,6 +149,18 @@ public class GroupService {
         // Update participantIds in MongoDB conversation
         conversation.getParticipantIds().remove(targetUserId);
         conversationRepository.save(conversation);
+
+        // Send system message about removed member
+        try {
+            User targetUser = userRepository.findById(targetUid).orElse(null);
+            User requesterUser = userRepository.findById(UUID.fromString(requesterId)).orElse(null);
+            String targetName = targetUser != null ? targetUser.getDisplayName() : "A member";
+            String requesterName = requesterUser != null ? requesterUser.getDisplayName() : "Someone";
+            String content = requesterName + " removed " + targetName + " from the group";
+            messageService.sendSystemMessage(conversationId, content);
+        } catch (Exception e) {
+            // Don't fail if system message fails
+        }
     }
 
     /**
@@ -271,13 +296,33 @@ public class GroupService {
 
         UUID uid = UUID.fromString(userId);
         if (groupMemberRepository.existsByConversationIdAndUserId(conversation.getId(), uid)) {
-            throw new AppException(ErrorCode.GROUP_MEMBER_ALREADY_EXISTS);
+            // Already a member — return existing member info instead of error
+            User existingUser = userRepository.findById(uid)
+                    .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+            GroupMember existingMember = groupMemberRepository.findByConversationIdAndUserId(conversation.getId(), uid)
+                    .orElseThrow(() -> new AppException(ErrorCode.GROUP_MEMBER_NOT_FOUND));
+            return GroupMemberResponse.builder()
+                    .conversationId(conversation.getId())
+                    .userId(existingUser.getId().toString())
+                    .username(existingUser.getUsername())
+                    .displayName(existingUser.getDisplayName())
+                    .avatar(existingUser.getAvatarUrl())
+                    .role(existingMember.getRole())
+                    .joinedAt(existingMember.getJoinedAt())
+                    .build();
         }
 
         // If requireApproval is on, create pending request
         if (Boolean.TRUE.equals(conversation.getRequireApproval())) {
             if (pendingJoinRequestRepository.existsByConversationIdAndUserId(conversation.getId(), userId)) {
-                throw new AppException(ErrorCode.GROUP_PENDING_REQUEST_EXISTS);
+                // Already has a pending request — return pending info instead of error
+                User u = userRepository.findById(uid).orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+                return GroupMemberResponse.builder()
+                        .conversationId(conversation.getId())
+                        .userId(u.getId().toString()).username(u.getUsername())
+                        .displayName(u.getDisplayName()).avatar(u.getAvatarUrl())
+                        .role(null) // null = pending
+                        .build();
             }
             pendingJoinRequestRepository.save(PendingJoinRequest.builder()
                     .conversationId(conversation.getId())
@@ -321,29 +366,23 @@ public class GroupService {
     @Transactional
     public GroupMemberResponse approvePendingRequest(String conversationId, String targetUserId, String requesterId) {
         Conversation conversation = getGroupConversation(conversationId);
-        // Only OWNER can approve
-        GroupMember requester = requireGroupMember(conversationId, requesterId);
-        if (requester.getRole() != GroupRole.OWNER) {
-            throw new AppException(ErrorCode.GROUP_PERMISSION_DENIED);
-        }
+        // Only OWNER or ADMIN can approve
+        GroupMember requester = requireOwnerOrAdmin(conversationId, requesterId);
 
-        PendingJoinRequest pending = pendingJoinRequestRepository.findByConversationIdAndUserId(conversationId, targetUserId)
+        PendingJoinRequest pending = pendingJoinRequestRepository.findFirstByConversationIdAndUserId(conversationId, targetUserId)
                 .orElseThrow(() -> new AppException(ErrorCode.GROUP_PENDING_REQUEST_NOT_FOUND));
 
-        pendingJoinRequestRepository.delete(pending);
+        pendingJoinRequestRepository.deleteByConversationIdAndUserId(conversationId, targetUserId);
         return doAddMember(conversation, targetUserId, requesterId);
     }
 
     @Transactional
     public void rejectPendingRequest(String conversationId, String targetUserId, String requesterId) {
         getGroupConversation(conversationId);
-        GroupMember requester = requireGroupMember(conversationId, requesterId);
-        if (requester.getRole() != GroupRole.OWNER) {
-            throw new AppException(ErrorCode.GROUP_PERMISSION_DENIED);
-        }
-        PendingJoinRequest pending = pendingJoinRequestRepository.findByConversationIdAndUserId(conversationId, targetUserId)
+        requireOwnerOrAdmin(conversationId, requesterId);
+        PendingJoinRequest pending = pendingJoinRequestRepository.findFirstByConversationIdAndUserId(conversationId, targetUserId)
                 .orElseThrow(() -> new AppException(ErrorCode.GROUP_PENDING_REQUEST_NOT_FOUND));
-        pendingJoinRequestRepository.delete(pending);
+        pendingJoinRequestRepository.deleteByConversationIdAndUserId(conversationId, targetUserId);
     }
 
     // ── Reminders ────────────────────────────────────────────────────
@@ -500,6 +539,7 @@ public class GroupService {
     private GroupMemberResponse toMemberResponse(GroupMember member) {
         User user = member.getUser();
         return GroupMemberResponse.builder()
+                .conversationId(member.getConversationId())
                 .userId(user.getId().toString())
                 .username(user.getUsername())
                 .displayName(user.getDisplayName())

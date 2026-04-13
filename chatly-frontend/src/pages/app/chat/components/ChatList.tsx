@@ -553,8 +553,24 @@ export const ChatList = forwardRef(function ChatListComponent(_, ref) {
                                                               .type ===
                                                           "STICKER"
                                                         ? "🎭 Sticker"
+                                                        : conv.lastMessage.type === "VCARD"
+                                                          ? "📇 Contact card"
                                                         : conv.lastMessage
                                                               .type ===
+
+                                                          "CALL"
+                                                          ? (() => {
+                                                              try {
+                                                                const d = JSON.parse(conv.lastMessage.content);
+                                                                const missed = d.status === "MISSED" || d.status === "REJECTED";
+                                                                const video = d.callType === "VIDEO";
+                                                                if (missed) return video ? "📵 Missed video call" : "📵 Missed audio call";
+                                                                return video ? "🎥 Video call" : "📞 Audio call";
+                                                              } catch { return "📞 Call"; }
+                                                            })()
+                                                          : conv.lastMessage
+                                                        
+                                                                .type ===
                                                           "GIF"
                                                         ? "🎬 GIF"
                                                         : conv.lastMessage

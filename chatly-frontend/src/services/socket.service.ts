@@ -8,6 +8,15 @@ import SockJS from "sockjs-client";
 class SocketService {
     private client: Client | null = null;
     private connectionPromise: Promise<void> | null = null;
+    private connectListeners: Set<() => void> = new Set();
+
+    /** Register a callback to be called every time the STOMP client connects/reconnects */
+    onConnect(cb: () => void): () => void {
+        this.connectListeners.add(cb);
+        // If already connected fire immediately
+        if (this.client?.connected) cb();
+        return () => this.connectListeners.delete(cb);
+    }
 
     /**
      * Initialize and connect
@@ -31,6 +40,7 @@ class SocketService {
 
             client.onConnect = (frame) => {
                 console.log("Connected to WebSocket", frame);
+                this.connectListeners.forEach((cb) => cb());
                 resolve();
             };
 

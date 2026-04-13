@@ -10,7 +10,7 @@ public interface PendingJoinRequestRepository extends MongoRepository<PendingJoi
 
     List<PendingJoinRequest> findByConversationId(String conversationId);
 
-    Optional<PendingJoinRequest> findByConversationIdAndUserId(String conversationId, String userId);
+    Optional<PendingJoinRequest> findFirstByConversationIdAndUserId(String conversationId, String userId);
 
     boolean existsByConversationIdAndUserId(String conversationId, String userId);
 

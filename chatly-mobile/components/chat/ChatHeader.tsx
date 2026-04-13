@@ -4,6 +4,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Avatar } from '@/components/ui/Avatar';
 import { Colors } from '@/constants/theme';
+import { useCallContext } from '@/contexts/CallContext';
+import { useCallStore } from '@/store/call.store';
 
 interface ChatHeaderProps {
   name: string;
@@ -11,6 +13,8 @@ interface ChatHeaderProps {
   isOnline?: boolean;
   memberCount?: number;
   isGroup?: boolean;
+  conversationId?: string;
+  receiverId?: string;
   onToggleSearch?: () => void;
   onPressInfo?: () => void;
 }
@@ -21,11 +25,19 @@ export function ChatHeader({
   isOnline = false,
   memberCount,
   isGroup = false,
+  conversationId,
+  receiverId,
   onToggleSearch,
   onPressInfo,
 }: ChatHeaderProps) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { initiateCall } = useCallContext();
+  const callStatus = useCallStore((s) => s.callStatus);
+
+  // Chỉ hiển thị nút gọi cho cuộc trò chuyện riêng tư
+  const showCallButtons = !isGroup && !!conversationId && !!receiverId;
+  const callDisabled = callStatus !== 'IDLE';
 
   const subtitle = isGroup
     ? `${memberCount ?? 0} members`
@@ -87,18 +99,36 @@ export function ChatHeader({
         <TouchableOpacity onPress={onToggleSearch} className="mx-1 p-2">
           <Ionicons name="search-outline" size={22} color={Colors.cta} />
         </TouchableOpacity>
-        <TouchableOpacity
-          onPress={() => Alert.alert('Thông báo', 'Tính năng gọi thoại đang được phát triển')}
-          className="mx-1 p-2"
-        >
-          <Ionicons name="call-outline" size={22} color={Colors.cta} />
-        </TouchableOpacity>
-        <TouchableOpacity
-          onPress={() => Alert.alert('Thông báo', 'Tính năng video call đang được phát triển')}
-          className="mx-1 p-2"
-        >
-          <Ionicons name="videocam-outline" size={24} color={Colors.cta} />
-        </TouchableOpacity>
+        {showCallButtons && (
+          <>
+            <TouchableOpacity
+              className="mx-1 p-2"
+              disabled={callDisabled}
+              onPress={() => initiateCall(receiverId!, conversationId!, 'VOICE', name, avatarUrl ?? null)}
+              style={{ opacity: callDisabled ? 0.4 : 1 }}
+            >
+              <Ionicons name="call-outline" size={22} color={Colors.cta} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              className="mx-1 p-2"
+              disabled={callDisabled}
+              onPress={() => initiateCall(receiverId!, conversationId!, 'VIDEO', name, avatarUrl ?? null)}
+              style={{ opacity: callDisabled ? 0.4 : 1 }}
+            >
+              <Ionicons name="videocam-outline" size={24} color={Colors.cta} />
+            </TouchableOpacity>
+          </>
+        )}
+        {!showCallButtons && (
+          <>
+            <TouchableOpacity className="mx-1 p-2">
+              <Ionicons name="call-outline" size={22} color={Colors.cta} />
+            </TouchableOpacity>
+            <TouchableOpacity className="mx-1 p-2">
+              <Ionicons name="videocam-outline" size={24} color={Colors.cta} />
+            </TouchableOpacity>
+          </>
+        )}
         {onPressInfo && (
           <TouchableOpacity onPress={onPressInfo} className="mx-1 p-2">
             <Ionicons name="information-circle-outline" size={24} color={Colors.cta} />

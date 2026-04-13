@@ -21,6 +21,7 @@ import { useAuthStore } from "@/store/auth.store";
 import { useConversationPrefsStore } from "@/store/conversationPrefs.store";
 import { useNotificationStore } from "@/store/notification.store";
 import { useChatSocket } from "@/hooks/useChatSocket";
+import { useCallContext } from "@/contexts/CallContext";
 import {
     usePresenceSocket,
     type PresenceEvent,
@@ -71,7 +72,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import type { Message, ChatUser, ChatEvent } from "@/types/message";
-import type { ContactStatus, BlockStatusResponse } from "@/types/contact";
+import type { ContactStatus, BlockStatusResponse, ContactResponse } from "@/types/contact";
 import type { ConversationResponse } from "@/types/conversation";
 import type { UserResponse } from "@/types/auth";
 
@@ -192,6 +193,7 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
     const [blockStatus, setBlockStatus] = useState<BlockStatusResponse | null>(null);
     const [blockConfirmAction, setBlockConfirmAction] = useState<"block" | "unblock" | null>(null);
     const [blockActionLoading, setBlockActionLoading] = useState(false);
+    const [allContacts, setAllContacts] = useState<ContactResponse[]>([]);
     const [sendingContact, setSendingContact] = useState(false);
     const [isEditingGroup, setIsEditingGroup] = useState(false);
     const [groupNameDraft, setGroupNameDraft] = useState("");
@@ -376,6 +378,7 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
                     Object.fromEntries(allUsers.map((user) => [user.id, user])),
                 );
                 const allContacts = contactsRes.result ?? [];
+                setAllContacts(allContacts);
                 const directory = Object.fromEntries(
                     conv.participantIds.map((participantId) => {
                         const foundUser = allUsers.find(
@@ -721,13 +724,38 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
     );
 
     const handleOpenSenderProfile = useCallback(
-        (senderId: string) => {
-            const user = participantDirectory[senderId];
-            if (!user) return;
+        async (senderId: string) => {
+            let user = participantDirectory[senderId];
+            if (!user) {
+                // User not in participant directory (VCard non-member or DM)
+                try {
+                    const res = await userService.getById(senderId);
+                    const u = res.result;
+                    user = {
+                        id: u.id,
+                        displayName: u.displayName,
+                        username: u.username,
+                        avatarUrl: u.avatarUrl,
+                        phone: u.phone,
+                        dob: u.dob,
+                    };
+                } catch {
+                    return;
+                }
+            }
             setSelectedProfileUser(user);
+
+            // Compute contact status for this specific user
+            const relation = allContacts.find(
+                (c) =>
+                    (c.user.id === currentUser?.id && c.contact.id === senderId) ||
+                    (c.user.id === senderId && c.contact.id === currentUser?.id),
+            );
+            setContactStatus(relation?.status ?? null);
+
             setShowProfileDialog(true);
         },
-        [participantDirectory],
+        [participantDirectory, allContacts, currentUser],
     );
 
     const handleVotePoll = useCallback(
@@ -798,6 +826,15 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
         [],
     );
 
+    // Use the shared call socket instance (same as AppLayout) to avoid duplicate peer connections
+    const { initiateCall } = useCallContext();
+
+    const handleCallAgain = useCallback(
+        (calleeId: string, calleeName: string, calleeAvatar?: string) => {
+            initiateCall(calleeId, id, "VOICE", calleeName, calleeAvatar);
+        },
+        [id, initiateCall],
+    );
     const handleTagPriority = useCallback(
         async (messageId: string, priority: string) => {
             try {
@@ -1070,6 +1107,8 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
                     setShowProfileDialog(true);
                 }}
                 isGroup={isGroup}
+                conversationId={id}
+                otherUserId={!isGroup ? participant.id : undefined}
                 onOpenGroupPanel={
                     isGroup ? () => setShowGroupPanel(true) : undefined
                 }
@@ -1210,7 +1249,28 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
                 onVotePoll={handleVotePoll}
                 onClosePoll={handleClosePoll}
                 onTogglePin={handleTogglePin}
+                onCallAgain={handleCallAgain}
                 onTagPriority={handleTagPriority}
+                contacts={allContacts}
+                onAddFriend={async (userId: string) => {
+                    const existing = allContacts.find(
+                        (c) => c.contact.id === userId || c.user.id === userId,
+                    );
+                    if (existing?.status === "ACCEPTED" || existing?.status === "PENDING") return;
+                    try {
+                        await contactService.sendRequest({ contactId: userId });
+                        setAllContacts((prev) =>
+                            prev.map((c) =>
+                                c.contact.id === userId || c.user.id === userId
+                                    ? { ...c, status: "PENDING" as const }
+                                    : c,
+                            ),
+                        );
+                        toast.success("Đã gửi lời mời kết bạn");
+                    } catch {
+                        toast.error("Không thể gửi lời mời kết bạn");
+                    }
+                }}
             />
 
             {isTyping && (
@@ -1692,6 +1752,8 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
                     onOpenChange={setShowGroupPanel}
                     initialGroupName={conversation?.name ?? ""}
                     initialGroupAvatar={conversation?.avatarUrl ?? ""}
+                    initialRequireApproval={conversation?.requireApproval ?? false}
+                    initialAllowMembersUpdate={conversation?.allowMembersUpdateInfo !== false}
                     defaultTab={groupPanelDefaultTab}
                     onGroupUpdated={(name, avatarUrl) => {
                         setConversation((prev) =>

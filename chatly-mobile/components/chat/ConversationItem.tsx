@@ -12,6 +12,7 @@ interface ConversationItemProps {
   onLongPress?: () => void;
   participantNames?: Record<string, string>;
   participantAvatars?: Record<string, string | undefined>;
+  onlineUserIds?: Set<string>;
   isPinned?: boolean;
   isMuted?: boolean;
 }
@@ -23,6 +24,7 @@ export function ConversationItem({
   onLongPress,
   participantNames = {},
   participantAvatars = {},
+  onlineUserIds = new Set(),
   isPinned = false,
   isMuted = false,
 }: ConversationItemProps) {
@@ -31,13 +33,20 @@ export function ConversationItem({
   // Resolve display name
   let displayName = name ?? 'Conversation';
   let displayAvatar = avatarUrl;
+  let isOnline = false;
 
   if (type === 'PRIVATE') {
     const otherId = participantIds.find((id) => id !== currentUserId);
     if (otherId) {
       displayName = participantNames[otherId] ?? 'User';
       displayAvatar = participantAvatars[otherId] ?? null;
+      isOnline = onlineUserIds.has(otherId);
     }
+  } else {
+    // Group: online if any other member is online
+    isOnline = participantIds.some(
+      (pid) => pid !== currentUserId && onlineUserIds.has(pid),
+    );
   }
 
   // Last message preview
@@ -64,9 +73,24 @@ export function ConversationItem({
       case 'STICKER':
         preview = prefix + '🎨 Sticker';
         break;
+      case 'VCARD':
+        preview = prefix + '📇 Contact card';
+        break;
       case 'SYSTEM':
         preview = lastMessage.content;
         break;
+      case 'CALL': {
+        let callData: { callType?: string; status?: string } = {};
+        try { callData = JSON.parse(lastMessage.content); } catch { /* ignore */ }
+        const missed = callData.status === 'MISSED' || callData.status === 'REJECTED';
+        const video = callData.callType === 'VIDEO';
+        if (missed) {
+          preview = video ? '📵 Missed video call' : '📵 Missed audio call';
+        } else {
+          preview = video ? '🎥 Video call' : '📞 Audio call';
+        }
+        break;
+      }
       default:
         preview = prefix + lastMessage.content;
     }
@@ -88,7 +112,7 @@ export function ConversationItem({
         borderBottomColor: Colors.borderLight,
       }}
     >
-      <Avatar uri={displayAvatar} name={displayName} size={52} showOnline />
+      <Avatar uri={displayAvatar} name={displayName} size={52} showOnline isOnline={isOnline} />
 
       <View className="ml-3 flex-1">
         <View className="flex-row items-center justify-between">
