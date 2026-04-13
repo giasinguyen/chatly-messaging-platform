@@ -548,7 +548,7 @@ export const ChatList = forwardRef(function ChatListComponent(_, ref) {
                                                     ? "📷 Photo"
                                                     : conv.lastMessage.type ===
                                                         "FILE"
-                                                      ? "📎 File"
+                                                      ? `📎 ${conv.lastMessage.content || "File"}`
                                                       : conv.lastMessage
                                                               .type ===
                                                           "STICKER"

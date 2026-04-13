@@ -160,7 +160,7 @@ export function MessageBubble({
           style={{ color: isMe ? Colors.bubbleSenderText : Colors.cta }}
           numberOfLines={1}
         >
-          {file.name ?? 'Attachment'}
+          {file.name || 'Attachment'}
         </Text>
         <Ionicons
           name="download-outline"

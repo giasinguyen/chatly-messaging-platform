@@ -59,13 +59,13 @@ export function ConversationItem({
         preview = prefix + '📷 Image';
         break;
       case 'FILE':
-        preview = prefix + '📎 Attachment';
+        preview = prefix + '📎 ' + (lastMessage.content || 'Attachment');
         break;
       case 'VIDEO':
-        preview = prefix + '🎬 Video';
+        preview = prefix + '🎬 ' + (lastMessage.content || 'Video');
         break;
       case 'AUDIO':
-        preview = prefix + '🎵 Audio';
+        preview = prefix + '🎵 ' + (lastMessage.content || 'Audio');
         break;
       case 'GIF':
         preview = prefix + '🎬 GIF';

@@ -1,7 +1,7 @@
 package com.chatly.model.mongo;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.*;
+import org.springframework.data.mongodb.core.mapping.Field;
 
 @Getter
 @Setter
@@ -12,15 +12,15 @@ public class Attachment {
 
     private String fileId;
 
-    @JsonProperty("name")
-    private String fileName;
+    @Field("fileName")
+    private String name;
 
-    @JsonProperty("url")
-    private String fileUrl;
+    @Field("fileUrl")
+    private String url;
 
-    @JsonProperty("type")
-    private String fileType;
+    @Field("fileType")
+    private String type;
 
-    @JsonProperty("size")
-    private Long fileSize;
+    @Field("fileSize")
+    private Long size;
 }

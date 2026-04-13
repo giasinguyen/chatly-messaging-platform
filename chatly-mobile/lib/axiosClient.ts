@@ -74,7 +74,21 @@ const performRefreshToken = async (): Promise<string> => {
 // Request interceptor: client headers + token
 axiosClient.interceptors.request.use(
   async (config) => {
-    Object.assign(config.headers ?? {}, buildCommonHeaders());
+    const isFormData = config.data instanceof FormData;
+
+    // Apply common headers but skip Content-Type for FormData uploads
+    // so React Native auto-generates the multipart boundary.
+    const common = buildCommonHeaders();
+    for (const [key, value] of Object.entries(common)) {
+      if (isFormData && key === 'Content-Type') continue;
+      config.headers.set(key, value);
+    }
+
+    if (isFormData) {
+      // Ensure multipart/form-data — RN's XHR layer will auto-append the boundary
+      config.headers.set('Content-Type', 'multipart/form-data');
+    }
+
     const token = await AsyncStorage.getItem('access_token');
     if (token && !config.url?.includes('/refresh')) {
       config.headers = config.headers ?? {};
