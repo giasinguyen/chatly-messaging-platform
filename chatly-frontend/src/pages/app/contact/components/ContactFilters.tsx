@@ -14,13 +14,17 @@ interface ContactFiltersProps {
     searchQuery: string;
     onSearchChange: (value: string) => void;
     totalCount: number;
+    sortDir: "name-asc" | "name-desc";
+    onSortDirChange: (value: "name-asc" | "name-desc") => void;
+    onlineFilter: "all" | "online";
+    onOnlineFilterChange: (value: "all" | "online") => void;
 }
 
-export function ContactFilters({ activeTab, searchQuery, onSearchChange, totalCount }: ContactFiltersProps) {
+export function ContactFilters({ activeTab, searchQuery, onSearchChange, totalCount, sortDir, onSortDirChange, onlineFilter, onOnlineFilterChange }: ContactFiltersProps) {
     return (
         <div className="p-4 border-b border-border/50 bg-muted/20 flex flex-col gap-4">
             <div className="text-sm font-medium text-muted-foreground">
-                Total: {totalCount}
+                {searchQuery.trim() ? `Found ${totalCount}` : `Total: ${totalCount}`}
             </div>
             <div className="flex items-center gap-3">
                 <div className="relative flex-1 max-w-md">
@@ -33,8 +37,8 @@ export function ContactFilters({ activeTab, searchQuery, onSearchChange, totalCo
                     />
                 </div>
 
-                <Select defaultValue="name-asc">
-                    <SelectTrigger className="w-[180px] h-9 bg-card">
+                <Select value={sortDir} onValueChange={(v) => onSortDirChange(v as "name-asc" | "name-desc")}>
+                    <SelectTrigger className="w-45 h-9 bg-card">
                         <ListFilter className="h-4 w-4 mr-2" />
                         <SelectValue placeholder="Name (A-Z)" />
                     </SelectTrigger>
@@ -45,8 +49,8 @@ export function ContactFilters({ activeTab, searchQuery, onSearchChange, totalCo
                 </Select>
 
                 {activeTab === "friends" && (
-                    <Select defaultValue="all">
-                        <SelectTrigger className="w-[140px] h-9 bg-card">
+                    <Select value={onlineFilter} onValueChange={(v) => onOnlineFilterChange(v as "all" | "online")}>
+                        <SelectTrigger className="w-35 h-9 bg-card">
                             <SelectValue placeholder="All" />
                         </SelectTrigger>
                         <SelectContent>

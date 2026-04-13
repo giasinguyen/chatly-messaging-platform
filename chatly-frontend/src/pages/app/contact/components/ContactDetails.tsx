@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { UsersRound } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import type { ContactTab } from "../index";
@@ -11,6 +11,7 @@ import { useNavigate } from "react-router-dom";
 import { ContactFilters } from "./ContactFilters";
 import { ContactItem } from "./ContactItem";
 import { ContactConfirmDialog, type ConfirmAction } from "./ContactConfirmDialog";
+import { usePresenceSocket } from "@/hooks/usePresenceSocket";
 
 interface ContactDetailsProps {
     activeTab: ContactTab;
@@ -23,6 +24,15 @@ export function ContactDetails({ activeTab }: ContactDetailsProps) {
     const [loading, setLoading] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
     const [confirmAction, setConfirmAction] = useState<ConfirmAction | null>(null);
+    const [sortDir, setSortDir] = useState<"name-asc" | "name-desc">("name-asc");
+    const [onlineFilter, setOnlineFilter] = useState<"all" | "online">("all");
+    const [onlineUserIds, setOnlineUserIds] = useState<Record<string, "ONLINE" | "OFFLINE">>({});
+
+    usePresenceSocket({
+        onPresenceChange: useCallback((event) => {
+            setOnlineUserIds((prev) => ({ ...prev, [event.userId]: event.status }));
+        }, []),
+    });
 
     const fetchContacts = async () => {
         setLoading(true);
@@ -116,9 +126,14 @@ export function ContactDetails({ activeTab }: ContactDetailsProps) {
     };
 
     const filteredContacts = contacts.filter((c) => {
-        if (!searchQuery.trim()) return true;
         const otherUser = c.user.id === currentUser?.id ? c.contact : c.user;
-        return (otherUser.displayName || "").toLowerCase().includes(searchQuery.toLowerCase());
+        if (searchQuery.trim() && !(otherUser.displayName || "").toLowerCase().includes(searchQuery.toLowerCase())) {
+            return false;
+        }
+        if (activeTab === "friends" && onlineFilter === "online" && onlineUserIds[otherUser.id] !== "ONLINE") {
+            return false;
+        }
+        return true;
     });
 
     const grouped = filteredContacts.reduce((acc, current) => {
@@ -143,6 +158,10 @@ export function ContactDetails({ activeTab }: ContactDetailsProps) {
                 searchQuery={searchQuery}
                 onSearchChange={setSearchQuery}
                 totalCount={filteredContacts.length}
+                sortDir={sortDir}
+                onSortDirChange={setSortDir}
+                onlineFilter={onlineFilter}
+                onOnlineFilterChange={setOnlineFilter}
             />
 
             <div className="flex-1 overflow-hidden">
@@ -154,7 +173,7 @@ export function ContactDetails({ activeTab }: ContactDetailsProps) {
                     ) : (
                         <div className="py-2">
                             {Object.entries(grouped)
-                                .sort(([a], [b]) => a.localeCompare(b))
+                                .sort(([a], [b]) => sortDir === "name-asc" ? a.localeCompare(b) : b.localeCompare(a))
                                 .map(([letter, items]) => (
                                     <div key={letter} className="mb-4">
                                         {activeTab === "friends" && (
@@ -163,12 +182,15 @@ export function ContactDetails({ activeTab }: ContactDetailsProps) {
                                             </div>
                                         )}
                                         <div className="flex flex-col">
-                                            {items.map((contact) => (
+                                            {items.map((contact) => {
+                                                const otherUser = contact.user.id === currentUser?.id ? contact.contact : contact.user;
+                                                return (
                                                 <ContactItem
                                                     key={contact.id}
                                                     contact={contact}
                                                     currentUserId={currentUser!.id}
                                                     activeTab={activeTab}
+                                                    isOnline={onlineUserIds[otherUser.id] === "ONLINE"}
                                                     onAccept={handleAccept}
                                                     onReject={handleReject}
                                                     onMessage={handleMessage}
@@ -182,7 +204,8 @@ export function ContactDetails({ activeTab }: ContactDetailsProps) {
                                                         setConfirmAction({ type: "remove", contactId, name })
                                                     }
                                                 />
-                                            ))}
+                                                );
+                                            })}
                                         </div>
                                     </div>
                                 ))}
