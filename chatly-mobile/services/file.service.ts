@@ -43,6 +43,7 @@ export const fileService = {
       '/api/files/upload',
       formData,
       {
+        timeout: 60000,
         headers: { 'Content-Type': 'multipart/form-data' },
         onUploadProgress: (event) => {
           if (onProgress && event.total) {
