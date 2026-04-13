@@ -48,7 +48,7 @@ export function CallScreen({ visible, incomingCall, onAccept, onReject }: CallSc
   }));
 
   const callLabel =
-    incomingCall.type === 'VIDEO' ? 'Cuộc gọi video...' : 'Đang gọi...';
+    incomingCall.type === 'VIDEO' ? 'Video call...' : 'Calling...';
 
   return (
     <Modal

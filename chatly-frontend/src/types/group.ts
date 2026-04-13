@@ -1,6 +1,7 @@
 export type GroupRole = "OWNER" | "ADMIN" | "MEMBER";
 
 export interface GroupMemberResponse {
+    conversationId: string;
     userId: string;
     username: string;
     displayName: string;

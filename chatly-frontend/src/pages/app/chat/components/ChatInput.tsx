@@ -38,6 +38,7 @@ import { Label } from "@/components/ui/label";
 import { fileService } from "@/services/file.service";
 import { getDisplayUrl, type KlipyItem } from "@/services/klipy.service";
 import { groupService } from "@/services/group.service";
+import { contactService } from "@/services/contact.service";
 import { useAuthStore } from "@/store/auth.store";
 import type { Message, Attachment, Poll, ChatUser } from "@/types/message";
 
@@ -110,6 +111,8 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
     // VCard dialog state
     const [showVCardDialog, setShowVCardDialog] = useState(false);
     const [vCardUser, setVCardUser] = useState<ChatUser | null>(null);
+    const [vCardContacts, setVCardContacts] = useState<ChatUser[]>([]);
+    const [vCardLoading, setVCardLoading] = useState(false);
     const typingTimerRef = useRef<any>(null);
     const inputRef = useRef<HTMLInputElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -660,7 +663,23 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
                         variant="ghost"
                         size="icon"
                         className="h-9 w-9 shrink-0 text-muted-foreground hover:text-foreground"
-                        onClick={() => { setVCardUser(null); setShowVCardDialog(true); }}
+                        onClick={async () => {
+                            setVCardUser(null);
+                            setShowVCardDialog(true);
+                            setVCardLoading(true);
+                            try {
+                                const res = await contactService.getByStatus('ACCEPTED');
+                                const friends: ChatUser[] = (res.result ?? []).map((c) => {
+                                    const friend = c.user.id === currentUserId ? c.contact : c.user;
+                                    return { id: friend.id, username: friend.username, displayName: friend.displayName, avatarUrl: friend.avatarUrl ?? '' };
+                                });
+                                // Also include current user
+                                const me = groupMembers.find((m) => m.id === currentUserId);
+                                if (me && !friends.some((f) => f.id === me.id)) friends.unshift(me);
+                                setVCardContacts(friends);
+                            } catch { setVCardContacts(groupMembers); }
+                            finally { setVCardLoading(false); }
+                        }}
                         title="Send business card"
                     >
                         <IdCard size={18} />
@@ -923,7 +942,9 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
                         <DialogTitle>Send contact card</DialogTitle>
                     </DialogHeader>
                     <div className="space-y-1 max-h-64 overflow-y-auto">
-                        {groupMembers.map((user) => (
+                        {vCardLoading && <p className="text-center text-sm text-muted-foreground py-4">Loading contacts...</p>}
+                        {!vCardLoading && vCardContacts.length === 0 && <p className="text-center text-sm text-muted-foreground py-4">No contacts found</p>}
+                        {vCardContacts.map((user) => (
                             <button
                                 key={user.id}
                                 type="button"

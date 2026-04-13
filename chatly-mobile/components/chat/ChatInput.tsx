@@ -207,9 +207,9 @@ export function ChatInput({ conversationId, onSend, onTyping, replyingTo, onCanc
     } else if (optionId === 'urgent') {
       setSelectedPriority((prev) => (prev === 'URGENT' ? null : 'URGENT'));
     } else if (optionId === 'reminder') {
-      Alert.alert('Nhắc hẹn', 'Tính năng đang phát triển...');
+      Alert.alert('Reminder', 'Feature in development...');
     } else if (optionId === 'poll') {
-      Alert.alert('Bình chọn', 'Tính năng đang phát triển...');
+      Alert.alert('Poll', 'Feature in development...');
     }
   };
 
@@ -299,7 +299,7 @@ export function ChatInput({ conversationId, onSend, onTyping, replyingTo, onCanc
               flex: 1,
             }}
           >
-            {selectedPriority === 'URGENT' ? 'Tin nhắn khẩn cấp' : 'Tin nhắn quan trọng'}
+            {selectedPriority === 'URGENT' ? 'Urgent message' : 'Important message'}
           </Text>
           <TouchableOpacity onPress={() => setSelectedPriority(null)}>
             <Ionicons name="close" size={16} color={Colors.textMuted} />

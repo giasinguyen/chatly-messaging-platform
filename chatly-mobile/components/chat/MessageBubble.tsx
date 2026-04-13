@@ -173,20 +173,20 @@ export function MessageBubble({
   };
 
   // Text with URL detection
-  const renderHighlightedText = (text: string, textColor: string) => {
-    if (!highlightKeyword?.trim()) return <Text style={{ color: textColor }}>{text}</Text>;
+  const renderHighlightedText = (text: string, textColor: string, keyPrefix = 'hl') => {
+    if (!highlightKeyword?.trim()) return <Text key={keyPrefix} style={{ color: textColor }}>{text}</Text>;
     const escaped = highlightKeyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const parts = text.split(new RegExp(`(${escaped})`, 'gi'));
-    if (parts.length === 1) return <Text style={{ color: textColor }}>{text}</Text>;
+    if (parts.length === 1) return <Text key={keyPrefix} style={{ color: textColor }}>{text}</Text>;
     return (
-      <Text style={{ color: textColor }}>
+      <Text key={keyPrefix} style={{ color: textColor }}>
         {parts.map((part, i) =>
           i % 2 === 1 ? (
             <Text key={i} style={{ backgroundColor: '#fef08a', color: '#1a1a1a', borderRadius: 2 }}>
               {part}
             </Text>
           ) : (
-            part
+            <Text key={i}>{part}</Text>
           ),
         )}
       </Text>
@@ -223,7 +223,7 @@ export function MessageBubble({
             </Text>
           );
         }
-        return renderHighlightedText(part, color);
+        return renderHighlightedText(part, color, `t-${i}`);
       });
     };
 

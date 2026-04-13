@@ -49,6 +49,8 @@ interface GroupManagementPanelProps {
     onOpenChange: (open: boolean) => void;
     initialGroupName?: string;
     initialGroupAvatar?: string;
+    initialRequireApproval?: boolean;
+    initialAllowMembersUpdate?: boolean;
     onGroupUpdated?: (name: string, avatarUrl?: string) => void;
     defaultTab?: "members" | "settings";
 }
@@ -99,6 +101,8 @@ export function GroupManagementPanel({
     onOpenChange,
     initialGroupName = "",
     initialGroupAvatar = "",
+    initialRequireApproval = false,
+    initialAllowMembersUpdate = true,
     onGroupUpdated,
     defaultTab = "members",
 }: GroupManagementPanelProps) {
@@ -121,8 +125,8 @@ export function GroupManagementPanel({
     const [groupAvatar, setGroupAvatar] = useState(initialGroupAvatar);
     const [settingsSaving, setSettingsSaving] = useState(false);
     const [avatarUploading, setAvatarUploading] = useState(false);
-    const [allowMembersUpdate, setAllowMembersUpdate] = useState(true);
-    const [requireApproval, setRequireApproval] = useState(false);
+    const [allowMembersUpdate, setAllowMembersUpdate] = useState(initialAllowMembersUpdate);
+    const [requireApproval, setRequireApproval] = useState(initialRequireApproval);
     const avatarInputRef = useRef<HTMLInputElement>(null);
 
     // Invite link
@@ -173,6 +177,8 @@ export function GroupManagementPanel({
             setMemberSearch("");
             setGroupName(initialGroupName);
             setGroupAvatar(initialGroupAvatar);
+            setRequireApproval(initialRequireApproval);
+            setAllowMembersUpdate(initialAllowMembersUpdate);
         }
     }, [open, fetchMembers, initialGroupName, initialGroupAvatar]);
 
@@ -633,7 +639,7 @@ export function GroupManagementPanel({
                                 </div>
 
                                 {/* ── Pending join requests ── */}
-                                {myRole === "OWNER" && pendingRequests.length > 0 && (
+                                {isOwnerOrAdmin && pendingRequests.length > 0 && (
                                     <>
                                         <Separator />
                                         <div className="space-y-2">

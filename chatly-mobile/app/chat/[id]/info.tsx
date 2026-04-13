@@ -335,7 +335,7 @@ export default function GroupInfoScreen() {
 
   const handleCopyInviteLink = async () => {
     if (!inviteLink) return;
-    const fullLink = `chatly://join/${inviteLink}`;
+    const fullLink = `${process.env.EXPO_PUBLIC_WEB_URL || 'http://localhost:5173'}/join/${inviteLink}`;
     await Clipboard.setStringAsync(fullLink);
     Alert.alert('Copied', 'Invite link copied to clipboard.');
   };

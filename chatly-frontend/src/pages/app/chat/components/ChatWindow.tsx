@@ -701,9 +701,25 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
     );
 
     const handleOpenSenderProfile = useCallback(
-        (senderId: string) => {
-            const user = participantDirectory[senderId];
-            if (!user) return;
+        async (senderId: string) => {
+            let user = participantDirectory[senderId];
+            if (!user) {
+                // User not in participant directory (VCard non-member or DM)
+                try {
+                    const res = await userService.getById(senderId);
+                    const u = res.result;
+                    user = {
+                        id: u.id,
+                        displayName: u.displayName,
+                        username: u.username,
+                        avatarUrl: u.avatarUrl,
+                        phone: u.phone,
+                        dob: u.dob,
+                    };
+                } catch {
+                    return;
+                }
+            }
             setSelectedProfileUser(user);
 
             // Compute contact status for this specific user
@@ -1596,6 +1612,8 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
                     onOpenChange={setShowGroupPanel}
                     initialGroupName={conversation?.name ?? ""}
                     initialGroupAvatar={conversation?.avatarUrl ?? ""}
+                    initialRequireApproval={conversation?.requireApproval ?? false}
+                    initialAllowMembersUpdate={conversation?.allowMembersUpdateInfo !== false}
                     defaultTab={groupPanelDefaultTab}
                     onGroupUpdated={(name, avatarUrl) => {
                         setConversation((prev) =>

@@ -58,5 +58,12 @@ export const userService = {
         );
         return response.data;
     },
+
+    getById: async (id: string): Promise<ApiResponse<UserResponse>> => {
+        const response = await axiosClient.get<ApiResponse<UserResponse>>(
+            `/api/users/${id}`,
+        );
+        return response.data;
+    },
 };
 
