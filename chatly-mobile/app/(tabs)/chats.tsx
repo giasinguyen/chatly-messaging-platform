@@ -18,6 +18,7 @@ import { conversationService } from '@/services/conversation.service';
 import { userService } from '@/services/user.service';
 import { useConversationStore } from '@/store/conversation.store';
 import { useAuthStore } from '@/store/auth.store';
+import { usePresenceSocket } from '@/hooks/usePresenceSocket';
 import { Colors } from '@/constants/theme';
 import { useNotificationStore } from '@/store/notification.store';
 import { useConversationPrefsStore } from '@/store/conversationPrefs.store';
@@ -35,6 +36,22 @@ export default function ChatsScreen() {
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [participantMap, setParticipantMap] = useState<Record<string, UserResponse>>({});
+  const [onlineUserIds, setOnlineUserIds] = useState<Set<string>>(new Set());
+
+  // Track presence changes
+  usePresenceSocket({
+    onPresenceChange: (event) => {
+      setOnlineUserIds((prev) => {
+        const next = new Set(prev);
+        if (event.status === 'ONLINE') {
+          next.add(event.userId);
+        } else {
+          next.delete(event.userId);
+        }
+        return next;
+      });
+    },
+  });
 
   const loadData = useCallback(async () => {
     try {
@@ -53,10 +70,13 @@ export default function ChatsScreen() {
     try {
       const usersRes = await userService.getAll();
       const map: Record<string, UserResponse> = {};
+      const online = new Set<string>();
       usersRes.result.forEach((u) => {
         map[u.id] = u;
+        if (u.status === 'ONLINE') online.add(u.id);
       });
       setParticipantMap(map);
+      setOnlineUserIds(online);
     } catch (error) {
       console.error('Failed to fetch participants:', error);
     }
@@ -212,6 +232,7 @@ export default function ChatsScreen() {
               currentUserId={user?.id ?? ''}
               participantNames={participantNames}
               participantAvatars={participantAvatars}
+              onlineUserIds={onlineUserIds}
               isPinned={prefs[item.id]?.isPinned ?? false}
               isMuted={isConvMuted(prefs[item.id] ?? {})}
               onPress={() => handleConversationPress(item)}

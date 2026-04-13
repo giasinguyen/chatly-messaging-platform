@@ -2,9 +2,6 @@ import { View, Text, TouchableOpacity } from 'react-native';
 import { useEffect, useRef, useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 
-import { RTCView } from 'react-native-webrtc';
-import { Audio } from 'expo-av';
-
 let RTCView: any;
 try {
   RTCView = require('react-native-webrtc').RTCView;

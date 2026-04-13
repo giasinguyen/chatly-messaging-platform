@@ -320,7 +320,13 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
     // Extract mention user IDs from the content text
     const extractMentions = (text: string): string[] => {
         const mentionIds: string[] = [];
-        const mentionRegex = /@(\S+)/g;
+        // Build sorted names (longest first) so multi-word display names match before partial ones
+        const names = [
+            ...groupMembers.flatMap((m) => [m.displayName, m.username]),
+            "all",
+        ].filter(Boolean).sort((a, b) => b.length - a.length);
+        const escaped = names.map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+        const mentionRegex = new RegExp(`@(${escaped.join('|')})`, 'g');
         let match;
         while ((match = mentionRegex.exec(text)) !== null) {
             const name = match[1];

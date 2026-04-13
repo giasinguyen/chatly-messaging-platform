@@ -79,6 +79,7 @@ export default function ChatScreen() {
   const [contacts, setContacts] = useState<ContactResponse[]>([]);
   const [mentionModalUser, setMentionModalUser] = useState<UserResponse | null>(null);
   const [showMentionModal, setShowMentionModal] = useState(false);
+  const sendSeenRef = useRef<(messageId: string) => boolean>(() => false);
 
   const messages = messagesByConversation[conversationId ?? ''] ?? [];
   const currentPage = page[conversationId ?? ''] ?? 0;
@@ -93,6 +94,11 @@ export default function ChatScreen() {
         case 'SEND':
           addMessage(conversationId, event.message);
           
+          // Mark as seen if not from current user
+          if (event.message.senderId !== user?.id) {
+            sendSeenRef.current(event.message.id);
+          }
+
           // Update conversation list preview
           updateConversation(conversationId, {
             lastMessage: {
@@ -115,7 +121,7 @@ export default function ChatScreen() {
           break;
       }
     },
-    [conversationId, addMessage, updateMessage, removeMessage, updateConversation],
+    [conversationId, user?.id, addMessage, updateMessage, removeMessage, updateConversation],
   );
 
   const handleTyping = useCallback(
@@ -171,6 +177,9 @@ export default function ChatScreen() {
     onTyping: handleTyping,
     onRead: handleRead,
   });
+
+  // Keep ref up to date so handleChatEvent can call sendSeen
+  sendSeenRef.current = sendSeen;
 
   const { setActiveConversation } = useConversationStore();
 
@@ -230,6 +239,13 @@ export default function ChatScreen() {
         setMessages(conversationId, reversed);
         setPage(conversationId, 0);
         setHasMore(conversationId, res.result.length >= PAGE_SIZE);
+
+        // Mark unread messages from others as seen
+        for (const m of res.result) {
+          if (m.senderId !== user?.id && m.status !== 'READ') {
+            sendSeenRef.current(m.id);
+          }
+        }
       } catch (error) {
         console.error('Failed to fetch messages:', error);
       } finally {
@@ -265,6 +281,11 @@ export default function ChatScreen() {
     messages.forEach((m) => { map[m.id] = m; });
     return map;
   }, [messages]);
+
+  // Participant display names + usernames for mention rendering
+  const participantNames = useMemo(() => {
+    return Object.values(participantMap).flatMap((u) => [u.displayName, u.username].filter(Boolean));
+  }, [participantMap]);
 
   // Send message (try WebSocket, fallback to REST)
   const handleSend = useCallback(
@@ -612,6 +633,7 @@ export default function ChatScreen() {
                     calleeInfo={isMe ? null : { id: msg.senderId, name: sender?.displayName ?? 'User', avatar: sender?.avatarUrl }}
                     highlightKeyword={highlightKeyword}
                     onMentionPress={isGroup ? handleMentionPress : undefined}
+                    participantNames={isGroup ? participantNames : undefined}
                   />
                 </View>
               );

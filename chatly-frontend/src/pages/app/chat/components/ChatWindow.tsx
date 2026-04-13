@@ -705,9 +705,18 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
             const user = participantDirectory[senderId];
             if (!user) return;
             setSelectedProfileUser(user);
+
+            // Compute contact status for this specific user
+            const relation = allContacts.find(
+                (c) =>
+                    (c.user.id === currentUser?.id && c.contact.id === senderId) ||
+                    (c.user.id === senderId && c.contact.id === currentUser?.id),
+            );
+            setContactStatus(relation?.status ?? null);
+
             setShowProfileDialog(true);
         },
-        [participantDirectory],
+        [participantDirectory, allContacts, currentUser],
     );
 
     const handleVotePoll = useCallback(

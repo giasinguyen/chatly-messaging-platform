@@ -12,6 +12,7 @@ interface ConversationItemProps {
   onLongPress?: () => void;
   participantNames?: Record<string, string>;
   participantAvatars?: Record<string, string | undefined>;
+  onlineUserIds?: Set<string>;
   isPinned?: boolean;
   isMuted?: boolean;
 }
@@ -23,6 +24,7 @@ export function ConversationItem({
   onLongPress,
   participantNames = {},
   participantAvatars = {},
+  onlineUserIds = new Set(),
   isPinned = false,
   isMuted = false,
 }: ConversationItemProps) {
@@ -31,13 +33,20 @@ export function ConversationItem({
   // Resolve display name
   let displayName = name ?? 'Conversation';
   let displayAvatar = avatarUrl;
+  let isOnline = false;
 
   if (type === 'PRIVATE') {
     const otherId = participantIds.find((id) => id !== currentUserId);
     if (otherId) {
       displayName = participantNames[otherId] ?? 'User';
       displayAvatar = participantAvatars[otherId] ?? null;
+      isOnline = onlineUserIds.has(otherId);
     }
+  } else {
+    // Group: online if any other member is online
+    isOnline = participantIds.some(
+      (pid) => pid !== currentUserId && onlineUserIds.has(pid),
+    );
   }
 
   // Last message preview
@@ -100,7 +109,7 @@ export function ConversationItem({
         borderBottomColor: Colors.borderLight,
       }}
     >
-      <Avatar uri={displayAvatar} name={displayName} size={52} showOnline />
+      <Avatar uri={displayAvatar} name={displayName} size={52} showOnline isOnline={isOnline} />
 
       <View className="ml-3 flex-1">
         <View className="flex-row items-center justify-between">

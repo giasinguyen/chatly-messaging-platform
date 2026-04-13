@@ -715,10 +715,16 @@ export function MessageList({
                                 )}
                                 {msg.content && (() => {
                                     const URL_REGEX = /(https?:\/\/[^\s<>"]+)/g;
-                                    const MENTION_REGEX = /(@\S+)/g;
-                                    const COMBINED_REGEX = /(https?:\/\/[^\s<>"]+|@\S+)/g;
+                                    // Build mention names from participants (sorted longest-first to avoid partial matches)
+                                    const mentionNames = [
+                                        ...Object.values(participantDirectory).flatMap(u => [u.displayName, u.username]),
+                                        'all',
+                                    ].filter(Boolean).sort((a, b) => b.length - a.length);
+                                    const escapedNames = mentionNames.map(n => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+                                    const MENTION_REGEX_STR = escapedNames.length > 0 ? `@(?:${escapedNames.join('|')})` : '@\\S+';
+                                    const COMBINED_REGEX = new RegExp(`(https?:\\/\\/[^\\s<>"]+|${MENTION_REGEX_STR})`, 'g');
                                     const parts = msg.content.split(COMBINED_REGEX);
-                                    const hasSpecial = parts.some(p => URL_REGEX.test(p) || MENTION_REGEX.test(p));
+                                    const hasSpecial = parts.some(p => /^https?:\/\//.test(p) || /^@/.test(p));
                                     if (!hasSpecial) return <span>{renderHighlightedText(msg.content)}</span>;
                                     return (
                                         <span>
@@ -731,7 +737,7 @@ export function MessageList({
                                                         </a>
                                                     );
                                                 }
-                                                if (/^@\S+/.test(part)) {
+                                                if (/^@/.test(part)) {
                                                     const mentionName = part.replace(/^@/, '');
                                                     const mentionedUser = mentionName === 'all'
                                                         ? null

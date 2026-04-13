@@ -22,6 +22,7 @@ interface MessageBubbleProps {
   calleeInfo?: { id: string; name: string; avatar?: string } | null;
   highlightKeyword?: string | null;
   onMentionPress?: (displayName: string) => void;
+  participantNames?: string[];
 }
 
 export function MessageBubble({
@@ -39,6 +40,7 @@ export function MessageBubble({
   calleeInfo,
   highlightKeyword,
   onMentionPress,
+  participantNames,
 }: MessageBubbleProps) {
   const { content, type, recalled, edited, createdAt, readBy, attachments } = message;
 
@@ -187,8 +189,14 @@ export function MessageBubble({
 
   const renderTextContent = () => {
     const URL_REGEX = /(https?:\/\/[^\s<>"]+)/g;
-    const MENTION_REGEX = /(@[\w\s]+?)(?=\s@|\s|$)/g;
     const textColor = isMe ? Colors.bubbleSenderText : Colors.bubbleReceiverText;
+
+    // Build mention regex from known participant names (longest first to avoid partial matches)
+    const names = [...(participantNames ?? []), 'all'].filter(Boolean).sort((a, b) => b.length - a.length);
+    const escaped = names.map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+    const MENTION_REGEX = escaped.length > 0
+      ? new RegExp(`(@(?:${escaped.join('|')}))`, 'g')
+      : /(@\S+)/g;
 
     // Split by URLs first, then parse mentions within non-URL parts
     const urlParts = content.split(URL_REGEX);
@@ -198,8 +206,7 @@ export function MessageBubble({
       const mentionParts = text.split(MENTION_REGEX);
       if (mentionParts.length === 1) return renderHighlightedText(text, color);
       return mentionParts.map((part, i) => {
-        if (part.startsWith('@') && MENTION_REGEX.test(part)) {
-          MENTION_REGEX.lastIndex = 0;
+        if (part.startsWith('@')) {
           return (
             <Text
               key={`m-${i}`}
