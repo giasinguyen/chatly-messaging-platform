@@ -18,6 +18,6 @@ public class GroupReminderRequest {
 
     private String description;
 
-    @Future(message = "Reminder time must be in the future")
+    @Future(message = "REMINDER_TIME_IN_PAST")
     private Instant remindAt;
 }

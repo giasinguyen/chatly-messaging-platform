@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import axios from "axios";
 import { groupService } from "@/services/group.service";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -36,6 +37,10 @@ function toDatetimeLocalString(date: Date): string {
         ":" +
         pad(date.getMinutes())
     );
+}
+
+function nowPlusOneMinute(): string {
+    return toDatetimeLocalString(new Date(Date.now() + 60_000));
 }
 
 interface RemindersDialogProps {
@@ -85,7 +90,7 @@ export function RemindersDialog({
             setShowForm(false);
             setTitle("");
             setDescription("");
-            setRemindAt(toDatetimeLocalString(new Date()));
+            setRemindAt(nowPlusOneMinute());
         }
     }, [open, fetchReminders]);
 
@@ -108,11 +113,14 @@ export function RemindersDialog({
             toast.success("Reminder created");
             setTitle("");
             setDescription("");
-            setRemindAt("");
+            setRemindAt(nowPlusOneMinute());
             setShowForm(false);
             fetchReminders();
-        } catch {
-            toast.error("Could not create reminder");
+        } catch (err) {
+            const msg = axios.isAxiosError(err)
+                ? (err.response?.data as { message?: string })?.message
+                : undefined;
+            toast.error(msg ?? "Could not create reminder");
         } finally {
             setCreating(false);
         }
@@ -165,8 +173,11 @@ export function RemindersDialog({
             toast.success("Reminder updated");
             setEditingId(null);
             fetchReminders();
-        } catch {
-            toast.error("Could not update reminder");
+        } catch (err) {
+            const msg = axios.isAxiosError(err)
+                ? (err.response?.data as { message?: string })?.message
+                : undefined;
+            toast.error(msg ?? "Could not update reminder");
         } finally {
             setUpdating(false);
         }

@@ -65,6 +65,7 @@ public enum ErrorCode {
     GROUP_PENDING_REQUEST_NOT_FOUND(1505, "Pending join request not found", HttpStatus.NOT_FOUND),
     GROUP_REMINDER_NOT_FOUND(1506, "Reminder not found", HttpStatus.NOT_FOUND),
     GROUP_NOTE_NOT_FOUND(1507, "Note not found", HttpStatus.NOT_FOUND),
+    REMINDER_TIME_IN_PAST(1508, "Reminder time must be in the future", HttpStatus.BAD_REQUEST),
 
     NOTIFICATION_NOT_FOUND(1700, "Notification not found", HttpStatus.NOT_FOUND),
 
