@@ -9,8 +9,10 @@ import { Colors } from '@/constants/theme';
 import { fileService } from '@/services/file.service';
 import { getDisplayUrl, type KlipyItem } from '@/services/klipy.service';
 import { MediaPicker } from '@/components/chat/MediaPicker';
+import { ReminderModal } from '@/components/chat/ReminderModal';
+import { PollModal } from '@/components/chat/PollModal';
 import { useAuthStore } from '@/store/auth.store';
-import type { Message, Attachment } from '@/types/message';
+import type { Message, Attachment, Poll } from '@/types/message';
 
 interface GroupMember {
   id: string;
@@ -21,7 +23,7 @@ interface GroupMember {
 
 interface ChatInputProps {
   conversationId?: string;
-  onSend: (text: string, attachments?: Attachment[], messageType?: string, priority?: 'IMPORTANT' | 'URGENT') => void;
+  onSend: (text: string, attachments?: Attachment[], messageType?: string, priority?: 'IMPORTANT' | 'URGENT', poll?: Poll) => void;
   onTyping?: (isTyping: boolean) => void;
   replyingTo?: Message | null;
   onCancelReply?: () => void;
@@ -49,6 +51,8 @@ export function ChatInput({ conversationId, onSend, onTyping, replyingTo, onCanc
   const [activePicker, setActivePicker] = useState<'gif' | 'sticker' | null>(null);
   const [showOptionsSheet, setShowOptionsSheet] = useState(false);
   const [selectedPriority, setSelectedPriority] = useState<'IMPORTANT' | 'URGENT' | null>(null);
+  const [showReminderModal, setShowReminderModal] = useState(false);
+  const [showPollModal, setShowPollModal] = useState(false);
 
   // Mention detection
   const mentionQuery = useMemo(() => {
@@ -207,10 +211,14 @@ export function ChatInput({ conversationId, onSend, onTyping, replyingTo, onCanc
     } else if (optionId === 'urgent') {
       setSelectedPriority((prev) => (prev === 'URGENT' ? null : 'URGENT'));
     } else if (optionId === 'reminder') {
-      Alert.alert('Reminder', 'Feature in development...');
+      setShowReminderModal(true);
     } else if (optionId === 'poll') {
-      Alert.alert('Poll', 'Feature in development...');
+      setShowPollModal(true);
     }
+  };
+
+  const handleSendPoll = (poll: Poll) => {
+    onSend('', undefined, 'POLL', undefined, poll);
   };
 
   return (
@@ -501,6 +509,22 @@ export function ChatInput({ conversationId, onSend, onTyping, replyingTo, onCanc
         enableRecentlyUsed
       />
 
+      {/* Reminder Modal */}
+      {conversationId && (
+        <ReminderModal
+          visible={showReminderModal}
+          conversationId={conversationId}
+          onClose={() => setShowReminderModal(false)}
+        />
+      )}
+
+      {/* Poll Modal */}
+      <PollModal
+        visible={showPollModal}
+        onClose={() => setShowPollModal(false)}
+        onSend={handleSendPoll}
+      />
+
       {/* Options bottom sheet */}
       <Modal
         visible={showOptionsSheet}
@@ -604,6 +628,7 @@ export function ChatInput({ conversationId, onSend, onTyping, replyingTo, onCanc
 
             <View style={{ height: 1, backgroundColor: Colors.borderLight, marginHorizontal: 20, marginVertical: 4 }} />
 
+            {isGroup && (
             <TouchableOpacity
               onPress={() => handleOptionSelect('reminder')}
               style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 14 }}
@@ -616,6 +641,7 @@ export function ChatInput({ conversationId, onSend, onTyping, replyingTo, onCanc
                 <Text style={{ fontSize: 12, color: Colors.textMuted, marginTop: 1 }}>Nhắc nhở tin nhắn vào thời điểm cụ thể</Text>
               </View>
             </TouchableOpacity>
+            )}
 
             <TouchableOpacity
               onPress={() => handleOptionSelect('poll')}

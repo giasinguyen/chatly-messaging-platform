@@ -12,8 +12,6 @@ import {
     BarChart3,
     Plus,
     Trash2,
-    Clapperboard,
-    Sticker,
     Clock,
     MoreHorizontal,
     IdCard,
@@ -46,6 +44,7 @@ const LazyMediaPicker = lazy(() => import("@/components/media-picker/MediaPicker
 
 interface ChatInputProps {
     conversationId?: string;
+    conversationType?: string;
     replyingTo?: Message | null;
     senderName?: string;
     onCancelReply: () => void;
@@ -75,6 +74,7 @@ const ACCEPTED_TYPES =
 
 export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
     conversationId,
+    conversationType,
     replyingTo,
     senderName,
     onCancelReply,
@@ -536,8 +536,9 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
                 </div>
             )}
 
-            <div className="p-4 px-6">
-                <div className="flex items-center gap-3">
+            <div className="px-6 pt-3 pb-4 space-y-2">
+                {/* Row 1: Toolbar */}
+                <div className="flex items-center gap-1">
                     {/* Hidden file inputs */}
                     <input
                         ref={imageInputRef}
@@ -578,19 +579,47 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
                         <Paperclip size={18} />
                     </Button>
 
-                    {/* Emoji picker */}
+                    {/* Combined Emoji / GIF / Sticker button */}
                     <div className="relative" ref={emojiPickerRef}>
                         <Button
                             variant="ghost"
                             size="icon"
-                            className="h-9 w-9 shrink-0 text-muted-foreground hover:text-foreground"
-                            onClick={() => setShowEmojiPicker((prev) => !prev)}
-                            title="Select emoji"
+                            className={cn(
+                                "h-9 w-9 shrink-0",
+                                (showEmojiPicker || activePicker) ? "text-brand bg-brand/10" : "text-muted-foreground hover:text-foreground",
+                            )}
+                            onClick={() => {
+                                if (activePicker) {
+                                    setActivePicker(null);
+                                } else {
+                                    setShowEmojiPicker((prev) => !prev);
+                                }
+                            }}
+                            title="Emoji / GIF / Sticker"
                         >
                             <Smile size={18} />
                         </Button>
                         {showEmojiPicker && (
-                            <div className="absolute bottom-full mb-2 left-0 z-50">
+                            <div className="absolute bottom-full mb-2 left-0 z-50 bg-popover border border-border rounded-xl shadow-lg overflow-hidden">
+                                <div className="flex items-center border-b border-border bg-muted/30">
+                                    <span className="px-3 py-1.5 text-xs font-semibold text-brand border-b-2 border-brand">
+                                        😀 Emoji
+                                    </span>
+                                    <button
+                                        type="button"
+                                        className="px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+                                        onMouseDown={(e) => { e.preventDefault(); setShowEmojiPicker(false); setActivePicker("gif"); }}
+                                    >
+                                        GIF
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className="px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+                                        onMouseDown={(e) => { e.preventDefault(); setShowEmojiPicker(false); setActivePicker("sticker"); }}
+                                    >
+                                        Sticker
+                                    </button>
+                                </div>
                                 <Picker
                                     data={data}
                                     onEmojiSelect={handleEmojiSelect}
@@ -604,88 +633,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
                         )}
                     </div>
 
-                    {/* Poll creation button */}
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-9 w-9 shrink-0 text-muted-foreground hover:text-foreground"
-                        onClick={() => setShowPollDialog(true)}
-                        title="Create poll"
-                    >
-                        <BarChart3 size={18} />
-                    </Button>
-
-                    {/* GIF picker button */}
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        className={cn(
-                            "h-9 w-9 shrink-0",
-                            activePicker === "gif"
-                                ? "text-brand bg-brand/10"
-                                : "text-muted-foreground hover:text-foreground",
-                        )}
-                        onClick={() => { setActivePicker((p) => (p === "gif" ? null : "gif")); setShowEmojiPicker(false); }}
-                        title="Gửi GIF"
-                    >
-                        <Clapperboard size={18} />
-                    </Button>
-
-                    {/* Sticker picker button */}
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        className={cn(
-                            "h-9 w-9 shrink-0",
-                            activePicker === "sticker"
-                                ? "text-brand bg-brand/10"
-                                : "text-muted-foreground hover:text-foreground",
-                        )}
-                        onClick={() => { setActivePicker((p) => (p === "sticker" ? null : "sticker")); setShowEmojiPicker(false); }}
-                        title="Gửi Sticker"
-                    >
-                        <Sticker size={18} />
-                    </Button>
-
-                    {/* Reminder creation button */}
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-9 w-9 shrink-0 text-muted-foreground hover:text-foreground"
-                        onClick={() => setShowReminderDialog(true)}
-                        title="Create reminder"
-                    >
-                        <Clock size={18} />
-                    </Button>
-
-                    {/* Business card button */}
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-9 w-9 shrink-0 text-muted-foreground hover:text-foreground"
-                        onClick={async () => {
-                            setVCardUser(null);
-                            setShowVCardDialog(true);
-                            setVCardLoading(true);
-                            try {
-                                const res = await contactService.getByStatus('ACCEPTED');
-                                const friends: ChatUser[] = (res.result ?? []).map((c) => {
-                                    const friend = c.user.id === currentUserId ? c.contact : c.user;
-                                    return { id: friend.id, username: friend.username, displayName: friend.displayName, avatarUrl: friend.avatarUrl ?? '' };
-                                });
-                                // Also include current user
-                                const me = groupMembers.find((m) => m.id === currentUserId);
-                                if (me && !friends.some((f) => f.id === me.id)) friends.unshift(me);
-                                setVCardContacts(friends);
-                            } catch { setVCardContacts(groupMembers); }
-                            finally { setVCardLoading(false); }
-                        }}
-                        title="Send business card"
-                    >
-                        <IdCard size={18} />
-                    </Button>
-
-                    {/* Priority menu button (3-dot) */}
+                    {/* More menu: priority + poll + reminder + VCard */}
                     <div className="relative" ref={priorityMenuRef}>
                         <Button
                             variant="ghost"
@@ -697,12 +645,13 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
                                 !selectedPriority && "text-muted-foreground hover:text-foreground",
                             )}
                             onClick={() => setShowPriorityMenu((prev) => !prev)}
-                            title="Message priority"
+                            title="More options"
                         >
                             <MoreHorizontal size={18} />
                         </Button>
                         {showPriorityMenu && (
-                            <div className="absolute bottom-full mb-2 left-0 bg-popover border border-border rounded-lg shadow-lg z-50 min-w-[210px] py-1">
+                            <div className="absolute bottom-full mb-2 left-full ml-2 bg-popover border border-border rounded-lg shadow-lg z-50 min-w-[220px] py-1">
+                                <p className="px-3 py-1 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Độ ưu tiên</p>
                                 <button
                                     type="button"
                                     className={cn(
@@ -733,10 +682,59 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
                                     Đánh dấu tin khẩn cấp
                                     {selectedPriority === "URGENT" && <Check size={13} className="ml-auto" />}
                                 </button>
+                                <div className="h-px bg-border mx-2 my-1" />
+                                <p className="px-3 py-1 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Thêm vào tin nhắn</p>
+                                {conversationType !== "PRIVATE" && (
+                                    <button
+                                        type="button"
+                                        className="flex items-center gap-2.5 w-full px-3 py-2.5 text-sm text-left hover:bg-accent transition-colors"
+                                        onClick={() => { setShowPriorityMenu(false); setShowPollDialog(true); }}
+                                    >
+                                        <BarChart3 size={15} className="text-brand shrink-0" />
+                                        Tạo cuộc bình chọn
+                                    </button>
+                                )}
+                                {conversationType !== "PRIVATE" && (
+                                    <button
+                                        type="button"
+                                        className="flex items-center gap-2.5 w-full px-3 py-2.5 text-sm text-left hover:bg-accent transition-colors"
+                                        onClick={() => { setShowPriorityMenu(false); setShowReminderDialog(true); }}
+                                    >
+                                        <Clock size={15} className="text-muted-foreground shrink-0" />
+                                        Tạo nhắc nhở
+                                    </button>
+                                )}
+                                <button
+                                    type="button"
+                                    className="flex items-center gap-2.5 w-full px-3 py-2.5 text-sm text-left hover:bg-accent transition-colors"
+                                    onClick={async () => {
+                                        setShowPriorityMenu(false);
+                                        setVCardUser(null);
+                                        setShowVCardDialog(true);
+                                        setVCardLoading(true);
+                                        try {
+                                            const res = await contactService.getByStatus('ACCEPTED');
+                                            const friends: ChatUser[] = (res.result ?? []).map((c) => {
+                                                const friend = c.user.id === currentUserId ? c.contact : c.user;
+                                                return { id: friend.id, username: friend.username, displayName: friend.displayName, avatarUrl: friend.avatarUrl ?? '' };
+                                            });
+                                            const me = groupMembers.find((m) => m.id === currentUserId);
+                                            if (me && !friends.some((f) => f.id === me.id)) friends.unshift(me);
+                                            setVCardContacts(friends);
+                                        } catch { setVCardContacts(groupMembers); }
+                                        finally { setVCardLoading(false); }
+                                    }}
+                                >
+                                    <IdCard size={15} className="text-muted-foreground shrink-0" />
+                                    Gửi danh thiếp
+                                </button>
                             </div>
                         )}
                     </div>
+                </div>
 
+                {/* Row 2: Text input + send */}
+                <div className="flex items-center gap-2">
                     <div className="flex-1 relative">
                         {/* Mention autocomplete dropdown */}
                         {mentionQuery !== null && mentionSuggestions.length > 0 && (
@@ -780,20 +778,18 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
                             className="bg-transparent border-transparent focus-visible:ring-0 focus-visible:border-transparent p-0 h-10 text-[15px] shadow-none placeholder:text-muted-foreground/50"
                         />
                     </div>
-                    <div className="flex items-center gap-2">
-                        <Button 
-                            onClick={handleSend}
-                            disabled={!canSend}
-                            className="h-10 px-6 bg-brand text-white hover:bg-brand/90 transition-all active:scale-95 disabled:opacity-50 disabled:scale-100"
-                        >
-                            {isUploading ? (
-                                <Loader2 size={18} className="mr-2 animate-spin" />
-                            ) : (
-                                <SendHorizontal size={18} className="mr-2" />
-                            )}
-                            <span className="font-medium text-sm">Send</span>
-                        </Button>
-                    </div>
+                    <Button
+                        onClick={handleSend}
+                        disabled={!canSend}
+                        className="h-10 px-6 bg-brand text-white hover:bg-brand/90 transition-all active:scale-95 disabled:opacity-50 disabled:scale-100"
+                    >
+                        {isUploading ? (
+                            <Loader2 size={18} className="mr-2 animate-spin" />
+                        ) : (
+                            <SendHorizontal size={18} className="mr-2" />
+                        )}
+                        <span className="font-medium text-sm">Send</span>
+                    </Button>
                 </div>
             </div>
 

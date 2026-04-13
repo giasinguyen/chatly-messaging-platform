@@ -1319,6 +1319,7 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
                 <ChatInput
                     ref={chatInputRef}
                     conversationId={id}
+                    conversationType={conversation.type}
                     replyingTo={replyingTo}
                     senderName={replyingSenderName}
                     onCancelReply={handleCancelReply}
