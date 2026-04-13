@@ -920,7 +920,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
             <Dialog open={showVCardDialog} onOpenChange={setShowVCardDialog}>
                 <DialogContent className="sm:max-w-sm">
                     <DialogHeader>
-                        <DialogTitle>Gửi danh thiếp</DialogTitle>
+                        <DialogTitle>Send contact card</DialogTitle>
                     </DialogHeader>
                     <div className="space-y-1 max-h-64 overflow-y-auto">
                         {groupMembers.map((user) => (
@@ -944,7 +944,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
                                     <p className="font-medium text-sm truncate">
                                         {user.displayName}
                                         {user.id === currentUserId && (
-                                            <span className="ml-1.5 text-xs text-muted-foreground">(Bạn)</span>
+                                            <span className="ml-1.5 text-xs text-muted-foreground">(You)</span>
                                         )}
                                     </p>
                                     <p className="text-xs text-muted-foreground truncate">@{user.username}</p>
@@ -955,7 +955,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
                     </div>
                     <DialogFooter>
                         <Button variant="ghost" onClick={() => setShowVCardDialog(false)}>
-                            Hủy
+                            Cancel
                         </Button>
                         <Button
                             disabled={!vCardUser}
@@ -967,7 +967,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
                                 }
                             }}
                         >
-                            Gửi danh thiếp
+                            Send card
                         </Button>
                     </DialogFooter>
                 </DialogContent>

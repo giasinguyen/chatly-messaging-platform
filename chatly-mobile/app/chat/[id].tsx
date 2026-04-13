@@ -494,9 +494,9 @@ export default function ChatScreen() {
         // Refresh contacts
         const res = await contactService.getAll();
         setContacts(res.result ?? []);
-        Alert.alert('Thành công', 'Đã gửi lời mời kết bạn');
+        Alert.alert('Success', 'Friend request sent');
       } catch {
-        Alert.alert('Lỗi', 'Không thể gửi lời mời kết bạn');
+        Alert.alert('Error', 'Could not send friend request');
       }
     },
     [],
@@ -511,6 +511,33 @@ export default function ChatScreen() {
       return contact?.status ?? null;
     },
     [contacts, user?.id],
+  );
+
+  // VCard: get friend status for a user (returns ACCEPTED, PENDING, or null)
+  const getVcardFriendStatus = useCallback(
+    (userId: string): 'ACCEPTED' | 'PENDING' | null => {
+      if (userId === user?.id) return 'ACCEPTED'; // self
+      const contact = contacts.find(
+        (c) => c.contact.id === userId || c.user.id === userId,
+      );
+      if (contact?.status === 'ACCEPTED') return 'ACCEPTED';
+      if (contact?.status === 'PENDING') return 'PENDING';
+      return null;
+    },
+    [contacts, user?.id],
+  );
+
+  // VCard: open profile modal for a user
+  const handleVCardPress = useCallback(
+    (userId: string) => {
+      // Try participantMap first, then userDirectory
+      const foundUser = participantMap[userId] ?? userDirectory[userId];
+      if (foundUser) {
+        setMentionModalUser(foundUser);
+        setShowMentionModal(true);
+      }
+    },
+    [participantMap, userDirectory],
   );
 
   // Build display data with date separators
@@ -634,6 +661,9 @@ export default function ChatScreen() {
                     highlightKeyword={highlightKeyword}
                     onMentionPress={isGroup ? handleMentionPress : undefined}
                     participantNames={isGroup ? participantNames : undefined}
+                    onVCardPress={handleVCardPress}
+                    onAddFriend={handleAddFriend}
+                    vcardFriendStatus={getVcardFriendStatus}
                   />
                 </View>
               );

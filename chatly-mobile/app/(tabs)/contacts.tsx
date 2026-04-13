@@ -141,12 +141,34 @@ export default function ContactsScreen() {
 
   // Send contact request
   const handleSendRequest = async (contactUserId: string) => {
+    // Check if already a contact
+    const allContacts = [...contacts, ...pendingContacts, ...blockedContacts];
+    const existing = allContacts.find(
+      (c) => c.contact.id === contactUserId || c.user.id === contactUserId,
+    );
+    if (existing) {
+      const status = existing.status;
+      if (status === 'ACCEPTED') {
+        Alert.alert('Info', 'You are already friends with this user.');
+        return;
+      }
+      if (status === 'PENDING') {
+        Alert.alert('Info', 'A friend request is already pending.');
+        return;
+      }
+    }
     try {
       await contactService.sendRequest({ contactId: contactUserId });
       Alert.alert('Success', 'Friend request sent');
       fetchPending();
     } catch (error: any) {
-      Alert.alert('Error', error?.response?.data?.message ?? 'Could not send friend request.');
+      const msg = error?.response?.data?.message ?? '';
+      if (msg.includes('ALREADY') || error?.response?.status === 409) {
+        Alert.alert('Info', 'A friend request already exists.');
+        fetchPending();
+      } else {
+        Alert.alert('Error', msg || 'Could not send friend request.');
+      }
     }
   };
 
@@ -172,6 +194,29 @@ export default function ContactsScreen() {
     } catch (error: any) {
       Alert.alert('Error', error?.response?.data?.message ?? 'Could not create conversation.');
     }
+  };
+
+  // Unfriend contact
+  const handleUnfriend = (contactId: string, displayName: string) => {
+    Alert.alert(
+      'Unfriend',
+      `Are you sure you want to unfriend ${displayName}?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Unfriend',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await contactService.delete(contactId);
+              fetchContacts();
+            } catch (error: any) {
+              Alert.alert('Error', error?.response?.data?.message ?? 'Could not unfriend.');
+            }
+          },
+        },
+      ],
+    );
   };
 
   // Get the other user from a contact record
@@ -206,11 +251,9 @@ export default function ContactsScreen() {
   const renderContactItem = ({ item }: { item: ContactResponse }) => {
     const contactUser = getContactUser(item);
     return (
-      <TouchableOpacity
+      <View
         className="flex-row items-center px-4 py-3"
         style={{ borderBottomWidth: 0.5, borderBottomColor: Colors.borderLight }}
-        onPress={() => handleChat(contactUser)}
-        activeOpacity={0.7}
       >
         <Avatar uri={contactUser.avatarUrl} name={contactUser.displayName} size={48} />
         <View className="ml-3 flex-1">
@@ -221,10 +264,15 @@ export default function ContactsScreen() {
             @{contactUser.username}
           </Text>
         </View>
-        <TouchableOpacity onPress={() => handleChat(contactUser)}>
-          <Ionicons name="chatbubble-outline" size={22} color={Colors.cta} />
-        </TouchableOpacity>
-      </TouchableOpacity>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <TouchableOpacity onPress={() => handleChat(contactUser)}>
+            <Ionicons name="chatbubble-outline" size={22} color={Colors.cta} />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => handleUnfriend(item.id, contactUser.displayName)}>
+            <Ionicons name="person-remove-outline" size={22} color={Colors.error} />
+          </TouchableOpacity>
+        </View>
+      </View>
     );
   };
 
@@ -300,31 +348,54 @@ export default function ContactsScreen() {
     );
   };
 
-  const renderSearchItem = ({ item }: { item: UserResponse }) => (
-    <View
-      className="flex-row items-center px-4 py-3"
-      style={{ borderBottomWidth: 0.5, borderBottomColor: Colors.borderLight }}
-    >
-      <Avatar uri={item.avatarUrl} name={item.displayName} size={48} />
-      <View className="ml-3 flex-1">
-        <Text className="text-[16px] font-semibold" style={{ color: Colors.text }}>
-          {item.displayName}
-        </Text>
-        <Text className="mt-0.5 text-[13px]" style={{ color: Colors.textLight }}>
-          @{item.username}
-        </Text>
-      </View>
-      <TouchableOpacity
-        className="rounded-full px-4 py-1.5"
-        style={{ backgroundColor: Colors.cta }}
-        onPress={() => handleSendRequest(item.id)}
+  const renderSearchItem = ({ item }: { item: UserResponse }) => {
+    // Check existing contact status
+    const allContacts = [...contacts, ...pendingContacts, ...blockedContacts];
+    const existing = allContacts.find(
+      (c) => c.contact.id === item.id || c.user.id === item.id,
+    );
+    const status = existing?.status;
+
+    return (
+      <View
+        className="flex-row items-center px-4 py-3"
+        style={{ borderBottomWidth: 0.5, borderBottomColor: Colors.borderLight }}
       >
-        <Text className="text-[14px] font-semibold" style={{ color: Colors.white }}>
-          Add Friend
-        </Text>
-      </TouchableOpacity>
-    </View>
-  );
+        <Avatar uri={item.avatarUrl} name={item.displayName} size={48} />
+        <View className="ml-3 flex-1">
+          <Text className="text-[16px] font-semibold" style={{ color: Colors.text }}>
+            {item.displayName}
+          </Text>
+          <Text className="mt-0.5 text-[13px]" style={{ color: Colors.textLight }}>
+            @{item.username}
+          </Text>
+        </View>
+        {status === 'ACCEPTED' ? (
+          <View className="rounded-full px-4 py-1.5" style={{ backgroundColor: Colors.borderLight }}>
+            <Text className="text-[14px] font-semibold" style={{ color: Colors.textMuted }}>
+              Friends
+            </Text>
+          </View>
+        ) : status === 'PENDING' ? (
+          <View className="rounded-full px-4 py-1.5" style={{ backgroundColor: Colors.borderLight }}>
+            <Text className="text-[14px] font-semibold" style={{ color: Colors.textMuted }}>
+              Pending
+            </Text>
+          </View>
+        ) : (
+          <TouchableOpacity
+            className="rounded-full px-4 py-1.5"
+            style={{ backgroundColor: Colors.cta }}
+            onPress={() => handleSendRequest(item.id)}
+          >
+            <Text className="text-[14px] font-semibold" style={{ color: Colors.white }}>
+              Add Friend
+            </Text>
+          </TouchableOpacity>
+        )}
+      </View>
+    );
+  };
 
   return (
     <View className="flex-1" style={{ backgroundColor: Colors.bg, paddingTop: insets.top }}>

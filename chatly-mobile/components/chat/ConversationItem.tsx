@@ -73,6 +73,9 @@ export function ConversationItem({
       case 'STICKER':
         preview = prefix + '🎨 Sticker';
         break;
+      case 'VCARD':
+        preview = prefix + '📇 Contact card';
+        break;
       case 'SYSTEM':
         preview = lastMessage.content;
         break;
