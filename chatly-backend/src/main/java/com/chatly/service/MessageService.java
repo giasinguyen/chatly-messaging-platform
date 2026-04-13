@@ -6,6 +6,7 @@ import com.chatly.dto.response.MessageResponse;
 import com.chatly.exception.AppException;
 import com.chatly.exception.ErrorCode;
 import com.chatly.mapper.MessageMapper;
+import com.chatly.model.enums.ConversationType;
 import com.chatly.model.enums.CallStatus;
 import com.chatly.model.enums.CallType;
 import com.chatly.model.enums.MessageStatus;
@@ -39,6 +40,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -50,6 +52,7 @@ public class MessageService {
     private final MongoTemplate mongoTemplate;
     private final SimpMessagingTemplate messagingTemplate;
     private final NotificationService notificationService;
+    private final ContactService contactService;
 
     private static final long RECALL_LIMIT_HOURS = 24;
     private static final long EDIT_LIMIT_MINUTES = 15;
@@ -59,7 +62,18 @@ public class MessageService {
     private static final Set<String> ALLOWED_PRIORITIES = Set.of("IMPORTANT", "URGENT");
 
     public MessageResponse send(String senderId, MessageRequest request) {
-                Conversation conversation = getConversationForParticipant(request.getConversationId(), senderId);
+        Conversation conversation = getConversationForParticipant(request.getConversationId(), senderId);
+
+        // Block guard: reject messages in PRIVATE conversations when either user has blocked the other
+        if (conversation.getType() == ConversationType.PRIVATE) {
+            String otherId = conversation.getParticipantIds().stream()
+                    .filter(id -> !id.equals(senderId))
+                    .findFirst()
+                    .orElse(null);
+            if (otherId != null && contactService.isBlocked(UUID.fromString(senderId), UUID.fromString(otherId))) {
+                throw new AppException(ErrorCode.CONTACT_BLOCKED);
+            }
+        }
 
         Message message = Message.builder()
                 .conversationId(request.getConversationId())

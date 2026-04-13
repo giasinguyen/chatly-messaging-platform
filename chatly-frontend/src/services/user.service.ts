@@ -46,6 +46,16 @@ export const userService = {
     },
 
     /**
+     * Get a user by ID. Returns a limited profile if the user has blocked the requester.
+     */
+    getUserById: async (id: string): Promise<ApiResponse<UserResponse>> => {
+        const response = await axiosClient.get<ApiResponse<UserResponse>>(
+            `/api/users/${id}`,
+        );
+        return response.data;
+    },
+
+    /**
      * Update user information
      */
     update: async (

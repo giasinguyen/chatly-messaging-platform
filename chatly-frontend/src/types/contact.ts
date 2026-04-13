@@ -23,6 +23,14 @@ export interface ContactResponse {
         avatarUrl?: string;
     };
     status: ContactStatus;
+    blockedBy?: string | null;
     createdAt: string;
+}
+
+export interface BlockStatusResponse {
+    blocked: boolean;
+    blockedBy: string | null;
+    /** "I_BLOCKED" | "BLOCKED_ME" | null */
+    direction: "I_BLOCKED" | "BLOCKED_ME" | null;
 }
 

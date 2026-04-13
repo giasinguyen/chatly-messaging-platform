@@ -49,6 +49,8 @@ import {
     Pencil,
     Phone,
     Settings,
+    ShieldOff,
+    Unlock,
     UserPlus,
     Upload,
     BarChart3,
@@ -58,9 +60,19 @@ import {
     ChevronRight,
     X as XIcon,
 } from "lucide-react";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import type { Message, ChatUser, ChatEvent } from "@/types/message";
-import type { ContactStatus, ContactResponse } from "@/types/contact";
+import type { ContactStatus, BlockStatusResponse, ContactResponse } from "@/types/contact";
 import type { ConversationResponse } from "@/types/conversation";
 import type { UserResponse } from "@/types/auth";
 
@@ -178,6 +190,9 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
     const [contactStatus, setContactStatus] = useState<ContactStatus | null>(
         null,
     );
+    const [blockStatus, setBlockStatus] = useState<BlockStatusResponse | null>(null);
+    const [blockConfirmAction, setBlockConfirmAction] = useState<"block" | "unblock" | null>(null);
+    const [blockActionLoading, setBlockActionLoading] = useState(false);
     const [allContacts, setAllContacts] = useState<ContactResponse[]>([]);
     const [sendingContact, setSendingContact] = useState(false);
     const [isEditingGroup, setIsEditingGroup] = useState(false);
@@ -431,6 +446,14 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
                                 c.contact.id === currentUser.id),
                     );
                     setContactStatus(relation?.status ?? null);
+
+                    // Derive block direction from the contact relation
+                    if (relation?.status === "BLOCKED") {
+                        const direction = relation.blockedBy === currentUser.id ? "I_BLOCKED" : "BLOCKED_ME";
+                        setBlockStatus({ blocked: true, blockedBy: relation.blockedBy ?? null, direction });
+                    } else {
+                        setBlockStatus(null);
+                    }
 
                     // Initialize presence from fetched user data
                     if (other && otherId) {
@@ -881,6 +904,48 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
         participant?.avatarUrl,
     ]);
 
+    // Load block status when viewing a group member's profile
+    useEffect(() => {
+        if (!selectedProfileUser || !currentUser || selectedProfileUser.id === currentUser.id) return;
+        contactService.blockStatus(selectedProfileUser.id)
+            .then((res) => setBlockStatus(res.result ?? null))
+            .catch(() => setBlockStatus(null));
+    }, [selectedProfileUser, currentUser]);
+
+    const handleBlockContact = useCallback(async () => {
+        const targetUser = selectedProfileUser ?? (conversation?.type === "PRIVATE" ? participant : null);
+        if (!targetUser) return;
+        setBlockActionLoading(true);
+        try {
+            await contactService.blockByUser(targetUser.id);
+            setContactStatus("BLOCKED");
+            setBlockStatus({ blocked: true, blockedBy: currentUser?.id ?? null, direction: "I_BLOCKED" });
+            toast.success(`Blocked ${targetUser.displayName}`);
+        } catch {
+            toast.error("Could not block user");
+        } finally {
+            setBlockActionLoading(false);
+            setBlockConfirmAction(null);
+        }
+    }, [selectedProfileUser, conversation?.type, participant, currentUser]);
+
+    const handleUnblockContact = useCallback(async () => {
+        const targetUser = selectedProfileUser ?? (conversation?.type === "PRIVATE" ? participant : null);
+        if (!targetUser) return;
+        setBlockActionLoading(true);
+        try {
+            await contactService.unblockByUser(targetUser.id);
+            setContactStatus("ACCEPTED");
+            setBlockStatus(null);
+            toast.success(`Unblocked ${targetUser.displayName}`);
+        } catch {
+            toast.error("Could not unblock user");
+        } finally {
+            setBlockActionLoading(false);
+            setBlockConfirmAction(null);
+        }
+    }, [selectedProfileUser, conversation?.type, participant, currentUser]);
+
     const handleGroupAvatarFileChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
@@ -1015,6 +1080,7 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
     const nickname = prefs.nickname ?? conversation.nickname;
 
     return (
+        <>
         <div className="flex-1 flex flex-row overflow-hidden">
         <div 
             className="flex-1 flex flex-col overflow-hidden bg-background dark:bg-[#16191f] relative min-w-0"
@@ -1231,18 +1297,38 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
                 </div>
             )}
 
-            <ChatInput
-                ref={chatInputRef}
-                conversationId={id}
-                replyingTo={replyingTo}
-                senderName={replyingSenderName}
-                onCancelReply={handleCancelReply}
-                onSendMessage={handleSendMessage}
-                onSendVCard={handleSendVCard}
-                onTyping={sendTyping}
-                groupMembers={groupMembers}
-                currentUserId={currentUser?.id}
-            />
+            {!isGroup && blockStatus?.blocked ? (
+                <div className="border-t border-border bg-background px-6 py-4 flex items-center gap-3">
+                    <ShieldOff size={17} className="shrink-0 text-muted-foreground" />
+                    <p className="flex-1 text-sm text-muted-foreground">
+                        {blockStatus.direction === "I_BLOCKED"
+                            ? "You have blocked this user. Unblock to send messages."
+                            : "You can't send messages to this user."}
+                    </p>
+                    {blockStatus.direction === "I_BLOCKED" && (
+                        <button
+                            type="button"
+                            onClick={() => setBlockConfirmAction("unblock")}
+                            className="text-xs font-medium text-brand hover:underline shrink-0"
+                        >
+                            Unblock
+                        </button>
+                    )}
+                </div>
+            ) : (
+                <ChatInput
+                    ref={chatInputRef}
+                    conversationId={id}
+                    replyingTo={replyingTo}
+                    senderName={replyingSenderName}
+                    onCancelReply={handleCancelReply}
+                    onSendMessage={handleSendMessage}
+                    onSendVCard={handleSendVCard}
+                    onTyping={sendTyping}
+                    groupMembers={groupMembers}
+                    currentUserId={currentUser?.id}
+                />
+            )}
 
             <ForwardMessageDialog
                 open={!!forwardingMessage}
@@ -1318,6 +1404,12 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
                                     </div>
                                 </div>
                                 <div className="space-y-2 rounded-lg border border-border bg-muted/30 p-3">
+                                    {blockStatus?.direction === "BLOCKED_ME" ? (
+                                        <p className="text-sm text-muted-foreground text-center py-2">
+                                            Profile information is not available.
+                                        </p>
+                                    ) : (
+                                        <>
                                     <div className="flex items-center justify-between gap-2 text-sm">
                                         <span className="inline-flex items-center gap-1 text-muted-foreground">
                                             <Phone size={14} />
@@ -1342,10 +1434,12 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
                                                 : "Hidden"}
                                         </span>
                                     </div>
+                                        </>
+                                    )}
                                 </div>
 
-                                <div className="flex items-center gap-2">
-                                    {contactStatus === "ACCEPTED" && (
+                                <div className="flex items-center gap-2 flex-wrap">
+                                    {contactStatus === "ACCEPTED" && blockStatus?.direction !== "I_BLOCKED" && (
                                         <Badge variant="secondary">
                                             Already friends
                                         </Badge>
@@ -1355,11 +1449,21 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
                                             Request sent
                                         </Badge>
                                     )}
+                                    {blockStatus?.direction === "I_BLOCKED" && (
+                                        <Badge variant="destructive" className="gap-1">
+                                            <ShieldOff className="h-3 w-3" /> Blocked
+                                        </Badge>
+                                    )}
+                                    {blockStatus?.direction === "BLOCKED_ME" && (
+                                        <Badge variant="outline" className="text-muted-foreground gap-1">
+                                            Limited profile
+                                        </Badge>
+                                    )}
                                 </div>
                             </div>
 
-                            <DialogFooter>
-                                {canAddFriend && (
+                            <DialogFooter className="flex-col sm:flex-row gap-2">
+                                {canAddFriend && !blockStatus?.blocked && (
                                     <Button
                                         onClick={handleSendFriendRequest}
                                         disabled={sendingContact}
@@ -1376,6 +1480,42 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
                                                 Add Friend
                                             </>
                                         )}
+                                    </Button>
+                                )}
+                                {blockStatus?.direction === "I_BLOCKED" && (
+                                    <Button
+                                        variant="outline"
+                                        onClick={() => setBlockConfirmAction("unblock")}
+                                        disabled={blockActionLoading}
+                                        className="w-full sm:w-auto"
+                                    >
+                                        <Unlock className="mr-2 h-4 w-4" />
+                                        Unblock
+                                    </Button>
+                                )}
+                                {!blockStatus?.blocked && contactStatus === "ACCEPTED" && profileUser?.id !== currentUser?.id && (
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => setBlockConfirmAction("block")}
+                                        disabled={blockActionLoading}
+                                        className="text-destructive hover:text-destructive hover:bg-destructive/10 w-full sm:w-auto"
+                                    >
+                                        <ShieldOff className="mr-2 h-4 w-4" />
+                                        Block user
+                                    </Button>
+                                )}
+                                {profileUser?.id && profileUser.id !== currentUser?.id && (
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="w-full sm:w-auto ml-auto"
+                                        onClick={() => {
+                                            setShowProfileDialog(false);
+                                            navigate(`/profile/${profileUser.id}`);
+                                        }}
+                                    >
+                                        View full profile
                                     </Button>
                                 )}
                             </DialogFooter>
@@ -1663,5 +1803,33 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
             />
             )}
         </div>
+
+            {/* Block / Unblock Confirm Dialog */}
+            <AlertDialog open={!!blockConfirmAction} onOpenChange={(open) => !open && setBlockConfirmAction(null)}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>
+                            {blockConfirmAction === "block" ? "Block user?" : "Unblock user?"}
+                        </AlertDialogTitle>
+                        <AlertDialogDescription>
+                            {blockConfirmAction === "block"
+                                ? `This user will no longer be able to message you or view your full profile. You can unblock them at any time.`
+                                : `This user will be restored as your friend and can message you again.`}
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={blockConfirmAction === "block" ? handleBlockContact : handleUnblockContact}
+                            className={blockConfirmAction === "block" ? "bg-destructive text-destructive-foreground hover:bg-destructive/90" : ""}
+                            disabled={blockActionLoading}
+                        >
+                            {blockActionLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                            {blockConfirmAction === "block" ? "Block" : "Unblock"}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+        </>
     );
 });

@@ -36,6 +36,9 @@ public class Contact {
     @Builder.Default
     private ContactStatus status = ContactStatus.PENDING;
 
+    @Column(name = "blocked_by")
+    private UUID blockedBy;
+
     @CreationTimestamp
     private Instant createdAt;
 }

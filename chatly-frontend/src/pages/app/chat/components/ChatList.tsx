@@ -13,6 +13,7 @@ import {
     Menu,
     MoreHorizontal,
     Check,
+    ShieldOff,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -63,6 +64,7 @@ import { CreateGroupDialog } from "./CreateGroupDialog";
 import { AddFriendDialog } from "@/pages/app/contact/components/AddFriendDialog";
 import { useNotificationStore } from "@/store/notification.store";
 import { useUiStore } from "@/store/ui.store";
+import { useContactStore } from "@/store/contact.store";
 
 function formatZaloTime(dateString: string) {
     const date = new Date(dateString);
@@ -107,6 +109,14 @@ export const ChatList = forwardRef(function ChatListComponent(_, ref) {
     const [searchQuery, setSearchQuery] = useState("");
     const toggleMobileDrawer = useUiStore((s) => s.toggleMobileDrawer);
     const notifications = useNotificationStore((s) => s.notifications);
+    const { fetchContacts, loaded: contactsLoaded, getBlockDirection } = useContactStore();
+
+    // Lazy-initialize contact store once per session for blocked indicators
+    useEffect(() => {
+        if (!contactsLoaded && currentUser?.id) {
+            fetchContacts();
+        }
+    }, [currentUser?.id, contactsLoaded, fetchContacts]);
     const unreadMsgNotifications = useMemo(() => 
         notifications.filter((n) => n.type === "NEW_MESSAGE" && !n.read),
     [notifications]);
@@ -339,6 +349,15 @@ export const ChatList = forwardRef(function ChatListComponent(_, ref) {
         const isMuted = prefs.isMuted ?? conv.isMuted ?? false;
         const categories: ConversationCategory[] = prefs.categories ?? [];
 
+        // Blocked indicator (Phase 3.1)
+        const otherId = !isGroup
+            ? conv.participantIds.find((id) => id !== currentUser?.id)
+            : undefined;
+        const blockDirection =
+            otherId && currentUser?.id
+                ? getBlockDirection(currentUser.id, otherId)
+                : null;
+
         const menuContent = (isDropdown: boolean) => {
             const Item = isDropdown ? DropdownMenuItem : ContextMenuItem;
             const Separator = isDropdown ? DropdownMenuSeparator : ContextMenuSeparator;
@@ -497,6 +516,18 @@ export const ChatList = forwardRef(function ChatListComponent(_, ref) {
                                         )}
                                         {isPinned && <Pin size={14} className="text-brand shrink-0" />}
                                         {isMuted && <BellOff size={14} className="text-muted-foreground shrink-0" />}
+                                        {blockDirection === "I_BLOCKED" && (
+                                            <TooltipProvider>
+                                                <Tooltip>
+                                                    <TooltipTrigger asChild>
+                                                        <ShieldOff size={13} className="text-destructive/60 shrink-0" />
+                                                    </TooltipTrigger>
+                                                    <TooltipContent side="top" className="text-xs px-2 py-1">
+                                                        Blocked
+                                                    </TooltipContent>
+                                                </Tooltip>
+                                            </TooltipProvider>
+                                        )}
                                     </div>
                                     {conv.updatedAt && (
                                         <span className="text-[12px] text-muted-foreground/80 whitespace-nowrap ml-2">

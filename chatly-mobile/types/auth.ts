@@ -11,6 +11,8 @@ export interface UserResponse {
   updatedAt?: string;
   status?: string;
   lastSeen?: string;
+  /** True when the viewer is blocked by this user — backend returns limited info only. */
+  limited?: boolean;
 }
 
 export interface UserUpdateRequest {

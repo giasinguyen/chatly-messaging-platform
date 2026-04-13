@@ -29,4 +29,10 @@ public class UserResponse {
     private Instant lastSeen;
     private Instant createdAt;
     private Instant updatedAt;
+
+    /**
+     * True when the caller has been blocked by this user — only id, displayName,
+     * and avatarUrl are populated; all other fields are null/default.
+     */
+    private boolean limited;
 }

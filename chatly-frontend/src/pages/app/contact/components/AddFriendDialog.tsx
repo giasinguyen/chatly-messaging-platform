@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Loader2, Check, Clock } from "lucide-react";
+import { Ban, Loader2, Check, Clock } from "lucide-react";
 import {
     Dialog,
     DialogContent,
@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { userService } from "@/services/user.service";
 import { contactService } from "@/services/contact.service";
@@ -16,6 +17,8 @@ import type { UserResponse } from "@/types/auth";
 import type { ContactResponse } from "@/types/contact";
 import { toast } from "sonner";
 import { useAuthStore } from "@/store/auth.store";
+import { useContactStore } from "@/store/contact.store";
+import { useNavigate } from "react-router-dom";
 
 interface AddFriendDialogProps {
     open: boolean;
@@ -24,6 +27,8 @@ interface AddFriendDialogProps {
 
 export function AddFriendDialog({ open, onOpenChange }: AddFriendDialogProps) {
     const { user: currentUser } = useAuthStore();
+    const navigate = useNavigate();
+    const getBlockDirection = useContactStore((s) => s.getBlockDirection);
     const [searchQuery, setSearchQuery] = useState("");
     const [users, setUsers] = useState<UserResponse[]>([]);
     const [loading, setLoading] = useState(false);
@@ -124,24 +129,44 @@ export function AddFriendDialog({ open, onOpenChange }: AddFriendDialogProps) {
                         </div>
                     ) : users.length > 0 ? (
                         users.map((u) => {
+                            const blockDir = currentUser?.id
+                                ? getBlockDirection(currentUser.id, u.id)
+                                : null;
                             const contactRecord = getContactStatus(u.id);
                             const status = contactRecord?.status;
                             const isSending = sendingIds.has(u.id);
 
                             return (
                                 <div key={u.id} className="flex justify-between items-center bg-muted/40 p-2 rounded-lg">
-                                    <div className="flex items-center gap-3">
+                                    <button
+                                        type="button"
+                                        className="flex items-center gap-3 flex-1 min-w-0 text-left hover:opacity-80 transition-opacity"
+                                        onClick={() => {
+                                            onOpenChange(false);
+                                            navigate(`/profile/${u.id}`);
+                                        }}
+                                    >
                                         <Avatar>
                                             <AvatarImage src={u.avatarUrl} className="object-cover" />
                                             <AvatarFallback>
                                                 {u.displayName?.charAt(0).toUpperCase()}
                                             </AvatarFallback>
                                         </Avatar>
-                                        <div>
-                                            <p className="text-sm font-medium">{u.displayName}</p>
-                                            <p className="text-xs text-muted-foreground">{u.email || u.phone || `@${u.username}`}</p>
+                                        <div className="min-w-0">
+                                            <div className="flex items-center gap-2">
+                                                <p className="text-sm font-medium truncate">{u.displayName}</p>
+                                                {blockDir === "I_BLOCKED" && (
+                                                    <Badge
+                                                        variant="secondary"
+                                                        className="gap-1 text-[10px] px-1.5 py-0 bg-destructive/10 text-destructive border-destructive/20 shrink-0"
+                                                    >
+                                                        <Ban className="h-2.5 w-2.5" /> Blocked
+                                                    </Badge>
+                                                )}
+                                            </div>
+                                            <p className="text-xs text-muted-foreground truncate">{u.email || u.phone || `@${u.username}`}</p>
                                         </div>
-                                    </div>
+                                    </button>
                                     {status === "ACCEPTED" ? (
                                         <Button size="sm" variant="ghost" disabled className="gap-1 text-muted-foreground">
                                             <Check className="h-3 w-3" /> Friends
@@ -150,7 +175,7 @@ export function AddFriendDialog({ open, onOpenChange }: AddFriendDialogProps) {
                                         <Button size="sm" variant="ghost" disabled className="gap-1 text-muted-foreground">
                                             <Clock className="h-3 w-3" /> Pending
                                         </Button>
-                                    ) : (
+                                    ) : !blockDir ? (
                                         <Button
                                             size="sm"
                                             disabled={isSending}
@@ -158,7 +183,7 @@ export function AddFriendDialog({ open, onOpenChange }: AddFriendDialogProps) {
                                         >
                                             {isSending ? <Loader2 className="animate-spin h-3 w-3" /> : "Add friend"}
                                         </Button>
-                                    )}
+                                    ) : null}
                                 </div>
                             );
                         })
