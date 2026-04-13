@@ -12,6 +12,7 @@ import java.time.Instant;
 @Builder
 public class GroupMemberResponse {
 
+    private String conversationId;
     private String userId;
     private String username;
     private String displayName;

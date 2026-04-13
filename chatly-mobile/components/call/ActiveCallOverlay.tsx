@@ -200,7 +200,7 @@ export function ActiveCallOverlay() {
             size={100}
           />
           <Text className="text-lg font-semibold mt-4" style={{ color: Colors.white }}>
-            {remoteParticipant?.name ?? 'Cuộc gọi thoại'}
+            {remoteParticipant?.name ?? 'Voice call'}
           </Text>
         </View>
       )}

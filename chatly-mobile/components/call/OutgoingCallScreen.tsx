@@ -50,11 +50,11 @@ export function OutgoingCallScreen() {
 
   if (!visible) return null;
 
-  const name = remoteParticipant?.name ?? 'Đang kết nối...';
+  const name = remoteParticipant?.name ?? 'Connecting...';
   const avatar = remoteParticipant?.avatar ?? null;
 
-  let statusText = 'Đang đổ chuông...';
-  if (callStatus === 'REJECTED') statusText = 'Cuộc gọi bị từ chối';
+  let statusText = 'Ringing...';
+  if (callStatus === 'REJECTED') statusText = 'Call rejected';
 
   return (
     <Modal

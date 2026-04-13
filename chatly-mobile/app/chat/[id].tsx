@@ -810,17 +810,17 @@ export default function ChatScreen() {
                     {friendStatus === 'SELF' ? (
                       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 6 }}>
                         <Ionicons name="person" size={16} color={Colors.textMuted} />
-                        <Text style={{ fontSize: 13, color: Colors.textMuted, marginLeft: 6 }}>Đây là bạn</Text>
+                        <Text style={{ fontSize: 13, color: Colors.textMuted, marginLeft: 6 }}>This is you</Text>
                       </View>
                     ) : friendStatus === 'ACCEPTED' ? (
                       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 6 }}>
                         <Ionicons name="checkmark-circle" size={16} color="#16a34a" />
-                        <Text style={{ fontSize: 13, color: '#16a34a', fontWeight: '600', marginLeft: 6 }}>Bạn bè</Text>
+                        <Text style={{ fontSize: 13, color: '#16a34a', fontWeight: '600', marginLeft: 6 }}>Friends</Text>
                       </View>
                     ) : friendStatus === 'PENDING' ? (
                       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 6 }}>
                         <Ionicons name="time-outline" size={16} color="#d97706" />
-                        <Text style={{ fontSize: 13, color: '#d97706', fontWeight: '600', marginLeft: 6 }}>Đã gửi lời mời</Text>
+                        <Text style={{ fontSize: 13, color: '#d97706', fontWeight: '600', marginLeft: 6 }}>Request sent</Text>
                       </View>
                     ) : (
                       <TouchableOpacity
@@ -838,7 +838,7 @@ export default function ChatScreen() {
                         }}
                       >
                         <Ionicons name="person-add" size={16} color="#fff" />
-                        <Text style={{ fontSize: 14, color: '#fff', fontWeight: '600', marginLeft: 6 }}>Kết bạn</Text>
+                        <Text style={{ fontSize: 14, color: '#fff', fontWeight: '600', marginLeft: 6 }}>Add friend</Text>
                       </TouchableOpacity>
                     )}
                   </View>
@@ -848,7 +848,7 @@ export default function ChatScreen() {
                     onPress={() => setShowMentionModal(false)}
                     style={{ borderTopWidth: 0.5, borderTopColor: 'rgba(0,0,0,0.08)', paddingVertical: 12, alignItems: 'center' }}
                   >
-                    <Text style={{ fontSize: 14, color: Colors.textMuted }}>Đóng</Text>
+                    <Text style={{ fontSize: 14, color: Colors.textMuted }}>Close</Text>
                   </TouchableOpacity>
                 </>
               );

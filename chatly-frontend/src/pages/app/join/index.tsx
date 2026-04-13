@@ -1,15 +1,16 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { groupService } from "@/services/group.service";
-import { Loader2, CheckCircle2, XCircle } from "lucide-react";
+import { Loader2, CheckCircle2, XCircle, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export default function JoinByInvitePage() {
     const { token } = useParams<{ token: string }>();
     const navigate = useNavigate();
-    const [status, setStatus] = useState<"loading" | "success" | "error">("loading");
+    const [status, setStatus] = useState<"loading" | "success" | "pending" | "error">("loading");
     const [conversationId, setConversationId] = useState<string | null>(null);
     const [errorMsg, setErrorMsg] = useState("Failed to join group");
+    const calledRef = useRef(false);
 
     useEffect(() => {
         if (!token) {
@@ -17,15 +18,21 @@ export default function JoinByInvitePage() {
             setErrorMsg("Invalid invite link");
             return;
         }
+        if (calledRef.current) return;
+        calledRef.current = true;
 
         groupService
             .joinByInviteLink(token)
             .then((res) => {
                 setConversationId(res.result.conversationId);
-                setStatus("success");
+                if (res.result.role === null || res.result.role === undefined) {
+                    setStatus("pending");
+                } else {
+                    setStatus("success");
+                }
             })
             .catch((err) => {
-                    err?.response?.data?.message ?? "Failed to join group. The link might have expired or is invalid.";
+                const msg = err?.response?.data?.message ?? "Failed to join group. The link might have expired or is invalid.";
                 setErrorMsg(msg);
                 setStatus("error");
             });
@@ -53,6 +60,22 @@ export default function JoinByInvitePage() {
                             onClick={() => navigate(conversationId ? `/chat/${conversationId}` : "/chat")}
                         >
                             Open conversation
+                        </Button>
+                    </>
+                )}
+
+                {status === "pending" && (
+                    <>
+                        <Clock className="h-12 w-12 text-amber-500 mx-auto" />
+                        <h2 className="text-lg font-semibold">Request pending</h2>
+                        <p className="text-sm text-muted-foreground">
+                            Your join request has been sent. Please wait for the group owner to approve.
+                        </p>
+                        <Button
+                            className="w-full"
+                            onClick={() => navigate("/chat")}
+                        >
+                            Go to chats
                         </Button>
                     </>
                 )}
