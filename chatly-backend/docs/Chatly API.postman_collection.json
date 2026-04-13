@@ -619,9 +619,136 @@
                 "block"
               ]
             },
-            "description": "Block a contact. Changes status to BLOCKED. Requires authentication."
+            "description": "Block a contact. Changes status to BLOCKED and records blockedBy (current user). Only the blocker can later unblock. Requires authentication."
           },
           "response": []
+        },
+        {
+          "name": "Unblock Contact",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/contacts/{{contactId}}/unblock",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "contacts",
+                "{{contactId}}",
+                "unblock"
+              ]
+            },
+            "description": "Unblock a previously blocked contact. Only the user who performed the block (blockedBy) can unblock. Changes status from BLOCKED back to ACCEPTED and clears blockedBy. Returns 403 if the current user is not the blocker. Requires authentication."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Block Status",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/contacts/block-status/{{targetUserId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "contacts",
+                "block-status",
+                "{{targetUserId}}"
+              ]
+            },
+            "description": "Check block relationship between the authenticated user and the specified user. Returns blocked (boolean), blockedBy (UUID or null), and direction (I_BLOCKED, BLOCKED_ME, or null). Requires authentication."
+          },
+          "response": [
+            {
+              "name": "I Blocked Them",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}",
+                    "type": "text"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/contacts/block-status/{{targetUserId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "contacts",
+                    "block-status",
+                    "{{targetUserId}}"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"code\": 1000,\n  \"result\": {\n    \"blocked\": true,\n    \"blockedBy\": \"your-user-uuid-here\",\n    \"direction\": \"I_BLOCKED\"\n  }\n}"
+            },
+            {
+              "name": "Not Blocked",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}",
+                    "type": "text"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/contacts/block-status/{{targetUserId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "contacts",
+                    "block-status",
+                    "{{targetUserId}}"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"code\": 1000,\n  \"result\": {\n    \"blocked\": false,\n    \"blockedBy\": null,\n    \"direction\": null\n  }\n}"
+            }
+          ]
         },
         {
           "name": "Get All Contacts",
@@ -756,7 +883,7 @@
           "response": []
         }
       ],
-      "description": "Contact management endpoints for handling friend requests and relationships"
+      "description": "Contact management endpoints for handling friend requests, relationships, and block/unblock operations. Block sets status to BLOCKED with blockedBy tracking. Unblock restores ACCEPTED status (only blocker can unblock). Delete removes the contact record entirely."
     },
     {
       "name": "Conversations",
