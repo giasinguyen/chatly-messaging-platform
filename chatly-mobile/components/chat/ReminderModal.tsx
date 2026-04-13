@@ -9,7 +9,9 @@ import {
   Alert,
   ActivityIndicator,
   ScrollView,
+  Platform,
 } from 'react-native';
+import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/theme';
 import { groupService } from '@/services/group.service';
@@ -20,42 +22,30 @@ interface ReminderModalProps {
   onClose: () => void;
 }
 
-function parseToISO(dateStr: string, timeStr: string): string | null {
-  const dateParts = dateStr.trim().split('/');
-  const timeParts = timeStr.trim().split(':');
-  if (dateParts.length !== 3 || timeParts.length !== 2) return null;
-  const [day, month, year] = dateParts.map(Number);
-  const [hours, minutes] = timeParts.map(Number);
-  if ([day, month, year, hours, minutes].some((n) => isNaN(n))) return null;
-  const d = new Date(year, month - 1, day, hours, minutes, 0, 0);
-  if (isNaN(d.getTime())) return null;
-  return d.toISOString();
+function formatDate(d: Date): string {
+  const day = String(d.getDate()).padStart(2, '0');
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  return `${day}/${month}/${d.getFullYear()}`;
 }
 
-function todayString(): string {
-  const now = new Date();
-  const d = String(now.getDate()).padStart(2, '0');
-  const m = String(now.getMonth() + 1).padStart(2, '0');
-  return `${d}/${m}/${now.getFullYear()}`;
-}
-
-function nowPlusOneMinuteString(): string {
-  const now = new Date(Date.now() + 60_000);
-  return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+function formatTime(d: Date): string {
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
 
 export function ReminderModal({ visible, conversationId, onClose }: ReminderModalProps) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [date, setDate] = useState('');
-  const [time, setTime] = useState('');
+  const [selectedDate, setSelectedDate] = useState(new Date(Date.now() + 3600_000));
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showTimePicker, setShowTimePicker] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const reset = () => {
     setTitle('');
     setDescription('');
-    setDate('');
-    setTime('');
+    setSelectedDate(new Date(Date.now() + 3600_000));
+    setShowDatePicker(false);
+    setShowTimePicker(false);
   };
 
   const handleClose = () => {
@@ -69,20 +59,9 @@ export function ReminderModal({ visible, conversationId, onClose }: ReminderModa
       return;
     }
 
-    let remindAtISO: string | undefined;
-    if (date.trim() || time.trim()) {
-      const d = date.trim() || todayString();
-      const t = time.trim() || nowPlusOneMinuteString();
-      const iso = parseToISO(d, t);
-      if (!iso) {
-        Alert.alert('Lỗi', 'Định dạng không hợp lệ.\nNgày: DD/MM/YYYY — Giờ: HH:MM');
-        return;
-      }
-      if (new Date(iso) <= new Date()) {
-        Alert.alert('Lỗi', 'Thời gian nhắc hẹn phải ở trong tương lai');
-        return;
-      }
-      remindAtISO = iso;
+    if (selectedDate <= new Date()) {
+      Alert.alert('Lỗi', 'Thời gian nhắc hẹn phải ở trong tương lai');
+      return;
     }
 
     setLoading(true);
@@ -90,7 +69,7 @@ export function ReminderModal({ visible, conversationId, onClose }: ReminderModa
       await groupService.createReminder(conversationId, {
         title: title.trim(),
         description: description.trim() || undefined,
-        remindAt: remindAtISO,
+        remindAt: selectedDate.toISOString(),
       });
       Alert.alert('Thành công', 'Đã tạo nhắc hẹn');
       reset();
@@ -100,6 +79,24 @@ export function ReminderModal({ visible, conversationId, onClose }: ReminderModa
       Alert.alert('Lỗi', msg);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const onDateChange = (_event: DateTimePickerEvent, date?: Date) => {
+    setShowDatePicker(Platform.OS === 'ios');
+    if (date) {
+      const updated = new Date(selectedDate);
+      updated.setFullYear(date.getFullYear(), date.getMonth(), date.getDate());
+      setSelectedDate(updated);
+    }
+  };
+
+  const onTimeChange = (_event: DateTimePickerEvent, date?: Date) => {
+    setShowTimePicker(Platform.OS === 'ios');
+    if (date) {
+      const updated = new Date(selectedDate);
+      updated.setHours(date.getHours(), date.getMinutes(), 0, 0);
+      setSelectedDate(updated);
     }
   };
 
@@ -198,47 +195,66 @@ export function ReminderModal({ visible, conversationId, onClose }: ReminderModa
             <View style={{ flexDirection: 'row', gap: 10, marginBottom: 24 }}>
               <View style={{ flex: 1 }}>
                 <Text style={{ fontSize: 13, fontWeight: '500', color: Colors.text, marginBottom: 6 }}>
-                  Ngày (DD/MM/YYYY)
+                  Ngày
                 </Text>
-                <TextInput
-                  value={date}
-                  onChangeText={setDate}
-                  placeholder="15/06/2026"
-                  placeholderTextColor={Colors.textLight}
-                  keyboardType="numeric"
+                <TouchableOpacity
+                  onPress={() => setShowDatePicker(true)}
                   style={{
                     borderWidth: 1,
                     borderColor: Colors.borderLight,
                     borderRadius: 10,
                     paddingHorizontal: 12,
-                    paddingVertical: 10,
-                    fontSize: 14,
-                    color: Colors.text,
+                    paddingVertical: 12,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
                   }}
-                />
+                >
+                  <Text style={{ fontSize: 14, color: Colors.text }}>{formatDate(selectedDate)}</Text>
+                  <Ionicons name="calendar-outline" size={18} color={Colors.textMuted} />
+                </TouchableOpacity>
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={{ fontSize: 13, fontWeight: '500', color: Colors.text, marginBottom: 6 }}>
-                  Giờ (HH:MM)
+                  Giờ
                 </Text>
-                <TextInput
-                  value={time}
-                  onChangeText={setTime}
-                  placeholder="09:30"
-                  placeholderTextColor={Colors.textLight}
-                  keyboardType="numeric"
+                <TouchableOpacity
+                  onPress={() => setShowTimePicker(true)}
                   style={{
                     borderWidth: 1,
                     borderColor: Colors.borderLight,
                     borderRadius: 10,
                     paddingHorizontal: 12,
-                    paddingVertical: 10,
-                    fontSize: 14,
-                    color: Colors.text,
+                    paddingVertical: 12,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
                   }}
-                />
+                >
+                  <Text style={{ fontSize: 14, color: Colors.text }}>{formatTime(selectedDate)}</Text>
+                  <Ionicons name="time-outline" size={18} color={Colors.textMuted} />
+                </TouchableOpacity>
               </View>
             </View>
+
+            {showDatePicker && (
+              <DateTimePicker
+                value={selectedDate}
+                mode="date"
+                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                minimumDate={new Date()}
+                onChange={onDateChange}
+              />
+            )}
+            {showTimePicker && (
+              <DateTimePicker
+                value={selectedDate}
+                mode="time"
+                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                is24Hour={true}
+                onChange={onTimeChange}
+              />
+            )}
 
             {/* Buttons */}
             <View style={{ flexDirection: 'row', gap: 10 }}>
