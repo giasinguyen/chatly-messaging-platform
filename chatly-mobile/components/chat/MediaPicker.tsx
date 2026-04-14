@@ -40,7 +40,12 @@ const GIF_COLUMNS = 3;
 const STICKER_COLUMNS = 4;
 const GRID_GAP = 4;
 
-export function MediaPicker({ initialTab = 'gif', customerId, onSelect, onClose }: MediaPickerProps) {
+export function MediaPicker({
+  initialTab = 'gif',
+  customerId,
+  onSelect,
+  onClose,
+}: MediaPickerProps) {
   const [activeTab, setActiveTab] = useState<MediaTab>(initialTab);
   const [query, setQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
@@ -96,7 +101,7 @@ export function MediaPicker({ initialTab = 'gif', customerId, onSelect, onClose 
         setLoading(false);
       }
     },
-    [customerId],
+    [customerId]
   );
 
   useEffect(() => {
@@ -127,10 +132,13 @@ export function MediaPicker({ initialTab = 'gif', customerId, onSelect, onClose 
   };
 
   // ── Item select + share tracking ──────────────────────────────────────────
-  const handleSelect = useCallback((item: KlipyItem) => {
-    triggerShare(activeTab, item.slug, customerId, query);
-    onSelect(item);
-  }, [activeTab, customerId, query, onSelect]);
+  const handleSelect = useCallback(
+    (item: KlipyItem) => {
+      triggerShare(activeTab, item.slug, customerId, query);
+      onSelect(item);
+    },
+    [activeTab, customerId, query, onSelect]
+  );
 
   // ── Render grid item ──────────────────────────────────────────────────────
   const renderItem = useCallback(
@@ -147,8 +155,7 @@ export function MediaPicker({ initialTab = 'gif', customerId, onSelect, onClose 
             borderRadius: 8,
             overflow: 'hidden',
             backgroundColor: activeTab === 'sticker' ? 'transparent' : Colors.bg,
-          }}
-        >
+          }}>
           <ExpoImage
             source={{ uri: thumbUrl }}
             style={{ width: '100%', height: '100%' }}
@@ -158,7 +165,7 @@ export function MediaPicker({ initialTab = 'gif', customerId, onSelect, onClose 
         </TouchableOpacity>
       );
     },
-    [activeTab, itemSize, handleSelect],
+    [activeTab, itemSize, handleSelect]
   );
 
   return (
@@ -169,35 +176,39 @@ export function MediaPicker({ initialTab = 'gif', customerId, onSelect, onClose 
         backgroundColor: Colors.white,
         borderTopWidth: 0.5,
         borderTopColor: Colors.borderLight,
-      }}
-    >
+      }}>
       {/* ── Header tabs ── */}
       <View
         className="flex-row items-center px-3"
-        style={{ borderBottomWidth: 0.5, borderBottomColor: Colors.borderLight, backgroundColor: Colors.bg }}
-      >
-        <View className="flex-row flex-1">
+        style={{
+          borderBottomWidth: 0.5,
+          borderBottomColor: Colors.borderLight,
+          backgroundColor: Colors.bg,
+        }}>
+        <View className="flex-1 flex-row">
           <TouchableOpacity
             onPress={() => switchTab('gif')}
             className="px-4 py-2.5"
-            style={{ borderBottomWidth: 2.5, borderBottomColor: activeTab === 'gif' ? Colors.cta : 'transparent' }}
-          >
+            style={{
+              borderBottomWidth: 2.5,
+              borderBottomColor: activeTab === 'gif' ? Colors.cta : 'transparent',
+            }}>
             <Text
               className="text-[13px] font-semibold"
-              style={{ color: activeTab === 'gif' ? Colors.cta : Colors.textMuted }}
-            >
+              style={{ color: activeTab === 'gif' ? Colors.cta : Colors.textMuted }}>
               GIF
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
             onPress={() => switchTab('sticker')}
             className="px-4 py-2.5"
-            style={{ borderBottomWidth: 2.5, borderBottomColor: activeTab === 'sticker' ? Colors.cta : 'transparent' }}
-          >
+            style={{
+              borderBottomWidth: 2.5,
+              borderBottomColor: activeTab === 'sticker' ? Colors.cta : 'transparent',
+            }}>
             <Text
               className="text-[13px] font-semibold"
-              style={{ color: activeTab === 'sticker' ? Colors.cta : Colors.textMuted }}
-            >
+              style={{ color: activeTab === 'sticker' ? Colors.cta : Colors.textMuted }}>
               Sticker
             </Text>
           </TouchableOpacity>
@@ -205,11 +216,13 @@ export function MediaPicker({ initialTab = 'gif', customerId, onSelect, onClose 
         <TouchableOpacity
           onPress={onClose}
           style={{
-            width: 28, height: 28, borderRadius: 14,
+            width: 28,
+            height: 28,
+            borderRadius: 14,
             backgroundColor: Colors.bg,
-            alignItems: 'center', justifyContent: 'center',
-          }}
-        >
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}>
           <Ionicons name="close" size={16} color={Colors.textMuted} />
         </TouchableOpacity>
       </View>
@@ -217,8 +230,11 @@ export function MediaPicker({ initialTab = 'gif', customerId, onSelect, onClose 
       {/* ── Search ── */}
       <View
         className="flex-row items-center px-3 py-2"
-        style={{ backgroundColor: Colors.bg, borderBottomWidth: 0.5, borderBottomColor: Colors.borderLight }}
-      >
+        style={{
+          backgroundColor: Colors.bg,
+          borderBottomWidth: 0.5,
+          borderBottomColor: Colors.borderLight,
+        }}>
         <Ionicons name="search" size={16} color={Colors.textMuted} style={{ marginRight: 8 }} />
         {/* REQUIRED: placeholder must be "Search KLIPY" per KLIPY attribution guidelines */}
         <TextInput
@@ -261,8 +277,7 @@ export function MediaPicker({ initialTab = 'gif', customerId, onSelect, onClose 
                 backgroundColor: activeCategory === cat.query ? Colors.ctaLight : Colors.white,
                 minWidth: 52,
                 height: 40,
-              }}
-            >
+              }}>
               {cat.preview_url ? (
                 <ExpoImage
                   source={{ uri: cat.preview_url }}
@@ -272,8 +287,7 @@ export function MediaPicker({ initialTab = 'gif', customerId, onSelect, onClose 
               ) : null}
               <Text
                 style={{ fontSize: 10, color: Colors.textMuted, fontWeight: '500', marginTop: 2 }}
-                numberOfLines={1}
-              >
+                numberOfLines={1}>
                 {cat.category}
               </Text>
             </TouchableOpacity>
@@ -295,7 +309,7 @@ export function MediaPicker({ initialTab = 'gif', customerId, onSelect, onClose 
         ListEmptyComponent={
           !loading ? (
             <View className="items-center justify-center py-8">
-              <Text style={{ fontSize: 13, color: Colors.textMuted }}>Không tìm thấy kết quả</Text>
+              <Text style={{ fontSize: 13, color: Colors.textMuted }}>No results found</Text>
             </View>
           ) : null
         }
@@ -311,8 +325,7 @@ export function MediaPicker({ initialTab = 'gif', customerId, onSelect, onClose 
       {/* ── Attribution (REQUIRED) ── */}
       <View
         className="items-center py-1.5"
-        style={{ borderTopWidth: 0.5, borderTopColor: Colors.borderLight }}
-      >
+        style={{ borderTopWidth: 0.5, borderTopColor: Colors.borderLight }}>
         <Text style={{ fontSize: 10, color: Colors.textLight }}>Powered by KLIPY</Text>
       </View>
     </KeyboardAvoidingView>

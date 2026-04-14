@@ -71,8 +71,7 @@ export function PollModal({ visible, onClose, onSend }: PollModalProps) {
     <Modal visible={visible} transparent animationType="slide" onRequestClose={handleClose}>
       <Pressable
         style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.3)', justifyContent: 'flex-end' }}
-        onPress={handleClose}
-      >
+        onPress={handleClose}>
         <Pressable
           style={{
             backgroundColor: Colors.white,
@@ -83,11 +82,12 @@ export function PollModal({ visible, onClose, onSend }: PollModalProps) {
             paddingHorizontal: 20,
             maxHeight: '88%',
           }}
-          onPress={() => {}}
-        >
+          onPress={() => {}}>
           {/* Handle bar */}
           <View style={{ alignItems: 'center', marginBottom: 16 }}>
-            <View style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: Colors.borderLight }} />
+            <View
+              style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: Colors.borderLight }}
+            />
           </View>
 
           <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
@@ -102,11 +102,12 @@ export function PollModal({ visible, onClose, onSend }: PollModalProps) {
                   alignItems: 'center',
                   justifyContent: 'center',
                   marginRight: 12,
-                }}
-              >
+                }}>
                 <Ionicons name="bar-chart-outline" size={20} color="#0284c7" />
               </View>
-              <Text style={{ fontSize: 17, fontWeight: '600', color: Colors.text }}>Tạo bình chọn</Text>
+              <Text style={{ fontSize: 17, fontWeight: '600', color: Colors.text }}>
+                Create a poll
+              </Text>
               <TouchableOpacity onPress={handleClose} style={{ marginLeft: 'auto', padding: 4 }}>
                 <Ionicons name="close" size={22} color={Colors.textMuted} />
               </TouchableOpacity>
@@ -140,8 +141,7 @@ export function PollModal({ visible, onClose, onSend }: PollModalProps) {
             {options.map((opt, idx) => (
               <View
                 key={idx}
-                style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8, gap: 8 }}
-              >
+                style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8, gap: 8 }}>
                 <TextInput
                   value={opt}
                   onChangeText={(val) => updateOption(idx, val)}
@@ -175,10 +175,11 @@ export function PollModal({ visible, onClose, onSend }: PollModalProps) {
                   paddingVertical: 8,
                   marginBottom: 16,
                   gap: 6,
-                }}
-              >
+                }}>
                 <Ionicons name="add-circle-outline" size={18} color={Colors.cta} />
-                <Text style={{ fontSize: 13, color: Colors.cta, fontWeight: '500' }}>Thêm lựa chọn</Text>
+                <Text style={{ fontSize: 13, color: Colors.cta, fontWeight: '500' }}>
+                  Add more options
+                </Text>
               </TouchableOpacity>
             )}
 
@@ -191,8 +192,7 @@ export function PollModal({ visible, onClose, onSend }: PollModalProps) {
                 borderTopWidth: 1,
                 borderTopColor: Colors.borderLight,
                 marginBottom: 20,
-              }}
-            >
+              }}>
               <Text style={{ flex: 1, fontSize: 14, color: Colors.text }}>Cho phép chọn nhiều</Text>
               <Switch
                 value={multipleChoice}
@@ -212,9 +212,10 @@ export function PollModal({ visible, onClose, onSend }: PollModalProps) {
                   borderRadius: 12,
                   backgroundColor: Colors.bg,
                   alignItems: 'center',
-                }}
-              >
-                <Text style={{ fontSize: 15, color: Colors.textMuted, fontWeight: '500' }}>Huỷ</Text>
+                }}>
+                <Text style={{ fontSize: 15, color: Colors.textMuted, fontWeight: '500' }}>
+                  Huỷ
+                </Text>
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={handleSend}
@@ -224,9 +225,10 @@ export function PollModal({ visible, onClose, onSend }: PollModalProps) {
                   borderRadius: 12,
                   backgroundColor: '#0284c7',
                   alignItems: 'center',
-                }}
-              >
-                <Text style={{ fontSize: 15, color: 'white', fontWeight: '600' }}>Gửi bình chọn</Text>
+                }}>
+                <Text style={{ fontSize: 15, color: 'white', fontWeight: '600' }}>
+                  Submit your vote
+                </Text>
               </TouchableOpacity>
             </View>
           </ScrollView>
