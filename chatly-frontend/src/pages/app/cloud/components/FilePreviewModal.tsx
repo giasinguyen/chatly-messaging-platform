@@ -105,8 +105,14 @@ export function FilePreviewModal({
             return (
                 <div className="flex flex-col items-center justify-center gap-3 py-16 text-muted-foreground">
                     <FileText className="h-12 w-12 opacity-40" />
-                    <p className="text-sm">Không thể tải file này.</p>
-                    <Button variant="outline" size="sm" onClick={handleDownload}>
+                    <p className="text-sm">
+                        This file could not be downloaded.
+                    </p>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleDownload}
+                    >
                         <Download className="mr-2 h-4 w-4" />
                         Tải xuống
                     </Button>
@@ -184,10 +190,10 @@ export function FilePreviewModal({
             <div className="flex flex-col items-center justify-center gap-3 py-16 text-muted-foreground">
                 <FileText className="h-16 w-16 opacity-40" />
                 <p className="text-sm font-medium">{file.fileName}</p>
-                <p className="text-xs">Không thể xem trước loại file này.</p>
+                <p className="text-xs">This file type cannot be previewed.</p>
                 <Button variant="outline" size="sm" onClick={handleDownload}>
                     <Download className="mr-2 h-4 w-4" />
-                    Tải xuống
+                    Download
                 </Button>
             </div>
         );
@@ -200,13 +206,15 @@ export function FilePreviewModal({
                 className="max-w-4xl w-[95vw] max-h-[90vh] p-0 gap-0 overflow-hidden"
             >
                 <VisuallyHidden>
-                    <DialogTitle>Xem file: {file.fileName}</DialogTitle>
+                    <DialogTitle>View file: {file.fileName}</DialogTitle>
                 </VisuallyHidden>
 
                 {/* Header toolbar */}
                 <div className="flex items-center justify-between border-b border-border px-4 py-3 bg-card">
                     <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold truncate">{file.fileName}</p>
+                        <p className="text-sm font-semibold truncate">
+                            {file.fileName}
+                        </p>
                         {files.length > 1 && (
                             <p className="text-xs text-muted-foreground">
                                 {currentIndex + 1} / {files.length}
@@ -218,26 +226,56 @@ export function FilePreviewModal({
                         {/* Zoom controls — only for images */}
                         {isImage(file.fileType) && !error && (
                             <>
-                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleZoomOut} title="Thu nhỏ (-)">
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8"
+                                    onClick={handleZoomOut}
+                                    title="Thu nhỏ (-)"
+                                >
                                     <ZoomOut className="h-4 w-4" />
                                 </Button>
                                 <span className="text-xs text-muted-foreground w-12 text-center tabular-nums">
                                     {Math.round(zoom * 100)}%
                                 </span>
-                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleZoomIn} title="Phóng to (+)">
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8"
+                                    onClick={handleZoomIn}
+                                    title="Phóng to (+)"
+                                >
                                     <ZoomIn className="h-4 w-4" />
                                 </Button>
-                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleZoomReset} title="Đặt lại (0)">
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8"
+                                    onClick={handleZoomReset}
+                                    title="Đặt lại (0)"
+                                >
                                     <RotateCw className="h-4 w-4" />
                                 </Button>
                                 <div className="mx-1 h-5 w-px bg-border" />
                             </>
                         )}
 
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleDownload} title="Tải xuống">
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={handleDownload}
+                            title="Tải xuống"
+                        >
                             <Download className="h-4 w-4" />
                         </Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onOpenChange(false)} title="Đóng (Esc)">
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => onOpenChange(false)}
+                            title="Đóng (Esc)"
+                        >
                             <X className="h-4 w-4" />
                         </Button>
                     </div>

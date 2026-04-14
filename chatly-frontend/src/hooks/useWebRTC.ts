@@ -141,9 +141,9 @@ export function useWebRTC() {
                         console.warn("[WebRTC] No camera found, falling back to audio-only for video call");
                         stream = await navigator.mediaDevices.getUserMedia({ audio: true });
                     } else if (name === "NotAllowedError") {
-                        throw new Error("Vui lòng cấp quyền mic/camera để thực hiện cuộc gọi.");
+                        throw new Error("Please grant microphone/camera permission to make the call.");
                     } else {
-                        throw new Error("Không thể truy cập thiết bị media.");
+                        throw new Error("Unable to access media device.");
                     }
                 }
             } else {
@@ -152,9 +152,9 @@ export function useWebRTC() {
                 } catch (audioErr) {
                     const name = audioErr instanceof DOMException ? audioErr.name : "";
                     if (name === "NotAllowedError") {
-                        throw new Error("Vui lòng cấp quyền microphone để thực hiện cuộc gọi.");
+                        throw new Error("Please grant microphone permission to make the call.");
                     }
-                    throw new Error("Không thể truy cập microphone.");
+                    throw new Error("Microphone is inaccessible.");
                 }
             }
 

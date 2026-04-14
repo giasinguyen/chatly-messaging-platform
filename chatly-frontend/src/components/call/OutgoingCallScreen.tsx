@@ -16,12 +16,12 @@ export function OutgoingCallScreen({ onCancel }: OutgoingCallScreenProps) {
     const isRinging = callStatus === "RINGING";
     const isRejected = callStatus === "REJECTED";
 
-    let statusText = "Đang đổ chuông...";
-    if (isRejected) statusText = "Cuộc gọi bị từ chối";
-    if (callStatus === "ENDED") statusText = "Cuộc gọi đã kết thúc";
-    if (callStatus === "MISSED") statusText = "Không có phản hồi";
+    let statusText = "The phone is ringing...";
+    if (isRejected) statusText = "The call was rejected.";
+    if (callStatus === "ENDED") statusText = "The call has ended.";
+    if (callStatus === "MISSED") statusText = "No response";
 
-    const callLabel = type === "VIDEO" ? "Cuộc gọi video" : "Cuộc gọi thoại";
+    const callLabel = type === "VIDEO" ? "Video call" : "Voice call";
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">

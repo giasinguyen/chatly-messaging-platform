@@ -57,7 +57,7 @@ export function ContactList({ activeTab, onTabChange }: ContactListProps) {
                         size="icon"
                         className="h-8 w-8 rounded-full"
                         onClick={() => setIsCreateGroupOpen(true)}
-                        title="Tạo nhóm chat"
+                        title="Create a group chat"
                     >
                         <UsersRound size={16} />
                     </Button>
