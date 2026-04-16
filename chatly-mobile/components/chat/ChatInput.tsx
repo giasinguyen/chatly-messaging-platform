@@ -231,8 +231,7 @@ export function ChatInput({ conversationId, onSend, onTyping, replyingTo, onCanc
             borderTopColor: Colors.borderLight,
             backgroundColor: Colors.white,
             maxHeight: 200,
-          }}
-        >
+          }}>
           <FlatList
             data={mentionSuggestions}
             keyExtractor={(item) => item.id}
@@ -247,8 +246,7 @@ export function ChatInput({ conversationId, onSend, onTyping, replyingTo, onCanc
                   paddingVertical: 8,
                   borderBottomWidth: 0.5,
                   borderBottomColor: Colors.borderLight,
-                }}
-              >
+                }}>
                 <View
                   style={{
                     width: 32,
@@ -259,8 +257,7 @@ export function ChatInput({ conversationId, onSend, onTyping, replyingTo, onCanc
                     justifyContent: 'center',
                     marginRight: 10,
                     overflow: 'hidden',
-                  }}
-                >
+                  }}>
                   {item.avatarUrl ? (
                     <Image source={{ uri: item.avatarUrl }} style={{ width: 32, height: 32 }} />
                   ) : (
@@ -292,8 +289,7 @@ export function ChatInput({ conversationId, onSend, onTyping, replyingTo, onCanc
             backgroundColor: selectedPriority === 'URGENT' ? '#fef2f2' : '#fffbeb',
             borderTopWidth: 0.5,
             borderTopColor: Colors.borderLight,
-          }}
-        >
+          }}>
           <Ionicons
             name={selectedPriority === 'URGENT' ? 'warning-outline' : 'star-outline'}
             size={14}
@@ -305,8 +301,7 @@ export function ChatInput({ conversationId, onSend, onTyping, replyingTo, onCanc
               fontSize: 12,
               color: selectedPriority === 'URGENT' ? '#ef4444' : '#d97706',
               flex: 1,
-            }}
-          >
+            }}>
             {selectedPriority === 'URGENT' ? 'Urgent message' : 'Important message'}
           </Text>
           <TouchableOpacity onPress={() => setSelectedPriority(null)}>
@@ -333,31 +328,29 @@ export function ChatInput({ conversationId, onSend, onTyping, replyingTo, onCanc
             borderTopWidth: 0.5,
             borderTopColor: Colors.borderLight,
             backgroundColor: Colors.bg,
-          }}
-        >
+          }}>
           <View
             className="flex-1 rounded-lg px-3 py-1.5"
             style={{
               borderLeftWidth: 3,
               borderLeftColor: Colors.cta,
               backgroundColor: Colors.white,
-            }}
-          >
-            <Text className="text-[11px] font-semibold mb-0.5" style={{ color: Colors.cta }}>
+            }}>
+            <Text className="mb-0.5 text-[11px] font-semibold" style={{ color: Colors.cta }}>
               Replying to
             </Text>
             <Text className="text-[12px]" style={{ color: Colors.textMuted }} numberOfLines={1}>
               {replyingTo.recalled
                 ? 'Message recalled'
                 : replyingTo.type === 'IMAGE'
-                ? '🖼 Image'
-                : replyingTo.type === 'FILE'
-                ? '📎 Attachment'
-                : replyingTo.type === 'GIF'
-                ? '🎬 GIF'
-                : replyingTo.type === 'STICKER'
-                ? '🎨 Sticker'
-                : replyingTo.content}
+                  ? '🖼 Image'
+                  : replyingTo.type === 'FILE'
+                    ? '📎 Attachment'
+                    : replyingTo.type === 'GIF'
+                      ? '🎬 GIF'
+                      : replyingTo.type === 'STICKER'
+                        ? '🎨 Sticker'
+                        : replyingTo.content}
             </Text>
           </View>
           <TouchableOpacity onPress={onCancelReply} className="ml-2 p-1">
@@ -368,35 +361,46 @@ export function ChatInput({ conversationId, onSend, onTyping, replyingTo, onCanc
 
       {/* Pending file previews */}
       {pendingFiles.length > 0 && (
-        <View className="flex-row flex-wrap px-3 pt-2 gap-2" style={{ borderTopWidth: 0.5, borderTopColor: Colors.borderLight }}>
+        <View
+          className="flex-row flex-wrap gap-2 px-3 pt-2"
+          style={{ borderTopWidth: 0.5, borderTopColor: Colors.borderLight }}>
           {pendingFiles.map((p) => (
             <View
               key={p.localId}
-              className="rounded-lg overflow-hidden"
+              className="overflow-hidden rounded-lg"
               style={{
                 width: 72,
                 height: 72,
                 backgroundColor: Colors.bg,
                 borderWidth: 1,
                 borderColor: Colors.borderLight,
-              }}
-            >
+              }}>
               {p.isImage ? (
-                <Image source={{ uri: p.uri }} style={{ width: 72, height: 72 }} resizeMode="cover" />
+                <Image
+                  source={{ uri: p.uri }}
+                  style={{ width: 72, height: 72 }}
+                  resizeMode="cover"
+                />
               ) : (
                 <View className="flex-1 items-center justify-center">
                   <Ionicons name="document-outline" size={24} color={Colors.textMuted} />
-                  <Text style={{ fontSize: 8, color: Colors.textMuted }} numberOfLines={1}>{p.name}</Text>
+                  <Text style={{ fontSize: 8, color: Colors.textMuted }} numberOfLines={1}>
+                    {p.name}
+                  </Text>
                 </View>
               )}
               {/* Progress / status overlay */}
               {!p.uploaded && !p.error && (
-                <View className="absolute inset-0 items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.3)' }}>
+                <View
+                  className="absolute inset-0 items-center justify-center"
+                  style={{ backgroundColor: 'rgba(0,0,0,0.3)' }}>
                   <ActivityIndicator size="small" color={Colors.white} />
                 </View>
               )}
               {p.error && (
-                <View className="absolute inset-0 items-center justify-center" style={{ backgroundColor: 'rgba(255,0,0,0.3)' }}>
+                <View
+                  className="absolute inset-0 items-center justify-center"
+                  style={{ backgroundColor: 'rgba(255,0,0,0.3)' }}>
                   <Ionicons name="alert-circle" size={20} color={Colors.white} />
                 </View>
               )}
@@ -404,12 +408,16 @@ export function ChatInput({ conversationId, onSend, onTyping, replyingTo, onCanc
               <TouchableOpacity
                 onPress={() => removePending(p.localId)}
                 style={{
-                  position: 'absolute', top: 2, right: 2,
-                  width: 18, height: 18, borderRadius: 9,
+                  position: 'absolute',
+                  top: 2,
+                  right: 2,
+                  width: 18,
+                  height: 18,
+                  borderRadius: 9,
                   backgroundColor: 'rgba(0,0,0,0.6)',
-                  alignItems: 'center', justifyContent: 'center',
-                }}
-              >
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}>
                 <Ionicons name="close" size={12} color={Colors.white} />
               </TouchableOpacity>
             </View>
@@ -423,14 +431,12 @@ export function ChatInput({ conversationId, onSend, onTyping, replyingTo, onCanc
         style={{
           borderTopColor: Colors.borderLight,
           backgroundColor: Colors.bg,
-        }}
-      >
+        }}>
         {/* Image picker button */}
         <TouchableOpacity
           onPress={handlePickImage}
           className="items-center justify-center pb-1"
-          style={{ width: 36, height: 36 }}
-        >
+          style={{ width: 36, height: 36 }}>
           <Ionicons name="image-outline" size={24} color={Colors.cta} />
         </TouchableOpacity>
 
@@ -438,8 +444,7 @@ export function ChatInput({ conversationId, onSend, onTyping, replyingTo, onCanc
         <TouchableOpacity
           onPress={handlePickDocument}
           className="items-center justify-center pb-1"
-          style={{ width: 36, height: 36 }}
-        >
+          style={{ width: 36, height: 36 }}>
           <Ionicons name="attach-outline" size={24} color={Colors.cta} />
         </TouchableOpacity>
 
@@ -447,8 +452,7 @@ export function ChatInput({ conversationId, onSend, onTyping, replyingTo, onCanc
         <TouchableOpacity
           onPress={() => setShowEmojiPicker(true)}
           className="items-center justify-center pb-1"
-          style={{ width: 36, height: 36 }}
-        >
+          style={{ width: 36, height: 36 }}>
           <Ionicons name="happy-outline" size={24} color={Colors.cta} />
         </TouchableOpacity>
 
@@ -456,12 +460,17 @@ export function ChatInput({ conversationId, onSend, onTyping, replyingTo, onCanc
         <TouchableOpacity
           onPress={() => setShowOptionsSheet(true)}
           className="items-center justify-center pb-1"
-          style={{ width: 36, height: 36 }}
-        >
+          style={{ width: 36, height: 36 }}>
           <Ionicons
             name="ellipsis-horizontal"
             size={22}
-            color={selectedPriority ? (selectedPriority === 'URGENT' ? '#ef4444' : '#d97706') : Colors.cta}
+            color={
+              selectedPriority
+                ? selectedPriority === 'URGENT'
+                  ? '#ef4444'
+                  : '#d97706'
+                : Colors.cta
+            }
           />
         </TouchableOpacity>
 
@@ -472,8 +481,7 @@ export function ChatInput({ conversationId, onSend, onTyping, replyingTo, onCanc
             backgroundColor: Colors.white,
             minHeight: 38,
             maxHeight: 120,
-          }}
-        >
+          }}>
           <TextInput
             className="text-[15px]"
             style={{ color: Colors.text, maxHeight: 100 }}
@@ -491,13 +499,8 @@ export function ChatInput({ conversationId, onSend, onTyping, replyingTo, onCanc
           onPress={handleSend}
           disabled={!canSend}
           className="items-center justify-center pb-1"
-          style={{ width: 36, height: 36 }}
-        >
-          <Ionicons
-            name="send"
-            size={24}
-            color={canSend ? Colors.cta : Colors.textLight}
-          />
+          style={{ width: 36, height: 36 }}>
+          <Ionicons name="send" size={24} color={canSend ? Colors.cta : Colors.textLight} />
         </TouchableOpacity>
       </View>
 
@@ -530,12 +533,10 @@ export function ChatInput({ conversationId, onSend, onTyping, replyingTo, onCanc
         visible={showOptionsSheet}
         transparent
         animationType="slide"
-        onRequestClose={() => setShowOptionsSheet(false)}
-      >
+        onRequestClose={() => setShowOptionsSheet(false)}>
         <Pressable
           style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.3)', justifyContent: 'flex-end' }}
-          onPress={() => setShowOptionsSheet(false)}
-        >
+          onPress={() => setShowOptionsSheet(false)}>
           <Pressable
             style={{
               backgroundColor: Colors.white,
@@ -544,42 +545,95 @@ export function ChatInput({ conversationId, onSend, onTyping, replyingTo, onCanc
               paddingTop: 12,
               paddingBottom: 28,
             }}
-            onPress={() => {}}
-          >
+            onPress={() => {}}>
             {/* Handle bar */}
             <View style={{ alignItems: 'center', marginBottom: 12 }}>
-              <View style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: Colors.borderLight }} />
+              <View
+                style={{
+                  width: 36,
+                  height: 4,
+                  borderRadius: 2,
+                  backgroundColor: Colors.borderLight,
+                }}
+              />
             </View>
 
             {/* GIF picker */}
             <TouchableOpacity
-              onPress={() => { setShowOptionsSheet(false); setActivePicker((p) => (p === 'gif' ? null : 'gif')); setShowEmojiPicker(false); }}
-              style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 14, backgroundColor: activePicker === 'gif' ? '#f0f9ff' : 'transparent' }}
-            >
-              <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: '#e0f2fe', alignItems: 'center', justifyContent: 'center', marginRight: 14 }}>
+              onPress={() => {
+                setShowOptionsSheet(false);
+                setActivePicker((p) => (p === 'gif' ? null : 'gif'));
+                setShowEmojiPicker(false);
+              }}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                paddingHorizontal: 20,
+                paddingVertical: 14,
+                backgroundColor: activePicker === 'gif' ? '#f0f9ff' : 'transparent',
+              }}>
+              <View
+                style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: 18,
+                  backgroundColor: '#e0f2fe',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginRight: 14,
+                }}>
                 <Ionicons name="film-outline" size={20} color="#0284c7" />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={{ fontSize: 15, fontWeight: '500', color: Colors.text }}>GIF</Text>
-                <Text style={{ fontSize: 12, color: Colors.textMuted, marginTop: 1 }}>Gửi ảnh GIF</Text>
+                <Text style={{ fontSize: 12, color: Colors.textMuted, marginTop: 1 }}>
+                  Send GIF
+                </Text>
               </View>
             </TouchableOpacity>
 
             {/* Sticker picker */}
             <TouchableOpacity
-              onPress={() => { setShowOptionsSheet(false); setActivePicker((p) => (p === 'sticker' ? null : 'sticker')); setShowEmojiPicker(false); }}
-              style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 14, backgroundColor: activePicker === 'sticker' ? '#fdf4ff' : 'transparent' }}
-            >
-              <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: '#f3e8ff', alignItems: 'center', justifyContent: 'center', marginRight: 14 }}>
+              onPress={() => {
+                setShowOptionsSheet(false);
+                setActivePicker((p) => (p === 'sticker' ? null : 'sticker'));
+                setShowEmojiPicker(false);
+              }}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                paddingHorizontal: 20,
+                paddingVertical: 14,
+                backgroundColor: activePicker === 'sticker' ? '#fdf4ff' : 'transparent',
+              }}>
+              <View
+                style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: 18,
+                  backgroundColor: '#f3e8ff',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginRight: 14,
+                }}>
                 <Ionicons name="flower-outline" size={20} color="#9333ea" />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={{ fontSize: 15, fontWeight: '500', color: Colors.text }}>Sticker</Text>
-                <Text style={{ fontSize: 12, color: Colors.textMuted, marginTop: 1 }}>Gửi sticker</Text>
+                <Text style={{ fontSize: 12, color: Colors.textMuted, marginTop: 1 }}>
+                  Send stickers
+                </Text>
               </View>
             </TouchableOpacity>
 
-            <View style={{ height: 1, backgroundColor: Colors.borderLight, marginHorizontal: 20, marginVertical: 4 }} />
+            <View
+              style={{
+                height: 1,
+                backgroundColor: Colors.borderLight,
+                marginHorizontal: 20,
+                marginVertical: 4,
+              }}
+            />
 
             {/* Priority options */}
             <TouchableOpacity
@@ -590,14 +644,30 @@ export function ChatInput({ conversationId, onSend, onTyping, replyingTo, onCanc
                 paddingHorizontal: 20,
                 paddingVertical: 14,
                 backgroundColor: selectedPriority === 'IMPORTANT' ? '#fffbeb' : 'transparent',
-              }}
-            >
-              <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: '#fef3c7', alignItems: 'center', justifyContent: 'center', marginRight: 14 }}>
-                <Ionicons name={selectedPriority === 'IMPORTANT' ? 'star' : 'star-outline'} size={20} color="#d97706" />
+              }}>
+              <View
+                style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: 18,
+                  backgroundColor: '#fef3c7',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginRight: 14,
+                }}>
+                <Ionicons
+                  name={selectedPriority === 'IMPORTANT' ? 'star' : 'star-outline'}
+                  size={20}
+                  color="#d97706"
+                />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: 15, fontWeight: '500', color: Colors.text }}>Tin quan trọng</Text>
-                <Text style={{ fontSize: 12, color: Colors.textMuted, marginTop: 1 }}>Đánh dấu tin nhắn này là quan trọng</Text>
+                <Text style={{ fontSize: 15, fontWeight: '500', color: Colors.text }}>
+                  Important news
+                </Text>
+                <Text style={{ fontSize: 12, color: Colors.textMuted, marginTop: 1 }}>
+                  Mark this message as important.
+                </Text>
               </View>
               {selectedPriority === 'IMPORTANT' && (
                 <Ionicons name="checkmark-circle" size={20} color="#d97706" />
@@ -612,48 +682,103 @@ export function ChatInput({ conversationId, onSend, onTyping, replyingTo, onCanc
                 paddingHorizontal: 20,
                 paddingVertical: 14,
                 backgroundColor: selectedPriority === 'URGENT' ? '#fef2f2' : 'transparent',
-              }}
-            >
-              <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: '#fee2e2', alignItems: 'center', justifyContent: 'center', marginRight: 14 }}>
-                <Ionicons name={selectedPriority === 'URGENT' ? 'warning' : 'warning-outline'} size={20} color="#ef4444" />
+              }}>
+              <View
+                style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: 18,
+                  backgroundColor: '#fee2e2',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginRight: 14,
+                }}>
+                <Ionicons
+                  name={selectedPriority === 'URGENT' ? 'warning' : 'warning-outline'}
+                  size={20}
+                  color="#ef4444"
+                />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: 15, fontWeight: '500', color: Colors.text }}>Tin khẩn cấp</Text>
-                <Text style={{ fontSize: 12, color: Colors.textMuted, marginTop: 1 }}>Đánh dấu tin nhắn này là khẩn cấp</Text>
+                <Text style={{ fontSize: 15, fontWeight: '500', color: Colors.text }}>
+                  Urgent news
+                </Text>
+                <Text style={{ fontSize: 12, color: Colors.textMuted, marginTop: 1 }}>
+                  Mark this message as urgent.
+                </Text>
               </View>
               {selectedPriority === 'URGENT' && (
                 <Ionicons name="checkmark-circle" size={20} color="#ef4444" />
               )}
             </TouchableOpacity>
 
-            <View style={{ height: 1, backgroundColor: Colors.borderLight, marginHorizontal: 20, marginVertical: 4 }} />
+            <View
+              style={{
+                height: 1,
+                backgroundColor: Colors.borderLight,
+                marginHorizontal: 20,
+                marginVertical: 4,
+              }}
+            />
 
             <TouchableOpacity
               onPress={() => handleOptionSelect('reminder')}
-              style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 14 }}
-            >
-              <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: '#e0e7ff', alignItems: 'center', justifyContent: 'center', marginRight: 14 }}>
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                paddingHorizontal: 20,
+                paddingVertical: 14,
+              }}>
+              <View
+                style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: 18,
+                  backgroundColor: '#e0e7ff',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginRight: 14,
+                }}>
                 <Ionicons name="alarm-outline" size={20} color={Colors.cta} />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: 15, fontWeight: '500', color: Colors.text }}>Tạo nhắc hẹn</Text>
-                <Text style={{ fontSize: 12, color: Colors.textMuted, marginTop: 1 }}>Nhắc nhở tin nhắn vào thời điểm cụ thể</Text>
+                <Text style={{ fontSize: 15, fontWeight: '500', color: Colors.text }}>
+                  Create reminders
+                </Text>
+                <Text style={{ fontSize: 12, color: Colors.textMuted, marginTop: 1 }}>
+                  Set message reminders at specific times.
+                </Text>
               </View>
             </TouchableOpacity>
 
             {isGroup && (
-            <TouchableOpacity
-              onPress={() => handleOptionSelect('poll')}
-              style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 14 }}
-            >
-              <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: '#e0f2fe', alignItems: 'center', justifyContent: 'center', marginRight: 14 }}>
-                <Ionicons name="bar-chart-outline" size={20} color="#0284c7" />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: 15, fontWeight: '500', color: Colors.text }}>Bình chọn</Text>
-                <Text style={{ fontSize: 12, color: Colors.textMuted, marginTop: 1 }}>Tạo cuộc bình chọn trong nhóm</Text>
-              </View>
-            </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => handleOptionSelect('poll')}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  paddingHorizontal: 20,
+                  paddingVertical: 14,
+                }}>
+                <View
+                  style={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: 18,
+                    backgroundColor: '#e0f2fe',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    marginRight: 14,
+                  }}>
+                  <Ionicons name="bar-chart-outline" size={20} color="#0284c7" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 15, fontWeight: '500', color: Colors.text }}>Vote</Text>
+                  <Text style={{ fontSize: 12, color: Colors.textMuted, marginTop: 1 }}>
+                    Create a poll within the group.
+                  </Text>
+                </View>
+              </TouchableOpacity>
             )}
           </Pressable>
         </Pressable>

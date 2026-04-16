@@ -1266,9 +1266,9 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
                                     : c,
                             ),
                         );
-                        toast.success("Đã gửi lời mời kết bạn");
+                        toast.success("Friend request sent");
                     } catch {
-                        toast.error("Không thể gửi lời mời kết bạn");
+                        toast.error("Unable to send friend requests.");
                     }
                 }}
             />
