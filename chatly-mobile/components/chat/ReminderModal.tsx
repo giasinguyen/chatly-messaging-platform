@@ -55,12 +55,12 @@ export function ReminderModal({ visible, conversationId, onClose }: ReminderModa
 
   const handleCreate = async () => {
     if (!title.trim()) {
-      Alert.alert('Lỗi', 'Tiêu đề không được để trống');
+      Alert.alert('Error', 'The title must not be blank.');
       return;
     }
 
     if (selectedDate <= new Date()) {
-      Alert.alert('Lỗi', 'Thời gian nhắc hẹn phải ở trong tương lai');
+      Alert.alert('Error', 'The reminder time must be in the future.');
       return;
     }
 
@@ -71,12 +71,12 @@ export function ReminderModal({ visible, conversationId, onClose }: ReminderModa
         description: description.trim() || undefined,
         remindAt: selectedDate.toISOString(),
       });
-      Alert.alert('Thành công', 'Đã tạo nhắc hẹn');
+      Alert.alert('Success', 'Reminder created');
       reset();
       onClose();
     } catch (err: any) {
-      const msg = err?.response?.data?.message ?? 'Không thể tạo nhắc hẹn';
-      Alert.alert('Lỗi', msg);
+      const msg = err?.response?.data?.message ?? 'Unable to create a reminder.';
+      Alert.alert('Error', msg);
     } finally {
       setLoading(false);
     }
@@ -104,8 +104,7 @@ export function ReminderModal({ visible, conversationId, onClose }: ReminderModa
     <Modal visible={visible} transparent animationType="slide" onRequestClose={handleClose}>
       <Pressable
         style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.3)', justifyContent: 'flex-end' }}
-        onPress={handleClose}
-      >
+        onPress={handleClose}>
         <Pressable
           style={{
             backgroundColor: Colors.white,
@@ -116,11 +115,12 @@ export function ReminderModal({ visible, conversationId, onClose }: ReminderModa
             paddingHorizontal: 20,
             maxHeight: '90%',
           }}
-          onPress={() => {}}
-        >
+          onPress={() => {}}>
           {/* Handle bar */}
           <View style={{ alignItems: 'center', marginBottom: 16 }}>
-            <View style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: Colors.borderLight }} />
+            <View
+              style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: Colors.borderLight }}
+            />
           </View>
 
           <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
@@ -135,11 +135,12 @@ export function ReminderModal({ visible, conversationId, onClose }: ReminderModa
                   alignItems: 'center',
                   justifyContent: 'center',
                   marginRight: 12,
-                }}
-              >
+                }}>
                 <Ionicons name="alarm-outline" size={20} color={Colors.cta} />
               </View>
-              <Text style={{ fontSize: 17, fontWeight: '600', color: Colors.text }}>Tạo nhắc hẹn</Text>
+              <Text style={{ fontSize: 17, fontWeight: '600', color: Colors.text }}>
+                Create reminders
+              </Text>
               <TouchableOpacity onPress={handleClose} style={{ marginLeft: 'auto', padding: 4 }}>
                 <Ionicons name="close" size={22} color={Colors.textMuted} />
               </TouchableOpacity>
@@ -147,12 +148,12 @@ export function ReminderModal({ visible, conversationId, onClose }: ReminderModa
 
             {/* Title */}
             <Text style={{ fontSize: 13, fontWeight: '500', color: Colors.text, marginBottom: 6 }}>
-              Tiêu đề <Text style={{ color: Colors.error }}>*</Text>
+              Title <Text style={{ color: Colors.error }}>*</Text>
             </Text>
             <TextInput
               value={title}
               onChangeText={setTitle}
-              placeholder="Nhập tiêu đề nhắc hẹn..."
+              placeholder="Enter a title for the reminder..."
               placeholderTextColor={Colors.textLight}
               style={{
                 borderWidth: 1,
@@ -168,12 +169,12 @@ export function ReminderModal({ visible, conversationId, onClose }: ReminderModa
 
             {/* Description */}
             <Text style={{ fontSize: 13, fontWeight: '500', color: Colors.text, marginBottom: 6 }}>
-              Mô tả (tuỳ chọn)
+              Description (optional)
             </Text>
             <TextInput
               value={description}
               onChangeText={setDescription}
-              placeholder="Nhập mô tả..."
+              placeholder="Enter a description..."
               placeholderTextColor={Colors.textLight}
               multiline
               numberOfLines={2}
@@ -194,8 +195,9 @@ export function ReminderModal({ visible, conversationId, onClose }: ReminderModa
             {/* Date & Time */}
             <View style={{ flexDirection: 'row', gap: 10, marginBottom: 24 }}>
               <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: 13, fontWeight: '500', color: Colors.text, marginBottom: 6 }}>
-                  Ngày
+                <Text
+                  style={{ fontSize: 13, fontWeight: '500', color: Colors.text, marginBottom: 6 }}>
+                  Day
                 </Text>
                 <TouchableOpacity
                   onPress={() => setShowDatePicker(true)}
@@ -208,15 +210,17 @@ export function ReminderModal({ visible, conversationId, onClose }: ReminderModa
                     flexDirection: 'row',
                     alignItems: 'center',
                     justifyContent: 'space-between',
-                  }}
-                >
-                  <Text style={{ fontSize: 14, color: Colors.text }}>{formatDate(selectedDate)}</Text>
+                  }}>
+                  <Text style={{ fontSize: 14, color: Colors.text }}>
+                    {formatDate(selectedDate)}
+                  </Text>
                   <Ionicons name="calendar-outline" size={18} color={Colors.textMuted} />
                 </TouchableOpacity>
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: 13, fontWeight: '500', color: Colors.text, marginBottom: 6 }}>
-                  Giờ
+                <Text
+                  style={{ fontSize: 13, fontWeight: '500', color: Colors.text, marginBottom: 6 }}>
+                  Time
                 </Text>
                 <TouchableOpacity
                   onPress={() => setShowTimePicker(true)}
@@ -229,9 +233,10 @@ export function ReminderModal({ visible, conversationId, onClose }: ReminderModa
                     flexDirection: 'row',
                     alignItems: 'center',
                     justifyContent: 'space-between',
-                  }}
-                >
-                  <Text style={{ fontSize: 14, color: Colors.text }}>{formatTime(selectedDate)}</Text>
+                  }}>
+                  <Text style={{ fontSize: 14, color: Colors.text }}>
+                    {formatTime(selectedDate)}
+                  </Text>
                   <Ionicons name="time-outline" size={18} color={Colors.textMuted} />
                 </TouchableOpacity>
               </View>
@@ -266,9 +271,10 @@ export function ReminderModal({ visible, conversationId, onClose }: ReminderModa
                   borderRadius: 12,
                   backgroundColor: Colors.bg,
                   alignItems: 'center',
-                }}
-              >
-                <Text style={{ fontSize: 15, color: Colors.textMuted, fontWeight: '500' }}>Huỷ</Text>
+                }}>
+                <Text style={{ fontSize: 15, color: Colors.textMuted, fontWeight: '500' }}>
+                  Cancel
+                </Text>
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={handleCreate}
@@ -283,10 +289,11 @@ export function ReminderModal({ visible, conversationId, onClose }: ReminderModa
                   justifyContent: 'center',
                   gap: 6,
                   opacity: loading ? 0.7 : 1,
-                }}
-              >
+                }}>
                 {loading && <ActivityIndicator size="small" color="white" />}
-                <Text style={{ fontSize: 15, color: 'white', fontWeight: '600' }}>Tạo nhắc hẹn</Text>
+                <Text style={{ fontSize: 15, color: 'white', fontWeight: '600' }}>
+                  Create reminders
+                </Text>
               </TouchableOpacity>
             </View>
           </ScrollView>

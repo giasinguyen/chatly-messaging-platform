@@ -24,7 +24,12 @@ interface MediaPickerProps {
     onClose: () => void;
 }
 
-export function MediaPicker({ initialTab = "gif", customerId, onSelect, onClose }: MediaPickerProps) {
+export function MediaPicker({
+    initialTab = "gif",
+    customerId,
+    onSelect,
+    onClose,
+}: MediaPickerProps) {
     const [activeTab, setActiveTab] = useState<MediaTab>(initialTab);
     const [query, setQuery] = useState("");
     const [activeCategory, setActiveCategory] = useState<string | null>(null);
@@ -65,7 +70,13 @@ export function MediaPicker({ initialTab = "gif", customerId, onSelect, onClose 
 
     // ── Load items ──────────────────────────────────────────────────────────
     const loadItems = useCallback(
-        async (currentQuery: string, currentCategory: string | null, currentPage: number, currentTab: MediaTab, append = false) => {
+        async (
+            currentQuery: string,
+            currentCategory: string | null,
+            currentPage: number,
+            currentTab: MediaTab,
+            append = false,
+        ) => {
             setLoading(true);
             try {
                 const keyword = currentQuery || currentCategory || "";
@@ -79,7 +90,9 @@ export function MediaPicker({ initialTab = "gif", customerId, onSelect, onClose 
                         ? await searchStickers(keyword, currentPage, customerId)
                         : await fetchStickerTrending(currentPage, customerId);
                 }
-                setItems((prev) => (append ? [...prev, ...result.items] : result.items));
+                setItems((prev) =>
+                    append ? [...prev, ...result.items] : result.items,
+                );
                 setHasNext(result.hasNext);
             } catch {
                 if (!append) setItems([]);
@@ -122,10 +135,13 @@ export function MediaPicker({ initialTab = "gif", customerId, onSelect, onClose 
     };
 
     // ── Item select + share tracking ────────────────────────────────────────
-    const handleSelect = useCallback((item: KlipyItem) => {
-        triggerShare(activeTab, item.slug, customerId, query);
-        onSelect(item);
-    }, [activeTab, customerId, query, onSelect]);
+    const handleSelect = useCallback(
+        (item: KlipyItem) => {
+            triggerShare(activeTab, item.slug, customerId, query);
+            onSelect(item);
+        },
+        [activeTab, customerId, query, onSelect],
+    );
 
     return (
         <div
@@ -196,7 +212,11 @@ export function MediaPicker({ initialTab = "gif", customerId, onSelect, onClose 
                             onClick={() => handleCategoryClick(cat.query)}
                         >
                             {cat.preview_url && (
-                                <img src={cat.preview_url} alt="" className="w-7 h-5 object-cover rounded" />
+                                <img
+                                    src={cat.preview_url}
+                                    alt=""
+                                    className="w-7 h-5 object-cover rounded"
+                                />
                             )}
                             <span className="text-[10px] text-muted-foreground font-medium whitespace-nowrap capitalize">
                                 {cat.category}
@@ -245,21 +265,30 @@ export function MediaPicker({ initialTab = "gif", customerId, onSelect, onClose 
 
                 {loading && (
                     <div className="col-span-full flex justify-center items-center gap-1.5 py-6">
-                        <Loader2 size={18} className="animate-spin text-brand" />
-                        <span className="text-xs text-muted-foreground">Đang tải...</span>
+                        <Loader2
+                            size={18}
+                            className="animate-spin text-brand"
+                        />
+                        <span className="text-xs text-muted-foreground">
+                            Loading...
+                        </span>
                     </div>
                 )}
 
                 {!loading && items.length === 0 && (
                     <div className="col-span-full flex justify-center items-center py-8">
-                        <span className="text-sm text-muted-foreground">Không tìm thấy kết quả</span>
+                        <span className="text-sm text-muted-foreground">
+                            No results found
+                        </span>
                     </div>
                 )}
             </div>
 
             {/* ── Attribution (REQUIRED) ── */}
             <div className="flex items-center justify-center gap-1.5 px-3 py-1.5 border-t border-border/30 shrink-0">
-                <span className="text-[10px] text-muted-foreground/70">Powered by KLIPY</span>
+                <span className="text-[10px] text-muted-foreground/70">
+                    Powered by KLIPY
+                </span>
             </div>
         </div>
     );

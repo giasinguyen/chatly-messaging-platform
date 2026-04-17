@@ -642,7 +642,7 @@ export const ChatList = forwardRef(function ChatListComponent(_, ref) {
                             variant="ghost"
                             size="icon"
                             className="h-8 w-8 rounded-full"
-                            title="Thêm bạn bè"
+                            title="Add friends"
                         >
                             <UserPlus size={16} />
                         </Button>
@@ -677,7 +677,8 @@ export const ChatList = forwardRef(function ChatListComponent(_, ref) {
                                         No conversations yet
                                     </p>
                                     <p className="text-[12px] text-center max-w-[200px] text-muted-foreground/80">
-                                        Search for friends or create a group to start chatting.
+                                        Search for friends or create a group to
+                                        start chatting.
                                     </p>
                                 </div>
                             ) : (
