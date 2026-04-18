@@ -716,6 +716,7 @@ export default function ChatScreen() {
                     onLongPress={() => handleLongPress(msg)}
                     onReact={handleReact}
                     onVotePoll={handleVotePoll}
+                    participantMap={participantMap}
                     replyToMessage={msg.replyToId ? (messageById[msg.replyToId] ?? null) : null}
                     onCallAgain={handleCallAgain}
                     calleeInfo={

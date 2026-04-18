@@ -31,6 +31,7 @@ import type { Message, ChatUser } from "@/types/message";
 import type { ConversationType } from "@/types/conversation";
 import type { ContactResponse } from "@/types/contact";
 import { ReplyPreview } from "./ReplyPreview";
+import { PollVoterPopover } from "./PollVoterPopover";
 import {
     ContextMenu,
     ContextMenuContent,
@@ -551,9 +552,16 @@ export function MessageList({
                                                         />
                                                         <div className="relative flex items-center justify-between gap-2">
                                                             <span className="truncate">{option}</span>
-                                                            <span className="text-xs text-muted-foreground shrink-0">
-                                                                {voterCount > 0 && `${pct}%`}
-                                                            </span>
+                                                            <PollVoterPopover
+                                                                voterIds={poll.votes?.[String(idx)] ?? []}
+                                                                participantDirectory={participantDirectory}
+                                                                optionLabel={option}
+                                                                anonymous={poll.anonymous}
+                                                            >
+                                                                <span className="text-xs text-muted-foreground shrink-0 cursor-pointer hover:underline">
+                                                                    {voterCount > 0 && `${pct}%`}
+                                                                </span>
+                                                            </PollVoterPopover>
                                                         </div>
                                                     </button>
                                                 );
@@ -561,7 +569,16 @@ export function MessageList({
                                         </div>
                                         {/* Poll footer */}
                                         <div className="px-3 py-2 text-[11px] text-muted-foreground border-t border-border/30 flex items-center justify-between">
-                                            <span>{totalVoters} voter{totalVoters !== 1 ? "s" : ""}</span>
+                                            <PollVoterPopover
+                                                voterIds={[...new Set(Object.values(poll.votes ?? {}).flat())]}
+                                                participantDirectory={participantDirectory}
+                                                optionLabel="All voters"
+                                                anonymous={poll.anonymous}
+                                            >
+                                                <span className="cursor-pointer hover:underline">
+                                                    {totalVoters} voter{totalVoters !== 1 ? "s" : ""}
+                                                </span>
+                                            </PollVoterPopover>
                                             <div className="flex items-center gap-2">
                                                 <span>{poll.multipleChoice ? "Multiple choices" : "Single choice"}</span>
                                                 {isMe && !isClosed && (
