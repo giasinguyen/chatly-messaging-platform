@@ -17,6 +17,8 @@ public enum ErrorCode {
     USERNAME_ALREADY_EXISTS(1106, "Username already exists", HttpStatus.CONFLICT),
     INVALID_CREDENTIALS(1104, "Invalid username, email, phone or password", HttpStatus.UNAUTHORIZED),
     PASSWORD_TOO_SHORT(1105, "Password must be at least 6 characters", HttpStatus.BAD_REQUEST),
+    INVALID_USERNAME_FORMAT(1113, "Username can only contain letters and numbers", HttpStatus.BAD_REQUEST),
+    INVALID_DISPLAY_NAME_FORMAT(1114, "Display name can only contain letters and numbers", HttpStatus.BAD_REQUEST),
     CURRENT_PASSWORD_INCORRECT(1111, "Current password is incorrect", HttpStatus.BAD_REQUEST),
     PASSWORD_CONFIRM_MISMATCH(1112, "Confirm password does not match", HttpStatus.BAD_REQUEST),
     EMAIL_REQUIRED(1107, "Email is required for registration", HttpStatus.BAD_REQUEST),

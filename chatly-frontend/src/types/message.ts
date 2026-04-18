@@ -32,6 +32,8 @@ export interface Poll {
     multipleChoice: boolean;
     votes: Record<string, string[]>; // optionIndex -> userIds
     closed?: boolean;
+    deadline?: string;
+    anonymous?: boolean;
 }
 
 /**

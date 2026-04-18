@@ -1,11 +1,19 @@
 import { useState } from 'react';
-import { View, Text, TouchableOpacity, Image, Linking, Modal, Pressable } from 'react-native';
+import { View, Text, TouchableOpacity, Image, Linking, Modal, Pressable, FlatList } from 'react-native';
 import { Image as ExpoImage } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/theme';
 import { formatMessageTime } from '@/utils/format';
 import { ImageLightbox } from '@/components/ui/ImageLightbox';
+import { VideoPlayer } from '@/components/chat/VideoPlayer';
+import { AudioPlayer } from '@/components/chat/AudioPlayer';
 import type { Message, Reaction } from '@/types/message';
+
+interface ParticipantInfo {
+  id: string;
+  displayName: string;
+  avatarUrl?: string;
+}
 
 interface MessageBubbleProps {
   message: Message;
@@ -23,9 +31,11 @@ interface MessageBubbleProps {
   highlightKeyword?: string | null;
   onMentionPress?: (displayName: string) => void;
   participantNames?: string[];
+  participantMap?: Record<string, ParticipantInfo>;
   onVCardPress?: (userId: string) => void;
   onAddFriend?: (userId: string) => void;
   vcardFriendStatus?: (userId: string) => 'ACCEPTED' | 'PENDING' | null;
+  onClosePoll?: (messageId: string) => void;
 }
 
 export function MessageBubble({
@@ -44,13 +54,16 @@ export function MessageBubble({
   highlightKeyword,
   onMentionPress,
   participantNames,
+  participantMap,
   onVCardPress,
   onAddFriend,
   vcardFriendStatus,
+  onClosePoll,
 }: MessageBubbleProps) {
   const { content, type, recalled, edited, createdAt, readBy, attachments } = message;
 
   const [lightboxVisible, setLightboxVisible] = useState(false);
+  const [voterModal, setVoterModal] = useState<{ title: string; voterIds: string[] } | null>(null);
 
   // Recalled message
   if (recalled) {
@@ -75,25 +88,34 @@ export function MessageBubble({
     );
   }
 
-  // Image message
+  // Image message — show ALL images, not just the first
   const renderImageContent = () => {
-    const imageUrl = attachments?.[0]?.url;
-    if (!imageUrl) return null;
+    const images = (attachments ?? []).filter((a) => !!a.url);
+    if (images.length === 0) return null;
+    const imageUrls = images.map((a) => a.url);
     return (
       <>
         <ImageLightbox
-          images={[imageUrl]}
+          images={imageUrls}
           initialIndex={0}
           visible={lightboxVisible}
           onClose={() => setLightboxVisible(false)}
         />
-        <TouchableOpacity onPress={() => setLightboxVisible(true)} activeOpacity={0.85}>
-          <Image
-            source={{ uri: imageUrl }}
-            style={{ width: 200, height: 200, borderRadius: 12 }}
-            resizeMode="cover"
-          />
-        </TouchableOpacity>
+        <View className="gap-1">
+          {images.map((img, idx) => (
+            <TouchableOpacity
+              key={idx}
+              onPress={() => setLightboxVisible(true)}
+              activeOpacity={0.85}
+            >
+              <Image
+                source={{ uri: img.url }}
+                style={{ width: 200, height: 200, borderRadius: 12 }}
+                resizeMode="cover"
+              />
+            </TouchableOpacity>
+          ))}
+        </View>
       </>
     );
   };
@@ -102,73 +124,68 @@ export function MessageBubble({
   const renderVideoContent = () => {
     const video = attachments?.[0];
     if (!video?.url) return null;
-    return (
-      <TouchableOpacity
-        onPress={() => Linking.openURL(video.url)}
-        activeOpacity={0.85}
-        style={{ width: 200, height: 120, borderRadius: 12, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}
-      >
-        <Ionicons name="play-circle-outline" size={44} color="rgba(255,255,255,0.9)" />
-        {video.name ? (
-          <Text style={{ color: 'rgba(255,255,255,0.75)', fontSize: 11, marginTop: 6, paddingHorizontal: 8, textAlign: 'center' }} numberOfLines={1}>
-            {video.name}
-          </Text>
-        ) : null}
-      </TouchableOpacity>
-    );
+    return <VideoPlayer url={video.url} name={video.name} />;
   };
 
   // Audio message
   const renderAudioContent = () => {
     const audio = attachments?.[0];
     if (!audio?.url) return null;
-    return (
-      <TouchableOpacity
-        onPress={() => Linking.openURL(audio.url)}
-        className="flex-row items-center rounded-xl px-3 py-2"
-        style={{ backgroundColor: isMe ? 'rgba(0,0,0,0.15)' : 'rgba(0,0,0,0.07)' }}
-      >
-        <Ionicons name="musical-notes-outline" size={20} color={isMe ? Colors.bubbleSenderText : Colors.cta} />
-        <Text
-          className="ml-2 text-sm"
-          style={{ color: isMe ? Colors.bubbleSenderText : Colors.cta }}
-          numberOfLines={1}
-        >
-          {audio.name ?? 'Audio'}
-        </Text>
-      </TouchableOpacity>
-    );
+    return <AudioPlayer url={audio.url} name={audio.name} isMe={isMe} />;
   };
 
-  // File message
+  // File message — show ALL files with proper names
   const renderFileContent = () => {
-    const file = attachments?.[0];
-    if (!file) return null;
+    const files = (attachments ?? []).filter((a) => !!a.url);
+    if (files.length === 0) return null;
     return (
-      <TouchableOpacity
-        onPress={() => file.url && Linking.openURL(file.url)}
-        className="flex-row items-center rounded-xl px-3 py-2"
-        style={{ backgroundColor: isMe ? 'rgba(0,0,0,0.15)' : 'rgba(0,0,0,0.07)' }}
-      >
-        <Ionicons
-          name="document-outline"
-          size={20}
-          color={isMe ? Colors.bubbleSenderText : Colors.cta}
-        />
-        <Text
-          className="ml-2 text-sm flex-1"
-          style={{ color: isMe ? Colors.bubbleSenderText : Colors.cta }}
-          numberOfLines={1}
-        >
-          {file.name || 'Attachment'}
-        </Text>
-        <Ionicons
-          name="download-outline"
-          size={16}
-          color={isMe ? Colors.bubbleSenderText : Colors.cta}
-          style={{ marginLeft: 6 }}
-        />
-      </TouchableOpacity>
+      <View className="gap-1.5">
+        {files.map((file, idx) => {
+          const fileName = file.name || file.url.split('/').pop() || 'Attachment';
+          const sizeStr = file.size
+            ? file.size > 1048576
+              ? `${(file.size / 1048576).toFixed(1)} MB`
+              : `${Math.round(file.size / 1024)} KB`
+            : '';
+          return (
+            <TouchableOpacity
+              key={idx}
+              onPress={() => file.url && Linking.openURL(file.url)}
+              className="flex-row items-center rounded-xl px-3 py-2"
+              style={{ backgroundColor: isMe ? 'rgba(0,0,0,0.15)' : 'rgba(0,0,0,0.07)' }}
+            >
+              <Ionicons
+                name="document-outline"
+                size={20}
+                color={isMe ? Colors.bubbleSenderText : Colors.cta}
+              />
+              <View className="ml-2 flex-1">
+                <Text
+                  className="text-sm"
+                  style={{ color: isMe ? Colors.bubbleSenderText : Colors.cta }}
+                  numberOfLines={1}
+                >
+                  {fileName}
+                </Text>
+                {sizeStr ? (
+                  <Text
+                    className="text-[11px] mt-0.5"
+                    style={{ color: isMe ? 'rgba(255,255,255,0.6)' : Colors.textMuted }}
+                  >
+                    {sizeStr}
+                  </Text>
+                ) : null}
+              </View>
+              <Ionicons
+                name="download-outline"
+                size={16}
+                color={isMe ? Colors.bubbleSenderText : Colors.cta}
+                style={{ marginLeft: 6 }}
+              />
+            </TouchableOpacity>
+          );
+        })}
+      </View>
     );
   };
 
@@ -260,10 +277,18 @@ export function MessageBubble({
   const renderPollContent = () => {
     const poll = message.poll;
     if (!poll) return null;
+    const isClosed = poll.closed === true;
     const totalVoters = new Set(Object.values(poll.votes ?? {}).flat()).size;
     const myVotedOptions = Object.entries(poll.votes ?? {})
       .filter(([, voters]) => voters.includes(currentUserId ?? ''))
       .map(([idx]) => Number(idx));
+
+    const deadlineStr = poll.deadline
+      ? new Date(poll.deadline).toLocaleString('en-US', {
+          month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
+        })
+      : null;
+    const isExpired = poll.deadline ? new Date(poll.deadline).getTime() < Date.now() : false;
 
     return (
       <View style={{ width: 260 }}>
@@ -273,22 +298,29 @@ export function MessageBubble({
           <Text className="ml-2 text-sm font-semibold" style={{ color: Colors.text, flex: 1 }}>
             {poll.question}
           </Text>
+          {isClosed && (
+            <View className="rounded-full px-2 py-0.5" style={{ backgroundColor: 'rgba(0,0,0,0.08)' }}>
+              <Text className="text-[10px] font-medium" style={{ color: Colors.textMuted }}>Ended</Text>
+            </View>
+          )}
         </View>
         {/* Options */}
         {poll.options.map((option, idx) => {
           const voterCount = (poll.votes?.[String(idx)] ?? []).length;
           const pct = totalVoters > 0 ? Math.round((voterCount / totalVoters) * 100) : 0;
           const isVoted = myVotedOptions.includes(idx);
+          const isDisabled = isClosed || isExpired;
           return (
             <TouchableOpacity
               key={idx}
-              onPress={() => onVotePoll?.(message.id, idx)}
-              activeOpacity={0.7}
+              onPress={() => !isDisabled && onVotePoll?.(message.id, idx)}
+              activeOpacity={isDisabled ? 1 : 0.7}
               className="mb-1.5 rounded-lg overflow-hidden"
               style={{
                 borderWidth: 1,
                 borderColor: isVoted ? Colors.cta : 'rgba(0,0,0,0.1)',
                 backgroundColor: isVoted ? 'rgba(99,102,241,0.08)' : 'transparent',
+                opacity: isDisabled ? 0.7 : 1,
               }}
             >
               {/* Progress background */}
@@ -298,9 +330,20 @@ export function MessageBubble({
                   {option}
                 </Text>
                 {voterCount > 0 && (
-                  <Text className="text-xs ml-2" style={{ color: Colors.textMuted }}>
-                    {pct}%
-                  </Text>
+                  <TouchableOpacity
+                    onPress={() => {
+                      if (poll.anonymous) {
+                        setVoterModal({ title: option, voterIds: poll.votes?.[String(idx)] ?? [] });
+                      } else {
+                        setVoterModal({ title: option, voterIds: poll.votes?.[String(idx)] ?? [] });
+                      }
+                    }}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <Text className="text-xs ml-2" style={{ color: Colors.cta }}>
+                      {pct}%
+                    </Text>
+                  </TouchableOpacity>
                 )}
               </View>
             </TouchableOpacity>
@@ -308,13 +351,42 @@ export function MessageBubble({
         })}
         {/* Footer */}
         <View className="flex-row items-center justify-between mt-1">
-          <Text className="text-[11px]" style={{ color: Colors.textMuted }}>
-            {totalVoters} people voted
-          </Text>
-          <Text className="text-[11px]" style={{ color: Colors.textMuted }}>
-            {poll.multipleChoice ? 'Multiple choice' : 'Single choice'}
-          </Text>
+          <TouchableOpacity
+            onPress={() => {
+              if (totalVoters > 0) {
+                setVoterModal({
+                  title: 'All voters',
+                  voterIds: [...new Set(Object.values(poll.votes ?? {}).flat())],
+                });
+              }
+            }}
+          >
+            <Text className="text-[11px]" style={{ color: totalVoters > 0 ? Colors.cta : Colors.textMuted }}>
+              {totalVoters} people voted
+            </Text>
+          </TouchableOpacity>
+          <View className="flex-row items-center gap-2">
+            <Text className="text-[11px]" style={{ color: Colors.textMuted }}>
+              {poll.multipleChoice ? 'Multiple choice' : 'Single choice'}
+            </Text>
+            {isMe && !isClosed && !isExpired && (
+              <TouchableOpacity onPress={() => onClosePoll?.(message.id)}>
+                <Text className="text-[11px] font-medium" style={{ color: '#ef4444' }}>
+                  End poll
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
+        {/* Deadline */}
+        {deadlineStr && (
+          <View className="flex-row items-center mt-1.5">
+            <Ionicons name="time-outline" size={11} color={isExpired ? '#ef4444' : Colors.textMuted} />
+            <Text className="text-[10px] ml-1" style={{ color: isExpired ? '#ef4444' : Colors.textMuted }}>
+              {isExpired ? 'Expired' : `Ends ${deadlineStr}`}
+            </Text>
+          </View>
+        )}
       </View>
     );
   };
@@ -711,6 +783,83 @@ export function MessageBubble({
             </TouchableOpacity>
           ))}
         </View>
+      )}
+
+      {/* Poll voter modal */}
+      {voterModal && (
+        <Modal
+          visible
+          transparent
+          animationType="fade"
+          onRequestClose={() => setVoterModal(null)}
+        >
+          <Pressable
+            className="flex-1 justify-center items-center"
+            style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}
+            onPress={() => setVoterModal(null)}
+          >
+            <Pressable
+              className="rounded-2xl w-64 max-h-80 overflow-hidden"
+              style={{ backgroundColor: Colors.bgCard }}
+              onPress={() => {}}
+            >
+              <View className="px-4 py-3" style={{ borderBottomWidth: 1, borderBottomColor: 'rgba(0,0,0,0.1)' }}>
+                <Text className="text-sm font-semibold" style={{ color: Colors.text }} numberOfLines={1}>
+                  {voterModal.title}
+                </Text>
+                <Text className="text-xs mt-0.5" style={{ color: Colors.textMuted }}>
+                  {message.poll?.anonymous
+                    ? `${voterModal.voterIds.length} vote${voterModal.voterIds.length !== 1 ? 's' : ''} (anonymous)`
+                    : `${voterModal.voterIds.length} vote${voterModal.voterIds.length !== 1 ? 's' : ''}`}
+                </Text>
+              </View>
+              {message.poll?.anonymous ? (
+                <View className="px-4 py-6 items-center">
+                  <Ionicons name="eye-off-outline" size={28} color={Colors.textMuted} />
+                  <Text className="text-xs mt-2 text-center" style={{ color: Colors.textMuted }}>
+                    This poll is anonymous.{'\n'}Voter identities are hidden.
+                  </Text>
+                </View>
+              ) : (
+                <FlatList
+                data={voterModal.voterIds}
+                keyExtractor={(id) => id}
+                renderItem={({ item: userId }) => {
+                  const user = participantMap?.[userId];
+                  const name = user?.displayName ?? 'Unknown';
+                  return (
+                    <View className="flex-row items-center px-4 py-2">
+                      {user?.avatarUrl ? (
+                        <Image
+                          source={{ uri: user.avatarUrl }}
+                          style={{ width: 24, height: 24, borderRadius: 12 }}
+                        />
+                      ) : (
+                        <View
+                          className="items-center justify-center rounded-full"
+                          style={{ width: 24, height: 24, backgroundColor: Colors.cta }}
+                        >
+                          <Text className="text-[10px] font-bold" style={{ color: '#fff' }}>
+                            {name.charAt(0).toUpperCase()}
+                          </Text>
+                        </View>
+                      )}
+                      <Text className="ml-2 text-sm" style={{ color: Colors.text }}>{name}</Text>
+                    </View>
+                  );
+                }}
+              />
+              )}
+              <TouchableOpacity
+                onPress={() => setVoterModal(null)}
+                className="items-center py-3"
+                style={{ borderTopWidth: 1, borderTopColor: 'rgba(0,0,0,0.1)' }}
+              >
+                <Text className="text-sm font-medium" style={{ color: Colors.cta }}>Close</Text>
+              </TouchableOpacity>
+            </Pressable>
+          </Pressable>
+        </Modal>
       )}
     </View>
   );

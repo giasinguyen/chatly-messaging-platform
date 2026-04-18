@@ -2,6 +2,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";
+import { AxiosError } from "axios";
 
 import {
     registerSchema,
@@ -21,6 +22,8 @@ import "../login/login.css";
 export default function RegisterPage() {
     const form = useForm<RegisterFormValues>({
         resolver: zodResolver(registerSchema),
+        mode: "onChange",
+        reValidateMode: "onChange",
         defaultValues: {
             identifier: "",
             displayName: "",
@@ -65,9 +68,11 @@ export default function RegisterPage() {
             } else {
                 toast.error(response.message || "Registration failed");
             }
-        } catch (error: any) {
-            console.error("Register error:", error);
-            const msg = error.response?.data?.message || "An error occurred";
+        } catch (error: unknown) {
+            const msg =
+                error instanceof AxiosError
+                    ? error.response?.data?.message ?? "Registration failed"
+                    : "An unexpected error occurred";
             toast.error(msg);
         } finally {
             setGlobalLoading(false);
