@@ -340,6 +340,7 @@ export default function ChatScreen() {
       messageType?: string,
       priority?: 'IMPORTANT' | 'URGENT',
       poll?: Poll,
+      location?: any,
     ) => {
       if (!conversationId || !user) return;
       const replyToId = replyingTo?.id ?? null;
@@ -364,7 +365,7 @@ export default function ChatScreen() {
       };
 
       // Try WebSocket first (skip for poll — REST handles complex payloads)
-      const sent = !poll && wsSendMessage(text, replyToId, attachments, messageType, priority);
+      const sent = !poll && wsSendMessage(text, replyToId, attachments, messageType, priority, location);
       if (sent) {
         updateConversation(conversationId, { lastMessage: optimisticLastMsg });
         setReplyingTo(null);
@@ -382,6 +383,7 @@ export default function ChatScreen() {
           attachments,
           priority,
           poll,
+          location,
         });
         addMessage(conversationId, res.result);
         updateConversation(conversationId, {

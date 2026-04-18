@@ -23,6 +23,7 @@ export const messageService = {
     attachments?: import('@/types/message').Attachment[];
     priority?: 'IMPORTANT' | 'URGENT';
     poll?: import('@/types/message').Poll;
+    location?: import('@/types/message').LocationPayload;
   }): Promise<ApiResponse<Message>> => {
     const response = await axiosClient.post<ApiResponse<Message>>('/api/messages', payload);
     return response.data;
