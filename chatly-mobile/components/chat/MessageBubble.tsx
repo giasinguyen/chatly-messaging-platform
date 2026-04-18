@@ -5,6 +5,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/theme';
 import { formatMessageTime } from '@/utils/format';
 import { ImageLightbox } from '@/components/ui/ImageLightbox';
+import { VideoPlayer } from '@/components/chat/VideoPlayer';
+import { AudioPlayer } from '@/components/chat/AudioPlayer';
 import type { Message, Reaction } from '@/types/message';
 
 interface MessageBubbleProps {
@@ -102,42 +104,14 @@ export function MessageBubble({
   const renderVideoContent = () => {
     const video = attachments?.[0];
     if (!video?.url) return null;
-    return (
-      <TouchableOpacity
-        onPress={() => Linking.openURL(video.url)}
-        activeOpacity={0.85}
-        style={{ width: 200, height: 120, borderRadius: 12, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}
-      >
-        <Ionicons name="play-circle-outline" size={44} color="rgba(255,255,255,0.9)" />
-        {video.name ? (
-          <Text style={{ color: 'rgba(255,255,255,0.75)', fontSize: 11, marginTop: 6, paddingHorizontal: 8, textAlign: 'center' }} numberOfLines={1}>
-            {video.name}
-          </Text>
-        ) : null}
-      </TouchableOpacity>
-    );
+    return <VideoPlayer url={video.url} name={video.name} />;
   };
 
   // Audio message
   const renderAudioContent = () => {
     const audio = attachments?.[0];
     if (!audio?.url) return null;
-    return (
-      <TouchableOpacity
-        onPress={() => Linking.openURL(audio.url)}
-        className="flex-row items-center rounded-xl px-3 py-2"
-        style={{ backgroundColor: isMe ? 'rgba(0,0,0,0.15)' : 'rgba(0,0,0,0.07)' }}
-      >
-        <Ionicons name="musical-notes-outline" size={20} color={isMe ? Colors.bubbleSenderText : Colors.cta} />
-        <Text
-          className="ml-2 text-sm"
-          style={{ color: isMe ? Colors.bubbleSenderText : Colors.cta }}
-          numberOfLines={1}
-        >
-          {audio.name ?? 'Audio'}
-        </Text>
-      </TouchableOpacity>
-    );
+    return <AudioPlayer url={audio.url} name={audio.name} isMe={isMe} />;
   };
 
   // File message
