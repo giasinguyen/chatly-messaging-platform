@@ -11,13 +11,6 @@ import {
     Pencil,
     X,
     Send,
-    FileText,
-    FileSpreadsheet,
-    FileCode,
-    FileImage,
-    FileVideo,
-    FileAudio,
-    FileArchive,
     Download,
     Copy,
     Trash2,
@@ -33,6 +26,19 @@ import {
     IdCard,
     Clock,
 } from "lucide-react";
+import {
+    FilePdf,
+    MicrosoftWordLogo,
+    MicrosoftExcelLogo,
+    FileCsv,
+    MicrosoftPowerpointLogo,
+    FileImage as PhosphorFileImage,
+    FileVideo as PhosphorFileVideo,
+    FileAudio as PhosphorFileAudio,
+    FileZip,
+    FileCode as PhosphorFileCode,
+    File as PhosphorFile,
+} from "phosphor-react";
 import { toast } from "sonner";
 import type { Message, ChatUser } from "@/types/message";
 import type { ConversationType } from "@/types/conversation";
@@ -44,26 +50,28 @@ function getFileIcon(mimeType?: string, fileName?: string) {
     const t = mimeType?.toLowerCase() ?? '';
     const ext = (fileName?.split('.').pop() ?? '').toLowerCase();
     if (t.includes('pdf') || ext === 'pdf')
-        return <FileText size={18} className="shrink-0 text-red-500" />;
+        return <FilePdf size={18} className="shrink-0" color="#ef4444" weight="duotone" />;
     if (t.includes('word') || t.includes('document') || ext === 'docx' || ext === 'doc')
-        return <FileText size={18} className="shrink-0 text-blue-600" />;
-    if (t.includes('sheet') || t.includes('excel') || ext === 'xlsx' || ext === 'xls' || ext === 'csv')
-        return <FileSpreadsheet size={18} className="shrink-0 text-green-600" />;
+        return <MicrosoftWordLogo size={18} className="shrink-0" color="#2563eb" weight="duotone" />;
+    if (t.includes('sheet') || t.includes('excel') || ext === 'xlsx' || ext === 'xls')
+        return <MicrosoftExcelLogo size={18} className="shrink-0" color="#16a34a" weight="duotone" />;
+    if (ext === 'csv')
+        return <FileCsv size={18} className="shrink-0" color="#16a34a" weight="duotone" />;
     if (t.includes('presentation') || t.includes('powerpoint') || ext === 'pptx' || ext === 'ppt')
-        return <FileText size={18} className="shrink-0 text-orange-500" />;
+        return <MicrosoftPowerpointLogo size={18} className="shrink-0" color="#ea580c" weight="duotone" />;
     if (t.startsWith('image/'))
-        return <FileImage size={18} className="shrink-0 text-purple-500" />;
+        return <PhosphorFileImage size={18} className="shrink-0" color="#7c3aed" weight="duotone" />;
     if (t.startsWith('video/'))
-        return <FileVideo size={18} className="shrink-0 text-pink-500" />;
+        return <PhosphorFileVideo size={18} className="shrink-0" color="#db2777" weight="duotone" />;
     if (t.startsWith('audio/'))
-        return <FileAudio size={18} className="shrink-0 text-yellow-500" />;
+        return <PhosphorFileAudio size={18} className="shrink-0" color="#d97706" weight="duotone" />;
     if (t.includes('zip') || t.includes('rar') || t.includes('tar') || t.includes('7z') || ext === 'zip' || ext === 'rar' || ext === '7z')
-        return <FileArchive size={18} className="shrink-0 text-amber-600" />;
+        return <FileZip size={18} className="shrink-0" color="#92400e" weight="duotone" />;
     if (t.includes('json') || t.includes('xml') || t.includes('javascript') || t.includes('typescript') || ['js','ts','jsx','tsx','json','xml','html','css','py','java'].includes(ext))
-        return <FileCode size={18} className="shrink-0 text-slate-500" />;
+        return <PhosphorFileCode size={18} className="shrink-0" color="#475569" weight="duotone" />;
     if (t.includes('text') || ext === 'txt')
-        return <FileText size={18} className="shrink-0 text-slate-400" />;
-    return <FileText size={18} className="shrink-0" />;
+        return <PhosphorFile size={18} className="shrink-0" color="#94a3b8" weight="duotone" />;
+    return <PhosphorFile size={18} className="shrink-0" weight="duotone" />;
 }
 import {
     ContextMenu,
@@ -853,6 +861,23 @@ export function MessageList({
                                                             className="max-w-60 max-h-60 rounded-xl object-cover"
                                                         />
                                                     </button>
+                                                );
+                                            }
+                                            const isVideo = att.type?.startsWith("video/");
+                                            if (isVideo) {
+                                                return (
+                                                    <div key={i} className="max-w-xs">
+                                                        <video
+                                                            src={att.url}
+                                                            controls
+                                                            className="rounded-xl max-w-full max-h-60 block"
+                                                        />
+                                                        {att.name && (
+                                                            <p className={cn("text-[11px] mt-1 truncate", isMe ? "text-white/70" : "text-muted-foreground")}>
+                                                                {att.name}
+                                                            </p>
+                                                        )}
+                                                    </div>
                                                 );
                                             }
                                             return (

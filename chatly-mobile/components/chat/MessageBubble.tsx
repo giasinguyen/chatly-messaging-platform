@@ -2,6 +2,19 @@ import { useState } from 'react';
 import { View, Text, TouchableOpacity, Image, Linking, Modal, Pressable, FlatList, Dimensions } from 'react-native';
 import { Image as ExpoImage } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
+import {
+  FilePdf,
+  MicrosoftWordLogo,
+  MicrosoftExcelLogo,
+  FileCsv,
+  MicrosoftPowerpointLogo,
+  FileImage as PhosphorFileImage,
+  FileVideo as PhosphorFileVideo,
+  FileAudio as PhosphorFileAudio,
+  FileArchive,
+  FileCode as PhosphorFileCode,
+  File as PhosphorFile,
+} from 'phosphor-react-native';
 import { Colors } from '@/constants/theme';
 import { formatMessageTime } from '@/utils/format';
 import { ImageLightbox } from '@/components/ui/ImageLightbox';
@@ -139,19 +152,21 @@ export function MessageBubble({
   };
 
   // File message — show ALL files with proper names and type-based icons
-  const getFileIconInfo = (mimeType?: string, fileName?: string): { iconName: 'document-text-outline' | 'document-outline' | 'archive-outline' | 'musical-notes-outline' | 'film-outline' | 'image-outline' | 'code-slash-outline'; badgeColor: string; badgeLabel: string } => {
+  type PhosphorIconComponent = React.ComponentType<{ size: number; color: string; weight?: 'thin' | 'light' | 'regular' | 'bold' | 'fill' | 'duotone' }>;
+  const getFileIconDetails = (mimeType?: string, fileName?: string): { IconComponent: PhosphorIconComponent; color: string } => {
     const t = (mimeType ?? '').toLowerCase();
     const ext = (fileName?.split('.').pop() ?? '').toLowerCase();
-    if (t.includes('pdf') || ext === 'pdf') return { iconName: 'document-text-outline', badgeColor: '#ef4444', badgeLabel: 'PDF' };
-    if (t.includes('word') || t.includes('document') || ext === 'docx' || ext === 'doc') return { iconName: 'document-text-outline', badgeColor: '#2563eb', badgeLabel: 'DOC' };
-    if (t.includes('sheet') || t.includes('excel') || ext === 'xlsx' || ext === 'xls' || ext === 'csv') return { iconName: 'document-text-outline', badgeColor: '#16a34a', badgeLabel: 'XLS' };
-    if (t.includes('presentation') || t.includes('powerpoint') || ext === 'pptx' || ext === 'ppt') return { iconName: 'document-text-outline', badgeColor: '#ea580c', badgeLabel: 'PPT' };
-    if (t.startsWith('image/')) return { iconName: 'image-outline', badgeColor: '#7c3aed', badgeLabel: 'IMG' };
-    if (t.startsWith('video/')) return { iconName: 'film-outline', badgeColor: '#db2777', badgeLabel: 'VID' };
-    if (t.startsWith('audio/')) return { iconName: 'musical-notes-outline', badgeColor: '#d97706', badgeLabel: 'AUD' };
-    if (t.includes('zip') || t.includes('rar') || t.includes('tar') || ext === 'zip' || ext === 'rar' || ext === '7z') return { iconName: 'archive-outline', badgeColor: '#92400e', badgeLabel: 'ZIP' };
-    if (['js', 'ts', 'jsx', 'tsx', 'json', 'xml', 'html', 'css', 'py', 'java'].includes(ext)) return { iconName: 'code-slash-outline', badgeColor: '#475569', badgeLabel: ext.toUpperCase() };
-    return { iconName: 'document-outline', badgeColor: '#6b7280', badgeLabel: ext ? ext.toUpperCase().slice(0, 4) : 'FILE' };
+    if (t.includes('pdf') || ext === 'pdf') return { IconComponent: FilePdf, color: '#ef4444' };
+    if (t.includes('word') || t.includes('document') || ext === 'docx' || ext === 'doc') return { IconComponent: MicrosoftWordLogo, color: '#2563eb' };
+    if (t.includes('sheet') || t.includes('excel') || ext === 'xlsx' || ext === 'xls') return { IconComponent: MicrosoftExcelLogo, color: '#16a34a' };
+    if (ext === 'csv') return { IconComponent: FileCsv, color: '#16a34a' };
+    if (t.includes('presentation') || t.includes('powerpoint') || ext === 'pptx' || ext === 'ppt') return { IconComponent: MicrosoftPowerpointLogo, color: '#ea580c' };
+    if (t.startsWith('image/')) return { IconComponent: PhosphorFileImage, color: '#7c3aed' };
+    if (t.startsWith('video/')) return { IconComponent: PhosphorFileVideo, color: '#db2777' };
+    if (t.startsWith('audio/')) return { IconComponent: PhosphorFileAudio, color: '#d97706' };
+    if (t.includes('zip') || t.includes('rar') || t.includes('tar') || t.includes('7z') || ext === 'zip' || ext === 'rar' || ext === '7z') return { IconComponent: FileArchive, color: '#92400e' };
+    if (['js', 'ts', 'jsx', 'tsx', 'json', 'xml', 'html', 'css', 'py', 'java'].includes(ext)) return { IconComponent: PhosphorFileCode, color: '#475569' };
+    return { IconComponent: PhosphorFile, color: '#6b7280' };
   };
 
   const renderFileContent = () => {
@@ -169,7 +184,7 @@ export function MessageBubble({
               ? `${(file.size / 1048576).toFixed(1)} MB`
               : `${Math.round(file.size / 1024)} KB`
             : '';
-          const { iconName, badgeColor, badgeLabel } = getFileIconInfo(file.type, rawName);
+          const { IconComponent, color: iconColor } = getFileIconDetails(file.type, rawName);
           return (
             <TouchableOpacity
               key={idx}
@@ -177,12 +192,9 @@ export function MessageBubble({
               className="flex-row items-center rounded-xl px-3 py-2"
               style={{ backgroundColor: isMe ? 'rgba(0,0,0,0.15)' : 'rgba(0,0,0,0.07)' }}
             >
-              {/* Icon with colored type badge */}
+              {/* Phosphor file icon */}
               <View style={{ width: 36, height: 36, alignItems: 'center', justifyContent: 'center' }}>
-                <Ionicons name={iconName} size={24} color={isMe ? 'rgba(255,255,255,0.85)' : badgeColor} />
-                <View style={{ position: 'absolute', bottom: -2, right: -2, backgroundColor: badgeColor, borderRadius: 3, paddingHorizontal: 2, paddingVertical: 1 }}>
-                  <Text style={{ color: '#fff', fontSize: 7, fontWeight: '700', lineHeight: 9 }}>{badgeLabel}</Text>
-                </View>
+                <IconComponent size={28} color={isMe ? 'rgba(255,255,255,0.85)' : iconColor} weight="duotone" />
               </View>
               <View className="ml-2.5 flex-1">
                 <Text
