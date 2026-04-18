@@ -535,8 +535,8 @@ export const ChatList = forwardRef(function ChatListComponent(_, ref) {
                                         </span>
                                     )}
                                 </div>
-                                <div className="flex items-center justify-between">
-                                    <span className="text-[13px] text-muted-foreground/90 truncate block">
+                                <div className="flex items-center justify-between min-w-0">
+                                    <span className="text-[13px] text-muted-foreground/90 truncate block min-w-0 flex-1">
                                         {conv.lastMessage ? (
                                             <>
                                                 {conv.lastMessage.senderId ===
