@@ -95,6 +95,13 @@ export const messageService = {
     return response.data;
   },
 
+  closePoll: async (messageId: string): Promise<ApiResponse<Message>> => {
+    const response = await axiosClient.put<ApiResponse<Message>>(
+      `/api/messages/${messageId}/close-poll`,
+    );
+    return response.data;
+  },
+
   togglePin: async (messageId: string): Promise<ApiResponse<Message>> => {
     const response = await axiosClient.put<ApiResponse<Message>>(
       `/api/messages/${messageId}/pin`,

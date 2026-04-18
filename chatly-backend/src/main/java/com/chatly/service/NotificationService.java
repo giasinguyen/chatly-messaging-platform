@@ -149,6 +149,12 @@ public class NotificationService {
                             title = "You were mentioned";
                         } else if (notification.getType() == NotificationType.FRIEND_REQUEST) {
                             title = "Friend request";
+                        } else if (notification.getType() == NotificationType.GROUP_JOIN_REQUEST) {
+                            title = "New join request";
+                        } else if (notification.getType() == NotificationType.MEMBER_JOINED) {
+                            title = "New member joined";
+                        } else if (notification.getType() == NotificationType.CALL_MISSED) {
+                            title = "Missed call";
                         }
                         
                         Map<String, Object> data = Map.of(

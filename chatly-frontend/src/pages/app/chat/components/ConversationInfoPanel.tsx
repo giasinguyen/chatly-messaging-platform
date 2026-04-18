@@ -173,6 +173,18 @@ export function ConversationInfoPanel({
     const [showQrDialog, setShowQrDialog] = useState(false);
     const [inviteLinkExpanded, setInviteLinkExpanded] = useState(false);
 
+    // Pending join requests count
+    const [pendingCount, setPendingCount] = useState(0);
+
+    useEffect(() => {
+        if (!isGroup) return;
+        let cancelled = false;
+        groupService.getPendingRequests(conversation.id).then((res) => {
+            if (!cancelled) setPendingCount(res.result?.length ?? 0);
+        }).catch(() => { /* silent */ });
+        return () => { cancelled = true; };
+    }, [isGroup, conversation.id]);
+
     // Invite link handlers
     const fetchInviteLink = useCallback(async () => {
         if (!isGroup) return;
@@ -427,7 +439,7 @@ export function ConversationInfoPanel({
                     </div>
 
                     {/* Action Buttons */}
-                    <div className="flex items-start justify-center gap-4 px-4 pb-4">
+                    <div className="flex flex-wrap items-start justify-center gap-3 px-4 pb-4">
                         {/* Mute */}
                         <button
                             type="button"
@@ -546,6 +558,23 @@ export function ConversationInfoPanel({
                                 </div>
                             )}
                             <Separator />
+
+                            {/* Pending join requests */}
+                            {pendingCount > 0 && onOpenGroupPanel && (
+                                <button
+                                    type="button"
+                                    className="w-full flex items-center justify-between px-4 py-3 hover:bg-muted/30 transition"
+                                    onClick={onOpenGroupPanel}
+                                >
+                                    <div className="flex items-center gap-2">
+                                        <UserPlus size={16} className="text-muted-foreground" />
+                                        <span className="text-sm font-medium text-foreground">Pending requests</span>
+                                    </div>
+                                    <span className="text-xs bg-red-500 text-white rounded-full px-1.5 py-0.5 min-w-5 text-center">
+                                        {pendingCount}
+                                    </span>
+                                </button>
+                            )}
 
                             {/* Group invite link */}
                             <div className="px-4 py-3">
