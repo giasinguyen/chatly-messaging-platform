@@ -7,6 +7,7 @@ from app.agents.chatbot_agent import ChatbotAgent
 from app.db.mongo import get_db
 from app.repositories.mcp_repo import MCPRepository
 from app.services.mcp_service import MCPService
+from app.services.system_mcp import SystemMCPService
 from app.db.qdrant import get_client as get_qdrant_client
 from app.repositories.chunk_repo import ChunkRepository
 from app.repositories.file_repo import FileRepository
@@ -102,11 +103,17 @@ def get_mcp_service(
     return MCPService(mcp_repo=mcp_repo)
 
 
+def get_system_mcp_service() -> SystemMCPService:
+    """Build system MCP service dependency."""
+    return SystemMCPService()
+
+
 def get_tool_service(
     mcp_service: MCPService = Depends(get_mcp_service),  # noqa: B008
+    system_mcp_service: SystemMCPService = Depends(get_system_mcp_service),  # noqa: B008
 ) -> ToolService:
     """Build tool assembly service dependency."""
-    return ToolService(mcp_service=mcp_service)
+    return ToolService(mcp_service=mcp_service, system_mcp_service=system_mcp_service)
 
 
 def get_chat_service(

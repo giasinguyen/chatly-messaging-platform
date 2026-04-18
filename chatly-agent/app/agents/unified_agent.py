@@ -2,13 +2,21 @@
 from collections.abc import AsyncIterator
 from typing import Any
 
-from langchain_core.messages import AIMessageChunk, HumanMessage
+from langchain_core.messages import AIMessageChunk, HumanMessage, SystemMessage
 from langchain_core.tools import BaseTool
 from langchain_groq import ChatGroq
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.prebuilt import create_react_agent
 
 from app.models.chat import ChatInput, ChatOutput
+
+_SYSTEM_TEMPLATE = (
+    "You are Chatly Assistant, an AI helper embedded in the Chatly messaging platform.\n"
+    "The current user's ID is: {user_id}\n"
+    "When the user asks about themselves (e.g. 'who am I', 'my profile', 'my info'), "
+    "call getUserInfo with their exact user ID shown above.\n"
+    "Always use the exact user ID provided — never guess or substitute placeholders."
+)
 
 
 class UnifiedAgent:
@@ -30,11 +38,14 @@ class UnifiedAgent:
         """Build per-session LangGraph runtime config."""
         return {"configurable": {"thread_id": session_id}}
 
+    def _build_messages(self, input: ChatInput) -> list[Any]:
+        system = SystemMessage(content=_SYSTEM_TEMPLATE.format(user_id=input.user_id))
+        return [system, *input.history, HumanMessage(content=input.message)]
+
     async def ainvoke(self, input: ChatInput) -> ChatOutput:
         """Run a full ReAct turn and return the final assistant message."""
-        messages: list[Any] = [*input.history, HumanMessage(content=input.message)]
         result = await self._graph.ainvoke(
-            {"messages": messages},
+            {"messages": self._build_messages(input)},
             config=self._build_run_config(input.session_id),
         )
         content = str(result["messages"][-1].content)
@@ -46,9 +57,8 @@ class UnifiedAgent:
 
     async def astream(self, input: ChatInput) -> AsyncIterator[str]:
         """Stream assistant response tokens from the ReAct graph."""
-        messages: list[Any] = [*input.history, HumanMessage(content=input.message)]
         async for msg, _metadata in self._graph.astream(
-            {"messages": messages},
+            {"messages": self._build_messages(input)},
             config=self._build_run_config(input.session_id),
             stream_mode="messages",
         ):

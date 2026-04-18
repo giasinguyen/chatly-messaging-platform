@@ -26,7 +26,7 @@ class MCPToolInfo(BaseModel):
 
 
 class MCPServerResponse(BaseModel):
-    """API response shape for an MCP server record."""
+    """API response shape for a user-owned MCP server record."""
 
     id: str
     user_id: str
@@ -36,3 +36,11 @@ class MCPServerResponse(BaseModel):
     is_active: bool
     created_at: datetime
     updated_at: datetime | None = None
+
+
+class SystemMCPServerInfo(BaseModel):
+    """Read-only metadata for a built-in system MCP server."""
+
+    name: str
+    url: str
+    is_active: bool

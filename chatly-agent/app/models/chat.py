@@ -24,6 +24,7 @@ class ChatInput(BaseModel):
 
     message: str = Field(..., min_length=1, max_length=8192)
     session_id: str
+    user_id: str
     history: list[BaseMessage] = Field(default_factory=list)
 
     model_config = {"arbitrary_types_allowed": True, "frozen": True}

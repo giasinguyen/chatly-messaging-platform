@@ -1,72 +1,77 @@
-"""MCP client (JSON-RPC over HTTP) and MCP server management service."""
+"""MCP client (SSE transport) and MCP server management service."""
 import logging
 from datetime import datetime, timezone
 from typing import Any
-
-import httpx
 
 from app.exceptions import MCPConnectionError, MCPServerNotFoundError
 from app.repositories.mcp_repo import MCPRepository
 
 logger = logging.getLogger(__name__)
 
-# JSON-RPC 2.0 method names used by MCP protocol
-_METHOD_LIST_TOOLS = "tools/list"
-_METHOD_CALL_TOOL = "tools/call"
-
 
 class MCPClient:
-    """Async JSON-RPC 2.0 client for a single MCP server endpoint."""
+    """Async MCP client using the SSE transport (MCP SDK 0.10 / Spring AI 1.0.0).
+
+    Spring AI 1.0.0 ``spring-ai-starter-mcp-server-webmvc`` registers two
+    routes via ``WebMvcSseServerTransportProvider``:
+
+    * ``GET  {sse-endpoint}``          — client opens an SSE stream; server
+      immediately emits an ``endpoint`` event whose data is the
+      session-specific POST URL.
+    * ``POST {sse-message-endpoint}``  — client sends JSON-RPC messages; the
+      server writes responses back over the SSE stream.
+
+    The ``mcp`` Python package's :func:`mcp.client.sse.sse_client` handles
+    this handshake automatically.  The ``url`` parameter must be the **SSE
+    endpoint** (e.g. ``http://host:8080/api/ai/mcp/sse``).
+
+    A fresh SSE session is opened for every :meth:`list_tools` or
+    :meth:`call_tool` invocation so that each request is fully stateless.
+    """
 
     def __init__(self, url: str, headers: dict[str, str] | None = None) -> None:
-        self._url = url
+        self._sse_url = url
         self._headers = headers or {}
-
-    async def _rpc(self, method: str, params: dict[str, Any], req_id: int = 1) -> Any:
-        """Send a JSON-RPC 2.0 request and return the *result* field."""
-        payload = {
-            "jsonrpc": "2.0",
-            "id": req_id,
-            "method": method,
-            "params": params,
-        }
-        try:
-            async with httpx.AsyncClient(headers=self._headers, timeout=10.0) as client:
-                response = await client.post(self._url, json=payload)
-                response.raise_for_status()
-        except httpx.HTTPStatusError as exc:
-            raise MCPConnectionError(
-                f"MCP server returned HTTP {exc.response.status_code}: {self._url}"
-            ) from exc
-        except httpx.RequestError as exc:
-            raise MCPConnectionError(
-                f"Cannot reach MCP server at {self._url}: {exc}"
-            ) from exc
-
-        data = response.json()
-        if "error" in data:
-            raise MCPConnectionError(
-                f"MCP JSON-RPC error from {self._url}: {data['error']}"
-            )
-        return data.get("result")
 
     async def list_tools(self) -> list[dict[str, Any]]:
         """Fetch the list of tools exposed by this MCP server."""
-        result = await self._rpc(_METHOD_LIST_TOOLS, {})
-        return result.get("tools", [])
+        from mcp import ClientSession
+        from mcp.client.sse import sse_client
+
+        try:
+            async with sse_client(self._sse_url, headers=self._headers) as (read, write):
+                async with ClientSession(read, write) as session:
+                    await session.initialize()
+                    result = await session.list_tools()
+                    return [tool.model_dump() for tool in result.tools]
+        except MCPConnectionError:
+            raise
+        except Exception as exc:
+            raise MCPConnectionError(
+                f"MCP SSE connection to {self._sse_url} failed: {exc}"
+            ) from exc
 
     async def call_tool(self, tool_name: str, arguments: dict[str, Any]) -> str:
         """Invoke a tool and return its text output."""
-        result = await self._rpc(
-            _METHOD_CALL_TOOL,
-            {"name": tool_name, "arguments": arguments},
-            req_id=2,
-        )
-        # MCP returns content as a list of typed parts; concatenate text parts.
-        content = result.get("content", [])
-        return "\n".join(
-            part["text"] for part in content if part.get("type") == "text"
-        )
+        from mcp import ClientSession
+        from mcp.client.sse import sse_client
+
+        try:
+            async with sse_client(self._sse_url, headers=self._headers) as (read, write):
+                async with ClientSession(read, write) as session:
+                    await session.initialize()
+                    result = await session.call_tool(tool_name, arguments)
+                    return "\n".join(
+                        part.text
+                        for part in result.content
+                        if hasattr(part, "text") and part.text
+                    )
+        except MCPConnectionError:
+            raise
+        except Exception as exc:
+            raise MCPConnectionError(
+                f"MCP tool call '{tool_name}' via {self._sse_url} failed: {exc}"
+            ) from exc
 
 
 class MCPService:

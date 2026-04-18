@@ -1,6 +1,14 @@
 spring:
   application:
     name: chatly-backend
+  ai:
+    mcp:
+      server:
+        enabled: ${SPRING_AI_MCP_ENABLED:true}
+        name: ${SPRING_AI_MCP_SERVER_NAME:chatly-backend-mcp}
+        version: ${SPRING_AI_MCP_SERVER_VERSION:0.0.1}
+        sse-endpoint: ${SPRING_AI_MCP_SSE_ENDPOINT:/api/ai/mcp/sse}
+        sse-message-endpoint: ${SPRING_AI_MCP_SSE_MESSAGE_ENDPOINT:/api/ai/mcp/message}
 
   datasource:
     url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/chatly}
@@ -49,6 +57,8 @@ app:
     verification-link-base-url: ${APP_AUTH_VERIFICATION_LINK_BASE_URL:https://api.chatly.app/api/auth/verify-email}
   mail:
     from: ${APP_MAIL_FROM:${SPRING_MAIL_USERNAME}}
+  mcp:
+    internal-api-key: ${APP_MCP_INTERNAL_API_KEY:${AGENT_API_KEY}}
 
 agent:
   base-url: ${AGENT_BASE_URL:http://chatly-agent:8000}

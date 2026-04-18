@@ -27,7 +27,7 @@ async def test_ainvoke_returns_chat_output() -> None:
         llm = AsyncMock()
         agent = UnifiedAgent(llm=llm, tools=[fake_tool])
         result = await agent.ainvoke(
-            ChatInput(message="hi", session_id="session-1", history=[])
+            ChatInput(message="hi", session_id="session-1", user_id="user-1", history=[])
         )
 
     assert result.content == "unified reply"
@@ -48,7 +48,7 @@ async def test_astream_yields_tokens() -> None:
         chunks = [
             chunk
             async for chunk in agent.astream(
-                ChatInput(message="hi", session_id="session-1", history=[])
+                ChatInput(message="hi", session_id="session-1", user_id="user-1", history=[])
             )
         ]
 

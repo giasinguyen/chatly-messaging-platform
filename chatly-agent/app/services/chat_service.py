@@ -1,4 +1,5 @@
 import json
+import logging
 from collections.abc import AsyncIterator
 from typing import Any
 
@@ -14,6 +15,8 @@ from app.services.session_service import SessionService
 from app.services.tool_service import ToolService
 from app.services.vector_service import VectorService
 from app.tools.retriever_tool import create_retriever_tool
+
+logger = logging.getLogger(__name__)
 
 
 class ChatService:
@@ -61,8 +64,20 @@ class ChatService:
             all_tools = list(tools)
             if has_context:
                 all_tools.append(create_retriever_tool(self._vector_service, session_id))
+            logger.info(
+                "Agent selected: UnifiedAgent (tools=%d has_context=%s) user_id=%s session_id=%s",
+                len(all_tools),
+                has_context,
+                user_id,
+                session_id,
+            )
             return UnifiedAgent(llm=self._llm, tools=all_tools)
 
+        logger.info(
+            "Agent selected: ChatbotAgent (no tools, no context) user_id=%s session_id=%s",
+            user_id,
+            session_id,
+        )
         return self._chatbot_agent
 
     def _to_langchain_history(self, rows: list[dict[str, Any]]) -> list[BaseMessage]:
@@ -98,7 +113,7 @@ class ChatService:
             request.message,
         )
         output = await agent.ainvoke(
-            ChatInput(message=request.message, session_id=session_id, history=history)
+            ChatInput(message=request.message, session_id=session_id, user_id=user_id, history=history)
         )
         assistant = await self._message_repo.create_message(
             session_id,
@@ -137,7 +152,7 @@ class ChatService:
 
         chunks: list[str] = []
         async for token in agent.astream(
-            ChatInput(message=request.message, session_id=session_id, history=history)
+            ChatInput(message=request.message, session_id=session_id, user_id=user_id, history=history)
         ):
             chunks.append(token)
             yield f"data: {json.dumps({'token': token})}\n\n"
