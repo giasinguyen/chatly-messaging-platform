@@ -713,7 +713,7 @@ export function MessageList({
                             /* Location bubble */
                             <button
                                 type="button"
-                                onClick={() => window.open(`https://www.openstreetmap.org/?mlat=${msg.location!.latitude}&mlon=${msg.location!.longitude}#map=15/${msg.location!.latitude}/${msg.location!.longitude}`, "_blank")}
+                                onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${msg.location!.latitude},${msg.location!.longitude}`, "_blank")}
                                 className="w-60 rounded-2xl border border-border/60 bg-background dark:bg-zinc-900 shadow-sm overflow-hidden text-left hover:opacity-90 transition-opacity"
                             >
                                 <div className="w-full h-[120px] bg-muted/30 relative pointer-events-none">
