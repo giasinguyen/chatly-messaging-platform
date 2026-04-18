@@ -10,17 +10,16 @@ import Animated, {
 import { useEffect } from 'react';
 import { Avatar } from '@/components/ui/Avatar';
 import { Colors } from '@/constants/theme';
-import type { IncomingCall } from '@/types/call';
+import type { IncomingGroupCall } from '@/types/call';
 
-interface CallScreenProps {
+interface GroupCallScreenProps {
   visible: boolean;
-  incomingCall: IncomingCall;
-  onAccept: () => void;
-  onReject: () => void;
+  incomingGroupCall: IncomingGroupCall;
+  onJoin: () => void;
+  onDecline: () => void;
 }
 
-export function CallScreen({ visible, incomingCall, onAccept, onReject }: CallScreenProps) {
-  // Pulsing animation for circle around avatar
+export function GroupCallScreen({ visible, incomingGroupCall, onJoin, onDecline }: GroupCallScreenProps) {
   const pulseScale = useSharedValue(1);
   const pulseOpacity = useSharedValue(0.6);
 
@@ -48,7 +47,7 @@ export function CallScreen({ visible, incomingCall, onAccept, onReject }: CallSc
   }));
 
   const callLabel =
-    incomingCall.type === 'VIDEO' ? 'Video call...' : 'Calling...';
+    incomingGroupCall.type === 'VIDEO' ? 'Group video call' : 'Group voice call';
 
   return (
     <Modal
@@ -61,9 +60,8 @@ export function CallScreen({ visible, incomingCall, onAccept, onReject }: CallSc
         className="flex-1 items-center justify-center"
         style={{ backgroundColor: 'rgba(0, 0, 0, 0.85)' }}
       >
-        {/* Caller info */}
+        {/* Group info */}
         <View className="items-center mb-12">
-          {/* Pulsing circle */}
           <View className="items-center justify-center" style={{ width: 140, height: 140 }}>
             <Animated.View
               style={[
@@ -79,32 +77,30 @@ export function CallScreen({ visible, incomingCall, onAccept, onReject }: CallSc
               ]}
             />
             <Avatar
-              uri={incomingCall.callerAvatar}
-              name={incomingCall.callerName}
+              uri={incomingGroupCall.groupAvatarUrl}
+              name={incomingGroupCall.groupName}
               size={100}
             />
           </View>
 
-          <Text
-            className="text-2xl font-bold mt-6"
-            style={{ color: Colors.white }}
-          >
-            {incomingCall.callerName}
+          <Text className="text-2xl font-bold mt-6" style={{ color: Colors.white }}>
+            {incomingGroupCall.groupName}
           </Text>
-          <Text
-            className="text-base mt-2"
-            style={{ color: Colors.textLight }}
-          >
+          <Text className="text-base mt-1" style={{ color: Colors.textLight }}>
             {callLabel}
+          </Text>
+          <Text className="text-sm mt-2" style={{ color: Colors.textMuted }}>
+            {incomingGroupCall.initiatorName} is calling •{' '}
+            {incomingGroupCall.participantCount} participants
           </Text>
         </View>
 
-        {/* Accept / Reject buttons */}
-        <View className="flex-row items-center justify-center" style={{ gap: 60 }}>
-          {/* Reject button (red) */}
-          <View className="items-center">
+        {/* Action buttons */}
+        <View className="flex-row items-center" style={{ gap: 48 }}>
+          {/* Decline */}
+          <View className="items-center" style={{ gap: 8 }}>
             <TouchableOpacity
-              onPress={onReject}
+              onPress={onDecline}
               className="items-center justify-center"
               style={{
                 width: 70,
@@ -112,19 +108,19 @@ export function CallScreen({ visible, incomingCall, onAccept, onReject }: CallSc
                 borderRadius: 35,
                 backgroundColor: Colors.error,
               }}
-              activeOpacity={0.7}
+              activeOpacity={0.8}
             >
-              <Ionicons name="close" size={36} color={Colors.white} />
+              <Ionicons name="call" size={30} color={Colors.white} style={{ transform: [{ rotate: '135deg' }] }} />
             </TouchableOpacity>
-            <Text className="text-sm mt-2" style={{ color: Colors.textLight }}>
+            <Text className="text-sm" style={{ color: Colors.textLight }}>
               Decline
             </Text>
           </View>
 
-          {/* Accept button (green) */}
-          <View className="items-center">
+          {/* Join */}
+          <View className="items-center" style={{ gap: 8 }}>
             <TouchableOpacity
-              onPress={onAccept}
+              onPress={onJoin}
               className="items-center justify-center"
               style={{
                 width: 70,
@@ -132,16 +128,16 @@ export function CallScreen({ visible, incomingCall, onAccept, onReject }: CallSc
                 borderRadius: 35,
                 backgroundColor: Colors.online,
               }}
-              activeOpacity={0.7}
+              activeOpacity={0.8}
             >
               <Ionicons
-                name={incomingCall.type === 'VIDEO' ? 'videocam' : 'call'}
-                size={32}
+                name={incomingGroupCall.type === 'VIDEO' ? 'videocam' : 'call'}
+                size={30}
                 color={Colors.white}
               />
             </TouchableOpacity>
-            <Text className="text-sm mt-2" style={{ color: Colors.textLight }}>
-              Accept
+            <Text className="text-sm" style={{ color: Colors.textLight }}>
+              Join
             </Text>
           </View>
         </View>

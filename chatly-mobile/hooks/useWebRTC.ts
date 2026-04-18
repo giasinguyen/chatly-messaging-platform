@@ -32,6 +32,7 @@ export function useWebRTC(callbacks?: UseWebRTCCallbacks) {
     const peerConnection = useRef<RTCPeerConnection | null>(null);
     const [localStream, setLocalStream] = useState<MediaStream | null>(null);
     const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
+    const [remoteStreamKey, setRemoteStreamKey] = useState(0);
 
     // Refs cho callbacks để tránh re-create peer connection khi callback thay đổi
     const callbacksRef = useRef(callbacks);
@@ -54,12 +55,15 @@ export function useWebRTC(callbacks?: UseWebRTCCallbacks) {
             const remote = event.streams[0];
             if (remote) {
                 setRemoteStream(remote);
+                // Always increment key to force RTCView re-render when tracks change
+                setRemoteStreamKey((k) => k + 1);
                 callbacksRef.current?.onRemoteStream?.(remote);
             }
         };
 
         // Theo dõi trạng thái kết nối
         pc.onconnectionstatechange = () => {
+            // Only treat 'failed' as a hard error; 'disconnected' can be transient (e.g. renegotiation)
             callbacksRef.current?.onConnectionStateChange?.(pc.connectionState);
         };
 
@@ -137,6 +141,57 @@ export function useWebRTC(callbacks?: UseWebRTCCallbacks) {
         }
     }, []);
 
+    // Set remote description (offer hoặc answer) — dùng khi renegotiate
+    const handleRemoteDescription = useCallback(
+        async (sdp: RTCSessionDescriptionInit): Promise<void> => {
+            const pc = createPeerConnection();
+            await pc.setRemoteDescription(new RTCSessionDescription(sdp));
+        },
+        [createPeerConnection],
+    );
+
+    // Tạo answer không có offer arg — dùng sau khi setRemoteDescription
+    const createAnswerFromRemote = useCallback(async (): Promise<RTCSessionDescriptionInit> => {
+        const pc = createPeerConnection();
+        try {
+            const answer = await pc.createAnswer();
+            await pc.setLocalDescription(new RTCSessionDescription(answer));
+            return answer;
+        } catch (error) {
+            console.error('Failed to create answer:', error);
+            throw new Error('Unable to accept the call.');
+        }
+    }, [createPeerConnection]);
+
+    // Nâng cấp cuộc gọi voice → video (renegotiation)
+    const upgradeToVideo = useCallback(async (): Promise<RTCSessionDescriptionInit> => {
+        const pc = peerConnection.current;
+        if (!pc) throw new Error('No active peer connection');
+
+        const stream = await mediaDevices.getUserMedia({
+            video: { facingMode: 'user', width: 640, height: 480 },
+            audio: false,
+        });
+        const videoTrack = stream.getVideoTracks()[0];
+
+        // Thêm video track vào peer connection
+        const currentStream = localStream;
+        if (currentStream) {
+            pc.addTrack(videoTrack, currentStream);
+            currentStream.addTrack(videoTrack);
+        } else {
+            pc.addTrack(videoTrack, stream);
+        }
+        setLocalStream((prev) => {
+            if (prev) { prev.addTrack(videoTrack); return prev; }
+            return stream;
+        });
+
+        const offer = await pc.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: true });
+        await pc.setLocalDescription(new RTCSessionDescription(offer));
+        return offer;
+    }, [localStream]);
+
     // Xử lý ICE candidate từ peer
     const handleIceCandidate = useCallback(async (candidate: RTCIceCandidateInit): Promise<void> => {
         const pc = peerConnection.current;
@@ -199,10 +254,14 @@ export function useWebRTC(callbacks?: UseWebRTCCallbacks) {
     return {
         localStream,
         remoteStream,
+        remoteStreamKey,
         initLocalStream,
         createOffer,
         createAnswer,
+        createAnswerFromRemote,
         handleAnswer,
+        handleRemoteDescription,
+        upgradeToVideo,
         handleIceCandidate,
         addIceCandidate,
         endCall,

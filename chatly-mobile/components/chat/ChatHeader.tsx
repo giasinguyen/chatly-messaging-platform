@@ -2,10 +2,13 @@ import { View, Text, TouchableOpacity, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useState } from 'react';
 import { Avatar } from '@/components/ui/Avatar';
 import { Colors } from '@/constants/theme';
 import { useCallContext } from '@/contexts/CallContext';
 import { useCallStore } from '@/store/call.store';
+import { GroupCallMemberPicker } from '@/components/call/GroupCallMemberPicker';
+import type { CallType } from '@/types/call';
 
 interface ChatHeaderProps {
   name: string;
@@ -32,11 +35,16 @@ export function ChatHeader({
 }: ChatHeaderProps) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { initiateCall } = useCallContext();
+  const { initiateCall, initiateGroupCall } = useCallContext();
   const callStatus = useCallStore((s) => s.callStatus);
 
-  // Chỉ hiển thị nút gọi cho cuộc trò chuyện riêng tư
-  const showCallButtons = !isGroup && !!conversationId && !!receiverId;
+  const [memberPicker, setMemberPicker] = useState<{
+    visible: boolean;
+    callType: CallType;
+  }>({ visible: false, callType: 'VOICE' });
+
+  const showPrivateCallButtons = !isGroup && !!conversationId && !!receiverId;
+  const showGroupCallButtons = isGroup && !!conversationId;
   const callDisabled = callStatus !== 'IDLE';
 
   const subtitle = isGroup
@@ -44,6 +52,26 @@ export function ChatHeader({
     : isOnline
       ? 'Active now'
       : 'Offline';
+
+  const handleGroupVoiceCall = () => {
+    if (!conversationId) return;
+    setMemberPicker({ visible: true, callType: 'VOICE' });
+  };
+
+  const handleGroupVideoCall = () => {
+    if (!conversationId) return;
+    setMemberPicker({ visible: true, callType: 'VIDEO' });
+  };
+
+  const handleStartGroupCall = (selectedMemberIds: string[]) => {
+    if (!conversationId) return;
+    setMemberPicker({ visible: false, callType: 'VOICE' });
+    initiateGroupCall(conversationId, memberPicker.callType, name, memberCount ?? 0, selectedMemberIds, avatarUrl);
+  };
+
+  const handleCloseMemberPicker = () => {
+    setMemberPicker({ visible: false, callType: 'VOICE' });
+  };
 
   return (
     <View
@@ -99,7 +127,9 @@ export function ChatHeader({
         <TouchableOpacity onPress={onToggleSearch} className="mx-1 p-2">
           <Ionicons name="search-outline" size={22} color={Colors.cta} />
         </TouchableOpacity>
-        {showCallButtons && (
+
+        {/* Private call buttons */}
+        {showPrivateCallButtons && (
           <>
             <TouchableOpacity
               className="mx-1 p-2"
@@ -119,22 +149,47 @@ export function ChatHeader({
             </TouchableOpacity>
           </>
         )}
-        {!showCallButtons && (
+
+        {/* Group call buttons */}
+        {showGroupCallButtons && (
           <>
-            <TouchableOpacity className="mx-1 p-2">
+            <TouchableOpacity
+              className="mx-1 p-2"
+              disabled={callDisabled}
+              onPress={handleGroupVoiceCall}
+              style={{ opacity: callDisabled ? 0.4 : 1 }}
+            >
               <Ionicons name="call-outline" size={22} color={Colors.cta} />
             </TouchableOpacity>
-            <TouchableOpacity className="mx-1 p-2">
+            <TouchableOpacity
+              className="mx-1 p-2"
+              disabled={callDisabled}
+              onPress={handleGroupVideoCall}
+              style={{ opacity: callDisabled ? 0.4 : 1 }}
+            >
               <Ionicons name="videocam-outline" size={24} color={Colors.cta} />
             </TouchableOpacity>
           </>
         )}
+
         {onPressInfo && (
           <TouchableOpacity onPress={onPressInfo} className="mx-1 p-2">
             <Ionicons name="information-circle-outline" size={24} color={Colors.cta} />
           </TouchableOpacity>
         )}
       </View>
+
+      {/* Group call member picker */}
+      <GroupCallMemberPicker
+        visible={memberPicker.visible}
+        conversationId={conversationId ?? ''}
+        groupName={name}
+        groupAvatar={avatarUrl}
+        callType={memberPicker.callType}
+        onCall={handleStartGroupCall}
+        onClose={handleCloseMemberPicker}
+      />
     </View>
   );
 }
+
