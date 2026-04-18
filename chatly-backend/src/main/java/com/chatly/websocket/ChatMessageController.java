@@ -36,6 +36,7 @@ public class ChatMessageController {
                 .replyToId(request.getReplyToId())
                 .attachments(request.getAttachments())
                 .poll(request.getPoll())
+                .location(request.getLocation())
                 .priority(request.getPriority())
                 .mentions(request.getMentions())
                 .build();

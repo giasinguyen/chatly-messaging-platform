@@ -11,6 +11,7 @@ public enum MessageType {
     CALL,
     GIF,
     STICKER,
-    VCARD
+    VCARD,
+    LOCATION
 
 }

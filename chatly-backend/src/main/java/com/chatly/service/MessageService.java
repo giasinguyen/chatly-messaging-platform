@@ -83,6 +83,7 @@ public class MessageService {
                 .replyToId(request.getReplyToId())
                 .attachments(request.getAttachments() != null ? request.getAttachments() : new ArrayList<>())
                 .poll(request.getPoll())
+                .location(request.getLocation())
                 .priority(request.getPriority() != null && ALLOWED_PRIORITIES.contains(request.getPriority()) ? request.getPriority() : null)
                 .mentions(request.getMentions() != null ? request.getMentions() : new ArrayList<>())
                 .build();
@@ -550,6 +551,7 @@ public class MessageService {
                         case FILE -> "[File]";
                         case VIDEO -> "[Video]";
                         case AUDIO -> "[Audio]";
+                        case LOCATION -> "[Location]";
                         default -> "[Message]";
                 };
         }
@@ -658,6 +660,12 @@ public class MessageService {
             if (fileName != null && !fileName.isBlank()) {
                 content = fileName;
             }
+        }
+        // For LOCATION messages, use address as display content
+        if ((content == null || content.isBlank()) && message.getType() == MessageType.LOCATION) {
+            content = message.getLocation() != null && message.getLocation().getAddress() != null
+                    ? message.getLocation().getAddress()
+                    : "[Location]";
         }
 
         LastMessage lastMessage = LastMessage.builder()
