@@ -12,6 +12,12 @@ import {
     X,
     Send,
     FileText,
+    FileSpreadsheet,
+    FileCode,
+    FileImage,
+    FileVideo,
+    FileAudio,
+    FileArchive,
     Download,
     Copy,
     Trash2,
@@ -33,6 +39,32 @@ import type { ConversationType } from "@/types/conversation";
 import type { ContactResponse } from "@/types/contact";
 import { ReplyPreview } from "./ReplyPreview";
 import { PollVoterPopover } from "./PollVoterPopover";
+
+function getFileIcon(mimeType?: string, fileName?: string) {
+    const t = mimeType?.toLowerCase() ?? '';
+    const ext = (fileName?.split('.').pop() ?? '').toLowerCase();
+    if (t.includes('pdf') || ext === 'pdf')
+        return <FileText size={18} className="shrink-0 text-red-500" />;
+    if (t.includes('word') || t.includes('document') || ext === 'docx' || ext === 'doc')
+        return <FileText size={18} className="shrink-0 text-blue-600" />;
+    if (t.includes('sheet') || t.includes('excel') || ext === 'xlsx' || ext === 'xls' || ext === 'csv')
+        return <FileSpreadsheet size={18} className="shrink-0 text-green-600" />;
+    if (t.includes('presentation') || t.includes('powerpoint') || ext === 'pptx' || ext === 'ppt')
+        return <FileText size={18} className="shrink-0 text-orange-500" />;
+    if (t.startsWith('image/'))
+        return <FileImage size={18} className="shrink-0 text-purple-500" />;
+    if (t.startsWith('video/'))
+        return <FileVideo size={18} className="shrink-0 text-pink-500" />;
+    if (t.startsWith('audio/'))
+        return <FileAudio size={18} className="shrink-0 text-yellow-500" />;
+    if (t.includes('zip') || t.includes('rar') || t.includes('tar') || t.includes('7z') || ext === 'zip' || ext === 'rar' || ext === '7z')
+        return <FileArchive size={18} className="shrink-0 text-amber-600" />;
+    if (t.includes('json') || t.includes('xml') || t.includes('javascript') || t.includes('typescript') || ['js','ts','jsx','tsx','json','xml','html','css','py','java'].includes(ext))
+        return <FileCode size={18} className="shrink-0 text-slate-500" />;
+    if (t.includes('text') || ext === 'txt')
+        return <FileText size={18} className="shrink-0 text-slate-400" />;
+    return <FileText size={18} className="shrink-0" />;
+}
 import {
     ContextMenu,
     ContextMenuContent,
@@ -835,7 +867,7 @@ export function MessageList({
                                                             : "bg-muted/60 text-foreground hover:bg-muted border border-border/50",
                                                     )}
                                                 >
-                                                    <FileText size={18} className="shrink-0" />
+                                                    {getFileIcon(att.type, att.name)}
                                                     <span className="flex-1 truncate max-w-40">{att.name ?? "File"}</span>
                                                     <Download size={14} className="shrink-0 opacity-60" />
                                                 </a>
