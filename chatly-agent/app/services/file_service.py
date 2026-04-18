@@ -1,3 +1,4 @@
+from contextlib import suppress
 from datetime import UTC, datetime
 from io import BytesIO
 from typing import Any, Protocol
@@ -153,6 +154,20 @@ class FileService:
         await self._session_service.get_session(user_id, session_id)
         files = await self._file_repo.find_by_session(session_id)
         return [item for item in files if item.get("user_id") == user_id]
+
+    async def delete_files_by_session(self, session_id: str) -> None:
+        """Delete all files belonging to a session (vectors, chunks, MinIO, metadata)."""
+        files = await self._file_repo.find_by_session(session_id)
+        for row in files:
+            file_id = str(row["id"])
+            await self._vector_service.delete_file_vectors(file_id)
+            await self._chunk_repo.delete_by_file(file_id)
+            with suppress(Exception):  # MinIO errors must not block session deletion
+                self._minio_client.remove_object(
+                    str(row.get("minio_bucket", self._bucket_name)),
+                    str(row.get("object_key", "")),
+                )
+            await self._file_repo.delete(file_id)
 
     async def delete_file(self, user_id: str, session_id: str, file_id: str) -> None:
         """Delete file metadata, chunks, and MinIO object."""
