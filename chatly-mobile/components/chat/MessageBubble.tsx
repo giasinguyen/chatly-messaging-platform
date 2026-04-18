@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, Text, TouchableOpacity, Image, Linking, Modal, Pressable, FlatList } from 'react-native';
+import { View, Text, TouchableOpacity, Image, Linking, Modal, Pressable, FlatList, Platform } from 'react-native';
 import { Image as ExpoImage } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/theme';
@@ -479,6 +479,51 @@ export function MessageBubble({
           </View>
         );
       }
+      case 'LOCATION': {
+        const loc = message.location;
+        if (!loc) return renderTextContent();
+        return (
+          <TouchableOpacity
+            onPress={() => {
+              const latlng = `${loc.latitude},${loc.longitude}`;
+              const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${latlng}`;
+              
+              Linking.canOpenURL(googleMapsUrl).then(supported => {
+                if (supported) {
+                  Linking.openURL(googleMapsUrl);
+                } else {
+                  // Fallback to browser
+                  Linking.openURL(googleMapsUrl);
+                }
+              }).catch(() => {
+                Linking.openURL(googleMapsUrl);
+              });
+            }}
+            activeOpacity={0.8}
+            style={{ width: 220, borderRadius: 12, overflow: 'hidden', backgroundColor: 'rgba(0,0,0,0.05)' }}
+          >
+            <View style={{ height: 120, backgroundColor: '#e2e8f0', alignItems: 'center', justifyContent: 'center' }}>
+               <ExpoImage
+                  source={{ uri: `https://static-maps.yandex.ru/1.x/?ll=${loc.longitude},${loc.latitude}&size=450,300&z=14&l=map&pt=${loc.longitude},${loc.latitude},pm2rdl` }}
+                  style={{ width: '100%', height: '100%', position: 'absolute' }}
+                  contentFit="cover"
+               />
+               <Ionicons name="location" size={28} color="#ef4444" style={{ zIndex: 10, marginTop: -14 }} />
+            </View>
+            <View style={{ padding: 10, backgroundColor: isMe ? 'rgba(0,0,0,0.15)' : 'rgba(0,0,0,0.07)' }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Ionicons name="navigate-circle-outline" size={18} color={isMe ? Colors.bubbleSenderText : Colors.cta} />
+                <Text style={{ marginLeft: 6, fontSize: 13, fontWeight: '500', color: isMe ? Colors.bubbleSenderText : Colors.cta, flex: 1 }} numberOfLines={2}>
+                  {loc.address || 'Shared Location'}
+                </Text>
+              </View>
+              <Text style={{ marginTop: 4, fontSize: 11, color: isMe ? 'rgba(255,255,255,0.7)' : Colors.textMuted }}>
+                {loc.latitude.toFixed(5)}, {loc.longitude.toFixed(5)}
+              </Text>
+            </View>
+          </TouchableOpacity>
+        );
+      }
       case 'POLL':
         return renderPollContent();
       case 'CALL': {
@@ -714,6 +759,8 @@ export function MessageBubble({
                   ? '🎬 GIF'
                   : replyToMessage.type === 'STICKER'
                   ? '🎨 Sticker'
+                  : replyToMessage.type === 'LOCATION'
+                  ? '📍 Location'
                   : replyToMessage.content}
               </Text>
             </View>

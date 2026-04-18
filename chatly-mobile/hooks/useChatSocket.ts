@@ -90,7 +90,7 @@ export function useChatSocket({
 
   // Send a message via WebSocket
   const sendMessage = useCallback(
-    (content: string, replyToId: string | null = null, attachments?: Attachment[], messageType?: string, priority?: 'IMPORTANT' | 'URGENT'): boolean => {
+    (content: string, replyToId: string | null = null, attachments?: Attachment[], messageType?: string, priority?: 'IMPORTANT' | 'URGENT', location?: any): boolean => {
       const hasAttachments = attachments && attachments.length > 0;
       return socketService.publish('/app/chat.send', {
         conversationId,
@@ -99,6 +99,7 @@ export function useChatSocket({
         replyToId,
         attachments: hasAttachments ? attachments : undefined,
         priority: priority ?? undefined,
+        location: location ?? undefined,
       });
     },
     [conversationId],

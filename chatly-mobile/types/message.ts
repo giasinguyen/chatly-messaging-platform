@@ -36,6 +36,13 @@ export interface Poll {
   anonymous?: boolean;
 }
 
+export interface LocationPayload {
+  latitude: number;
+  longitude: number;
+  address?: string;
+  mapSnapshotUrl?: string;
+}
+
 export interface Message {
   id: string;
   conversationId: string;
@@ -56,6 +63,7 @@ export interface Message {
   editHistory: EditHistoryEntry[];
   reactions: Reaction[];
   poll?: Poll | null;
+  location?: LocationPayload;
   pinned: boolean;
   pinnedAt: string | null;
   pinnedBy: string | null;
