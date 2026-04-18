@@ -42,6 +42,9 @@ export function useGroupWebRTC(callbacks?: GroupWebRTCCallbacks) {
   const [remoteStreams, setRemoteStreams] = useState<Record<string, MediaStream>>({});
 
   const initLocalStream = useCallback(async (type: CallType): Promise<MediaStream> => {
+    if (!mediaDevices) {
+      throw new Error('Camera/microphone access is not available in Expo Go. Please use a development build to make calls.');
+    }
     const constraints = {
       audio: true,
       video: type === 'VIDEO' ? { facingMode: 'user', width: 640, height: 480 } : false,
@@ -55,6 +58,10 @@ export function useGroupWebRTC(callbacks?: GroupWebRTCCallbacks) {
   const addPeer = useCallback((peerId: string): RTCPeerConnection => {
     const existing = peers.current.get(peerId);
     if (existing) return existing.connection;
+
+    if (!RTCPeerConnection) {
+      throw new Error('WebRTC is not available in Expo Go. Please use a development build to make calls.');
+    }
 
     const pc = new RTCPeerConnection(ICE_SERVERS);
 

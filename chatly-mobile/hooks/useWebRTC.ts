@@ -41,6 +41,10 @@ export function useWebRTC(callbacks?: UseWebRTCCallbacks) {
     const createPeerConnection = useCallback(() => {
         if (peerConnection.current) return peerConnection.current;
 
+        if (!RTCPeerConnection) {
+            throw new Error('WebRTC is not available in Expo Go. Please use a development build to make calls.');
+        }
+
         const pc = new RTCPeerConnection(ICE_SERVERS);
 
         // Xử lý ICE candidate
@@ -74,6 +78,9 @@ export function useWebRTC(callbacks?: UseWebRTCCallbacks) {
     // Khởi tạo local stream (camera/mic)
     const initLocalStream = useCallback(
         async (type: CallType): Promise<MediaStream> => {
+            if (!mediaDevices) {
+                throw new Error('Camera/microphone access is not available in Expo Go. Please use a development build to make calls.');
+            }
             try {
                 const constraints = {
                     audio: true,
@@ -167,6 +174,10 @@ export function useWebRTC(callbacks?: UseWebRTCCallbacks) {
     const upgradeToVideo = useCallback(async (): Promise<RTCSessionDescriptionInit> => {
         const pc = peerConnection.current;
         if (!pc) throw new Error('No active peer connection');
+
+        if (!mediaDevices) {
+            throw new Error('Camera access is not available in Expo Go. Please use a development build.');
+        }
 
         const stream = await mediaDevices.getUserMedia({
             video: { facingMode: 'user', width: 640, height: 480 },
