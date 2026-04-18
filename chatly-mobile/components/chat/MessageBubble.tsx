@@ -295,7 +295,7 @@ export function MessageBubble({
     const isExpired = poll.deadline ? new Date(poll.deadline).getTime() < Date.now() : false;
 
     return (
-      <View style={{ width: 260 }}>
+      <View style={{ width: maxBubbleWidth - 32 }}>
         {/* Poll header */}
         <View className="flex-row items-center mb-2">
           <Ionicons name="bar-chart-outline" size={16} color={Colors.cta} />
@@ -507,7 +507,7 @@ export function MessageBubble({
                 borderRadius: 16,
                 paddingHorizontal: 14,
                 paddingVertical: 10,
-                maxWidth: 220,
+                maxWidth: maxBubbleWidth * 0.7,
               }}
             >
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
