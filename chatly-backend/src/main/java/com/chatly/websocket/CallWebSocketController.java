@@ -249,15 +249,8 @@ public class CallWebSocketController {
         log.info("Group call initiated: callId={} by={} conversationId={} invitees={}",
                 signal.getCallId(), senderId, conversationId, invitees.size());
 
-        // Save a RINGING call message so other members can see "Tap to join" in chat
-        messageService.saveCallMessage(
-                conversationId,
-                senderId,
-                callType,
-                CallStatus.RINGING,
-                0L,
-                signal.getCallId()
-        );
+        // No chat message saved at initiation — members are notified via WebSocket signal.
+        // A call record is only saved when the call properly ends (ENDED status).
 
         invitees.stream()
                 .filter(id -> !id.equals(senderId))
@@ -362,8 +355,7 @@ public class CallWebSocketController {
                     }
 
                     // Group MISSED = nobody answered before initiator hung up.
-                    // The RINGING "tap to join" message was already saved on initiation,
-                    // so skip saving a redundant MISSED message.
+                    // No chat message is saved — group calls only record ENDED (with duration).
                     if (finalStatus != CallStatus.MISSED && session.getConversationId() != null) {
                         messageService.saveCallMessage(
                                 session.getConversationId(),

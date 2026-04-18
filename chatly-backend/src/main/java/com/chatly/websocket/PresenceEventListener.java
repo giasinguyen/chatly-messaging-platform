@@ -117,7 +117,7 @@ public class PresenceEventListener {
                     });
                 }
 
-                // Group MISSED = nobody answered; RINGING message already saved on initiation.
+                // Group MISSED = nobody answered; no chat message saved for group calls.
                 if (finalStatus != CallStatus.MISSED && session.getConversationId() != null) {
                     messageService.saveCallMessage(
                             session.getConversationId(),
