@@ -65,7 +65,7 @@ export interface Message {
   updatedAt: string;
 }
 
-export type ChatAction = 'SEND' | 'EDIT' | 'RECALL' | 'DELETE' | 'REACT';
+export type ChatAction = 'SEND' | 'EDIT' | 'RECALL' | 'DELETE' | 'GROUP_UPDATE' | 'REACT';
 
 export interface ChatEvent {
   action: ChatAction;

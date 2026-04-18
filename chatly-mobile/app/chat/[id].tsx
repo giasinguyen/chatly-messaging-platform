@@ -131,6 +131,9 @@ export default function ChatScreen() {
         case 'DELETE':
           removeMessage(conversationId, event.message.id);
           break;
+        case 'GROUP_UPDATE':
+          // Handled at conversation list level, ignore here
+          break;
       }
     },
     [conversationId, user?.id, addMessage, updateMessage, removeMessage, updateConversation]

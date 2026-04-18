@@ -712,12 +712,20 @@ export function MessageBubble({
                   ? 'Message recalled'
                   : replyToMessage.type === 'IMAGE'
                   ? '🖼 Image'
+                  : replyToMessage.type === 'VIDEO'
+                  ? '🎥 Video'
+                  : replyToMessage.type === 'AUDIO'
+                  ? '🎵 Audio'
                   : replyToMessage.type === 'FILE'
                   ? '📎 Attachment'
                   : replyToMessage.type === 'GIF'
                   ? '🎬 GIF'
                   : replyToMessage.type === 'STICKER'
                   ? '🎨 Sticker'
+                  : replyToMessage.type === 'POLL'
+                  ? '📊 Poll'
+                  : replyToMessage.type === 'VCARD'
+                  ? '👤 Contact'
                   : replyToMessage.content}
               </Text>
             </View>
