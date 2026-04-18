@@ -292,7 +292,9 @@ public class CallWebSocketController {
                 session.getParticipants().add(senderId);
             }
             session.setStatus(CallStatus.ONGOING);
-            session.setStartedAt(LocalDateTime.now());
+            if (session.getStartedAt() == null) {
+                session.setStartedAt(LocalDateTime.now());
+            }
             callSessionRepository.save(session);
 
             log.info("Participant {} joined group call {}. Active: {}",
