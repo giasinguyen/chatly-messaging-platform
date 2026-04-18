@@ -345,7 +345,7 @@ export function MessageBubble({
                     hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                   >
                     <Text className="text-xs ml-2" style={{ color: Colors.cta }}>
-                      {pct}%
+                      {voterCount} ({pct}%)
                     </Text>
                   </TouchableOpacity>
                 )}
