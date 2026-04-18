@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { groupService } from "@/services/group.service";
 import { fileService } from "@/services/file.service";
 import { useAuthStore } from "@/store/auth.store";
+import { useNotificationStore } from "@/store/notification.store";
 import { AddMembersDialog } from "./AddMembersDialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -107,6 +108,7 @@ export function GroupManagementPanel({
     defaultTab = "members",
 }: GroupManagementPanelProps) {
     const { user: currentUser } = useAuthStore();
+    const { notifications } = useNotificationStore();
 
     const [members, setMembers] = useState<GroupMemberResponse[]>([]);
     const [loading, setLoading] = useState(false);
@@ -336,6 +338,18 @@ export function GroupManagementPanel({
         }
     };
 
+    // Re-fetch pending requests when a GROUP_JOIN_REQUEST notification arrives for this conversation
+    const joinRequestCount = notifications.filter(
+        (n) => n.type === "GROUP_JOIN_REQUEST" && n.referenceId === conversationId && !n.read,
+    ).length;
+
+    useEffect(() => {
+        if (open && isOwnerOrAdmin) {
+            fetchPendingRequests();
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [joinRequestCount]);
+
     // Fetch invite link + pending on settings tab open
     useEffect(() => {
         if (open && isOwnerOrAdmin) {
@@ -370,9 +384,14 @@ export function GroupManagementPanel({
                                 Members
                             </TabsTrigger>
                             {isOwnerOrAdmin && (
-                                <TabsTrigger value="settings" className="flex-1 gap-1.5 text-xs">
+                                <TabsTrigger value="settings" className="flex-1 gap-1.5 text-xs relative">
                                     <Settings size={13} />
                                     Group Settings
+                                    {pendingRequests.length > 0 && (
+                                        <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-bold text-destructive-foreground">
+                                            {pendingRequests.length}
+                                        </span>
+                                    )}
                                 </TabsTrigger>
                             )}
                         </TabsList>

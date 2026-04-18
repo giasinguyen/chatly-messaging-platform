@@ -42,6 +42,8 @@ export function useNotificationSocket({ onEvent }: UseNotificationSocketProps) {
                             case "NEW_MESSAGE": title = "New message"; break;
                             case "FRIEND_REQUEST": title = "Friend request"; break;
                             case "GROUP_INVITE": title = "Group invitation"; break;
+                            case "GROUP_JOIN_REQUEST": title = "New join request"; break;
+                            case "MEMBER_JOINED": title = "New member joined"; break;
                         }
                         const options = {
                             body: event.notification.content || "You have a new notification",
