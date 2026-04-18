@@ -3,8 +3,11 @@ package com.chatly.websocket;
 import com.chatly.dto.request.CallSignalMessage;
 import com.chatly.model.enums.CallStatus;
 import com.chatly.model.enums.CallType;
+import com.chatly.model.enums.SignalType;
 import com.chatly.model.mongo.CallSession;
+import com.chatly.model.mongo.Conversation;
 import com.chatly.repository.mongo.CallSessionRepository;
+import com.chatly.repository.mongo.ConversationRepository;
 import com.chatly.service.MessageService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -16,6 +19,7 @@ import org.springframework.stereotype.Controller;
 
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -25,6 +29,7 @@ import java.util.Map;
 public class CallWebSocketController {
 
     private final CallSessionRepository callSessionRepository;
+    private final ConversationRepository conversationRepository;
     private final SimpMessagingTemplate messagingTemplate;
     private final MessageService messageService;
 
@@ -192,5 +197,187 @@ public class CallWebSocketController {
                 "/queue/calls",
                 signal
         );
+    }
+
+    /**
+     * Initiates a group call in a conversation.
+     * Saves a group CallSession and broadcasts GROUP_INITIATE to all participants.
+     */
+    @MessageMapping("/call.group.initiate")
+    public void initiateGroupCall(@Payload CallSignalMessage signal, SimpMessageHeaderAccessor headerAccessor) {
+        String senderId = (String) headerAccessor.getSessionAttributes().get("userId");
+        signal.setSenderId(senderId);
+
+        Map<String, Object> payload = signal.getPayload();
+        String conversationId = payload != null ? (String) payload.get("conversationId") : null;
+        String callTypeStr = payload != null ? (String) payload.get("callType") : "VOICE";
+        CallType callType = CallType.valueOf(callTypeStr);
+
+        if (conversationId == null) {
+            log.warn("GROUP_INITIATE from {} missing conversationId", senderId);
+            return;
+        }
+
+        Conversation conversation = conversationRepository.findById(conversationId).orElse(null);
+        if (conversation == null) {
+            log.warn("GROUP_INITIATE: conversation {} not found", conversationId);
+            return;
+        }
+
+        // participants tracks only ACTIVE (joined) participants; starts with just initiator.
+        List<String> activeParticipants = new ArrayList<>();
+        activeParticipants.add(senderId);
+
+        // invitees: use the caller-selected list if provided, otherwise fall back to all members.
+        @SuppressWarnings("unchecked")
+        List<String> selectedIds = payload != null ? (List<String>) payload.get("inviteeIds") : null;
+        List<String> invitees = (selectedIds != null && !selectedIds.isEmpty())
+                ? selectedIds
+                : new ArrayList<>(conversation.getParticipantIds());
+
+        CallSession session = CallSession.builder()
+                .callId(signal.getCallId())
+                .conversationId(conversationId)
+                .initiatorId(senderId)
+                .participants(activeParticipants)
+                .type(callType)
+                .status(CallStatus.RINGING)
+                .startedAt(LocalDateTime.now())
+                .build();
+        callSessionRepository.save(session);
+
+        log.info("Group call initiated: callId={} by={} conversationId={} invitees={}",
+                signal.getCallId(), senderId, conversationId, invitees.size());
+
+        // No chat message saved at initiation — members are notified via WebSocket signal.
+        // A call record is only saved when the call properly ends (ENDED status).
+
+        invitees.stream()
+                .filter(id -> !id.equals(senderId))
+                .forEach(id -> messagingTemplate.convertAndSendToUser(id, "/queue/calls", signal));
+    }
+
+    /**
+     * Handles a participant joining an active group call.
+     * Adds the joiner to active participants and notifies all other active participants
+     * so they can create peer connections (offers) to the new joiner.
+     */
+    @MessageMapping("/call.group.join")
+    public void joinGroupCall(@Payload CallSignalMessage signal, SimpMessageHeaderAccessor headerAccessor) {
+        String senderId = (String) headerAccessor.getSessionAttributes().get("userId");
+        signal.setSenderId(senderId);
+
+        CallSignalMessage expiredSignal = CallSignalMessage.builder()
+                .type(SignalType.GROUP_LEAVE)
+                .callId(signal.getCallId())
+                .senderId("system")
+                .build();
+
+        callSessionRepository.findByCallId(signal.getCallId()).ifPresentOrElse(session -> {
+            // Reject join if the call has already ended or was missed
+            if (session.getStatus() == CallStatus.ENDED || session.getStatus() == CallStatus.MISSED) {
+                log.warn("Participant {} tried to join already-ended call {}", senderId, signal.getCallId());
+                messagingTemplate.convertAndSendToUser(senderId, "/queue/calls", expiredSignal);
+                return;
+            }
+            // Add joiner to active participants list.
+            if (!session.getParticipants().contains(senderId)) {
+                session.getParticipants().add(senderId);
+            }
+            session.setStatus(CallStatus.ONGOING);
+            if (session.getStartedAt() == null) {
+                session.setStartedAt(LocalDateTime.now());
+            }
+            callSessionRepository.save(session);
+
+            log.info("Participant {} joined group call {}. Active: {}",
+                    senderId, signal.getCallId(), session.getParticipants().size());
+
+            // Notify other ACTIVE participants to create offers for the new joiner.
+            session.getParticipants().stream()
+                    .filter(id -> !id.equals(senderId))
+                    .forEach(id -> messagingTemplate.convertAndSendToUser(id, "/queue/calls", signal));
+        }, () -> {
+            // Session not found — call is dead (e.g. backend restarted)
+            log.warn("Participant {} tried to join non-existent call {}", senderId, signal.getCallId());
+            messagingTemplate.convertAndSendToUser(senderId, "/queue/calls", expiredSignal);
+        });
+    }
+
+    /**
+     * Generic relay for group call peer-to-peer signals: GROUP_OFFER, GROUP_ANSWER, ICE candidates.
+     * GROUP_LEAVE removes the participant and ends the call when all active participants have left.
+     */
+    @MessageMapping("/call.group.signal")
+    public void groupSignal(@Payload CallSignalMessage signal, SimpMessageHeaderAccessor headerAccessor) {
+        String senderId = (String) headerAccessor.getSessionAttributes().get("userId");
+        signal.setSenderId(senderId);
+
+        if (signal.getType() == SignalType.GROUP_LEAVE) {
+            callSessionRepository.findByCallId(signal.getCallId()).ifPresent(session -> {
+                CallStatus previousStatus = session.getStatus();
+                session.getParticipants().remove(senderId);
+
+                // Call ends when only 0 or 1 participant remains (1 person alone has no one to talk to)
+                boolean callEnded = session.getParticipants().size() <= 1;
+                if (callEnded) {
+                    LocalDateTime now = LocalDateTime.now();
+                    session.setEndedAt(now);
+
+                    long durationSeconds = 0L;
+                    CallStatus finalStatus;
+                    if (previousStatus == CallStatus.RINGING) {
+                        finalStatus = CallStatus.MISSED;
+                    } else {
+                        finalStatus = CallStatus.ENDED;
+                        if (session.getStartedAt() != null) {
+                            durationSeconds = java.time.temporal.ChronoUnit.SECONDS
+                                    .between(session.getStartedAt(), now);
+                        }
+                    }
+                    session.setStatus(finalStatus);
+                    callSessionRepository.save(session);
+
+                    log.info("Group call {} ended ({}). Duration: {}s",
+                            signal.getCallId(), finalStatus, durationSeconds);
+
+                    // Notify ALL conversation members — invitees who haven't joined yet
+                    // are not in session.getParticipants(), so we must use the conversation.
+                    if (session.getConversationId() != null) {
+                        conversationRepository.findById(session.getConversationId())
+                                .ifPresent(conv -> conv.getParticipantIds().stream()
+                                        .filter(id -> !id.equals(senderId))
+                                        .forEach(id -> messagingTemplate.convertAndSendToUser(
+                                                id, "/queue/calls", signal)));
+                    } else {
+                        session.getParticipants().forEach(id ->
+                                messagingTemplate.convertAndSendToUser(id, "/queue/calls", signal));
+                    }
+
+                    // Group MISSED = nobody answered before initiator hung up.
+                    // No chat message is saved — group calls only record ENDED (with duration).
+                    if (finalStatus != CallStatus.MISSED && session.getConversationId() != null) {
+                        messageService.saveCallMessage(
+                                session.getConversationId(),
+                                session.getInitiatorId(),
+                                session.getType(),
+                                finalStatus,
+                                durationSeconds,
+                                session.getCallId()
+                        );
+                    }
+                } else {
+                    callSessionRepository.save(session);
+                    log.info("Participant {} left group call {}. Remaining active: {}",
+                            senderId, signal.getCallId(), session.getParticipants().size());
+
+                    session.getParticipants().forEach(id ->
+                            messagingTemplate.convertAndSendToUser(id, "/queue/calls", signal));
+                }
+            });
+        } else {
+            // Point-to-point relay: GROUP_OFFER, GROUP_ANSWER, ICE candidates
+            messagingTemplate.convertAndSendToUser(signal.getReceiverId(), "/queue/calls", signal);
+        }
     }
 }

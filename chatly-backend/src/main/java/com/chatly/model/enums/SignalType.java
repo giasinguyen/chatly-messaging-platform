@@ -5,5 +5,10 @@ public enum SignalType {
     ANSWER,
     ICE_CANDIDATE,
     INITIATE,
-    END
+    END,
+    GROUP_INITIATE,
+    GROUP_JOIN,
+    GROUP_OFFER,
+    GROUP_ANSWER,
+    GROUP_LEAVE
 }

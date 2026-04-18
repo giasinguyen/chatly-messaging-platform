@@ -82,6 +82,7 @@ interface MessageListProps {
     onClosePoll?: (messageId: string) => void;
     onTogglePin?: (messageId: string) => void;
     onCallAgain?: (calleeId: string, calleeName: string, calleeAvatar?: string) => void;
+    onJoinGroupCall?: (callId: string) => void;
     onTagPriority?: (messageId: string, priority: string) => void;
     contacts?: ContactResponse[];
     onAddFriend?: (userId: string) => void;
@@ -116,6 +117,7 @@ export function MessageList({
     onClosePoll,
     onTogglePin,
     onCallAgain,
+    onJoinGroupCall,
     onTagPriority,
     contacts = [],
     onAddFriend,
@@ -357,18 +359,64 @@ export function MessageList({
 
         // CALL messages — aligned to sender
         if (msg.type === "CALL") {
-            let callData: { callType?: string; status?: string; duration?: number } = {};
+            let callData: { callType?: string; status?: string; duration?: number; callId?: string } = {};
             try { callData = JSON.parse(msg.content); } catch { /* ignore */ }
             const isMissed = callData.status === "MISSED" || callData.status === "REJECTED";
+            const isRinging = callData.status === "RINGING";
             const isVideo = callData.callType === "VIDEO";
             const duration = callData.duration ?? 0;
             const formatDuration = (s: number) => `${Math.floor(s / 60).toString().padStart(2, "0")}:${(s % 60).toString().padStart(2, "0")}`;
             const isMe = msg.senderId === currentUserId;
             const sender = participantDirectory[msg.senderId] ?? participant;
-            // calleeId: if I started the call, call back targets the participant;
-            // if they started it (I missed), call back targets the sender.
             const calleeId = isMe ? participant.id : msg.senderId;
             const typeLabel = isVideo ? "video" : "audio";
+
+            // Group call "Tap to join" message — centered in chat
+            if (isRinging && callData.callId && conversationType === "GROUP") {
+                // Check if a later message with same callId exists with ENDED/MISSED status
+                const isCallEnded = messages.some((m) => {
+                    if (m.id === msg.id || m.type !== "CALL") return false;
+                    try {
+                        const d = JSON.parse(m.content);
+                        return d.callId === callData.callId && (d.status === "ENDED" || d.status === "MISSED");
+                    } catch { return false; }
+                });
+
+                return (
+                    <div key={msg.id} className="flex justify-center my-3 px-4">
+                        {isCallEnded ? (
+                            <div className="inline-flex items-center gap-3 rounded-2xl px-5 py-3 border bg-red-50 dark:bg-red-950/40 border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 opacity-70">
+                                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-red-500/20">
+                                    <PhoneCall size={16} />
+                                </div>
+                                <div>
+                                    <p className="text-sm font-medium">
+                                        Group {typeLabel} call
+                                    </p>
+                                    <p className="text-xs opacity-70">Call ended</p>
+                                </div>
+                            </div>
+                        ) : (
+                            <button
+                                type="button"
+                                onClick={() => onJoinGroupCall?.(callData.callId!)}
+                                className="inline-flex items-center gap-3 rounded-2xl px-5 py-3 border bg-green-50 dark:bg-green-950/40 border-green-200 dark:border-green-800 text-green-700 dark:text-green-400 transition-colors hover:bg-green-100 dark:hover:bg-green-950/60 cursor-pointer"
+                            >
+                                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-green-500/20">
+                                    <PhoneCall size={16} />
+                                </div>
+                                <div className="text-left">
+                                    <p className="text-sm font-medium">
+                                        Group {typeLabel} call
+                                    </p>
+                                    <p className="text-xs opacity-70">Tap to join</p>
+                                </div>
+                            </button>
+                        )}
+                    </div>
+                );
+            }
+
             const statusLabel = isMissed ? `Missed ${typeLabel} call` : `${isVideo ? "Video" : "Audio"} call`;
             return (
                 <div key={msg.id} className={cn("flex my-2 px-4", isMe ? "justify-end" : "justify-start")}>
