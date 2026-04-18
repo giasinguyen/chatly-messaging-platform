@@ -14,6 +14,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/theme';
 import type { Poll } from '@/types/message';
 
+const MAX_OPTIONS = 10;
+const MIN_OPTIONS = 2;
+
 interface PollModalProps {
   visible: boolean;
   onClose: () => void;
@@ -24,11 +27,13 @@ export function PollModal({ visible, onClose, onSend }: PollModalProps) {
   const [question, setQuestion] = useState('');
   const [options, setOptions] = useState(['', '']);
   const [multipleChoice, setMultipleChoice] = useState(false);
+  const [anonymous, setAnonymous] = useState(false);
 
   const reset = () => {
     setQuestion('');
     setOptions(['', '']);
     setMultipleChoice(false);
+    setAnonymous(false);
   };
 
   const handleClose = () => {
@@ -43,24 +48,25 @@ export function PollModal({ visible, onClose, onSend }: PollModalProps) {
   };
 
   const handleRemoveOption = (idx: number) => {
-    if (options.length <= 2) return;
+    if (options.length <= MIN_OPTIONS) return;
     setOptions(options.filter((_, i) => i !== idx));
   };
 
   const handleSend = () => {
     if (!question.trim()) {
-      Alert.alert('Lỗi', 'Câu hỏi không được để trống');
+      Alert.alert('Error', 'Question cannot be empty');
       return;
     }
     const validOptions = options.map((o) => o.trim()).filter(Boolean);
-    if (validOptions.length < 2) {
-      Alert.alert('Lỗi', 'Cần ít nhất 2 lựa chọn hợp lệ');
+    if (validOptions.length < MIN_OPTIONS) {
+      Alert.alert('Error', 'At least 2 valid options are required');
       return;
     }
     onSend({
       question: question.trim(),
       options: validOptions,
       multipleChoice,
+      anonymous,
       votes: {},
     });
     reset();
@@ -69,131 +75,89 @@ export function PollModal({ visible, onClose, onSend }: PollModalProps) {
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={handleClose}>
-      <Pressable
-        style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.3)', justifyContent: 'flex-end' }}
-        onPress={handleClose}>
+      <Pressable className="flex-1 justify-end bg-black/30" onPress={handleClose}>
         <Pressable
-          style={{
-            backgroundColor: Colors.white,
-            borderTopLeftRadius: 20,
-            borderTopRightRadius: 20,
-            paddingTop: 12,
-            paddingBottom: 36,
-            paddingHorizontal: 20,
-            maxHeight: '88%',
-          }}
-          onPress={() => {}}>
+          className="rounded-t-2xl pt-3 pb-9 px-5"
+          style={{ backgroundColor: Colors.white, maxHeight: '88%' }}
+          onPress={() => {}}
+        >
           {/* Handle bar */}
-          <View style={{ alignItems: 'center', marginBottom: 16 }}>
+          <View className="items-center mb-4">
             <View
-              style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: Colors.borderLight }}
+              className="w-9 h-1 rounded-full"
+              style={{ backgroundColor: Colors.borderLight }}
             />
           </View>
 
           <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
             {/* Header */}
-            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 20 }}>
-              <View
-                style={{
-                  width: 36,
-                  height: 36,
-                  borderRadius: 18,
-                  backgroundColor: '#e0f2fe',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  marginRight: 12,
-                }}>
+            <View className="flex-row items-center mb-5">
+              <View className="w-9 h-9 rounded-full items-center justify-center mr-3 bg-sky-100">
                 <Ionicons name="bar-chart-outline" size={20} color="#0284c7" />
               </View>
-              <Text style={{ fontSize: 17, fontWeight: '600', color: Colors.text }}>
+              <Text className="text-[17px] font-semibold" style={{ color: Colors.text }}>
                 Create a poll
               </Text>
-              <TouchableOpacity onPress={handleClose} style={{ marginLeft: 'auto', padding: 4 }}>
+              <TouchableOpacity onPress={handleClose} className="ml-auto p-1">
                 <Ionicons name="close" size={22} color={Colors.textMuted} />
               </TouchableOpacity>
             </View>
 
             {/* Question */}
-            <Text style={{ fontSize: 13, fontWeight: '500', color: Colors.text, marginBottom: 6 }}>
-              Câu hỏi <Text style={{ color: Colors.error }}>*</Text>
+            <Text className="text-[13px] font-medium mb-1.5" style={{ color: Colors.text }}>
+              Question <Text style={{ color: Colors.error }}>*</Text>
             </Text>
             <TextInput
               value={question}
               onChangeText={setQuestion}
-              placeholder="Nhập câu hỏi bình chọn..."
+              placeholder="Enter your poll question..."
               placeholderTextColor={Colors.textLight}
-              style={{
-                borderWidth: 1,
-                borderColor: Colors.borderLight,
-                borderRadius: 10,
-                paddingHorizontal: 12,
-                paddingVertical: 10,
-                fontSize: 14,
-                color: Colors.text,
-                marginBottom: 16,
-              }}
+              className="border rounded-[10px] px-3 py-2.5 text-sm mb-4"
+              style={{ borderColor: Colors.borderLight, color: Colors.text }}
             />
 
             {/* Options */}
-            <Text style={{ fontSize: 13, fontWeight: '500', color: Colors.text, marginBottom: 8 }}>
-              Lựa chọn
+            <Text className="text-[13px] font-medium mb-2" style={{ color: Colors.text }}>
+              Options
             </Text>
             {options.map((opt, idx) => (
-              <View
-                key={idx}
-                style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8, gap: 8 }}>
+              <View key={idx} className="flex-row items-center mb-2 gap-2">
                 <TextInput
                   value={opt}
                   onChangeText={(val) => updateOption(idx, val)}
-                  placeholder={`Lựa chọn ${idx + 1}...`}
+                  placeholder={`Option ${idx + 1}...`}
                   placeholderTextColor={Colors.textLight}
-                  style={{
-                    flex: 1,
-                    borderWidth: 1,
-                    borderColor: Colors.borderLight,
-                    borderRadius: 10,
-                    paddingHorizontal: 12,
-                    paddingVertical: 9,
-                    fontSize: 14,
-                    color: Colors.text,
-                  }}
+                  className="flex-1 border rounded-[10px] px-3 py-2 text-sm"
+                  style={{ borderColor: Colors.borderLight, color: Colors.text }}
                 />
-                {options.length > 2 && (
-                  <TouchableOpacity onPress={() => handleRemoveOption(idx)} style={{ padding: 4 }}>
+                {options.length > MIN_OPTIONS && (
+                  <TouchableOpacity onPress={() => handleRemoveOption(idx)} className="p-1">
                     <Ionicons name="close-circle" size={22} color={Colors.error} />
                   </TouchableOpacity>
                 )}
               </View>
             ))}
 
-            {options.length < 10 && (
+            {options.length < MAX_OPTIONS && (
               <TouchableOpacity
                 onPress={() => setOptions([...options, ''])}
-                style={{
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  paddingVertical: 8,
-                  marginBottom: 16,
-                  gap: 6,
-                }}>
+                className="flex-row items-center py-2 mb-4 gap-1.5"
+              >
                 <Ionicons name="add-circle-outline" size={18} color={Colors.cta} />
-                <Text style={{ fontSize: 13, color: Colors.cta, fontWeight: '500' }}>
+                <Text className="text-[13px] font-medium" style={{ color: Colors.cta }}>
                   Add more options
                 </Text>
               </TouchableOpacity>
             )}
 
-            {/* Multiple choice toggle */}
+            {/* Toggle switches */}
             <View
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                paddingVertical: 12,
-                borderTopWidth: 1,
-                borderTopColor: Colors.borderLight,
-                marginBottom: 20,
-              }}>
-              <Text style={{ flex: 1, fontSize: 14, color: Colors.text }}>Cho phép chọn nhiều</Text>
+              className="flex-row items-center py-3 border-t mb-2"
+              style={{ borderTopColor: Colors.borderLight }}
+            >
+              <Text className="flex-1 text-sm" style={{ color: Colors.text }}>
+                Allow multiple choices
+              </Text>
               <Switch
                 value={multipleChoice}
                 onValueChange={setMultipleChoice}
@@ -202,32 +166,38 @@ export function PollModal({ visible, onClose, onSend }: PollModalProps) {
               />
             </View>
 
+            <View
+              className="flex-row items-center py-3 border-t mb-5"
+              style={{ borderTopColor: Colors.borderLight }}
+            >
+              <Text className="flex-1 text-sm" style={{ color: Colors.text }}>
+                Anonymous voting
+              </Text>
+              <Switch
+                value={anonymous}
+                onValueChange={setAnonymous}
+                trackColor={{ false: Colors.borderLight, true: Colors.cta }}
+                thumbColor={Colors.white}
+              />
+            </View>
+
             {/* Buttons */}
-            <View style={{ flexDirection: 'row', gap: 10 }}>
+            <View className="flex-row gap-2.5">
               <TouchableOpacity
                 onPress={handleClose}
-                style={{
-                  flex: 1,
-                  paddingVertical: 12,
-                  borderRadius: 12,
-                  backgroundColor: Colors.bg,
-                  alignItems: 'center',
-                }}>
-                <Text style={{ fontSize: 15, color: Colors.textMuted, fontWeight: '500' }}>
-                  Huỷ
+                className="flex-1 py-3 rounded-xl items-center"
+                style={{ backgroundColor: Colors.bg }}
+              >
+                <Text className="text-[15px] font-medium" style={{ color: Colors.textMuted }}>
+                  Cancel
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={handleSend}
-                style={{
-                  flex: 2,
-                  paddingVertical: 12,
-                  borderRadius: 12,
-                  backgroundColor: '#0284c7',
-                  alignItems: 'center',
-                }}>
-                <Text style={{ fontSize: 15, color: 'white', fontWeight: '600' }}>
-                  Submit your vote
+                className="flex-[2] py-3 rounded-xl items-center bg-sky-600"
+              >
+                <Text className="text-[15px] font-semibold text-white">
+                  Create poll
                 </Text>
               </TouchableOpacity>
             </View>

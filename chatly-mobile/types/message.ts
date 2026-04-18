@@ -31,6 +31,9 @@ export interface Poll {
   options: string[];
   multipleChoice: boolean;
   votes: Record<string, string[]>;
+  closed?: boolean;
+  deadline?: string;
+  anonymous?: boolean;
 }
 
 export interface Message {
