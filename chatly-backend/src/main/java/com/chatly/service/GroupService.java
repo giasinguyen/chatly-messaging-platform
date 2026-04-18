@@ -70,6 +70,10 @@ public class GroupService {
             // Return a special response with userId so frontend knows it's pending
             User targetUser = userRepository.findById(targetUid)
                     .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+
+            // Notify admins/owners about the new join request
+            notifyAdminsOfJoinRequest(conversation, targetUser);
+
             return GroupMemberResponse.builder()
                     .userId(targetUser.getId().toString())
                     .username(targetUser.getUsername())
@@ -330,6 +334,10 @@ public class GroupService {
                     .invitedBy(null)
                     .build());
             User u = userRepository.findById(uid).orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+
+            // Notify admins/owners about the new join request
+            notifyAdminsOfJoinRequest(conversation, u);
+
             return GroupMemberResponse.builder()
                     .userId(u.getId().toString()).username(u.getUsername())
                     .displayName(u.getDisplayName()).avatar(u.getAvatarUrl())
@@ -383,6 +391,27 @@ public class GroupService {
         PendingJoinRequest pending = pendingJoinRequestRepository.findFirstByConversationIdAndUserId(conversationId, targetUserId)
                 .orElseThrow(() -> new AppException(ErrorCode.GROUP_PENDING_REQUEST_NOT_FOUND));
         pendingJoinRequestRepository.deleteByConversationIdAndUserId(conversationId, targetUserId);
+    }
+
+    /**
+     * Notify all OWNER and ADMIN members about a new join request.
+     */
+    private void notifyAdminsOfJoinRequest(Conversation conversation, User requester) {
+        String groupName = conversation.getName() != null ? conversation.getName() : "group";
+        String content = requester.getDisplayName() + " requested to join " + groupName;
+
+        List<GroupMember> admins = groupMemberRepository.findByConversationIdAndRoleIn(
+                conversation.getId(), List.of(GroupRole.OWNER, GroupRole.ADMIN));
+
+        for (GroupMember admin : admins) {
+            notificationService.createAndPush(
+                    NotificationType.GROUP_JOIN_REQUEST,
+                    requester.getId().toString(),
+                    admin.getUser().getId().toString(),
+                    content,
+                    conversation.getId()
+            );
+        }
     }
 
     // ── Reminders ────────────────────────────────────────────────────
