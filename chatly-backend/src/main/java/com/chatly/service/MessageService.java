@@ -559,11 +559,26 @@ public class MessageService {
          * Gọi từ CallWebSocketController sau khi cuộc gọi kết thúc/nhỡ/từ chối.
          */
         public void saveCallMessage(String conversationId, String initiatorId, CallType callType, CallStatus callStatus, long durationSeconds) {
+                saveCallMessage(conversationId, initiatorId, callType, callStatus, durationSeconds, null);
+        }
+
+        /**
+         * Lưu tin nhắn cuộc gọi có callId (cho group call "tap to join" message).
+         */
+        public void saveCallMessage(String conversationId, String initiatorId, CallType callType, CallStatus callStatus, long durationSeconds, String callId) {
                 conversationRepository.findById(conversationId).ifPresent(conversation -> {
-                        String content = String.format(
-                                "{\"callType\":\"%s\",\"status\":\"%s\",\"duration\":%d}",
-                                callType.name(), callStatus.name(), durationSeconds
-                        );
+                        String content;
+                        if (callId != null) {
+                                content = String.format(
+                                        "{\"callType\":\"%s\",\"status\":\"%s\",\"duration\":%d,\"callId\":\"%s\"}",
+                                        callType.name(), callStatus.name(), durationSeconds, callId
+                                );
+                        } else {
+                                content = String.format(
+                                        "{\"callType\":\"%s\",\"status\":\"%s\",\"duration\":%d}",
+                                        callType.name(), callStatus.name(), durationSeconds
+                                );
+                        }
                         Message message = Message.builder()
                                 .conversationId(conversationId)
                                 .senderId(initiatorId)

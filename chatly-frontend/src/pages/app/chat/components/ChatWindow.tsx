@@ -19,6 +19,7 @@ import { groupService } from "@/services/group.service";
 import { fileService } from "@/services/file.service";
 import { useAuthStore } from "@/store/auth.store";
 import { useConversationPrefsStore } from "@/store/conversationPrefs.store";
+import { useCallStore } from "@/store/call.store";
 import { useNotificationStore } from "@/store/notification.store";
 import { useChatSocket } from "@/hooks/useChatSocket";
 import { useCallContext } from "@/contexts/CallContext";
@@ -145,6 +146,7 @@ function formatDob(dob?: string) {
 export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) => {
     const navigate = useNavigate();
     const currentUser = useAuthStore((s) => s.user);
+    const lastEndedGroupCallId = useCallStore((s) => s.lastEndedGroupCallId);
     const { getPrefs } = useConversationPrefsStore();
     const [failedMessages, setFailedMessages] = useState<Array<{ id: string, content: string, attachments?: import("@/types/message").Attachment[], replyToId?: string | null }>>([]);
     const markConvMessagesRead = useNotificationStore(
@@ -827,7 +829,7 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
     );
 
     // Use the shared call socket instance (same as AppLayout) to avoid duplicate peer connections
-    const { initiateCall } = useCallContext();
+    const { initiateCall, joinGroupCall } = useCallContext();
 
     const handleCallAgain = useCallback(
         (calleeId: string, calleeName: string, calleeAvatar?: string) => {
@@ -835,6 +837,43 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
         },
         [id, initiateCall],
     );
+
+    const handleJoinGroupCall = useCallback(
+        (callId: string) => {
+            if (!conversation) return;
+            // Find the RINGING message to get call type
+            const ringingMsg = messages.find((m) => {
+                if (m.type !== "CALL") return false;
+                try {
+                    const d = JSON.parse(m.content);
+                    return d.callId === callId && d.status === "RINGING";
+                } catch { return false; }
+            });
+            let callType: "VOICE" | "VIDEO" = "VOICE";
+            let initiatorId = "";
+            if (ringingMsg) {
+                try {
+                    const d = JSON.parse(ringingMsg.content);
+                    callType = d.callType === "VIDEO" ? "VIDEO" : "VOICE";
+                } catch { /* ignore */ }
+                initiatorId = ringingMsg.senderId;
+            }
+            useCallStore.getState().setIncomingGroupCall({
+                callId,
+                conversationId: id,
+                initiatorId,
+                initiatorName: "Unknown",
+                initiatorAvatar: null,
+                groupName: conversation.name ?? "Group",
+                type: callType,
+                participantCount: 0,
+            });
+            useCallStore.getState().setCallStatus("RINGING");
+            joinGroupCall(true);
+        },
+        [messages, id, conversation, joinGroupCall],
+    );
+
     const handleTagPriority = useCallback(
         async (messageId: string, priority: string) => {
             try {
@@ -1127,6 +1166,7 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
                 isPinned={isPinned}
                 isMuted={isMuted}
                 nickname={nickname}
+                memberCount={conversation?.participantIds?.length}
             />
 
             {/* ── Pinned Messages Banner (Zalo-style) ─────────────────────── */}
@@ -1250,6 +1290,8 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
                 onClosePoll={handleClosePoll}
                 onTogglePin={handleTogglePin}
                 onCallAgain={handleCallAgain}
+                onJoinGroupCall={handleJoinGroupCall}
+                endedGroupCallId={lastEndedGroupCallId}
                 onTagPriority={handleTagPriority}
                 contacts={allContacts}
                 onAddFriend={async (userId: string) => {
