@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, Text, TouchableOpacity, Image, Linking, Modal, Pressable, FlatList } from 'react-native';
+import { View, Text, TouchableOpacity, Image, Linking, Modal, Pressable, FlatList, Dimensions } from 'react-native';
 import { Image as ExpoImage } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/theme';
@@ -62,6 +62,10 @@ export function MessageBubble({
 }: MessageBubbleProps) {
   const { content, type, recalled, edited, createdAt, readBy, attachments } = message;
 
+  const screenWidth = Dimensions.get('window').width;
+  const maxBubbleWidth = screenWidth * 0.78;
+  const imageSize = Math.min(maxBubbleWidth - 32, 240);
+
   const [lightboxVisible, setLightboxVisible] = useState(false);
   const [voterModal, setVoterModal] = useState<{ title: string; voterIds: string[] } | null>(null);
 
@@ -110,7 +114,7 @@ export function MessageBubble({
             >
               <Image
                 source={{ uri: img.url }}
-                style={{ width: 200, height: 200, borderRadius: 12 }}
+                style={{ width: imageSize, height: imageSize, borderRadius: 12 }}
                 resizeMode="cover"
               />
             </TouchableOpacity>
@@ -405,7 +409,7 @@ export function MessageBubble({
         return (
           <ExpoImage
             source={{ uri: content }}
-            style={{ width: 220, height: 180, borderRadius: 12 }}
+            style={{ width: imageSize, height: imageSize * 0.82, borderRadius: 12 }}
             contentFit="cover"
             autoplay
           />
@@ -414,7 +418,7 @@ export function MessageBubble({
         return (
           <ExpoImage
             source={{ uri: content }}
-            style={{ width: 140, height: 140 }}
+            style={{ width: Math.min(imageSize, 140), height: Math.min(imageSize, 140) }}
             contentFit="contain"
             autoplay
           />
@@ -425,7 +429,7 @@ export function MessageBubble({
         const isSelf = card.id === currentUserId;
         const friendSt = card.id ? vcardFriendStatus?.(card.id) : null;
         return (
-          <View style={{ width: 220, borderRadius: 16, borderWidth: 1, borderColor: 'rgba(0,0,0,0.08)', backgroundColor: '#fff', overflow: 'hidden' }}>
+          <View style={{ width: maxBubbleWidth - 32, borderRadius: 16, borderWidth: 1, borderColor: 'rgba(0,0,0,0.08)', backgroundColor: '#fff', overflow: 'hidden' }}>
             {/* Header */}
             <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8, backgroundColor: 'rgba(0,0,0,0.03)', borderBottomWidth: 0.5, borderBottomColor: 'rgba(0,0,0,0.06)' }}>
               <Ionicons name="person-circle-outline" size={14} color={Colors.textMuted} />
