@@ -80,6 +80,7 @@ export function useGroupCallSocket() {
                         initiatorName: string;
                         initiatorAvatar?: string | null;
                         groupName: string;
+                        groupAvatarUrl?: string | null;
                         callType: CallType;
                         participantCount: number;
                         conversationId: string;
@@ -91,6 +92,7 @@ export function useGroupCallSocket() {
                         initiatorName: p.initiatorName,
                         initiatorAvatar: p.initiatorAvatar ?? null,
                         groupName: p.groupName,
+                        groupAvatarUrl: p.groupAvatarUrl ?? null,
                         type: p.callType,
                         participantCount: p.participantCount,
                     };
@@ -220,15 +222,14 @@ export function useGroupCallSocket() {
     handleSignalRef.current = handleSignal;
 
     const initiateGroupCall = useCallback(
-        async (conversationId: string, type: CallType, groupName: string, participantCount: number, inviteeIds?: string[]) => {
+        async (conversationId: string, type: CallType, groupName: string, participantCount: number, inviteeIds?: string[], groupAvatarUrl?: string | null) => {
             if (!user) return;
 
             const client = socketService.getClient();
             if (!client?.connected) return;
 
             try {
-                setOutgoingCallTarget({ name: groupName, type, avatarUrl: undefined });
-                playRingtone();
+                setOutgoingCallTarget({ name: groupName, type, avatarUrl: groupAvatarUrl ?? undefined });
                 await groupWebRTCRef.current.initLocalStream(type);
 
                 const callId = generateCallId();
@@ -255,6 +256,7 @@ export function useGroupCallSocket() {
                             initiatorName: user.displayName,
                             initiatorAvatar: user.avatarUrl ?? null,
                             groupName,
+                            groupAvatarUrl: groupAvatarUrl ?? null,
                             participantCount,
                             inviteeIds: inviteeIds ?? [],
                         },
@@ -266,7 +268,7 @@ export function useGroupCallSocket() {
                 endCallStore();
             }
         },
-        [user, setCallStatus, startGroupCall, endCallStore, setOutgoingCallTarget, playRingtone, stopRingtone],
+        [user, setCallStatus, startGroupCall, endCallStore, setOutgoingCallTarget, stopRingtone],
     );
 
     const joinGroupCall = useCallback(

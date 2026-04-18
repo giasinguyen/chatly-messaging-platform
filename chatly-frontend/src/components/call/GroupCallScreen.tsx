@@ -21,8 +21,16 @@ export function GroupCallScreen({ visible, incomingGroupCall, onJoin, onDecline 
                 {/* Avatar with pulsing effect */}
                 <div className="relative h-32 w-32">
                     <div className="absolute inset-0 animate-ping rounded-full bg-white/20" />
-                    <div className="relative flex h-32 w-32 items-center justify-center rounded-full bg-gray-600">
-                        <span className="text-4xl font-bold text-white">{initial}</span>
+                    <div className="relative flex h-32 w-32 items-center justify-center rounded-full bg-gray-600 overflow-hidden">
+                        {incomingGroupCall.groupAvatarUrl ? (
+                            <img
+                                src={incomingGroupCall.groupAvatarUrl}
+                                alt={incomingGroupCall.groupName}
+                                className="h-full w-full object-cover"
+                            />
+                        ) : (
+                            <span className="text-4xl font-bold text-white">{initial}</span>
+                        )}
                     </div>
                 </div>
 

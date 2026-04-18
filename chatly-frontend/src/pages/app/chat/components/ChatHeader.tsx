@@ -172,7 +172,7 @@ export function ChatHeader({ user, onOpenProfile, isGroup, conversationId, other
                     callType={memberPicker.callType}
                     onCall={(selectedIds) => {
                         setMemberPicker({ visible: false, callType: "VOICE" });
-                        initiateGroupCall(conversationId, memberPicker.callType, user.displayName, selectedIds.length, selectedIds);
+                        initiateGroupCall(conversationId, memberPicker.callType, user.displayName, selectedIds.length, selectedIds, user.avatarUrl);
                     }}
                     onClose={() => setMemberPicker({ visible: false, callType: "VOICE" })}
                 />

@@ -59,6 +59,7 @@ export interface IncomingGroupCall {
     initiatorName: string;
     initiatorAvatar: string | null;
     groupName: string;
+    groupAvatarUrl: string | null;
     type: CallType;
     participantCount: number;
 }
