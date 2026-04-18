@@ -1,7 +1,20 @@
 import { useState } from 'react';
-import { View, Text, TouchableOpacity, Image, Linking, Modal, Pressable, FlatList } from 'react-native';
+import { View, Text, TouchableOpacity, Image, Linking, Modal, Pressable, FlatList, Dimensions } from 'react-native';
 import { Image as ExpoImage } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
+import {
+  FilePdf,
+  MicrosoftWordLogo,
+  MicrosoftExcelLogo,
+  FileCsv,
+  MicrosoftPowerpointLogo,
+  FileImage as PhosphorFileImage,
+  FileVideo as PhosphorFileVideo,
+  FileAudio as PhosphorFileAudio,
+  FileArchive,
+  FileCode as PhosphorFileCode,
+  File as PhosphorFile,
+} from 'phosphor-react-native';
 import { Colors } from '@/constants/theme';
 import { formatMessageTime } from '@/utils/format';
 import { ImageLightbox } from '@/components/ui/ImageLightbox';
@@ -62,6 +75,10 @@ export function MessageBubble({
 }: MessageBubbleProps) {
   const { content, type, recalled, edited, createdAt, readBy, attachments } = message;
 
+  const screenWidth = Dimensions.get('window').width;
+  const maxBubbleWidth = screenWidth * 0.78;
+  const imageSize = Math.min(maxBubbleWidth - 32, 240);
+
   const [lightboxVisible, setLightboxVisible] = useState(false);
   const [voterModal, setVoterModal] = useState<{ title: string; voterIds: string[] } | null>(null);
 
@@ -110,7 +127,7 @@ export function MessageBubble({
             >
               <Image
                 source={{ uri: img.url }}
-                style={{ width: 200, height: 200, borderRadius: 12 }}
+                style={{ width: imageSize, height: imageSize, borderRadius: 12 }}
                 resizeMode="cover"
               />
             </TouchableOpacity>
@@ -134,19 +151,40 @@ export function MessageBubble({
     return <AudioPlayer url={audio.url} name={audio.name} isMe={isMe} />;
   };
 
-  // File message — show ALL files with proper names
+  // File message — show ALL files with proper names and type-based icons
+  type PhosphorIconComponent = React.ComponentType<{ size: number; color: string; weight?: 'thin' | 'light' | 'regular' | 'bold' | 'fill' | 'duotone' }>;
+  const getFileIconDetails = (mimeType?: string, fileName?: string): { IconComponent: PhosphorIconComponent; color: string } => {
+    const t = (mimeType ?? '').toLowerCase();
+    const ext = (fileName?.split('.').pop() ?? '').toLowerCase();
+    if (t.includes('pdf') || ext === 'pdf') return { IconComponent: FilePdf, color: '#ef4444' };
+    if (t.includes('word') || t.includes('document') || ext === 'docx' || ext === 'doc') return { IconComponent: MicrosoftWordLogo, color: '#2563eb' };
+    if (t.includes('sheet') || t.includes('excel') || ext === 'xlsx' || ext === 'xls') return { IconComponent: MicrosoftExcelLogo, color: '#16a34a' };
+    if (ext === 'csv') return { IconComponent: FileCsv, color: '#16a34a' };
+    if (t.includes('presentation') || t.includes('powerpoint') || ext === 'pptx' || ext === 'ppt') return { IconComponent: MicrosoftPowerpointLogo, color: '#ea580c' };
+    if (t.startsWith('image/')) return { IconComponent: PhosphorFileImage, color: '#7c3aed' };
+    if (t.startsWith('video/')) return { IconComponent: PhosphorFileVideo, color: '#db2777' };
+    if (t.startsWith('audio/')) return { IconComponent: PhosphorFileAudio, color: '#d97706' };
+    if (t.includes('zip') || t.includes('rar') || t.includes('tar') || t.includes('7z') || ext === 'zip' || ext === 'rar' || ext === '7z') return { IconComponent: FileArchive, color: '#92400e' };
+    if (['js', 'ts', 'jsx', 'tsx', 'json', 'xml', 'html', 'css', 'py', 'java'].includes(ext)) return { IconComponent: PhosphorFileCode, color: '#475569' };
+    return { IconComponent: PhosphorFile, color: '#6b7280' };
+  };
+
   const renderFileContent = () => {
     const files = (attachments ?? []).filter((a) => !!a.url);
     if (files.length === 0) return null;
     return (
       <View className="gap-1.5">
         {files.map((file, idx) => {
-          const fileName = file.name || file.url.split('/').pop() || 'Attachment';
+          const rawName = file.name
+            || (() => { try { return decodeURIComponent(file.url.split('/').pop() ?? ''); } catch { return file.url.split('/').pop(); } })()
+            || 'Attachment';
+          const fileName = rawName.length > 60 ? `${rawName.slice(0, 57)}...` : rawName;
           const sizeStr = file.size
             ? file.size > 1048576
               ? `${(file.size / 1048576).toFixed(1)} MB`
               : `${Math.round(file.size / 1024)} KB`
             : '';
+          const { IconComponent, color: iconColor } = getFileIconDetails(file.type, rawName);
           return (
             <TouchableOpacity
               key={idx}
@@ -154,15 +192,14 @@ export function MessageBubble({
               className="flex-row items-center rounded-xl px-3 py-2"
               style={{ backgroundColor: isMe ? 'rgba(0,0,0,0.15)' : 'rgba(0,0,0,0.07)' }}
             >
-              <Ionicons
-                name="document-outline"
-                size={20}
-                color={isMe ? Colors.bubbleSenderText : Colors.cta}
-              />
-              <View className="ml-2 flex-1">
+              {/* Phosphor file icon */}
+              <View style={{ width: 36, height: 36, alignItems: 'center', justifyContent: 'center' }}>
+                <IconComponent size={28} color={isMe ? 'rgba(255,255,255,0.85)' : iconColor} weight="duotone" />
+              </View>
+              <View className="ml-2.5 flex-1">
                 <Text
-                  className="text-sm"
-                  style={{ color: isMe ? Colors.bubbleSenderText : Colors.cta }}
+                  className="text-sm font-medium"
+                  style={{ color: isMe ? Colors.bubbleSenderText : Colors.text }}
                   numberOfLines={1}
                 >
                   {fileName}
@@ -179,7 +216,7 @@ export function MessageBubble({
               <Ionicons
                 name="download-outline"
                 size={16}
-                color={isMe ? Colors.bubbleSenderText : Colors.cta}
+                color={isMe ? 'rgba(255,255,255,0.7)' : Colors.textMuted}
                 style={{ marginLeft: 6 }}
               />
             </TouchableOpacity>
@@ -273,7 +310,7 @@ export function MessageBubble({
     );
   };
 
-  // Poll message
+  // Poll message — Zalo-style white card
   const renderPollContent = () => {
     const poll = message.poll;
     if (!poll) return null;
@@ -289,104 +326,105 @@ export function MessageBubble({
         })
       : null;
     const isExpired = poll.deadline ? new Date(poll.deadline).getTime() < Date.now() : false;
+    const isDisabled = isClosed || isExpired;
 
     return (
-      <View style={{ width: 260 }}>
-        {/* Poll header */}
-        <View className="flex-row items-center mb-2">
-          <Ionicons name="bar-chart-outline" size={16} color={Colors.cta} />
-          <Text className="ml-2 text-sm font-semibold" style={{ color: Colors.text, flex: 1 }}>
+      <View style={{ width: maxBubbleWidth, backgroundColor: '#fff', borderRadius: 16, overflow: 'hidden', borderWidth: 1, borderColor: Colors.borderLight }}>
+        {/* Header */}
+        <View style={{ backgroundColor: Colors.cta, paddingHorizontal: 16, paddingVertical: 10 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+            <Ionicons name="bar-chart-outline" size={14} color="rgba(255,255,255,0.85)" />
+            <Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: 11, fontWeight: '600', marginLeft: 5, letterSpacing: 0.3 }}>
+              {isClosed || isExpired ? 'POLL ENDED' : 'VOTE NOW'}
+            </Text>
+          </View>
+          <Text style={{ color: '#fff', fontSize: 15, fontWeight: '700', lineHeight: 20, textAlign: 'center' }}>
             {poll.question}
           </Text>
-          {isClosed && (
-            <View className="rounded-full px-2 py-0.5" style={{ backgroundColor: 'rgba(0,0,0,0.08)' }}>
-              <Text className="text-[10px] font-medium" style={{ color: Colors.textMuted }}>Ended</Text>
-            </View>
-          )}
         </View>
+
         {/* Options */}
-        {poll.options.map((option, idx) => {
-          const voterCount = (poll.votes?.[String(idx)] ?? []).length;
-          const pct = totalVoters > 0 ? Math.round((voterCount / totalVoters) * 100) : 0;
-          const isVoted = myVotedOptions.includes(idx);
-          const isDisabled = isClosed || isExpired;
-          return (
-            <TouchableOpacity
-              key={idx}
-              onPress={() => !isDisabled && onVotePoll?.(message.id, idx)}
-              activeOpacity={isDisabled ? 1 : 0.7}
-              className="mb-1.5 rounded-lg overflow-hidden"
-              style={{
-                borderWidth: 1,
-                borderColor: isVoted ? Colors.cta : 'rgba(0,0,0,0.1)',
-                backgroundColor: isVoted ? 'rgba(99,102,241,0.08)' : 'transparent',
-                opacity: isDisabled ? 0.7 : 1,
-              }}
-            >
-              {/* Progress background */}
-              <View style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${pct}%`, backgroundColor: isVoted ? 'rgba(99,102,241,0.12)' : 'rgba(0,0,0,0.04)' }} />
-              <View className="flex-row items-center justify-between px-3 py-2">
-                <Text className="text-sm flex-1" style={{ color: Colors.text }} numberOfLines={1}>
-                  {option}
-                </Text>
-                {voterCount > 0 && (
+        <View style={{ paddingHorizontal: 14, paddingTop: 12, paddingBottom: 4 }}>
+          {poll.options.map((option, idx) => {
+            const voterCount = (poll.votes?.[String(idx)] ?? []).length;
+            const pct = totalVoters > 0 ? Math.round((voterCount / totalVoters) * 100) : 0;
+            const isVoted = myVotedOptions.includes(idx);
+            return (
+              <TouchableOpacity
+                key={idx}
+                onPress={() => !isDisabled && onVotePoll?.(message.id, idx)}
+                activeOpacity={isDisabled ? 1 : 0.7}
+                style={{ marginBottom: 10, opacity: isDisabled && !isVoted ? 0.75 : 1 }}
+              >
+                {/* Option label row */}
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+                  {isVoted ? (
+                    <View style={{ width: 18, height: 18, borderRadius: 9, backgroundColor: Colors.cta, alignItems: 'center', justifyContent: 'center', marginRight: 8 }}>
+                      <Ionicons name="checkmark" size={11} color="#fff" />
+                    </View>
+                  ) : (
+                    <View style={{ width: 18, height: 18, borderRadius: 9, borderWidth: 1.5, borderColor: isDisabled ? Colors.borderLight : Colors.cta, marginRight: 8 }} />
+                  )}
+                  <Text style={{ flex: 1, fontSize: 14, color: Colors.text, fontWeight: isVoted ? '600' : '400' }} numberOfLines={2}>
+                    {option}
+                  </Text>
                   <TouchableOpacity
-                    onPress={() => {
-                      if (poll.anonymous) {
-                        setVoterModal({ title: option, voterIds: poll.votes?.[String(idx)] ?? [] });
-                      } else {
-                        setVoterModal({ title: option, voterIds: poll.votes?.[String(idx)] ?? [] });
-                      }
-                    }}
+                    onPress={() => voterCount > 0 && setVoterModal({ title: option, voterIds: poll.votes?.[String(idx)] ?? [] })}
                     hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    disabled={voterCount === 0}
                   >
-                    <Text className="text-xs ml-2" style={{ color: Colors.cta }}>
+                    <Text style={{ fontSize: 12, color: isVoted ? Colors.cta : Colors.textMuted, fontWeight: '500', minWidth: 44, textAlign: 'right' }}>
                       {pct}%
                     </Text>
                   </TouchableOpacity>
-                )}
-              </View>
-            </TouchableOpacity>
-          );
-        })}
+                </View>
+                {/* Progress bar */}
+                <View style={{ height: 5, backgroundColor: '#F0F0F5', borderRadius: 3, overflow: 'hidden' }}>
+                  <View style={{ height: 5, width: `${pct}%` as `${number}%`, backgroundColor: isVoted ? Colors.cta : '#B0C4DE', borderRadius: 3 }} />
+                </View>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
         {/* Footer */}
-        <View className="flex-row items-center justify-between mt-1">
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 14, paddingBottom: 10, paddingTop: 2 }}>
           <TouchableOpacity
-            onPress={() => {
-              if (totalVoters > 0) {
-                setVoterModal({
-                  title: 'All voters',
-                  voterIds: [...new Set(Object.values(poll.votes ?? {}).flat())],
-                });
-              }
-            }}
+            onPress={() => totalVoters > 0 && setVoterModal({ title: 'All voters', voterIds: [...new Set(Object.values(poll.votes ?? {}).flat())] })}
+            disabled={totalVoters === 0}
           >
-            <Text className="text-[11px]" style={{ color: totalVoters > 0 ? Colors.cta : Colors.textMuted }}>
-              {totalVoters} people voted
+            <Text style={{ fontSize: 11, color: totalVoters > 0 ? Colors.cta : Colors.textMuted }}>
+              {totalVoters} {totalVoters === 1 ? 'person' : 'people'} voted
             </Text>
           </TouchableOpacity>
-          <View className="flex-row items-center gap-2">
-            <Text className="text-[11px]" style={{ color: Colors.textMuted }}>
-              {poll.multipleChoice ? 'Multiple choice' : 'Single choice'}
-            </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+            {deadlineStr && (
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Ionicons name="time-outline" size={11} color={isExpired ? Colors.error : Colors.textMuted} />
+                <Text style={{ fontSize: 11, color: isExpired ? Colors.error : Colors.textMuted, marginLeft: 3 }}>
+                  {isExpired ? 'Expired' : `Ends ${deadlineStr}`}
+                </Text>
+              </View>
+            )}
             {isMe && !isClosed && !isExpired && (
               <TouchableOpacity onPress={() => onClosePoll?.(message.id)}>
-                <Text className="text-[11px] font-medium" style={{ color: '#ef4444' }}>
-                  End poll
-                </Text>
+                <Text style={{ fontSize: 11, fontWeight: '600', color: Colors.error }}>End poll</Text>
               </TouchableOpacity>
             )}
           </View>
         </View>
-        {/* Deadline */}
-        {deadlineStr && (
-          <View className="flex-row items-center mt-1.5">
-            <Ionicons name="time-outline" size={11} color={isExpired ? '#ef4444' : Colors.textMuted} />
-            <Text className="text-[10px] ml-1" style={{ color: isExpired ? '#ef4444' : Colors.textMuted }}>
-              {isExpired ? 'Expired' : `Ends ${deadlineStr}`}
-            </Text>
-          </View>
-        )}
+
+        {/* Time + status row */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', paddingHorizontal: 14, paddingBottom: 8, gap: 4 }}>
+          <Text style={{ fontSize: 10, color: Colors.textLight }}>{formatMessageTime(createdAt)}</Text>
+          {isMe && (
+            <Ionicons
+              name={readBy && readBy.length > 0 ? 'checkmark-done' : 'checkmark'}
+              size={13}
+              color={readBy && readBy.length > 0 ? Colors.cta : Colors.textLight}
+            />
+          )}
+        </View>
       </View>
     );
   };
@@ -405,7 +443,7 @@ export function MessageBubble({
         return (
           <ExpoImage
             source={{ uri: content }}
-            style={{ width: 220, height: 180, borderRadius: 12 }}
+            style={{ width: imageSize, height: imageSize * 0.82, borderRadius: 12 }}
             contentFit="cover"
             autoplay
           />
@@ -414,7 +452,7 @@ export function MessageBubble({
         return (
           <ExpoImage
             source={{ uri: content }}
-            style={{ width: 140, height: 140 }}
+            style={{ width: Math.min(imageSize, 140), height: Math.min(imageSize, 140) }}
             contentFit="contain"
             autoplay
           />
@@ -425,7 +463,7 @@ export function MessageBubble({
         const isSelf = card.id === currentUserId;
         const friendSt = card.id ? vcardFriendStatus?.(card.id) : null;
         return (
-          <View style={{ width: 220, borderRadius: 16, borderWidth: 1, borderColor: 'rgba(0,0,0,0.08)', backgroundColor: '#fff', overflow: 'hidden' }}>
+          <View style={{ width: maxBubbleWidth - 32, borderRadius: 16, borderWidth: 1, borderColor: 'rgba(0,0,0,0.08)', backgroundColor: '#fff', overflow: 'hidden' }}>
             {/* Header */}
             <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8, backgroundColor: 'rgba(0,0,0,0.03)', borderBottomWidth: 0.5, borderBottomColor: 'rgba(0,0,0,0.06)' }}>
               <Ionicons name="person-circle-outline" size={14} color={Colors.textMuted} />
@@ -503,7 +541,7 @@ export function MessageBubble({
                 borderRadius: 16,
                 paddingHorizontal: 14,
                 paddingVertical: 10,
-                maxWidth: 220,
+                maxWidth: maxBubbleWidth * 0.7,
               }}
             >
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
@@ -558,6 +596,108 @@ export function MessageBubble({
   // System messages are centered
   if (type === 'SYSTEM' || type === 'CALL') {
     return renderContent();
+  }
+
+  // Poll messages — white card, full-width, centered
+  if (type === 'POLL') {
+    return (
+      <View className="my-1 px-4">
+        {!isMe && showAvatar && senderName && (
+          <Text className="mb-1 text-xs" style={{ color: Colors.textMuted, marginLeft: 34 }}>
+            {senderName}
+          </Text>
+        )}
+        <View style={{ flexDirection: 'row', alignItems: 'flex-end' }}>
+          {!isMe && showAvatar && (
+            <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: Colors.cta, alignItems: 'center', justifyContent: 'center', marginRight: 6, overflow: 'hidden' }}>
+              {senderAvatarUrl ? (
+                <Image source={{ uri: senderAvatarUrl }} style={{ width: 28, height: 28, borderRadius: 14 }} />
+              ) : (
+                <Text style={{ fontSize: 11, fontWeight: 'bold', color: 'white' }}>
+                  {(senderName ?? '?').charAt(0).toUpperCase()}
+                </Text>
+              )}
+            </View>
+          )}
+          <TouchableOpacity activeOpacity={1} onLongPress={onLongPress} delayLongPress={300} style={{ flex: 1 }}>
+            {renderPollContent()}
+          </TouchableOpacity>
+        </View>
+        {/* Reactions */}
+        {message.reactions && message.reactions.length > 0 && (
+          <View className={`mt-1 flex-row flex-wrap gap-1 ${isMe ? 'justify-end' : 'justify-start'}`}>
+            {Object.entries(
+              message.reactions.reduce<Record<string, string[]>>((acc, r) => {
+                (acc[r.emoji] ??= []).push(r.userId);
+                return acc;
+              }, {}),
+            ).map(([emoji, userIds]) => (
+              <TouchableOpacity
+                key={emoji}
+                onPress={() => onReact?.(message.id, emoji)}
+                activeOpacity={0.7}
+                className="flex-row items-center rounded-full px-1.5 py-0.5"
+                style={{
+                  backgroundColor: currentUserId && userIds.includes(currentUserId) ? 'rgba(0,113,227,0.12)' : 'rgba(0,0,0,0.06)',
+                  borderWidth: 1,
+                  borderColor: currentUserId && userIds.includes(currentUserId) ? 'rgba(0,113,227,0.3)' : 'rgba(0,0,0,0.08)',
+                }}
+              >
+                <Text className="text-xs">{emoji}</Text>
+                {userIds.length > 1 && (
+                  <Text className="ml-0.5 text-[10px]" style={{ color: Colors.textMuted }}>{userIds.length}</Text>
+                )}
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+        {/* Poll voter modal */}
+        {voterModal && (
+          <Modal visible transparent animationType="fade" onRequestClose={() => setVoterModal(null)}>
+            <Pressable className="flex-1 justify-center items-center" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }} onPress={() => setVoterModal(null)}>
+              <Pressable className="rounded-2xl w-64 max-h-80 overflow-hidden" style={{ backgroundColor: Colors.bgCard }} onPress={() => {}}>
+                <View className="px-4 py-3" style={{ borderBottomWidth: 1, borderBottomColor: 'rgba(0,0,0,0.1)' }}>
+                  <Text className="text-sm font-semibold" style={{ color: Colors.text }} numberOfLines={1}>{voterModal.title}</Text>
+                  <Text className="text-xs mt-0.5" style={{ color: Colors.textMuted }}>
+                    {message.poll?.anonymous ? `${voterModal.voterIds.length} vote${voterModal.voterIds.length !== 1 ? 's' : ''} (anonymous)` : `${voterModal.voterIds.length} vote${voterModal.voterIds.length !== 1 ? 's' : ''}`}
+                  </Text>
+                </View>
+                {message.poll?.anonymous ? (
+                  <View className="px-4 py-6 items-center">
+                    <Ionicons name="eye-off-outline" size={28} color={Colors.textMuted} />
+                    <Text className="text-xs mt-2 text-center" style={{ color: Colors.textMuted }}>This poll is anonymous.{'\n'}Voter identities are hidden.</Text>
+                  </View>
+                ) : (
+                  <FlatList
+                    data={voterModal.voterIds}
+                    keyExtractor={(id) => id}
+                    renderItem={({ item: userId }) => {
+                      const user = participantMap?.[userId];
+                      const name = user?.displayName ?? 'Unknown';
+                      return (
+                        <View className="flex-row items-center px-4 py-2">
+                          {user?.avatarUrl ? (
+                            <Image source={{ uri: user.avatarUrl }} style={{ width: 24, height: 24, borderRadius: 12 }} />
+                          ) : (
+                            <View className="items-center justify-center rounded-full" style={{ width: 24, height: 24, backgroundColor: Colors.cta }}>
+                              <Text className="text-[10px] font-bold" style={{ color: '#fff' }}>{name.charAt(0).toUpperCase()}</Text>
+                            </View>
+                          )}
+                          <Text className="ml-2 text-sm" style={{ color: Colors.text }}>{name}</Text>
+                        </View>
+                      );
+                    }}
+                  />
+                )}
+                <TouchableOpacity onPress={() => setVoterModal(null)} className="items-center py-3" style={{ borderTopWidth: 1, borderTopColor: 'rgba(0,0,0,0.1)' }}>
+                  <Text className="text-sm font-medium" style={{ color: Colors.cta }}>Close</Text>
+                </TouchableOpacity>
+              </Pressable>
+            </Pressable>
+          </Modal>
+        )}
+      </View>
+    );
   }
 
   // GIF & Sticker messages — no bubble background
@@ -708,12 +848,20 @@ export function MessageBubble({
                   ? 'Message recalled'
                   : replyToMessage.type === 'IMAGE'
                   ? '🖼 Image'
+                  : replyToMessage.type === 'VIDEO'
+                  ? '🎥 Video'
+                  : replyToMessage.type === 'AUDIO'
+                  ? '🎵 Audio'
                   : replyToMessage.type === 'FILE'
                   ? '📎 Attachment'
                   : replyToMessage.type === 'GIF'
                   ? '🎬 GIF'
                   : replyToMessage.type === 'STICKER'
                   ? '🎨 Sticker'
+                  : replyToMessage.type === 'POLL'
+                  ? '📊 Poll'
+                  : replyToMessage.type === 'VCARD'
+                  ? '👤 Contact'
                   : replyToMessage.content}
               </Text>
             </View>

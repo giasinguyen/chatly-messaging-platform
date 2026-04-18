@@ -21,7 +21,7 @@ public class Poll {
     private List<String> options = new ArrayList<>();
 
     @Builder.Default
-    private boolean multipleChoice = false;
+    private Boolean multipleChoice = false;
 
     /**
      * Map of optionIndex -> list of userIds who voted for that option
@@ -38,5 +38,5 @@ public class Poll {
 
     /** When true, voter identities are hidden from other participants */
     @Builder.Default
-    private boolean anonymous = false;
+    private Boolean anonymous = false;
 }

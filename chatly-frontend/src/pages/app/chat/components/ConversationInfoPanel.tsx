@@ -406,7 +406,7 @@ export function ConversationInfoPanel({
                             </div>
                         ) : (
                             <div className="flex items-center gap-1.5 min-w-0">
-                                <span className="text-[15px] font-semibold text-foreground text-center leading-tight">
+                                <span className="text-[15px] font-semibold text-foreground text-center leading-tight truncate max-w-full">
                                     {storedNickname || participant.displayName}
                                 </span>
                                 {!isGroup ? (
@@ -603,11 +603,11 @@ export function ConversationInfoPanel({
                                             </div>
                                         ) : inviteLink ? (
                                             <>
-                                                <div className="flex items-center gap-1.5">
+                                                <div className="flex items-center gap-1.5 min-w-0">
                                                     <Input
                                                         value={inviteLink}
                                                         readOnly
-                                                        className="h-8 text-xs bg-muted/40 flex-1"
+                                                        className="h-8 text-xs bg-muted/40 flex-1 min-w-0"
                                                     />
                                                     <Button
                                                         size="icon"
@@ -818,7 +818,7 @@ export function ConversationInfoPanel({
                                             </div>
                                             <div className="flex-1 min-w-0 overflow-hidden">
                                                 <p className="text-xs text-brand truncate">{link.domain}</p>
-                                                <p className="text-[11px] text-muted-foreground break-all leading-tight">{link.url}</p>
+                                                <p className="text-[11px] text-muted-foreground truncate leading-tight" title={link.url}>{link.url}</p>
                                             </div>
                                         </a>
                                     ))}

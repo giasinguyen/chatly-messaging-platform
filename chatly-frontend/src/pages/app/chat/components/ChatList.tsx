@@ -451,7 +451,7 @@ export const ChatList = forwardRef(function ChatListComponent(_, ref) {
                             to={`/chat/${conv.id}`}
                             className={({ isActive }) =>
                                 cn(
-                                    "flex items-center gap-3 px-4 py-3 cursor-pointer select-none transition-colors w-full rounded-lg mx-2",
+                                    "flex items-center gap-3 px-4 py-3 cursor-pointer select-none transition-colors rounded-lg mx-2",
                                     isActive
                                         ? "bg-brand/20 border border-brand/30"
                                         : "hover:bg-muted/40",
@@ -535,8 +535,8 @@ export const ChatList = forwardRef(function ChatListComponent(_, ref) {
                                         </span>
                                     )}
                                 </div>
-                                <div className="flex items-center justify-between">
-                                    <span className="text-[13px] text-muted-foreground/90 truncate block">
+                                <div className="flex items-center justify-between min-w-0">
+                                    <span className="text-[13px] text-muted-foreground/90 truncate block min-w-0 flex-1">
                                         {conv.lastMessage ? (
                                             <>
                                                 {conv.lastMessage.senderId ===
