@@ -451,7 +451,7 @@ export const ChatList = forwardRef(function ChatListComponent(_, ref) {
                             to={`/chat/${conv.id}`}
                             className={({ isActive }) =>
                                 cn(
-                                    "flex items-center gap-3 px-4 py-3 cursor-pointer select-none transition-colors w-full rounded-lg mx-2",
+                                    "flex items-center gap-3 px-4 py-3 cursor-pointer select-none transition-colors rounded-lg mx-2",
                                     isActive
                                         ? "bg-brand/20 border border-brand/30"
                                         : "hover:bg-muted/40",
