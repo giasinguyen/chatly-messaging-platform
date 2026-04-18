@@ -9,7 +9,7 @@ import { useChatbotStore } from "@/store/chatbot.store";
 import { useAgentStream } from "@/hooks/useAgentStream";
 import { agentService } from "@/services/agent.service";
 import { toast } from "sonner";
-import type { AgentMessage } from "@/types/agent";
+import type { AgentMessage, MessageAttachment } from "@/types/agent";
 
 interface Props {
     sessionId: string;
@@ -76,15 +76,16 @@ export function ChatbotWindow({ sessionId, sidebarCollapsed, onToggleSidebar }: 
     }, [sessionId]);
 
     const handleSend = useCallback(
-        async (content: string) => {
+        async (content: string, attachments: MessageAttachment[] = []) => {
             setLastUserPrompt(content);
 
-            // Append user message optimistically
+            // Append user message optimistically with real attachment data
             const userMsg = {
                 id: `user-${Date.now()}`,
                 session_id: sessionId,
                 role: "user" as const,
                 content,
+                attachments,
                 created_at: new Date().toISOString(),
             };
             appendMessage(sessionId, userMsg);
@@ -94,6 +95,7 @@ export function ChatbotWindow({ sessionId, sidebarCollapsed, onToggleSidebar }: 
                 message: content,
                 use_web_search: useWebSearch,
                 mcp_server_ids: selectedMcpIds,
+                file_ids: attachments.map((a) => a.file_id),
             });
         },
         [sessionId, useWebSearch, selectedMcpIds, appendMessage, startStream, setLastUserPrompt],

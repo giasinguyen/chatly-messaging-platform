@@ -1,7 +1,7 @@
 """Structured JSON logging configuration."""
 import logging
 import traceback
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 
 class JSONFormatter(logging.Formatter):
@@ -11,7 +11,7 @@ class JSONFormatter(logging.Formatter):
         import json
 
         log: dict = {
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "level": record.levelname,
             "logger": record.name,
             "message": record.getMessage(),

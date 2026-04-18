@@ -8,6 +8,12 @@ class ChatRequest(BaseModel):
     message: str = Field(..., min_length=1, max_length=8192)
     use_web_search: bool = False
     mcp_server_ids: list[str] = Field(default_factory=list)
+    file_ids: list[str] = Field(
+        default_factory=list,
+        description=(
+            "IDs of files uploaded in this session to attach to the user message."
+        ),
+    )
 
 
 class ChatResponse(BaseModel):

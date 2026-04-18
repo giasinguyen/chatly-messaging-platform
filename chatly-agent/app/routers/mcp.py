@@ -13,9 +13,19 @@ import logging
 
 from fastapi import APIRouter, Depends, Response, status
 
-from app.dependencies import get_mcp_service, get_request_context, get_system_mcp_service
+from app.dependencies import (
+    get_mcp_service,
+    get_request_context,
+    get_system_mcp_service,
+)
 from app.models.context import RequestContext
-from app.models.mcp import MCPServerCreate, MCPServerResponse, MCPServerUpdate, MCPToolInfo, SystemMCPServerInfo
+from app.models.mcp import (
+    MCPServerCreate,
+    MCPServerResponse,
+    MCPServerUpdate,
+    MCPToolInfo,
+    SystemMCPServerInfo,
+)
 from app.services.mcp_service import MCPService
 from app.services.system_mcp import SystemMCPService
 

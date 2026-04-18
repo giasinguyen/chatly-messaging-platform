@@ -41,6 +41,7 @@ class QdrantRepository:
         user_id: str,
         chunks: Sequence[str],
         embeddings: Sequence[Sequence[float]],
+        filename: str = "",
     ) -> None:
         """Persist chunk vectors and payloads to Qdrant."""
         await self._ensure_collection()
@@ -57,6 +58,7 @@ class QdrantRepository:
                         "user_id": user_id,
                         "content": content,
                         "chunk_index": index,
+                        "filename": filename,
                     },
                 )
             )

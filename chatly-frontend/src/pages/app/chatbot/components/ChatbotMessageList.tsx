@@ -1,5 +1,5 @@
 import { useEffect, useRef, useCallback, useState } from "react";
-import { Copy, RotateCcw, ArrowDown } from "lucide-react";
+import { Copy, RotateCcw, ArrowDown, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -114,6 +114,26 @@ export function ChatbotMessageList({ messages, onEdit, onRetry, onRetryLast }: P
                                 <p className="text-sm whitespace-pre-wrap leading-relaxed">
                                     {msg.content}
                                 </p>
+                            )}
+
+                            {/* File attachment chips */}
+                            {msg.attachments && msg.attachments.length > 0 && (
+                                <div className="flex flex-wrap gap-1.5 mt-2">
+                                    {msg.attachments.map((att) => (
+                                        <div
+                                            key={att.file_id}
+                                            className={cn(
+                                                "flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs max-w-44",
+                                                msg.role === "user"
+                                                    ? "border-white/20 bg-white/10 text-white"
+                                                    : "border-border bg-muted/60 text-foreground",
+                                            )}
+                                        >
+                                            <FileText className="h-3.5 w-3.5 shrink-0" />
+                                            <span className="truncate font-medium">{att.filename}</span>
+                                        </div>
+                                    ))}
+                                </div>
                             )}
 
                             {/* Copy button for AI messages */}

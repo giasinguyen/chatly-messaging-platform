@@ -129,6 +129,7 @@ class FileService:
                 user_id=user_id,
                 chunks=chunks,
                 embeddings=embeddings,
+                filename=filename,
             )
         except Exception as exc:  # pragma: no cover - external provider behavior
             await self._chunk_repo.delete_by_file(str(metadata["id"]))

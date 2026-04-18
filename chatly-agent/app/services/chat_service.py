@@ -10,6 +10,7 @@ from langchain_groq import ChatGroq
 from app.agents.chatbot_agent import ChatbotAgent
 from app.agents.unified_agent import UnifiedAgent
 from app.models.chat import ChatInput, ChatRequest, ChatResponse
+from app.repositories.file_repo import FileRepository
 from app.repositories.message_repo import MessageRepository
 from app.services.session_service import SessionService
 from app.services.tool_service import ToolService
@@ -30,6 +31,7 @@ class ChatService:
         vector_service: VectorService,
         tool_service: ToolService | None = None,
         llm: ChatGroq | None = None,
+        file_repo: FileRepository | None = None,
     ) -> None:
         self._session_service = session_service
         self._message_repo = message_repo
@@ -37,6 +39,26 @@ class ChatService:
         self._vector_service = vector_service
         self._tool_service = tool_service
         self._llm = llm
+        self._file_repo = file_repo
+
+    async def _resolve_attachments(
+        self,
+        session_id: str,
+        file_ids: list[str],
+    ) -> list[dict[str, Any]]:
+        """Return attachment metadata dicts for the given file IDs within the session."""
+        if not file_ids or self._file_repo is None:
+            return []
+        rows = await self._file_repo.find_many_by_session_and_ids(session_id, file_ids)
+        return [
+            {
+                "file_id": str(row.get("id", "")),
+                "filename": str(row.get("filename", "")),
+                "content_type": str(row.get("mime_type", "")),
+                "size": int(row.get("size_bytes", 0)),
+            }
+            for row in rows
+        ]
 
     async def _select_agent(
         self,
@@ -107,13 +129,20 @@ class ChatService:
             user_id, session_id, request.mcp_server_ids, request.use_web_search
         )
 
+        attachments = await self._resolve_attachments(session_id, request.file_ids)
         await self._message_repo.create_message(
             session_id,
             "user",
             request.message,
+            attachments=attachments,
         )
         output = await agent.ainvoke(
-            ChatInput(message=request.message, session_id=session_id, user_id=user_id, history=history)
+            ChatInput(
+                message=request.message,
+                session_id=session_id,
+                user_id=user_id,
+                history=history,
+            )
         )
         assistant = await self._message_repo.create_message(
             session_id,
@@ -144,15 +173,22 @@ class ChatService:
         )
         agent_type = agent.agent_type
 
+        attachments = await self._resolve_attachments(session_id, request.file_ids)
         await self._message_repo.create_message(
             session_id,
             "user",
             request.message,
+            attachments=attachments,
         )
 
         chunks: list[str] = []
         async for token in agent.astream(
-            ChatInput(message=request.message, session_id=session_id, user_id=user_id, history=history)
+            ChatInput(
+                message=request.message,
+                session_id=session_id,
+                user_id=user_id,
+                history=history,
+            )
         ):
             chunks.append(token)
             yield f"data: {json.dumps({'token': token})}\n\n"

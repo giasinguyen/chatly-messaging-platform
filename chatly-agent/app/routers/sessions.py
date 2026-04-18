@@ -3,7 +3,12 @@ from fastapi import APIRouter, Depends, Response, status
 from app.dependencies import get_request_context, get_session_service
 from app.models.context import RequestContext
 from app.models.message import MessageHistory, MessageResponse
-from app.models.session import SessionCreate, SessionList, SessionResponse, SessionUpdate
+from app.models.session import (
+    SessionCreate,
+    SessionList,
+    SessionResponse,
+    SessionUpdate,
+)
 from app.services.session_service import SessionService
 
 router = APIRouter(prefix="/sessions", tags=["sessions"])

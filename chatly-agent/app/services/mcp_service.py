@@ -1,6 +1,6 @@
 """MCP client (SSE transport) and MCP server management service."""
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from app.exceptions import MCPConnectionError, MCPServerNotFoundError
@@ -101,8 +101,8 @@ class MCPService:
             "url": url,
             "headers": headers,
             "is_active": True,
-            "created_at": datetime.now(timezone.utc),
-            "updated_at": datetime.now(timezone.utc),
+            "created_at": datetime.now(UTC),
+            "updated_at": datetime.now(UTC),
         }
         return await self._repo.create(doc)
 

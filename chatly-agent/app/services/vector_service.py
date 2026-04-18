@@ -47,6 +47,7 @@ class VectorService:
         user_id: str,
         chunks: list[str],
         embeddings: list[list[float]],
+        filename: str = "",
     ) -> None:
         """Store chunk vectors in Qdrant for later retrieval."""
         if len(chunks) != len(embeddings):
@@ -57,6 +58,7 @@ class VectorService:
             user_id=user_id,
             chunks=chunks,
             embeddings=embeddings,
+            filename=filename,
         )
 
     async def delete_file_vectors(self, file_id: str) -> None:

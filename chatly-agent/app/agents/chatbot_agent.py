@@ -1,11 +1,12 @@
 from collections.abc import AsyncIterator
 from typing import Any
 
-from langchain_core.messages import AIMessageChunk, HumanMessage
+from langchain_core.messages import AIMessageChunk, HumanMessage, SystemMessage
 from langchain_groq import ChatGroq
 
 from app.graphs.chatbot_graph import build_chatbot_graph
 from app.models.chat import ChatInput, ChatOutput
+from app.prompts.system_prompt import CHATLY_SYSTEM_PROMPT
 
 
 class ChatbotAgent:
@@ -20,11 +21,18 @@ class ChatbotAgent:
         """Build per-session LangGraph runtime config."""
         return {"configurable": {"thread_id": session_id}}
 
+    def _build_messages(self, input: ChatInput) -> list[Any]:
+        """Prepend system prompt then history, then current user turn."""
+        return [
+            SystemMessage(content=CHATLY_SYSTEM_PROMPT),
+            *input.history,
+            HumanMessage(content=input.message),
+        ]
+
     async def ainvoke(self, input: ChatInput) -> ChatOutput:
         """Run full chatbot turn and return the final assistant message."""
-        messages: list[Any] = [*input.history, HumanMessage(content=input.message)]
         result = await self._graph.ainvoke(
-            {"messages": messages},
+            {"messages": self._build_messages(input)},
             config=self._build_run_config(input.session_id),
         )
         content = str(result["messages"][-1].content)
@@ -36,7 +44,7 @@ class ChatbotAgent:
 
     async def astream(self, input: ChatInput) -> AsyncIterator[str]:
         """Stream assistant response as token chunks."""
-        messages: list[Any] = [*input.history, HumanMessage(content=input.message)]
+        messages = self._build_messages(input)
         async for chunk in self._llm.astream(messages):
             if isinstance(chunk, AIMessageChunk) and chunk.content:
                 yield str(chunk.content)

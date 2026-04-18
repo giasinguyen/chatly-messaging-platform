@@ -37,3 +37,16 @@ class FileRepository(BaseRepository[dict[str, Any]]):
         if doc is None:
             return None
         return cast(dict[str, Any], to_str_id(doc))
+
+    async def find_many_by_session_and_ids(
+        self,
+        session_id: str,
+        file_ids: list[str],
+    ) -> list[dict[str, Any]]:
+        """Return file rows that belong to the session and match the given IDs."""
+        object_ids = [to_object_id(fid) for fid in file_ids]
+        cursor = self._col.find(
+            {"session_id": session_id, "_id": {"$in": object_ids}}
+        )
+        rows = [to_str_id(doc) async for doc in cursor]
+        return cast(list[dict[str, Any]], rows)
