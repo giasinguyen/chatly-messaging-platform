@@ -22,6 +22,7 @@ import com.chatly.model.mongo.Reaction;
 import com.chatly.model.mongo.ReadReceipt;
 import com.chatly.repository.mongo.ConversationRepository;
 import com.chatly.repository.mongo.MessageRepository;
+import com.chatly.repository.postgres.UserRepository;
 import com.chatly.websocket.ChatEvent;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -53,6 +54,7 @@ public class MessageService {
     private final SimpMessagingTemplate messagingTemplate;
     private final NotificationService notificationService;
     private final ContactService contactService;
+    private final UserRepository userRepository;
 
     private static final long RECALL_LIMIT_HOURS = 24;
     private static final long EDIT_LIMIT_MINUTES = 15;
@@ -361,7 +363,7 @@ public class MessageService {
 
         String key = String.valueOf(optionIndex);
 
-        if (!poll.isMultipleChoice()) {
+        if (!Boolean.TRUE.equals(poll.getMultipleChoice())) {
             // Remove previous votes by this user
             poll.getVotes().values().forEach(voters -> voters.remove(userId));
         }
@@ -381,6 +383,17 @@ public class MessageService {
 
         MessageResponse response = messageMapper.toResponse(message);
         broadcastEvent(message.getConversationId(), ChatEvent.ChatAction.EDIT, response);
+
+        // Broadcast system message for poll vote
+        if (Boolean.TRUE.equals(poll.getAnonymous())) {
+            sendSystemMessage(message.getConversationId(), "An anonymous user has voted");
+        } else {
+            String voterName = userRepository.findById(UUID.fromString(userId))
+                    .map(u -> u.getDisplayName())
+                    .orElse("Someone");
+            sendSystemMessage(message.getConversationId(), voterName + " has voted in the poll");
+        }
+
         return response;
     }
 
