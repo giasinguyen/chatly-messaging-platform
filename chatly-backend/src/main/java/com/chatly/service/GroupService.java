@@ -381,7 +381,12 @@ public class GroupService {
                 .orElseThrow(() -> new AppException(ErrorCode.GROUP_PENDING_REQUEST_NOT_FOUND));
 
         pendingJoinRequestRepository.deleteByConversationIdAndUserId(conversationId, targetUserId);
-        return doAddMember(conversation, targetUserId, requesterId);
+        GroupMemberResponse result = doAddMember(conversation, targetUserId, requesterId);
+
+        // Broadcast MEMBER_JOINED to all existing group members
+        notifyMembersOfJoin(conversation, targetUserId);
+
+        return result;
     }
 
     @Transactional
@@ -408,6 +413,30 @@ public class GroupService {
                     NotificationType.GROUP_JOIN_REQUEST,
                     requester.getId().toString(),
                     admin.getUser().getId().toString(),
+                    content,
+                    conversation.getId()
+            );
+        }
+    }
+
+    /**
+     * Notify all existing group members that a new member has joined.
+     */
+    private void notifyMembersOfJoin(Conversation conversation, String newMemberId) {
+        User newUser = userRepository.findById(UUID.fromString(newMemberId)).orElse(null);
+        if (newUser == null) return;
+
+        String groupName = conversation.getName() != null ? conversation.getName() : "group";
+        String content = newUser.getDisplayName() + " joined " + groupName;
+
+        List<GroupMember> members = groupMemberRepository.findByConversationId(conversation.getId());
+        for (GroupMember member : members) {
+            String memberId = member.getUser().getId().toString();
+            if (memberId.equals(newMemberId)) continue;
+            notificationService.createAndPush(
+                    NotificationType.MEMBER_JOINED,
+                    newMemberId,
+                    memberId,
                     content,
                     conversation.getId()
             );
