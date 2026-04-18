@@ -80,10 +80,10 @@ export function ActiveCallOverlay({
         incomingCall,
     } = useCallStore();
 
-    // Tên và avatar của người bên kia:
-    // - Caller (gọi đi): dùng outgoingCallTarget
-    // - Callee (nhận): dùng incomingCall (callerName/callerAvatar)
-    const peerName = outgoingCallTarget?.name ?? incomingCall?.callerName ?? "Người dùng";
+    // Peer name and avatar:
+    // - Caller (outgoing): use outgoingCallTarget
+    // - Callee (incoming): use incomingCall (callerName/callerAvatar)
+    const peerName = outgoingCallTarget?.name ?? incomingCall?.callerName ?? "User";
     const peerAvatar = outgoingCallTarget?.avatarUrl ?? incomingCall?.callerAvatar ?? null;
     const peerInitial = peerName.charAt(0).toUpperCase();
 
@@ -137,7 +137,7 @@ export function ActiveCallOverlay({
         });
     };
 
-    // Timer đếm thời gian cuộc gọi
+    // Call duration timer
     useEffect(() => {
         if (callStatus === "ONGOING") {
             timerRef.current = setInterval(() => {
@@ -167,7 +167,7 @@ export function ActiveCallOverlay({
         <audio ref={remoteAudioRef} autoPlay playsInline style={{ display: "none" }} />
     );
 
-    // Chế độ mở rộng (full screen)
+    // Expanded mode (full screen)
     if (isExpanded) {
         return (
             <div className="fixed inset-0 z-40 flex flex-col bg-gray-900 text-white">
@@ -208,14 +208,14 @@ export function ActiveCallOverlay({
                         </div>
                     )}
 
-                    {/* Thời gian */}
+                    {/* Duration */}
                     <div className="absolute left-0 right-0 top-6 text-center">
                         <span className="rounded-full bg-black/40 px-4 py-1.5 text-sm font-medium">
                             {formatDuration(callDuration)}
                         </span>
                     </div>
 
-                    {/* Nút thu nhỏ */}
+                    {/* Minimize button */}
                     <button
                         onClick={() => setIsExpanded(false)}
                         className="absolute left-4 top-6 rounded-lg bg-black/40 p-2 transition-colors hover:bg-black/60"
@@ -274,11 +274,11 @@ export function ActiveCallOverlay({
         );
     }
 
-    // Chế độ thu nhỏ (floating)
+    // Floating mode (collapsed)
     return (
         <div className="fixed bottom-6 right-6 z-40 w-72 overflow-hidden rounded-2xl bg-gray-900 text-white shadow-2xl">
             {remoteAudioEl}
-            {/* Video hoặc avatar */}
+            {/* Video or avatar */}
             <div className="relative">
                 {isVideoCall && remoteStream ? (
                     <video
@@ -314,13 +314,13 @@ export function ActiveCallOverlay({
                 )}
             </div>
 
-            {/* Thông tin cuộc gọi */}
+            {/* Call info */}
             <div className="px-3 pt-2">
                 <p className="text-sm font-semibold truncate">{peerName}</p>
                 <p className="text-xs text-gray-400">{formatDuration(callDuration)}</p>
             </div>
 
-            {/* Thanh điều khiển */}
+            {/* Controls bar */}
             <div className="flex items-center justify-around p-3">
                 <button
                     onClick={handleToggleMute}

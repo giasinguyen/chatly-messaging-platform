@@ -17,13 +17,19 @@ export function OutgoingCallScreen() {
   const callStatus = useCallStore((s) => s.callStatus);
   const remoteParticipant = useCallStore((s) => s.remoteParticipant);
   const incomingCall = useCallStore((s) => s.incomingCall);
+  const incomingGroupCall = useCallStore((s) => s.incomingGroupCall);
+  const isGroupCall = useCallStore((s) => s.isGroupCall);
   const { endCall } = useCallContext();
 
   const pulseScale = useSharedValue(1);
   const pulseOpacity = useSharedValue(0.6);
 
-  // Chỉ hiện khi người dùng là người GỌI (không có cuộc gọi đến)
-  const visible = !incomingCall && (callStatus === 'RINGING' || callStatus === 'REJECTED');
+  // Only show for the outgoing caller side: no incoming call, no incoming group call, not a receiver
+  const visible =
+    !incomingCall &&
+    !incomingGroupCall &&
+    !isGroupCall &&
+    (callStatus === 'RINGING' || callStatus === 'REJECTED');
 
   useEffect(() => {
     if (callStatus === 'RINGING') {
@@ -67,10 +73,10 @@ export function OutgoingCallScreen() {
         className="flex-1 items-center justify-center"
         style={{ backgroundColor: 'rgba(0, 0, 0, 0.88)' }}
       >
-        {/* Thông tin người nhận */}
+        {/* Recipient info */}
         <View className="items-center mb-12">
           <Text className="mb-6 text-sm" style={{ color: Colors.textMuted }}>
-            Đang gọi...
+            Calling...
           </Text>
 
           {/* Avatar + pulse */}
@@ -99,7 +105,7 @@ export function OutgoingCallScreen() {
           </Text>
         </View>
 
-        {/* Nút hủy — chỉ khi đang ringing */}
+        {/* Cancel button — only when ringing */}
         {callStatus === 'RINGING' && (
           <View className="items-center" style={{ gap: 8 }}>
             <TouchableOpacity
@@ -115,7 +121,7 @@ export function OutgoingCallScreen() {
               <Ionicons name="call" size={28} color={Colors.white} style={{ transform: [{ rotate: '135deg' }] }} />
             </TouchableOpacity>
             <Text className="text-xs" style={{ color: Colors.textMuted }}>
-              Hủy cuộc gọi
+              Cancel call
             </Text>
           </View>
         )}

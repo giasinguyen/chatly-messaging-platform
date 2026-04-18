@@ -8,7 +8,7 @@ interface OutgoingCallScreenProps {
 export function OutgoingCallScreen({ onCancel }: OutgoingCallScreenProps) {
     const { callStatus, outgoingCallTarget } = useCallStore();
 
-    // Chỉ hiển thị khi đang gọi đi (caller side) — không phải IDLE và không phải ONGOING
+    // Only show for outgoing call (caller side) — not IDLE and not ONGOING
     if (!outgoingCallTarget || callStatus === "IDLE" || callStatus === "ONGOING") return null;
 
     const { name, avatarUrl, type } = outgoingCallTarget;
@@ -44,14 +44,14 @@ export function OutgoingCallScreen({ onCancel }: OutgoingCallScreenProps) {
                     )}
                 </div>
 
-                {/* Tên + loại cuộc gọi + trạng thái */}
+                {/* Name + call type + status */}
                 <div>
                     <p className="text-sm text-gray-400">{callLabel}</p>
                     <h2 className="mt-1 text-2xl font-semibold text-white">{name}</h2>
                     <p className="mt-2 text-sm text-gray-300">{statusText}</p>
                 </div>
 
-                {/* Nút hủy — chỉ hiển thị khi đang đổ chuông */}
+                {/* Cancel button — only show when ringing */}
                 {!isRejected && callStatus !== "ENDED" && callStatus !== "MISSED" && (
                     <div className="mt-8">
                         <div className="flex flex-col items-center gap-2">
@@ -61,7 +61,7 @@ export function OutgoingCallScreen({ onCancel }: OutgoingCallScreenProps) {
                             >
                                 <PhoneOff size={24} className="text-white" />
                             </button>
-                            <span className="text-xs text-gray-400">Hủy cuộc gọi</span>
+                            <span className="text-xs text-gray-400">Cancel call</span>
                         </div>
                     </div>
                 )}
