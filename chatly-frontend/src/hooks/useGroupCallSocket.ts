@@ -199,6 +199,17 @@ export function useGroupCallSocket() {
 
                 case "GROUP_LEAVE": {
                     const leavingId = signal.senderId;
+
+                    // If we haven't joined yet (still on the incoming call screen), the call was
+                    // cancelled by the initiator before we answered — just dismiss the overlay.
+                    const currentIncoming = useCallStore.getState().incomingGroupCall;
+                    const currentStatus = useCallStore.getState().callStatus;
+                    if (currentIncoming && currentStatus === "RINGING") {
+                        stopRingtone();
+                        endCallStore();
+                        break;
+                    }
+
                     groupWebRTCRef.current.removePeer(leavingId);
                     removeGroupParticipant(leavingId);
 

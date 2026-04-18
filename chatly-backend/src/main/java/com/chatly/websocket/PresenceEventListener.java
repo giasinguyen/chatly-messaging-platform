@@ -3,6 +3,7 @@ package com.chatly.websocket;
 import com.chatly.model.enums.CallStatus;
 import com.chatly.model.mongo.CallSession;
 import com.chatly.repository.mongo.CallSessionRepository;
+import com.chatly.repository.mongo.ConversationRepository;
 import com.chatly.service.MessageService;
 import com.chatly.service.PresenceService;
 import lombok.RequiredArgsConstructor;
@@ -24,6 +25,7 @@ public class PresenceEventListener {
 
     private final PresenceService presenceService;
     private final CallSessionRepository callSessionRepository;
+    private final ConversationRepository conversationRepository;
     private final MessageService messageService;
     private final SimpMessagingTemplate messagingTemplate;
 
@@ -86,19 +88,37 @@ public class PresenceEventListener {
                 log.info("Group call {} ended (disconnect cleanup, {}). Duration: {}s",
                         session.getCallId(), finalStatus, durationSeconds);
 
-                // Notify any remaining participant so their overlay closes
-                final long dur = durationSeconds;
-                session.getParticipants().forEach(remainingId -> {
-                    com.chatly.dto.request.CallSignalMessage leaveSignal =
-                            com.chatly.dto.request.CallSignalMessage.builder()
-                                    .type(com.chatly.model.enums.SignalType.GROUP_LEAVE)
-                                    .callId(session.getCallId())
-                                    .senderId(userId)
-                                    .build();
-                    messagingTemplate.convertAndSendToUser(remainingId, "/queue/calls", leaveSignal);
-                });
-
+                // Notify ALL conversation members — invitees not yet joined are absent
+                // from session.getParticipants(), so use the conversation member list.
+                final String leavingUserId = userId;
                 if (session.getConversationId() != null) {
+                    conversationRepository.findById(session.getConversationId())
+                            .ifPresent(conv -> conv.getParticipantIds().stream()
+                                    .filter(id -> !id.equals(leavingUserId))
+                                    .forEach(id -> {
+                                        com.chatly.dto.request.CallSignalMessage leaveSignal =
+                                                com.chatly.dto.request.CallSignalMessage.builder()
+                                                        .type(com.chatly.model.enums.SignalType.GROUP_LEAVE)
+                                                        .callId(session.getCallId())
+                                                        .senderId(leavingUserId)
+                                                        .build();
+                                        messagingTemplate.convertAndSendToUser(id, "/queue/calls", leaveSignal);
+                                    }));
+                } else {
+                    final long dur = durationSeconds;
+                    session.getParticipants().forEach(remainingId -> {
+                        com.chatly.dto.request.CallSignalMessage leaveSignal =
+                                com.chatly.dto.request.CallSignalMessage.builder()
+                                        .type(com.chatly.model.enums.SignalType.GROUP_LEAVE)
+                                        .callId(session.getCallId())
+                                        .senderId(userId)
+                                        .build();
+                        messagingTemplate.convertAndSendToUser(remainingId, "/queue/calls", leaveSignal);
+                    });
+                }
+
+                // Group MISSED = nobody answered; RINGING message already saved on initiation.
+                if (finalStatus != CallStatus.MISSED && session.getConversationId() != null) {
                     messageService.saveCallMessage(
                             session.getConversationId(),
                             session.getInitiatorId(),

@@ -348,11 +348,23 @@ public class CallWebSocketController {
                     log.info("Group call {} ended ({}). Duration: {}s",
                             signal.getCallId(), finalStatus, durationSeconds);
 
-                    // Notify the remaining participant (if any) so their overlay closes
-                    session.getParticipants().forEach(id ->
-                            messagingTemplate.convertAndSendToUser(id, "/queue/calls", signal));
-
+                    // Notify ALL conversation members — invitees who haven't joined yet
+                    // are not in session.getParticipants(), so we must use the conversation.
                     if (session.getConversationId() != null) {
+                        conversationRepository.findById(session.getConversationId())
+                                .ifPresent(conv -> conv.getParticipantIds().stream()
+                                        .filter(id -> !id.equals(senderId))
+                                        .forEach(id -> messagingTemplate.convertAndSendToUser(
+                                                id, "/queue/calls", signal)));
+                    } else {
+                        session.getParticipants().forEach(id ->
+                                messagingTemplate.convertAndSendToUser(id, "/queue/calls", signal));
+                    }
+
+                    // Group MISSED = nobody answered before initiator hung up.
+                    // The RINGING "tap to join" message was already saved on initiation,
+                    // so skip saving a redundant MISSED message.
+                    if (finalStatus != CallStatus.MISSED && session.getConversationId() != null) {
                         messageService.saveCallMessage(
                                 session.getConversationId(),
                                 session.getInitiatorId(),
