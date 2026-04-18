@@ -25,6 +25,7 @@ import {
     Star,
     AlertTriangle,
     IdCard,
+    Clock,
 } from "lucide-react";
 import { toast } from "sonner";
 import type { Message, ChatUser } from "@/types/message";
@@ -592,6 +593,16 @@ export function MessageList({
                                                 )}
                                             </div>
                                         </div>
+                                        {poll.deadline && (
+                                            <div className="px-3 py-1.5 text-[10px] text-muted-foreground border-t border-border/30 flex items-center gap-1">
+                                                <Clock className="w-3 h-3" />
+                                                {new Date(poll.deadline).getTime() < Date.now() ? (
+                                                    <span className="text-red-500">Expired</span>
+                                                ) : (
+                                                    <span>Ends {new Date(poll.deadline).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
+                                                )}
+                                            </div>
+                                        )}
                                     </div>
                                 );
                             })()

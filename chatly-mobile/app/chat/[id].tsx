@@ -510,6 +510,19 @@ export default function ChatScreen() {
     [conversationId, user, updateMessage]
   );
 
+  const handleClosePoll = useCallback(
+    async (messageId: string) => {
+      if (!conversationId || !user) return;
+      try {
+        const res = await messageService.closePoll(messageId);
+        updateMessage(conversationId, messageId, res.result);
+      } catch {
+        Alert.alert('Error', 'Could not close poll.');
+      }
+    },
+    [conversationId, user, updateMessage]
+  );
+
   const handleTogglePin = useCallback(
     async (messageId: string) => {
       if (!conversationId || !user) return;
@@ -716,6 +729,7 @@ export default function ChatScreen() {
                     onLongPress={() => handleLongPress(msg)}
                     onReact={handleReact}
                     onVotePoll={handleVotePoll}
+                    onClosePoll={handleClosePoll}
                     participantMap={participantMap}
                     replyToMessage={msg.replyToId ? (messageById[msg.replyToId] ?? null) : null}
                     onCallAgain={handleCallAgain}
