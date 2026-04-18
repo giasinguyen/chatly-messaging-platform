@@ -25,6 +25,24 @@ export function useGroupCallSocket() {
         setOutgoingCallTarget,
     } = useCallStore();
 
+    // Ringtone shared between incoming and outgoing group calls
+    const ringtoneRef = useRef<HTMLAudioElement | null>(null);
+
+    const playRingtone = useCallback(() => {
+        if (ringtoneRef.current) return;
+        const audio = new Audio("/sounds/call-sound.mp3");
+        audio.loop = true;
+        audio.play().catch(() => {});
+        ringtoneRef.current = audio;
+    }, []);
+
+    const stopRingtone = useCallback(() => {
+        if (!ringtoneRef.current) return;
+        ringtoneRef.current.pause();
+        ringtoneRef.current.currentTime = 0;
+        ringtoneRef.current = null;
+    }, []);
+
     const groupWebRTC = useGroupWebRTC({
         onIceCandidate: (peerId, candidate) => {
             const activeCall = useCallStore.getState().activeCall;
@@ -78,6 +96,7 @@ export function useGroupCallSocket() {
                     };
                     setIncomingGroupCall(incoming);
                     setCallStatus("RINGING");
+                    playRingtone();
                     break;
                 }
 
@@ -94,6 +113,7 @@ export function useGroupCallSocket() {
                     // Transition initiator from RINGING → ONGOING when first person joins
                     const currentStatus = useCallStore.getState().callStatus;
                     if (currentStatus === "RINGING") {
+                        stopRingtone();
                         setCallStatus("ONGOING");
                         setOutgoingCallTarget(null);
                     }
@@ -183,6 +203,7 @@ export function useGroupCallSocket() {
                     // Auto-end call when no remote peers remain
                     const remainingPeers = Object.keys(useCallStore.getState().groupParticipantInfo);
                     if (remainingPeers.length === 0) {
+                        stopRingtone();
                         groupWebRTCRef.current.endAll();
                         endCallStore();
                     }
@@ -193,13 +214,13 @@ export function useGroupCallSocket() {
                     break;
             }
         },
-        [user, setCallStatus, setOutgoingCallTarget, setIncomingGroupCall, setGroupParticipantInfo, removeGroupParticipant, endCallStore],
+        [user, setCallStatus, setOutgoingCallTarget, setIncomingGroupCall, setGroupParticipantInfo, removeGroupParticipant, endCallStore, playRingtone, stopRingtone],
     );
 
     handleSignalRef.current = handleSignal;
 
     const initiateGroupCall = useCallback(
-        async (conversationId: string, type: CallType, groupName: string, participantCount: number) => {
+        async (conversationId: string, type: CallType, groupName: string, participantCount: number, inviteeIds?: string[]) => {
             if (!user) return;
 
             const client = socketService.getClient();
@@ -207,6 +228,7 @@ export function useGroupCallSocket() {
 
             try {
                 setOutgoingCallTarget({ name: groupName, type, avatarUrl: undefined });
+                playRingtone();
                 await groupWebRTCRef.current.initLocalStream(type);
 
                 const callId = generateCallId();
@@ -234,15 +256,17 @@ export function useGroupCallSocket() {
                             initiatorAvatar: user.avatarUrl ?? null,
                             groupName,
                             participantCount,
+                            inviteeIds: inviteeIds ?? [],
                         },
                     }),
                 });
             } catch (error) {
                 console.error("Failed to initiate group call:", error);
+                stopRingtone();
                 endCallStore();
             }
         },
-        [user, setCallStatus, startGroupCall, endCallStore, setOutgoingCallTarget],
+        [user, setCallStatus, startGroupCall, endCallStore, setOutgoingCallTarget, playRingtone, stopRingtone],
     );
 
     const joinGroupCall = useCallback(
@@ -253,6 +277,7 @@ export function useGroupCallSocket() {
             if (!incoming) return;
 
             if (!accept) {
+                stopRingtone();
                 setCallStatus("IDLE");
                 setIncomingGroupCall(null);
                 return;
@@ -274,6 +299,7 @@ export function useGroupCallSocket() {
                     isGroup: true,
                     startedAt: new Date().toISOString(),
                 };
+                stopRingtone();
                 startGroupCall(session);
                 setCallStatus("ONGOING");
 
@@ -296,10 +322,11 @@ export function useGroupCallSocket() {
                 });
             } catch (error) {
                 console.error("Failed to join group call:", error);
+                stopRingtone();
                 endCallStore();
             }
         },
-        [user, setCallStatus, setIncomingGroupCall, startGroupCall, setGroupParticipantInfo, endCallStore],
+        [user, setCallStatus, setIncomingGroupCall, startGroupCall, setGroupParticipantInfo, endCallStore, stopRingtone],
     );
 
     const leaveGroupCall = useCallback(() => {
@@ -318,9 +345,10 @@ export function useGroupCallSocket() {
             });
         }
 
+        stopRingtone();
         groupWebRTCRef.current.endAll();
         endCallStore();
-    }, [user, endCallStore]);
+    }, [user, endCallStore, stopRingtone]);
 
     return {
         initiateGroupCall,

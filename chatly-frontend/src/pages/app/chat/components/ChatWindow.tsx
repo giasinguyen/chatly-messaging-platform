@@ -146,7 +146,6 @@ function formatDob(dob?: string) {
 export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) => {
     const navigate = useNavigate();
     const currentUser = useAuthStore((s) => s.user);
-    const lastEndedGroupCallId = useCallStore((s) => s.lastEndedGroupCallId);
     const { getPrefs } = useConversationPrefsStore();
     const [failedMessages, setFailedMessages] = useState<Array<{ id: string, content: string, attachments?: import("@/types/message").Attachment[], replyToId?: string | null }>>([]);
     const markConvMessagesRead = useNotificationStore(
@@ -1291,7 +1290,6 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
                 onTogglePin={handleTogglePin}
                 onCallAgain={handleCallAgain}
                 onJoinGroupCall={handleJoinGroupCall}
-                endedGroupCallId={lastEndedGroupCallId}
                 onTagPriority={handleTagPriority}
                 contacts={allContacts}
                 onAddFriend={async (userId: string) => {

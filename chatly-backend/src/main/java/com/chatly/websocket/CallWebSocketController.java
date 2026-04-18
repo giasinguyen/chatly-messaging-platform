@@ -228,8 +228,12 @@ public class CallWebSocketController {
         List<String> activeParticipants = new ArrayList<>();
         activeParticipants.add(senderId);
 
-        // invitees = all conversation members who need to be notified.
-        List<String> invitees = new ArrayList<>(conversation.getParticipantIds());
+        // invitees: use the caller-selected list if provided, otherwise fall back to all members.
+        @SuppressWarnings("unchecked")
+        List<String> selectedIds = payload != null ? (List<String>) payload.get("inviteeIds") : null;
+        List<String> invitees = (selectedIds != null && !selectedIds.isEmpty())
+                ? selectedIds
+                : new ArrayList<>(conversation.getParticipantIds());
 
         CallSession session = CallSession.builder()
                 .callId(signal.getCallId())
@@ -270,10 +274,17 @@ public class CallWebSocketController {
         String senderId = (String) headerAccessor.getSessionAttributes().get("userId");
         signal.setSenderId(senderId);
 
-        callSessionRepository.findByCallId(signal.getCallId()).ifPresent(session -> {
+        CallSignalMessage expiredSignal = CallSignalMessage.builder()
+                .type(SignalType.GROUP_LEAVE)
+                .callId(signal.getCallId())
+                .senderId("system")
+                .build();
+
+        callSessionRepository.findByCallId(signal.getCallId()).ifPresentOrElse(session -> {
             // Reject join if the call has already ended or was missed
             if (session.getStatus() == CallStatus.ENDED || session.getStatus() == CallStatus.MISSED) {
                 log.warn("Participant {} tried to join already-ended call {}", senderId, signal.getCallId());
+                messagingTemplate.convertAndSendToUser(senderId, "/queue/calls", expiredSignal);
                 return;
             }
             // Add joiner to active participants list.
@@ -291,6 +302,10 @@ public class CallWebSocketController {
             session.getParticipants().stream()
                     .filter(id -> !id.equals(senderId))
                     .forEach(id -> messagingTemplate.convertAndSendToUser(id, "/queue/calls", signal));
+        }, () -> {
+            // Session not found — call is dead (e.g. backend restarted)
+            log.warn("Participant {} tried to join non-existent call {}", senderId, signal.getCallId());
+            messagingTemplate.convertAndSendToUser(senderId, "/queue/calls", expiredSignal);
         });
     }
 
@@ -308,7 +323,8 @@ public class CallWebSocketController {
                 CallStatus previousStatus = session.getStatus();
                 session.getParticipants().remove(senderId);
 
-                boolean callEnded = session.getParticipants().isEmpty();
+                // Call ends when only 0 or 1 participant remains (1 person alone has no one to talk to)
+                boolean callEnded = session.getParticipants().size() <= 1;
                 if (callEnded) {
                     LocalDateTime now = LocalDateTime.now();
                     session.setEndedAt(now);
@@ -329,6 +345,10 @@ public class CallWebSocketController {
 
                     log.info("Group call {} ended ({}). Duration: {}s",
                             signal.getCallId(), finalStatus, durationSeconds);
+
+                    // Notify the remaining participant (if any) so their overlay closes
+                    session.getParticipants().forEach(id ->
+                            messagingTemplate.convertAndSendToUser(id, "/queue/calls", signal));
 
                     if (session.getConversationId() != null) {
                         messageService.saveCallMessage(

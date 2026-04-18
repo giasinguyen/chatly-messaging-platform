@@ -83,7 +83,6 @@ interface MessageListProps {
     onTogglePin?: (messageId: string) => void;
     onCallAgain?: (calleeId: string, calleeName: string, calleeAvatar?: string) => void;
     onJoinGroupCall?: (callId: string) => void;
-    endedGroupCallId?: string | null;
     onTagPriority?: (messageId: string, priority: string) => void;
     contacts?: ContactResponse[];
     onAddFriend?: (userId: string) => void;
@@ -119,7 +118,6 @@ export function MessageList({
     onTogglePin,
     onCallAgain,
     onJoinGroupCall,
-    endedGroupCallId,
     onTagPriority,
     contacts = [],
     onAddFriend,
@@ -375,17 +373,14 @@ export function MessageList({
 
             // Group call "Tap to join" message — centered in chat
             if (isRinging && callData.callId && conversationType === "GROUP") {
-                // Check if a later message with same callId exists with ENDED/MISSED status,
-                // OR if the current user just left this call (optimistic UI update)
-                const isCallEnded =
-                    endedGroupCallId === callData.callId ||
-                    messages.some((m) => {
-                        if (m.id === msg.id || m.type !== "CALL") return false;
-                        try {
-                            const d = JSON.parse(m.content);
-                            return d.callId === callData.callId && (d.status === "ENDED" || d.status === "MISSED");
-                        } catch { return false; }
-                    });
+                // Check if a later message with same callId exists with ENDED/MISSED status
+                const isCallEnded = messages.some((m) => {
+                    if (m.id === msg.id || m.type !== "CALL") return false;
+                    try {
+                        const d = JSON.parse(m.content);
+                        return d.callId === callData.callId && (d.status === "ENDED" || d.status === "MISSED");
+                    } catch { return false; }
+                });
 
                 return (
                     <div key={msg.id} className="flex justify-center my-3 px-4">

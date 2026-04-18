@@ -25,7 +25,6 @@ interface CallState {
     isGroupCall: boolean;
     incomingGroupCall: IncomingGroupCall | null;
     groupParticipantInfo: Record<string, GroupParticipantInfo>;
-    lastEndedGroupCallId: string | null;
 
     // 1-1 actions
     setIncomingCall: (call: IncomingCall | null) => void;
@@ -64,7 +63,6 @@ export const useCallStore = create<CallState>((set) => ({
     isGroupCall: false,
     incomingGroupCall: null,
     groupParticipantInfo: {},
-    lastEndedGroupCallId: null,
 
     setIncomingCall: (call) => set({ incomingCall: call }),
 
@@ -85,11 +83,10 @@ export const useCallStore = create<CallState>((set) => ({
         }),
 
     endCall: () =>
-        set((state) => ({
+        set({
             callStatus: "IDLE",
             incomingCall: null,
             incomingGroupCall: null,
-            lastEndedGroupCallId: state.isGroupCall ? (state.activeCall?.callId ?? null) : state.lastEndedGroupCallId,
             activeCall: null,
             outgoingCallTarget: null,
             pendingOffer: null,
@@ -99,7 +96,7 @@ export const useCallStore = create<CallState>((set) => ({
             isMuted: false,
             isCameraOff: false,
             callDuration: 0,
-        })),
+        }),
 
     toggleMute: () => set((state) => ({ isMuted: !state.isMuted })),
 

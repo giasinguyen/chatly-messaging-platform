@@ -1,13 +1,21 @@
 package com.chatly.websocket;
 
+import com.chatly.model.enums.CallStatus;
+import com.chatly.model.mongo.CallSession;
+import com.chatly.repository.mongo.CallSessionRepository;
+import com.chatly.service.MessageService;
 import com.chatly.service.PresenceService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.event.EventListener;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.messaging.SessionConnectEvent;
 import org.springframework.web.socket.messaging.SessionDisconnectEvent;
+
+import java.time.LocalDateTime;
+import java.util.List;
 
 @Component
 @RequiredArgsConstructor
@@ -15,6 +23,9 @@ import org.springframework.web.socket.messaging.SessionDisconnectEvent;
 public class PresenceEventListener {
 
     private final PresenceService presenceService;
+    private final CallSessionRepository callSessionRepository;
+    private final MessageService messageService;
+    private final SimpMessagingTemplate messagingTemplate;
 
     @EventListener
     public void handleSessionConnect(SessionConnectEvent event) {
@@ -35,6 +46,83 @@ public class PresenceEventListener {
         if (userId != null) {
             presenceService.setOffline(userId);
             log.info("WebSocket DISCONNECTED: userId={}, sessionId={}", userId, accessor.getSessionId());
+            cleanUpGroupCallsOnDisconnect(userId);
+        }
+    }
+
+    /**
+     * When a user disconnects abruptly (browser closed, network drop), automatically
+     * remove them from any active group call sessions they were part of.
+     * Ends the call if only 1 participant remains.
+     */
+    private void cleanUpGroupCallsOnDisconnect(String userId) {
+        List<CallSession> activeSessions = callSessionRepository
+                .findByParticipantsContainingAndStatusIn(
+                        userId, List.of(CallStatus.RINGING, CallStatus.ONGOING));
+
+        for (CallSession session : activeSessions) {
+            CallStatus previousStatus = session.getStatus();
+            session.getParticipants().remove(userId);
+
+            boolean callEnded = session.getParticipants().size() <= 1;
+            if (callEnded) {
+                LocalDateTime now = LocalDateTime.now();
+                session.setEndedAt(now);
+
+                long durationSeconds = 0L;
+                CallStatus finalStatus;
+                if (previousStatus == CallStatus.RINGING) {
+                    finalStatus = CallStatus.MISSED;
+                } else {
+                    finalStatus = CallStatus.ENDED;
+                    if (session.getStartedAt() != null) {
+                        durationSeconds = java.time.temporal.ChronoUnit.SECONDS
+                                .between(session.getStartedAt(), now);
+                    }
+                }
+                session.setStatus(finalStatus);
+                callSessionRepository.save(session);
+
+                log.info("Group call {} ended (disconnect cleanup, {}). Duration: {}s",
+                        session.getCallId(), finalStatus, durationSeconds);
+
+                // Notify any remaining participant so their overlay closes
+                final long dur = durationSeconds;
+                session.getParticipants().forEach(remainingId -> {
+                    com.chatly.dto.request.CallSignalMessage leaveSignal =
+                            com.chatly.dto.request.CallSignalMessage.builder()
+                                    .type(com.chatly.model.enums.SignalType.GROUP_LEAVE)
+                                    .callId(session.getCallId())
+                                    .senderId(userId)
+                                    .build();
+                    messagingTemplate.convertAndSendToUser(remainingId, "/queue/calls", leaveSignal);
+                });
+
+                if (session.getConversationId() != null) {
+                    messageService.saveCallMessage(
+                            session.getConversationId(),
+                            session.getInitiatorId(),
+                            session.getType(),
+                            finalStatus,
+                            durationSeconds,
+                            session.getCallId()
+                    );
+                }
+            } else {
+                callSessionRepository.save(session);
+                log.info("User {} disconnected from group call {}. Remaining: {}",
+                        userId, session.getCallId(), session.getParticipants().size());
+
+                // Notify remaining participants that this user left
+                com.chatly.dto.request.CallSignalMessage leaveSignal =
+                        com.chatly.dto.request.CallSignalMessage.builder()
+                                .type(com.chatly.model.enums.SignalType.GROUP_LEAVE)
+                                .callId(session.getCallId())
+                                .senderId(userId)
+                                .build();
+                session.getParticipants().forEach(remainingId ->
+                        messagingTemplate.convertAndSendToUser(remainingId, "/queue/calls", leaveSignal));
+            }
         }
     }
 
