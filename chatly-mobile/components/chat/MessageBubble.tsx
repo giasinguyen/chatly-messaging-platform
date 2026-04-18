@@ -138,9 +138,30 @@ export function MessageBubble({
   const renderFileContent = () => {
     const files = (attachments ?? []).filter((a) => !!a.url);
     if (files.length === 0) return null;
+
+    const isVideoFile = (url: string) => {
+      const ext = url.split('.').pop()?.toLowerCase();
+      return ['mp4', 'm4v', 'mov', 'mkv', 'webm'].includes(ext || '');
+    };
+
+    const isAudioFile = (url: string) => {
+      const ext = url.split('.').pop()?.toLowerCase();
+      return ['mp3', 'wav', 'm4a', 'ogg', 'aac'].includes(ext || '');
+    };
+
     return (
       <View className="gap-1.5">
         {files.map((file, idx) => {
+          if (!file.url) return null;
+
+          // Inline players for media files
+          if (isVideoFile(file.url)) {
+            return <VideoPlayer key={idx} url={file.url} name={file.name} />;
+          }
+          if (isAudioFile(file.url)) {
+            return <AudioPlayer key={idx} url={file.url} name={file.name} isMe={isMe} />;
+          }
+
           const fileName = file.name || file.url.split('/').pop() || 'Attachment';
           const sizeStr = file.size
             ? file.size > 1048576
