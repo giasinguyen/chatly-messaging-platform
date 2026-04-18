@@ -26,6 +26,7 @@ import {
     AlertTriangle,
     IdCard,
     Clock,
+    MapPin,
 } from "lucide-react";
 import { toast } from "sonner";
 import type { Message, ChatUser } from "@/types/message";
@@ -708,6 +709,34 @@ export function MessageList({
                                     </div>
                                 );
                             })()
+                        ) : msg.type === "LOCATION" && msg.location ? (
+                            /* Location bubble */
+                            <button
+                                type="button"
+                                onClick={() => window.open(`https://www.openstreetmap.org/?mlat=${msg.location!.latitude}&mlon=${msg.location!.longitude}#map=15/${msg.location!.latitude}/${msg.location!.longitude}`, "_blank")}
+                                className="w-60 rounded-2xl border border-border/60 bg-background dark:bg-zinc-900 shadow-sm overflow-hidden text-left hover:opacity-90 transition-opacity"
+                            >
+                                <div className="w-full h-[120px] bg-muted/30 relative pointer-events-none">
+                                    <iframe
+                                        title="Map shared"
+                                        width="100%"
+                                        height="100%"
+                                        frameBorder="0"
+                                        scrolling="no"
+                                        src={`https://www.openstreetmap.org/export/embed.html?bbox=${msg.location.longitude - 0.005}%2C${msg.location.latitude - 0.005}%2C${msg.location.longitude + 0.005}%2C${msg.location.latitude + 0.005}&layer=mapnik&marker=${msg.location.latitude}%2C${msg.location.longitude}`}
+                                        className="w-full h-full pointer-events-none border-0"
+                                    />
+                                </div>
+                                <div className="flex items-start gap-2 px-3 py-2.5 text-sm">
+                                    <MapPin size={16} className="text-red-500 shrink-0 mt-0.5" />
+                                    <div className="flex-1 min-w-0">
+                                        <p className="font-medium text-foreground leading-tight line-clamp-2 break-words">
+                                            {msg.location.address ?? `${msg.location.latitude.toFixed(5)}, ${msg.location.longitude.toFixed(5)}`}
+                                        </p>
+                                        <p className="text-[11px] text-muted-foreground mt-0.5">Open in Map</p>
+                                    </div>
+                                </div>
+                            </button>
                         ) : (
                             /* Normal bubble */
                             <div

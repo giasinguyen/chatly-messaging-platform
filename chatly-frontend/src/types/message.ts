@@ -36,6 +36,13 @@ export interface Poll {
     anonymous?: boolean;
 }
 
+export interface LocationPayload {
+    latitude: number;
+    longitude: number;
+    address?: string;
+    mapSnapshotUrl?: string;
+}
+
 /**
  * Message returned from API – matches 100% with MessageResponse.java.
  * API order: latest first (descending), needs reverse before rendering.
@@ -68,6 +75,9 @@ export interface Message {
 
     // Poll
     poll?: Poll | null;
+
+    // Location
+    location?: LocationPayload | null;
 
     // Pin
     pinned: boolean;

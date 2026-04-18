@@ -18,6 +18,7 @@ import {
     Star,
     AlertTriangle,
     Check,
+    MapPin,
 } from "lucide-react";
 import { toast } from "sonner";
 import Picker from "@emoji-mart/react";
@@ -38,7 +39,7 @@ import { getDisplayUrl, type KlipyItem } from "@/services/klipy.service";
 import { groupService } from "@/services/group.service";
 import { contactService } from "@/services/contact.service";
 import { useAuthStore } from "@/store/auth.store";
-import type { Message, Attachment, Poll, ChatUser } from "@/types/message";
+import type { Message, Attachment, Poll, ChatUser, LocationPayload } from "@/types/message";
 
 const LazyMediaPicker = lazy(() => import("@/components/media-picker/MediaPicker").then(m => ({ default: m.MediaPicker })));
 
@@ -48,7 +49,7 @@ interface ChatInputProps {
     replyingTo?: Message | null;
     senderName?: string;
     onCancelReply: () => void;
-    onSendMessage: (content: string, attachments?: Attachment[], poll?: Poll, mentions?: string[], priority?: string, messageType?: string) => void;
+    onSendMessage: (content: string, attachments?: Attachment[], poll?: Poll, mentions?: string[], priority?: string, messageType?: string, location?: LocationPayload) => void;
     onSendVCard?: (user: ChatUser) => void;
     onTyping?: (typing: boolean) => void;
     groupMembers?: ChatUser[];
@@ -113,6 +114,10 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
     const [vCardUser, setVCardUser] = useState<ChatUser | null>(null);
     const [vCardContacts, setVCardContacts] = useState<ChatUser[]>([]);
     const [vCardLoading, setVCardLoading] = useState(false);
+    // Location dialog state
+    const [showLocationDialog, setShowLocationDialog] = useState(false);
+    const [pendingLocation, setPendingLocation] = useState<LocationPayload | null>(null);
+    const [locationLoading, setLocationLoading] = useState(false);
     const typingTimerRef = useRef<any>(null);
     const inputRef = useRef<HTMLInputElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -455,6 +460,54 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
         } finally {
             setReminderSubmitting(false);
         }
+    };
+
+    const handleShareLocation = () => {
+        if (!navigator.geolocation) {
+            toast.error("Geolocation is not supported by your browser");
+            return;
+        }
+        setShowPriorityMenu(false);
+        setLocationLoading(true);
+        toast.promise(
+            new Promise<LocationPayload>((resolve, reject) => {
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        resolve({
+                            latitude: position.coords.latitude,
+                            longitude: position.coords.longitude,
+                            address: `${position.coords.latitude.toFixed(6)}, ${position.coords.longitude.toFixed(6)}`,
+                        });
+                    },
+                    (error) => {
+                        reject(error);
+                    },
+                    { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+                );
+            }),
+            {
+                loading: "Fetching location...",
+                success: (loc) => {
+                    setPendingLocation(loc);
+                    setShowLocationDialog(true);
+                    setLocationLoading(false);
+                    return "Location acquired";
+                },
+                error: (err: GeolocationPositionError) => {
+                    setLocationLoading(false);
+                    if (err.code === 1) { // PERMISSION_DENIED
+                        return "Location access denied. Please allow in browser URL bar.";
+                    }
+                    if (err.code === 2) { // POSITION_UNAVAILABLE
+                        return "Location unavailable. Ensure GPS/Network is active.";
+                    }
+                    if (err.code === 3) { // TIMEOUT
+                        return "Location request timed out.";
+                    }
+                    return `Failed: ${err.message}`;
+                }
+            }
+        );
     };
 
     return (
@@ -821,6 +874,22 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
                                     />
                                     Send business cards
                                 </button>
+                                <button
+                                    type="button"
+                                    disabled={locationLoading}
+                                    className="flex items-center gap-2.5 w-full px-3 py-2.5 text-sm text-left hover:bg-accent transition-colors disabled:opacity-50"
+                                    onClick={handleShareLocation}
+                                >
+                                    {locationLoading ? (
+                                        <Loader2 size={15} className="text-muted-foreground shrink-0 animate-spin" />
+                                    ) : (
+                                        <MapPin
+                                            size={15}
+                                            className="text-green-600 dark:text-green-500 shrink-0"
+                                        />
+                                    )}
+                                    Share location
+                                </button>
                             </div>
                         )}
                     </div>
@@ -1163,6 +1232,50 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
                             }}
                         >
                             Send card
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+            <Dialog open={showLocationDialog} onOpenChange={setShowLocationDialog}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>Share Location</DialogTitle>
+                    </DialogHeader>
+                    {pendingLocation && (
+                        <div className="flex flex-col gap-4 py-4">
+                            <div className="rounded-lg overflow-hidden border border-border bg-muted/30">
+                                <iframe
+                                    title="Map preview"
+                                    width="100%"
+                                    height="200"
+                                    frameBorder="0"
+                                    scrolling="no"
+                                    src={`https://www.openstreetmap.org/export/embed.html?bbox=${pendingLocation.longitude - 0.005}%2C${pendingLocation.latitude - 0.005}%2C${pendingLocation.longitude + 0.005}%2C${pendingLocation.latitude + 0.005}&layer=mapnik&marker=${pendingLocation.latitude}%2C${pendingLocation.longitude}`}
+                                    className="w-full h-[200px] pointer-events-none border-0"
+                                />
+                            </div>
+                            <div className="flex items-center gap-2 px-1 text-sm">
+                                <MapPin size={16} className="text-muted-foreground shrink-0" />
+                                <span className="font-medium">{pendingLocation.address}</span>
+                            </div>
+                        </div>
+                    )}
+                    <DialogFooter>
+                        <Button variant="ghost" onClick={() => setShowLocationDialog(false)}>
+                            Cancel
+                        </Button>
+                        <Button
+                            onClick={() => {
+                                if (pendingLocation) {
+                                    onSendMessage("Location shared", undefined, undefined, undefined, undefined, "LOCATION", pendingLocation);
+                                    setShowLocationDialog(false);
+                                    setPendingLocation(null);
+                                }
+                            }}
+                            className="gap-2"
+                        >
+                            <SendHorizontal size={16} />
+                            Send Location
                         </Button>
                     </DialogFooter>
                 </DialogContent>

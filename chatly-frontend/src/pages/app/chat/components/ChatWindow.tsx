@@ -557,9 +557,10 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
             mentions?: string[],
             priority?: string,
             messageType?: string,
+            location?: import("@/types/message").LocationPayload,
         ) => {
             if (!id || !currentUser) return;
-            const success = sendMessage(content, replyingTo?.id ?? null, attachments, poll, priority, mentions, messageType);
+            const success = sendMessage(content, replyingTo?.id ?? null, attachments, poll, priority, mentions, messageType, location);
             if (!success) {
                 toast.error("Connection lost! Could not send message.");
                 setFailedMessages((prev) => [
