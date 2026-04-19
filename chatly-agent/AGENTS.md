@@ -95,14 +95,13 @@ agent-server/
 │   │   ├── tool_service.py
 │   │   └── vector_service.py
 │   │
-│   ├── repositories/
-│   │   ├── base.py             # Generic BaseRepository[T]
-│   │   ├── user_repo.py
-│   │   ├── session_repo.py
-│   │   ├── message_repo.py
-│   │   ├── file_repo.py
-│   │   ├── chunk_repo.py
-│   │   └── mcp_repo.py
+├── repositories/
+│   ├── base.py             # Generic BaseRepository[T]
+│   ├── session_repo.py
+│   ├── message_repo.py
+│   ├── file_repo.py
+│   ├── chunk_repo.py
+│   └── mcp_repo.py
 │   │
 │   ├── db/
 │   │   ├── __init__.py
