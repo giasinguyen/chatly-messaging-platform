@@ -1,10 +1,9 @@
 import asyncio
-import json
 import logging
 from collections.abc import AsyncIterator
 from typing import Any
 
-from langchain_core.messages import AIMessage, BaseMessage, HumanMessage
+from langchain_core.messages import AIMessageChunk, AIMessage, BaseMessage, HumanMessage
 from langchain_core.tools import BaseTool
 from langchain_groq import ChatGroq
 from minio import Minio
@@ -12,6 +11,7 @@ from minio import Minio
 from app.agents.chatbot_agent import ChatbotAgent
 from app.agents.unified_agent import UnifiedAgent
 from app.models.chat import ChatInput, ChatRequest, ChatResponse
+from app.models.stream import done_event, error_event, token_event, tool_end_event, tool_start_event
 from app.repositories.file_repo import FileRepository
 from app.repositories.message_repo import MessageRepository
 from app.services.session_service import SessionService
@@ -37,6 +37,7 @@ class ChatService:
         file_repo: FileRepository | None = None,
         minio_client: Minio | None = None,
         bucket_name: str = "uploads",
+        checkpointer: Any | None = None,
     ) -> None:
         self._session_service = session_service
         self._message_repo = message_repo
@@ -47,6 +48,7 @@ class ChatService:
         self._file_repo = file_repo
         self._minio_client = minio_client
         self._bucket_name = bucket_name
+        self._checkpointer = checkpointer
 
     async def _resolve_attachments(
         self,
@@ -104,7 +106,7 @@ class ChatService:
                 user_id,
                 session_id,
             )
-            return UnifiedAgent(llm=self._llm, tools=all_tools)
+            return UnifiedAgent(llm=self._llm, tools=all_tools, checkpointer=self._checkpointer)
 
         logger.info(
             "Agent selected: ChatbotAgent (no tools, no context) user_id=%s session_id=%s",
@@ -247,6 +249,14 @@ class ChatService:
             ),
         )
         agent_type = agent.agent_type
+        chat_input = ChatInput(
+            message=request.message,
+            session_id=session_id,
+            user_id=user_id,
+            history=history,
+            session_context=session_context,
+        )
+        config = {"configurable": {"thread_id": session_id}}
 
         attachments = await self._resolve_attachments(session_id, request.file_ids)
         await self._message_repo.create_message(
@@ -256,37 +266,45 @@ class ChatService:
             attachments=attachments,
         )
 
-        chunks: list[str] = []
+        full_content = ""
         try:
-            async for token in agent.astream(
-                ChatInput(
-                    message=request.message,
-                    session_id=session_id,
-                    user_id=user_id,
-                    history=history,
-                    session_context=session_context,
-                )
-            ):
-                chunks.append(token)
-                yield f"data: {json.dumps({'token': token})}\n\n"
+            async for event in agent.astream_events(chat_input, config):
+                kind = event["event"]
+                if kind == "on_chat_model_stream":
+                    chunk = event["data"].get("chunk")
+                    if (
+                        isinstance(chunk, AIMessageChunk)
+                        and chunk.content
+                        and not chunk.tool_call_chunks
+                    ):
+                        token = str(chunk.content)
+                        full_content += token
+                        yield token_event(token)
+                elif kind == "on_tool_start":
+                    tool_name = event.get("name", "")
+                    raw_input = event["data"].get("input", {})
+                    tool_input = raw_input if isinstance(raw_input, dict) else {"input": str(raw_input)}
+                    yield tool_start_event(tool_name, tool_input)
+                elif kind == "on_tool_end":
+                    tool_name = event.get("name", "")
+                    raw_output = event["data"].get("output", "")
+                    tool_output = (
+                        str(raw_output.content)
+                        if hasattr(raw_output, "content")
+                        else str(raw_output)
+                    )
+                    yield tool_end_event(tool_name, tool_output)
         except Exception:
             logger.exception(
                 "Streaming error for user_id=%s session_id=%s", user_id, session_id
             )
-            yield f"data: {json.dumps({'error': 'An error occurred while generating the response'})}\n\n"
-            yield "data: [DONE]\n\n"
+            yield error_event("An error occurred while generating the response")
             return
 
-        full_response = "".join(chunks)
-        await self._message_repo.create_message(
+        assistant = await self._message_repo.create_message(
             session_id,
             "assistant",
-            full_response,
+            full_content,
             attachments=generated_attachments or None,
         )
-        done_event = {
-            "done": True,
-            "agent_type": agent_type,
-            "attachments": generated_attachments,
-        }
-        yield f"data: {json.dumps(done_event)}\n\n"
+        yield done_event(agent_type, str(assistant["id"]), generated_attachments or None)

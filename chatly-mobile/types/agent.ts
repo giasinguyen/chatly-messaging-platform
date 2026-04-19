@@ -51,17 +51,37 @@ export interface AgentChatResponse {
   agent_type: string;
 }
 
-/** SSE stream chunk shapes */
-export interface AgentStreamTokenChunk {
-  token: string;
+/** SSE stream event types */
+export type StreamEventType = 'token' | 'tool_start' | 'tool_end' | 'error' | 'done';
+
+export interface AgentStreamEvent {
+  type: StreamEventType;
+  data: Record<string, unknown>;
 }
 
-export interface AgentStreamDoneChunk {
-  done: true;
+export interface TokenEventData {
+  content: string;
+}
+
+export interface ToolStartEventData {
+  tool: string;
+  input: Record<string, unknown>;
+}
+
+export interface ToolEndEventData {
+  tool: string;
+  output: string;
+}
+
+export interface ErrorEventData {
+  message: string;
+}
+
+export interface DoneEventData {
   agent_type: string;
+  message_id: string;
+  attachments?: MessageAttachment[];
 }
-
-export type AgentStreamChunk = AgentStreamTokenChunk | AgentStreamDoneChunk;
 
 // ─── File ───────────────────────────────────────────────────
 export interface AgentFile {

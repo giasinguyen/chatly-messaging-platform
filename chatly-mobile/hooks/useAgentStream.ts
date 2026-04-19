@@ -2,7 +2,7 @@ import { useRef, useCallback } from 'react';
 import { Alert } from 'react-native';
 import { agentService } from '@/services/agent.service';
 import { useChatbotStore } from '@/store/chatbot.store';
-import type { AgentChatRequest, AgentStreamChunk } from '@/types/agent';
+import type { AgentChatRequest, AgentStreamEvent, DoneEventData, TokenEventData } from '@/types/agent';
 
 export function useAgentStream() {
   const abortRef = useRef<AbortController | null>(null);
@@ -58,20 +58,24 @@ export function useAgentStream() {
           if (!jsonStr) continue;
 
           try {
-            const chunk: AgentStreamChunk = JSON.parse(jsonStr);
-            if ('done' in chunk && chunk.done) {
+            const event: AgentStreamEvent = JSON.parse(jsonStr);
+            if (event.type === 'done') {
+              const doneData = event.data as unknown as DoneEventData;
               const finalContent = useChatbotStore.getState().streamingContent;
               useChatbotStore.getState().appendMessage(sessionId, {
-                id: `assistant-${Date.now()}`,
+                id: doneData.message_id,
                 session_id: sessionId,
                 role: 'assistant',
                 content: finalContent,
+                attachments: doneData.attachments ?? [],
                 created_at: new Date().toISOString(),
               });
               useChatbotStore.getState().setStreamingStatus('done');
-            } else if ('token' in chunk) {
-              useChatbotStore.getState().appendStreamToken(chunk.token);
+            } else if (event.type === 'token') {
+              const tokenData = event.data as unknown as TokenEventData;
+              useChatbotStore.getState().appendStreamToken(tokenData.content);
             }
+            // tool_start / tool_end / error events ignored for now
           } catch {
             /* skip malformed JSON */
           }

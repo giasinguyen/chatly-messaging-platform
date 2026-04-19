@@ -125,6 +125,11 @@ def get_chat_service(
     file_repo: FileRepository = Depends(get_file_repository),  # noqa: B008
 ) -> ChatService:
     """Build chat service dependency."""
+    from app.config import settings
+    checkpointer = None
+    if settings.app_env != "test":
+        from app.db.checkpointer import get_checkpointer
+        checkpointer = get_checkpointer()
     return ChatService(
         session_service=session_service,
         message_repo=message_repo,
@@ -135,6 +140,7 @@ def get_chat_service(
         file_repo=file_repo,
         minio_client=get_storage_client(),
         bucket_name=get_bucket_name(),
+        checkpointer=checkpointer,
     )
 
 
