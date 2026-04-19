@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import { groupService } from "@/services/group.service";
+import { conversationService } from "@/services/conversation.service";
 import { fileService } from "@/services/file.service";
 import { useAuthStore } from "@/store/auth.store";
 import { useNotificationStore } from "@/store/notification.store";
@@ -38,6 +40,7 @@ import {
     QrCode,
     UserCheck,
     UserX,
+    AlertTriangle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -107,10 +110,13 @@ export function GroupManagementPanel({
     onGroupUpdated,
     defaultTab = "members",
 }: GroupManagementPanelProps) {
+    const navigate = useNavigate();
     const { user: currentUser } = useAuthStore();
     const { notifications } = useNotificationStore();
 
     const [members, setMembers] = useState<GroupMemberResponse[]>([]);
+    const [dissolveOpen, setDissolveOpen] = useState(false);
+    const [dissolving, setDissolving] = useState(false);
     const [loading, setLoading] = useState(false);
 
     // Member list filter
@@ -251,6 +257,21 @@ export function GroupManagementPanel({
             toast.error("Failed to update group");
         } finally {
             setSettingsSaving(false);
+        }
+    };
+
+    const handleDissolveGroup = async () => {
+        setDissolving(true);
+        try {
+            await conversationService.delete(conversationId);
+            setDissolveOpen(false);
+            onOpenChange(false);
+            toast.success("Group has been dissolved");
+            navigate("/chat");
+        } catch {
+            toast.error("Could not dissolve group");
+        } finally {
+            setDissolving(false);
         }
     };
 
@@ -723,6 +744,26 @@ export function GroupManagementPanel({
                                     )}
                                     Save changes
                                 </Button>
+
+                                {myRole === "OWNER" && (
+                                    <>
+                                        <Separator />
+                                        <div className="space-y-2">
+                                            <label className="text-xs font-medium uppercase tracking-wide text-destructive flex items-center gap-1.5">
+                                                <AlertTriangle size={12} /> Danger Zone
+                                            </label>
+                                            <Button
+                                                variant="destructive"
+                                                size="sm"
+                                                className="w-full gap-2"
+                                                onClick={() => setDissolveOpen(true)}
+                                            >
+                                                <AlertTriangle size={13} />
+                                                Dissolve Group
+                                            </Button>
+                                        </div>
+                                    </>
+                                )}
                             </div>
                             </ScrollArea>
                         </TabsContent>
@@ -746,6 +787,30 @@ export function GroupManagementPanel({
                     </Button>
                     <Button variant="destructive" size="sm" onClick={confirmRemoveMember}>
                         Remove
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+
+        {/* Dissolve Group Confirmation */}
+        <Dialog open={dissolveOpen} onOpenChange={(o) => !dissolving && setDissolveOpen(o)}>
+            <DialogContent className="sm:max-w-sm">
+                <DialogHeader>
+                    <DialogTitle className="flex items-center gap-2 text-destructive">
+                        <AlertTriangle size={16} />
+                        Dissolve Group
+                    </DialogTitle>
+                    <DialogDescription>
+                        This will permanently delete the group, all messages, and remove all members. This action cannot be undone.
+                    </DialogDescription>
+                </DialogHeader>
+                <DialogFooter className="gap-2 sm:gap-0">
+                    <Button variant="outline" size="sm" onClick={() => setDissolveOpen(false)} disabled={dissolving}>
+                        Cancel
+                    </Button>
+                    <Button variant="destructive" size="sm" onClick={handleDissolveGroup} disabled={dissolving}>
+                        {dissolving ? <Loader2 size={13} className="animate-spin" /> : <AlertTriangle size={13} />}
+                        Dissolve
                     </Button>
                 </DialogFooter>
             </DialogContent>

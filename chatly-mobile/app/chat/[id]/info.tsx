@@ -23,6 +23,7 @@ import * as Clipboard from 'expo-clipboard';
 import { ImageLightbox } from '@/components/ui/ImageLightbox';
 
 import { groupService } from '@/services/group.service';
+import { conversationService } from '@/services/conversation.service';
 import { contactService } from '@/services/contact.service';
 import { fileService, type FileUploadResponse } from '@/services/file.service';
 import { userService } from '@/services/user.service';
@@ -285,12 +286,36 @@ export default function GroupInfoScreen() {
           try {
             await groupService.removeMember(conversationId, user?.id || '');
             router.dismissAll();
-          } catch (e: any) {
-            Alert.alert('Error', e?.response?.data?.message || 'Could not leave group.');
+          } catch (e: unknown) {
+            const msg = e instanceof Error ? e.message : 'Could not leave group.';
+            Alert.alert('Error', msg);
           }
         },
       },
     ]);
+  };
+
+  const handleDissolveGroup = () => {
+    Alert.alert(
+      'Dissolve Group',
+      'This will permanently delete the group, all messages, and remove all members. This action cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Dissolve',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await conversationService.delete(conversationId);
+              router.dismissAll();
+            } catch (e: unknown) {
+              const msg = e instanceof Error ? e.message : 'Could not dissolve group.';
+              Alert.alert('Error', msg);
+            }
+          },
+        },
+      ],
+    );
   };
 
   const handleOpenAddModal = () => {
@@ -855,6 +880,16 @@ export default function GroupInfoScreen() {
             <Ionicons name="chevron-forward" size={16} color={Colors.textLight} />
           </TouchableOpacity>
         </View>
+
+        {/* ── Dissolve group (owner only) ── */}
+        {isGroup && currentUserRole === 'OWNER' && (
+          <TouchableOpacity
+            onPress={handleDissolveGroup}
+            style={{ backgroundColor: Colors.white, paddingVertical: 16, alignItems: 'center', marginBottom: 4 }}
+          >
+            <Text style={{ color: Colors.error, fontSize: 16, fontWeight: '600' }}>Dissolve group</Text>
+          </TouchableOpacity>
+        )}
 
         {/* ── Leave group ── */}
         {isGroup && (

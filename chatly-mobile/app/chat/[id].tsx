@@ -86,6 +86,7 @@ export default function ChatScreen() {
   const [showMentionModal, setShowMentionModal] = useState(false);
   const [pinnedMessages, setPinnedMessages] = useState<Message[]>([]);
   const [currentPinnedIdx, setCurrentPinnedIdx] = useState(0);
+  const [showPinnedList, setShowPinnedList] = useState(false);
   const sendSeenRef = useRef<(messageId: string) => boolean>(() => false);
 
   const {
@@ -741,14 +742,9 @@ export default function ChatScreen() {
         currentIdx={currentPinnedIdx}
         onPrev={() => setCurrentPinnedIdx((i) => (i > 0 ? i - 1 : pinnedMessages.length - 1))}
         onNext={() => setCurrentPinnedIdx((i) => (i < pinnedMessages.length - 1 ? i + 1 : 0))}
-        onPress={(messageId) => {
-          setHighlightedMessageId(messageId);
-          const idx = messages.findIndex((m) => m.id === messageId);
-          if (idx !== -1) {
-            flatListRef.current?.scrollToIndex({ index: idx, animated: true });
-          }
-        }}
+        onPress={(messageId) => handleNavigateToMessage(messageId)}
         onUnpin={(messageId) => handleTogglePin(messageId)}
+        onViewAll={() => setShowPinnedList(true)}
       />
 
       {/* Messages */}
@@ -968,6 +964,73 @@ export default function ChatScreen() {
         onClose={() => setForwardVisible(false)}
         onConfirm={handleForward}
       />
+
+      {/* Pinned messages list modal */}
+      <Modal
+        visible={showPinnedList}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowPinnedList(false)}>
+        <Pressable
+          style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' }}
+          onPress={() => setShowPinnedList(false)}>
+          <Pressable
+            style={{ backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '70%' }}
+            onPress={() => {}}>
+            {/* Header */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 0.5, borderBottomColor: Colors.borderLight }}>
+              <Ionicons name="pin" size={16} color="#F59E0B" />
+              <Text style={{ flex: 1, marginLeft: 8, fontSize: 15, fontWeight: '700', color: Colors.text }}>
+                Pinned Messages ({pinnedMessages.length})
+              </Text>
+              <TouchableOpacity onPress={() => setShowPinnedList(false)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <Ionicons name="close" size={22} color={Colors.textMuted} />
+              </TouchableOpacity>
+            </View>
+            {/* List */}
+            <FlatList
+              data={pinnedMessages}
+              keyExtractor={(item) => item.id}
+              contentContainerStyle={{ paddingVertical: 8 }}
+              renderItem={({ item: msg }) => {
+                const sender = participantMap[msg.senderId];
+                const senderName = sender?.displayName ?? 'Unknown';
+                const msgPreview =
+                  msg.content ||
+                  (msg.type === 'POLL' ? `Poll: ${msg.poll?.question}` : `[${msg.type?.toLowerCase()}]`);
+                return (
+                  <TouchableOpacity
+                    style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12 }}
+                    activeOpacity={0.7}
+                    onPress={() => {
+                      setShowPinnedList(false);
+                      handleNavigateToMessage(msg.id);
+                    }}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontSize: 12, fontWeight: '600', color: Colors.cta }} numberOfLines={1}>
+                        {senderName}
+                      </Text>
+                      <Text style={{ fontSize: 13, color: Colors.text, marginTop: 2 }} numberOfLines={2}>
+                        {msgPreview}
+                      </Text>
+                    </View>
+                    <TouchableOpacity
+                      onPress={() => {
+                        handleTogglePin(msg.id);
+                        if (pinnedMessages.length <= 1) setShowPinnedList(false);
+                      }}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      style={{ marginLeft: 12 }}>
+                      <Ionicons name="pin-outline" size={18} color={Colors.textMuted} />
+                    </TouchableOpacity>
+                  </TouchableOpacity>
+                );
+              }}
+              ItemSeparatorComponent={() => <View style={{ height: 0.5, backgroundColor: Colors.borderLight, marginHorizontal: 16 }} />}
+            />
+          </Pressable>
+        </Pressable>
+      </Modal>
 
       {/* Mention user info modal */}
       <Modal

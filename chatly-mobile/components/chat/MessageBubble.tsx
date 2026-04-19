@@ -381,6 +381,8 @@ export function MessageBubble({
               <TouchableOpacity
                 key={idx}
                 onPress={() => !isDisabled && onVotePoll?.(message.id, idx)}
+                onLongPress={onLongPress}
+                delayLongPress={300}
                 activeOpacity={isDisabled ? 1 : 0.7}
                 style={{ marginBottom: 10, opacity: isDisabled && !isVoted ? 0.75 : 1 }}
               >
@@ -398,6 +400,8 @@ export function MessageBubble({
                   </Text>
                   <TouchableOpacity
                     onPress={() => voterCount > 0 && setVoterModal({ title: option, voterIds: poll.votes?.[String(idx)] ?? [] })}
+                    onLongPress={onLongPress}
+                    delayLongPress={300}
                     hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                     disabled={voterCount === 0}
                   >
@@ -419,6 +423,8 @@ export function MessageBubble({
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 14, paddingBottom: 10, paddingTop: 2 }}>
           <TouchableOpacity
             onPress={() => totalVoters > 0 && setVoterModal({ title: 'All voters', voterIds: [...new Set(Object.values(poll.votes ?? {}).flat())] })}
+            onLongPress={onLongPress}
+            delayLongPress={300}
             disabled={totalVoters === 0}
           >
             <Text style={{ fontSize: 11, color: totalVoters > 0 ? Colors.cta : Colors.textMuted }}>
@@ -435,7 +441,11 @@ export function MessageBubble({
               </View>
             )}
             {isMe && !isClosed && !isExpired && (
-              <TouchableOpacity onPress={() => onClosePoll?.(message.id)}>
+              <TouchableOpacity
+                onPress={() => onClosePoll?.(message.id)}
+                onLongPress={onLongPress}
+                delayLongPress={300}
+              >
                 <Text style={{ fontSize: 11, fontWeight: '600', color: Colors.error }}>End poll</Text>
               </TouchableOpacity>
             )}

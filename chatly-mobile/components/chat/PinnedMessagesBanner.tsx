@@ -10,6 +10,7 @@ interface PinnedMessagesBannerProps {
   onNext: () => void;
   onPress: (messageId: string) => void;
   onUnpin: (messageId: string) => void;
+  onViewAll?: () => void;
 }
 
 export function PinnedMessagesBanner({
@@ -19,13 +20,14 @@ export function PinnedMessagesBanner({
   onNext,
   onPress,
   onUnpin,
+  onViewAll,
 }: PinnedMessagesBannerProps) {
   if (pinnedMessages.length === 0) return null;
   const current = pinnedMessages[currentIdx];
   if (!current) return null;
 
   const preview =
-    current.content ??
+    current.content ||
     (current.type === 'POLL' ? `Poll: ${current.poll?.question}` : '[attachment]');
 
   return (
@@ -41,7 +43,9 @@ export function PinnedMessagesBanner({
         gap: 8,
       }}
     >
-      <Ionicons name="pin" size={14} color="#F59E0B" />
+      <TouchableOpacity onPress={onViewAll} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+        <Ionicons name="pin" size={14} color="#F59E0B" />
+      </TouchableOpacity>
 
       <TouchableOpacity
         style={{ flex: 1 }}
@@ -49,7 +53,7 @@ export function PinnedMessagesBanner({
         activeOpacity={0.7}
       >
         <Text style={{ fontSize: 12, color: '#D97706', fontWeight: '600' }} numberOfLines={1}>
-          Pinned
+          Pinned {pinnedMessages.length > 1 ? `(${pinnedMessages.length})` : ''}
         </Text>
         <Text style={{ fontSize: 12, color: Colors.text }} numberOfLines={1}>
           {preview}
