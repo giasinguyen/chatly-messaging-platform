@@ -30,6 +30,7 @@ import { useAuthStore } from '@/store/auth.store';
 import { useConversationStore } from '@/store/conversation.store';
 import { useConversationPrefsStore } from '@/store/conversationPrefs.store';
 import { isConvMuted } from '@/store/conversationPrefs.store';
+import { useNotificationStore } from '@/store/notification.store';
 import { Colors } from '@/constants/theme';
 import { Avatar } from '@/components/ui/Avatar';
 import type { GroupMemberResponse, GroupRole, PendingJoinResponse, GroupReminderResponse, GroupNoteResponse } from '@/types/group';
@@ -154,6 +155,17 @@ export default function GroupInfoScreen() {
   }, [members, user?.id]);
 
   const canManage = currentUserRole === 'OWNER' || currentUserRole === 'ADMIN';
+
+  // Realtime pending requests: re-fetch when a GROUP_JOIN_REQUEST notification arrives
+  const notifications = useNotificationStore((s) => s.notifications);
+  const joinRequestCount = useMemo(
+    () => notifications.filter((n) => n.type === 'GROUP_JOIN_REQUEST' && n.referenceId === conversationId).length,
+    [notifications, conversationId],
+  );
+  useEffect(() => {
+    if (canManage) fetchPendingRequests();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [joinRequestCount, canManage]);
 
   const handleChangeName = () => {
     if (!canManage) return;
@@ -353,7 +365,7 @@ export default function GroupInfoScreen() {
 
   // ── Pending Requests ──
   const fetchPendingRequests = async () => {
-    if (!conversationId || currentUserRole !== 'OWNER') return;
+    if (!conversationId || !canManage) return;
     try {
       const res = await groupService.getPendingRequests(conversationId);
       setPendingRequests(res.result ?? []);

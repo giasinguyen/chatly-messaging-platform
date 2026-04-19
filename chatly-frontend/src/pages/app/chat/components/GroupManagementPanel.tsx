@@ -340,7 +340,7 @@ export function GroupManagementPanel({
 
     // Re-fetch pending requests when a GROUP_JOIN_REQUEST notification arrives for this conversation
     const joinRequestCount = notifications.filter(
-        (n) => n.type === "GROUP_JOIN_REQUEST" && n.referenceId === conversationId && !n.read,
+        (n) => n.type === "GROUP_JOIN_REQUEST" && n.referenceId === conversationId,
     ).length;
 
     useEffect(() => {

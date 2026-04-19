@@ -44,6 +44,24 @@ interface PendingFile {
   error?: string;
 }
 
+function getDocumentIcon(mimeType: string): { name: string; color: string } {
+  if (mimeType.includes('pdf')) return { name: 'document-text-outline', color: '#ef4444' };
+  if (mimeType.includes('word') || mimeType.includes('msword') || mimeType.includes('wordprocessingml'))
+    return { name: 'document-outline', color: '#3b82f6' };
+  if (mimeType.includes('sheet') || mimeType.includes('excel') || mimeType.includes('spreadsheetml'))
+    return { name: 'grid-outline', color: '#22c55e' };
+  if (mimeType.includes('csv')) return { name: 'grid-outline', color: '#22c55e' };
+  if (mimeType.includes('presentation') || mimeType.includes('powerpoint') || mimeType.includes('presentationml'))
+    return { name: 'easel-outline', color: '#f97316' };
+  if (mimeType.startsWith('audio/')) return { name: 'musical-notes-outline', color: '#a855f7' };
+  if (mimeType.startsWith('video/')) return { name: 'film-outline', color: '#ec4899' };
+  if (mimeType.includes('zip') || mimeType.includes('rar') || mimeType.includes('7z') || mimeType.includes('tar') || mimeType.includes('gzip'))
+    return { name: 'archive-outline', color: '#78716c' };
+  if (mimeType.startsWith('text/') || mimeType.includes('json') || mimeType.includes('xml'))
+    return { name: 'code-slash-outline', color: '#64748b' };
+  return { name: 'document-outline', color: Colors.textMuted };
+}
+
 export function ChatInput({ conversationId, onSend, onTyping, replyingTo, onCancelReply, isGroup, groupMembers }: ChatInputProps) {
   const { user } = useAuthStore();
   const [text, setText] = useState('');
@@ -437,7 +455,10 @@ export function ChatInput({ conversationId, onSend, onTyping, replyingTo, onCanc
                 />
               ) : (
                 <View className="flex-1 items-center justify-center">
-                  <Ionicons name="document-outline" size={24} color={Colors.textMuted} />
+                  {(() => {
+                    const icon = getDocumentIcon(p.mimeType);
+                    return <Ionicons name={icon.name as 'document-outline'} size={24} color={icon.color} />;
+                  })()}
                   <Text style={{ fontSize: 8, color: Colors.textMuted }} numberOfLines={1}>
                     {p.name}
                   </Text>

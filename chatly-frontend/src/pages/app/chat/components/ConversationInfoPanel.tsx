@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
     BellOff,
@@ -51,6 +51,7 @@ import { groupService } from "@/services/group.service";
 import { fileService, type FileUploadResponse } from "@/services/file.service";
 import { messageService } from "@/services/message.service";
 import { useConversationPrefsStore } from "@/store/conversationPrefs.store";
+import { useNotificationStore } from "@/store/notification.store";
 
 interface ConversationInfoPanelProps {
     conversation: ConversationResponse;
@@ -173,9 +174,13 @@ export function ConversationInfoPanel({
     const [showQrDialog, setShowQrDialog] = useState(false);
     const [inviteLinkExpanded, setInviteLinkExpanded] = useState(false);
 
-    // Pending join requests count
+    // Pending join requests count — reactive via notification store
     const [pendingCount, setPendingCount] = useState(0);
-
+    const notifications = useNotificationStore((s) => s.notifications);
+    const joinRequestCount = useMemo(
+        () => notifications.filter((n) => n.type === "GROUP_JOIN_REQUEST" && n.referenceId === conversation.id).length,
+        [notifications, conversation.id],
+    );
     useEffect(() => {
         if (!isGroup) return;
         let cancelled = false;
@@ -183,7 +188,7 @@ export function ConversationInfoPanel({
             if (!cancelled) setPendingCount(res.result?.length ?? 0);
         }).catch(() => { /* silent */ });
         return () => { cancelled = true; };
-    }, [isGroup, conversation.id]);
+    }, [isGroup, conversation.id, joinRequestCount]);
 
     // Invite link handlers
     const fetchInviteLink = useCallback(async () => {
@@ -559,8 +564,8 @@ export function ConversationInfoPanel({
                             )}
                             <Separator />
 
-                            {/* Pending join requests */}
-                            {pendingCount > 0 && onOpenGroupPanel && (
+                            {/* Pending join requests — always visible so realtime badge updates in-place */}
+                            {onOpenGroupPanel && (
                                 <button
                                     type="button"
                                     className="w-full flex items-center justify-between px-4 py-3 hover:bg-muted/30 transition"
@@ -570,9 +575,11 @@ export function ConversationInfoPanel({
                                         <UserPlus size={16} className="text-muted-foreground" />
                                         <span className="text-sm font-medium text-foreground">Pending requests</span>
                                     </div>
-                                    <span className="text-xs bg-red-500 text-white rounded-full px-1.5 py-0.5 min-w-5 text-center">
-                                        {pendingCount}
-                                    </span>
+                                    {pendingCount > 0 && (
+                                        <span className="text-xs bg-red-500 text-white rounded-full px-1.5 py-0.5 min-w-5 text-center">
+                                            {pendingCount}
+                                        </span>
+                                    )}
                                 </button>
                             )}
 
