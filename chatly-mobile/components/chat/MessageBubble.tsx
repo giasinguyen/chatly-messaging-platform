@@ -666,7 +666,7 @@ export function MessageBubble({
   // Poll messages — white card, full-width, centered
   if (type === 'POLL') {
     return (
-      <View className="my-1 px-4">
+      <View className="my-1 px-4 items-center">
         {!isMe && showAvatar && senderName && (
           <Text className="mb-1 text-xs" style={{ color: Colors.textMuted, marginLeft: 34 }}>
             {senderName}

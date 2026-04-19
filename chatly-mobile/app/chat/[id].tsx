@@ -16,6 +16,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { ChatHeader } from '@/components/chat/ChatHeader';
+import { PinnedMessagesBanner } from '@/components/chat/PinnedMessagesBanner';
 import { MessageBubble } from '@/components/chat/MessageBubble';
 import { ChatInput } from '@/components/chat/ChatInput';
 import { DateSeparator } from '@/components/chat/DateSeparator';
@@ -83,6 +84,8 @@ export default function ChatScreen() {
   const [contacts, setContacts] = useState<ContactResponse[]>([]);
   const [mentionModalUser, setMentionModalUser] = useState<UserResponse | null>(null);
   const [showMentionModal, setShowMentionModal] = useState(false);
+  const [pinnedMessages, setPinnedMessages] = useState<Message[]>([]);
+  const [currentPinnedIdx, setCurrentPinnedIdx] = useState(0);
   const sendSeenRef = useRef<(messageId: string) => boolean>(() => false);
 
   const {
@@ -127,6 +130,22 @@ export default function ChatScreen() {
         case 'RECALL':
         case 'REACT':
           updateMessage(conversationId, event.message.id, event.message);
+          // Sync pinned messages list when pin status changes
+          if (event.message.pinned !== undefined) {
+            setPinnedMessages((prev) => {
+              const exists = prev.some((m) => m.id === event.message.id);
+              if (event.message.pinned && !exists) {
+                return [...prev, event.message];
+              }
+              if (!event.message.pinned && exists) {
+                return prev.filter((m) => m.id !== event.message.id);
+              }
+              if (exists) {
+                return prev.map((m) => (m.id === event.message.id ? { ...m, ...event.message } : m));
+              }
+              return prev;
+            });
+          }
           break;
         case 'DELETE':
           removeMessage(conversationId, event.message.id);
@@ -288,6 +307,18 @@ export default function ChatScreen() {
     fetchMessages();
   }, [conversationId, setMessages, setLoadingMessages, setPage, setHasMore]);
 
+  // Fetch pinned messages
+  useEffect(() => {
+    if (!conversationId) return;
+    messageService
+      .getPinnedMessages(conversationId)
+      .then((res) => {
+        setPinnedMessages(res.result ?? []);
+        setCurrentPinnedIdx(0);
+      })
+      .catch(() => {});
+  }, [conversationId]);
+
   // Load older messages
   const loadMore = useCallback(async () => {
     if (!conversationId || !canLoadMore || loadingMessages || !initialLoadDoneRef.current) return;
@@ -364,8 +395,8 @@ export default function ChatScreen() {
         timestamp: new Date().toISOString(),
       };
 
-      // Try WebSocket first (skip for poll — REST handles complex payloads)
-      const sent = !poll && wsSendMessage(text, replyToId, attachments, messageType, priority, location);
+      // Try WebSocket first
+      const sent = wsSendMessage(text, replyToId, attachments, messageType, priority, location, poll);
       if (sent) {
         updateConversation(conversationId, { lastMessage: optimisticLastMsg });
         setReplyingTo(null);
@@ -534,6 +565,14 @@ export default function ChatScreen() {
       try {
         const res = await messageService.togglePin(messageId);
         updateMessage(conversationId, messageId, res.result);
+        // Sync pinned messages list
+        const updated = res.result;
+        setPinnedMessages((prev) => {
+          if (updated.pinned) {
+            return prev.some((m) => m.id === updated.id) ? prev : [...prev, updated];
+          }
+          return prev.filter((m) => m.id !== updated.id);
+        });
       } catch {
         Alert.alert('Error', 'Could not pin message.');
       }
@@ -695,6 +734,22 @@ export default function ChatScreen() {
           onKeywordChange={setHighlightKeyword}
         />
       )}
+
+      {/* Pinned messages banner */}
+      <PinnedMessagesBanner
+        pinnedMessages={pinnedMessages}
+        currentIdx={currentPinnedIdx}
+        onPrev={() => setCurrentPinnedIdx((i) => (i > 0 ? i - 1 : pinnedMessages.length - 1))}
+        onNext={() => setCurrentPinnedIdx((i) => (i < pinnedMessages.length - 1 ? i + 1 : 0))}
+        onPress={(messageId) => {
+          setHighlightedMessageId(messageId);
+          const idx = messages.findIndex((m) => m.id === messageId);
+          if (idx !== -1) {
+            flatListRef.current?.scrollToIndex({ index: idx, animated: true });
+          }
+        }}
+        onUnpin={(messageId) => handleTogglePin(messageId)}
+      />
 
       {/* Messages */}
       <View className="flex-1" style={{ backgroundColor: Colors.bg }}>

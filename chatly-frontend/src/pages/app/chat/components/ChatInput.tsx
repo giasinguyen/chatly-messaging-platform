@@ -95,6 +95,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
     const [pollQuestion, setPollQuestion] = useState("");
     const [pollOptions, setPollOptions] = useState(["", ""]);
     const [pollMultipleChoice, setPollMultipleChoice] = useState(false);
+    const [pollAnonymous, setPollAnonymous] = useState(false);
     const [showReminderDialog, setShowReminderDialog] = useState(false);
     const [reminderTitle, setReminderTitle] = useState("");
     const [reminderDescription, setReminderDescription] = useState("");
@@ -408,12 +409,14 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
             question: trimmedQuestion,
             options: validOptions,
             multipleChoice: pollMultipleChoice,
+            anonymous: pollAnonymous,
             votes: {},
         });
         setShowPollDialog(false);
         setPollQuestion("");
         setPollOptions(["", ""]);
         setPollMultipleChoice(false);
+        setPollAnonymous(false);
     };
 
     const handleMediaSelect = (item: KlipyItem) => {
@@ -1044,6 +1047,20 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
                             />
                             <Label htmlFor="poll-multiple">
                                 Allow multiple choice
+                            </Label>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <input
+                                type="checkbox"
+                                id="poll-anonymous"
+                                checked={pollAnonymous}
+                                onChange={(e) =>
+                                    setPollAnonymous(e.target.checked)
+                                }
+                                className="h-4 w-4 rounded border-border text-brand focus:ring-brand"
+                            />
+                            <Label htmlFor="poll-anonymous">
+                                Anonymous voting
                             </Label>
                         </div>
                     </div>

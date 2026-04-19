@@ -105,6 +105,22 @@ export function useChatConversationData({ id }: UseChatConversationDataOptions) 
                 setMessages((prev) =>
                     prev.map((m) => (m.id === msg.id ? { ...m, ...msg } : m)),
                 );
+                // Sync pinned messages list when pin status changes
+                if (msg.pinned !== undefined) {
+                    setPinnedMessages((prev) => {
+                        const exists = prev.some((m) => m.id === msg.id);
+                        if (msg.pinned && !exists) {
+                            return [...prev, msg];
+                        }
+                        if (!msg.pinned && exists) {
+                            return prev.filter((m) => m.id !== msg.id);
+                        }
+                        if (exists) {
+                            return prev.map((m) => (m.id === msg.id ? { ...m, ...msg } : m));
+                        }
+                        return prev;
+                    });
+                }
             } else if (action === "DELETE") {
                 setMessages((prev) => prev.filter((m) => m.id !== msg.id));
             }
