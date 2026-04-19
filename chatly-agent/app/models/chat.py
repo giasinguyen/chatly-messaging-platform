@@ -32,6 +32,10 @@ class ChatInput(BaseModel):
     session_id: str
     user_id: str
     history: list[BaseMessage] = Field(default_factory=list)
+    session_context: str = Field(
+        default="",
+        description="Runtime context injected into the system prompt.",
+    )
 
     model_config = {"arbitrary_types_allowed": True, "frozen": True}
 

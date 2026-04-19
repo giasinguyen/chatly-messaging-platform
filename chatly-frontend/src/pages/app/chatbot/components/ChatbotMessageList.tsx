@@ -1,5 +1,5 @@
 import { useEffect, useRef, useCallback, useState } from "react";
-import { Copy, RotateCcw, ArrowDown, FileText } from "lucide-react";
+import { Copy, RotateCcw, ArrowDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import type { AgentMessage } from "@/types/agent";
 import { ChatbotThinkingIndicator } from "./ChatbotThinkingIndicator";
 import { ChatbotMessageMenu } from "./ChatbotMessageMenu";
+import { AttachmentPreview } from "./AttachmentPreview";
 import { useChatbotStore } from "@/store/chatbot.store";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -17,12 +18,13 @@ const MARKDOWN_CLASSES =
 
 interface Props {
     messages: AgentMessage[];
+    sessionId: string;
     onEdit?: (message: AgentMessage) => void;
     onRetry?: (message: AgentMessage) => void;
     onRetryLast?: () => void;
 }
 
-export function ChatbotMessageList({ messages, onEdit, onRetry, onRetryLast }: Props) {
+export function ChatbotMessageList({ messages, sessionId, onEdit, onRetry, onRetryLast }: Props) {
     const scrollEndRef = useRef<HTMLDivElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
     const isNearBottomRef = useRef(true);
@@ -116,22 +118,16 @@ export function ChatbotMessageList({ messages, onEdit, onRetry, onRetryLast }: P
                                 </p>
                             )}
 
-                            {/* File attachment chips */}
+                            {/* Attachments */}
                             {msg.attachments && msg.attachments.length > 0 && (
-                                <div className="flex flex-wrap gap-1.5 mt-2">
+                                <div className="flex flex-wrap gap-2 mt-2">
                                     {msg.attachments.map((att) => (
-                                        <div
+                                        <AttachmentPreview
                                             key={att.file_id}
-                                            className={cn(
-                                                "flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs max-w-44",
-                                                msg.role === "user"
-                                                    ? "border-white/20 bg-white/10 text-white"
-                                                    : "border-border bg-muted/60 text-foreground",
-                                            )}
-                                        >
-                                            <FileText className="h-3.5 w-3.5 shrink-0" />
-                                            <span className="truncate font-medium">{att.filename}</span>
-                                        </div>
+                                            attachment={att}
+                                            sessionId={sessionId}
+                                            role={msg.role as "user" | "assistant"}
+                                        />
                                     ))}
                                 </div>
                             )}

@@ -33,7 +33,10 @@ class UnifiedAgent:
 
     def _build_messages(self, input: ChatInput) -> list[Any]:
         system = SystemMessage(
-            content=UNIFIED_AGENT_SYSTEM_PROMPT.format(user_id=input.user_id)
+            content=UNIFIED_AGENT_SYSTEM_PROMPT.format(
+                user_id=input.user_id,
+                session_context=input.session_context,
+            )
         )
         return [system, *input.history, HumanMessage(content=input.message)]
 

@@ -87,7 +87,7 @@ export function useAgentStream() {
                                     session_id: sessionId,
                                     role: "assistant",
                                     content: finalContent,
-                                    attachments: [],
+                                    attachments: chunk.attachments ?? [],
                                     created_at: new Date().toISOString(),
                                 });
                                 useChatbotStore.getState().setStreamingStatus("done");

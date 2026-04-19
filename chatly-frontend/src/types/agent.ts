@@ -59,6 +59,7 @@ export interface AgentStreamTokenChunk {
 export interface AgentStreamDoneChunk {
     done: true;
     agent_type: string;
+    attachments?: MessageAttachment[];
 }
 
 export type AgentStreamChunk = AgentStreamTokenChunk | AgentStreamDoneChunk;

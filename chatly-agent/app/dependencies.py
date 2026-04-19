@@ -133,6 +133,8 @@ def get_chat_service(
         tool_service=tool_service,
         llm=get_llm(),
         file_repo=file_repo,
+        minio_client=get_storage_client(),
+        bucket_name=get_bucket_name(),
     )
 
 

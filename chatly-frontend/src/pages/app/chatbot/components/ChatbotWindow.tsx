@@ -158,6 +158,7 @@ export function ChatbotWindow({ sessionId, sidebarCollapsed, onToggleSidebar }: 
             {/* Messages */}
             <ChatbotMessageList
                 messages={messages}
+                sessionId={sessionId}
                 onEdit={handleEdit}
                 onRetry={handleRetry}
                 onRetryLast={handleRetryLast}
