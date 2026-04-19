@@ -75,6 +75,14 @@ export function PinnedMessagesBanner({
       )}
 
       <TouchableOpacity
+        onPress={onViewAll}
+        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        style={{ paddingHorizontal: 4 }}
+      >
+        <Ionicons name="list-outline" size={16} color="#D97706" />
+      </TouchableOpacity>
+
+      <TouchableOpacity
         onPress={() => onUnpin(current.id)}
         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
       >

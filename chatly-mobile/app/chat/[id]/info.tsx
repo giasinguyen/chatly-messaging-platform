@@ -846,7 +846,7 @@ export default function GroupInfoScreen() {
               style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, height: 54 }}
             >
               <Ionicons name="document-text-outline" size={22} color={Colors.textMuted} style={{ marginRight: 14 }} />
-              <Text style={{ flex: 1, fontSize: 15, color: Colors.text }}>Notes, pins, polls</Text>
+              <Text style={{ flex: 1, fontSize: 15, color: Colors.text }}>Notes</Text>
               <Ionicons name="chevron-forward" size={16} color={Colors.textLight} />
             </TouchableOpacity>
           </View>

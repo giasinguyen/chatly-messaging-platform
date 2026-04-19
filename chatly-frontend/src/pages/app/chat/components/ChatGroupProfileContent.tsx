@@ -35,6 +35,7 @@ export interface ChatGroupProfileContentProps {
     onAvatarFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
     onSaveGroupProfile: () => void;
     onOpenGroupPanel: () => void;
+    onLeaveGroup: () => void;
 }
 
 export const ChatGroupProfileContent = memo(function ChatGroupProfileContent({
@@ -53,6 +54,7 @@ export const ChatGroupProfileContent = memo(function ChatGroupProfileContent({
     onAvatarFileChange,
     onSaveGroupProfile,
     onOpenGroupPanel,
+    onLeaveGroup,
 }: ChatGroupProfileContentProps) {
     const avatarInputRef = useRef<HTMLInputElement>(null);
 
@@ -252,7 +254,7 @@ export const ChatGroupProfileContent = memo(function ChatGroupProfileContent({
                     <Button
                         variant="ghost"
                         className="w-full justify-start text-red-500 hover:text-red-600 hover:bg-red-500/10"
-                        onClick={() => toast.info("Development in progress...")}
+                        onClick={onLeaveGroup}
                     >
                         <LogOut className="mr-2 h-4 w-4" />
                         Leave group

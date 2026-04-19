@@ -225,6 +225,7 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
                     handleSaveGroupProfile={s.handleSaveGroupProfile}
                     handleBlockContact={s.handleBlockContact}
                     handleUnblockContact={s.handleUnblockContact}
+                    handleLeaveGroup={s.handleLeaveGroup}
                 />
             </div>
 

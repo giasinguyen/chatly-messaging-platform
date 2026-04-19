@@ -89,6 +89,7 @@ export default function ChatScreen() {
   const [currentPinnedIdx, setCurrentPinnedIdx] = useState(0);
   const [showPinnedList, setShowPinnedList] = useState(false);
   const [currentPollIdx, setCurrentPollIdx] = useState(0);
+  const [isPollBannerDismissed, setIsPollBannerDismissed] = useState(false);
   const sendSeenRef = useRef<(messageId: string) => boolean>(() => false);
 
   const {
@@ -761,13 +762,16 @@ export default function ChatScreen() {
       />
 
       {/* Active polls banner */}
-      <ActivePollBanner
-        polls={activePolls}
-        currentIdx={currentPollIdx}
-        onPrev={() => setCurrentPollIdx((i) => (i > 0 ? i - 1 : activePolls.length - 1))}
-        onNext={() => setCurrentPollIdx((i) => (i < activePolls.length - 1 ? i + 1 : 0))}
-        onPress={(messageId) => handleNavigateToMessage(messageId)}
-      />
+      {!isPollBannerDismissed && (
+        <ActivePollBanner
+          polls={activePolls}
+          currentIdx={currentPollIdx}
+          onPrev={() => setCurrentPollIdx((i) => (i > 0 ? i - 1 : activePolls.length - 1))}
+          onNext={() => setCurrentPollIdx((i) => (i < activePolls.length - 1 ? i + 1 : 0))}
+          onPress={(messageId) => handleNavigateToMessage(messageId)}
+          onDismiss={() => setIsPollBannerDismissed(true)}
+        />
+      )}
 
       {/* Messages */}
       <View className="flex-1" style={{ backgroundColor: Colors.bg }}>

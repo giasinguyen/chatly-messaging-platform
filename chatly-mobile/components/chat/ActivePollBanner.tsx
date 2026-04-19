@@ -9,6 +9,7 @@ interface ActivePollBannerProps {
   onPrev: () => void;
   onNext: () => void;
   onPress: (messageId: string) => void;
+  onDismiss: () => void;
 }
 
 export function ActivePollBanner({
@@ -17,6 +18,7 @@ export function ActivePollBanner({
   onPrev,
   onNext,
   onPress,
+  onDismiss,
 }: ActivePollBannerProps) {
   if (polls.length === 0) return null;
   const current = polls[currentIdx];
@@ -77,7 +79,12 @@ export function ActivePollBanner({
         </View>
       )}
 
-      <Ionicons name="chevron-forward" size={16} color={Colors.textMuted} />
+      <TouchableOpacity
+        onPress={onDismiss}
+        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+      >
+        <Ionicons name="close" size={16} color={Colors.textMuted} />
+      </TouchableOpacity>
     </TouchableOpacity>
   );
 }
