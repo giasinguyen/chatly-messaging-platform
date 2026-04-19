@@ -23,23 +23,25 @@ public class McpSecurityInterceptor extends OncePerRequestFilter {
     private static final String USER_ID_HEADER = "X-User-Id";
 
     private final String internalApiKey;
-    private final String mcpPathPrefix;
+    private final String mcpSsePath;
+    private final String mcpMessagePath;
 
     public McpSecurityInterceptor(
             @Value("${app.mcp.internal-api-key}") String internalApiKey,
-            @Value("${spring.ai.mcp.server.sse-endpoint:/api/ai/mcp/sse}") String sseEndpoint
+            @Value("${spring.ai.mcp.server.sse-endpoint:/api/ai/mcp/sse}") String sseEndpoint,
+            @Value("${spring.ai.mcp.server.sse-message-endpoint:/api/ai/mcp/message}") String messageEndpoint
     ) {
         this.internalApiKey = internalApiKey;
-        // Intercept all requests whose path starts with the MCP base prefix.
-        // Both /api/ai/mcp/sse and /api/ai/mcp/message share this prefix.
-        int lastSlash = sseEndpoint.lastIndexOf('/');
-        this.mcpPathPrefix = lastSlash > 0 ? sseEndpoint.substring(0, lastSlash) : sseEndpoint;
+        this.mcpSsePath = sseEndpoint;
+        this.mcpMessagePath = messageEndpoint;
     }
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
-        String requestPath = request.getRequestURI();
-        return requestPath == null || !requestPath.startsWith(mcpPathPrefix);
+        String path = request.getRequestURI();
+        // Only intercept the two Spring AI MCP protocol endpoints.
+        // User-facing CRUD endpoints (/api/ai/mcp/servers/**) are handled by JWT auth.
+        return path == null || (!path.equals(mcpSsePath) && !path.equals(mcpMessagePath));
     }
 
     @Override

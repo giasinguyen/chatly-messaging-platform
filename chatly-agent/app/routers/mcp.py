@@ -60,6 +60,7 @@ async def register_server(
         name=payload.name,
         url=str(payload.url),
         headers=payload.headers,
+        transport=payload.transport,
     )
     return MCPServerResponse(**record)
 
@@ -157,7 +158,7 @@ async def list_server_tools(
         MCPToolInfo(
             name=t["name"],
             description=t.get("description", ""),
-            input_schema=t.get("inputSchema", {}),
+            input_schema=t.get("inputSchema") or t.get("input_schema") or {},
         )
         for t in raw_tools
     ]

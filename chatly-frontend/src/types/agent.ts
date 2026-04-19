@@ -82,6 +82,7 @@ export interface McpServer {
     url: string;
     headers: Record<string, string>;
     is_active: boolean;
+    transport: "sse" | "http";
     created_at: string;
     updated_at: string | null;
 }
@@ -90,6 +91,7 @@ export interface McpServerCreate {
     name: string;
     url: string;
     headers: Record<string, string>;
+    transport?: "sse" | "http";
 }
 
 export interface McpTool {

@@ -3,43 +3,118 @@ import logging
 from datetime import UTC, datetime
 from typing import Any
 
+import httpx
+
 from app.exceptions import MCPConnectionError, MCPServerNotFoundError
 from app.repositories.mcp_repo import MCPRepository
 
 logger = logging.getLogger(__name__)
 
+_HTTP_TIMEOUT = 10.0
+
 
 class MCPClient:
-    """Async MCP client using the SSE transport (MCP SDK 0.10 / Spring AI 1.0.0).
+    """Async MCP client supporting two transports:
 
-    Spring AI 1.0.0 ``spring-ai-starter-mcp-server-webmvc`` registers two
-    routes via ``WebMvcSseServerTransportProvider``:
+    * ``"http"``  — Raw JSON-RPC 2.0 over HTTP POST (used by custom user
+      servers such as the bundled math / text demo servers).  A single POST
+      to *url* carries the JSON-RPC request; the response is plain JSON.
 
-    * ``GET  {sse-endpoint}``          — client opens an SSE stream; server
-      immediately emits an ``endpoint`` event whose data is the
-      session-specific POST URL.
-    * ``POST {sse-message-endpoint}``  — client sends JSON-RPC messages; the
-      server writes responses back over the SSE stream.
-
-    The ``mcp`` Python package's :func:`mcp.client.sse.sse_client` handles
-    this handshake automatically.  The ``url`` parameter must be the **SSE
-    endpoint** (e.g. ``http://host:8080/api/ai/mcp/sse``).
-
-    A fresh SSE session is opened for every :meth:`list_tools` or
-    :meth:`call_tool` invocation so that each request is fully stateless.
+    * ``"sse"``   — Legacy SSE transport required by Spring AI 1.0.0
+      (``srping-ai-starter-mcp-server-webmvc``).  The SDK opens a GET SSE
+      stream first, receives a session-specific POST URL, then sends JSON-RPC
+      messages over that URL.  **Only the built-in system MCP server (chatly-
+      backend) uses this transport; custom user servers never should.**
     """
 
-    def __init__(self, url: str, headers: dict[str, str] | None = None) -> None:
-        self._sse_url = url
+    def __init__(
+        self,
+        url: str,
+        headers: dict[str, str] | None = None,
+        transport: str = "http",
+    ) -> None:
+        self._url = url
         self._headers = headers or {}
+        self._transport = transport
+
+    # ------------------------------------------------------------------ #
+    # Public API                                                           #
+    # ------------------------------------------------------------------ #
 
     async def list_tools(self) -> list[dict[str, Any]]:
         """Fetch the list of tools exposed by this MCP server."""
+        if self._transport == "sse":
+            return await self._list_tools_sse()
+        return await self._list_tools_http()
+
+    async def call_tool(self, tool_name: str, arguments: dict[str, Any]) -> str:
+        """Invoke a tool and return its text output."""
+        if self._transport == "sse":
+            return await self._call_tool_sse(tool_name, arguments)
+        return await self._call_tool_http(tool_name, arguments)
+
+    # ------------------------------------------------------------------ #
+    # HTTP transport (raw JSON-RPC 2.0 POST)                             #
+    # ------------------------------------------------------------------ #
+
+    async def _list_tools_http(self) -> list[dict[str, Any]]:
+        payload = {"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {}}
+        try:
+            async with httpx.AsyncClient(
+                headers=self._headers, timeout=_HTTP_TIMEOUT
+            ) as client:
+                response = await client.post(self._url, json=payload)
+                response.raise_for_status()
+            data = response.json()
+            return data.get("result", {}).get("tools", [])
+        except MCPConnectionError:
+            raise
+        except Exception as exc:
+            raise MCPConnectionError(
+                f"HTTP MCP POST to {self._url} failed: {exc}"
+            ) from exc
+
+    async def _call_tool_http(self, tool_name: str, arguments: dict[str, Any]) -> str:
+        payload = {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "tools/call",
+            "params": {"name": tool_name, "arguments": arguments},
+        }
+        try:
+            async with httpx.AsyncClient(
+                headers=self._headers, timeout=_HTTP_TIMEOUT
+            ) as client:
+                response = await client.post(self._url, json=payload)
+                response.raise_for_status()
+            data = response.json()
+            if "error" in data:
+                raise MCPConnectionError(
+                    f"MCP tool '{tool_name}' returned error: {data['error']}"
+                )
+            content = data.get("result", {}).get("content", [])
+            return "\n".join(
+                part["text"]
+                for part in content
+                if isinstance(part, dict) and "text" in part
+            )
+        except MCPConnectionError:
+            raise
+        except Exception as exc:
+            raise MCPConnectionError(
+                f"MCP tool call '{tool_name}' via {self._url} failed: {exc}"
+            ) from exc
+
+    # ------------------------------------------------------------------ #
+    # SSE transport (Spring AI / MCP SDK sse_client)                     #
+    # ------------------------------------------------------------------ #
+
+    async def _list_tools_sse(self) -> list[dict[str, Any]]:
         from mcp import ClientSession
         from mcp.client.sse import sse_client
 
         try:
-            async with sse_client(self._sse_url, headers=self._headers) as (read, write):
+            async with sse_client(self._url, headers=self._headers) as (read, write):
                 async with ClientSession(read, write) as session:
                     await session.initialize()
                     result = await session.list_tools()
@@ -48,16 +123,15 @@ class MCPClient:
             raise
         except Exception as exc:
             raise MCPConnectionError(
-                f"MCP SSE connection to {self._sse_url} failed: {exc}"
+                f"MCP SSE connection to {self._url} failed: {exc}"
             ) from exc
 
-    async def call_tool(self, tool_name: str, arguments: dict[str, Any]) -> str:
-        """Invoke a tool and return its text output."""
+    async def _call_tool_sse(self, tool_name: str, arguments: dict[str, Any]) -> str:
         from mcp import ClientSession
         from mcp.client.sse import sse_client
 
         try:
-            async with sse_client(self._sse_url, headers=self._headers) as (read, write):
+            async with sse_client(self._url, headers=self._headers) as (read, write):
                 async with ClientSession(read, write) as session:
                     await session.initialize()
                     result = await session.call_tool(tool_name, arguments)
@@ -70,7 +144,7 @@ class MCPClient:
             raise
         except Exception as exc:
             raise MCPConnectionError(
-                f"MCP tool call '{tool_name}' via {self._sse_url} failed: {exc}"
+                f"MCP tool call '{tool_name}' via {self._url} failed: {exc}"
             ) from exc
 
 
@@ -81,7 +155,11 @@ class MCPService:
         self._repo = mcp_repo
 
     def _make_client(self, record: dict[str, Any]) -> MCPClient:
-        return MCPClient(url=str(record["url"]), headers=record.get("headers", {}))
+        return MCPClient(
+            url=str(record["url"]),
+            headers=record.get("headers", {}),
+            transport=record.get("transport", "http"),
+        )
 
     async def register_server(
         self,
@@ -89,9 +167,10 @@ class MCPService:
         name: str,
         url: str,
         headers: dict[str, str],
+        transport: str = "http",
     ) -> dict[str, Any]:
         """Verify connectivity then persist the server record."""
-        client = MCPClient(url=url, headers=headers)
+        client = MCPClient(url=url, headers=headers, transport=transport)
         # Raises MCPConnectionError if the server is unreachable.
         await client.list_tools()
 
@@ -100,6 +179,7 @@ class MCPService:
             "name": name,
             "url": url,
             "headers": headers,
+            "transport": transport,
             "is_active": True,
             "created_at": datetime.now(UTC),
             "updated_at": datetime.now(UTC),

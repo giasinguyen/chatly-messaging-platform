@@ -1,6 +1,10 @@
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, Field, HttpUrl
+
+MCP_TRANSPORT_SSE = "sse"
+MCP_TRANSPORT_HTTP = "http"
 
 
 class MCPServerCreate(BaseModel):
@@ -9,6 +13,7 @@ class MCPServerCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=100)
     url: HttpUrl
     headers: dict[str, str] = Field(default_factory=dict)
+    transport: Literal["sse", "http"] = MCP_TRANSPORT_HTTP
 
 
 class MCPServerUpdate(BaseModel):
@@ -34,6 +39,7 @@ class MCPServerResponse(BaseModel):
     url: str
     headers: dict[str, str]
     is_active: bool
+    transport: str = MCP_TRANSPORT_HTTP
     created_at: datetime
     updated_at: datetime | None = None
 
