@@ -8,8 +8,17 @@ Until Phase 3, both sets are empty — ``is_sensitive()`` returns True
 for all tools (deny-by-default), which is the safe fallback.
 """
 
-SAFE_TOOLS: set[str] = set()
-SENSITIVE_TOOLS: set[str] = set()
+# Verified with: uv run python -c "from langchain_tavily import TavilySearch; print(TavilySearch.model_fields['name'].default)"
+SAFE_TOOLS: set[str] = {
+    "search_documents",   # app/tools/retriever_tool.py
+    "tavily_search",      # langchain-tavily TavilySearch.name
+}
+
+SENSITIVE_TOOLS: set[str] = {
+    "generate_image",     # app/tools/image_gen_tool.py
+    "generate_sticker",   # app/tools/image_gen_tool.py
+    # MCP tools have dynamic names → caught by deny-by-default in is_sensitive()
+}
 
 
 def is_sensitive(tool_name: str) -> bool:

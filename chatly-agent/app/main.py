@@ -39,6 +39,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         ensure_bucket_exists(get_storage_client(), get_bucket_name())
         from app.db.checkpointer import get_checkpointer
         get_checkpointer()
+        from app.db.mongo import get_db
+        from app.repositories.interrupt_repository import InterruptRepository
+        await InterruptRepository(collection=get_db()["interrupt_states"]).setup_indexes()
     yield
     await close_client()
     await close_qdrant_client()

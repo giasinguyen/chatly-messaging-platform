@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
 
 from app.dependencies import get_chat_service, get_request_context
-from app.models.chat import ChatRequest, ChatResponse
+from app.models.chat import ChatRequest, ChatResponse, ResumeRequest, SessionStatusResponse
 from app.models.context import RequestContext
 from app.services.chat_service import ChatService
 
@@ -64,4 +64,63 @@ async def stream_chat(
             "X-Accel-Buffering": "no",
             "Connection": "keep-alive",
         },
+    )
+
+
+@router.post(
+    "/chat/stream/resume",
+    summary="Resume after HITL interrupt (SSE streaming)",
+    description=(
+        "Resume a session that is paused at a sensitive tool call. "
+        "Approve or reject the pending tool, then stream the continued response."
+    ),
+    responses={
+        401: {"description": "Missing or invalid API key"},
+        404: {"description": "Session not found"},
+    },
+)
+async def resume_stream(
+    session_id: str,
+    payload: ResumeRequest,
+    ctx: RequestContext = Depends(get_request_context),  # noqa: B008
+    service: ChatService = Depends(get_chat_service),  # noqa: B008
+) -> StreamingResponse:
+    """Resume a HITL-interrupted session and stream the continued response."""
+    return StreamingResponse(
+        service.resume_stream(
+            user_id=ctx.user_id,
+            session_id=session_id,
+            body=payload,
+        ),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+            "Connection": "keep-alive",
+        },
+    )
+
+
+@router.get(
+    "/chat/status",
+    response_model=SessionStatusResponse,
+    summary="Get HITL session status",
+    description=(
+        "Returns 'idle' when no interrupt is pending. "
+        "Returns 'interrupted' with full interrupt_data when the session is paused."
+    ),
+    responses={
+        401: {"description": "Missing or invalid API key"},
+        404: {"description": "Session not found"},
+    },
+)
+async def get_session_status(
+    session_id: str,
+    ctx: RequestContext = Depends(get_request_context),  # noqa: B008
+    service: ChatService = Depends(get_chat_service),  # noqa: B008
+) -> SessionStatusResponse:
+    """Return the current HITL status of a session."""
+    return await service.get_session_status(
+        user_id=ctx.user_id,
+        session_id=session_id,
     )

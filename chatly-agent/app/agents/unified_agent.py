@@ -33,7 +33,12 @@ class UnifiedAgent(BaseAgent):
     ) -> None:
         self._llm = llm
         self._tools = tools
-        self._graph = create_react_agent(llm, tools, checkpointer=checkpointer)
+        # Only enable interrupt_before when a checkpointer is available.
+        # Without checkpointer the graph state cannot be persisted for resumption.
+        interrupt_before = ["tools"] if checkpointer is not None else None
+        self._graph = create_react_agent(
+            llm, tools, checkpointer=checkpointer, interrupt_before=interrupt_before
+        )
         self.agent_type: str = "unified"
 
     def _build_messages(self, input: ChatInput) -> list[Any]:
