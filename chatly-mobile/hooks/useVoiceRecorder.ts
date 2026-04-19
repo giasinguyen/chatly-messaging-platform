@@ -1,5 +1,10 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { Audio } from 'expo-av';
+import {
+  RecordingPresets,
+  requestRecordingPermissionsAsync,
+  setAudioModeAsync,
+  useAudioRecorder,
+} from 'expo-audio';
 import * as FileSystem from 'expo-file-system';
 
 export const MAX_RECORDING_SECONDS = 300;
@@ -17,9 +22,9 @@ export class MicPermissionDeniedError extends Error {
 }
 
 export function useVoiceRecorder() {
+  const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
   const [isRecording, setIsRecording] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
-  const recordingRef = useRef<Audio.Recording | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const startTimeRef = useRef<number>(0);
 
@@ -33,28 +38,28 @@ export function useVoiceRecorder() {
   useEffect(() => {
     return () => {
       stopTimer();
-      if (recordingRef.current) {
-        recordingRef.current.stopAndUnloadAsync().catch(() => {});
-        recordingRef.current = null;
+      if (recorder.getStatus().isRecording) {
+        recorder.stop().catch(() => {});
       }
     };
-  }, [stopTimer]);
+  }, [recorder, stopTimer]);
 
   const startRecording = useCallback(async () => {
-    const { status } = await Audio.requestPermissionsAsync();
+    const { status } = await requestRecordingPermissionsAsync();
     if (status !== 'granted') {
       throw new MicPermissionDeniedError();
     }
 
-    await Audio.setAudioModeAsync({
-      allowsRecordingIOS: true,
-      playsInSilentModeIOS: true,
+    await setAudioModeAsync({
+      allowsRecording: true,
+      playsInSilentMode: true,
+      shouldPlayInBackground: true,
+      interruptionMode: 'doNotMix',
+      shouldRouteThroughEarpiece: true,
     });
 
-    const { recording } = await Audio.Recording.createAsync(
-      Audio.RecordingOptionsPresets.HIGH_QUALITY,
-    );
-    recordingRef.current = recording;
+    await recorder.prepareToRecordAsync();
+    recorder.record();
     startTimeRef.current = Date.now();
     setIsRecording(true);
     setElapsedSeconds(0);
@@ -66,63 +71,68 @@ export function useVoiceRecorder() {
         stopTimer();
       }
     }, 1000);
-  }, [stopTimer]);
+  }, [recorder, stopTimer]);
 
   const stopRecording = useCallback(async (): Promise<VoiceRecordingResult | null> => {
     stopTimer();
-    const recording = recordingRef.current;
-    if (!recording) {
+    if (!recorder.getStatus().isRecording) {
       setIsRecording(false);
       setElapsedSeconds(0);
       return null;
     }
 
     try {
-      await recording.stopAndUnloadAsync();
-      const status = await recording.getStatusAsync();
-      const uri = recording.getURI();
-      recordingRef.current = null;
+      await recorder.stop();
+      const status = recorder.getStatus();
+      const uri = status.url;
       setIsRecording(false);
-      const durationSeconds = status.isRecording
-        ? 0
-        : Math.round((status.durationMillis ?? (Date.now() - startTimeRef.current)) / 1000);
+      const durationSeconds = Math.round((status.durationMillis || (Date.now() - startTimeRef.current)) / 1000);
       setElapsedSeconds(0);
 
       if (!uri) return null;
       return { uri, durationSeconds };
     } catch {
-      recordingRef.current = null;
       setIsRecording(false);
       setElapsedSeconds(0);
       return null;
     } finally {
-      await Audio.setAudioModeAsync({ allowsRecordingIOS: false });
+      await setAudioModeAsync({
+        allowsRecording: false,
+        playsInSilentMode: false,
+        shouldPlayInBackground: false,
+        interruptionMode: 'duckOthers',
+        shouldRouteThroughEarpiece: false,
+      });
     }
-  }, [stopTimer]);
+  }, [recorder, stopTimer]);
 
   const cancelRecording = useCallback(async () => {
     stopTimer();
-    const recording = recordingRef.current;
-    if (!recording) {
+    if (!recorder.getStatus().isRecording) {
       setIsRecording(false);
       setElapsedSeconds(0);
       return;
     }
     try {
-      await recording.stopAndUnloadAsync();
-      const uri = recording.getURI();
+      await recorder.stop();
+      const uri = recorder.getStatus().url;
       if (uri) {
         await FileSystem.deleteAsync(uri, { idempotent: true });
       }
     } catch {
       // Ignore errors during cancel cleanup
     } finally {
-      recordingRef.current = null;
       setIsRecording(false);
       setElapsedSeconds(0);
-      await Audio.setAudioModeAsync({ allowsRecordingIOS: false });
+      await setAudioModeAsync({
+        allowsRecording: false,
+        playsInSilentMode: false,
+        shouldPlayInBackground: false,
+        interruptionMode: 'duckOthers',
+        shouldRouteThroughEarpiece: false,
+      });
     }
-  }, [stopTimer]);
+  }, [recorder, stopTimer]);
 
   return { isRecording, elapsedSeconds, startRecording, stopRecording, cancelRecording };
 }

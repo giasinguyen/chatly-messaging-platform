@@ -1,6 +1,10 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
-import { Audio, AVPlaybackStatus } from 'expo-av';
+import {
+  createAudioPlayer,
+  type AudioPlayer as ExpoAudioPlayer,
+  type AudioStatus,
+} from 'expo-audio';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/theme';
 
@@ -20,64 +24,89 @@ const FORMAT_DURATION = (ms: number): string => {
 };
 
 export function AudioPlayer({ url, name, isMe, durationSeconds }: AudioPlayerProps) {
-  const soundRef = useRef<Audio.Sound | null>(null);
+  const playerRef = useRef<ExpoAudioPlayer | null>(null);
+  const statusSubscriptionRef = useRef<{ remove: () => void } | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [positionMs, setPositionMs] = useState(0);
   const [durationMs, setDurationMs] = useState(durationSeconds != null ? durationSeconds * 1000 : 0);
   const [error, setError] = useState(false);
 
-  const handlePlaybackStatusUpdate = useCallback((status: AVPlaybackStatus) => {
+  const handlePlaybackStatusUpdate = useCallback((status: AudioStatus) => {
     if (!status.isLoaded) {
-      if (status.error) setError(true);
       return;
     }
-    
-    setIsPlaying(status.isPlaying);
-    setPositionMs(status.positionMillis);
-    if (status.durationMillis) {
-      setDurationMs(status.durationMillis);
+
+    setIsPlaying(status.playing);
+    setPositionMs(Math.round(status.currentTime * 1000));
+    if (status.duration > 0) {
+      setDurationMs(Math.round(status.duration * 1000));
     }
-    
+
     if (status.didJustFinish) {
       setIsPlaying(false);
       setPositionMs(0);
-      soundRef.current?.setPositionAsync(0);
+      playerRef.current?.seekTo(0).catch(() => {
+        // Ignore seek cleanup failure after playback completion.
+      });
     }
   }, []);
 
+  const initializePlayer = useCallback((): ExpoAudioPlayer => {
+    if (playerRef.current) {
+      return playerRef.current;
+    }
+
+    const player = createAudioPlayer({ uri: url }, { updateInterval: 250 });
+    statusSubscriptionRef.current = player.addListener('playbackStatusUpdate', handlePlaybackStatusUpdate);
+    playerRef.current = player;
+    return player;
+  }, [handlePlaybackStatusUpdate, url]);
+
   const handleTogglePlay = useCallback(async () => {
     try {
-      if (!soundRef.current) {
+      if (!playerRef.current) {
         setIsLoading(true);
         setError(false);
-        const { sound } = await Audio.Sound.createAsync(
-          { uri: url },
-          { shouldPlay: true },
-          handlePlaybackStatusUpdate,
-        );
-        soundRef.current = sound;
+        const player = initializePlayer();
+        player.play();
         setIsLoading(false);
         return;
       }
 
       if (isPlaying) {
-        await soundRef.current.pauseAsync();
+        playerRef.current.pause();
       } else {
-        await soundRef.current.playAsync();
+        playerRef.current.play();
       }
     } catch (err) {
       console.error('Audio playback error:', err);
       setError(true);
       setIsLoading(false);
     }
-  }, [url, isPlaying, handlePlaybackStatusUpdate]);
+  }, [initializePlayer, isPlaying]);
+
+  useEffect(() => {
+    setIsPlaying(false);
+    setIsLoading(false);
+    setError(false);
+    setPositionMs(0);
+    if (durationSeconds != null) {
+      setDurationMs(durationSeconds * 1000);
+    }
+
+    if (playerRef.current) {
+      playerRef.current.pause();
+      playerRef.current.replace({ uri: url });
+    }
+  }, [durationSeconds, url]);
 
   useEffect(() => {
     return () => {
-      if (soundRef.current) {
-        soundRef.current.unloadAsync();
-      }
+      statusSubscriptionRef.current?.remove();
+      statusSubscriptionRef.current = null;
+      playerRef.current?.remove();
+      playerRef.current = null;
     };
   }, []);
 
