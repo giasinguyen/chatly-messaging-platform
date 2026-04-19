@@ -21,6 +21,7 @@ import { VCardMessageRenderer } from "./VCardMessageRenderer";
 import { LocationMessageRenderer } from "./LocationMessageRenderer";
 import { TextMessageBody } from "./TextMessageBody";
 import { MessageAttachmentRenderer } from "./MessageAttachmentRenderer";
+import { AudioMessagePlayer } from "@/components/AudioMessagePlayer";
 
 interface MessageBubbleBodyProps {
     msg: Message;
@@ -182,6 +183,19 @@ export function MessageBubbleBody(props: MessageBubbleBodyProps) {
 
     if (msg.type === "LOCATION" && msg.location) {
         return <LocationMessageRenderer location={msg.location} />;
+    }
+
+    if (msg.type === "AUDIO") {
+        const audio = msg.attachments?.[0];
+        if (!audio?.url) return null;
+        return (
+            <AudioMessagePlayer
+                url={audio.url}
+                name={audio.name}
+                durationSeconds={audio.durationSeconds}
+                isMe={isMe}
+            />
+        );
     }
 
     return (

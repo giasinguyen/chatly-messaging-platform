@@ -19,6 +19,7 @@ import {
     AlertTriangle,
     Check,
     MapPin,
+    Mic,
 } from "lucide-react";
 import { toast } from "sonner";
 import Picker from "@emoji-mart/react";
@@ -40,6 +41,8 @@ import { groupService } from "@/services/group.service";
 import { contactService } from "@/services/contact.service";
 import { useAuthStore } from "@/store/auth.store";
 import type { Message, Attachment, Poll, ChatUser, LocationPayload } from "@/types/message";
+import { useAudioRecorder, MicPermissionDeniedError } from "@/hooks/useAudioRecorder";
+import { AudioRecordingBar } from "./AudioRecordingBar";
 
 const LazyMediaPicker = lazy(() => import("@/components/media-picker/MediaPicker").then(m => ({ default: m.MediaPicker })));
 
@@ -118,7 +121,10 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
     const [showLocationDialog, setShowLocationDialog] = useState(false);
     const [pendingLocation, setPendingLocation] = useState<LocationPayload | null>(null);
     const [locationLoading, setLocationLoading] = useState(false);
-    const typingTimerRef = useRef<any>(null);
+    const [isRecordingAudio, setIsRecordingAudio] = useState(false);
+    const [isAudioSending, setIsAudioSending] = useState(false);
+    const { isRecording, elapsedSeconds, analyserNode, startRecording, stopRecording, cancelRecording } = useAudioRecorder();
+    const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const inputRef = useRef<HTMLInputElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const imageInputRef = useRef<HTMLInputElement>(null);
@@ -394,6 +400,13 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
             }
         }
 
+        if (e.key === "Escape" && isRecordingAudio) {
+            e.preventDefault();
+            cancelRecording();
+            setIsRecordingAudio(false);
+            return;
+        }
+
         if (e.key === "Enter" && !e.shiftKey) {
             e.preventDefault();
             handleSend();
@@ -509,6 +522,52 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
             }
         );
     };
+
+    const handleStartRecording = async () => {
+        try {
+            await startRecording();
+            setIsRecordingAudio(true);
+        } catch (err: unknown) {
+            if (err instanceof MicPermissionDeniedError) {
+                toast.error("Microphone access denied. Please allow it in your browser settings.");
+            } else {
+                toast.error("Could not access microphone.");
+            }
+        }
+    };
+
+    const handleSendAudio = async () => {
+        setIsAudioSending(true);
+        try {
+            const result = await stopRecording();
+            setIsRecordingAudio(false);
+            if (!result) return;
+            const { blob, durationSeconds } = result;
+            const extension = blob.type.includes("mp4") ? "mp4" : "webm";
+            const file = new File([blob], `voice-message.${extension}`, { type: blob.type });
+            const uploaded = await fileService.upload(file, conversationId);
+            const attachment: Attachment = {
+                fileId: uploaded.fileId,
+                url: uploaded.url,
+                name: uploaded.fileName,
+                type: uploaded.fileType,
+                size: uploaded.fileSize,
+                durationSeconds,
+            };
+            onSendMessage("", [attachment], undefined, undefined, undefined, "AUDIO");
+        } catch {
+            toast.error("Failed to upload audio message.");
+        } finally {
+            setIsAudioSending(false);
+        }
+    };
+
+    const handleCancelRecording = () => {
+        cancelRecording();
+        setIsRecordingAudio(false);
+    };
+
+    const showMicButton = content.trim().length === 0 && pendingFiles.length === 0 && !isRecordingAudio;
 
     return (
         <div className="border-t border-border bg-background font-inter relative">
@@ -896,6 +955,17 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
                 </div>
 
                 {/* Row 2: Text input + send */}
+                {(isRecordingAudio || isRecording) && (
+                    <AudioRecordingBar
+                        elapsedSeconds={elapsedSeconds}
+                        analyserNode={analyserNode}
+                        onSend={handleSendAudio}
+                        onCancel={handleCancelRecording}
+                        isSending={isAudioSending}
+                    />
+                )}
+
+                {!isRecordingAudio && (
                 <div className="flex items-center gap-2">
                     <div className="flex-1 relative">
                         {/* Mention autocomplete dropdown */}
@@ -952,19 +1022,31 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
                             className="bg-transparent border-transparent focus-visible:ring-0 focus-visible:border-transparent p-0 h-10 text-[15px] shadow-none placeholder:text-muted-foreground/50"
                         />
                     </div>
-                    <Button
-                        onClick={handleSend}
-                        disabled={!canSend}
-                        className="h-10 px-6 bg-brand text-white hover:bg-brand/90 transition-all active:scale-95 disabled:opacity-50 disabled:scale-100"
-                    >
-                        {isUploading ? (
-                            <Loader2 size={18} className="mr-2 animate-spin" />
-                        ) : (
-                            <SendHorizontal size={18} className="mr-2" />
-                        )}
-                        <span className="font-medium text-sm">Send</span>
-                    </Button>
+                    {showMicButton ? (
+                        <Button
+                            type="button"
+                            onClick={handleStartRecording}
+                            className="h-10 w-10 shrink-0 bg-brand text-white hover:bg-brand/90 rounded-full p-0 transition-all active:scale-95"
+                            title="Record voice message"
+                        >
+                            <Mic size={18} />
+                        </Button>
+                    ) : (
+                        <Button
+                            onClick={handleSend}
+                            disabled={!canSend}
+                            className="h-10 px-6 bg-brand text-white hover:bg-brand/90 transition-all active:scale-95 disabled:opacity-50 disabled:scale-100"
+                        >
+                            {isUploading ? (
+                                <Loader2 size={18} className="mr-2 animate-spin" />
+                            ) : (
+                                <SendHorizontal size={18} className="mr-2" />
+                            )}
+                            <span className="font-medium text-sm">Send</span>
+                        </Button>
+                    )}
                 </div>
+                )}
             </div>
 
             {/* Poll creation dialog */}

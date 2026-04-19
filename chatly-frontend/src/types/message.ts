@@ -13,6 +13,7 @@ export interface Attachment {
     name?: string;
     type?: string;
     size?: number;
+    durationSeconds?: number;
 }
 
 export interface EditHistoryEntry {
