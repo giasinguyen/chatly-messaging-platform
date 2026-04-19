@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
+import { toast } from "sonner";
 import {
     Mic,
     MicOff,
@@ -9,7 +10,6 @@ import {
     Maximize2,
     Minimize2,
     PhoneOff,
-    VideoIcon,
 } from "lucide-react";
 import { useCallStore } from "@/store/call.store";
 
@@ -35,8 +35,8 @@ export function ActiveCallOverlay({
     onUpgradeToVideo,
 }: ActiveCallOverlayProps) {
     // Video refs nội bộ — đảm bảo stream được attach đúng thời điểm overlay mount
-    const localVideoRef = useRef<HTMLVideoElement>(null);
-    const remoteVideoRef = useRef<HTMLVideoElement>(null);
+    const localVideoRef = useRef<HTMLVideoElement | null>(null);
+    const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
     const remoteAudioRef = useRef<HTMLAudioElement>(null);
 
     // Release camera/mic immediately when overlay unmounts (call ended)
@@ -86,6 +86,16 @@ export function ActiveCallOverlay({
     const peerName = outgoingCallTarget?.name ?? incomingCall?.callerName ?? "User";
     const peerAvatar = outgoingCallTarget?.avatarUrl ?? incomingCall?.callerAvatar ?? null;
     const peerInitial = peerName.charAt(0).toUpperCase();
+
+    const attachLocalVideoRef = useCallback(
+        (element: HTMLVideoElement | null) => {
+            localVideoRef.current = element;
+            if (element && localStream) {
+                element.srcObject = localStream;
+            }
+        },
+        [localStream],
+    );
 
     const [isExpanded, setIsExpanded] = useState(false);
     const [isSpeakerOn, setIsSpeakerOn] = useState(true);
@@ -137,6 +147,17 @@ export function ActiveCallOverlay({
         });
     };
 
+    const handleUpgradeToVideo = async () => {
+        try {
+            await onUpgradeToVideo?.();
+            toast.success("Camera enabled, upgrading to video call");
+        } catch (error) {
+            const message = error instanceof Error ? error.message : "Failed to upgrade to video call";
+            console.error("Upgrade to video error:", error);
+            toast.error(message);
+        }
+    };
+
     // Call duration timer
     useEffect(() => {
         if (callStatus === "ONGOING") {
@@ -160,7 +181,10 @@ export function ActiveCallOverlay({
 
     if (callStatus !== "ONGOING" || !activeCall) return null;
 
-    const isVideoCall = activeCall.type === "VIDEO";
+    const hasLocalVideoTrack = Boolean(
+        localStream?.getVideoTracks().some((track) => track.readyState === "live"),
+    );
+    const isVideoCall = activeCall.type === "VIDEO" || hasLocalVideoTrack;
 
     // Hidden audio element — plays remote stream for both voice and video calls
     const remoteAudioEl = (
@@ -199,7 +223,7 @@ export function ActiveCallOverlay({
                     {isVideoCall && (
                         <div className="absolute bottom-4 right-4 overflow-hidden rounded-lg border-2 border-white">
                             <video
-                                ref={localVideoRef}
+                                ref={attachLocalVideoRef}
                                 autoPlay
                                 playsInline
                                 muted
@@ -255,11 +279,11 @@ export function ActiveCallOverlay({
 
                     {!isVideoCall && onUpgradeToVideo && (
                         <button
-                            onClick={onUpgradeToVideo}
-                            className="flex h-12 w-12 items-center justify-center rounded-full bg-white/20 transition-colors hover:bg-white/30"
-                            title="Upgrade to video call"
+                            onClick={handleUpgradeToVideo}
+                            className="flex h-12 w-12 items-center justify-center rounded-full bg-red-500 transition-colors hover:bg-red-600"
+                            title="Turn camera on and upgrade to video call"
                         >
-                            <VideoIcon size={22} />
+                            <VideoOff size={22} />
                         </button>
                     )}
 
@@ -304,7 +328,7 @@ export function ActiveCallOverlay({
                 {isVideoCall && (
                     <div className="absolute bottom-2 right-2 overflow-hidden rounded-lg">
                         <video
-                            ref={localVideoRef}
+                            ref={attachLocalVideoRef}
                             autoPlay
                             playsInline
                             muted
@@ -355,11 +379,11 @@ export function ActiveCallOverlay({
 
                 {!isVideoCall && onUpgradeToVideo && (
                     <button
-                        onClick={onUpgradeToVideo}
+                        onClick={handleUpgradeToVideo}
                         className="rounded-lg p-1.5 transition-colors hover:bg-white/10"
-                        title="Upgrade to video call"
+                        title="Turn camera on and upgrade to video call"
                     >
-                        <VideoIcon size={18} />
+                        <VideoOff size={18} className="text-red-400" />
                     </button>
                 )}
 

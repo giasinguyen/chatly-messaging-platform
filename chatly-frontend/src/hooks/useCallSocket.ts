@@ -21,6 +21,7 @@ export function useCallSocket(groupSignalRef?: React.MutableRefObject<((signal: 
         setCallStatus,
         setOutgoingCallTarget,
         setPendingOffer,
+        setCameraOff,
         startCall,
         endCall: endCallStore,
         upgradeCall,
@@ -155,6 +156,10 @@ export function useCallSocket(groupSignalRef?: React.MutableRefObject<((signal: 
 
                 case "RENEGOTIATE_OFFER": {
                     // Remote is upgrading the call (e.g. voice → video)
+                    // Receiver should switch to video layout to see peer, but keep own camera off.
+                    setCameraOff(true);
+                    upgradeCall();
+
                     const renoPayload = signal.payload as { sdp: RTCSessionDescriptionInit };
                     await webrtcRef.current.handleRemoteDescription(renoPayload.sdp);
                     const answer = await webrtcRef.current.createAnswer();
@@ -176,7 +181,6 @@ export function useCallSocket(groupSignalRef?: React.MutableRefObject<((signal: 
                             });
                         }
                     }
-                    upgradeCall();
                     break;
                 }
 
@@ -192,7 +196,7 @@ export function useCallSocket(groupSignalRef?: React.MutableRefObject<((signal: 
                     console.warn("Unknown call signal type:", signal.type);
             }
         },
-        [setIncomingCall, setCallStatus, endCallStore, setPendingOffer, upgradeCall, playRingtone, stopRingtone],
+        [setIncomingCall, setCallStatus, endCallStore, setPendingOffer, setCameraOff, upgradeCall, playRingtone, stopRingtone],
     );
 
     // Subscribe to call queue — re-subscribe every time STOMP connects/reconnects
@@ -216,6 +220,12 @@ export function useCallSocket(groupSignalRef?: React.MutableRefObject<((signal: 
                         groupSignalRef?.current?.(signal);
                         return;
                     }
+
+                    // Some brokers can echo signaling back to sender; ignore our own 1-1 signals.
+                    if (user && signal.senderId === user.id) {
+                        return;
+                    }
+
                     handleSignal(signal);
                 },
             );
@@ -401,13 +411,21 @@ export function useCallSocket(groupSignalRef?: React.MutableRefObject<((signal: 
     }, []);
 
     // Upgrade an active voice call to video (sends RENEGOTIATE_OFFER to peer)
-    const upgradeToVideo = useCallback(async () => {        if (!user) return;
-        const client = socketService.getClient();
+    const upgradeToVideo = useCallback(async () => {
         const activeCall = useCallStore.getState().activeCall;
-        if (!client?.connected || !activeCall) return;
+        if (!activeCall) throw new Error("No active call to upgrade");
 
         try {
             const offer = await webrtcRef.current.upgradeToVideo();
+            setCameraOff(false);
+            // Switch local UI to video immediately instead of waiting for round-trip signaling.
+            upgradeCall();
+
+            // Best-effort signaling: if socket/user is unavailable, keep local preview on.
+            if (!user) return;
+            const client = socketService.getClient();
+            if (!client?.connected) return;
+
             const receiverId = activeCall.participants.find((id) => id !== user.id);
             if (!receiverId) return;
 
@@ -423,8 +441,9 @@ export function useCallSocket(groupSignalRef?: React.MutableRefObject<((signal: 
             });
         } catch (error) {
             console.error("Failed to upgrade to video:", error);
+            throw error; // Re-throw so caller knows upgrade failed
         }
-    }, [user]);
+    }, [user, setCameraOff, upgradeCall]);
 
     return {
         initiateCall,

@@ -1,5 +1,7 @@
 import { useRef, useCallback, useState } from "react";
 import type { CallType } from "@/types/call";
+import { requestMicrophoneStream } from "@/utils/call/audioMedia";
+import { requestCameraTrack, requestVideoCallStream } from "@/utils/call/videoMedia";
 
 const ICE_SERVERS: RTCConfiguration = {
     iceServers: [
@@ -39,22 +41,9 @@ export function useGroupWebRTC(callbacks?: GroupWebRTCCallbacks) {
     const [remoteStreams, setRemoteStreams] = useState<Record<string, MediaStream>>({});
 
     const initLocalStream = useCallback(async (type: CallType): Promise<MediaStream> => {
-        const constraints: MediaStreamConstraints = {
-            audio: true,
-            video: type === "VIDEO" ? { facingMode: "user", width: 640, height: 480 } : false,
-        };
-
-        let stream: MediaStream;
-        try {
-            stream = await navigator.mediaDevices.getUserMedia(constraints);
-        } catch (err) {
-            if (type === "VIDEO") {
-                // Fall back to audio-only if camera unavailable
-                stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            } else {
-                throw err;
-            }
-        }
+        const stream = type === "VIDEO"
+            ? await requestVideoCallStream()
+            : await requestMicrophoneStream();
 
         localStreamRef.current = stream;
         setLocalStream(stream);
@@ -209,12 +198,11 @@ export function useGroupWebRTC(callbacks?: GroupWebRTCCallbacks) {
             });
         } else if (!cameraOff) {
             // Voice call → add video track to stream and all peer connections
-            const videoStream = await navigator.mediaDevices.getUserMedia({ video: true });
-            const videoTrack = videoStream.getVideoTracks()[0];
+            const videoTrack = await requestCameraTrack();
             stream.addTrack(videoTrack);
             setLocalStream(new MediaStream(stream.getTracks()));
 
-            peersRef.current.forEach(({ connection }) => {
+            peers.current.forEach(({ connection }) => {
                 connection.addTrack(videoTrack, stream);
             });
         }
