@@ -56,6 +56,7 @@ export interface ChatWindowDialogsProps {
     handleSaveGroupProfile: () => void;
     handleBlockContact: () => void;
     handleUnblockContact: () => void;
+    handleLeaveGroup: () => void;
 }
 
 export const ChatWindowDialogs = memo(function ChatWindowDialogs(
@@ -108,6 +109,7 @@ export const ChatWindowDialogs = memo(function ChatWindowDialogs(
         handleSaveGroupProfile,
         handleBlockContact,
         handleUnblockContact,
+        handleLeaveGroup,
     } = props;
 
     return (
@@ -164,6 +166,7 @@ export const ChatWindowDialogs = memo(function ChatWindowDialogs(
                     closeProfileDialog();
                     setShowGroupPanel(true);
                 }}
+                onLeaveGroup={handleLeaveGroup}
             />
 
             {isGroup && (

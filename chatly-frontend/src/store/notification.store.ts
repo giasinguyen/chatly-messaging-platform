@@ -11,6 +11,7 @@ interface NotificationStore {
     markAllRead: () => void;
     markMsgNotificationsRead: () => void;
     markConvMessagesRead: (conversationId: string) => void;
+    removeByTypeAndReference: (type: string, referenceId: string) => void;
 }
 
 export const useNotificationStore = create<NotificationStore>((set) => ({
@@ -55,6 +56,13 @@ export const useNotificationStore = create<NotificationStore>((set) => ({
             notifications: state.notifications.map((n) =>
                 n.type === "NEW_MESSAGE" && n.referenceId === conversationId
                     ? { ...n, read: true } : n,
+            ),
+        })),
+
+    removeByTypeAndReference: (type, referenceId) =>
+        set((state) => ({
+            notifications: state.notifications.filter(
+                (n) => !(n.type === type && n.referenceId === referenceId),
             ),
         })),
 }));

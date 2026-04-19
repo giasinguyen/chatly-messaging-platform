@@ -36,6 +36,7 @@ export default function ContactsScreen() {
   const conversations = useConversationStore((s) => s.conversations);
   const router = useRouter();
   const invalidateContacts = useContactStore((s) => s.invalidate);
+  const pendingRefreshToken = useContactStore((s) => s.pendingRefreshToken);
 
   const [activeTab, setActiveTab] = useState<Tab>('friends');
   const [contacts, setContacts] = useState<ContactResponse[]>([]);
@@ -123,6 +124,14 @@ export default function ContactsScreen() {
     setFriendSearchQuery('');
     setOnlineFilter('all');
   }, [activeTab]);
+
+  // Refresh pending list when a new friend request notification arrives
+  useEffect(() => {
+    if (pendingRefreshToken > 0) {
+      fetchPending();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingRefreshToken]);
 
   // Refresh
   const handleRefresh = async () => {

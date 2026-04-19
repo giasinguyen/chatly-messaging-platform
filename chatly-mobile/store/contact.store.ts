@@ -6,10 +6,14 @@ interface ContactStoreState {
   contacts: ContactResponse[];
   loading: boolean;
   loaded: boolean;
+  /** Incremented each time a friend request notification arrives — subscribe to trigger refetch. */
+  pendingRefreshToken: number;
   /** Load all contacts once. No-ops if already loading. */
   fetchContacts: () => Promise<void>;
   /** Force a fresh reload — call after block/unblock/add friend actions. */
   invalidate: () => void;
+  /** Increment pendingRefreshToken to signal that the pending list should be reloaded. */
+  triggerPendingRefresh: () => void;
   /** Returns "I_BLOCKED" | "BLOCKED_ME" | null for a given user pair. */
   getBlockDirection: (
     currentUserId: string,
@@ -21,6 +25,7 @@ export const useContactStore = create<ContactStoreState>((set, get) => ({
   contacts: [],
   loading: false,
   loaded: false,
+  pendingRefreshToken: 0,
 
   fetchContacts: async () => {
     if (get().loading) return;
@@ -36,6 +41,10 @@ export const useContactStore = create<ContactStoreState>((set, get) => ({
   invalidate: () => {
     set({ loaded: false });
     get().fetchContacts();
+  },
+
+  triggerPendingRefresh: () => {
+    set((s) => ({ pendingRefreshToken: s.pendingRefreshToken + 1 }));
   },
 
   getBlockDirection: (currentUserId, otherUserId) => {

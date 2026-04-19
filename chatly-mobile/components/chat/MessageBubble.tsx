@@ -49,6 +49,7 @@ interface MessageBubbleProps {
   onAddFriend?: (userId: string) => void;
   vcardFriendStatus?: (userId: string) => 'ACCEPTED' | 'PENDING' | null;
   onClosePoll?: (messageId: string) => void;
+  onScrollToMessage?: (messageId: string) => void;
 }
 
 export function MessageBubble({
@@ -72,6 +73,7 @@ export function MessageBubble({
   onAddFriend,
   vcardFriendStatus,
   onClosePoll,
+  onScrollToMessage,
 }: MessageBubbleProps) {
   const { content, type, recalled, edited, createdAt, readBy, attachments } = message;
 
@@ -184,7 +186,7 @@ export function MessageBubble({
     };
 
     return (
-      <View className="gap-1.5">
+      <View style={{ gap: 6, width: maxBubbleWidth - 32 }}>
         {files.map((file, idx) => {
           if (!file.url) return null;
 
@@ -210,25 +212,30 @@ export function MessageBubble({
             <TouchableOpacity
               key={idx}
               onPress={() => file.url && Linking.openURL(file.url)}
-              className="flex-row items-center rounded-xl px-3 py-2"
-              style={{ backgroundColor: isMe ? 'rgba(0,0,0,0.15)' : 'rgba(0,0,0,0.07)' }}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                borderRadius: 12,
+                paddingHorizontal: 12,
+                paddingVertical: 8,
+                backgroundColor: isMe ? 'rgba(0,0,0,0.15)' : 'rgba(0,0,0,0.07)',
+              }}
             >
               {/* Phosphor file icon */}
-              <View style={{ width: 36, height: 36, alignItems: 'center', justifyContent: 'center' }}>
+              <View style={{ width: 36, height: 36, alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                 <IconComponent size={28} color={isMe ? 'rgba(255,255,255,0.85)' : iconColor} weight="duotone" />
               </View>
-              <View className="ml-2.5 flex-1">
+              <View style={{ marginLeft: 10, flex: 1, overflow: 'hidden' }}>
                 <Text
-                  className="text-sm font-medium"
-                  style={{ color: isMe ? Colors.bubbleSenderText : Colors.text }}
+                  style={{ fontSize: 14, fontWeight: '500', color: isMe ? Colors.bubbleSenderText : Colors.text }}
                   numberOfLines={1}
+                  ellipsizeMode="tail"
                 >
                   {fileName}
                 </Text>
                 {sizeStr ? (
                   <Text
-                    className="text-[11px] mt-0.5"
-                    style={{ color: isMe ? 'rgba(255,255,255,0.6)' : Colors.textMuted }}
+                    style={{ fontSize: 11, marginTop: 2, color: isMe ? 'rgba(255,255,255,0.6)' : Colors.textMuted }}
                   >
                     {sizeStr}
                   </Text>
@@ -238,7 +245,7 @@ export function MessageBubble({
                 name="download-outline"
                 size={16}
                 color={isMe ? 'rgba(255,255,255,0.7)' : Colors.textMuted}
-                style={{ marginLeft: 6 }}
+                style={{ marginLeft: 8, flexShrink: 0 }}
               />
             </TouchableOpacity>
           );
@@ -374,6 +381,8 @@ export function MessageBubble({
               <TouchableOpacity
                 key={idx}
                 onPress={() => !isDisabled && onVotePoll?.(message.id, idx)}
+                onLongPress={onLongPress}
+                delayLongPress={300}
                 activeOpacity={isDisabled ? 1 : 0.7}
                 style={{ marginBottom: 10, opacity: isDisabled && !isVoted ? 0.75 : 1 }}
               >
@@ -391,6 +400,8 @@ export function MessageBubble({
                   </Text>
                   <TouchableOpacity
                     onPress={() => voterCount > 0 && setVoterModal({ title: option, voterIds: poll.votes?.[String(idx)] ?? [] })}
+                    onLongPress={onLongPress}
+                    delayLongPress={300}
                     hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                     disabled={voterCount === 0}
                   >
@@ -412,6 +423,8 @@ export function MessageBubble({
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 14, paddingBottom: 10, paddingTop: 2 }}>
           <TouchableOpacity
             onPress={() => totalVoters > 0 && setVoterModal({ title: 'All voters', voterIds: [...new Set(Object.values(poll.votes ?? {}).flat())] })}
+            onLongPress={onLongPress}
+            delayLongPress={300}
             disabled={totalVoters === 0}
           >
             <Text style={{ fontSize: 11, color: totalVoters > 0 ? Colors.cta : Colors.textMuted }}>
@@ -428,7 +441,11 @@ export function MessageBubble({
               </View>
             )}
             {isMe && !isClosed && !isExpired && (
-              <TouchableOpacity onPress={() => onClosePoll?.(message.id)}>
+              <TouchableOpacity
+                onPress={() => onClosePoll?.(message.id)}
+                onLongPress={onLongPress}
+                delayLongPress={300}
+              >
                 <Text style={{ fontSize: 11, fontWeight: '600', color: Colors.error }}>End poll</Text>
               </TouchableOpacity>
             )}
@@ -666,7 +683,7 @@ export function MessageBubble({
   // Poll messages — white card, full-width, centered
   if (type === 'POLL') {
     return (
-      <View className="my-1 px-4">
+      <View className="my-1 px-4 items-center">
         {!isMe && showAvatar && senderName && (
           <Text className="mb-1 text-xs" style={{ color: Colors.textMuted, marginLeft: 34 }}>
             {senderName}
@@ -684,7 +701,7 @@ export function MessageBubble({
               )}
             </View>
           )}
-          <TouchableOpacity activeOpacity={1} onLongPress={onLongPress} delayLongPress={300} style={{ flex: 1 }}>
+          <TouchableOpacity activeOpacity={1} onLongPress={onLongPress} delayLongPress={300}>
             {renderPollContent()}
           </TouchableOpacity>
         </View>
@@ -887,7 +904,9 @@ export function MessageBubble({
         >
           {/* Reply preview */}
           {replyToMessage && (
-            <View
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => replyToMessage.id && onScrollToMessage?.(replyToMessage.id)}
               className="mb-2 rounded-xl px-3 py-2"
               style={{
                 backgroundColor: isMe
@@ -902,7 +921,7 @@ export function MessageBubble({
                 style={{ color: isMe ? 'rgba(255,255,255,0.75)' : Colors.cta }}
                 numberOfLines={1}
               >
-                {replyToMessage.recalled ? 'Message recalled' : ''}
+                {replyToMessage.recalled ? 'Message recalled' : (senderName ?? 'Message')}
               </Text>
               <Text
                 className="text-[12px]"
@@ -931,7 +950,7 @@ export function MessageBubble({
                   ? '👤 Contact'
                   : replyToMessage.content}
               </Text>
-            </View>
+            </TouchableOpacity>
           )}
 
           {renderContent()}
