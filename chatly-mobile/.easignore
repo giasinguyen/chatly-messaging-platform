@@ -40,31 +40,22 @@ README.md
 docs/
 .github/
 
-# Temporary files
 *.tmp
 .cache/
 .turbo/
 
-# Mobile build artifacts
 android/build/
 android/.gradle/
 android/local.properties
 ios/Pods/
 ios/Podfile.lock
 
-# Environment files with secrets (if any)
 .env.local
 .env.*.local
 
-# Backup files
 *.bak
 *.backup
 *~
 
-# Package manager lock files (optional - can help with consistency)
-# yarn.lock
-# package-lock.json
-
-# Docker files
 docker-compose*.yml
 Dockerfile
