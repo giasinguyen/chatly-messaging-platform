@@ -94,11 +94,6 @@ function ImageThumbnail({
                         <Download className="h-4 w-4" />
                     </Button>
                 </div>
-
-                {/* Filename caption */}
-                <p className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-[10px] px-2 py-1 truncate opacity-0 group-hover:opacity-100 transition-opacity">
-                    {attachment.filename}
-                </p>
             </div>
 
             {/* Lightbox */}
