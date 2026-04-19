@@ -159,6 +159,7 @@ export default function GroupInfoScreen() {
 
   // Realtime pending requests: re-fetch when a GROUP_JOIN_REQUEST notification arrives
   const notifications = useNotificationStore((s) => s.notifications);
+  const removeByTypeAndReference = useNotificationStore((s) => s.removeByTypeAndReference);
   const joinRequestCount = useMemo(
     () => notifications.filter((n) => n.type === 'GROUP_JOIN_REQUEST' && n.referenceId === conversationId).length,
     [notifications, conversationId],
@@ -400,6 +401,7 @@ export default function GroupInfoScreen() {
   const handleApprovePending = async (userId: string) => {
     try {
       await groupService.approvePendingRequest(conversationId, userId);
+      removeByTypeAndReference('GROUP_JOIN_REQUEST', conversationId);
       fetchPendingRequests();
       fetchMembers();
     } catch { Alert.alert('Error', 'Could not approve request.'); }
@@ -408,6 +410,7 @@ export default function GroupInfoScreen() {
   const handleRejectPending = async (userId: string) => {
     try {
       await groupService.rejectPendingRequest(conversationId, userId);
+      removeByTypeAndReference('GROUP_JOIN_REQUEST', conversationId);
       fetchPendingRequests();
     } catch { Alert.alert('Error', 'Could not reject request.'); }
   };

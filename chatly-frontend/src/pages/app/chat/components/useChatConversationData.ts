@@ -84,7 +84,7 @@ export function useChatConversationData({ id }: UseChatConversationDataOptions) 
     const onEvent = useCallback(
         (event: ChatEvent) => {
             const { action, message: msg } = event;
-            if (action === "GROUP_UPDATE") return;
+            if (action === "GROUP_UPDATE" || action === "ROLE_UPDATED") return;
             if (!msg) return;
 
             if (action === "SEND") {

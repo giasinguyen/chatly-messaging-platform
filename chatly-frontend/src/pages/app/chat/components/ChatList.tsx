@@ -225,8 +225,8 @@ export const ChatList = forwardRef(function ChatListComponent(_, ref) {
                         return;
                     }
 
-                    // Handle GROUP_UPDATE actions - update group info (name, avatar, etc)
-                    if (event.action === "GROUP_UPDATE") {
+                    // Handle GROUP_UPDATE / ROLE_UPDATED actions - update group info
+                    if (event.action === "GROUP_UPDATE" || event.action === "ROLE_UPDATED") {
                         const updatedConv = event.conversationData;
                         if (!updatedConv) return;
 

@@ -17,6 +17,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { ChatHeader } from '@/components/chat/ChatHeader';
 import { PinnedMessagesBanner } from '@/components/chat/PinnedMessagesBanner';
+import { ActivePollBanner } from '@/components/chat/ActivePollBanner';
 import { MessageBubble } from '@/components/chat/MessageBubble';
 import { ChatInput } from '@/components/chat/ChatInput';
 import { DateSeparator } from '@/components/chat/DateSeparator';
@@ -87,6 +88,7 @@ export default function ChatScreen() {
   const [pinnedMessages, setPinnedMessages] = useState<Message[]>([]);
   const [currentPinnedIdx, setCurrentPinnedIdx] = useState(0);
   const [showPinnedList, setShowPinnedList] = useState(false);
+  const [currentPollIdx, setCurrentPollIdx] = useState(0);
   const sendSeenRef = useRef<(messageId: string) => boolean>(() => false);
 
   const {
@@ -152,6 +154,7 @@ export default function ChatScreen() {
           removeMessage(conversationId, event.message.id);
           break;
         case 'GROUP_UPDATE':
+        case 'ROLE_UPDATED':
           // Handled at conversation list level, ignore here
           break;
       }
@@ -646,6 +649,16 @@ export default function ChatScreen() {
     [participantMap, userDirectory]
   );
 
+  const activePolls = useMemo(() => {
+    const now = new Date();
+    return messages.filter((m) => {
+      if (m.type !== 'POLL' || !m.poll) return false;
+      if (m.poll.closed) return false;
+      if (m.poll.deadline && new Date(m.poll.deadline) < now) return false;
+      return true;
+    });
+  }, [messages]);
+
   const displayData = useMemo(() => {
     const items: Array<{ type: 'date'; label: string } | { type: 'message'; data: Message }> = [];
 
@@ -745,6 +758,15 @@ export default function ChatScreen() {
         onPress={(messageId) => handleNavigateToMessage(messageId)}
         onUnpin={(messageId) => handleTogglePin(messageId)}
         onViewAll={() => setShowPinnedList(true)}
+      />
+
+      {/* Active polls banner */}
+      <ActivePollBanner
+        polls={activePolls}
+        currentIdx={currentPollIdx}
+        onPrev={() => setCurrentPollIdx((i) => (i > 0 ? i - 1 : activePolls.length - 1))}
+        onNext={() => setCurrentPollIdx((i) => (i < activePolls.length - 1 ? i + 1 : 0))}
+        onPress={(messageId) => handleNavigateToMessage(messageId)}
       />
 
       {/* Messages */}

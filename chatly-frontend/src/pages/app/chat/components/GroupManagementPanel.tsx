@@ -112,7 +112,7 @@ export function GroupManagementPanel({
 }: GroupManagementPanelProps) {
     const navigate = useNavigate();
     const { user: currentUser } = useAuthStore();
-    const { notifications } = useNotificationStore();
+    const { notifications, removeByTypeAndReference } = useNotificationStore();
 
     const [members, setMembers] = useState<GroupMemberResponse[]>([]);
     const [dissolveOpen, setDissolveOpen] = useState(false);
@@ -342,6 +342,7 @@ export function GroupManagementPanel({
         try {
             await groupService.approvePendingRequest(conversationId, userId);
             toast.success("Request approved");
+            removeByTypeAndReference("GROUP_JOIN_REQUEST", conversationId);
             fetchPendingRequests();
             fetchMembers();
         } catch {
@@ -353,6 +354,7 @@ export function GroupManagementPanel({
         try {
             await groupService.rejectPendingRequest(conversationId, userId);
             toast.success("Request rejected");
+            removeByTypeAndReference("GROUP_JOIN_REQUEST", conversationId);
             fetchPendingRequests();
         } catch {
             toast.error("Failed to reject request");
