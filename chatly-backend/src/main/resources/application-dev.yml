@@ -1,6 +1,20 @@
 spring:
     application:
         name: ${SPRING_APPLICATION_NAME:chatly-backend}
+    ai:
+        mcp:
+            server:
+                enabled: ${SPRING_AI_MCP_ENABLED:true}
+                name: ${SPRING_AI_MCP_SERVER_NAME:chatly-backend-mcp}
+                version: ${SPRING_AI_MCP_SERVER_VERSION:0.0.1}
+                instructions: "This server provides Chatly system tools."
+                sse-endpoint: ${SPRING_AI_MCP_SSE_ENDPOINT:/api/ai/mcp/sse}
+                sse-message-endpoint: ${SPRING_AI_MCP_SSE_MESSAGE_ENDPOINT:/api/ai/mcp/message}
+                capabilities:
+                    tool: true
+                    resource: true
+                    prompt: true
+                    completion: true
 
     datasource:
         url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/chatly}
@@ -76,6 +90,8 @@ app:
         from: ${APP_MAIL_FROM:${SPRING_MAIL_USERNAME:}}
     geoip:
         enabled: true
+    mcp:
+        internal-api-key: ${APP_MCP_INTERNAL_API_KEY:${AGENT_API_KEY:change-me-use-a-long-random-string-min-32-chars}}
 
 # ── AI Agent ──────────────────────────────────────────────────────────────────
 agent:

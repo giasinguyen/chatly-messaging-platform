@@ -149,6 +149,7 @@ export default function AssistantScreen() {
 
       await startStream(sid, {
         message: text,
+        file_ids: [],
         use_web_search: useWebSearch,
         mcp_server_ids: selectedMcpIds,
       });
@@ -166,6 +167,7 @@ export default function AssistantScreen() {
     resetStreaming();
     startStream(activeSessionId, {
       message: lastUserPrompt,
+      file_ids: [],
       use_web_search: useWebSearch,
       mcp_server_ids: selectedMcpIds,
     });
@@ -274,6 +276,7 @@ export default function AssistantScreen() {
       return (
         <AssistantMessageBubble
           message={item}
+          sessionId={activeSessionId ?? ''}
           isLast={index === messages.length - 1}
           isError={isLastAssistant}
           onRetry={isLastAssistant ? handleRetry : undefined}

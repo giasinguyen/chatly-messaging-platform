@@ -15,10 +15,11 @@ import { McpPickerDialog } from "./McpPickerDialog";
 import { cn } from "@/lib/utils";
 import { agentFileService } from "@/services/agent-file.service";
 import { toast } from "sonner";
+import type { MessageAttachment } from "@/types/agent";
 
 interface Props {
     sessionId: string;
-    onSend: (content: string) => void;
+    onSend: (content: string, attachments: MessageAttachment[]) => void;
     disabled?: boolean;
     isStreaming?: boolean;
     onCancel?: () => void;
@@ -29,6 +30,7 @@ interface PendingFile {
     file: File;
     progress: number;
     done: boolean;
+    fileId?: string;
     error?: string;
 }
 
@@ -74,7 +76,15 @@ export function ChatbotComposer({ sessionId, onSend, disabled, isStreaming, onCa
     const handleSend = () => {
         const text = draft.trim();
         if (!text || disabled || isUploading) return;
-        onSend(text);
+        const attachments: MessageAttachment[] = pendingFiles
+            .filter((p) => p.done && p.fileId)
+            .map((p) => ({
+                file_id: p.fileId as string,
+                filename: p.file.name,
+                content_type: p.file.type || "application/octet-stream",
+                size: p.file.size,
+            }));
+        onSend(text, attachments);
         setDraft(sessionId, "");
         setPendingFiles([]);
         // Reset textarea height
@@ -95,7 +105,7 @@ export function ChatbotComposer({ sessionId, onSend, disabled, isStreaming, onCa
             setPendingFiles((prev) => [...prev, pending]);
 
             try {
-                await agentFileService.upload(sessionId, file, (pct) => {
+                const uploaded = await agentFileService.upload(sessionId, file, (pct) => {
                     setPendingFiles((prev) =>
                         prev.map((p) =>
                             p.localId === localId ? { ...p, progress: pct } : p,
@@ -105,7 +115,7 @@ export function ChatbotComposer({ sessionId, onSend, disabled, isStreaming, onCa
                 setPendingFiles((prev) =>
                     prev.map((p) =>
                         p.localId === localId
-                            ? { ...p, progress: 100, done: true }
+                            ? { ...p, progress: 100, done: true, fileId: uploaded.id }
                             : p,
                     ),
                 );

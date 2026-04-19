@@ -71,14 +71,8 @@ export function ChatbotSessionSidebar({ activeSessionId, onToggleCollapse }: Pro
         if (editingId) editInputRef.current?.focus();
     }, [editingId]);
 
-    const handleCreate = async () => {
-        try {
-            const session = await agentService.createSession();
-            addSession(session);
-            navigate(`/chatbot/${session.id}`);
-        } catch {
-            toast.error("Failed to create new conversation");
-        }
+    const handleCreate = () => {
+        navigate("/chatbot");
     };
 
     const handleDelete = async (sessionId: string) => {

@@ -12,6 +12,14 @@ export interface AgentSessionList {
   total: number;
 }
 
+// ─── Message Attachment ─────────────────────────────────────
+export interface MessageAttachment {
+  file_id: string;
+  filename: string;
+  content_type: string;
+  size: number;
+}
+
 // ─── Agent Message ──────────────────────────────────────────
 export type AgentRole = 'user' | 'assistant' | 'system';
 
@@ -20,6 +28,7 @@ export interface AgentMessage {
   session_id: string;
   role: AgentRole;
   content: string;
+  attachments?: MessageAttachment[];
   created_at: string;
 }
 
@@ -32,6 +41,7 @@ export interface AgentChatRequest {
   message: string;
   use_web_search: boolean;
   mcp_server_ids: string[];
+  file_ids: string[];
 }
 
 export interface AgentChatResponse {

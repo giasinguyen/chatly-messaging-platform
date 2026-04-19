@@ -7,11 +7,13 @@ from fastapi import (
     UploadFile,
     status,
 )
+from fastapi.responses import StreamingResponse
 
 from app.dependencies import get_file_service, get_request_context
 from app.models.context import RequestContext
 from app.models.file import FileListResponse, FileResponse
 from app.services.file_service import FileService
+from app.storage.minio import get_bucket_name, get_storage_client
 
 router = APIRouter(prefix="/sessions/{session_id}", tags=["files"])
 
@@ -79,3 +81,45 @@ async def delete_file(
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.get(
+    "/files/{file_id}/content",
+    summary="Download file",
+    description="Stream the raw file bytes from storage with proper Content-Type headers.",
+    responses={
+        401: {"description": "Unauthorized"},
+        404: {"description": "File not found"},
+    },
+)
+async def download_file(
+    session_id: str,
+    file_id: str,
+    ctx: RequestContext = Depends(get_request_context),  # noqa: B008
+    service: FileService = Depends(get_file_service),  # noqa: B008
+) -> StreamingResponse:
+    """Download the raw bytes of one uploaded file."""
+    try:
+        row = await service.get_file(ctx.user_id, session_id, file_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    minio = get_storage_client()
+    bucket = row.get("minio_bucket") or get_bucket_name()
+    object_key = str(row.get("object_key", ""))
+    mime_type = str(row.get("mime_type") or "application/octet-stream")
+    filename = str(row.get("filename", "file"))
+
+    try:
+        response = minio.get_object(str(bucket), object_key)
+    except Exception as exc:
+        raise HTTPException(status_code=404, detail="File not found in storage") from exc
+
+    return StreamingResponse(
+        response,
+        media_type=mime_type,
+        headers={
+            "Content-Disposition": f'inline; filename="{filename}"',
+            "Cache-Control": "private, max-age=3600",
+        },
+    )

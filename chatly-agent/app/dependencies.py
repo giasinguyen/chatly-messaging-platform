@@ -5,23 +5,24 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from app.agents.chatbot_agent import ChatbotAgent
 from app.db.mongo import get_db
-from app.repositories.mcp_repo import MCPRepository
-from app.services.mcp_service import MCPService
 from app.db.qdrant import get_client as get_qdrant_client
+from app.models.context import RequestContext
 from app.repositories.chunk_repo import ChunkRepository
 from app.repositories.file_repo import FileRepository
+from app.repositories.mcp_repo import MCPRepository
 from app.repositories.message_repo import MessageRepository
 from app.repositories.qdrant_repo import QdrantRepository
 from app.repositories.session_repo import SessionRepository
 from app.services.chat_service import ChatService
 from app.services.file_service import FileService
+from app.services.mcp_service import MCPService
 from app.services.session_service import SessionService
+from app.services.system_mcp import SystemMCPService
 from app.services.tool_service import ToolService
 from app.services.vector_service import VectorService
 from app.storage.minio import get_bucket_name, get_storage_client
 from app.utils.embeddings import get_embedder
 from app.utils.llm import get_llm
-from app.models.context import RequestContext
 from app.utils.security import verify_api_key
 
 
@@ -102,11 +103,17 @@ def get_mcp_service(
     return MCPService(mcp_repo=mcp_repo)
 
 
+def get_system_mcp_service() -> SystemMCPService:
+    """Build system MCP service dependency."""
+    return SystemMCPService()
+
+
 def get_tool_service(
     mcp_service: MCPService = Depends(get_mcp_service),  # noqa: B008
+    system_mcp_service: SystemMCPService = Depends(get_system_mcp_service),  # noqa: B008
 ) -> ToolService:
     """Build tool assembly service dependency."""
-    return ToolService(mcp_service=mcp_service)
+    return ToolService(mcp_service=mcp_service, system_mcp_service=system_mcp_service)
 
 
 def get_chat_service(
@@ -115,6 +122,7 @@ def get_chat_service(
     chatbot_agent: ChatbotAgent = Depends(get_chatbot_agent),  # noqa: B008
     vector_service: VectorService = Depends(get_vector_service),  # noqa: B008
     tool_service: ToolService = Depends(get_tool_service),  # noqa: B008
+    file_repo: FileRepository = Depends(get_file_repository),  # noqa: B008
 ) -> ChatService:
     """Build chat service dependency."""
     return ChatService(
@@ -124,6 +132,9 @@ def get_chat_service(
         vector_service=vector_service,
         tool_service=tool_service,
         llm=get_llm(),
+        file_repo=file_repo,
+        minio_client=get_storage_client(),
+        bucket_name=get_bucket_name(),
     )
 
 

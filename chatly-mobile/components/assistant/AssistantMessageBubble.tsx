@@ -2,6 +2,7 @@ import { View, Text, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Markdown from '@ronradtke/react-native-markdown-display';
 import { Colors } from '@/constants/theme';
+import { AssistantAttachmentView } from './AssistantAttachmentView';
 import type { AgentMessage } from '@/types/agent';
 
 interface AssistantMessageBubbleProps {
@@ -10,6 +11,7 @@ interface AssistantMessageBubbleProps {
   isError?: boolean;
   onRetry?: () => void;
   onCopy?: (content: string) => void;
+  sessionId: string;
 }
 
 const markdownStyles = {
@@ -72,6 +74,7 @@ export function AssistantMessageBubble({
   isError,
   onRetry,
   onCopy,
+  sessionId,
 }: AssistantMessageBubbleProps) {
   const isUser = message.role === 'user';
 
@@ -85,9 +88,15 @@ export function AssistantMessageBubble({
             borderBottomRightRadius: 6,
           }}
         >
-          <Text className="text-[15px] leading-[22px]" style={{ color: Colors.white }}>
-            {message.content}
-          </Text>
+        {/* Attachments above text */}
+        {message.attachments?.map((att) => (
+            <AssistantAttachmentView key={att.file_id} attachment={att} sessionId={sessionId} role="user" />
+          ))}
+          {message.content ? (
+            <Text className="text-[15px] leading-[22px]" style={{ color: Colors.white }}>
+              {message.content}
+            </Text>
+          ) : null}
           <Text className="text-[10px] mt-1" style={{ color: 'rgba(255,255,255,0.5)' }}>
             {new Date(message.created_at).toLocaleTimeString('en-US', {
               hour: '2-digit',
@@ -110,6 +119,10 @@ export function AssistantMessageBubble({
         }}
       >
         <Markdown style={markdownStyles}>{message.content}</Markdown>
+        {/* Attachments below AI content */}
+        {message.attachments?.map((att) => (
+          <AssistantAttachmentView key={att.file_id} attachment={att} sessionId={sessionId} role="assistant" />
+        ))}
 
         {/* Timestamp + actions */}
         <View className="flex-row items-center justify-between mt-1.5">

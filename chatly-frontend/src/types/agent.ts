@@ -12,6 +12,14 @@ export interface AgentSessionList {
     total: number;
 }
 
+// ─── Message Attachment ─────────────────────────────────────
+export interface MessageAttachment {
+    file_id: string;
+    filename: string;
+    content_type: string;
+    size: number;
+}
+
 // ─── Agent Message ──────────────────────────────────────────
 export type AgentRole = "user" | "assistant" | "system";
 
@@ -20,6 +28,7 @@ export interface AgentMessage {
     session_id: string;
     role: AgentRole;
     content: string;
+    attachments: MessageAttachment[];
     created_at: string;
 }
 
@@ -32,6 +41,7 @@ export interface AgentChatRequest {
     message: string;
     use_web_search: boolean;
     mcp_server_ids: string[];
+    file_ids: string[];
 }
 
 export interface AgentChatResponse {
@@ -49,6 +59,7 @@ export interface AgentStreamTokenChunk {
 export interface AgentStreamDoneChunk {
     done: true;
     agent_type: string;
+    attachments?: MessageAttachment[];
 }
 
 export type AgentStreamChunk = AgentStreamTokenChunk | AgentStreamDoneChunk;
@@ -71,6 +82,7 @@ export interface McpServer {
     url: string;
     headers: Record<string, string>;
     is_active: boolean;
+    transport: "sse" | "http";
     created_at: string;
     updated_at: string | null;
 }
@@ -79,6 +91,7 @@ export interface McpServerCreate {
     name: string;
     url: string;
     headers: Record<string, string>;
+    transport?: "sse" | "http";
 }
 
 export interface McpTool {

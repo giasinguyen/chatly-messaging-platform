@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import type { AgentMessage } from "@/types/agent";
 import { ChatbotThinkingIndicator } from "./ChatbotThinkingIndicator";
 import { ChatbotMessageMenu } from "./ChatbotMessageMenu";
+import { AttachmentPreview } from "./AttachmentPreview";
 import { useChatbotStore } from "@/store/chatbot.store";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -17,12 +18,13 @@ const MARKDOWN_CLASSES =
 
 interface Props {
     messages: AgentMessage[];
+    sessionId: string;
     onEdit?: (message: AgentMessage) => void;
     onRetry?: (message: AgentMessage) => void;
     onRetryLast?: () => void;
 }
 
-export function ChatbotMessageList({ messages, onEdit, onRetry, onRetryLast }: Props) {
+export function ChatbotMessageList({ messages, sessionId, onEdit, onRetry, onRetryLast }: Props) {
     const scrollEndRef = useRef<HTMLDivElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
     const isNearBottomRef = useRef(true);
@@ -114,6 +116,20 @@ export function ChatbotMessageList({ messages, onEdit, onRetry, onRetryLast }: P
                                 <p className="text-sm whitespace-pre-wrap leading-relaxed">
                                     {msg.content}
                                 </p>
+                            )}
+
+                            {/* Attachments */}
+                            {msg.attachments && msg.attachments.length > 0 && (
+                                <div className="flex flex-wrap gap-2 mt-2">
+                                    {msg.attachments.map((att) => (
+                                        <AttachmentPreview
+                                            key={att.file_id}
+                                            attachment={att}
+                                            sessionId={sessionId}
+                                            role={msg.role as "user" | "assistant"}
+                                        />
+                                    ))}
+                                </div>
                             )}
 
                             {/* Copy button for AI messages */}

@@ -40,6 +40,10 @@ class Settings(BaseSettings):
 
     tavily_api_key: str = ""
 
+    # ─── Chatly Backend MCP (system default) ──────────────────────────────────
+    # URL of the chatly-backend MCP endpoint.  Empty string = disabled.
+    chatly_backend_mcp_url: str = ""
+
     app_env: str = "development"
     log_level: str = "INFO"
     internal_api_key: str  # required, no default — must be set in .env

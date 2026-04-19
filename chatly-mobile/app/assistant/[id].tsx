@@ -91,7 +91,7 @@ export default function AssistantChatScreen() {
   }, [messages.length, streamingContent, showScrollDown]);
 
   const handleSend = useCallback(
-    async (text: string) => {
+    async (text: string, fileIds: string[] = []) => {
       if (!sessionId) return;
 
       // Append user message optimistically
@@ -110,6 +110,7 @@ export default function AssistantChatScreen() {
         message: text,
         use_web_search: useWebSearch,
         mcp_server_ids: selectedMcpIds,
+        file_ids: fileIds,
       });
     },
     [sessionId, appendMessage, startStream, useWebSearch, selectedMcpIds, setLastUserPrompt],
@@ -165,6 +166,7 @@ export default function AssistantChatScreen() {
       return (
         <AssistantMessageBubble
           message={item}
+          sessionId={sessionId ?? ''}
           isLast={index === messages.length - 1}
           isError={isLastAssistant}
           onRetry={isLastAssistant ? handleRetry : undefined}
