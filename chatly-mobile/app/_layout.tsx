@@ -14,6 +14,8 @@ import { useCallStore } from '@/store/call.store';
 import { CallScreen } from '@/components/call/CallScreen';
 import { OutgoingCallScreen } from '@/components/call/OutgoingCallScreen';
 import { ActiveCallOverlay } from '@/components/call/ActiveCallOverlay';
+import { GroupCallScreen } from '@/components/call/GroupCallScreen';
+import { GroupCallOverlay } from '@/components/call/GroupCallOverlay';
 import { NotificationBanner } from '@/components/ui/NotificationBanner';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { View, ActivityIndicator } from 'react-native';
@@ -63,10 +65,12 @@ function AuthGateInner({ children }: { children: React.ReactNode }) {
   useNotificationSocket();
   useExpoPush();
 
-  // Khởi tạo signaling WebSocket cho cuộc gọi (hoạt động ở mọi màn hình)
-  const { answerCall: answerCallAction } = useCallContext();
+  // Initialize signaling WebSocket for calls (active on all screens)
+  const { answerCall: answerCallAction, joinGroupCall } = useCallContext();
   const incomingCall = useCallStore((s) => s.incomingCall);
+  const incomingGroupCall = useCallStore((s) => s.incomingGroupCall);
   const callStatus = useCallStore((s) => s.callStatus);
+  const isGroupCall = useCallStore((s) => s.isGroupCall);
 
   // Fetch initial unread count
   useEffect(() => {
@@ -104,8 +108,8 @@ function AuthGateInner({ children }: { children: React.ReactNode }) {
       <NotificationBanner />
       {children}
 
-      {/* Màn hình cuộc gọi đến */}
-      {incomingCall && callStatus === 'RINGING' && (
+      {/* Incoming 1-1 call screen */}
+      {incomingCall && callStatus === 'RINGING' && !incomingGroupCall && (
         <CallScreen
           visible
           incomingCall={incomingCall}
@@ -114,11 +118,24 @@ function AuthGateInner({ children }: { children: React.ReactNode }) {
         />
       )}
 
-      {/* Màn hình đang gọi (caller side) */}
+      {/* Incoming group call screen (receiver side) */}
+      {incomingGroupCall && callStatus === 'RINGING' && (
+        <GroupCallScreen
+          visible
+          incomingGroupCall={incomingGroupCall}
+          onJoin={() => joinGroupCall(true)}
+          onDecline={() => joinGroupCall(false)}
+        />
+      )}
+
+      {/* Outgoing 1-1 call screen (caller side only) */}
       <OutgoingCallScreen />
 
-      {/* Overlay cuộc gọi đang diễn ra */}
-      {callStatus === 'ONGOING' && <ActiveCallOverlay />}
+      {/* Active group call overlay — also covers initiator RINGING state */}
+      {isGroupCall && !incomingGroupCall && (callStatus === 'ONGOING' || callStatus === 'RINGING') && <GroupCallOverlay />}
+
+      {/* Active 1-1 call overlay */}
+      {callStatus === 'ONGOING' && !isGroupCall && <ActiveCallOverlay />}
     </>
   );
 }

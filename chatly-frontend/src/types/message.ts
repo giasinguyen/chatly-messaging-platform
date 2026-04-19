@@ -32,6 +32,15 @@ export interface Poll {
     multipleChoice: boolean;
     votes: Record<string, string[]>; // optionIndex -> userIds
     closed?: boolean;
+    deadline?: string;
+    anonymous?: boolean;
+}
+
+export interface LocationPayload {
+    latitude: number;
+    longitude: number;
+    address?: string;
+    mapSnapshotUrl?: string;
 }
 
 /**
@@ -66,6 +75,9 @@ export interface Message {
 
     // Poll
     poll?: Poll | null;
+
+    // Location
+    location?: LocationPayload | null;
 
     // Pin
     pinned: boolean;

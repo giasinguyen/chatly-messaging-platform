@@ -34,7 +34,7 @@ export function useWebRTC() {
     const localVideoRef = useRef<HTMLVideoElement>(null);
     const remoteVideoRef = useRef<HTMLVideoElement>(null);
 
-    // Callback refs — consumer gán trước khi gọi các method
+    // Callback refs — consumer assigns before calling methods
     const callbacksRef = useRef<Partial<UseWebRTCCallbacks>>({});
 
     // Buffer ICE candidates that arrive before setRemoteDescription is called
@@ -68,14 +68,14 @@ export function useWebRTC() {
 
         const pc = new RTCPeerConnection(ICE_SERVERS);
 
-        // Xử lý ICE candidate
+        // Handle ICE candidate
         pc.onicecandidate = (event) => {
             if (event.candidate) {
                 callbacksRef.current.onIceCandidate?.(event.candidate);
             }
         };
 
-        // Xử lý remote stream — build a persistent MediaStream from individual tracks
+        // Handle remote stream — build a persistent MediaStream from individual tracks
         // event.streams[0] can be undefined when peer uses replaceTrack without a stream
         const remoteMediaStream = new MediaStream();
         pc.ontrack = (event) => {
@@ -103,7 +103,7 @@ export function useWebRTC() {
             };
         };
 
-        // Theo dõi trạng thái kết nối
+        // Monitor connection state
         pc.onconnectionstatechange = () => {
             console.log("[WebRTC] connectionState:", pc.connectionState);
             callbacksRef.current.onConnectionStateChange?.(pc.connectionState);
@@ -121,8 +121,8 @@ export function useWebRTC() {
         return pc;
     }, []);
 
-    // Khởi tạo local stream (camera/mic)
-    // Lưu ý: getUserMedia yêu cầu HTTPS hoặc localhost
+    // Initialize local stream (camera/mic)
+    // Note: getUserMedia requires HTTPS or localhost
     const initLocalStream = useCallback(
         async (type: CallType): Promise<MediaStream> => {
             let stream: MediaStream;
@@ -170,7 +170,7 @@ export function useWebRTC() {
         [createPeerConnection],
     );
 
-    // Tạo offer SDP
+    // Create offer SDP
     const createOffer = useCallback(async (): Promise<RTCSessionDescriptionInit> => {
         const pc = createPeerConnection();
         const offer = await pc.createOffer({
@@ -181,7 +181,7 @@ export function useWebRTC() {
         return offer;
     }, [createPeerConnection]);
 
-    // Tạo answer SDP (cho callee)
+    // Create answer SDP (for callee)
     const createAnswer = useCallback(async (): Promise<RTCSessionDescriptionInit> => {
         const pc = createPeerConnection();
         const answer = await pc.createAnswer();
@@ -189,7 +189,7 @@ export function useWebRTC() {
         return answer;
     }, [createPeerConnection]);
 
-    // Set remote description (offer hoặc answer từ peer)
+    // Set remote description (offer or answer from peer)
     const handleRemoteDescription = useCallback(
         async (sdp: RTCSessionDescriptionInit): Promise<void> => {
             const pc = createPeerConnection();
@@ -212,7 +212,7 @@ export function useWebRTC() {
         [createPeerConnection],
     );
 
-    // Thêm ICE candidate từ peer (buffer if remote description not yet set)
+    // Add ICE candidate from peer (buffer if remote description not yet set)
     const addIceCandidate = useCallback(async (candidate: RTCIceCandidateInit): Promise<void> => {
         const pc = peerConnection.current;
         if (!pc || !remoteDescriptionSet.current) {
@@ -227,7 +227,7 @@ export function useWebRTC() {
         }
     }, []);
 
-    // Dọn dẹp tất cả streams và connections
+    // Cleanup all streams and connections
     // Uses refs (not state) so this callback is never stale
     const cleanup = useCallback(() => {
         localStreamRef.current?.getTracks().forEach((track) => track.stop());
@@ -266,7 +266,7 @@ export function useWebRTC() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    // Toggle audio track (mute/unmute thực sự)
+    // Toggle audio track (true mute/unmute)
     const toggleMute = useCallback(() => {
         if (!peerConnection.current) return;
         peerConnection.current.getSenders().forEach((sender) => {

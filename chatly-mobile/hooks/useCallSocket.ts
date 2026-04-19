@@ -7,8 +7,8 @@ import { useWebRTC } from '@/hooks/useWebRTC';
 import type { CallType, CallSignal, CallSession } from '@/types/call';
 
 /**
- * Hook xử lý signaling WebRTC qua STOMP WebSocket.
- * Subscribe /user/{userId}/queue/calls để nhận tín hiệu cuộc gọi.
+ * Hook for handling WebRTC signaling via STOMP WebSocket.
+ * Subscribes to /user/queue/calls to receive call signals.
  */
 export function useCallSocket() {
   const user = useAuthStore((s) => s.user);
@@ -19,11 +19,12 @@ export function useCallSocket() {
     setRemoteParticipant,
     startCall,
     endCall: endCallStore,
+    upgradeCall,
   } = useCallStore();
 
   const webrtc = useWebRTC({
     onIceCandidate: (candidate) => {
-      // Gửi ICE candidate đến peer qua STOMP
+      // Send ICE candidate to peer via STOMP
       const activeCall = useCallStore.getState().activeCall;
       if (!activeCall || !user) return;
 
@@ -39,9 +40,9 @@ export function useCallSocket() {
       }
     },
     onConnectionStateChange: (state) => {
-      // Xử lý khi kết nối WebRTC thất bại
-      if (state === 'failed' || state === 'disconnected') {
-        console.warn('WebRTC connection state:', state);
+      // Only treat 'failed' as a hard error — 'disconnected' can be transient during renegotiation
+      if (state === 'failed') {
+        console.warn('WebRTC connection failed');
         handleEndCall();
       }
     },
@@ -50,7 +51,7 @@ export function useCallSocket() {
   const webrtcRef = useRef(webrtc);
   webrtcRef.current = webrtc;
 
-  // handleSignal ref để dùng trong subscription callback mà không bị stale closure
+  // handleSignal ref for subscription callback to avoid stale closures
   const handleSignalRef = useRef<((signal: CallSignal) => void) | null>(null);
 
   useEffect(() => {
@@ -61,20 +62,24 @@ export function useCallSocket() {
         `/user/queue/calls`,
         (message) => {
           const signal = JSON.parse(message.body) as CallSignal;
-          // Dùng ref để luôn gọi phiên bản mới nhất của handleSignal
+          // GROUP_* signals are handled by useGroupCallSocket; skip them here.
+          // ICE_CANDIDATE during an active group call is also handled there.
+          if (signal.type.startsWith('GROUP_')) return;
+          if (signal.type === 'ICE_CANDIDATE' && useCallStore.getState().isGroupCall) return;
+          // Use ref to always call the latest handleSignal version
           handleSignalRef.current?.(signal);
         },
       );
     };
 
-    // Nếu socket đã connected thì subscribe ngay
-    // Nếu chưa thì chờ connect xong (socketService.connect trả về Promise)
+    // If socket is already connected, subscribe immediately
+    // Otherwise wait for connection
     if (socketService.isConnected()) {
       const subscription = doSubscribe();
       return () => { subscription?.unsubscribe(); };
     }
 
-    // Chờ socket connect rồi mới subscribe
+    // Wait for socket to connect then subscribe
     let subscription: ReturnType<typeof socketService.subscribe> = null;
     let cancelled = false;
     AsyncStorage.getItem('access_token').then((token) => {
@@ -93,19 +98,19 @@ export function useCallSocket() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
-  // Xử lý tín hiệu nhận được từ server
+  // Handle incoming signal from server
   const handleSignal = useCallback(
     (signal: CallSignal) => {
       switch (signal.type) {
         case 'INITIATE': {
-          // Nhận cuộc gọi đến
+          // Incoming call
           const payload = signal.payload as {
             callerName: string;
             callerAvatar: string | null;
             callType: CallType;
             offer: RTCSessionDescriptionInit;
           };
-          // Lưu offer vào store để tránh mất khi component re-render
+          // Store offer in store to persist across component re-renders
           setPendingOffer(payload.offer);
           setRemoteParticipant({ name: payload.callerName, avatar: payload.callerAvatar });
           setIncomingCall({
@@ -125,11 +130,11 @@ export function useCallSocket() {
             sdp?: RTCSessionDescriptionInit;
           };
           if (payload.accepted && payload.sdp) {
-            // Đối phương chấp nhận cuộc gọi
+            // Peer accepted the call
             webrtcRef.current.handleAnswer(payload.sdp);
             setCallStatus('ONGOING');
           } else {
-            // Đối phương từ chối cuộc gọi
+            // Peer rejected the call
             webrtcRef.current.endCall();
             setCallStatus('REJECTED');
             setTimeout(() => endCallStore(), 2000);
@@ -146,24 +151,59 @@ export function useCallSocket() {
         }
 
         case 'END': {
-          // Đối phương kết thúc cuộc gọi
+          // Peer ended the call
           webrtcRef.current.endCall();
           setCallStatus('ENDED');
           setTimeout(() => endCallStore(), 1500);
           break;
         }
 
+        case 'RENEGOTIATE_OFFER': {
+          // Remote is upgrading the call (e.g. voice → video)
+          const renoPayload = signal.payload as { sdp: RTCSessionDescriptionInit };
+          const activeCall = useCallStore.getState().activeCall;
+          if (!activeCall || !user) break;
+
+          webrtcRef.current
+            .handleRemoteDescription(renoPayload.sdp)
+            .then(() => webrtcRef.current.createAnswerFromRemote())
+            .then((answer) => {
+              const receiverId = activeCall.participants.find((id) => id !== user.id);
+              if (!receiverId) return;
+              socketService.publish('/app/call.renegotiate', {
+                type: 'RENEGOTIATE_ANSWER',
+                callId: activeCall.callId,
+                senderId: user.id,
+                receiverId,
+                payload: { sdp: answer },
+              });
+              upgradeCall();
+            })
+            .catch((err) => console.error('Renegotiation failed:', err));
+          break;
+        }
+
+        case 'RENEGOTIATE_ANSWER': {
+          // Remote accepted our upgrade offer
+          const renoPayload = signal.payload as { sdp: RTCSessionDescriptionInit };
+          webrtcRef.current
+            .handleRemoteDescription(renoPayload.sdp)
+            .then(() => upgradeCall())
+            .catch((err) => console.error('Renegotiation answer failed:', err));
+          break;
+        }
+
         default:
-          console.warn('Unknown call signal type:', signal.type);
+          break;
       }
     },
-    [setPendingOffer, setIncomingCall, setCallStatus, endCallStore],
+    [setPendingOffer, setIncomingCall, setCallStatus, endCallStore, upgradeCall],
   );
 
-  // Cập nhật ref để subscription callback luôn gọi phiên bản mới nhất
+  // Update ref so subscription callback always calls the latest version
   handleSignalRef.current = handleSignal;
 
-  // Bắt đầu cuộc gọi (caller gửi offer)
+  // Initiate a call (caller sends offer)
   const initiateCall = useCallback(
     async (receiverId: string, conversationId: string, type: CallType, calleeName?: string, calleeAvatar?: string | null) => {
       if (!user) return;
@@ -174,8 +214,8 @@ export function useCallSocket() {
           setRemoteParticipant({ name: calleeName, avatar: calleeAvatar ?? null });
         }
 
-        // startCall TRƯỚC initLocalStream để activeCall được set
-        // trước khi ICE candidates bắt đầu fire
+        // startCall BEFORE initLocalStream so activeCall is set
+        // before ICE candidates start firing
         const callId = generateCallId();
         const session: CallSession = {
           callId,
@@ -186,13 +226,13 @@ export function useCallSocket() {
           status: 'RINGING',
         };
         startCall(session);
-        setCallStatus('RINGING'); // override 'ONGOING' từ startCall về RINGING
+        setCallStatus('RINGING'); // override 'ONGOING' from startCall back to RINGING
 
-        // Khởi tạo local stream và tạo offer
+        // Initialize local stream and create offer
         await webrtcRef.current.initLocalStream(type);
         const offer = await webrtcRef.current.createOffer();
 
-        // Gửi tín hiệu INITIATE qua STOMP
+        // Send INITIATE signal via STOMP
         socketService.publish('/app/call.initiate', {
           type: 'INITIATE',
           callId,
@@ -214,7 +254,7 @@ export function useCallSocket() {
     [user, setCallStatus, setRemoteParticipant, startCall, endCallStore],
   );
 
-  // Trả lời cuộc gọi (accept hoặc reject)
+  // Answer a call (accept or reject)
   const answerCall = useCallback(
     async (accept: boolean) => {
       if (!user) return;
@@ -224,8 +264,8 @@ export function useCallSocket() {
 
       if (accept) {
         try {
-          // startCall TRƯỚC initLocalStream để activeCall được set
-          // trước khi ICE candidates bắt đầu fire
+          // startCall BEFORE initLocalStream so activeCall is set
+          // before ICE candidates start firing
           const session: CallSession = {
             callId: incoming.callId,
             conversationId: '',
@@ -237,7 +277,7 @@ export function useCallSocket() {
           };
           startCall(session);
 
-          // Chấp nhận: khởi tạo stream, tạo answer từ offer đã lưu trong store
+          // Accept: initialize stream, create answer from stored offer
           await webrtcRef.current.initLocalStream(incoming.type);
 
           const pendingOffer = useCallStore.getState().pendingOffer;
@@ -250,7 +290,7 @@ export function useCallSocket() {
           const answer = await webrtcRef.current.createAnswer(pendingOffer);
           setPendingOffer(null);
 
-          // Gửi answer chấp nhận
+          // Send accept answer
           socketService.publish('/app/call.answer', {
             type: 'ANSWER',
             callId: incoming.callId,
@@ -258,14 +298,14 @@ export function useCallSocket() {
             receiverId: incoming.callerId,
             payload: { accepted: true, sdp: answer },
           });
-          // incomingCall giữ nguyên → ActiveCallOverlay dùng remoteParticipant
+          // incomingCall kept — ActiveCallOverlay uses remoteParticipant
         } catch (error) {
           console.error('Failed to answer call:', error);
-          endCallStore(); // endCallStore tự reset incomingCall
+          endCallStore(); // endCallStore auto-resets incomingCall
           return;
         }
       } else {
-        // Từ chối cuộc gọi
+        // Reject the call
         setPendingOffer(null);
 
         socketService.publish('/app/call.answer', {
@@ -277,14 +317,14 @@ export function useCallSocket() {
         });
 
         setCallStatus('REJECTED');
-        setIncomingCall(null); // chỉ clear khi reject
+        setIncomingCall(null); // only clear when rejecting
         setTimeout(() => endCallStore(), 1000);
       }
     },
     [user, setIncomingCall, setCallStatus, setPendingOffer, startCall, endCallStore],
   );
 
-  // Kết thúc cuộc gọi đang diễn ra
+  // End an ongoing call
   const handleEndCall = useCallback(() => {
     if (!user) return;
 
@@ -310,8 +350,10 @@ export function useCallSocket() {
     initiateCall,
     answerCall,
     endCall: handleEndCall,
+    upgradeToVideo: webrtc.upgradeToVideo,
     localStream: webrtc.localStream,
     remoteStream: webrtc.remoteStream,
+    remoteStreamKey: webrtc.remoteStreamKey,
     toggleMute: webrtc.toggleMute,
     toggleCamera: webrtc.toggleCamera,
   };

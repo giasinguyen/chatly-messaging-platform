@@ -131,6 +131,9 @@ export default function ChatScreen() {
         case 'DELETE':
           removeMessage(conversationId, event.message.id);
           break;
+        case 'GROUP_UPDATE':
+          // Handled at conversation list level, ignore here
+          break;
       }
     },
     [conversationId, user?.id, addMessage, updateMessage, removeMessage, updateConversation]
@@ -337,6 +340,7 @@ export default function ChatScreen() {
       messageType?: string,
       priority?: 'IMPORTANT' | 'URGENT',
       poll?: Poll,
+      location?: any,
     ) => {
       if (!conversationId || !user) return;
       const replyToId = replyingTo?.id ?? null;
@@ -361,7 +365,7 @@ export default function ChatScreen() {
       };
 
       // Try WebSocket first (skip for poll — REST handles complex payloads)
-      const sent = !poll && wsSendMessage(text, replyToId, attachments, messageType, priority);
+      const sent = !poll && wsSendMessage(text, replyToId, attachments, messageType, priority, location);
       if (sent) {
         updateConversation(conversationId, { lastMessage: optimisticLastMsg });
         setReplyingTo(null);
@@ -379,6 +383,7 @@ export default function ChatScreen() {
           attachments,
           priority,
           poll,
+          location,
         });
         addMessage(conversationId, res.result);
         updateConversation(conversationId, {
@@ -505,6 +510,19 @@ export default function ChatScreen() {
         updateMessage(conversationId, messageId, res.result);
       } catch {
         Alert.alert('Error', 'Could not vote.');
+      }
+    },
+    [conversationId, user, updateMessage]
+  );
+
+  const handleClosePoll = useCallback(
+    async (messageId: string) => {
+      if (!conversationId || !user) return;
+      try {
+        const res = await messageService.closePoll(messageId);
+        updateMessage(conversationId, messageId, res.result);
+      } catch {
+        Alert.alert('Error', 'Could not close poll.');
       }
     },
     [conversationId, user, updateMessage]
@@ -716,6 +734,8 @@ export default function ChatScreen() {
                     onLongPress={() => handleLongPress(msg)}
                     onReact={handleReact}
                     onVotePoll={handleVotePoll}
+                    onClosePoll={handleClosePoll}
+                    participantMap={participantMap}
                     replyToMessage={msg.replyToId ? (messageById[msg.replyToId] ?? null) : null}
                     onCallAgain={handleCallAgain}
                     calleeInfo={

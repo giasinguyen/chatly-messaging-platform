@@ -1,8 +1,10 @@
 import { useState, useMemo } from 'react';
 import { View, TextInput, TouchableOpacity, Text, Image, ActivityIndicator, Alert, Modal, FlatList, Pressable } from 'react-native';
+import { Image as ExpoImage } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
+import * as Location from 'expo-location';
 import EmojiPicker from 'rn-emoji-keyboard';
 import type { EmojiType } from 'rn-emoji-keyboard';
 import { Colors } from '@/constants/theme';
@@ -12,7 +14,7 @@ import { MediaPicker } from '@/components/chat/MediaPicker';
 import { ReminderModal } from '@/components/chat/ReminderModal';
 import { PollModal } from '@/components/chat/PollModal';
 import { useAuthStore } from '@/store/auth.store';
-import type { Message, Attachment, Poll } from '@/types/message';
+import type { Message, Attachment, Poll, LocationPayload } from '@/types/message';
 
 interface GroupMember {
   id: string;
@@ -23,7 +25,7 @@ interface GroupMember {
 
 interface ChatInputProps {
   conversationId?: string;
-  onSend: (text: string, attachments?: Attachment[], messageType?: string, priority?: 'IMPORTANT' | 'URGENT', poll?: Poll) => void;
+  onSend: (text: string, attachments?: Attachment[], messageType?: string, priority?: 'IMPORTANT' | 'URGENT', poll?: Poll, location?: LocationPayload) => void;
   onTyping?: (isTyping: boolean) => void;
   replyingTo?: Message | null;
   onCancelReply?: () => void;
@@ -53,6 +55,9 @@ export function ChatInput({ conversationId, onSend, onTyping, replyingTo, onCanc
   const [selectedPriority, setSelectedPriority] = useState<'IMPORTANT' | 'URGENT' | null>(null);
   const [showReminderModal, setShowReminderModal] = useState(false);
   const [showPollModal, setShowPollModal] = useState(false);
+  const [showLocationPreview, setShowLocationPreview] = useState(false);
+  const [tempLocation, setTempLocation] = useState<LocationPayload | null>(null);
+  const [isAcquiringLocation, setIsAcquiringLocation] = useState(false);
 
   // Mention detection
   const mentionQuery = useMemo(() => {
@@ -221,6 +226,53 @@ export function ChatInput({ conversationId, onSend, onTyping, replyingTo, onCanc
     onSend('', undefined, 'POLL', undefined, poll);
   };
 
+  const handleShareLocation = async () => {
+    try {
+      setShowOptionsSheet(false);
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission Denied', 'Please grant location permission to share your location.');
+        return;
+      }
+      
+      setIsAcquiringLocation(true);
+      const position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      
+      // Get human readable address if possible
+      let address = `${position.coords.latitude.toFixed(5)}, ${position.coords.longitude.toFixed(5)}`;
+      try {
+        const reverse = await Location.reverseGeocodeAsync({
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+        });
+        if (reverse && reverse.length > 0) {
+          const first = reverse[0];
+          address = [first.streetNumber, first.street, first.district, first.city, first.region].filter(Boolean).join(', ');
+        }
+      } catch (e) {}
+
+      setTempLocation({
+        latitude: position.coords.latitude,
+        longitude: position.coords.longitude,
+        address: address,
+      });
+      setShowLocationPreview(true);
+      setIsAcquiringLocation(false);
+    } catch (err) {
+      setIsAcquiringLocation(false);
+      console.error(err);
+      Alert.alert('Error', 'Failed to acquire location');
+    }
+  };
+
+  const confirmShareLocation = () => {
+    if (tempLocation) {
+      onSend('Location shared', undefined, 'LOCATION', undefined, undefined, tempLocation);
+      setShowLocationPreview(false);
+      setTempLocation(null);
+    }
+  };
+
   return (
     <View style={{ backgroundColor: Colors.white }}>
       {/* Mention suggestions */}
@@ -350,6 +402,8 @@ export function ChatInput({ conversationId, onSend, onTyping, replyingTo, onCanc
                       ? '🎬 GIF'
                       : replyingTo.type === 'STICKER'
                         ? '🎨 Sticker'
+                        : replyingTo.type === 'LOCATION'
+                        ? '📍 Location'
                         : replyingTo.content}
             </Text>
           </View>
@@ -527,6 +581,78 @@ export function ChatInput({ conversationId, onSend, onTyping, replyingTo, onCanc
         onClose={() => setShowPollModal(false)}
         onSend={handleSendPoll}
       />
+
+      {/* Location Preview Modal */}
+      <Modal
+        visible={showLocationPreview}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowLocationPreview(false)}>
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 }}>
+          <View style={{ backgroundColor: Colors.white, borderRadius: 24, width: '100%', overflow: 'hidden', maxWidth: 400 }}>
+            {/* Header */}
+            <View style={{ padding: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 0.5, borderBottomColor: Colors.borderLight }}>
+              <Text style={{ fontSize: 18, fontWeight: '700', color: Colors.text }}>Share Location</Text>
+              <TouchableOpacity onPress={() => setShowLocationPreview(false)}>
+                <Ionicons name="close" size={24} color={Colors.textMuted} />
+              </TouchableOpacity>
+            </View>
+
+            {/* Map Preview */}
+            {tempLocation && (
+              <View style={{ height: 250, backgroundColor: '#f1f5f9', position: 'relative' }}>
+                <ExpoImage
+                  source={{ uri: `https://static-maps.yandex.ru/1.x/?ll=${tempLocation.longitude},${tempLocation.latitude}&size=600,400&z=15&l=map&pt=${tempLocation.longitude},${tempLocation.latitude},pm2rdl` }}
+                  style={{ width: '100%', height: '100%' }}
+                  contentFit="cover"
+                />
+                <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' }}>
+                   <Ionicons name="location" size={40} color="#ef4444" style={{ marginTop: -20 }} />
+                </View>
+              </View>
+            )}
+
+            {/* Location Info */}
+            <View style={{ padding: 20 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                <Ionicons name="navigate-circle" size={20} color={Colors.cta} />
+                <Text style={{ marginLeft: 8, fontSize: 15, fontWeight: '600', color: Colors.text, flex: 1 }}>
+                  Your Current Location
+                </Text>
+              </View>
+              <Text style={{ fontSize: 13, color: Colors.textMuted, lineHeight: 18 }}>
+                {tempLocation?.address}
+              </Text>
+              <Text style={{ fontSize: 11, color: Colors.textLight, marginTop: 4 }}>
+                {tempLocation?.latitude.toFixed(6)}, {tempLocation?.longitude.toFixed(6)}
+              </Text>
+            </View>
+
+            {/* Actions */}
+            <View style={{ padding: 20, paddingTop: 0, flexDirection: 'row', gap: 12 }}>
+              <TouchableOpacity
+                onPress={() => setShowLocationPreview(false)}
+                style={{ flex: 1, paddingVertical: 14, borderRadius: 14, backgroundColor: Colors.bg, alignItems: 'center' }}>
+                <Text style={{ fontSize: 15, fontWeight: '600', color: Colors.text }}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={confirmShareLocation}
+                style={{ flex: 1, paddingVertical: 14, borderRadius: 14, backgroundColor: Colors.cta, alignItems: 'center', flexDirection: 'row', justifyContent: 'center' }}>
+                <Ionicons name="send" size={16} color="white" style={{ marginRight: 8 }} />
+                <Text style={{ fontSize: 15, fontWeight: '600', color: 'white' }}>Send Location</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Loading overlay for location acquisition */}
+      {isAcquiringLocation && (
+        <View style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(255,255,255,0.7)', alignItems: 'center', justifyContent: 'center', zIndex: 999 }}>
+           <ActivityIndicator size="large" color={Colors.cta} />
+           <Text style={{ marginTop: 12, fontSize: 14, color: Colors.text, fontWeight: '500' }}>Acquiring location...</Text>
+        </View>
+      )}
 
       {/* Options bottom sheet */}
       <Modal
@@ -780,6 +906,35 @@ export function ChatInput({ conversationId, onSend, onTyping, replyingTo, onCanc
                 </View>
               </TouchableOpacity>
             )}
+
+            {/* Share Location option */}
+            <TouchableOpacity
+              onPress={handleShareLocation}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                paddingHorizontal: 20,
+                paddingVertical: 14,
+              }}>
+              <View
+                style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: 18,
+                  backgroundColor: '#fee2e2',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginRight: 14,
+                }}>
+                <Ionicons name="location-outline" size={20} color="#ef4444" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 15, fontWeight: '500', color: Colors.text }}>Location</Text>
+                <Text style={{ fontSize: 12, color: Colors.textMuted, marginTop: 1 }}>
+                  Share your current location.
+                </Text>
+              </View>
+            </TouchableOpacity>
           </Pressable>
         </Pressable>
       </Modal>

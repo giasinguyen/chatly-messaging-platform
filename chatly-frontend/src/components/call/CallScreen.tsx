@@ -12,14 +12,14 @@ export function CallScreen({ visible, incomingCall, onAccept, onReject }: CallSc
     if (!visible || !incomingCall) return null;
 
     const callLabel =
-        incomingCall.type === "VIDEO" ? "Cuộc gọi video đến" : "Cuộc gọi thoại đến";
+        incomingCall.type === "VIDEO" ? "Incoming video call" : "Incoming voice call";
 
     const initial = incomingCall.callerName.charAt(0).toUpperCase();
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
             <div className="flex flex-col items-center gap-6">
-                {/* Avatar với hiệu ứng pulsing */}
+                {/* Avatar with pulsing effect */}
                 <div className="relative h-32 w-32">
                     <div className="absolute inset-0 animate-ping rounded-full bg-white/20" />
                     {incomingCall.callerAvatar ? (
@@ -35,7 +35,7 @@ export function CallScreen({ visible, incomingCall, onAccept, onReject }: CallSc
                     )}
                 </div>
 
-                {/* Tên và trạng thái */}
+                {/* Name and status */}
                 <div className="text-center">
                     <h2 className="text-2xl font-semibold text-white">
                         {incomingCall.callerName}
@@ -43,9 +43,9 @@ export function CallScreen({ visible, incomingCall, onAccept, onReject }: CallSc
                     <p className="mt-1 text-sm text-gray-300">{callLabel}</p>
                 </div>
 
-                {/* Nút chấp nhận / từ chối */}
+                {/* Accept / Reject buttons */}
                 <div className="mt-8 flex justify-center gap-16">
-                    {/* Từ chối */}
+                    {/* Reject */}
                     <div className="flex flex-col items-center gap-2">
                         <button
                             onClick={onReject}
@@ -53,10 +53,10 @@ export function CallScreen({ visible, incomingCall, onAccept, onReject }: CallSc
                         >
                             <PhoneOff size={24} className="text-white" />
                         </button>
-                        <span className="text-xs text-gray-400">Từ chối</span>
+                        <span className="text-xs text-gray-400">Decline</span>
                     </div>
 
-                    {/* Chấp nhận */}
+                    {/* Accept */}
                     <div className="flex flex-col items-center gap-2">
                         <button
                             onClick={onAccept}
@@ -68,7 +68,7 @@ export function CallScreen({ visible, incomingCall, onAccept, onReject }: CallSc
                                 <Phone size={24} className="text-white" />
                             )}
                         </button>
-                        <span className="text-xs text-gray-400">Chấp nhận</span>
+                        <span className="text-xs text-gray-400">Accept</span>
                     </div>
                 </div>
             </div>

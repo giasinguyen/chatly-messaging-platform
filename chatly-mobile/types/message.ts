@@ -31,6 +31,16 @@ export interface Poll {
   options: string[];
   multipleChoice: boolean;
   votes: Record<string, string[]>;
+  closed?: boolean;
+  deadline?: string;
+  anonymous?: boolean;
+}
+
+export interface LocationPayload {
+  latitude: number;
+  longitude: number;
+  address?: string;
+  mapSnapshotUrl?: string;
 }
 
 export interface Message {
@@ -53,6 +63,7 @@ export interface Message {
   editHistory: EditHistoryEntry[];
   reactions: Reaction[];
   poll?: Poll | null;
+  location?: LocationPayload;
   pinned: boolean;
   pinnedAt: string | null;
   pinnedBy: string | null;
@@ -62,7 +73,7 @@ export interface Message {
   updatedAt: string;
 }
 
-export type ChatAction = 'SEND' | 'EDIT' | 'RECALL' | 'DELETE' | 'REACT';
+export type ChatAction = 'SEND' | 'EDIT' | 'RECALL' | 'DELETE' | 'GROUP_UPDATE' | 'REACT';
 
 export interface ChatEvent {
   action: ChatAction;

@@ -69,6 +69,9 @@ public class Message {
     // Poll (for POLL type messages)
     private Poll poll;
 
+    // Location (for LOCATION type messages)
+    private LocationPayload location;
+
     // Pin
     @Builder.Default
     private boolean pinned = false;

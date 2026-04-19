@@ -23,6 +23,7 @@ export const messageService = {
     attachments?: import('@/types/message').Attachment[];
     priority?: 'IMPORTANT' | 'URGENT';
     poll?: import('@/types/message').Poll;
+    location?: import('@/types/message').LocationPayload;
   }): Promise<ApiResponse<Message>> => {
     const response = await axiosClient.post<ApiResponse<Message>>('/api/messages', payload);
     return response.data;
@@ -91,6 +92,13 @@ export const messageService = {
     const response = await axiosClient.put<ApiResponse<Message>>(
       `/api/messages/${messageId}/vote`,
       { optionIndex },
+    );
+    return response.data;
+  },
+
+  closePoll: async (messageId: string): Promise<ApiResponse<Message>> => {
+    const response = await axiosClient.put<ApiResponse<Message>>(
+      `/api/messages/${messageId}/close-poll`,
     );
     return response.data;
   },
