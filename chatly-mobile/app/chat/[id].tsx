@@ -35,6 +35,7 @@ import { useConversationStore } from '@/store/conversation.store';
 import { useContactStore } from '@/store/contact.store';
 import { useChatSocket } from '@/hooks/useChatSocket';
 import { useCallContext } from '@/contexts/CallContext';
+import { useCallStore } from '@/store/call.store';
 import { usePresenceSocket } from '@/hooks/usePresenceSocket';
 import { Colors } from '@/constants/theme';
 import { formatDateSeparator } from '@/utils/format';
@@ -218,7 +219,7 @@ export default function ChatScreen() {
     },
   });
 
-  const { initiateCall } = useCallContext();
+  const { initiateCall, joinGroupCall } = useCallContext();
 
   const {
     sendMessage: wsSendMessage,
@@ -592,6 +593,57 @@ export default function ChatScreen() {
     [conversationId, initiateCall]
   );
 
+  const handleJoinGroupCall = useCallback(
+    (callId: string) => {
+      if (!conversationId || !conversation) return;
+
+      const realtimeState = useCallStore.getState().groupCallRealtimeState[callId];
+      if (realtimeState?.ended) {
+        Alert.alert('Call ended', 'This call has already ended.');
+        return;
+      }
+
+      const ringingMessage = messages.find((message) => {
+        if (message.type !== 'CALL') return false;
+        try {
+          const payload = JSON.parse(message.content) as { callId?: string; status?: string };
+          return payload.callId === callId && (payload.status === 'RINGING' || payload.status === 'ONGOING');
+        } catch {
+          return false;
+        }
+      });
+
+      let callType: 'VOICE' | 'VIDEO' = 'VOICE';
+      let initiatorId = '';
+
+      if (ringingMessage) {
+        try {
+          const payload = JSON.parse(ringingMessage.content) as { callType?: string };
+          callType = payload.callType === 'VIDEO' ? 'VIDEO' : 'VOICE';
+        } catch {
+          callType = 'VOICE';
+        }
+        initiatorId = ringingMessage.senderId;
+      }
+
+      useCallStore.getState().setIncomingGroupCall({
+        callId,
+        conversationId,
+        initiatorId,
+        initiatorName: 'Unknown',
+        initiatorAvatar: null,
+        groupName: conversation.name ?? 'Group',
+        groupAvatarUrl: conversation.avatarUrl ?? null,
+        type: callType,
+        participantCount: 0,
+      });
+
+      useCallStore.getState().setCallStatus('RINGING');
+      joinGroupCall(true);
+    },
+    [messages, conversationId, conversation, joinGroupCall]
+  );
+
   const handleMentionPress = useCallback(
     (displayName: string) => {
       // Find user by displayName in participantMap
@@ -815,6 +867,8 @@ export default function ChatScreen() {
                     participantMap={participantMap}
                     replyToMessage={msg.replyToId ? (messageById[msg.replyToId] ?? null) : null}
                     onCallAgain={handleCallAgain}
+                    onJoinGroupCall={handleJoinGroupCall}
+                    isGroupConversation={isGroup}
                     calleeInfo={
                       isMe
                         ? null

@@ -47,6 +47,11 @@ docs/
 android/build/
 android/.gradle/
 android/local.properties
+android/app/build/
+android/app/.cxx/
+android/.kotlin/
+android/**/build/
+android/**/.cxx/
 ios/Pods/
 ios/Podfile.lock
 

@@ -170,13 +170,23 @@ export function useWebRTC(callbacks?: UseWebRTCCallbacks) {
         }
     }, [createPeerConnection]);
 
-    // Nâng cấp cuộc gọi voice → video (renegotiation)
-    const upgradeToVideo = useCallback(async (): Promise<RTCSessionDescriptionInit> => {
+    const enableLocalVideoTrack = useCallback(async (): Promise<boolean> => {
         const pc = peerConnection.current;
-        if (!pc) throw new Error('No active peer connection');
+        if (!pc) {
+            throw new Error('No active peer connection');
+        }
 
         if (!mediaDevices) {
             throw new Error('Camera access is not available in Expo Go. Please use a development build.');
+        }
+
+        const existingLocalVideoTrack = localStream
+            ?.getVideoTracks()
+            .find((track) => track.readyState === 'live');
+
+        if (existingLocalVideoTrack) {
+            existingLocalVideoTrack.enabled = true;
+            return true;
         }
 
         const stream = await mediaDevices.getUserMedia({
@@ -184,24 +194,42 @@ export function useWebRTC(callbacks?: UseWebRTCCallbacks) {
             audio: false,
         });
         const videoTrack = stream.getVideoTracks()[0];
-
-        // Thêm video track vào peer connection
-        const currentStream = localStream;
-        if (currentStream) {
-            pc.addTrack(videoTrack, currentStream);
-            currentStream.addTrack(videoTrack);
-        } else {
-            pc.addTrack(videoTrack, stream);
+        if (!videoTrack) {
+            return false;
         }
-        setLocalStream((prev) => {
-            if (prev) { prev.addTrack(videoTrack); return prev; }
-            return stream;
-        });
+
+        const existingVideoSender = pc
+            .getSenders()
+            .find((sender) => sender.track?.kind === 'video');
+
+        const nextStream = localStream
+            ? new MediaStream([...localStream.getAudioTracks(), videoTrack])
+            : new MediaStream([videoTrack]);
+
+        if (existingVideoSender) {
+            await existingVideoSender.replaceTrack(videoTrack);
+        } else {
+            pc.addTrack(videoTrack, nextStream);
+        }
+
+        setLocalStream(nextStream);
+        return true;
+    }, [localStream]);
+
+    // Nâng cấp cuộc gọi voice → video (renegotiation)
+    const upgradeToVideo = useCallback(async (): Promise<RTCSessionDescriptionInit> => {
+        const pc = peerConnection.current;
+        if (!pc) throw new Error('No active peer connection');
+
+        const hasLocalVideoTrack = await enableLocalVideoTrack();
+        if (!hasLocalVideoTrack) {
+            throw new Error('Failed to enable local camera.');
+        }
 
         const offer = await pc.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: true });
         await pc.setLocalDescription(new RTCSessionDescription(offer));
         return offer;
-    }, [localStream]);
+    }, [enableLocalVideoTrack]);
 
     // Xử lý ICE candidate từ peer
     const handleIceCandidate = useCallback(async (candidate: RTCIceCandidateInit): Promise<void> => {
@@ -272,6 +300,7 @@ export function useWebRTC(callbacks?: UseWebRTCCallbacks) {
         createAnswerFromRemote,
         handleAnswer,
         handleRemoteDescription,
+        enableLocalVideoTrack,
         upgradeToVideo,
         handleIceCandidate,
         addIceCandidate,

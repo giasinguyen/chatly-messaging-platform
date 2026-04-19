@@ -1,13 +1,14 @@
 import { View, Text, FlatList, TouchableOpacity } from 'react-native';
+import { Alert } from 'react-native';
 import { useEffect, useRef, useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
+import { setAudioModeAsync } from 'expo-audio';
 import { Avatar } from '@/components/ui/Avatar';
 import { Colors } from '@/constants/theme';
 import { useCallStore } from '@/store/call.store';
 import { useCallContext } from '@/contexts/CallContext';
 
 let RTCView: any;
-let Audio: any;
 
 try {
   RTCView = require('react-native-webrtc').RTCView;
@@ -15,16 +16,17 @@ try {
   RTCView = View;
 }
 
-try {
-  Audio = require('expo-av').Audio;
-} catch {
-  Audio = { setAudioModeAsync: async () => {} };
-}
-
 function formatDuration(seconds: number): string {
   const mins = Math.floor(seconds / 60);
   const secs = seconds % 60;
   return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+}
+
+function getStreamUrl(stream: MediaStream): string {
+  if ('toURL' in stream && typeof (stream as { toURL?: unknown }).toURL === 'function') {
+    return (stream as MediaStream & { toURL: () => string }).toURL();
+  }
+  return '';
 }
 
 interface ParticipantTileProps {
@@ -36,6 +38,10 @@ interface ParticipantTileProps {
 }
 
 function ParticipantTile({ peerId: _peerId, name, avatar, stream, isVideoCall }: ParticipantTileProps) {
+  const hasLiveVideoTrack = Boolean(
+    stream?.getVideoTracks().some((track) => track.readyState === 'live'),
+  );
+
   return (
     <View
       style={{
@@ -49,8 +55,8 @@ function ParticipantTile({ peerId: _peerId, name, avatar, stream, isVideoCall }:
         justifyContent: 'center',
       }}
     >
-      {stream && stream.getVideoTracks().length > 0 && stream.getVideoTracks().some((t: { enabled: boolean }) => t.enabled) ? (
-        <RTCView streamURL={stream.toURL()} style={{ flex: 1, width: '100%' }} objectFit="cover" />
+      {hasLiveVideoTrack && stream ? (
+        <RTCView streamURL={getStreamUrl(stream)} style={{ flex: 1, width: '100%' }} objectFit="cover" />
       ) : (
         <View className="flex-1 items-center justify-center" style={{ padding: 12 }}>
           <Avatar uri={avatar} name={name} size={56} />
@@ -83,6 +89,7 @@ export function GroupCallOverlay() {
 
   const {
     leaveGroupCall,
+    upgradeGroupCallToVideo,
     groupLocalStream,
     groupRemoteStreams,
     groupToggleMute,
@@ -95,21 +102,21 @@ export function GroupCallOverlay() {
   useEffect(() => {
     if (callStatus !== 'ONGOING' || !isGroupCall) return;
 
-    Audio.setAudioModeAsync({
-      allowsRecordingIOS: true,
-      playsInSilentModeIOS: true,
-      staysActiveInBackground: true,
-      shouldDuckAndroid: false,
-      playThroughEarpieceAndroid: true,
+    setAudioModeAsync({
+      allowsRecording: true,
+      playsInSilentMode: true,
+      shouldPlayInBackground: true,
+      interruptionMode: 'doNotMix',
+      shouldRouteThroughEarpiece: true,
     }).catch(console.error);
 
     return () => {
-      Audio.setAudioModeAsync({
-        allowsRecordingIOS: false,
-        playsInSilentModeIOS: false,
-        staysActiveInBackground: false,
-        shouldDuckAndroid: true,
-        playThroughEarpieceAndroid: false,
+      setAudioModeAsync({
+        allowsRecording: false,
+        playsInSilentMode: false,
+        shouldPlayInBackground: false,
+        interruptionMode: 'duckOthers',
+        shouldRouteThroughEarpiece: false,
       }).catch(console.error);
     };
   }, [callStatus, isGroupCall]);
@@ -143,20 +150,36 @@ export function GroupCallOverlay() {
     toggleMuteStore();
   };
 
-  const handleToggleCamera = () => {
-    const next = !isCameraOff;
-    groupToggleCamera(next);
+  const handleToggleCamera = async () => {
+    const nextCameraOff = !isCameraOff;
+    const hasLocalVideoTrack = Boolean(
+      groupLocalStream?.getVideoTracks().some((track) => track.readyState === 'live'),
+    );
+
+    if (!nextCameraOff && !hasLocalVideoTrack) {
+      try {
+        await upgradeGroupCallToVideo();
+      } catch (error) {
+        const message = error instanceof Error
+          ? error.message
+          : 'Failed to upgrade group call to video.';
+        Alert.alert('Camera Error', message);
+      }
+      return;
+    }
+
+    groupToggleCamera(nextCameraOff);
     toggleCameraStore();
   };
 
   const handleToggleSpeaker = () => {
     const next = !isSpeakerOn;
-    Audio.setAudioModeAsync({
-      allowsRecordingIOS: true,
-      playsInSilentModeIOS: true,
-      staysActiveInBackground: true,
-      shouldDuckAndroid: false,
-      playThroughEarpieceAndroid: !next,
+    setAudioModeAsync({
+      allowsRecording: true,
+      playsInSilentMode: true,
+      shouldPlayInBackground: true,
+      interruptionMode: 'doNotMix',
+      shouldRouteThroughEarpiece: !next,
     }).catch(console.error);
     setIsSpeakerOn(next);
   };
@@ -210,9 +233,11 @@ export function GroupCallOverlay() {
                 borderColor: Colors.cta,
               }}
             >
-              {isVideoCall && groupLocalStream ? (
+              {isVideoCall
+              && groupLocalStream
+              && groupLocalStream.getVideoTracks().some((track) => track.readyState === 'live') ? (
                 <RTCView
-                  streamURL={groupLocalStream.toURL()}
+                  streamURL={getStreamUrl(groupLocalStream)}
                   style={{ flex: 1, width: '100%' }}
                   objectFit="cover"
                   mirror

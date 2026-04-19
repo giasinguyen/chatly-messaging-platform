@@ -9,6 +9,12 @@ export interface OutgoingCallTarget {
     type: "VOICE" | "VIDEO";
 }
 
+export interface GroupCallRealtimeState {
+    ended: boolean;
+    activeParticipantCount: number;
+    updatedAt: number;
+}
+
 interface CallState {
     // 1-1 call state
     callStatus: CallStoreStatus;
@@ -25,6 +31,7 @@ interface CallState {
     isGroupCall: boolean;
     incomingGroupCall: IncomingGroupCall | null;
     groupParticipantInfo: Record<string, GroupParticipantInfo>;
+    groupCallRealtimeState: Record<string, GroupCallRealtimeState>;
 
     // 1-1 actions
     setIncomingCall: (call: IncomingCall | null) => void;
@@ -45,6 +52,7 @@ interface CallState {
     startGroupCall: (session: CallSession) => void;
     setGroupParticipantInfo: (userId: string, info: GroupParticipantInfo) => void;
     removeGroupParticipant: (userId: string) => void;
+    setGroupCallRealtimeState: (callId: string, ended: boolean, activeParticipantCount: number) => void;
 }
 
 export const useCallStore = create<CallState>((set) => ({
@@ -63,6 +71,7 @@ export const useCallStore = create<CallState>((set) => ({
     isGroupCall: false,
     incomingGroupCall: null,
     groupParticipantInfo: {},
+    groupCallRealtimeState: {},
 
     setIncomingCall: (call) => set({ incomingCall: call }),
 
@@ -141,4 +150,16 @@ export const useCallStore = create<CallState>((set) => ({
             delete next[userId];
             return { groupParticipantInfo: next };
         }),
+
+    setGroupCallRealtimeState: (callId, ended, activeParticipantCount) =>
+        set((state) => ({
+            groupCallRealtimeState: {
+                ...state.groupCallRealtimeState,
+                [callId]: {
+                    ended,
+                    activeParticipantCount,
+                    updatedAt: Date.now(),
+                },
+            },
+        })),
 }));

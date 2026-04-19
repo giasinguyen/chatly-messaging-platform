@@ -20,6 +20,7 @@ import { formatMessageTime } from '@/utils/format';
 import { ImageLightbox } from '@/components/ui/ImageLightbox';
 import { VideoPlayer } from '@/components/chat/VideoPlayer';
 import { AudioPlayer } from '@/components/chat/AudioPlayer';
+import { useCallStore } from '@/store/call.store';
 import type { Message, Reaction } from '@/types/message';
 
 interface ParticipantInfo {
@@ -40,6 +41,8 @@ interface MessageBubbleProps {
   onVotePoll?: (messageId: string, optionIndex: number) => void;
   replyToMessage?: Message | null;
   onCallAgain?: (calleeId: string, calleeName: string, calleeAvatar?: string) => void;
+  onJoinGroupCall?: (callId: string) => void;
+  isGroupConversation?: boolean;
   calleeInfo?: { id: string; name: string; avatar?: string } | null;
   highlightKeyword?: string | null;
   onMentionPress?: (displayName: string) => void;
@@ -64,6 +67,8 @@ export function MessageBubble({
   onVotePoll,
   replyToMessage,
   onCallAgain,
+  onJoinGroupCall,
+  isGroupConversation = false,
   calleeInfo,
   highlightKeyword,
   onMentionPress,
@@ -76,6 +81,7 @@ export function MessageBubble({
   onScrollToMessage,
 }: MessageBubbleProps) {
   const { content, type, recalled, edited, createdAt, readBy, attachments } = message;
+  const groupCallRealtimeState = useCallStore((state) => state.groupCallRealtimeState);
 
   const screenWidth = Dimensions.get('window').width;
   const maxBubbleWidth = screenWidth * 0.78;
@@ -602,13 +608,105 @@ export function MessageBubble({
       case 'POLL':
         return renderPollContent();
       case 'CALL': {
-        let callData: { callType?: string; status?: string; duration?: number } = {};
+        let callData: { callType?: string; status?: string; duration?: number; callId?: string } = {};
         try { callData = JSON.parse(content); } catch { /* ignore */ }
         const isMissed = callData.status === 'MISSED' || callData.status === 'REJECTED';
+        const isGroupCallActiveStatus = callData.status === 'RINGING' || callData.status === 'ONGOING';
         const isVideo = callData.callType === 'VIDEO';
         const duration = callData.duration ?? 0;
+        const realtimeState = callData.callId ? groupCallRealtimeState[callData.callId] : undefined;
+        const isCallEndedRealtime = Boolean(realtimeState?.ended);
         const formatDur = (s: number) =>
           `${Math.floor(s / 60).toString().padStart(2, '0')}:${(s % 60).toString().padStart(2, '0')}`;
+        const typeLabel = isVideo ? 'video' : 'audio';
+
+        if (isGroupCallActiveStatus && isGroupConversation && callData.callId) {
+          if (isCallEndedRealtime || !onJoinGroupCall) {
+            return (
+              <View style={{ marginVertical: 6, paddingHorizontal: 16, alignItems: 'center' }}>
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    borderRadius: 16,
+                    borderWidth: 1,
+                    borderColor: '#fca5a5',
+                    backgroundColor: '#fef2f2',
+                    paddingHorizontal: 14,
+                    paddingVertical: 10,
+                    minWidth: 190,
+                    opacity: 0.8,
+                  }}
+                >
+                  <View
+                    style={{
+                      width: 36,
+                      height: 36,
+                      borderRadius: 18,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      backgroundColor: 'rgba(239,68,68,0.14)',
+                      marginRight: 10,
+                    }}
+                  >
+                    <Ionicons name="call" size={16} color="#dc2626" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ color: '#b91c1c', fontSize: 13, fontWeight: '600' }}>
+                      Group {typeLabel} call
+                    </Text>
+                    <Text style={{ color: '#dc2626', fontSize: 11, opacity: 0.75, marginTop: 1 }}>
+                      Call ended
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            );
+          }
+
+          return (
+            <View style={{ marginVertical: 6, paddingHorizontal: 16, alignItems: 'center' }}>
+              <TouchableOpacity
+                onPress={() => onJoinGroupCall(callData.callId!)}
+                activeOpacity={0.8}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  borderRadius: 16,
+                  borderWidth: 1,
+                  borderColor: '#86efac',
+                  backgroundColor: '#f0fdf4',
+                  paddingHorizontal: 14,
+                  paddingVertical: 10,
+                  minWidth: 190,
+                }}
+              >
+                <View
+                  style={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: 18,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    backgroundColor: 'rgba(34,197,94,0.15)',
+                    marginRight: 10,
+                  }}
+                >
+                  <Ionicons name="call" size={16} color="#16a34a" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ color: '#15803d', fontSize: 13, fontWeight: '600' }}>
+                    Group {typeLabel} call
+                  </Text>
+                  <Text style={{ color: '#16a34a', fontSize: 11, opacity: 0.75, marginTop: 1 }}>
+                    Tap to join
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            </View>
+          );
+        }
+
         const callLabel = isMissed
           ? (isVideo ? 'Missed video call' : 'Missed audio call')
           : (isVideo ? 'Video call' : 'Audio call');

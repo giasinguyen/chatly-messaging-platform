@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 import {
     Mic,
     MicOff,
@@ -24,6 +25,7 @@ interface GroupCallOverlayProps {
     onLeave: () => void;
     onToggleMute: (muted: boolean) => void;
     onToggleCamera: (cameraOff: boolean) => void;
+    onUpgradeToVideo?: () => Promise<void>;
 }
 
 function ParticipantTile({
@@ -40,10 +42,21 @@ function ParticipantTile({
     isLocal?: boolean;
 }) {
     const videoRef = useRef<HTMLVideoElement>(null);
+    const hasLiveVideoTrack = Boolean(
+        stream?.getVideoTracks().some((track) => track.readyState === "live"),
+    );
 
     useEffect(() => {
-        if (videoRef.current && stream) {
+        if (videoRef.current) {
+            if (!stream) {
+                videoRef.current.srcObject = null;
+                return;
+            }
+
             videoRef.current.srcObject = stream;
+            // Audio is rendered by hidden <audio> elements; keep all video tags muted for autoplay reliability.
+            videoRef.current.muted = true;
+            videoRef.current.play().catch(() => {});
         }
     }, [stream]);
 
@@ -55,12 +68,12 @@ function ParticipantTile({
                 isLocal ? "ring-2 ring-blue-500" : ""
             }`}
         >
-            {stream && stream.getVideoTracks().length > 0 && stream.getVideoTracks().some(t => t.enabled) ? (
+            {hasLiveVideoTrack ? (
                 <video
                     ref={videoRef}
                     autoPlay
                     playsInline
-                    muted={isLocal}
+                    muted
                     className="h-full w-full object-cover"
                 />
             ) : (
@@ -95,6 +108,7 @@ export function GroupCallOverlay({
     onLeave,
     onToggleMute,
     onToggleCamera,
+    onUpgradeToVideo,
 }: GroupCallOverlayProps) {
     const {
         callStatus,
@@ -189,9 +203,25 @@ export function GroupCallOverlay({
         toggleMute();
     };
 
-    const handleToggleCamera = () => {
-        const next = !isCameraOff;
-        onToggleCamera(next);
+    const handleToggleCamera = async () => {
+        const nextCameraOff = !isCameraOff;
+        const hasLocalVideoTrack = Boolean(
+            groupLocalStream?.getVideoTracks().some((track) => track.readyState === "live"),
+        );
+
+        if (!nextCameraOff && !hasLocalVideoTrack && onUpgradeToVideo) {
+            try {
+                await onUpgradeToVideo();
+            } catch (error) {
+                const message = error instanceof Error
+                    ? error.message
+                    : "Failed to upgrade group call to video.";
+                toast.error(message);
+            }
+            return;
+        }
+
+        onToggleCamera(nextCameraOff);
         toggleCamera();
     };
 

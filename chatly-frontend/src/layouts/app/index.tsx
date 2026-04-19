@@ -9,6 +9,8 @@ import { OutgoingCallScreen } from "@/components/call/OutgoingCallScreen";
 import { ActiveCallOverlay } from "@/components/call/ActiveCallOverlay";
 import { GroupCallScreen } from "@/components/call/GroupCallScreen";
 import { GroupCallOverlay } from "@/components/call/GroupCallOverlay";
+import { VideoUpgradeRequestDialog } from "@/components/call/VideoUpgradeRequestDialog";
+import { GroupVideoUpgradeRequestDialog } from "@/components/call/GroupVideoUpgradeRequestDialog";
 import { AnimatePresence, motion } from "framer-motion";
 
 // Inner layout has access to the shared CallSocketProvider
@@ -17,7 +19,25 @@ function AppLayoutInner() {
     const mobileDrawerOpen = useUiStore((s) => s.mobileDrawerOpen);
     const setMobileDrawerOpen = useUiStore((s) => s.setMobileDrawerOpen);
 
-    const { answerCall, endCall, localStream, remoteStream, upgradeToVideo, toggleCamera, joinGroupCall, leaveGroupCall, groupLocalStream, groupRemoteStreams, groupToggleMute, groupToggleCamera } = useCallContext();
+    const {
+        answerCall,
+        endCall,
+        localStream,
+        remoteStream,
+        upgradeToVideo,
+        toggleCamera,
+        incomingVideoUpgradeRequest,
+        respondToVideoUpgradeRequest,
+        joinGroupCall,
+        leaveGroupCall,
+        upgradeGroupCallToVideo,
+        incomingGroupVideoUpgradeRequest,
+        respondToGroupVideoUpgradeRequest,
+        groupLocalStream,
+        groupRemoteStreams,
+        groupToggleMute,
+        groupToggleCamera,
+    } = useCallContext();
     const incomingCall = useCallStore((s) => s.incomingCall);
     const incomingGroupCall = useCallStore((s) => s.incomingGroupCall);
     const callStatus = useCallStore((s) => s.callStatus);
@@ -86,6 +106,7 @@ function AppLayoutInner() {
                     onLeave={leaveGroupCall}
                     onToggleMute={groupToggleMute}
                     onToggleCamera={groupToggleCamera}
+                    onUpgradeToVideo={upgradeGroupCallToVideo}
                 />
             )}
 
@@ -99,6 +120,20 @@ function AppLayoutInner() {
                     onUpgradeToVideo={upgradeToVideo}
                 />
             )}
+
+            <VideoUpgradeRequestDialog
+                visible={!!incomingVideoUpgradeRequest && callStatus === "ONGOING" && !isGroupCall}
+                requesterName={incomingVideoUpgradeRequest?.requesterName ?? "Peer"}
+                onAccept={() => respondToVideoUpgradeRequest(true)}
+                onDecline={() => respondToVideoUpgradeRequest(false)}
+            />
+
+            <GroupVideoUpgradeRequestDialog
+                visible={!!incomingGroupVideoUpgradeRequest && callStatus === "ONGOING" && isGroupCall}
+                requesterName={incomingGroupVideoUpgradeRequest?.requesterName ?? "A participant"}
+                onAccept={() => respondToGroupVideoUpgradeRequest(true)}
+                onDecline={() => respondToGroupVideoUpgradeRequest(false)}
+            />
         </div>
     );
 }

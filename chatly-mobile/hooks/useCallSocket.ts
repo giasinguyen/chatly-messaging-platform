@@ -1,4 +1,5 @@
 import { useEffect, useCallback, useRef } from 'react';
+import { Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { socketService } from '@/services/socket.service';
 import { useAuthStore } from '@/store/auth.store';
@@ -17,6 +18,7 @@ export function useCallSocket() {
     setCallStatus,
     setPendingOffer,
     setRemoteParticipant,
+    setCameraOff,
     startCall,
     endCall: endCallStore,
     upgradeCall,
@@ -51,6 +53,39 @@ export function useCallSocket() {
   const webrtcRef = useRef(webrtc);
   webrtcRef.current = webrtc;
 
+  const pendingVideoUpgradeDecisionRef = useRef<{
+    resolve: (accepted: boolean) => void;
+    timeoutId: ReturnType<typeof setTimeout>;
+  } | null>(null);
+  const shouldAutoEnableCameraOnRenegotiateRef = useRef(false);
+
+  const resolvePendingVideoUpgradeDecision = useCallback((accepted: boolean) => {
+    const pending = pendingVideoUpgradeDecisionRef.current;
+    if (!pending) return;
+
+    clearTimeout(pending.timeoutId);
+    pendingVideoUpgradeDecisionRef.current = null;
+    pending.resolve(accepted);
+  }, []);
+
+  const waitForVideoUpgradeDecision = useCallback((): Promise<boolean> => {
+    if (pendingVideoUpgradeDecisionRef.current) {
+      throw new Error('A video upgrade request is already pending.');
+    }
+
+    return new Promise<boolean>((resolve, reject) => {
+      const timeoutId = setTimeout(() => {
+        pendingVideoUpgradeDecisionRef.current = null;
+        reject(new Error('Peer did not respond to the video call request.'));
+      }, 20000);
+
+      pendingVideoUpgradeDecisionRef.current = {
+        resolve,
+        timeoutId,
+      };
+    });
+  }, []);
+
   // handleSignal ref for subscription callback to avoid stale closures
   const handleSignalRef = useRef<((signal: CallSignal) => void) | null>(null);
 
@@ -66,6 +101,7 @@ export function useCallSocket() {
           // ICE_CANDIDATE during an active group call is also handled there.
           if (signal.type.startsWith('GROUP_')) return;
           if (signal.type === 'ICE_CANDIDATE' && useCallStore.getState().isGroupCall) return;
+          if (signal.senderId === user.id) return;
           // Use ref to always call the latest handleSignal version
           handleSignalRef.current?.(signal);
         },
@@ -153,8 +189,64 @@ export function useCallSocket() {
         case 'END': {
           // Peer ended the call
           webrtcRef.current.endCall();
+          shouldAutoEnableCameraOnRenegotiateRef.current = false;
+          resolvePendingVideoUpgradeDecision(false);
           setCallStatus('ENDED');
           setTimeout(() => endCallStore(), 1500);
+          break;
+        }
+
+        case 'VIDEO_UPGRADE_REQUEST': {
+          const activeCall = useCallStore.getState().activeCall;
+          if (!activeCall || !user) break;
+
+          const receiverId = activeCall.participants.find((id) => id !== user.id);
+          if (!receiverId) break;
+
+          const remoteName = useCallStore.getState().remoteParticipant?.name ?? 'The other participant';
+
+          Alert.alert(
+            'Video call request',
+            `${remoteName} wants to switch to a video call.`,
+            [
+              {
+                text: 'Decline',
+                style: 'cancel',
+                onPress: () => {
+                  shouldAutoEnableCameraOnRenegotiateRef.current = false;
+                  socketService.publish('/app/call.renegotiate', {
+                    type: 'VIDEO_UPGRADE_REJECT',
+                    callId: activeCall.callId,
+                    senderId: user.id,
+                    receiverId,
+                  });
+                },
+              },
+              {
+                text: 'Accept',
+                onPress: () => {
+                  shouldAutoEnableCameraOnRenegotiateRef.current = true;
+                  socketService.publish('/app/call.renegotiate', {
+                    type: 'VIDEO_UPGRADE_ACCEPT',
+                    callId: activeCall.callId,
+                    senderId: user.id,
+                    receiverId,
+                  });
+                },
+              },
+            ],
+            { cancelable: false },
+          );
+          break;
+        }
+
+        case 'VIDEO_UPGRADE_ACCEPT': {
+          resolvePendingVideoUpgradeDecision(true);
+          break;
+        }
+
+        case 'VIDEO_UPGRADE_REJECT': {
+          resolvePendingVideoUpgradeDecision(false);
           break;
         }
 
@@ -164,8 +256,29 @@ export function useCallSocket() {
           const activeCall = useCallStore.getState().activeCall;
           if (!activeCall || !user) break;
 
-          webrtcRef.current
-            .handleRemoteDescription(renoPayload.sdp)
+          const shouldAutoEnableCamera = shouldAutoEnableCameraOnRenegotiateRef.current;
+          shouldAutoEnableCameraOnRenegotiateRef.current = false;
+
+          if (!shouldAutoEnableCamera) {
+            // If this side did not explicitly accept an upgrade request, stay camera-off by default.
+            setCameraOff(true);
+          }
+          upgradeCall();
+
+          const prepareLocalVideo = shouldAutoEnableCamera
+            ? webrtcRef.current
+              .enableLocalVideoTrack()
+              .then((enabled) => {
+                setCameraOff(!enabled);
+              })
+              .catch((error: unknown) => {
+                console.warn('Unable to auto-enable camera after accepting upgrade:', error);
+                setCameraOff(true);
+              })
+            : Promise.resolve();
+
+          prepareLocalVideo
+            .then(() => webrtcRef.current.handleRemoteDescription(renoPayload.sdp))
             .then(() => webrtcRef.current.createAnswerFromRemote())
             .then((answer) => {
               const receiverId = activeCall.participants.find((id) => id !== user.id);
@@ -177,7 +290,6 @@ export function useCallSocket() {
                 receiverId,
                 payload: { sdp: answer },
               });
-              upgradeCall();
             })
             .catch((err) => console.error('Renegotiation failed:', err));
           break;
@@ -197,7 +309,16 @@ export function useCallSocket() {
           break;
       }
     },
-    [setPendingOffer, setIncomingCall, setCallStatus, endCallStore, upgradeCall],
+    [
+      setPendingOffer,
+      setIncomingCall,
+      setCallStatus,
+      setCameraOff,
+      endCallStore,
+      upgradeCall,
+      resolvePendingVideoUpgradeDecision,
+      user,
+    ],
   );
 
   // Update ref so subscription callback always calls the latest version
@@ -341,16 +462,61 @@ export function useCallSocket() {
       }
     }
 
+    shouldAutoEnableCameraOnRenegotiateRef.current = false;
+    resolvePendingVideoUpgradeDecision(false);
     webrtcRef.current.endCall();
     setCallStatus('ENDED');
     setTimeout(() => endCallStore(), 1500);
-  }, [user, setCallStatus, endCallStore]);
+  }, [user, setCallStatus, endCallStore, resolvePendingVideoUpgradeDecision]);
+
+  const upgradeToVideo = useCallback(async (): Promise<void> => {
+    if (!user) throw new Error('Unable to upgrade call: user not found.');
+
+    const activeCall = useCallStore.getState().activeCall;
+    if (!activeCall) throw new Error('Unable to upgrade call: no active call.');
+
+    const receiverId = activeCall.participants.find((id) => id !== user.id);
+    if (!receiverId) throw new Error('Unable to upgrade call: peer not found.');
+
+    const connected = socketService.isConnected();
+    if (!connected) {
+      throw new Error('Signaling is disconnected. Please retry.');
+    }
+
+    const isAlreadyVideoCall = activeCall.type === 'VIDEO';
+
+    if (!isAlreadyVideoCall) {
+      socketService.publish('/app/call.renegotiate', {
+        type: 'VIDEO_UPGRADE_REQUEST',
+        callId: activeCall.callId,
+        senderId: user.id,
+        receiverId,
+      });
+
+      const accepted = await waitForVideoUpgradeDecision();
+      if (!accepted) {
+        throw new Error('Peer declined the video call request.');
+      }
+    }
+
+    const offer = await webrtcRef.current.upgradeToVideo();
+    setCameraOff(false);
+    upgradeCall();
+
+    socketService.publish('/app/call.renegotiate', {
+      type: 'RENEGOTIATE_OFFER',
+      callId: activeCall.callId,
+      senderId: user.id,
+      receiverId,
+      payload: { sdp: offer },
+    });
+  }, [user, setCameraOff, upgradeCall, waitForVideoUpgradeDecision]);
 
   return {
     initiateCall,
     answerCall,
     endCall: handleEndCall,
-    upgradeToVideo: webrtc.upgradeToVideo,
+    upgradeToVideo,
     localStream: webrtc.localStream,
     remoteStream: webrtc.remoteStream,
     remoteStreamKey: webrtc.remoteStreamKey,

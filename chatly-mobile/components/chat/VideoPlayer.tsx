@@ -1,6 +1,6 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
-import { Video, ResizeMode, AVPlaybackStatus } from 'expo-av';
+import { VideoView, useVideoPlayer } from 'expo-video';
 import { Ionicons } from '@expo/vector-icons';
 
 interface VideoPlayerProps {
@@ -9,59 +9,62 @@ interface VideoPlayerProps {
 }
 
 export function VideoPlayer({ url, name }: VideoPlayerProps) {
-  const videoRef = useRef<Video>(null);
+  const player = useVideoPlayer({ uri: url }, (videoPlayer) => {
+    videoPlayer.loop = false;
+  });
   const [isPlaying, setIsPlaying] = useState(false);
   const [hasStarted, setHasStarted] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(false);
 
-  const handlePlaybackStatusUpdate = useCallback((status: AVPlaybackStatus) => {
-    if (!status.isLoaded) {
-      if (status.error) {
+  useEffect(() => {
+    const statusSubscription = player.addListener('statusChange', ({ status, error: playerError }) => {
+      setIsLoading(status === 'loading');
+      if (status === 'error' || playerError) {
         setError(true);
-        setIsLoading(false);
-      } else {
-        // Not loaded yet, show loading indicator
-        setIsLoading(true);
       }
-      return;
-    }
-    
-    // Now TypeScript knows status is AVPlaybackStatusSuccess
-    setIsPlaying(status.isPlaying);
-    setIsLoading(status.isBuffering);
-    
-    if (status.didJustFinish) {
+    });
+
+    const playingSubscription = player.addListener('playingChange', ({ isPlaying: isNowPlaying }) => {
+      setIsPlaying(isNowPlaying);
+    });
+
+    const endSubscription = player.addListener('playToEnd', () => {
       setHasStarted(false);
       setIsPlaying(false);
-      videoRef.current?.setPositionAsync(0);
-    }
-  }, []);
+      player.currentTime = 0;
+    });
+
+    return () => {
+      statusSubscription.remove();
+      playingSubscription.remove();
+      endSubscription.remove();
+    };
+  }, [player]);
 
   const handleTogglePlay = useCallback(async () => {
-    if (!videoRef.current) return;
+    if (isLoading) return;
+
     if (isPlaying) {
-      await videoRef.current.pauseAsync();
+      player.pause();
     } else {
+      if (error) {
+        await player.replaceAsync({ uri: url });
+        setError(false);
+      }
       if (!hasStarted) setHasStarted(true);
-      await videoRef.current.playAsync();
+      player.play();
     }
-  }, [isPlaying, hasStarted]);
+  }, [error, hasStarted, isLoading, isPlaying, player, url]);
 
   return (
     <View className="overflow-hidden rounded-2xl bg-black" style={{ width: 260, height: 180, marginBottom: 8 }}>
-      <Video
-        ref={videoRef}
-        source={{ uri: url }}
-        resizeMode={ResizeMode.CONTAIN}
-        shouldPlay={false}
-        isLooping={false}
-        useNativeControls={hasStarted}
-        onPlaybackStatusUpdate={handlePlaybackStatusUpdate}
+      <VideoView
+        player={player}
+        contentFit="contain"
+        nativeControls={hasStarted}
+        onFirstFrameRender={() => setIsLoading(false)}
         style={{ width: '100%', height: '100%' }}
-        usePoster={!hasStarted}
-        posterSource={{ uri: url }}
-        posterStyle={{ resizeMode: 'cover' }}
       />
       
       {!hasStarted && !error && (

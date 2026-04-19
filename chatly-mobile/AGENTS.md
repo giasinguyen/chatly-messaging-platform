@@ -16,7 +16,7 @@
 | State | Zustand |
 | HTTP | Axios |
 | WebSocket | @stomp/stompjs |
-| Media | expo-image, expo-av, expo-image-picker |
+| Media | expo-image, expo-audio, expo-video, expo-image-picker |
 | Notifications | expo-notifications |
 | Video calls | react-native-webrtc |
 | Animations | react-native-reanimated 4 |

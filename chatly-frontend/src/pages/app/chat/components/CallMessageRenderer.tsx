@@ -1,6 +1,7 @@
 import { PhoneCall } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { useCallStore } from "@/store/call.store";
 import type { Message, ChatUser } from "@/types/message";
 import type { ConversationType } from "@/types/conversation";
 
@@ -47,8 +48,9 @@ export function CallMessageRenderer({
     onJoinGroupCall,
 }: CallMessageRendererProps) {
     const callData = parseCallData(msg.content);
+    const groupCallRealtimeState = useCallStore((state) => state.groupCallRealtimeState);
     const isMissed = callData.status === "MISSED" || callData.status === "REJECTED";
-    const isRinging = callData.status === "RINGING";
+    const isGroupCallActiveStatus = callData.status === "RINGING" || callData.status === "ONGOING";
     const isVideo = callData.callType === "VIDEO";
     const duration = callData.duration ?? 0;
     const isMe = msg.senderId === currentUserId;
@@ -56,8 +58,9 @@ export function CallMessageRenderer({
     const calleeId = isMe ? participant.id : msg.senderId;
     const typeLabel = isVideo ? "video" : "audio";
 
-    if (isRinging && callData.callId && conversationType === "GROUP") {
-        const isCallEnded = messages.some((m) => {
+    if (isGroupCallActiveStatus && callData.callId && conversationType === "GROUP") {
+        const realtimeState = groupCallRealtimeState[callData.callId];
+        const isCallEnded = Boolean(realtimeState?.ended) || messages.some((m) => {
             if (m.id === msg.id || m.type !== "CALL") return false;
             const other = parseCallData(m.content);
             return (

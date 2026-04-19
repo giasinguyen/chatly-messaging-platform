@@ -20,6 +20,23 @@ const ICE_SERVERS: RTCConfiguration = {
     iceCandidatePoolSize: 10,
 };
 
+function ensureReceiveOnlyVideo(connection: RTCPeerConnection): void {
+    const videoTransceiver = connection
+        .getTransceivers()
+        .find((transceiver) =>
+            transceiver.sender.track?.kind === "video"
+            || transceiver.receiver.track?.kind === "video",
+        );
+
+    if (!videoTransceiver) {
+        connection.addTransceiver("video", { direction: "recvonly" });
+        return;
+    }
+
+    videoTransceiver.sender.replaceTrack(null).catch(() => {});
+    videoTransceiver.direction = "recvonly";
+}
+
 interface GroupWebRTCCallbacks {
     onIceCandidate?: (peerId: string, candidate: RTCIceCandidateInit) => void;
     onPeerConnectionFailed?: (peerId: string) => void;
@@ -208,6 +225,53 @@ export function useGroupWebRTC(callbacks?: GroupWebRTCCallbacks) {
         }
     }, []);
 
+    const enableLocalVideoTrack = useCallback(async (): Promise<boolean> => {
+        const stream = localStreamRef.current;
+        if (!stream) {
+            throw new Error("No local stream available for camera upgrade.");
+        }
+
+        const existingVideoTrack = stream
+            .getVideoTracks()
+            .find((track) => track.readyState === "live");
+
+        if (existingVideoTrack) {
+            existingVideoTrack.enabled = true;
+            return true;
+        }
+
+        let videoTrack: MediaStreamTrack | null = null;
+        try {
+            videoTrack = await requestCameraTrack();
+        } catch (error) {
+            console.warn("[GroupWebRTC] Camera unavailable, switching to receive-only video.", error);
+        }
+
+        if (!videoTrack) {
+            peers.current.forEach(({ connection }) => {
+                ensureReceiveOnlyVideo(connection);
+            });
+            return false;
+        }
+
+        stream.addTrack(videoTrack);
+        setLocalStream(new MediaStream(stream.getTracks()));
+
+        peers.current.forEach(({ connection }) => {
+            const existingVideoSender = connection
+                .getSenders()
+                .find((sender) => sender.track?.kind === "video");
+
+            if (existingVideoSender) {
+                existingVideoSender.replaceTrack(videoTrack).catch(() => {});
+            } else {
+                connection.addTrack(videoTrack, stream);
+            }
+        });
+
+        return true;
+    }, []);
+
     return {
         localStream,
         remoteStreams,
@@ -221,5 +285,6 @@ export function useGroupWebRTC(callbacks?: GroupWebRTCCallbacks) {
         endAll,
         toggleMute,
         toggleCamera,
+        enableLocalVideoTrack,
     };
 }
