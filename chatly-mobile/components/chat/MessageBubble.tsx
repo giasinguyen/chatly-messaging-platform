@@ -148,7 +148,7 @@ export function MessageBubble({
   const renderAudioContent = () => {
     const audio = attachments?.[0];
     if (!audio?.url) return null;
-    return <AudioPlayer url={audio.url} name={audio.name} isMe={isMe} />;
+    return <AudioPlayer url={audio.url} name={audio.name} isMe={isMe} durationSeconds={audio.durationSeconds} />;
   };
 
   // File message — show ALL files with proper names and type-based icons

@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { View, TextInput, TouchableOpacity, Text, Image, ActivityIndicator, Alert, Modal, FlatList, Pressable } from 'react-native';
 import { Image as ExpoImage } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
@@ -13,7 +13,9 @@ import { getDisplayUrl, type KlipyItem } from '@/services/klipy.service';
 import { MediaPicker } from '@/components/chat/MediaPicker';
 import { ReminderModal } from '@/components/chat/ReminderModal';
 import { PollModal } from '@/components/chat/PollModal';
+import { VoiceRecordingBar } from '@/components/chat/VoiceRecordingBar';
 import { useAuthStore } from '@/store/auth.store';
+import { useVoiceRecorder, MicPermissionDeniedError } from '@/hooks/useVoiceRecorder';
 import type { Message, Attachment, Poll, LocationPayload } from '@/types/message';
 
 interface GroupMember {
@@ -58,6 +60,9 @@ export function ChatInput({ conversationId, onSend, onTyping, replyingTo, onCanc
   const [showLocationPreview, setShowLocationPreview] = useState(false);
   const [tempLocation, setTempLocation] = useState<LocationPayload | null>(null);
   const [isAcquiringLocation, setIsAcquiringLocation] = useState(false);
+  const [isAudioSending, setIsAudioSending] = useState(false);
+
+  const { isRecording, elapsedSeconds, startRecording, stopRecording, cancelRecording } = useVoiceRecorder();
 
   // Mention detection
   const mentionQuery = useMemo(() => {
@@ -273,6 +278,45 @@ export function ChatInput({ conversationId, onSend, onTyping, replyingTo, onCanc
     }
   };
 
+  const handleStartRecording = useCallback(async () => {
+    try {
+      await startRecording();
+    } catch (err) {
+      if (err instanceof MicPermissionDeniedError) {
+        Alert.alert('Permission Denied', 'Please grant microphone permission to send voice messages.');
+      } else {
+        Alert.alert('Error', 'Failed to start recording. Please try again.');
+      }
+    }
+  }, [startRecording]);
+
+  const handleSendAudio = useCallback(async () => {
+    setIsAudioSending(true);
+    try {
+      const result = await stopRecording();
+      if (!result) return;
+      const fileName = `voice_${Date.now()}.m4a`;
+      const uploaded = await fileService.upload(result.uri, fileName, 'audio/mp4', conversationId);
+      const attachment: Attachment = {
+        fileId: uploaded.fileId,
+        url: uploaded.url,
+        name: uploaded.fileName,
+        type: uploaded.fileType,
+        size: uploaded.fileSize,
+        durationSeconds: result.durationSeconds,
+      };
+      onSend('', [attachment], 'AUDIO');
+    } catch {
+      Alert.alert('Error', 'Failed to send voice message. Please try again.');
+    } finally {
+      setIsAudioSending(false);
+    }
+  }, [stopRecording, conversationId, onSend]);
+
+  const handleCancelRecording = useCallback(async () => {
+    await cancelRecording();
+  }, [cancelRecording]);
+
   return (
     <View style={{ backgroundColor: Colors.white }}>
       {/* Mention suggestions */}
@@ -479,7 +523,18 @@ export function ChatInput({ conversationId, onSend, onTyping, replyingTo, onCanc
         </View>
       )}
 
+      {/* Voice recording bar — replaces the input row while recording */}
+      {isRecording && (
+        <VoiceRecordingBar
+          elapsedSeconds={elapsedSeconds}
+          onSend={handleSendAudio}
+          onCancel={handleCancelRecording}
+          isSending={isAudioSending}
+        />
+      )}
+
       {/* Input row */}
+      {!isRecording && (
       <View
         className="flex-row items-end border-t px-3 py-2"
         style={{
@@ -548,15 +603,26 @@ export function ChatInput({ conversationId, onSend, onTyping, replyingTo, onCanc
           />
         </View>
 
-        {/* Send button */}
-        <TouchableOpacity
-          onPress={handleSend}
-          disabled={!canSend}
-          className="items-center justify-center pb-1"
-          style={{ width: 36, height: 36 }}>
-          <Ionicons name="send" size={24} color={canSend ? Colors.cta : Colors.textLight} />
-        </TouchableOpacity>
+        {/* Mic button — shown when text and files are empty */}
+        {text === '' && pendingFiles.length === 0 ? (
+          <TouchableOpacity
+            onPress={handleStartRecording}
+            className="items-center justify-center pb-1"
+            style={{ width: 36, height: 36 }}>
+            <Ionicons name="mic-outline" size={24} color={Colors.cta} />
+          </TouchableOpacity>
+        ) : (
+          /* Send button */
+          <TouchableOpacity
+            onPress={handleSend}
+            disabled={!canSend}
+            className="items-center justify-center pb-1"
+            style={{ width: 36, height: 36 }}>
+            <Ionicons name="send" size={24} color={canSend ? Colors.cta : Colors.textLight} />
+          </TouchableOpacity>
+        )}
       </View>
+      )}
 
       <EmojiPicker
         onEmojiSelected={handleEmojiPick}

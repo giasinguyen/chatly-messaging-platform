@@ -8,6 +8,7 @@ interface AudioPlayerProps {
   url: string;
   name?: string;
   isMe: boolean;
+  durationSeconds?: number;
 }
 
 const FORMAT_DURATION = (ms: number): string => {
@@ -18,12 +19,12 @@ const FORMAT_DURATION = (ms: number): string => {
   return `${minutes}:${seconds.toString().padStart(2, '0')}`;
 };
 
-export function AudioPlayer({ url, name, isMe }: AudioPlayerProps) {
+export function AudioPlayer({ url, name, isMe, durationSeconds }: AudioPlayerProps) {
   const soundRef = useRef<Audio.Sound | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [positionMs, setPositionMs] = useState(0);
-  const [durationMs, setDurationMs] = useState(0);
+  const [durationMs, setDurationMs] = useState(durationSeconds != null ? durationSeconds * 1000 : 0);
   const [error, setError] = useState(false);
 
   const handlePlaybackStatusUpdate = useCallback((status: AVPlaybackStatus) => {
@@ -82,20 +83,23 @@ export function AudioPlayer({ url, name, isMe }: AudioPlayerProps) {
 
   const progress = durationMs > 0 ? positionMs / durationMs : 0;
   const accentColor = isMe ? Colors.bubbleSenderText : Colors.cta;
-  const mutedColor = isMe ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.1)';
 
   return (
     <View
-      className="flex-row items-center rounded-2xl px-4 py-3"
-      style={{
-        backgroundColor: isMe ? 'rgba(0,0,0,0.15)' : 'rgba(0,0,0,0.05)',
-        minWidth: 200,
-        marginBottom: 4,
-      }}
+      className={[
+        'flex-row items-center rounded-2xl px-4 py-3 mb-1',
+        isMe ? 'bg-black/15' : 'bg-black/5',
+      ].join(' ')}
+      style={{ minWidth: 200 }}
     >
-      <TouchableOpacity onPress={handleTogglePlay} activeOpacity={0.7} disabled={isLoading}>
+      <TouchableOpacity
+        onPress={handleTogglePlay}
+        activeOpacity={0.7}
+        disabled={isLoading}
+        className="h-9 w-9 items-center justify-center"
+      >
         {isLoading ? (
-          <ActivityIndicator size="small" color={accentColor} style={{ width: 32, height: 32 }} />
+          <ActivityIndicator size="small" color={accentColor} />
         ) : (
           <Ionicons
             name={error ? 'alert-circle' : isPlaying ? 'pause' : 'play'}
@@ -106,26 +110,26 @@ export function AudioPlayer({ url, name, isMe }: AudioPlayerProps) {
       </TouchableOpacity>
 
       <View className="ml-3 flex-1">
-        {/* Progress bar container */}
-        <View
-          className="h-1.5 w-full overflow-hidden rounded-full"
-          style={{ backgroundColor: mutedColor }}
-        >
+        <View className="h-1.5 w-full overflow-hidden rounded-full bg-black/10">
           <View
-            className="h-full rounded-full"
-            style={{
-              width: `${Math.round(progress * 100)}%`,
-              backgroundColor: accentColor,
-            }}
+            className={['h-full rounded-full', isMe ? 'bg-white/80' : 'bg-blue-500'].join(' ')}
+            style={{ width: `${Math.round(progress * 100)}%` }}
           />
         </View>
 
         <View className="mt-2 flex-row items-center justify-between">
-          <Text className="text-[10px] font-medium" style={{ color: accentColor, opacity: 0.8 }}>
+          <Text
+            className="text-[10px] font-medium opacity-80"
+            style={{ color: accentColor }}
+          >
             {isPlaying || positionMs > 0 ? FORMAT_DURATION(positionMs) : '0:00'}
           </Text>
-          <Text className="text-[10px] font-medium" style={{ color: accentColor, opacity: 0.8 }} numberOfLines={1}>
-            {error ? 'Load Error' : durationMs > 0 ? FORMAT_DURATION(durationMs) : name || 'Audio Message'}
+          <Text
+            className="max-w-24 text-right text-[10px] font-medium opacity-80"
+            style={{ color: accentColor }}
+            numberOfLines={1}
+          >
+            {error ? 'Load Error' : durationMs > 0 ? FORMAT_DURATION(durationMs) : (name ?? 'Audio Message')}
           </Text>
         </View>
       </View>
