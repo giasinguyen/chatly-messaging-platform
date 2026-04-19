@@ -22,6 +22,7 @@ export function ContactDetails({ activeTab }: ContactDetailsProps) {
     const { user: currentUser } = useAuthStore();
     const navigate = useNavigate();
     const invalidateContacts = useContactStore((s) => s.invalidate);
+    const pendingRefreshToken = useContactStore((s) => s.pendingRefreshToken);
     const [contacts, setContacts] = useState<ContactResponse[]>([]);
     const [loading, setLoading] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
@@ -59,6 +60,14 @@ export function ContactDetails({ activeTab }: ContactDetailsProps) {
         setSortDir("name-asc");
         setOnlineFilter("all");
     }, [activeTab]);
+
+    // Refresh pending requests when a new friend request notification arrives
+    useEffect(() => {
+        if (pendingRefreshToken > 0 && activeTab === "requests") {
+            fetchContacts();
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [pendingRefreshToken]);
 
     const handleAccept = async (id: string) => {
         try {

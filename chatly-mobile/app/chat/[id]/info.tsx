@@ -984,33 +984,82 @@ export default function GroupInfoScreen() {
                 <Text style={{ color: Colors.textLight, marginTop: 8 }}>No reminders yet</Text>
               </View>
             )}
-            renderItem={({ item }) => (
-              <View style={{ backgroundColor: Colors.white, borderRadius: 10, padding: 14, marginBottom: 8, flexDirection: 'row', alignItems: 'center' }}>
-                <TouchableOpacity onPress={() => handleToggleReminder(item.id)} style={{ marginRight: 12 }}>
-                  <Ionicons
-                    name={item.completed ? 'checkmark-circle' : 'ellipse-outline'}
-                    size={24}
-                    color={item.completed ? '#4CAF50' : Colors.borderLight}
-                  />
-                </TouchableOpacity>
-                <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 15, fontWeight: '500', color: Colors.text, textDecorationLine: item.completed ? 'line-through' : 'none' }}>
-                    {item.title}
-                  </Text>
-                  {item.description ? (
-                    <Text style={{ fontSize: 13, color: Colors.textLight, marginTop: 2 }}>{item.description}</Text>
-                  ) : null}
-                  {item.remindAt ? (
-                    <Text style={{ fontSize: 11, color: Colors.cta, marginTop: 4 }}>
-                      {new Date(item.remindAt).toLocaleString('en-US')}
+            renderItem={({ item }) => {
+              const isCompleted = item.completed;
+              const timeStr = item.remindAt
+                ? (() => {
+                    const d = new Date(item.remindAt);
+                    const hh = String(d.getHours()).padStart(2, '0');
+                    const mm = String(d.getMinutes()).padStart(2, '0');
+                    const dd = String(d.getDate()).padStart(2, '0');
+                    const mo = String(d.getMonth() + 1).padStart(2, '0');
+                    return `${hh}:${mm} - ${dd}/${mo}`;
+                  })()
+                : null;
+
+              return (
+                <View
+                  style={{
+                    backgroundColor: Colors.white,
+                    borderRadius: 12,
+                    marginBottom: 10,
+                    overflow: 'hidden',
+                    borderWidth: 1,
+                    borderColor: Colors.borderLight,
+                    opacity: isCompleted ? 0.7 : 1,
+                  }}
+                >
+                  {/* Header bar */}
+                  <View
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      paddingHorizontal: 12,
+                      paddingVertical: 7,
+                      backgroundColor: isCompleted ? '#f0fdf4' : `${Colors.cta}10`,
+                      borderBottomWidth: 1,
+                      borderBottomColor: Colors.borderLight,
+                      gap: 6,
+                    }}
+                  >
+                    <TouchableOpacity onPress={() => handleToggleReminder(item.id)}>
+                      <Ionicons
+                        name={isCompleted ? 'checkmark-circle' : 'ellipse-outline'}
+                        size={20}
+                        color={isCompleted ? '#16a34a' : Colors.cta}
+                      />
+                    </TouchableOpacity>
+                    <Ionicons name="alarm-outline" size={13} color={isCompleted ? '#16a34a' : Colors.cta} />
+                    {timeStr ? (
+                      <Text style={{ fontSize: 12, fontWeight: '600', color: isCompleted ? '#16a34a' : Colors.cta, flex: 1 }}>
+                        {timeStr}
+                      </Text>
+                    ) : <View style={{ flex: 1 }} />}
+                    <TouchableOpacity onPress={() => handleDeleteReminder(item.id)} style={{ padding: 4 }}>
+                      <Ionicons name="trash-outline" size={16} color={Colors.error} />
+                    </TouchableOpacity>
+                  </View>
+                  {/* Body */}
+                  <View style={{ paddingHorizontal: 12, paddingVertical: 10 }}>
+                    <Text
+                      style={{
+                        fontSize: 14,
+                        fontWeight: '600',
+                        color: Colors.text,
+                        textDecorationLine: isCompleted ? 'line-through' : 'none',
+                      }}
+                    >
+                      {item.title}
                     </Text>
-                  ) : null}
+                    {item.description ? (
+                      <Text style={{ fontSize: 12, color: Colors.textMuted, marginTop: 4, lineHeight: 17 }}>
+                        {item.description}
+                      </Text>
+                    ) : null}
+                  </View>
                 </View>
-                <TouchableOpacity onPress={() => handleDeleteReminder(item.id)} style={{ padding: 6 }}>
-                  <Ionicons name="trash-outline" size={18} color={Colors.error} />
-                </TouchableOpacity>
-              </View>
-            )}
+              );
+            }}
           />
         </View>
       </Modal>

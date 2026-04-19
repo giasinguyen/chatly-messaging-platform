@@ -1,3 +1,4 @@
+import { useCallback } from "react";
 import { cn } from "@/lib/utils";
 import type { Message, ChatUser } from "@/types/message";
 
@@ -17,10 +18,20 @@ export function ReplyPreview({ replyMessage, participant, currentUserId, senderN
             ? "You"
             : participant.displayName.split(" ").slice(-1)[0]);
 
+    const handleScrollToOriginal = useCallback(() => {
+        const el = document.querySelector(`[data-message-id="${replyMessage.id}"]`);
+        if (!el) return;
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        el.classList.add("highlight-reply-target");
+        setTimeout(() => el.classList.remove("highlight-reply-target"), 1500);
+    }, [replyMessage.id]);
+
     return (
-        <div
+        <button
+            type="button"
+            onClick={handleScrollToOriginal}
             className={cn(
-                "rounded-lg px-2.5 py-1.5 mb-1.5 border-l-2 text-xs max-w-full overflow-hidden",
+                "w-full text-left rounded-lg px-2.5 py-1.5 mb-1.5 border-l-2 text-xs max-w-full overflow-hidden cursor-pointer transition-opacity hover:opacity-75",
                 isMe
                     ? "bg-white/15 border-white/50 text-white/80"
                     : "bg-muted/50 border-brand/60 text-muted-foreground",
@@ -30,6 +41,6 @@ export function ReplyPreview({ replyMessage, participant, currentUserId, senderN
                 {resolvedSenderName}
             </p>
             <p className="line-clamp-1 text-[11px]">{replyMessage.content}</p>
-        </div>
+        </button>
     );
 }

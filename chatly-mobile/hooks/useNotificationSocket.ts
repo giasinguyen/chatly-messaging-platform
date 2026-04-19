@@ -6,6 +6,7 @@ import { useAuthStore } from '@/store/auth.store';
 import { useNotificationStore } from '@/store/notification.store';
 import { useConversationStore } from '@/store/conversation.store';
 import { useConversationPrefsStore, isConvMuted } from '@/store/conversationPrefs.store';
+import { useContactStore } from '@/store/contact.store';
 import type { NotificationEvent } from '@/types/notification';
 
 /**
@@ -57,6 +58,11 @@ export function useNotificationSocket() {
           if (event.notification.type === 'NEW_MESSAGE') {
             if (__DEV__) console.log('Triggering handleIncomingMessage for conv:', event.notification.referenceId);
             handleIncomingMessage(event.notification);
+          }
+
+          // Trigger pending contacts refresh on friend request
+          if (event.notification.type === 'FRIEND_REQUEST') {
+            useContactStore.getState().triggerPendingRefresh();
           }
 
           if (!isAtThisChat) {

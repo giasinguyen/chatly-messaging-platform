@@ -808,6 +808,7 @@ export default function ChatScreen() {
                     onVCardPress={handleVCardPress}
                     onAddFriend={handleAddFriend}
                     vcardFriendStatus={getVcardFriendStatus}
+                    onScrollToMessage={handleNavigateToMessage}
                   />
                 </View>
               );
