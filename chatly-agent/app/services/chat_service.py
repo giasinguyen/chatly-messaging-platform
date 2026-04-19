@@ -257,17 +257,25 @@ class ChatService:
         )
 
         chunks: list[str] = []
-        async for token in agent.astream(
-            ChatInput(
-                message=request.message,
-                session_id=session_id,
-                user_id=user_id,
-                history=history,
-                session_context=session_context,
+        try:
+            async for token in agent.astream(
+                ChatInput(
+                    message=request.message,
+                    session_id=session_id,
+                    user_id=user_id,
+                    history=history,
+                    session_context=session_context,
+                )
+            ):
+                chunks.append(token)
+                yield f"data: {json.dumps({'token': token})}\n\n"
+        except Exception:
+            logger.exception(
+                "Streaming error for user_id=%s session_id=%s", user_id, session_id
             )
-        ):
-            chunks.append(token)
-            yield f"data: {json.dumps({'token': token})}\n\n"
+            yield f"data: {json.dumps({'error': 'An error occurred while generating the response'})}\n\n"
+            yield "data: [DONE]\n\n"
+            return
 
         full_response = "".join(chunks)
         await self._message_repo.create_message(

@@ -46,6 +46,7 @@ class SystemMCPService:
                 "X-Internal-API-Key": settings.internal_api_key,
                 "X-User-Id": user_id,
             },
+            transport="sse",
         )
 
     async def get_tools(self, user_id: str) -> list[dict[str, Any]]:
@@ -87,6 +88,7 @@ class SystemMCPService:
                             "X-Internal-API-Key": settings.internal_api_key,
                             "X-User-Id": user_id,
                         },
+                        "server_transport": "sse",
                     }
                     for tool in raw_tools
                 ]

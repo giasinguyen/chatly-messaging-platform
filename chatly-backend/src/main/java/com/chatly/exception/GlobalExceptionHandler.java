@@ -10,6 +10,7 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 @ControllerAdvice
 @Slf4j
@@ -18,24 +19,31 @@ public class GlobalExceptionHandler {
     @Value("${spring.ai.mcp.server.sse-endpoint:/api/ai/mcp/sse}")
     private String mcpSseEndpoint;
 
+    @Value("${spring.ai.mcp.server.sse-message-endpoint:/api/ai/mcp/message}")
+    private String mcpMessageEndpoint;
+
     /**
-     * The Spring AI MCP server has its own error handling for JSON-RPC requests.
-     * Letting GlobalExceptionHandler wrap those errors in ApiResponse would break
-     * the JSON-RPC protocol contract that chatly-agent expects.
+     * Returns true only for the two Spring AI protocol paths (/mcp/sse and /mcp/message).
+     * User-facing CRUD endpoints (/api/ai/mcp/servers/**) are NOT MCP protocol requests
+     * and must be wrapped in ApiResponse like any other endpoint.
      */
-    private boolean isMcpRequest(HttpServletRequest request) {
+    private boolean isMcpProtocolRequest(HttpServletRequest request) {
         String uri = request.getRequestURI();
-        if (uri == null) return false;
-        // Both /api/ai/mcp/sse and /api/ai/mcp/message share the same base prefix.
-        int lastSlash = mcpSseEndpoint.lastIndexOf('/');
-        String mcpPrefix = lastSlash > 0 ? mcpSseEndpoint.substring(0, lastSlash) : mcpSseEndpoint;
-        return uri.startsWith(mcpPrefix);
+        return uri != null && (uri.equals(mcpSseEndpoint) || uri.equals(mcpMessageEndpoint));
+    }
+
+    @ExceptionHandler(NoResourceFoundException.class)
+    ResponseEntity<ApiResponse<Void>> handleNoResourceFound(NoResourceFoundException exception) {
+        return ResponseEntity.notFound().build();
     }
 
     @ExceptionHandler(Exception.class)
     ResponseEntity<ApiResponse<Void>> handleException(Exception exception, HttpServletRequest request) {
-        if (isMcpRequest(request)) {
-            log.error("Unhandled exception in MCP endpoint: ", exception);
+        if (isMcpProtocolRequest(request)) {
+            // Spring AI has its own JSON-RPC error handling for these two paths.
+            // Re-throw the original exception so the container/Spring AI handles it.
+            log.error("Unhandled exception in MCP protocol endpoint: ", exception);
+            if (exception instanceof RuntimeException re) throw re;
             throw new RuntimeException(exception);
         }
         log.error("Unhandled exception: ", exception);

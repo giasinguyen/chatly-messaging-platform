@@ -62,6 +62,7 @@ class ToolService:
                 clients[server_url] = MCPClient(
                     url=server_url,
                     headers=info.get("server_headers", {}),
+                    transport=info.get("server_transport", "http"),
                 )
             tools.append(
                 create_mcp_tool(info, call_tool=clients[server_url].call_tool)

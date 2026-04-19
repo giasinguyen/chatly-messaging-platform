@@ -2,7 +2,6 @@ import { useState } from "react";
 import { useParams } from "react-router-dom";
 import { ChatbotSessionSidebar } from "./components/ChatbotSessionSidebar";
 import { ChatbotWindow } from "./components/ChatbotWindow";
-import { ChatbotEmptyState } from "./components/ChatbotEmptyState";
 import { cn } from "@/lib/utils";
 
 export default function ChatbotPage() {
@@ -26,25 +25,18 @@ export default function ChatbotPage() {
                 />
             </div>
 
-            {/* Chat canvas */}
+            {/* Chat canvas — hidden on mobile when no session is selected */}
             <div
                 className={cn(
                     "flex-1 flex flex-col min-w-0 h-full",
                     !sessionId ? "hidden md:flex" : "flex",
                 )}
             >
-                {sessionId ? (
-                    <ChatbotWindow
-                        sessionId={sessionId}
-                        sidebarCollapsed={sidebarCollapsed}
-                        onToggleSidebar={() => setSidebarCollapsed((c) => !c)}
-                    />
-                ) : (
-                    <ChatbotEmptyState
-                        sidebarCollapsed={sidebarCollapsed}
-                        onToggleSidebar={() => setSidebarCollapsed((c) => !c)}
-                    />
-                )}
+                <ChatbotWindow
+                    sessionId={sessionId}
+                    sidebarCollapsed={sidebarCollapsed}
+                    onToggleSidebar={() => setSidebarCollapsed((c) => !c)}
+                />
             </div>
         </div>
     );

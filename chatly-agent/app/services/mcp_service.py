@@ -237,7 +237,13 @@ class MCPService:
             try:
                 tools = await client.list_tools()
                 for tool in tools:
-                    all_tools.append({**tool, "server_id": record["id"], "server_url": record["url"], "server_headers": record.get("headers", {})})
+                    all_tools.append({
+                        **tool,
+                        "server_id": record["id"],
+                        "server_url": record["url"],
+                        "server_headers": record.get("headers", {}),
+                        "server_transport": record.get("transport", "http"),
+                    })
             except MCPConnectionError:
                 logger.warning(
                     "Skipping unreachable MCP server %s (%s)",
