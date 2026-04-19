@@ -79,7 +79,7 @@ export const useCallStore = create<CallState>((set) => ({
             isGroupCall: false,
             callDuration: 0,
             isMuted: false,
-            isCameraOff: false,
+            isCameraOff: session.type !== "VIDEO",
         }),
 
     endCall: () =>
