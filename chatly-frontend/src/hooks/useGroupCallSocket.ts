@@ -1,4 +1,4 @@
-import { useEffect, useCallback, useRef } from "react";
+import { useCallback, useRef, useState } from "react";
 import { socketService } from "@/services/socket.service";
 import { useAuthStore } from "@/store/auth.store";
 import { useCallStore } from "@/store/call.store";
@@ -23,6 +23,9 @@ export function useGroupCallSocket() {
         setGroupParticipantInfo,
         removeGroupParticipant,
         setOutgoingCallTarget,
+        setCameraOff,
+        upgradeCall,
+        setGroupCallRealtimeState,
     } = useCallStore();
 
     // Ringtone shared between incoming and outgoing group calls
@@ -72,6 +75,101 @@ export function useGroupCallSocket() {
 
     const handleSignalRef = useRef<((signal: CallSignal) => void) | null>(null);
 
+    const pendingGroupVideoUpgradeDecisionRef = useRef<{
+        remainingPeerIds: Set<string>;
+        resolve: () => void;
+        reject: (error: Error) => void;
+        timeoutId: ReturnType<typeof window.setTimeout>;
+    } | null>(null);
+
+    const shouldAutoEnableCameraForRequesterRef = useRef<Set<string>>(new Set());
+    const pendingIncomingGroupVideoUpgradeRequesterIdRef = useRef<string | null>(null);
+
+    const [incomingGroupVideoUpgradeRequest, setIncomingGroupVideoUpgradeRequest] = useState<{
+        requesterName: string;
+    } | null>(null);
+
+    const cancelPendingGroupVideoUpgradeDecision = useCallback((message: string) => {
+        const pending = pendingGroupVideoUpgradeDecisionRef.current;
+        if (!pending) return;
+
+        window.clearTimeout(pending.timeoutId);
+        pendingGroupVideoUpgradeDecisionRef.current = null;
+        pending.reject(new Error(message));
+    }, []);
+
+    const resolveGroupVideoUpgradeDecision = useCallback((peerId: string, accepted: boolean) => {
+        const pending = pendingGroupVideoUpgradeDecisionRef.current;
+        if (!pending || !pending.remainingPeerIds.has(peerId)) return;
+
+        if (!accepted) {
+            window.clearTimeout(pending.timeoutId);
+            pendingGroupVideoUpgradeDecisionRef.current = null;
+            pending.reject(new Error("A participant declined the video call request."));
+            return;
+        }
+
+        pending.remainingPeerIds.delete(peerId);
+        if (pending.remainingPeerIds.size === 0) {
+            window.clearTimeout(pending.timeoutId);
+            pendingGroupVideoUpgradeDecisionRef.current = null;
+            pending.resolve();
+        }
+    }, []);
+
+    const waitForGroupVideoUpgradeDecision = useCallback((peerIds: string[]): Promise<void> => {
+        if (peerIds.length === 0) return Promise.resolve();
+
+        if (pendingGroupVideoUpgradeDecisionRef.current) {
+            throw new Error("A group video upgrade request is already pending.");
+        }
+
+        return new Promise<void>((resolve, reject) => {
+            const timeoutId = window.setTimeout(() => {
+                pendingGroupVideoUpgradeDecisionRef.current = null;
+                reject(new Error("Some participants did not respond to the video call request."));
+            }, 20000);
+
+            pendingGroupVideoUpgradeDecisionRef.current = {
+                remainingPeerIds: new Set(peerIds),
+                resolve,
+                reject,
+                timeoutId,
+            };
+        });
+    }, []);
+
+    const respondToGroupVideoUpgradeRequest = useCallback((accept: boolean) => {
+        const activeCall = useCallStore.getState().activeCall;
+        const requesterId = pendingIncomingGroupVideoUpgradeRequesterIdRef.current;
+        const client = socketService.getClient();
+
+        if (!activeCall || !client?.connected || !user || !requesterId) {
+            setIncomingGroupVideoUpgradeRequest(null);
+            pendingIncomingGroupVideoUpgradeRequesterIdRef.current = null;
+            return;
+        }
+
+        if (accept) {
+            shouldAutoEnableCameraForRequesterRef.current.add(requesterId);
+        } else {
+            shouldAutoEnableCameraForRequesterRef.current.delete(requesterId);
+        }
+
+        client.publish({
+            destination: "/app/call.group.signal",
+            body: JSON.stringify({
+                type: accept ? "GROUP_VIDEO_UPGRADE_ACCEPT" : "GROUP_VIDEO_UPGRADE_REJECT",
+                callId: activeCall.callId,
+                senderId: user.id,
+                receiverId: requesterId,
+            }),
+        });
+
+        setIncomingGroupVideoUpgradeRequest(null);
+        pendingIncomingGroupVideoUpgradeRequesterIdRef.current = null;
+    }, [user]);
+
     const handleSignal = useCallback(
         (signal: CallSignal) => {
             switch (signal.type) {
@@ -96,6 +194,7 @@ export function useGroupCallSocket() {
                         type: p.callType,
                         participantCount: p.participantCount,
                     };
+                    setGroupCallRealtimeState(signal.callId, false, 1);
                     setIncomingGroupCall(incoming);
                     setCallStatus("RINGING");
                     playRingtone();
@@ -111,6 +210,8 @@ export function useGroupCallSocket() {
                         name: p.displayName ?? newPeerId,
                         avatar: p.avatarUrl ?? null,
                     });
+                    const knownRemoteCount = Object.keys(useCallStore.getState().groupParticipantInfo).length;
+                    setGroupCallRealtimeState(signal.callId, false, Math.max(2, knownRemoteCount + 1));
 
                     // Transition initiator from RINGING → ONGOING when first person joins
                     const currentStatus = useCallStore.getState().callStatus;
@@ -179,6 +280,86 @@ export function useGroupCallSocket() {
                     break;
                 }
 
+                case "GROUP_VIDEO_UPGRADE_REQUEST": {
+                    const activeCall = useCallStore.getState().activeCall;
+                    if (!activeCall || !user || signal.senderId === user.id) break;
+
+                    const payload = signal.payload as { requesterName?: unknown } | undefined;
+                    const fallbackName = useCallStore.getState().groupParticipantInfo[signal.senderId]?.name
+                        ?? "A participant";
+                    const requesterName =
+                        typeof payload?.requesterName === "string" && payload.requesterName.trim().length > 0
+                            ? payload.requesterName
+                            : fallbackName;
+
+                    pendingIncomingGroupVideoUpgradeRequesterIdRef.current = signal.senderId;
+                    setIncomingGroupVideoUpgradeRequest({ requesterName });
+                    break;
+                }
+
+                case "GROUP_VIDEO_UPGRADE_ACCEPT": {
+                    resolveGroupVideoUpgradeDecision(signal.senderId, true);
+                    break;
+                }
+
+                case "GROUP_VIDEO_UPGRADE_REJECT": {
+                    resolveGroupVideoUpgradeDecision(signal.senderId, false);
+                    break;
+                }
+
+                case "GROUP_RENEGOTIATE_OFFER": {
+                    const activeCall = useCallStore.getState().activeCall;
+                    if (!activeCall || !user) break;
+
+                    const payload = signal.payload as { offer: RTCSessionDescriptionInit };
+                    const shouldAutoEnable = shouldAutoEnableCameraForRequesterRef.current.has(signal.senderId);
+                    shouldAutoEnableCameraForRequesterRef.current.delete(signal.senderId);
+
+                    const prepareLocalVideo = shouldAutoEnable
+                        ? groupWebRTCRef.current
+                            .enableLocalVideoTrack()
+                            .then((enabled) => {
+                                setCameraOff(!enabled);
+                            })
+                            .catch((error: unknown) => {
+                                console.warn("Unable to auto-enable camera after accepting group upgrade:", error);
+                                setCameraOff(true);
+                            })
+                        : Promise.resolve();
+
+                    prepareLocalVideo
+                        .then(() => {
+                            upgradeCall();
+                            if (!shouldAutoEnable) {
+                                setCameraOff(true);
+                            }
+                            return groupWebRTCRef.current.handleOfferFromPeer(signal.senderId, payload.offer);
+                        })
+                        .then((answer) => {
+                            const client = socketService.getClient();
+                            if (!client?.connected) return;
+
+                            client.publish({
+                                destination: "/app/call.group.signal",
+                                body: JSON.stringify({
+                                    type: "GROUP_RENEGOTIATE_ANSWER",
+                                    callId: activeCall.callId,
+                                    senderId: user.id,
+                                    receiverId: signal.senderId,
+                                    payload: { answer },
+                                }),
+                            });
+                        })
+                        .catch(console.error);
+                    break;
+                }
+
+                case "GROUP_RENEGOTIATE_ANSWER": {
+                    const payload = signal.payload as { answer: RTCSessionDescriptionInit };
+                    groupWebRTCRef.current.handleAnswerFromPeer(signal.senderId, payload.answer).catch(console.error);
+                    break;
+                }
+
                 case "GROUP_ANSWER": {
                     const peerId = signal.senderId;
                     const p = signal.payload as { answer: RTCSessionDescriptionInit };
@@ -200,6 +381,36 @@ export function useGroupCallSocket() {
                 case "GROUP_LEAVE": {
                     const leavingId = signal.senderId;
 
+                    const leavePayload = signal.payload as {
+                        callEnded?: unknown;
+                        activeParticipantCount?: unknown;
+                    } | undefined;
+
+                    const isCallEnded = leavePayload?.callEnded === true;
+                    const activeParticipantCount = typeof leavePayload?.activeParticipantCount === "number"
+                        ? leavePayload.activeParticipantCount
+                        : (isCallEnded ? 1 : Math.max(1, Object.keys(useCallStore.getState().groupParticipantInfo).length));
+
+                    setGroupCallRealtimeState(signal.callId, isCallEnded, activeParticipantCount);
+
+                    if (pendingGroupVideoUpgradeDecisionRef.current?.remainingPeerIds.has(leavingId)) {
+                        cancelPendingGroupVideoUpgradeDecision("A participant left before responding to the video call request.");
+                    }
+
+                    if (isCallEnded) {
+                        const currentIncoming = useCallStore.getState().incomingGroupCall;
+                        const activeCall = useCallStore.getState().activeCall;
+                        if ((currentIncoming && currentIncoming.callId === signal.callId) || (activeCall && activeCall.callId === signal.callId)) {
+                            stopRingtone();
+                            groupWebRTCRef.current.endAll();
+                            endCallStore();
+                        }
+                        pendingIncomingGroupVideoUpgradeRequesterIdRef.current = null;
+                        setIncomingGroupVideoUpgradeRequest(null);
+                        shouldAutoEnableCameraForRequesterRef.current.clear();
+                        break;
+                    }
+
                     // If we haven't joined yet (still on the incoming call screen), the call was
                     // cancelled by the initiator before we answered — just dismiss the overlay.
                     const currentIncoming = useCallStore.getState().incomingGroupCall;
@@ -216,6 +427,10 @@ export function useGroupCallSocket() {
                     // Auto-end call when no remote peers remain
                     const remainingPeers = Object.keys(useCallStore.getState().groupParticipantInfo);
                     if (remainingPeers.length === 0) {
+                        cancelPendingGroupVideoUpgradeDecision("Group call ended before video upgrade completed.");
+                        pendingIncomingGroupVideoUpgradeRequesterIdRef.current = null;
+                        setIncomingGroupVideoUpgradeRequest(null);
+                        shouldAutoEnableCameraForRequesterRef.current.clear();
                         stopRingtone();
                         groupWebRTCRef.current.endAll();
                         endCallStore();
@@ -227,7 +442,23 @@ export function useGroupCallSocket() {
                     break;
             }
         },
-        [user, setCallStatus, setOutgoingCallTarget, setIncomingGroupCall, setGroupParticipantInfo, removeGroupParticipant, endCallStore, playRingtone, stopRingtone],
+        [
+            user,
+            setCallStatus,
+            setOutgoingCallTarget,
+            setIncomingGroupCall,
+            setGroupParticipantInfo,
+            removeGroupParticipant,
+            endCallStore,
+            playRingtone,
+            stopRingtone,
+            setGroupCallRealtimeState,
+            resolveGroupVideoUpgradeDecision,
+            setIncomingGroupVideoUpgradeRequest,
+            cancelPendingGroupVideoUpgradeDecision,
+            setCameraOff,
+            upgradeCall,
+        ],
     );
 
     handleSignalRef.current = handleSignal;
@@ -253,6 +484,7 @@ export function useGroupCallSocket() {
                     status: "RINGING",
                     isGroup: true,
                 };
+                setGroupCallRealtimeState(callId, false, 1);
                 startGroupCall(session);
 
                 client.publish({
@@ -279,7 +511,7 @@ export function useGroupCallSocket() {
                 endCallStore();
             }
         },
-        [user, setCallStatus, startGroupCall, endCallStore, setOutgoingCallTarget, stopRingtone],
+        [user, setCallStatus, startGroupCall, endCallStore, setOutgoingCallTarget, stopRingtone, setGroupCallRealtimeState],
     );
 
     const joinGroupCall = useCallback(
@@ -288,6 +520,14 @@ export function useGroupCallSocket() {
 
             const incoming = useCallStore.getState().incomingGroupCall;
             if (!incoming) return;
+
+            const realtimeState = useCallStore.getState().groupCallRealtimeState[incoming.callId];
+            if (realtimeState?.ended) {
+                stopRingtone();
+                setCallStatus("IDLE");
+                setIncomingGroupCall(null);
+                return;
+            }
 
             if (!accept) {
                 stopRingtone();
@@ -315,6 +555,7 @@ export function useGroupCallSocket() {
                 stopRingtone();
                 startGroupCall(session);
                 setCallStatus("ONGOING");
+                setGroupCallRealtimeState(incoming.callId, false, Math.max(2, Object.keys(useCallStore.getState().groupParticipantInfo).length + 1));
 
                 setGroupParticipantInfo(incoming.initiatorId, {
                     name: incoming.initiatorName,
@@ -339,7 +580,7 @@ export function useGroupCallSocket() {
                 endCallStore();
             }
         },
-        [user, setCallStatus, setIncomingGroupCall, startGroupCall, setGroupParticipantInfo, endCallStore, stopRingtone],
+        [user, setCallStatus, setIncomingGroupCall, startGroupCall, setGroupParticipantInfo, endCallStore, stopRingtone, setGroupCallRealtimeState],
     );
 
     const leaveGroupCall = useCallback(() => {
@@ -358,15 +599,80 @@ export function useGroupCallSocket() {
             });
         }
 
+        cancelPendingGroupVideoUpgradeDecision("You left the group call before video upgrade completed.");
+        pendingIncomingGroupVideoUpgradeRequesterIdRef.current = null;
+        setIncomingGroupVideoUpgradeRequest(null);
+        shouldAutoEnableCameraForRequesterRef.current.clear();
         stopRingtone();
         groupWebRTCRef.current.endAll();
         endCallStore();
-    }, [user, endCallStore, stopRingtone]);
+    }, [user, endCallStore, stopRingtone, cancelPendingGroupVideoUpgradeDecision]);
+
+    const upgradeGroupCallToVideo = useCallback(async (): Promise<void> => {
+        if (!user) throw new Error("Unable to upgrade group call: user not found.");
+
+        const activeCall = useCallStore.getState().activeCall;
+        if (!activeCall || !useCallStore.getState().isGroupCall) {
+            throw new Error("Unable to upgrade group call: no active group call.");
+        }
+
+        const client = socketService.getClient();
+        if (!client?.connected) {
+            throw new Error("Signaling is disconnected. Please retry.");
+        }
+
+        const peerIds = Object.keys(useCallStore.getState().groupParticipantInfo)
+            .filter((peerId) => peerId !== user.id);
+
+        const isAlreadyVideoCall = activeCall.type === "VIDEO";
+
+        if (!isAlreadyVideoCall) {
+            peerIds.forEach((peerId) => {
+                client.publish({
+                    destination: "/app/call.group.signal",
+                    body: JSON.stringify({
+                        type: "GROUP_VIDEO_UPGRADE_REQUEST",
+                        callId: activeCall.callId,
+                        senderId: user.id,
+                        receiverId: peerId,
+                        payload: {
+                            requesterName: user.displayName,
+                        },
+                    }),
+                });
+            });
+
+            await waitForGroupVideoUpgradeDecision(peerIds);
+        }
+
+        const hasLocalVideoTrack = await groupWebRTCRef.current.enableLocalVideoTrack();
+        setCameraOff(!hasLocalVideoTrack);
+        upgradeCall();
+
+        await Promise.all(
+            peerIds.map(async (peerId) => {
+                const offer = await groupWebRTCRef.current.createOfferForPeer(peerId);
+                client.publish({
+                    destination: "/app/call.group.signal",
+                    body: JSON.stringify({
+                        type: "GROUP_RENEGOTIATE_OFFER",
+                        callId: activeCall.callId,
+                        senderId: user.id,
+                        receiverId: peerId,
+                        payload: { offer },
+                    }),
+                });
+            }),
+        );
+    }, [user, waitForGroupVideoUpgradeDecision, setCameraOff, upgradeCall]);
 
     return {
         initiateGroupCall,
         joinGroupCall,
         leaveGroupCall,
+        upgradeGroupCallToVideo,
+        incomingGroupVideoUpgradeRequest,
+        respondToGroupVideoUpgradeRequest,
         handleGroupSignal: handleSignalRef,
         groupLocalStream: groupWebRTC.localStream,
         groupRemoteStreams: groupWebRTC.remoteStreams,
@@ -375,6 +681,3 @@ export function useGroupCallSocket() {
     };
 }
 
-function isGroupIceCandidate(signal: CallSignal): boolean {
-    return signal.type === "ICE_CANDIDATE" && useCallStore.getState().isGroupCall;
-}

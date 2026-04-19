@@ -301,36 +301,61 @@ export function useWebRTC() {
         }
     }, []);
 
-    // Upgrade a voice call to video via renegotiation
-    const upgradeToVideo = useCallback(async (): Promise<RTCSessionDescriptionInit> => {
+    // Upgrade a voice call to video via renegotiation.
+    // If local camera is unavailable, fall back to recv-only video so call flow can still upgrade.
+    const upgradeToVideo = useCallback(async (): Promise<{
+        offer: RTCSessionDescriptionInit;
+        hasLocalVideoTrack: boolean;
+    }> => {
         const pc = peerConnection.current;
         if (!pc) throw new Error("No active peer connection");
 
-        const videoTrack = await requestCameraTrack();
-        const baseStream = localStreamRef.current ?? new MediaStream([videoTrack]);
-
-        // Add or replace video sender before renegotiation
-        const existingVideoSender = pc
-            .getSenders()
-            .find((sender) => sender.track?.kind === "video");
-
-        if (existingVideoSender) {
-            await existingVideoSender.replaceTrack(videoTrack);
-        } else {
-            pc.addTrack(videoTrack, baseStream);
+        let videoTrack: MediaStreamTrack | null = null;
+        try {
+            videoTrack = await requestCameraTrack();
+        } catch (error) {
+            console.warn("[WebRTC] Camera unavailable during upgrade, switching to receive-only video.", error);
         }
 
-        // Merge video track into localStream for display
-        const nextStream = localStreamRef.current
-            ? new MediaStream([...localStreamRef.current.getAudioTracks(), videoTrack])
-            : new MediaStream([videoTrack]);
-        setLocalStream(nextStream);
-        localStreamRef.current = nextStream;
+        const videoTransceiver = pc
+            .getTransceivers()
+            .find((transceiver) =>
+                transceiver.sender.track?.kind === "video"
+                || transceiver.receiver.track?.kind === "video",
+            );
+
+        if (videoTrack) {
+            if (videoTransceiver) {
+                await videoTransceiver.sender.replaceTrack(videoTrack);
+                videoTransceiver.direction = "sendrecv";
+            } else {
+                const baseStream = localStreamRef.current ?? new MediaStream([videoTrack]);
+                pc.addTrack(videoTrack, baseStream);
+            }
+
+            // Merge video track into localStream for display
+            const nextStream = localStreamRef.current
+                ? new MediaStream([...localStreamRef.current.getAudioTracks(), videoTrack])
+                : new MediaStream([videoTrack]);
+            setLocalStream(nextStream);
+            localStreamRef.current = nextStream;
+        } else {
+            // Camera is unavailable: keep local camera off but still negotiate video receiver capability.
+            if (videoTransceiver) {
+                await videoTransceiver.sender.replaceTrack(null);
+                videoTransceiver.direction = "recvonly";
+            } else {
+                pc.addTransceiver("video", { direction: "recvonly" });
+            }
+        }
 
         // Create renegotiation offer
-        const offer = await pc.createOffer();
+        const offer = await pc.createOffer({
+            offerToReceiveAudio: true,
+            offerToReceiveVideo: true,
+        });
         await pc.setLocalDescription(offer);
-        return offer;
+        return { offer, hasLocalVideoTrack: Boolean(videoTrack) };
     }, []);
 
     return {

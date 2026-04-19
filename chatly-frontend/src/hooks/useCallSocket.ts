@@ -1,4 +1,4 @@
-import { useEffect, useCallback, useRef } from "react";
+import { useEffect, useCallback, useRef, useState } from "react";
 import type React from "react";
 import { socketService } from "@/services/socket.service";
 import { useAuthStore } from "@/store/auth.store";
@@ -48,6 +48,71 @@ export function useCallSocket(groupSignalRef?: React.MutableRefObject<((signal: 
         ringtoneRef.current.currentTime = 0;
         ringtoneRef.current = null;
     }, []);
+
+    const pendingVideoUpgradeDecisionRef = useRef<{
+        resolve: (accepted: boolean) => void;
+        timeoutId: ReturnType<typeof window.setTimeout>;
+    } | null>(null);
+
+    const resolvePendingVideoUpgradeDecision = useCallback((accepted: boolean) => {
+        const pending = pendingVideoUpgradeDecisionRef.current;
+        if (!pending) return;
+
+        window.clearTimeout(pending.timeoutId);
+        pendingVideoUpgradeDecisionRef.current = null;
+        pending.resolve(accepted);
+    }, []);
+
+    const waitForVideoUpgradeDecision = useCallback((): Promise<boolean> => {
+        if (pendingVideoUpgradeDecisionRef.current) {
+            throw new Error("A video upgrade request is already pending.");
+        }
+
+        return new Promise<boolean>((resolve, reject) => {
+            const timeoutId = window.setTimeout(() => {
+                pendingVideoUpgradeDecisionRef.current = null;
+                reject(new Error("Peer did not respond to the video call request."));
+            }, 20000);
+
+            pendingVideoUpgradeDecisionRef.current = {
+                resolve,
+                timeoutId,
+            };
+        });
+    }, []);
+
+    const pendingIncomingVideoUpgradeRequesterIdRef = useRef<string | null>(null);
+    const [incomingVideoUpgradeRequest, setIncomingVideoUpgradeRequest] = useState<{
+        requesterName: string;
+    } | null>(null);
+
+    const respondToVideoUpgradeRequest = useCallback((accept: boolean) => {
+        const activeCall = useCallStore.getState().activeCall;
+        const client = socketService.getClient();
+        if (!activeCall || !client?.connected || !user) {
+            setIncomingVideoUpgradeRequest(null);
+            pendingIncomingVideoUpgradeRequesterIdRef.current = null;
+            return;
+        }
+
+        const receiverId = pendingIncomingVideoUpgradeRequesterIdRef.current
+            ?? activeCall.participants.find((id) => id !== user.id);
+
+        if (receiverId) {
+            client.publish({
+                destination: "/app/call.renegotiate",
+                body: JSON.stringify({
+                    type: accept ? "VIDEO_UPGRADE_ACCEPT" : "VIDEO_UPGRADE_REJECT",
+                    callId: activeCall.callId,
+                    senderId: user.id,
+                    receiverId,
+                }),
+            });
+        }
+
+        setIncomingVideoUpgradeRequest(null);
+        pendingIncomingVideoUpgradeRequesterIdRef.current = null;
+    }, [user]);
 
     // Offer SDP stored in Zustand store for persistence across re-renders
 
@@ -149,8 +214,35 @@ export function useCallSocket(groupSignalRef?: React.MutableRefObject<((signal: 
                     // Peer ended the call
                     webrtcRef.current.cleanup();
                     stopRingtone();
+                    resolvePendingVideoUpgradeDecision(false);
+                    setIncomingVideoUpgradeRequest(null);
+                    pendingIncomingVideoUpgradeRequesterIdRef.current = null;
                     setCallStatus("ENDED");
                     setTimeout(() => endCallStore(), 2000);
+                    break;
+                }
+
+                case "VIDEO_UPGRADE_REQUEST": {
+                    const payload = signal.payload as { requesterName?: unknown } | undefined;
+                    const fallbackRequesterName = useCallStore.getState().outgoingCallTarget?.name
+                        ?? useCallStore.getState().incomingCall?.callerName
+                        ?? "Peer";
+                    const requesterName = typeof payload?.requesterName === "string" && payload.requesterName.trim().length > 0
+                        ? payload.requesterName
+                        : fallbackRequesterName;
+
+                    pendingIncomingVideoUpgradeRequesterIdRef.current = signal.senderId;
+                    setIncomingVideoUpgradeRequest({ requesterName });
+                    break;
+                }
+
+                case "VIDEO_UPGRADE_ACCEPT": {
+                    resolvePendingVideoUpgradeDecision(true);
+                    break;
+                }
+
+                case "VIDEO_UPGRADE_REJECT": {
+                    resolvePendingVideoUpgradeDecision(false);
                     break;
                 }
 
@@ -196,7 +288,18 @@ export function useCallSocket(groupSignalRef?: React.MutableRefObject<((signal: 
                     console.warn("Unknown call signal type:", signal.type);
             }
         },
-        [setIncomingCall, setCallStatus, endCallStore, setPendingOffer, setCameraOff, upgradeCall, playRingtone, stopRingtone],
+        [
+            setIncomingCall,
+            setCallStatus,
+            endCallStore,
+            setPendingOffer,
+            setCameraOff,
+            upgradeCall,
+            playRingtone,
+            stopRingtone,
+            resolvePendingVideoUpgradeDecision,
+            setIncomingVideoUpgradeRequest,
+        ],
     );
 
     // Subscribe to call queue — re-subscribe every time STOMP connects/reconnects
@@ -399,10 +502,13 @@ export function useCallSocket(groupSignalRef?: React.MutableRefObject<((signal: 
             }
         }
 
+        resolvePendingVideoUpgradeDecision(false);
+        setIncomingVideoUpgradeRequest(null);
+        pendingIncomingVideoUpgradeRequesterIdRef.current = null;
         webrtcRef.current.cleanup();
         setCallStatus("ENDED");
         setTimeout(() => endCallStore(), 1500);
-    }, [user, setCallStatus, endCallStore]);
+    }, [user, setCallStatus, endCallStore, resolvePendingVideoUpgradeDecision]);
 
     // Wrap toggleCamera: ties WebRTC track changes to store state
     const handleToggleCamera = useCallback(async (): Promise<void> => {
@@ -411,23 +517,47 @@ export function useCallSocket(groupSignalRef?: React.MutableRefObject<((signal: 
     }, []);
 
     // Upgrade an active voice call to video (sends RENEGOTIATE_OFFER to peer)
-    const upgradeToVideo = useCallback(async () => {
+    const upgradeToVideo = useCallback(async (): Promise<{ hasLocalVideoTrack: boolean }> => {
+        if (!user) throw new Error("Unable to request video call upgrade.");
+
         const activeCall = useCallStore.getState().activeCall;
         if (!activeCall) throw new Error("No active call to upgrade");
 
+        const receiverId = activeCall.participants.find((id) => id !== user.id);
+        if (!receiverId) throw new Error("Cannot identify the peer for upgrade request.");
+
+        const requestingClient = socketService.getClient();
+        if (!requestingClient?.connected) {
+            throw new Error("Signaling is disconnected. Please retry.");
+        }
+
         try {
-            const offer = await webrtcRef.current.upgradeToVideo();
-            setCameraOff(false);
+            requestingClient.publish({
+                destination: "/app/call.renegotiate",
+                body: JSON.stringify({
+                    type: "VIDEO_UPGRADE_REQUEST",
+                    callId: activeCall.callId,
+                    senderId: user.id,
+                    receiverId,
+                    payload: {
+                        requesterName: user.displayName,
+                    },
+                }),
+            });
+
+            const accepted = await waitForVideoUpgradeDecision();
+            if (!accepted) {
+                throw new Error("Peer declined the video call request.");
+            }
+
+            const { offer, hasLocalVideoTrack } = await webrtcRef.current.upgradeToVideo();
+            setCameraOff(!hasLocalVideoTrack);
             // Switch local UI to video immediately instead of waiting for round-trip signaling.
             upgradeCall();
 
             // Best-effort signaling: if socket/user is unavailable, keep local preview on.
-            if (!user) return;
             const client = socketService.getClient();
-            if (!client?.connected) return;
-
-            const receiverId = activeCall.participants.find((id) => id !== user.id);
-            if (!receiverId) return;
+            if (!client?.connected) return { hasLocalVideoTrack };
 
             client.publish({
                 destination: "/app/call.renegotiate",
@@ -439,17 +569,21 @@ export function useCallSocket(groupSignalRef?: React.MutableRefObject<((signal: 
                     payload: { sdp: offer },
                 }),
             });
+
+            return { hasLocalVideoTrack };
         } catch (error) {
             console.error("Failed to upgrade to video:", error);
             throw error; // Re-throw so caller knows upgrade failed
         }
-    }, [user, setCameraOff, upgradeCall]);
+    }, [user, setCameraOff, upgradeCall, waitForVideoUpgradeDecision]);
 
     return {
         initiateCall,
         answerCall,
         endCall: handleEndCall,
         upgradeToVideo,
+        incomingVideoUpgradeRequest,
+        respondToVideoUpgradeRequest,
         localStream: webrtc.localStream,
         remoteStream: webrtc.remoteStream,
         localVideoRef: webrtc.localVideoRef,

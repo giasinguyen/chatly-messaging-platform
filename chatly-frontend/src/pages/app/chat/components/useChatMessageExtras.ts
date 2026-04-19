@@ -149,11 +149,18 @@ export function useChatMessageExtras({
     const handleJoinGroupCall = useCallback(
         (callId: string) => {
             if (!conversation) return;
+
+            const realtimeState = useCallStore.getState().groupCallRealtimeState[callId];
+            if (realtimeState?.ended) {
+                toast.error("This call has ended.");
+                return;
+            }
+
             const ringingMsg = messages.find((m) => {
                 if (m.type !== "CALL") return false;
                 try {
                     const d = JSON.parse(m.content);
-                    return d.callId === callId && d.status === "RINGING";
+                    return d.callId === callId && (d.status === "RINGING" || d.status === "ONGOING");
                 } catch {
                     return false;
                 }
