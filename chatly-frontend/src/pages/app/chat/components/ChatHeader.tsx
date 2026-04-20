@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Phone, Video, Users, ChevronLeft, Search, Pin, BellOff, PanelRightOpen, PanelRightClose, Bot } from "lucide-react";
+import { Phone, Video, Users, ChevronLeft, Search, Pin, BellOff, PanelRightOpen, PanelRightClose } from "lucide-react";
+import { CustomAiIcon } from "@/components/customize/CustomAiIcon";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { PresenceIndicator } from "@/components/customize/PresenceIndicator";
@@ -76,31 +77,41 @@ export function ChatHeader({ user, onOpenProfile, isGroup, conversationId, other
                     className="flex items-center gap-3 rounded-md px-2 py-1 text-left transition hover:bg-muted/60"
                 >
                     <div className="relative">
-                    <Avatar className="h-10 w-10 border border-border/50">
-                        <AvatarImage src={user.avatarUrl} />
-                        <AvatarFallback>
-                            {user.displayName.charAt(0)}
-                        </AvatarFallback>
-                    </Avatar>
-                </div>
-                <div className="flex flex-col">
-                    <div className="flex items-center gap-2">
-                        <h3 className="text-sm font-semibold text-foreground line-clamp-1">
-                            {nickname || user.displayName}
-                        </h3>
-                        {isPinned && <Pin size={14} className="text-brand shrink-0" />}
-                        {isMuted && <BellOff size={14} className="text-muted-foreground shrink-0" />}
+                        <Avatar className="h-10 w-10 border border-border/50">
+                            <AvatarImage src={user.avatarUrl} />
+                            <AvatarFallback>
+                                {user.displayName.charAt(0)}
+                            </AvatarFallback>
+                        </Avatar>
                     </div>
-                    {!isGroup && presenceStatus && (
-                        <PresenceIndicator
-                            status={presenceStatus}
-                            lastSeen={lastSeen}
-                            showLabel
-                            className="mt-0.5"
-                        />
-                    )}
-                </div>
-            </button>
+                    <div className="flex flex-col">
+                        <div className="flex items-center gap-2">
+                            <h3 className="text-sm font-semibold text-foreground line-clamp-1">
+                                {nickname || user.displayName}
+                            </h3>
+                            {isPinned && (
+                                <Pin
+                                    size={14}
+                                    className="text-brand shrink-0"
+                                />
+                            )}
+                            {isMuted && (
+                                <BellOff
+                                    size={14}
+                                    className="text-muted-foreground shrink-0"
+                                />
+                            )}
+                        </div>
+                        {!isGroup && presenceStatus && (
+                            <PresenceIndicator
+                                status={presenceStatus}
+                                lastSeen={lastSeen}
+                                showLabel
+                                className="mt-0.5"
+                            />
+                        )}
+                    </div>
+                </button>
             </div>
 
             <div className="flex items-center gap-1 text-muted-foreground">
@@ -124,7 +135,7 @@ export function ChatHeader({ user, onOpenProfile, isGroup, conversationId, other
                         className="h-9 w-9 disabled:opacity-50 disabled:cursor-not-allowed"
                         title="Ask AI about this group"
                     >
-                        <Bot size={18} />
+                        <CustomAiIcon />
                     </Button>
                 )}
                 <Button
@@ -139,7 +150,15 @@ export function ChatHeader({ user, onOpenProfile, isGroup, conversationId, other
                 {showCallButtons ? (
                     <>
                         <Button
-                            onClick={() => initiateCall(otherUserId!, conversationId!, "VIDEO", user.displayName, user.avatarUrl)}
+                            onClick={() =>
+                                initiateCall(
+                                    otherUserId!,
+                                    conversationId!,
+                                    "VIDEO",
+                                    user.displayName,
+                                    user.avatarUrl,
+                                )
+                            }
                             disabled={callDisabled}
                             variant="ghost"
                             size="icon"
@@ -149,7 +168,15 @@ export function ChatHeader({ user, onOpenProfile, isGroup, conversationId, other
                             <Video size={18} />
                         </Button>
                         <Button
-                            onClick={() => initiateCall(otherUserId!, conversationId!, "VOICE", user.displayName, user.avatarUrl)}
+                            onClick={() =>
+                                initiateCall(
+                                    otherUserId!,
+                                    conversationId!,
+                                    "VOICE",
+                                    user.displayName,
+                                    user.avatarUrl,
+                                )
+                            }
                             disabled={callDisabled}
                             variant="ghost"
                             size="icon"
@@ -162,7 +189,12 @@ export function ChatHeader({ user, onOpenProfile, isGroup, conversationId, other
                 ) : isGroup ? (
                     <>
                         <Button
-                            onClick={() => setMemberPicker({ visible: true, callType: "VIDEO" })}
+                            onClick={() =>
+                                setMemberPicker({
+                                    visible: true,
+                                    callType: "VIDEO",
+                                })
+                            }
                             disabled={callDisabled}
                             variant="ghost"
                             size="icon"
@@ -172,7 +204,12 @@ export function ChatHeader({ user, onOpenProfile, isGroup, conversationId, other
                             <Video size={18} />
                         </Button>
                         <Button
-                            onClick={() => setMemberPicker({ visible: true, callType: "VOICE" })}
+                            onClick={() =>
+                                setMemberPicker({
+                                    visible: true,
+                                    callType: "VOICE",
+                                })
+                            }
                             disabled={callDisabled}
                             variant="ghost"
                             size="icon"
@@ -189,9 +226,17 @@ export function ChatHeader({ user, onOpenProfile, isGroup, conversationId, other
                         variant="ghost"
                         size="icon"
                         className="h-9 w-9 hidden lg:inline-flex"
-                        title={isInfoPanelOpen ? "Close info panel" : "Open info panel"}
+                        title={
+                            isInfoPanelOpen
+                                ? "Close info panel"
+                                : "Open info panel"
+                        }
                     >
-                        {isInfoPanelOpen ? <PanelRightClose size={18} /> : <PanelRightOpen size={18} />}
+                        {isInfoPanelOpen ? (
+                            <PanelRightClose size={18} />
+                        ) : (
+                            <PanelRightOpen size={18} />
+                        )}
                     </Button>
                 )}
             </div>
@@ -205,9 +250,18 @@ export function ChatHeader({ user, onOpenProfile, isGroup, conversationId, other
                     callType={memberPicker.callType}
                     onCall={(selectedIds) => {
                         setMemberPicker({ visible: false, callType: "VOICE" });
-                        initiateGroupCall(conversationId, memberPicker.callType, user.displayName, selectedIds.length, selectedIds, user.avatarUrl);
+                        initiateGroupCall(
+                            conversationId,
+                            memberPicker.callType,
+                            user.displayName,
+                            selectedIds.length,
+                            selectedIds,
+                            user.avatarUrl,
+                        );
                     }}
-                    onClose={() => setMemberPicker({ visible: false, callType: "VOICE" })}
+                    onClose={() =>
+                        setMemberPicker({ visible: false, callType: "VOICE" })
+                    }
                 />
             )}
         </header>

@@ -9,6 +9,7 @@ import { ChatbotEmptyState } from "./ChatbotEmptyState";
 import { useChatbotStore } from "@/store/chatbot.store";
 import { useAgentStream } from "@/hooks/useAgentStream";
 import { agentService } from "@/services/agent.service";
+import { conversationService } from "@/services/conversation.service";
 import { AgentThinking } from "./AgentThinking";
 import { toast } from "sonner";
 import type { AgentMessage, MessageAttachment } from "@/types/agent";
@@ -49,6 +50,24 @@ export function ChatbotWindow({ sessionId, sidebarCollapsed, onToggleSidebar }: 
     const [loadingHistory, setLoadingHistory] = useState(
         sessionId ? !messagesBySession[sessionId]?.length : false,
     );
+    const [contextConversationName, setContextConversationName] = useState<string | undefined>();
+
+    // Load context conversation name when session has a context_conversation_id
+    useEffect(() => {
+        if (!session?.context_conversation_id) {
+            setContextConversationName(undefined);
+            return;
+        }
+        conversationService.getById(session.context_conversation_id)
+            .then((res) => {
+                if (res.code === 1000 && res.result) {
+                    setContextConversationName(res.result.name ?? "Group chat");
+                }
+            })
+            .catch(() => {
+                // Silently ignore — name is non-critical
+            });
+    }, [session?.context_conversation_id]);
 
     // Set active session and load history
     useEffect(() => {
@@ -192,7 +211,12 @@ export function ChatbotWindow({ sessionId, sidebarCollapsed, onToggleSidebar }: 
 
             {/* Messages or empty state */}
             {showEmptyState ? (
-                <ChatbotEmptyState />
+                <ChatbotEmptyState
+                    sidebarCollapsed={sidebarCollapsed}
+                    onToggleSidebar={onToggleSidebar}
+                    onChipSelect={handleSend}
+                    contextConversationName={contextConversationName}
+                />
             ) : sessionId ? (
                 <ChatbotMessageList
                     messages={messages}

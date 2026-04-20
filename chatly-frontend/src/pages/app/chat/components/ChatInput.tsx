@@ -192,6 +192,10 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
         if ("all".startsWith(q)) {
             results.push({ id: "all", displayName: "All members", username: "all" });
         }
+        // Show @AI option in group conversations
+        if (groupMembers.length > 0 && "ai".startsWith(q)) {
+            results.push({ id: "AI", displayName: "AI", username: "AI" });
+        }
         for (const m of groupMembers) {
             if (m.id === currentUserId) continue; // don't suggest self
             if (
@@ -210,7 +214,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
         const textBeforeCursor = content.slice(0, cursorPos);
         const textAfterCursor = content.slice(cursorPos);
         const mentionStart = textBeforeCursor.lastIndexOf("@");
-        const insertName = user.id === "all" ? "@all" : `@${user.displayName}`;
+        const insertName = user.id === "all" ? "@all" : user.id === "AI" ? "@AI" : `@${user.displayName}`;
         const newContent = textBeforeCursor.slice(0, mentionStart) + insertName + " " + textAfterCursor;
         setContent(newContent);
         setMentionQuery(null);
@@ -376,6 +380,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
         const names = [
             ...groupMembers.flatMap((m) => [m.displayName, m.username]),
             "all",
+            "AI",
         ].filter(Boolean).sort((a, b) => b.length - a.length);
         const escaped = names.map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
         const mentionRegex = new RegExp(`@(${escaped.join('|')})`, 'g');
@@ -384,6 +389,8 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
             const name = match[1];
             if (name === "all") {
                 mentionIds.push("all");
+            } else if (name === "AI") {
+                mentionIds.push("AI");
             } else {
                 // Find user by displayName
                 const user = groupMembers.find(
@@ -1088,20 +1095,30 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
                                                 insertMention(user);
                                             }}
                                         >
-                                            <div className="w-7 h-7 rounded-full bg-brand/20 flex items-center justify-center text-xs font-semibold text-brand shrink-0">
+                                            <div className={cn(
+                                                "w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold shrink-0",
+                                                user.id === "AI"
+                                                    ? "bg-violet-100 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400"
+                                                    : "bg-brand/20 text-brand",
+                                            )}>
                                                 {user.id === "all"
                                                     ? "@"
-                                                    : user.displayName
-                                                          .charAt(0)
-                                                          .toUpperCase()}
+                                                    : user.id === "AI"
+                                                    ? "✨"
+                                                    : user.displayName.charAt(0).toUpperCase()}
                                             </div>
                                             <div className="min-w-0">
                                                 <p className="font-medium truncate">
-                                                    {user.displayName}
+                                                    {user.id === "AI" ? "@AI" : user.displayName}
                                                 </p>
-                                                {user.id !== "all" && (
+                                                {user.id !== "all" && user.id !== "AI" && (
                                                     <p className="text-xs text-muted-foreground truncate">
                                                         @{user.username}
+                                                    </p>
+                                                )}
+                                                {user.id === "AI" && (
+                                                    <p className="text-xs text-muted-foreground truncate">
+                                                        AI assistant
                                                     </p>
                                                 )}
                                             </div>

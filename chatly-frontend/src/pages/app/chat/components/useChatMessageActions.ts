@@ -1,6 +1,8 @@
 import { useCallback, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { messageService } from "@/services/message.service";
+import { agentService } from "@/services/agent.service";
 import type {
     Attachment,
     ChatUser,
@@ -41,6 +43,7 @@ export function useChatMessageActions({
     setFailedMessages,
     sendMessage,
 }: UseChatMessageActionsOptions) {
+    const navigate = useNavigate();
     const [forwardingMessage, setForwardingMessage] = useState<Message | null>(null);
 
     const handleSendMessage = useCallback(
@@ -77,8 +80,15 @@ export function useChatMessageActions({
                 ]);
             }
             setReplyingTo(null);
+
+            // If @AI was mentioned, open the AI assistant with conversation context
+            if (success && mentions?.includes("AI")) {
+                agentService.createSession({ context_conversation_id: id })
+                    .then((session) => navigate(`/chatbot/${session.id}`))
+                    .catch(() => toast.error("Failed to open AI assistant"));
+            }
         },
-        [id, currentUserId, replyingTo, sendMessage, setFailedMessages, setReplyingTo],
+        [id, currentUserId, replyingTo, sendMessage, setFailedMessages, setReplyingTo, navigate],
     );
 
     const handleSendVCard = useCallback(
