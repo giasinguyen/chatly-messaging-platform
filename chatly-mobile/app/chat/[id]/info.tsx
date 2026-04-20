@@ -243,8 +243,9 @@ export default function GroupInfoScreen() {
                     await groupService.removeMember(conversationId, member.userId);
                     setMembers((prev) => prev.filter((m) => m.userId !== member.userId));
                     Alert.alert('Success', 'Removed from group.');
-                  } catch (e: any) {
-                    Alert.alert('Error', e?.response?.data?.message || 'Could not remove member.');
+                  } catch (e: unknown) {
+                    const msg = e instanceof Error ? e.message : 'Could not remove member.';
+                    Alert.alert('Error', msg);
                   }
                 },
               },
@@ -263,8 +264,9 @@ export default function GroupInfoScreen() {
             await groupService.updateRole(conversationId, member.userId, { role: newRole as GroupRole });
             setMembers((prev) => prev.map((m) => (m.userId === member.userId ? { ...m, role: newRole as GroupRole } : m)));
             Alert.alert('Success', 'Privileges updated.');
-          } catch (e: any) {
-            Alert.alert('Error', e?.response?.data?.message || 'Could not update privileges.');
+          } catch (e: unknown) {
+            const msg = e instanceof Error ? e.message : 'Could not update privileges.';
+            Alert.alert('Error', msg);
           }
         },
       });

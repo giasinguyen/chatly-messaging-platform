@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { groupService } from "@/services/group.service";
 import { conversationService } from "@/services/conversation.service";
 import { fileService } from "@/services/file.service";
+import { socketService } from "@/services/socket.service";
 import { useAuthStore } from "@/store/auth.store";
 import { useNotificationStore } from "@/store/notification.store";
 import { AddMembersDialog } from "./AddMembersDialog";
@@ -189,6 +190,27 @@ export function GroupManagementPanel({
             setAllowMembersUpdate(initialAllowMembersUpdate);
         }
     }, [open, fetchMembers, initialGroupName, initialGroupAvatar]);
+
+    // Listen for ROLE_UPDATED events to refresh the member list in realtime
+    useEffect(() => {
+        if (!open || !conversationId) return;
+        const client = socketService.getClient();
+        if (!client?.connected) return;
+
+        const sub = client.subscribe(
+            `/topic/conversation.${conversationId}`,
+            (frame) => {
+                try {
+                    const event = JSON.parse(frame.body);
+                    if (event.action === "ROLE_UPDATED") {
+                        fetchMembers();
+                    }
+                } catch { /* ignore */ }
+            },
+        );
+
+        return () => { sub.unsubscribe(); };
+    }, [open, conversationId, fetchMembers]);
 
     // ── Actions ───────────────────────────────────────────────────────
     const handleAvatarFileChange = async (

@@ -244,8 +244,18 @@ public class GroupService {
 
         GroupRole newRole = request.getRole();
 
+        // Cannot change own role
+        if (requesterId.equals(targetUserId)) {
+            throw new AppException(ErrorCode.GROUP_PERMISSION_DENIED);
+        }
+
         // ADMIN cannot assign OWNER role
         if (requester.getRole() == GroupRole.ADMIN && newRole == GroupRole.OWNER) {
+            throw new AppException(ErrorCode.GROUP_PERMISSION_DENIED);
+        }
+
+        // ADMIN cannot change another ADMIN's role — only OWNER can
+        if (requester.getRole() == GroupRole.ADMIN && target.getRole() == GroupRole.ADMIN) {
             throw new AppException(ErrorCode.GROUP_PERMISSION_DENIED);
         }
 
@@ -717,11 +727,13 @@ public class GroupService {
             Conversation conversation = conversationRepository.findById(conversationId).orElse(null);
             if (conversation == null) return;
             ConversationResponse convResponse = conversationMapper.toResponse(conversation);
+            GroupMemberResponse memberResponse = toMemberResponse(updatedMember);
             messagingTemplate.convertAndSend(
                     "/topic/conversation." + conversationId,
                     ChatEvent.builder()
                             .action(ChatEvent.ChatAction.ROLE_UPDATED)
                             .conversationData(convResponse)
+                            .updatedMember(memberResponse)
                             .build()
             );
         } catch (Exception e) {
