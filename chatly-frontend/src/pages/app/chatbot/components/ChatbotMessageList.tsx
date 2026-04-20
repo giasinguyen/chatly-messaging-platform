@@ -28,9 +28,10 @@ interface Props {
     onEdit?: (message: AgentMessage) => void;
     onRetry?: (message: AgentMessage) => void;
     onRetryLast?: () => void;
+    onForwardToChat?: (message: AgentMessage) => void;
 }
 
-export function ChatbotMessageList({ messages, sessionId, interrupt, onApprove, onReject, onEdit, onRetry, onRetryLast }: Props) {
+export function ChatbotMessageList({ messages, sessionId, interrupt, onApprove, onReject, onEdit, onRetry, onRetryLast, onForwardToChat }: Props) {
     const scrollEndRef = useRef<HTMLDivElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
     const isNearBottomRef = useRef(true);
@@ -86,6 +87,7 @@ export function ChatbotMessageList({ messages, sessionId, interrupt, onApprove, 
                     message={msg}
                     onEdit={onEdit}
                     onRetry={onRetry}
+                    onForwardToChat={onForwardToChat}
                 >
                     <motion.div
                         initial={{ opacity: 0, y: 12 }}

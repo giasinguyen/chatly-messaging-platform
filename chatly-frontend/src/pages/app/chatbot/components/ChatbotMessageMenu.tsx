@@ -5,7 +5,7 @@ import {
     ContextMenuSeparator,
     ContextMenuTrigger,
 } from "@/components/ui/context-menu";
-import { Copy, Pencil, RotateCcw, Trash2 } from "lucide-react";
+import { Copy, Pencil, RotateCcw, Share2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import type { AgentMessage } from "@/types/agent";
 
@@ -15,6 +15,7 @@ interface Props {
     onEdit?: (message: AgentMessage) => void;
     onRetry?: (message: AgentMessage) => void;
     onDelete?: (message: AgentMessage) => void;
+    onForwardToChat?: (message: AgentMessage) => void;
 }
 
 export function ChatbotMessageMenu({
@@ -23,6 +24,7 @@ export function ChatbotMessageMenu({
     onEdit,
     onRetry,
     onDelete,
+    onForwardToChat,
 }: Props) {
     const isUser = message.role === "user";
 
@@ -43,6 +45,12 @@ export function ChatbotMessageMenu({
                     <Copy className="mr-2 h-4 w-4" />
                     Copy
                 </ContextMenuItem>
+                {onForwardToChat && (
+                    <ContextMenuItem onClick={() => onForwardToChat(message)} className="text-violet-600 focus:text-violet-600">
+                        <Share2 className="mr-2 h-4 w-4" />
+                        Forward to chat
+                    </ContextMenuItem>
+                )}
                 {isUser && onEdit && (
                     <ContextMenuItem onClick={() => onEdit(message)}>
                         <Pencil className="mr-2 h-4 w-4" />

@@ -3,6 +3,9 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { messageService } from "@/services/message.service";
 import { agentService } from "@/services/agent.service";
+import { agentFileService } from "@/services/agent-file.service";
+import { fileService } from "@/services/file.service";
+import { useChatbotStore } from "@/store/chatbot.store";
 import type {
     Attachment,
     ChatUser,
@@ -43,8 +46,9 @@ export function useChatMessageActions({
     setFailedMessages,
     sendMessage,
 }: UseChatMessageActionsOptions) {
-    const navigate = useNavigate();
     const [forwardingMessage, setForwardingMessage] = useState<Message | null>(null);
+    const [forwardingToAiMessage, setForwardingToAiMessage] = useState<Message | null>(null);
+    const navigate = useNavigate();
 
     const handleSendMessage = useCallback(
         (
@@ -80,15 +84,8 @@ export function useChatMessageActions({
                 ]);
             }
             setReplyingTo(null);
-
-            // If @AI was mentioned, open the AI assistant with conversation context
-            if (success && mentions?.includes("AI")) {
-                agentService.createSession({ context_conversation_id: id })
-                    .then((session) => navigate(`/chatbot/${session.id}`))
-                    .catch(() => toast.error("Failed to open AI assistant"));
-            }
         },
-        [id, currentUserId, replyingTo, sendMessage, setFailedMessages, setReplyingTo, navigate],
+        [id, currentUserId, replyingTo, sendMessage, setFailedMessages, setReplyingTo],
     );
 
     const handleSendVCard = useCallback(
@@ -217,9 +214,94 @@ export function useChatMessageActions({
         [forwardingMessage],
     );
 
+    const handleForwardToAi = useCallback((message: Message) => {
+        setForwardingToAiMessage(message);
+    }, []);
+
+    const handleForwardToAiConfirm = useCallback(
+        async (sessionId: string | null) => {
+            if (!forwardingToAiMessage) return;
+
+            const quotedContent = forwardingToAiMessage.content
+                ? `> ${forwardingToAiMessage.content}`
+                : "";
+
+            try {
+                let targetSessionId = sessionId;
+                if (!targetSessionId) {
+                    const newSession = await agentService.createSession();
+                    targetSessionId = newSession.id;
+                }
+
+                // Upload message attachments to agent file storage
+                const AGENT_SUPPORTED_EXTENSIONS = new Set([
+                    "txt", "md", "pdf", "docx", "csv", "json",
+                    "jpeg", "jpg", "png", "webp",
+                ]);
+                const AGENT_MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
+
+                const draftAttachments = [];
+                const attachments = forwardingToAiMessage.attachments ?? [];
+                for (const att of attachments) {
+                    const fileName = att.name ?? "file";
+                    const ext = fileName.includes(".")
+                        ? fileName.split(".").pop()!.toLowerCase()
+                        : "";
+
+                    if (!AGENT_SUPPORTED_EXTENSIONS.has(ext)) {
+                        toast.error(`Unsupported file type: ${fileName}`);
+                        continue;
+                    }
+                    if (att.size && att.size > AGENT_MAX_FILE_SIZE) {
+                        toast.error(`File too large (max 5 MB): ${fileName}`);
+                        continue;
+                    }
+
+                    try {
+                        // Download through backend proxy to avoid S3 CORS issues
+                        const blob = att.fileId
+                            ? await fileService.downloadFile(att.fileId)
+                            : await fetch(att.url).then((r) => r.blob());
+
+                        if (blob.size > AGENT_MAX_FILE_SIZE) {
+                            toast.error(`File too large (max 5 MB): ${fileName}`);
+                            continue;
+                        }
+
+                        const file = new File([blob], fileName, { type: att.type });
+                        const uploaded = await agentFileService.upload(targetSessionId, file);
+                        draftAttachments.push({
+                            file_id: uploaded.id,
+                            filename: uploaded.filename,
+                            content_type: uploaded.content_type,
+                            size: uploaded.size,
+                        });
+                    } catch {
+                        toast.error(`Could not transfer file: ${fileName}`);
+                    }
+                }
+
+                // Fill into chatbot composer instead of auto-sending
+                const store = useChatbotStore.getState();
+                store.setDraft(targetSessionId, quotedContent);
+                if (draftAttachments.length > 0) {
+                    store.setDraftAttachments(targetSessionId, draftAttachments);
+                }
+                setForwardingToAiMessage(null);
+                navigate(`/chatbot/${targetSessionId}`);
+            } catch (error) {
+                toast.error(getErrorMessage(error, "Could not open AI assistant"));
+                throw error;
+            }
+        },
+        [forwardingToAiMessage, navigate],
+    );
+
     return {
         forwardingMessage,
         setForwardingMessage,
+        forwardingToAiMessage,
+        setForwardingToAiMessage,
         handleSendMessage,
         handleSendVCard,
         handleRetryMessage,
@@ -230,5 +312,7 @@ export function useChatMessageActions({
         handleDelete,
         handleForward,
         handleForwardConfirm,
+        handleForwardToAi,
+        handleForwardToAiConfirm,
     };
 }

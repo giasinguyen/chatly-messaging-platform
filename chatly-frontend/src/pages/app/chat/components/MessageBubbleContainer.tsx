@@ -32,6 +32,7 @@ interface MessageBubbleContainerProps {
     onCancelEdit: () => void;
     onReply: (msg: Message) => void;
     onForward: (msg: Message) => void;
+    onForwardToAi?: (msg: Message) => void;
     onReact: (messageId: string, emoji: string) => void;
     onOpenSenderProfile?: (userId: string) => void;
     onVotePoll?: (messageId: string, optionIndex: number) => void;
@@ -74,6 +75,7 @@ export function MessageBubbleContainer(props: MessageBubbleContainerProps) {
         onCancelEdit,
         onReply,
         onForward,
+        onForwardToAi,
         onReact,
         onOpenSenderProfile,
         onVotePoll,
@@ -287,6 +289,7 @@ export function MessageBubbleContainer(props: MessageBubbleContainerProps) {
             currentUserId={currentUserId}
             onReply={onReply}
             onForward={onForward}
+            onForwardToAi={onForwardToAi}
             onStartEdit={onStartEdit}
             onRequestRecall={onRequestRecall}
             onRequestDelete={onRequestDelete}

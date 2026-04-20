@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
     Paperclip,
     SendHorizontal,
@@ -44,12 +44,31 @@ export function ChatbotComposer({ sessionId, onSend, disabled, isStreaming, onCa
         selectedMcpIds,
         draftsBySession,
         setDraft,
+        draftAttachmentsBySession,
+        setDraftAttachments,
     } = useChatbotStore();
 
     const draft = draftsBySession[sessionId] ?? "";
     const [mcpOpen, setMcpOpen] = useState(false);
     const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([]);
     const isUploading = pendingFiles.some((p) => !p.done && !p.error);
+
+    // Consume draft attachments stored by forward-to-AI flow
+    useEffect(() => {
+        const store = useChatbotStore.getState();
+        const draftAtts = store.draftAttachmentsBySession[sessionId];
+        if (!draftAtts?.length) return;
+        // Clear immediately to prevent StrictMode double-fire duplicates
+        store.setDraftAttachments(sessionId, []);
+        const prefilled: PendingFile[] = draftAtts.map((att) => ({
+            localId: `draft-${att.file_id}-${Date.now()}`,
+            file: new File([], att.filename, { type: att.content_type }),
+            progress: 100,
+            done: true,
+            fileId: att.file_id,
+        }));
+        setPendingFiles((prev) => [...prev, ...prefilled]);
+    }, [sessionId]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
         setDraft(sessionId, e.target.value);

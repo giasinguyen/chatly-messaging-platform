@@ -92,4 +92,13 @@ export const agentService = {
         const res = await axiosClient.get(`${BASE}/${sessionId}/chat/status`);
         return res.data;
     },
+
+    // ─── Files ───────────────────────────────────────────────
+    downloadFile: async (sessionId: string, fileId: string): Promise<Blob> => {
+        const res = await axiosClient.get<Blob>(
+            `${BASE}/${sessionId}/files/${fileId}/content`,
+            { responseType: "blob" },
+        );
+        return res.data;
+    },
 };

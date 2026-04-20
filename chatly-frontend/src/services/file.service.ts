@@ -60,4 +60,16 @@ export const fileService = {
         );
         return data.result;
     },
+
+    /**
+     * Download a file through the backend proxy (avoids S3 CORS issues).
+     * Returns the raw Blob.
+     */
+    async downloadFile(fileId: string): Promise<Blob> {
+        const { data } = await axiosClient.get<Blob>(
+            `/api/files/${fileId}/download`,
+            { responseType: "blob" },
+        );
+        return data;
+    },
 };

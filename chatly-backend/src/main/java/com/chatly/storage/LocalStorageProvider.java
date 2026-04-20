@@ -5,10 +5,13 @@ import com.chatly.exception.ErrorCode;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.UrlResource;
 import org.springframework.stereotype.Component;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.net.MalformedURLException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -69,6 +72,24 @@ public class LocalStorageProvider implements StorageProvider {
             log.debug("File deleted: {}", target);
         } catch (IOException e) {
             log.warn("Failed to delete file: {}", storageKey, e);
+        }
+    }
+
+    @Override
+    public Resource download(String storageKey) {
+        try {
+            Path target = baseDir.resolve(storageKey).normalize();
+            if (!target.startsWith(baseDir)) {
+                throw new AppException(ErrorCode.FILE_NOT_FOUND);
+            }
+            Resource resource = new UrlResource(target.toUri());
+            if (!resource.exists() || !resource.isReadable()) {
+                throw new AppException(ErrorCode.FILE_NOT_FOUND);
+            }
+            return resource;
+        } catch (MalformedURLException e) {
+            log.error("Failed to read local file: {}", storageKey, e);
+            throw new AppException(ErrorCode.FILE_NOT_FOUND);
         }
     }
 }

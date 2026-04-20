@@ -1,5 +1,5 @@
-import { memo, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { memo, useRef, useEffect } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import { ChatHeader } from "./ChatHeader";
 import { MessageList } from "./MessageList";
 import { ChatInput, type ChatInputRef } from "./ChatInput";
@@ -17,6 +17,7 @@ import { ChatInfoPanelWrapper } from "./ChatInfoPanelWrapper";
 import { useChatWindowState } from "./useChatWindowState";
 import { useFileDropHandlers } from "./useFileDropHandlers";
 import type { ConversationResponse } from "@/types/conversation";
+import type { Attachment } from "@/types/message";
 
 interface ChatWindowProps {
     id: string;
@@ -25,9 +26,32 @@ interface ChatWindowProps {
 
 export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) => {
     const navigate = useNavigate();
+    const location = useLocation();
     const chatInputRef = useRef<ChatInputRef>(null);
+    const prefillRef = useRef<{ content?: string; attachments?: Attachment[] } | null>(null);
     const s = useChatWindowState(id);
     const drop = useFileDropHandlers({ chatInputRef, setIsDragging: s.setIsDragging });
+
+    // Capture prefill data from navigation state immediately (before it is lost)
+    useEffect(() => {
+        const state = location.state as {
+            prefillContent?: string;
+            prefillAttachments?: Attachment[];
+        } | null;
+        if (state?.prefillContent || state?.prefillAttachments?.length) {
+            prefillRef.current = { content: state.prefillContent, attachments: state.prefillAttachments };
+            navigate(location.pathname, { replace: true, state: null });
+        }
+    }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    // Apply prefill once ChatInput is mounted (loading finished)
+    useEffect(() => {
+        if (s.loading || !prefillRef.current) return;
+        const { content, attachments } = prefillRef.current;
+        if (content) chatInputRef.current?.setText(content);
+        if (attachments?.length) chatInputRef.current?.addAttachments(attachments);
+        prefillRef.current = null;
+    }, [s.loading, id]); // eslint-disable-line react-hooks/exhaustive-deps
 
     if (s.loading) return <ChatLoadingSkeleton />;
     if (s.notFound || !s.conversation || !s.participant) return <ChatNotFound />;
@@ -131,6 +155,7 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
                     currentUserId={currentUser?.id ?? ""}
                     onReply={s.handleReply}
                     onForward={s.handleForward}
+                    onForwardToAi={s.handleForwardToAi}
                     onRecall={s.handleRecall}
                     onEdit={s.handleEdit}
                     onDelete={s.handleDelete}
@@ -176,6 +201,7 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
                         onTyping={s.sendTyping}
                         groupMembers={groupMembers}
                         currentUserId={currentUser?.id}
+                        isAiProactiveEnabled={conversation.aiProactiveEnabled ?? false}
                     />
                 )}
 
@@ -203,10 +229,12 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
                     groupPanelDefaultTab={s.groupPanelDefaultTab}
                     createGroupFromPrivateOpen={s.createGroupFromPrivateOpen}
                     forwardingMessage={s.forwardingMessage}
+                    forwardingToAiMessage={s.forwardingToAiMessage}
                     showProfileDialog={s.showProfileDialog}
                     showGroupPanel={s.showGroupPanel}
                     showPinnedDialog={s.showPinnedDialog}
                     setForwardingMessage={s.setForwardingMessage}
+                    setForwardingToAiMessage={s.setForwardingToAiMessage}
                     setShowPinnedDialog={s.setShowPinnedDialog}
                     setShowGroupPanel={s.setShowGroupPanel}
                     setCreateGroupFromPrivateOpen={s.setCreateGroupFromPrivateOpen}
@@ -219,6 +247,7 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
                     setGroupAvatarDraft={s.setGroupAvatarDraft}
                     closeProfileDialog={s.closeProfileDialog}
                     handleForwardConfirm={s.handleForwardConfirm}
+                    handleForwardToAiConfirm={s.handleForwardToAiConfirm}
                     handleTogglePin={s.handleTogglePin}
                     handleSendFriendRequest={s.handleSendFriendRequest}
                     handleGroupAvatarFileChange={s.handleGroupAvatarFileChange}

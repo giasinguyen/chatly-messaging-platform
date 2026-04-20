@@ -11,6 +11,7 @@ import com.chatly.storage.UploadResult;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -178,6 +179,18 @@ public class FileUploadService {
     }
 
     // -------------------------------------------------------------------------
+
+    /**
+     * Download a file by its ID. Returns metadata + resource stream.
+     */
+    public FileDownloadResult downloadFile(String fileId) {
+        FileMetadata metadata = fileMetadataRepository.findById(fileId)
+                .orElseThrow(() -> new AppException(ErrorCode.FILE_NOT_FOUND));
+        Resource resource = storageProvider.download(metadata.getStorageKey());
+        return new FileDownloadResult(metadata, resource);
+    }
+
+    public record FileDownloadResult(FileMetadata metadata, Resource resource) {}
 
     private void validateFile(MultipartFile file) {
         if (file == null || file.isEmpty()) {

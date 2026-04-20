@@ -1,6 +1,7 @@
 import { memo } from "react";
 import { useNavigate } from "react-router-dom";
 import { ForwardMessageDialog } from "./ForwardMessageDialog";
+import { ForwardToAiDialog } from "./ForwardToAiDialog";
 import { PinnedMessagesDialog } from "./PinnedMessagesDialog";
 import { ChatProfileDialog } from "./ChatProfileDialog";
 import { GroupManagementPanel } from "./GroupManagementPanel";
@@ -34,10 +35,12 @@ export interface ChatWindowDialogsProps {
     groupPanelDefaultTab: "members" | "settings";
     createGroupFromPrivateOpen: boolean;
     forwardingMessage: Message | null;
+    forwardingToAiMessage: Message | null;
     showProfileDialog: boolean;
     showGroupPanel: boolean;
     showPinnedDialog: boolean;
     setForwardingMessage: (msg: Message | null) => void;
+    setForwardingToAiMessage: (msg: Message | null) => void;
     setShowPinnedDialog: (open: boolean) => void;
     setShowGroupPanel: (open: boolean) => void;
     setCreateGroupFromPrivateOpen: (open: boolean) => void;
@@ -50,6 +53,7 @@ export interface ChatWindowDialogsProps {
     setGroupAvatarDraft: (value: string) => void;
     closeProfileDialog: () => void;
     handleForwardConfirm: (ids: string[]) => Promise<void>;
+    handleForwardToAiConfirm: (sessionId: string | null) => Promise<void>;
     handleTogglePin: (messageId: string) => Promise<void>;
     handleSendFriendRequest: () => void;
     handleGroupAvatarFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
@@ -87,10 +91,12 @@ export const ChatWindowDialogs = memo(function ChatWindowDialogs(
         groupPanelDefaultTab,
         createGroupFromPrivateOpen,
         forwardingMessage,
+        forwardingToAiMessage,
         showProfileDialog,
         showGroupPanel,
         showPinnedDialog,
         setForwardingMessage,
+        setForwardingToAiMessage,
         setShowPinnedDialog,
         setShowGroupPanel,
         setCreateGroupFromPrivateOpen,
@@ -103,6 +109,7 @@ export const ChatWindowDialogs = memo(function ChatWindowDialogs(
         setGroupAvatarDraft,
         closeProfileDialog,
         handleForwardConfirm,
+        handleForwardToAiConfirm,
         handleTogglePin,
         handleSendFriendRequest,
         handleGroupAvatarFileChange,
@@ -113,7 +120,7 @@ export const ChatWindowDialogs = memo(function ChatWindowDialogs(
     } = props;
 
     return (
-        <>
+        <>  
             <ForwardMessageDialog
                 open={!!forwardingMessage}
                 currentConversationId={id}
@@ -122,6 +129,14 @@ export const ChatWindowDialogs = memo(function ChatWindowDialogs(
                     if (!open) setForwardingMessage(null);
                 }}
                 onConfirm={handleForwardConfirm}
+            />
+
+            <ForwardToAiDialog
+                open={!!forwardingToAiMessage}
+                onOpenChange={(open) => {
+                    if (!open) setForwardingToAiMessage(null);
+                }}
+                onConfirm={handleForwardToAiConfirm}
             />
 
             <PinnedMessagesDialog

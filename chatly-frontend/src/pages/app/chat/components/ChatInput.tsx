@@ -60,6 +60,7 @@ interface ChatInputProps {
     onTyping?: (typing: boolean) => void;
     groupMembers?: ChatUser[];
     currentUserId?: string;
+    isAiProactiveEnabled?: boolean;
 }
 
 interface PendingFile {
@@ -73,6 +74,8 @@ interface PendingFile {
 
 export interface ChatInputRef {
     addFiles: (files: File[]) => void;
+    setText: (content: string) => void;
+    addAttachments: (attachments: Attachment[]) => void;
 }
 
 const TYPING_STOP_DELAY = 2000;
@@ -90,6 +93,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
     onTyping,
     groupMembers = [],
     currentUserId,
+    isAiProactiveEnabled = false,
 }, ref) => {
     const { user } = useAuthStore();
     const [content, setContent] = useState("");
@@ -192,8 +196,8 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
         if ("all".startsWith(q)) {
             results.push({ id: "all", displayName: "All members", username: "all" });
         }
-        // Show @AI option in group conversations
-        if (groupMembers.length > 0 && "ai".startsWith(q)) {
+        // Show @AI option only in groups with AI proactive feature enabled
+        if (groupMembers.length > 0 && isAiProactiveEnabled && "ai".startsWith(q)) {
             results.push({ id: "AI", displayName: "AI", username: "AI" });
         }
         for (const m of groupMembers) {
@@ -325,6 +329,17 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
 
     useImperativeHandle(ref, () => ({
         addFiles: (files: File[]) => processFiles(files),
+        setText: (text: string) => setContent(text),
+        addAttachments: (attachments: Attachment[]) => {
+            const items: PendingFile[] = attachments.map((att) => ({
+                localId: `pre-${att.fileId ?? att.url}-${Date.now()}`,
+                file: new File([], att.name ?? "file"),
+                previewUrl: att.type?.startsWith("image/") ? att.url : "",
+                progress: 100,
+                uploaded: att,
+            }));
+            setPendingFiles((prev) => [...prev, ...items]);
+        },
     }));
 
     const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {

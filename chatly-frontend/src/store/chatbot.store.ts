@@ -2,6 +2,7 @@ import { create } from "zustand";
 import type {
     AgentSession,
     AgentMessage,
+    MessageAttachment,
     StreamingStatus,
     StatusHint,
 } from "@/types/agent";
@@ -23,6 +24,7 @@ interface ChatbotState {
     useWebSearch: boolean;
     selectedMcpIds: string[];
     draftsBySession: Record<string, string>;
+    draftAttachmentsBySession: Record<string, MessageAttachment[]>;
 
     // Phase 2 — retry / edit
     lastUserPrompt: string | null;
@@ -49,6 +51,7 @@ interface ChatbotState {
     setUseWebSearch: (value: boolean) => void;
     setSelectedMcpIds: (ids: string[]) => void;
     setDraft: (sessionId: string, draft: string) => void;
+    setDraftAttachments: (sessionId: string, attachments: MessageAttachment[]) => void;
     setLastUserPrompt: (prompt: string | null) => void;
 }
 
@@ -63,6 +66,7 @@ export const useChatbotStore = create<ChatbotState>((set) => ({
     useWebSearch: false,
     selectedMcpIds: [],
     draftsBySession: {},
+    draftAttachmentsBySession: {},
     lastUserPrompt: null,
 
     // Sessions
@@ -123,6 +127,10 @@ export const useChatbotStore = create<ChatbotState>((set) => ({
     setDraft: (sessionId, draft) =>
         set((s) => ({
             draftsBySession: { ...s.draftsBySession, [sessionId]: draft },
+        })),
+    setDraftAttachments: (sessionId, attachments) =>
+        set((s) => ({
+            draftAttachmentsBySession: { ...s.draftAttachmentsBySession, [sessionId]: attachments },
         })),
     setLastUserPrompt: (prompt) => set({ lastUserPrompt: prompt }),
 }));
