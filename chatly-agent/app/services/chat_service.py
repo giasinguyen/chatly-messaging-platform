@@ -92,6 +92,7 @@ class ChatService:
         mcp_server_ids: list[str],
         use_web_search: bool,
         extra_tools: list[BaseTool] | None = None,
+        context_conversation_id: str | None = None,
     ) -> ChatbotAgent | UnifiedAgent:
         """
         Agent selection priority:
@@ -105,7 +106,9 @@ class ChatService:
                 user_id, mcp_server_ids, use_web_search
             )
 
-        has_context = await self._vector_service.has_context(session_id)
+        has_context = await self._vector_service.has_context(
+            session_id, conversation_id=context_conversation_id
+        )
         merged_extra = list(extra_tools) if extra_tools else []
 
         if tools or has_context or merged_extra:
@@ -113,7 +116,10 @@ class ChatService:
                 raise ValueError("LLM is required for unified agent")
             all_tools = list(tools)
             if has_context:
-                all_tools.append(create_retriever_tool(self._vector_service, session_id))
+                all_tools.append(create_retriever_tool(
+                    self._vector_service, session_id,
+                    conversation_id=context_conversation_id,
+                ))
             all_tools.extend(merged_extra)
             logger.info(
                 "Agent selected: UnifiedAgent (tools=%d has_context=%s) user_id=%s session_id=%s",
@@ -234,6 +240,7 @@ class ChatService:
             self._select_agent(
                 user_id, session_id, request.mcp_server_ids, request.use_web_search,
                 extra_tools=image_tools,
+                context_conversation_id=conv_id,
             ),
         )
 
@@ -498,6 +505,7 @@ class ChatService:
             self._select_agent(
                 user_id, session_id, request.mcp_server_ids, request.use_web_search,
                 extra_tools=image_tools,
+                context_conversation_id=conv_id,
             ),
         )
         agent_type = agent.agent_type

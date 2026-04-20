@@ -57,4 +57,11 @@ public interface UserRepository extends JpaRepository<User, UUID> {
     boolean existsByPhone(String phone);
 
     boolean existsByUsername(String username);
+
+    /**
+     * Return all users who were seen after the given threshold,
+     * used by DailyBriefingScheduler to identify active users.
+     */
+    @Query("SELECT u FROM User u WHERE u.lastSeen >= :since")
+    List<User> findActiveUsersSince(@Param("since") java.time.Instant since);
 }

@@ -200,6 +200,72 @@ public class AgentProxyClient {
                 );
     }
 
+    /**
+     * Fire-and-forget POST to {@code /internal/briefing} for one user.
+     * Returns immediately; errors are logged and suppressed.
+     */
+    public void triggerBriefingAsync(String userId) {
+        Map<String, String> payload = Map.of("user_id", userId);
+        byte[] bodyBytes;
+        try {
+            bodyBytes = OBJECT_MAPPER.writeValueAsBytes(payload);
+        } catch (JsonProcessingException ex) {
+            log.warn("Failed to serialize briefing request for user={}: {}", userId, ex.getMessage());
+            return;
+        }
+        webClient.post()
+                .uri("/internal/briefing")
+                .header("X-User-Id", userId)
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(bodyBytes)
+                .retrieve()
+                .onStatus(HttpStatusCode::isError, this::handleAgentError)
+                .bodyToMono(Void.class)
+                .timeout(Duration.ofSeconds(timeoutSeconds))
+                .subscribe(
+                        null,
+                        ex -> log.warn("Briefing trigger failed user={}: {}", userId, ex.getMessage())
+                );
+    }
+
+    public void triggerFileIndexAsync(
+            String conversationId,
+            String fileId,
+            String fileUrl,
+            String filename,
+            String mimeType,
+            String uploadedBy) {
+        Map<String, String> payload = Map.of(
+                "conversation_id", conversationId,
+                "file_id", fileId,
+                "file_url", fileUrl,
+                "filename", filename,
+                "mime_type", mimeType,
+                "uploaded_by", uploadedBy
+        );
+        byte[] bodyBytes;
+        try {
+            bodyBytes = OBJECT_MAPPER.writeValueAsBytes(payload);
+        } catch (JsonProcessingException ex) {
+            log.warn("Failed to serialize index-file request conversation={}: {}", conversationId, ex.getMessage());
+            return;
+        }
+        webClient.post()
+                .uri("/internal/index-file")
+                .header("X-User-Id", uploadedBy)
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(bodyBytes)
+                .retrieve()
+                .onStatus(HttpStatusCode::isError, this::handleAgentError)
+                .bodyToMono(Void.class)
+                .timeout(Duration.ofSeconds(timeoutSeconds))
+                .subscribe(
+                        null,
+                        ex -> log.warn("File index trigger failed conversation={} file={}: {}",
+                                conversationId, fileId, ex.getMessage())
+                );
+    }
+
     private Mono<? extends Throwable> handleAgentError(ClientResponse response) {
         return response.bodyToMono(String.class)
                 .defaultIfEmpty("<empty body>")

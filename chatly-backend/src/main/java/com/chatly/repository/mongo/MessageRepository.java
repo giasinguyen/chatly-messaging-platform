@@ -14,4 +14,7 @@ public interface MessageRepository extends MongoRepository<Message, String> {
 
     List<Message> findByConversationIdAndCreatedAtBetweenOrderByCreatedAtAsc(
             String conversationId, Instant from, Instant to, Pageable pageable);
+
+    long countByConversationIdAndCreatedAtAfterAndSenderIdNot(
+            String conversationId, Instant after, String excludeSenderId);
 }

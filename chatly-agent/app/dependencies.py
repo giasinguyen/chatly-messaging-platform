@@ -14,6 +14,7 @@ from app.repositories.mcp_repo import MCPRepository
 from app.repositories.message_repo import MessageRepository
 from app.repositories.qdrant_repo import QdrantRepository
 from app.repositories.session_repo import SessionRepository
+from app.services.briefing_service import BriefingService
 from app.services.chat_service import ChatService
 from app.services.file_service import FileService
 from app.services.mcp_service import MCPService
@@ -183,3 +184,11 @@ async def get_request_context(
     Replaces the old get_current_user() JWT-based dependency.
     """
     return RequestContext(user_id=x_user_id)
+
+
+def get_briefing_service(
+    session_service: SessionService = Depends(get_session_service),  # noqa: B008
+    chat_service: ChatService = Depends(get_chat_service),  # noqa: B008
+) -> BriefingService:
+    """Build briefing service dependency."""
+    return BriefingService(session_service=session_service, chat_service=chat_service)

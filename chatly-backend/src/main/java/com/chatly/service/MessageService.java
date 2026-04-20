@@ -26,6 +26,7 @@ import com.chatly.repository.mongo.MessageRepository;
 import com.chatly.repository.postgres.UserRepository;
 import com.chatly.websocket.ChatEvent;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.mongodb.core.MongoTemplate;
@@ -33,6 +34,7 @@ import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.mongodb.core.query.Update;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.scheduling.TaskScheduler;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
@@ -46,6 +48,7 @@ import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class MessageService {
 
     private final MessageRepository messageRepository;
@@ -57,11 +60,13 @@ public class MessageService {
     private final ContactService contactService;
     private final UserRepository userRepository;
     private final AgentProxyClient agentProxyClient;
+    private final TaskScheduler taskScheduler;
 
     private static final long RECALL_LIMIT_HOURS = 24;
     private static final long EDIT_LIMIT_MINUTES = 15;
     private static final int MAX_MESSAGES_PER_RANGE = 100;
     private static final String AI_MENTION_TRIGGER = "@AI";
+    private static final long UNANSWERED_CHECK_DELAY_S = 1800;
     private static final Set<String> ALLOWED_EMOJIS = Set.of("👍", "❤️", "😂", "😮", "😢", "😡", "🔥", "👏");
         private static final Set<MessageType> FORWARDABLE_TYPES = Set.of(MessageType.TEXT, MessageType.IMAGE, MessageType.FILE, MessageType.GIF, MessageType.STICKER);
 
@@ -106,6 +111,13 @@ public class MessageService {
                 && Boolean.TRUE.equals(conversation.getAiProactiveEnabled())
                 && isAiMention(request.getContent())) {
             agentProxyClient.triggerAssistAsync(conversation.getId(), senderId, request.getContent());
+        }
+
+        // Schedule an unanswered-question check: if nobody replies after 30 min, trigger AI
+        if (conversation.getType() == ConversationType.GROUP
+                && Boolean.TRUE.equals(conversation.getAiProactiveEnabled())
+                && isQuestion(request.getContent())) {
+            scheduleUnansweredCheck(conversation.getId(), savedMessage.getId(), senderId);
         }
 
         return messageMapper.toResponse(savedMessage);
@@ -660,6 +672,50 @@ public class MessageService {
 
     private static boolean isAiMention(String content) {
         return content != null && content.contains(AI_MENTION_TRIGGER);
+    }
+
+    private static boolean isQuestion(String content) {
+        if (content == null || content.isBlank()) return false;
+        String lower = content.toLowerCase();
+        return content.contains("?")
+                || lower.startsWith("how ")
+                || lower.startsWith("what ")
+                || lower.startsWith("when ")
+                || lower.startsWith("where ")
+                || lower.startsWith("why ")
+                || lower.startsWith("who ")
+                || lower.startsWith("can ")
+                || lower.startsWith("could ")
+                || lower.startsWith("should ");
+    }
+
+    private void scheduleUnansweredCheck(String conversationId, String messageId, String senderId) {
+        Instant checkAt = Instant.now().plusSeconds(UNANSWERED_CHECK_DELAY_S);
+        taskScheduler.schedule(
+                () -> checkAndTriggerIfUnanswered(conversationId, messageId, senderId),
+                checkAt
+        );
+    }
+
+    private void checkAndTriggerIfUnanswered(String conversationId, String messageId, String senderId) {
+        try {
+            Message triggerMessage = messageRepository.findById(messageId).orElse(null);
+            if (triggerMessage == null) return;
+
+            // Count messages sent in the conversation AFTER the original question
+            long replyCount = messageRepository
+                    .countByConversationIdAndCreatedAtAfterAndSenderIdNot(
+                            conversationId, triggerMessage.getCreatedAt(), senderId);
+
+            if (replyCount == 0) {
+                String prompt = "An unanswered question was posted 30 minutes ago: \""
+                        + triggerMessage.getContent()
+                        + "\"\nPlease help answer or suggest who in the group might know.";
+                agentProxyClient.triggerAssistAsync(conversationId, senderId, prompt);
+            }
+        } catch (Exception e) {
+            log.warn("Unanswered question check failed for message={}: {}", messageId, e.getMessage());
+        }
     }
 
     private void notifyMentionedUsers(Conversation conversation, Message message, String senderId) {

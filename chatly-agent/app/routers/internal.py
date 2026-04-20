@@ -9,9 +9,11 @@ import logging
 from fastapi import APIRouter, BackgroundTasks, Depends, status
 from pydantic import BaseModel, Field
 
-from app.dependencies import get_chat_service, get_session_service
+from app.dependencies import get_briefing_service, get_chat_service, get_file_service, get_session_service
 from app.models.chat import ChatRequest
+from app.services.briefing_service import BriefingService
 from app.services.chat_service import ChatService
+from app.services.file_service import FileService
 from app.services.session_service import SessionService
 from app.utils.security import verify_api_key
 
@@ -96,3 +98,79 @@ async def trigger_assist(
     )
 
     return AssistResponse(session_id=session_id)
+
+
+# ---------------------------------------------------------------------------
+# Daily briefing trigger (Phase 5)
+# ---------------------------------------------------------------------------
+
+
+class BriefingRequest(BaseModel):
+    """Payload sent by the backend DailyBriefingScheduler."""
+
+    user_id: str = Field(..., description="ID of the user to brief")
+
+
+@router.post(
+    "/briefing",
+    status_code=status.HTTP_202_ACCEPTED,
+    summary="Trigger daily briefing for a user",
+    description=(
+        "Called by the backend DailyBriefingScheduler at 07:00 VN time. "
+        "Creates a session, runs the agent with the briefing prompt, "
+        "and the agent delivers summaries via sendTextMessage."
+    ),
+)
+async def trigger_briefing(
+    payload: BriefingRequest,
+    background_tasks: BackgroundTasks,
+    briefing_service: BriefingService = Depends(get_briefing_service),  # noqa: B008
+) -> dict[str, bool]:
+    """Schedule a daily briefing run in the background."""
+    background_tasks.add_task(briefing_service.run_briefing, payload.user_id)
+    return {"accepted": True}
+
+
+# ---------------------------------------------------------------------------
+# Conversation file indexing (Phase 6)
+# ---------------------------------------------------------------------------
+
+
+class IndexFileRequest(BaseModel):
+    """Payload sent by the backend FileUploadService when an indexable file is uploaded."""
+
+    conversation_id: str = Field(..., description="Group conversation that owns the file")
+    file_id: str = Field(..., description="Backend-generated file ID (for deduplication)")
+    file_url: str = Field(..., description="Accessible download URL of the uploaded file")
+    filename: str = Field(..., description="Original filename including extension")
+    mime_type: str = Field(..., description="MIME type of the file")
+    uploaded_by: str = Field(..., description="User ID who uploaded the file")
+
+
+@router.post(
+    "/index-file",
+    status_code=status.HTTP_202_ACCEPTED,
+    summary="Index a conversation file for RAG",
+    description=(
+        "Called by chatly-backend after a file is uploaded to a group conversation. "
+        "Downloads the file, extracts text, embeds it, and stores chunks in Qdrant "
+        "scoped to the conversation so group members can query its contents via @AI."
+    ),
+)
+async def index_file(
+    payload: IndexFileRequest,
+    background_tasks: BackgroundTasks,
+    file_service: FileService = Depends(get_file_service),  # noqa: B008
+) -> dict[str, bool]:
+    """Schedule file indexing in the background."""
+    background_tasks.add_task(
+        file_service.index_conversation_file,
+        conversation_id=payload.conversation_id,
+        file_url=payload.file_url,
+        filename=payload.filename,
+        mime_type=payload.mime_type,
+        uploaded_by=payload.uploaded_by,
+        backend_file_id=payload.file_id,
+    )
+    return {"accepted": True}
+
