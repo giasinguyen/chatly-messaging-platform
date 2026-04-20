@@ -11,7 +11,6 @@ import {
     Image,
     FileText,
     Link as LinkIcon,
-    ChevronRight,
     ChevronDown,
     Check,
     Settings,
@@ -321,7 +320,7 @@ export function ConversationInfoPanel({
     };
 
     return (
-        <aside className="hidden lg:flex flex-col w-[300px] xl:w-[320px] shrink-0 border-l border-border bg-background dark:bg-[#22252b] overflow-hidden">
+        <aside className="hidden lg:flex flex-col h-full w-[300px] xl:w-[320px] shrink-0 border-l border-border bg-background dark:bg-[#22252b] overflow-hidden">
             {/* Header */}
             <div className="h-16 flex items-center px-4 border-b border-border shrink-0">
                 <h3 className="text-sm font-semibold text-foreground">
@@ -728,13 +727,9 @@ export function ConversationInfoPanel({
                                 <span className="text-sm font-medium text-foreground">Media</span>
                             </div>
                             {mediaFiles.length > 6 && (
-                                <button
-                                    type="button"
-                                    className="flex items-center gap-0.5 text-[12px] text-brand hover:underline"
-                                    onClick={() => toast.info("Showing the 6 most recent items")}
-                                >
-                                    View all <ChevronRight size={12} />
-                                </button>
+                                <span className="text-[12px] text-muted-foreground">
+                                    {mediaFiles.length} items
+                                </span>
                             )}
                         </div>
                         {mediaFiles.length === 0 ? (

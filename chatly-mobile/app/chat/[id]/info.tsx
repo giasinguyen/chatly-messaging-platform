@@ -570,7 +570,7 @@ export default function GroupInfoScreen() {
         </View>
       </View>
 
-      <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
+      <ScrollView contentContainerStyle={{ paddingBottom: Math.max(40, insets.bottom + 16) }} keyboardShouldPersistTaps="handled">
         {/* ── Profile card ── */}
         <View style={{ alignItems: 'center', paddingTop: 28, paddingBottom: 20, backgroundColor: Colors.white, marginBottom: 8 }}>
           <TouchableOpacity
@@ -591,11 +591,11 @@ export default function GroupInfoScreen() {
             </View>
           </TouchableOpacity>
           <TouchableOpacity
-            style={{ marginTop: 12, flexDirection: 'row', alignItems: 'center' }}
+            style={{ marginTop: 12, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 24 }}
             onPress={isGroup && canManage ? handleChangeName : undefined}
             disabled={!isGroup || !canManage}
           >
-            <Text style={{ fontSize: 20, fontWeight: 'bold', color: Colors.text }}>
+            <Text numberOfLines={2} style={{ fontSize: 20, fontWeight: 'bold', color: Colors.text, flexShrink: 1, textAlign: 'center' }}>
               {isGroup ? (conversation?.name ?? 'Untitled Group') : (otherUser?.displayName ?? '...')}
             </Text>
             {isGroup && canManage && (
@@ -727,10 +727,10 @@ export default function GroupInfoScreen() {
               >
                 <Avatar uri={item.avatar} name={item.displayName} size={40} />
                 <View style={{ flex: 1, marginLeft: 12 }}>
-                  <Text style={{ fontWeight: '500', color: Colors.text }}>
+                  <Text numberOfLines={1} style={{ fontWeight: '500', color: Colors.text }}>
                     {item.userId === user?.id ? 'You' : item.displayName}
                   </Text>
-                  <Text style={{ fontSize: 12, marginTop: 1, color: Colors.textLight }}>@{item.username}</Text>
+                  <Text numberOfLines={1} style={{ fontSize: 12, marginTop: 1, color: Colors.textLight }}>@{item.username}</Text>
                 </View>
                 {item.role !== 'MEMBER' && (
                   <View style={{ borderRadius: 4, paddingHorizontal: 8, paddingVertical: 2, backgroundColor: item.role === 'OWNER' ? '#FFE8D6' : Colors.ctaLight }}>
@@ -807,8 +807,8 @@ export default function GroupInfoScreen() {
               >
                 <Avatar uri={req.avatarUrl} name={req.displayName} size={40} />
                 <View style={{ flex: 1, marginLeft: 12 }}>
-                  <Text style={{ fontWeight: '500', color: Colors.text }}>{req.displayName}</Text>
-                  <Text style={{ fontSize: 12, color: Colors.textLight }}>@{req.username}</Text>
+                  <Text numberOfLines={1} style={{ fontWeight: '500', color: Colors.text }}>{req.displayName}</Text>
+                  <Text numberOfLines={1} style={{ fontSize: 12, color: Colors.textLight }}>@{req.username}</Text>
                 </View>
                 <TouchableOpacity
                   onPress={() => handleApprovePending(req.userId)}
