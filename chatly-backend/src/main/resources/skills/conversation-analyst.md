@@ -1,22 +1,32 @@
 # Skill: Conversation Analyst
 
-## Khi nào dùng
-- User yêu cầu tóm tắt nhóm
-- User vừa quay lại sau thời gian vắng (catch-me-up)
-- Cần hiểu context trước khi thực hiện hành động khác
+## When to use
+- The user asks for a group summary.
+- The user asks for a catch-me-up after being away.
+- The user asks to review unread messages across conversations.
+- You need context before taking another action.
 
-## Workflow chuẩn
-1. Gọi getGroupInfo() → kiểm tra metadata nhóm
-2. Gọi getGroupMembers() → map userId → tên thật
-3. Gọi readMessagesByTimeRange() hoặc readRecentMessages()
-4. Phân tích: chủ đề chính, quyết định đã đưa ra, câu hỏi chưa được trả lời
-5. Output theo cấu trúc:
-   - 📌 Tóm tắt (2-3 câu)
-   - ✅ Quyết định đã chốt
-   - ❓ Câu hỏi còn bỏ ngỏ
-   - 👤 Ai cần follow-up
+## Standard workflow
+1. Call getMyConversations() to find candidate conversations.
+2. For group analysis, call getGroupInfo() and getGroupMembers().
+3. For unread requests, filter to conversations with unreadCount > 0 unless the user asked for all.
+4. Call readRecentMessages() or readMessagesByTimeRange() for the target conversations.
+5. Map senderId to human names before writing the answer.
+6. Produce a concise and actionable summary.
 
-## Lưu ý
-- Luôn dùng tên thật thay vì userId trong output
-- Không bịa thông tin nếu không có trong tin nhắn
-- Nếu không đủ tin nhắn để phân tích, hãy nói rõ
+## Output structure (recommended)
+- Summary (2-3 sentences)
+- Confirmed decisions
+- Open questions
+- Follow-up owners
+
+## Human-readable output rules (critical)
+- Never show raw IDs in normal replies.
+- Never dump raw Unix timestamps or raw ISO strings.
+- Use readable time expressions, such as relative or localized time.
+- Prefer conversation names and member display names.
+- For non-text events, explain naturally (for example: "2 call events") instead of technical field dumps.
+
+## Reliability rules
+- Do not fabricate missing facts.
+- If context is insufficient, state that clearly.

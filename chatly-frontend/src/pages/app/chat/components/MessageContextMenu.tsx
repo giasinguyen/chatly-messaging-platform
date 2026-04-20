@@ -76,7 +76,7 @@ export function MessageContextMenu({
                         Ask AI
                     </ContextMenuItem>
                 )}
-                {msg.type === "TEXT" && !msg.recalled && (
+                {(msg.type === "TEXT" || msg.type === "AGENT") && !msg.recalled && (
                     <ContextMenuItem onClick={handleCopy} className="gap-2">
                         <Copy size={14} />
                         Copy message

@@ -1,6 +1,7 @@
 import { Check, CheckCheck, Pin } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { CoAuthorAvatar } from "@/components/customize/CoAuthorAvatar";
 import type { Message, ChatUser } from "@/types/message";
 import type { ConversationType } from "@/types/conversation";
 import type { ContactResponse } from "@/types/contact";
@@ -100,7 +101,8 @@ export function MessageBubbleContainer(props: MessageBubbleContainerProps) {
         );
     }
 
-    const isMe = msg.senderId === currentUserId;
+    const isMe = msg.senderId === currentUserId && msg.type !== "AGENT";
+    const isAgent = msg.type === "AGENT";
     const sender = participantDirectory[msg.senderId] ?? participant;
     const senderShortName = sender.displayName.split(" ").slice(-1)[0] || "User";
     const repliedMsg = msg.replyToId
@@ -131,17 +133,25 @@ export function MessageBubbleContainer(props: MessageBubbleContainerProps) {
             )}
         >
             {!isMe && !isPoll && showAvatar && (
-                <button
-                    type="button"
-                    onClick={() => onOpenSenderProfile?.(msg.senderId)}
-                    className="shrink-0"
-                    title="View user info"
-                >
-                    <Avatar className="h-8 w-8 align-bottom border border-border/30 shrink-0">
-                        <AvatarImage src={sender.avatarUrl} />
-                        <AvatarFallback>{sender.displayName.charAt(0)}</AvatarFallback>
-                    </Avatar>
-                </button>
+                isAgent ? (
+                    <CoAuthorAvatar
+                        userAvatarUrl={sender.avatarUrl}
+                        userDisplayName={sender.displayName}
+                        onClick={() => onOpenSenderProfile?.(msg.senderId)}
+                    />
+                ) : (
+                    <button
+                        type="button"
+                        onClick={() => onOpenSenderProfile?.(msg.senderId)}
+                        className="shrink-0"
+                        title="View user info"
+                    >
+                        <Avatar className="h-8 w-8 align-bottom border border-border/30 shrink-0">
+                            <AvatarImage src={sender.avatarUrl} />
+                            <AvatarFallback>{sender.displayName.charAt(0)}</AvatarFallback>
+                        </Avatar>
+                    </button>
+                )
             )}
             {!isMe && !isPoll && !showAvatar && <div className="h-8 w-8 shrink-0" />}
 
@@ -159,7 +169,7 @@ export function MessageBubbleContainer(props: MessageBubbleContainerProps) {
                         className="text-[11px] text-muted-foreground mb-1 px-1 hover:text-foreground transition-colors"
                         title="View user info"
                     >
-                        {senderShortName}
+                        {isAgent ? `${senderShortName} + AI` : senderShortName}
                     </button>
                 )}
 
@@ -192,6 +202,7 @@ export function MessageBubbleContainer(props: MessageBubbleContainerProps) {
                         repliedMsg={repliedMsg}
                         replySenderName={replySenderName}
                         isMe={isMe}
+                        isAgent={isAgent}
                         isBeingEdited={isBeingEdited}
                         editPlainDraft={editPlainDraft}
                         setEditPlainDraft={setEditPlainDraft}

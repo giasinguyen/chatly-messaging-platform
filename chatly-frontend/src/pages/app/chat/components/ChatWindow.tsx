@@ -18,6 +18,7 @@ import { useChatWindowState } from "./useChatWindowState";
 import { useFileDropHandlers } from "./useFileDropHandlers";
 import type { ConversationResponse } from "@/types/conversation";
 import type { Attachment } from "@/types/message";
+import { AI_TYPING_USER_ID } from "@/constants/ai";
 
 interface ChatWindowProps {
     id: string;
@@ -70,11 +71,13 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
                   .split(" ")
                   .slice(-1)[0];
 
-    const typingDisplayName = typingUserId
-        ? (s.participantDirectory[typingUserId]?.displayName ?? participant.displayName)
-              .split(" ")
-              .slice(-1)[0]
-        : participant.displayName.split(" ").slice(-1)[0];
+    const typingDisplayName = typingUserId === AI_TYPING_USER_ID
+        ? "AI"
+        : typingUserId
+            ? (s.participantDirectory[typingUserId]?.displayName ?? participant.displayName)
+                  .split(" ")
+                  .slice(-1)[0]
+            : participant.displayName.split(" ").slice(-1)[0];
 
     const profileUser =
         s.selectedProfileUser ?? (conversation.type === "PRIVATE" ? participant : null);
@@ -181,7 +184,7 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
                     onAddFriend={s.handleAddFriendInline}
                 />
 
-                {isTyping && <TypingIndicator typingDisplayName={typingDisplayName} />}
+                {isTyping && <TypingIndicator typingDisplayName={typingDisplayName} isAi={typingUserId === AI_TYPING_USER_ID} />}
 
                 {!isGroup && s.blockStatus?.blocked ? (
                     <BlockedConversationBanner

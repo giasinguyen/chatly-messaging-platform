@@ -94,4 +94,20 @@ public class MessageTools {
             throw McpToolBase.toToolException(ex);
         }
     }
+
+    @Tool(description = "Send an AI-generated response message to a group conversation. "
+            + "The message is attributed to the requesting user but marked as AI-generated (type=AGENT). "
+            + "Use this when responding to @AI mentions in group chats instead of sendTextMessage.")
+    public MessageResponse sendAiMessage(
+            @ToolParam(description = "Group conversation id") String conversationId,
+            @ToolParam(description = "AI response content") String content
+    ) {
+        String userId = McpToolBase.getCurrentUserId();
+        log.info("MCP tool invoked: send_ai_message conversationId={} requester={}", conversationId, userId);
+        try {
+            return messageService.sendAiMessage(userId, conversationId, content);
+        } catch (AppException ex) {
+            throw McpToolBase.toToolException(ex);
+        }
+    }
 }

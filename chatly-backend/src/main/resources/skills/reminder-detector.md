@@ -1,19 +1,23 @@
 # Skill: Reminder Detector
 
-## Khi nào dùng
-- Sau khi đọc tin nhắn có chứa thời gian, lịch hẹn
-- User hỏi "có deadline gì không", "lịch hẹn tuần này thế nào"
-- Pattern: giờ cụ thể, ngày trong tuần, "deadline", "họp", "meet"
+## When to use
+- After reading messages that contain schedules, deadlines, or appointments.
+- The user asks about upcoming deadlines or meetings.
+- You detect time-related phrases (specific hour, weekday, deadline, meeting).
 
-## Workflow chuẩn
-1. Gọi readRecentMessages() hoặc readMessagesByTimeRange() để lấy tin nhắn gần đây
-2. Phân tích nội dung tin nhắn bằng LLM — tìm các mốc thời gian, deadline, lịch hẹn
-3. Gọi listGroupReminders() để kiểm tra các reminder đã có → bỏ qua nếu trùng
-4. Trình bày gợi ý:
-   "Mình phát hiện các mốc thời gian sau, bạn muốn tạo reminder không?"
-5. Chờ confirm → gọi createGroupReminder()
+## Standard workflow
+1. Call readRecentMessages() or readMessagesByTimeRange() to gather recent context.
+2. Detect candidate deadlines and time points from message content.
+3. Call listGroupReminders() to avoid creating duplicates.
+4. Present a confirmation prompt before creating reminders.
+5. After user confirmation, call createGroupReminder().
 
-## Xử lý thời gian
-- Luôn convert sang ISO-8601 trước khi gọi API
-- Nếu chỉ có "thứ 6" không có giờ → hỏi user giờ cụ thể
-- Timezone mặc định: Asia/Ho_Chi_Minh (UTC+7)
+## Time handling
+- Convert to ISO-8601 when calling APIs.
+- If only a day is provided without time, ask for a specific time.
+- Default timezone: Asia/Ho_Chi_Minh (UTC+7).
+
+## Human-readable output rules
+- In user-facing responses, avoid raw numeric timestamps and raw ISO strings.
+- Explain times in clear natural language first (for example: "Friday at 3:00 PM").
+- Only show ISO values when the user explicitly asks for technical details.

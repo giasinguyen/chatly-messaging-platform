@@ -12,6 +12,7 @@ from app.config import settings
 from app.services.system_mcp import SystemMCPService
 
 from app.agents.chatbot_agent import ChatbotAgent
+from app.agents.mention_agent import MentionAgent
 from app.agents.unified_agent import UnifiedAgent
 from app.models.chat import ChatInput, ChatRequest, ChatResponse, ResumeRequest, SessionStatusResponse
 from app.models.stream import (
@@ -645,3 +646,48 @@ class ChatService:
                 interrupted_at=interrupt_doc.created_at,
             )
         return SessionStatusResponse(status="idle")
+
+    # ── Group @AI Mention ────────────────────────────────────────────
+
+    async def run_group_assist(
+        self,
+        user_id: str,
+        session_id: str,
+        conversation_id: str,
+        content: str,
+    ) -> None:
+        """Handle an @AI mention in a group conversation.
+
+        Creates a :class:`MentionAgent` that gathers context via read-only
+        MCP tools, generates a response, and deterministically delivers it
+        to the group via ``sendAiMessage``.
+        """
+        rows = await self._message_repo.find_by_session(session_id)
+        history = self._to_langchain_history(rows)
+
+        session_context = await self._build_session_context(
+            user_id, session_id, context_conversation_id=conversation_id,
+        )
+
+        # Assemble MCP tools (full set — MentionAgent partitions internally).
+        tools: list[BaseTool] = []
+        if self._tool_service:
+            tools = await self._tool_service.assemble_tools(user_id, [], False)
+
+        if self._llm is None:
+            raise ValueError("LLM is required for MentionAgent")
+
+        agent = MentionAgent(
+            llm=self._llm,
+            tools=tools,
+            conversation_id=conversation_id,
+        )
+
+        await self._message_repo.create_message(session_id, "user", content)
+        response_text = await agent.run(
+            message=content,
+            user_id=user_id,
+            session_context=session_context,
+            history=history,
+        )
+        await self._message_repo.create_message(session_id, "assistant", response_text)

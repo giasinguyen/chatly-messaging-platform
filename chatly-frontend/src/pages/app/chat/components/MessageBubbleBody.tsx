@@ -30,6 +30,7 @@ interface MessageBubbleBodyProps {
     repliedMsg: Message | null;
     replySenderName?: string;
     isMe: boolean;
+    isAgent: boolean;
     isBeingEdited: boolean;
     editPlainDraft: string;
     setEditPlainDraft: (value: string) => void;
@@ -56,6 +57,7 @@ export function MessageBubbleBody(props: MessageBubbleBodyProps) {
         repliedMsg,
         replySenderName,
         isMe,
+        isAgent,
         isBeingEdited,
         editPlainDraft,
         setEditPlainDraft,
@@ -227,7 +229,9 @@ export function MessageBubbleBody(props: MessageBubbleBodyProps) {
                 "px-3 py-2 text-sm shadow-sm transition-all",
                 isMe
                     ? "bg-brand text-white rounded-2xl"
-                    : "bg-muted/75 border border-border/60 text-foreground dark:bg-zinc-800/90 dark:border-zinc-700 rounded-2xl",
+                    : isAgent
+                      ? "bg-linear-to-br from-primary/10 to-primary/5 border border-primary/30 text-foreground dark:from-primary/15 dark:to-primary/5 dark:border-primary/25 rounded-2xl"
+                      : "bg-muted/75 border border-border/60 text-foreground dark:bg-zinc-800/90 dark:border-zinc-700 rounded-2xl",
                 msg.priority === "URGENT" && "ring-2 ring-red-500/60",
                 msg.priority === "IMPORTANT" && "ring-2 ring-amber-500/60",
             )}

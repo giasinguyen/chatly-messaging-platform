@@ -42,6 +42,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -67,6 +68,8 @@ public class MessageService {
     private static final int MAX_MESSAGES_PER_RANGE = 100;
     private static final String AI_MENTION_TRIGGER = "@AI";
     private static final long UNANSWERED_CHECK_DELAY_S = 1800;
+    private static final String AI_TYPING_USER_ID = "AI";
+    private static final long AI_TYPING_TIMEOUT_S = 120;
     private static final Set<String> ALLOWED_EMOJIS = Set.of("👍", "❤️", "😂", "😮", "😢", "😡", "🔥", "👏");
         private static final Set<MessageType> FORWARDABLE_TYPES = Set.of(MessageType.TEXT, MessageType.IMAGE, MessageType.FILE, MessageType.GIF, MessageType.STICKER);
 
@@ -110,6 +113,8 @@ public class MessageService {
         if (conversation.getType() == ConversationType.GROUP
                 && Boolean.TRUE.equals(conversation.getAiProactiveEnabled())
                 && isAiMention(request.getContent())) {
+            broadcastAiTyping(conversation.getId(), true);
+            scheduleAiTypingTimeout(conversation.getId());
             agentProxyClient.triggerAssistAsync(conversation.getId(), senderId, request.getContent());
         }
 
@@ -540,6 +545,45 @@ public class MessageService {
         return response;
     }
 
+    /**
+     * Send an AI-generated response message to a group conversation.
+     * The message is attributed to the requesting user but typed as AGENT.
+     * Stops the AI typing indicator and does NOT re-trigger AI processing.
+     */
+    public MessageResponse sendAiMessage(String onBehalfOfUserId, String conversationId, String content) {
+        Conversation conversation = getConversationForParticipant(conversationId, onBehalfOfUserId);
+
+        broadcastAiTyping(conversationId, false);
+
+        Message message = Message.builder()
+                .conversationId(conversationId)
+                .senderId(onBehalfOfUserId)
+                .content(content)
+                .type(MessageType.AGENT)
+                .build();
+
+        Message savedMessage = persistAndBroadcast(conversation, message, onBehalfOfUserId);
+        return messageMapper.toResponse(savedMessage);
+    }
+
+    private void broadcastAiTyping(String conversationId, boolean typing) {
+        Object payload = Map.of("userId", AI_TYPING_USER_ID, "typing", typing);
+        messagingTemplate.convertAndSend(
+                "/topic/conversation." + conversationId + ".typing",
+                payload
+        );
+    }
+
+    private void scheduleAiTypingTimeout(String conversationId) {
+        taskScheduler.schedule(
+                () -> {
+                    broadcastAiTyping(conversationId, false);
+                    log.warn("AI typing timeout reached for conversation={}", conversationId);
+                },
+                Instant.now().plusSeconds(AI_TYPING_TIMEOUT_S)
+        );
+    }
+
     private void broadcastEvent(String conversationId, ChatEvent.ChatAction action, MessageResponse message) {
         messagingTemplate.convertAndSend(
                 "/topic/conversation." + conversationId,
@@ -601,6 +645,7 @@ public class MessageService {
                         case VIDEO -> "[Video]";
                         case AUDIO -> "[Audio]";
                         case LOCATION -> "[Location]";
+                        case AGENT -> "[AI Response]";
                         default -> "[Message]";
                 };
         }

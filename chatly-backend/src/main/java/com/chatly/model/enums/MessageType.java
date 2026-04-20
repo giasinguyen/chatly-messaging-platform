@@ -12,6 +12,7 @@ public enum MessageType {
     GIF,
     STICKER,
     VCARD,
-    LOCATION
+    LOCATION,
+    AGENT
 
 }

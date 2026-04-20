@@ -10,7 +10,6 @@ from fastapi import APIRouter, BackgroundTasks, Depends, status
 from pydantic import BaseModel, Field
 
 from app.dependencies import get_briefing_service, get_chat_service, get_file_service, get_session_service
-from app.models.chat import ChatRequest
 from app.services.briefing_service import BriefingService
 from app.services.chat_service import ChatService
 from app.services.file_service import FileService
@@ -46,18 +45,18 @@ class AssistResponse(BaseModel):
 async def _run_assist(
     user_id: str,
     session_id: str,
+    conversation_id: str,
     content: str,
     chat_service: ChatService,
 ) -> None:
-    """Background task: run the agent and let it post back via MCP tools."""
+    """Background task: run the MentionAgent and deliver response via sendAiMessage."""
     try:
-        request = ChatRequest(message=content)
-        async for _ in chat_service.stream_chat(
+        await chat_service.run_group_assist(
             user_id=user_id,
             session_id=session_id,
-            request=request,
-        ):
-            pass
+            conversation_id=conversation_id,
+            content=content,
+        )
     except Exception:
         logger.exception(
             "assist task failed user_id=%s session_id=%s", user_id, session_id
@@ -93,6 +92,7 @@ async def trigger_assist(
         _run_assist,
         user_id=payload.user_id,
         session_id=session_id,
+        conversation_id=payload.conversation_id,
         content=payload.content,
         chat_service=chat_service,
     )
