@@ -8,6 +8,9 @@ from langchain_core.tools import BaseTool
 from langchain_groq import ChatGroq
 from minio import Minio
 
+from app.config import settings
+from app.services.system_mcp import SystemMCPService
+
 from app.agents.chatbot_agent import ChatbotAgent
 from app.agents.unified_agent import UnifiedAgent
 from app.models.chat import ChatInput, ChatRequest, ChatResponse, ResumeRequest, SessionStatusResponse
@@ -48,6 +51,7 @@ class ChatService:
         bucket_name: str = "uploads",
         checkpointer: Any | None = None,
         interrupt_repo: InterruptRepository | None = None,
+        system_mcp: SystemMCPService | None = None,
     ) -> None:
         self._session_service = session_service
         self._message_repo = message_repo
@@ -60,6 +64,7 @@ class ChatService:
         self._bucket_name = bucket_name
         self._checkpointer = checkpointer
         self._interrupt_repo = interrupt_repo
+        self._system_mcp = system_mcp
 
     async def _resolve_attachments(
         self,
@@ -138,31 +143,39 @@ class ChatService:
                 history.append(HumanMessage(content=content))
         return history
 
-    async def _build_session_context(self, session_id: str) -> str:
-        """Build a runtime context block listing files uploaded in this session.
+    async def _build_session_context(self, user_id: str, session_id: str) -> str:
+        """Build a runtime context block injected verbatim into the system prompt.
 
-        The returned string is injected verbatim into the system prompt so the
-        LLM always knows which file_ids are available without having to guess.
-        Returns an empty string when no files are present.
+        Includes:
+        - Chatly platform skill instructions fetched from backend MCP resources
+          (cached per process with a 5-minute TTL).
+        - List of files uploaded in this session (when present).
         """
-        if self._file_repo is None:
-            return ""
-        files = await self._file_repo.find_by_session(session_id)
-        if not files:
-            return ""
-        lines = []
-        for row in files:
-            mime = str(row.get("mime_type", ""))
-            kind = "image" if mime.startswith("image/") else "document"
-            lines.append(
-                f"  - {row['filename']} [{kind}] (file_id: {row['id']})"
-            )
-        return (
-            "\nFiles uploaded in this session"
-            " (use the exact file_id when calling tools):\n"
-            + "\n".join(lines)
-            + "\n"
-        )
+        parts: list[str] = []
+
+        if self._system_mcp is not None:
+            skill_context = await self._system_mcp.get_skill_context(user_id)
+            if skill_context:
+                parts.append(skill_context)
+
+        if self._file_repo is not None:
+            files = await self._file_repo.find_by_session(session_id)
+            if files:
+                lines = []
+                for row in files:
+                    mime = str(row.get("mime_type", ""))
+                    kind = "image" if mime.startswith("image/") else "document"
+                    lines.append(
+                        f"  - {row['filename']} [{kind}] (file_id: {row['id']})"
+                    )
+                parts.append(
+                    "\nFiles uploaded in this session"
+                    " (use the exact file_id when calling tools):\n"
+                    + "\n".join(lines)
+                    + "\n"
+                )
+
+        return "".join(parts)
 
     def _build_image_tools(
         self,
@@ -201,7 +214,7 @@ class ChatService:
         generated_attachments: list[dict[str, Any]] = []
         image_tools = self._build_image_tools(user_id, session_id, generated_attachments)
         session_context, agent = await asyncio.gather(
-            self._build_session_context(session_id),
+            self._build_session_context(user_id, session_id),
             self._select_agent(
                 user_id, session_id, request.mcp_server_ids, request.use_web_search,
                 extra_tools=image_tools,
@@ -464,7 +477,7 @@ class ChatService:
         generated_attachments: list[dict[str, Any]] = []
         image_tools = self._build_image_tools(user_id, session_id, generated_attachments)
         session_context, agent = await asyncio.gather(
-            self._build_session_context(session_id),
+            self._build_session_context(user_id, session_id),
             self._select_agent(
                 user_id, session_id, request.mcp_server_ids, request.use_web_search,
                 extra_tools=image_tools,

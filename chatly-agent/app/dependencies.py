@@ -132,6 +132,7 @@ def get_chat_service(
     tool_service: ToolService = Depends(get_tool_service),  # noqa: B008
     file_repo: FileRepository = Depends(get_file_repository),  # noqa: B008
     interrupt_repo: InterruptRepository = Depends(get_interrupt_repository),  # noqa: B008
+    system_mcp_service: SystemMCPService = Depends(get_system_mcp_service),  # noqa: B008
 ) -> ChatService:
     """Build chat service dependency."""
     from app.config import settings
@@ -151,6 +152,7 @@ def get_chat_service(
         bucket_name=get_bucket_name(),
         checkpointer=checkpointer,
         interrupt_repo=interrupt_repo,
+        system_mcp=system_mcp_service,
     )
 
 
