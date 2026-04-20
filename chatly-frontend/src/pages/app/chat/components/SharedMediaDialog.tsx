@@ -106,7 +106,7 @@ export function SharedMediaDialog({
                     <DialogTitle className="text-base">Shared Media</DialogTitle>
                 </DialogHeader>
 
-                <Tabs defaultValue={defaultTab} className="flex flex-1 min-h-0 flex-col">
+                <Tabs defaultValue={defaultTab} className="flex flex-1 min-h-0 flex-col overflow-hidden">
                     <div className="px-5 shrink-0">
                         <TabsList className="h-9 w-full bg-muted/50">
                             <TabsTrigger value="media" className="flex-1 gap-1.5 text-xs">
@@ -125,7 +125,7 @@ export function SharedMediaDialog({
                     </div>
 
                     {/* Media Tab */}
-                    <TabsContent value="media" className="mt-0 flex flex-1 min-h-0 flex-col px-5 pb-5">
+                    <TabsContent value="media" className="mt-0 flex-1 min-h-0 overflow-hidden flex flex-col px-5 pb-5">
                         <ScrollArea className="flex-1 min-h-0 pt-3">
                             {media.length === 0 && !loadingMedia ? (
                                 <p className="text-xs text-muted-foreground text-center py-10">No media yet</p>
@@ -173,7 +173,7 @@ export function SharedMediaDialog({
                     </TabsContent>
 
                     {/* Files Tab */}
-                    <TabsContent value="files" className="mt-0 flex flex-1 min-h-0 flex-col px-5 pb-5">
+                    <TabsContent value="files" className="mt-0 flex-1 min-h-0 overflow-hidden flex flex-col px-5 pb-5">
                         <ScrollArea className="flex-1 min-h-0 pt-3">
                             {files.length === 0 && !loadingFiles ? (
                                 <p className="text-xs text-muted-foreground text-center py-10">No files yet</p>
@@ -236,7 +236,7 @@ export function SharedMediaDialog({
                     </TabsContent>
 
                     {/* Links Tab */}
-                    <TabsContent value="links" className="mt-0 flex flex-1 min-h-0 flex-col px-5 pb-5">
+                    <TabsContent value="links" className="mt-0 flex-1 min-h-0 overflow-hidden flex flex-col px-5 pb-5">
                         <ScrollArea className="flex-1 min-h-0 pt-3">
                             {links.length === 0 && !loadingLinks ? (
                                 <p className="text-xs text-muted-foreground text-center py-10">No links yet</p>

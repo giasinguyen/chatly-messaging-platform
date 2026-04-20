@@ -309,7 +309,7 @@ export default function GroupInfoScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
-              await conversationService.delete(conversationId);
+              await conversationService.dissolve(conversationId);
               router.dismissAll();
             } catch (e: unknown) {
               const msg = e instanceof Error ? e.message : 'Could not dissolve group.';
@@ -672,9 +672,14 @@ export default function GroupInfoScreen() {
         {/* ── Media (Ảnh, file, link) ── */}
         {mediaFiles.length > 0 && (
           <View style={{ backgroundColor: Colors.white, padding: 16, marginBottom: 8 }}>
-            <Text style={{ fontWeight: '600', fontSize: 15, color: Colors.text, marginBottom: 10 }}>
-              Media ({mediaFiles.length})
-            </Text>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+              <Text style={{ fontWeight: '600', fontSize: 15, color: Colors.text }}>
+                Media ({mediaFiles.length})
+              </Text>
+              <TouchableOpacity onPress={() => router.push(`/chat/${conversationId}/shared-media?tab=media`)}>
+                <Text style={{ fontSize: 13, color: Colors.cta }}>View All</Text>
+              </TouchableOpacity>
+            </View>
             <ImageLightbox
               images={mediaImageUrls}
               initialIndex={lightboxIndex}
@@ -693,9 +698,12 @@ export default function GroupInfoScreen() {
                   </TouchableOpacity>
                 ))}
                 {mediaFiles.length > 4 && (
-                  <View style={{ width: 80, height: 80, borderRadius: 8, backgroundColor: Colors.bg, alignItems: 'center', justifyContent: 'center' }}>
+                  <TouchableOpacity
+                    onPress={() => router.push(`/chat/${conversationId}/shared-media?tab=media`)}
+                    style={{ width: 80, height: 80, borderRadius: 8, backgroundColor: Colors.bg, alignItems: 'center', justifyContent: 'center' }}
+                  >
                     <Ionicons name="arrow-forward" size={22} color={Colors.cta} />
-                  </View>
+                  </TouchableOpacity>
                 )}
               </View>
             </ScrollView>
@@ -705,9 +713,14 @@ export default function GroupInfoScreen() {
         {/* ── Files ── */}
         {docFiles.length > 0 && (
           <View style={{ backgroundColor: Colors.white, padding: 16, marginBottom: 8 }}>
-            <Text style={{ fontWeight: '600', fontSize: 15, color: Colors.text, marginBottom: 10 }}>
-              Files ({docFiles.length})
-            </Text>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+              <Text style={{ fontWeight: '600', fontSize: 15, color: Colors.text }}>
+                Files ({docFiles.length})
+              </Text>
+              <TouchableOpacity onPress={() => router.push(`/chat/${conversationId}/shared-media?tab=files`)}>
+                <Text style={{ fontSize: 13, color: Colors.cta }}>View All</Text>
+              </TouchableOpacity>
+            </View>
             {docFiles.slice(0, 5).map((file) => {
               const sizeStr = file.fileSize
                 ? file.fileSize > 1048576

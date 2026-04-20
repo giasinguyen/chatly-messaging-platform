@@ -21,6 +21,7 @@ import {
     Copy,
     RefreshCw,
     QrCode,
+    LogOut,
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { AddMembersDialog } from "./AddMembersDialog";
@@ -76,7 +77,7 @@ const MUTE_OPTIONS = [
 export function ConversationInfoPanel({
     conversation,
     participant,
-    currentUserId: _currentUserId,
+    currentUserId,
     onDeleteConversation,
     onOpenGroupPanel,
     onCreateGroup,
@@ -97,6 +98,20 @@ export function ConversationInfoPanel({
     const storedNickname = localPrefs.nickname ?? conversation.nickname;
 
     const [isDeleting, setIsDeleting] = useState(false);
+    const [isDismissing, setIsDismissing] = useState(false);
+    const [isLeaving, setIsLeaving] = useState(false);
+    const [isOwner, setIsOwner] = useState(false);
+
+    // Fetch current user's role in group to determine owner status
+    useEffect(() => {
+        if (!isGroup) return;
+        groupService.getMembers(conversation.id).then((res) => {
+            if (res.code === 1000) {
+                const me = res.result.find((m) => m.userId === currentUserId);
+                setIsOwner(me?.role === "OWNER");
+            }
+        }).catch(() => {});
+    }, [isGroup, conversation.id, currentUserId]);
 
     // Mute duration dialog
     const [showMuteDialog, setShowMuteDialog] = useState(false);
@@ -324,6 +339,36 @@ export function ConversationInfoPanel({
         }
     };
 
+    const handleDissolve = async () => {
+        if (!window.confirm("Are you sure you want to dissolve this group? This action cannot be undone.")) return;
+        try {
+            setIsDismissing(true);
+            await conversationService.dissolve(conversation.id);
+            onDeleteConversation();
+            navigate("/chat");
+            toast.success("Group dissolved");
+        } catch {
+            toast.error("Could not dissolve group. Please try again.");
+        } finally {
+            setIsDismissing(false);
+        }
+    };
+
+    const handleLeaveGroup = async () => {
+        if (!window.confirm("Are you sure you want to leave this group?")) return;
+        try {
+            setIsLeaving(true);
+            await groupService.removeMember(conversation.id, currentUserId);
+            onDeleteConversation();
+            navigate("/chat");
+            toast.success("You have left the group");
+        } catch {
+            toast.error("Could not leave group. Please try again.");
+        } finally {
+            setIsLeaving(false);
+        }
+    };
+
     return (
         <aside className="hidden lg:flex flex-col h-full w-[300px] xl:w-[320px] shrink-0 border-l border-border bg-background dark:bg-[#22252b] overflow-hidden">
             {/* Header */}
@@ -333,7 +378,7 @@ export function ConversationInfoPanel({
                 </h3>
             </div>
 
-            <ScrollArea className="flex-1 [&>[data-slot=scroll-area-viewport]]:overflow-x-hidden">
+            <ScrollArea className="flex-1 min-h-0 [&>[data-slot=scroll-area-viewport]]:overflow-x-hidden">
                 <div className="flex flex-col gap-0">
                     {/* Avatar + Name */}
                     <div className="flex flex-col items-center gap-2 py-5 px-4">
@@ -859,6 +904,28 @@ export function ConversationInfoPanel({
                             <Trash2 size={16} />
                             {isDeleting ? "Deleting..." : "Delete conversation"}
                         </Button>
+                        {isGroup && isOwner && (
+                            <Button
+                                variant="ghost"
+                                className="w-full justify-start text-red-500 hover:text-red-600 hover:bg-red-500/10 gap-2 mt-1"
+                                onClick={handleDissolve}
+                                disabled={isDismissing}
+                            >
+                                <Trash2 size={16} />
+                                {isDismissing ? "Dissolving..." : "Dissolve group"}
+                            </Button>
+                        )}
+                        {isGroup && (
+                            <Button
+                                variant="ghost"
+                                className="w-full justify-start text-red-500 hover:text-red-600 hover:bg-red-500/10 gap-2 mt-1"
+                                onClick={handleLeaveGroup}
+                                disabled={isLeaving}
+                            >
+                                <LogOut size={16} />
+                                {isLeaving ? "Leaving..." : "Leave group"}
+                            </Button>
+                        )}
                     </div>
                 </div>
             </ScrollArea>

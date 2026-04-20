@@ -33,8 +33,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.regex.Pattern;
 
@@ -96,6 +98,7 @@ public class ConversationService {
         List<ConversationResponse> responses = conversationRepository
                 .findByParticipantIdsContainingOrderByUpdatedAtDesc(userId)
                 .stream()
+                .filter(c -> c.getDeletedBy() == null || !c.getDeletedBy().contains(userId))
                 .map(c -> {
                     ConversationResponse res = conversationMapper.toResponse(c);
                     res.setUnreadCount(getConversationUnreadCount(c.getId(), userId));
@@ -114,6 +117,8 @@ public class ConversationService {
         Pageable pageable = PageRequest.of(page, size);
         Query query = new Query();
 
+        Criteria notDeleted = Criteria.where("deletedBy").nin(userId);
+
         if (keyword != null && !keyword.isBlank()) {
             Pattern safePattern = Pattern.compile(Pattern.quote(keyword.trim()), Pattern.CASE_INSENSITIVE);
 
@@ -131,10 +136,14 @@ public class ConversationService {
 
             query.addCriteria(new Criteria().andOperator(
                     Criteria.where("participantIds").in(userId),
+                    notDeleted,
                     new Criteria().orOperator(searchableCriteria.toArray(new Criteria[0]))
             ));
         } else {
-            query.addCriteria(Criteria.where("participantIds").in(userId));
+            query.addCriteria(new Criteria().andOperator(
+                    Criteria.where("participantIds").in(userId),
+                    notDeleted
+            ));
         }
 
         long total = mongoTemplate.count(query, Conversation.class);
@@ -154,7 +163,10 @@ public class ConversationService {
         return PagedResponse.from(new PageImpl<>(items, pageable, total));
     }
 
-    @Transactional
+    /**
+     * Per-user soft delete: hides the conversation from the user's chat list.
+     * The conversation reappears when a new message arrives.
+     */
     public void delete(String id, String userId) {
         Conversation conversation = conversationRepository.findById(id)
                 .orElseThrow(() -> new AppException(ErrorCode.CONVERSATION_NOT_FOUND));
@@ -163,19 +175,42 @@ public class ConversationService {
             throw new AppException(ErrorCode.NOT_CONVERSATION_PARTICIPANT);
         }
 
-        // Authorization for GROUP deletion: only OWNER can delete
-        if (conversation.getType() == ConversationType.GROUP) {
-            GroupMember member = groupMemberRepository.findByConversationIdAndUserId(id, UUID.fromString(userId))
-                    .orElseThrow(() -> new AppException(ErrorCode.NOT_CONVERSATION_PARTICIPANT));
-            
-            if (member.getRole() != GroupRole.OWNER) {
-                throw new AppException(ErrorCode.GROUP_PERMISSION_DENIED);
-            }
-            
-            // Delete all group memberships in Postgres
-            List<GroupMember> members = groupMemberRepository.findByConversationId(id);
-            groupMemberRepository.deleteAllInBatch(members);
+        Set<String> deletedBy = conversation.getDeletedBy();
+        if (deletedBy == null) {
+            deletedBy = new HashSet<>();
+            conversation.setDeletedBy(deletedBy);
         }
+        deletedBy.add(userId);
+        conversationRepository.save(conversation);
+    }
+
+    /**
+     * Hard-delete a GROUP conversation: removes all members, messages, notifications,
+     * and the conversation itself. Only the group OWNER may call this.
+     */
+    @Transactional
+    public void dissolve(String id, String userId) {
+        Conversation conversation = conversationRepository.findById(id)
+                .orElseThrow(() -> new AppException(ErrorCode.CONVERSATION_NOT_FOUND));
+
+        if (!conversation.getParticipantIds().contains(userId)) {
+            throw new AppException(ErrorCode.NOT_CONVERSATION_PARTICIPANT);
+        }
+
+        if (conversation.getType() != ConversationType.GROUP) {
+            throw new AppException(ErrorCode.GROUP_PERMISSION_DENIED);
+        }
+
+        GroupMember member = groupMemberRepository.findByConversationIdAndUserId(id, UUID.fromString(userId))
+                .orElseThrow(() -> new AppException(ErrorCode.NOT_CONVERSATION_PARTICIPANT));
+
+        if (member.getRole() != GroupRole.OWNER) {
+            throw new AppException(ErrorCode.GROUP_PERMISSION_DENIED);
+        }
+
+        // Delete all group memberships in Postgres
+        List<GroupMember> members = groupMemberRepository.findByConversationId(id);
+        groupMemberRepository.deleteAllInBatch(members);
 
         // Delete all associated data in MongoDB
         mongoTemplate.remove(Query.query(Criteria.where("conversationId").is(id)), Message.class);

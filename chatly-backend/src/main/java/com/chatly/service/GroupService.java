@@ -191,18 +191,17 @@ public class GroupService {
     private void transferOwnershipBeforeLeave(String conversationId, String ownerUserId) {
         UUID ownerUid = UUID.fromString(ownerUserId);
 
-        // Find an ADMIN to promote
-        List<GroupMember> admins = groupMemberRepository.findByConversationIdAndRoleIn(
+        // Find an ADMIN to promote (ordered by joinedAt for deterministic selection)
+        List<GroupMember> admins = groupMemberRepository.findByConversationIdAndRoleInOrderByJoinedAtAsc(
                 conversationId, List.of(GroupRole.ADMIN));
-        // Filter out the leaving owner (shouldn't be in admins, but just in case)
         admins = admins.stream().filter(m -> !m.getUser().getId().equals(ownerUid)).toList();
 
         GroupMember newOwner;
         if (!admins.isEmpty()) {
             newOwner = admins.getFirst();
         } else {
-            // No admins — promote first regular member
-            List<GroupMember> allMembers = groupMemberRepository.findByConversationId(conversationId);
+            // No admins — promote earliest-joined regular member
+            List<GroupMember> allMembers = groupMemberRepository.findByConversationIdOrderByJoinedAtAsc(conversationId);
             List<GroupMember> candidates = allMembers.stream()
                     .filter(m -> !m.getUser().getId().equals(ownerUid))
                     .toList();
