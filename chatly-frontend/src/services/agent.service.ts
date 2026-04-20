@@ -1,6 +1,7 @@
 import axiosClient from "@/lib/axiosClient";
 import type {
     AgentSession,
+    AgentSessionCreateOptions,
     AgentSessionList,
     AgentMessageHistory,
     AgentChatRequest,
@@ -12,8 +13,11 @@ const BASE = "/api/ai/sessions";
 
 export const agentService = {
     // ─── Sessions ────────────────────────────────────────────
-    createSession: async (title = "New Chat"): Promise<AgentSession> => {
-        const res = await axiosClient.post(BASE, { title });
+    createSession: async (options?: AgentSessionCreateOptions): Promise<AgentSession> => {
+        const res = await axiosClient.post(BASE, {
+            title: options?.title ?? "New Chat",
+            context_conversation_id: options?.context_conversation_id,
+        });
         return res.data;
     },
 

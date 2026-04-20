@@ -1,11 +1,14 @@
 import { useState } from "react";
-import { Phone, Video, Users, ChevronLeft, Search, Pin, BellOff, PanelRightOpen, PanelRightClose } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Phone, Video, Users, ChevronLeft, Search, Pin, BellOff, PanelRightOpen, PanelRightClose, Bot } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { PresenceIndicator } from "@/components/customize/PresenceIndicator";
 import { GroupCallMemberPicker } from "@/components/call/GroupCallMemberPicker";
 import { useCallContext } from "@/contexts/CallContext";
 import { useCallStore } from "@/store/call.store";
+import { agentService } from "@/services/agent.service";
+import { toast } from "sonner";
 import type { ChatUser } from "@/types/message";
 import type { CallType } from "@/types/call";
 
@@ -29,12 +32,30 @@ interface ChatHeaderProps {
 }
 
 export function ChatHeader({ user, onOpenProfile, isGroup, conversationId, otherUserId, onOpenGroupPanel, onToggleSearch, onToggleInfoPanel, isInfoPanelOpen, presenceStatus, lastSeen, onBack, isPinned, isMuted, nickname, memberCount }: ChatHeaderProps) {
+    const navigate = useNavigate();
     const { initiateCall, initiateGroupCall } = useCallContext();
     const callStatus = useCallStore((s) => s.callStatus);
     const [memberPicker, setMemberPicker] = useState<{ visible: boolean; callType: CallType }>({ visible: false, callType: "VOICE" });
+    const [isAiStarting, setIsAiStarting] = useState(false);
 
     const showCallButtons = !isGroup && !!conversationId && !!otherUserId;
     const callDisabled = callStatus !== "IDLE";
+
+    const handleAskAi = async () => {
+        if (!conversationId) return;
+        setIsAiStarting(true);
+        try {
+            const session = await agentService.createSession({
+                title: user.displayName,
+                context_conversation_id: conversationId,
+            });
+            navigate(`/chatbot/${session.id}`);
+        } catch {
+            toast.error("Failed to open AI assistant");
+        } finally {
+            setIsAiStarting(false);
+        }
+    };
 
     return (
         <header className="h-16 border-b border-border flex items-center justify-between px-2 sm:px-4 shrink-0 bg-background dark:bg-[#22252b]">
@@ -92,6 +113,18 @@ export function ChatHeader({ user, onOpenProfile, isGroup, conversationId, other
                         title="Group management"
                     >
                         <Users size={18} />
+                    </Button>
+                )}
+                {isGroup && conversationId && (
+                    <Button
+                        onClick={handleAskAi}
+                        disabled={isAiStarting}
+                        variant="ghost"
+                        size="icon"
+                        className="h-9 w-9 disabled:opacity-50 disabled:cursor-not-allowed"
+                        title="Ask AI about this group"
+                    >
+                        <Bot size={18} />
                     </Button>
                 )}
                 <Button

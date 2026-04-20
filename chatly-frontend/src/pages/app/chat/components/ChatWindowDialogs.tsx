@@ -180,6 +180,7 @@ export const ChatWindowDialogs = memo(function ChatWindowDialogs(
                     initialAllowMembersUpdate={
                         conversation.allowMembersUpdateInfo !== false
                     }
+                    initialAiProactiveEnabled={conversation.aiProactiveEnabled ?? false}
                     defaultTab={groupPanelDefaultTab}
                     onGroupUpdated={(name, avatarUrl) => {
                         setConversation((prev) =>

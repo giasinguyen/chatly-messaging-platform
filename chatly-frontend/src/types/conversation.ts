@@ -29,4 +29,5 @@ export interface ConversationResponse {
     allowMembersUpdateInfo?: boolean; // If true, all members can update group name/avatar; default true
     requireApproval?: boolean;
     inviteToken?: string | null;
+    aiProactiveEnabled?: boolean; // If true, AI will proactively answer unanswered questions in this group
 }
