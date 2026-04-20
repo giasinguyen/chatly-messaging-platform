@@ -622,35 +622,47 @@ export default function ChatScreen() {
         return;
       }
 
-      const ringingMessage = messages.find((message) => {
-        if (message.type !== 'CALL') return false;
+      const parseCallPayload = (rawContent: string): { callId?: string; status?: string; callType?: string } | null => {
         try {
-          const payload = JSON.parse(message.content) as { callId?: string; status?: string };
-          return payload.callId === callId && (payload.status === 'RINGING' || payload.status === 'ONGOING');
+          return JSON.parse(rawContent) as { callId?: string; status?: string; callType?: string };
         } catch {
-          return false;
+          return null;
         }
+      };
+
+      const activeCallMessage = messages.find((message) => {
+        if (message.type !== 'CALL') return false;
+        const payload = parseCallPayload(message.content);
+        if (!payload || payload.callId !== callId) return false;
+
+        const status = (payload.status ?? '').toUpperCase();
+        return status === 'RINGING' || status === 'ONGOING';
       });
+
+      const fallbackCallMessage = activeCallMessage
+        ?? messages.find((message) => {
+          if (message.type !== 'CALL') return false;
+          const payload = parseCallPayload(message.content);
+          return payload?.callId === callId;
+        });
 
       let callType: 'VOICE' | 'VIDEO' = 'VOICE';
       let initiatorId = '';
 
-      if (ringingMessage) {
-        try {
-          const payload = JSON.parse(ringingMessage.content) as { callType?: string };
-          callType = payload.callType === 'VIDEO' ? 'VIDEO' : 'VOICE';
-        } catch {
-          callType = 'VOICE';
-        }
-        initiatorId = ringingMessage.senderId;
+      if (fallbackCallMessage) {
+        const payload = parseCallPayload(fallbackCallMessage.content);
+        callType = payload?.callType === 'VIDEO' ? 'VIDEO' : 'VOICE';
+        initiatorId = fallbackCallMessage.senderId;
       }
+
+      const initiator = initiatorId ? participantMap[initiatorId] : null;
 
       useCallStore.getState().setIncomingGroupCall({
         callId,
         conversationId,
         initiatorId,
-        initiatorName: 'Unknown',
-        initiatorAvatar: null,
+        initiatorName: initiator?.displayName ?? 'Unknown',
+        initiatorAvatar: initiator?.avatarUrl ?? null,
         groupName: conversation.name ?? 'Group',
         groupAvatarUrl: conversation.avatarUrl ?? null,
         type: callType,
@@ -660,7 +672,7 @@ export default function ChatScreen() {
       useCallStore.getState().setCallStatus('RINGING');
       joinGroupCall(true);
     },
-    [messages, conversationId, conversation, joinGroupCall]
+    [messages, participantMap, conversationId, conversation, joinGroupCall]
   );
 
   const handleMentionPress = useCallback(

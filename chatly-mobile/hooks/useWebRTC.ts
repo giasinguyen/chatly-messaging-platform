@@ -33,6 +33,7 @@ export function useWebRTC(callbacks?: UseWebRTCCallbacks) {
     const [localStream, setLocalStream] = useState<MediaStream | null>(null);
     const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
     const [remoteStreamKey, setRemoteStreamKey] = useState(0);
+    const remoteStreamRef = useRef<MediaStream | null>(null);
 
     // Refs cho callbacks để tránh re-create peer connection khi callback thay đổi
     const callbacksRef = useRef(callbacks);
@@ -55,14 +56,47 @@ export function useWebRTC(callbacks?: UseWebRTCCallbacks) {
         };
 
         // Xử lý remote stream
-        pc.ontrack = (event: { streams: MediaStream[] }) => {
+        pc.ontrack = (event: { streams: MediaStream[]; track: MediaStreamTrack }) => {
             const remote = event.streams[0];
             if (remote) {
+                remoteStreamRef.current = remote;
                 setRemoteStream(remote);
                 // Always increment key to force RTCView re-render when tracks change
                 setRemoteStreamKey((k) => k + 1);
                 callbacksRef.current?.onRemoteStream?.(remote);
+                return;
             }
+
+            // During renegotiation, react-native-webrtc can deliver track without streams.
+            if (!event.track || !MediaStream) {
+                return;
+            }
+
+            const baseRemoteStream = remoteStreamRef.current ?? new MediaStream();
+            const hasTrack = baseRemoteStream
+                .getTracks()
+                .some((track) => track.id === event.track.id);
+
+            if (!hasTrack) {
+                baseRemoteStream.addTrack(event.track);
+            }
+
+            remoteStreamRef.current = baseRemoteStream;
+
+            const nextRemoteStream = new MediaStream(baseRemoteStream.getTracks());
+            setRemoteStream(nextRemoteStream);
+            setRemoteStreamKey((k) => k + 1);
+            callbacksRef.current?.onRemoteStream?.(nextRemoteStream);
+
+            event.track.onunmute = () => {
+                const latestRemoteStream = remoteStreamRef.current;
+                if (!latestRemoteStream || !MediaStream) {
+                    return;
+                }
+
+                setRemoteStream(new MediaStream(latestRemoteStream.getTracks()));
+                setRemoteStreamKey((k) => k + 1);
+            };
         };
 
         // Theo dõi trạng thái kết nối
@@ -254,17 +288,18 @@ export function useWebRTC(callbacks?: UseWebRTCCallbacks) {
         }
 
         // Dừng tất cả track của remote stream
-        if (remoteStream) {
-            remoteStream.getTracks().forEach((track) => track.stop());
-            setRemoteStream(null);
+        if (remoteStreamRef.current) {
+            remoteStreamRef.current.getTracks().forEach((track) => track.stop());
+            remoteStreamRef.current = null;
         }
+        setRemoteStream(null);
 
         // Đóng peer connection
         if (peerConnection.current) {
             peerConnection.current.close();
             peerConnection.current = null;
         }
-    }, [localStream, remoteStream]);
+    }, [localStream]);
 
     // Toggle mute (bật/tắt mic)
     const toggleMute = useCallback(

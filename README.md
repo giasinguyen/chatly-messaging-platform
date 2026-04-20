@@ -1,20 +1,21 @@
 <div align="center">
   <img src="_resources/images/chatly-logo-transparent.png" alt="Chatly Logo" width="180"/>
 
-  # Chatly Messaging Platform
+# Chatly Messaging Platform
 
-  [![Java](https://img.shields.io/badge/Java-21-ED8B00?logo=openjdk&logoColor=white)](https://openjdk.org/)
-  [![Spring Boot](https://img.shields.io/badge/Spring_Boot-4.0.3-6DB33F?logo=springboot&logoColor=white)](https://spring.io/projects/spring-boot)
-  [![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)](https://react.dev/)
-  [![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-  [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15+-336791?logo=postgresql&logoColor=white)](https://www.postgresql.org/)
-  [![MongoDB](https://img.shields.io/badge/MongoDB-6+-47A248?logo=mongodb&logoColor=white)](https://www.mongodb.com/)
-  [![Redis](https://img.shields.io/badge/Redis-7+-DC382D?logo=redis&logoColor=white)](https://redis.io/)
-  [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Java](https://img.shields.io/badge/Java-21-ED8B00?logo=openjdk&logoColor=white)](https://openjdk.org/)
+[![Spring Boot](https://img.shields.io/badge/Spring_Boot-4.0.3-6DB33F?logo=springboot&logoColor=white)](https://spring.io/projects/spring-boot)
+[![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)](https://react.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15+-336791?logo=postgresql&logoColor=white)](https://www.postgresql.org/)
+[![MongoDB](https://img.shields.io/badge/MongoDB-6+-47A248?logo=mongodb&logoColor=white)](https://www.mongodb.com/)
+[![Redis](https://img.shields.io/badge/Redis-7+-DC382D?logo=redis&logoColor=white)](https://redis.io/)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-  **A modern real-time messaging platform inspired by Zalo and Messenger**
+**A modern real-time messaging platform inspired by Zalo and Messenger**
 
-  [Features](#-features) • [Architecture](#️-system-architecture) • [Tech Stack](#-tech-stack) • [Project Structure](#️-project-structure) • [Getting Started](#-getting-started)
+[Features](#-features) • [Architecture](#️-system-architecture) • [Tech Stack](#-tech-stack) • [Project Structure](#️-project-structure) • [Getting Started](#-getting-started)
+
 </div>
 
 ---
@@ -25,12 +26,13 @@ Chatly is a full-stack real-time messaging platform built for educational purpos
 
 ## 👥 Team
 
-| Name | Role |
-|---|---|
-| Nguyễn Trần Gia Sĩ | Backend Developer |
-| Nguyễn Văn Minh ☁ | Frontend Developer |
-| Nguyễn Trung Nguyên 🗿 | Backend Developer |
-| Đào Quốc Tuấn | Frontend Developer |
+
+| Name                      | Role               |
+| ------------------------- | ------------------ |
+| Nguyễn Trần Gia Sĩ 🐍 | Backend Developer  |
+| Nguyễn Văn Minh ☁      | Frontend Developer |
+| Nguyễn Trung Nguyên 🗿  | Backend Developer  |
+| Đào Quốc Tuấn 🐶     | Frontend Developer |
 
 ---
 
@@ -80,14 +82,15 @@ Chatly is a full-stack real-time messaging platform built for educational purpos
 
 ### WebSocket Channels
 
-| Destination / Topic | Description |
-|---|---|
-| `/app/chat.send` | Send a new message |
-| `/app/chat.typing` | Broadcast typing status |
-| `/app/chat.seen` | Mark a message as seen |
+
+| Destination / Topic        | Description                         |
+| -------------------------- | ----------------------------------- |
+| `/app/chat.send`           | Send a new message                  |
+| `/app/chat.typing`         | Broadcast typing status             |
+| `/app/chat.seen`           | Mark a message as seen              |
 | `/topic/conversation/{id}` | Receive messages for a conversation |
-| `/topic/presence` | Broadcast online / offline status |
-| `/queue/errors` | Private error delivery to a user |
+| `/topic/presence`          | Broadcast online / offline status   |
+| `/queue/errors`            | Private error delivery to a user    |
 
 ---
 
@@ -95,43 +98,46 @@ Chatly is a full-stack real-time messaging platform built for educational purpos
 
 ### Backend (`chatly-backend`)
 
-| Component | Technology |
-|---|---|
-| Framework | Spring Boot 4.0.3 (Java 21) |
-| REST API | Spring Web MVC |
-| WebSocket | Spring WebSocket + STOMP + SockJS |
-| Security | Spring Security + JWT (JJWT 0.12.6) |
-| ORM (SQL) | Spring Data JPA + Hibernate |
-| ODM (NoSQL) | Spring Data MongoDB |
-| Cache | Spring Data Redis |
-| Mapping | MapStruct 1.6.3 + Lombok |
-| SQL Database | PostgreSQL 15 |
-| NoSQL Database | MongoDB 6 |
-| Cache / Presence | Redis 7 |
+
+| Component        | Technology                          |
+| ---------------- | ----------------------------------- |
+| Framework        | Spring Boot 4.0.3 (Java 21)         |
+| REST API         | Spring Web MVC                      |
+| WebSocket        | Spring WebSocket + STOMP + SockJS   |
+| Security         | Spring Security + JWT (JJWT 0.12.6) |
+| ORM (SQL)        | Spring Data JPA + Hibernate         |
+| ODM (NoSQL)      | Spring Data MongoDB                 |
+| Cache            | Spring Data Redis                   |
+| Mapping          | MapStruct 1.6.3 + Lombok            |
+| SQL Database     | PostgreSQL 15                       |
+| NoSQL Database   | MongoDB 6                           |
+| Cache / Presence | Redis 7                             |
 
 ### Frontend (`chatly-frontend`)
 
-| Component | Technology |
-|---|---|
-| Framework | React 19 + TypeScript 5 |
-| Build Tool | Vite 7.3 (SWC) |
-| Routing | React Router v7 |
-| State Management | Zustand |
-| UI Components | shadcn/ui + Tailwind CSS v4 |
-| Forms | React Hook Form + Zod |
-| HTTP Client | Axios (with interceptors & auto-refresh) |
-| WebSocket Client | STOMP.js + SockJS |
-| Animations | Framer Motion |
-| Notifications | Sonner |
+
+| Component        | Technology                               |
+| ---------------- | ---------------------------------------- |
+| Framework        | React 19 + TypeScript 5                  |
+| Build Tool       | Vite 7.3 (SWC)                           |
+| Routing          | React Router v7                          |
+| State Management | Zustand                                  |
+| UI Components    | shadcn/ui + Tailwind CSS v4              |
+| Forms            | React Hook Form + Zod                    |
+| HTTP Client      | Axios (with interceptors & auto-refresh) |
+| WebSocket Client | STOMP.js + SockJS                        |
+| Animations       | Framer Motion                            |
+| Notifications    | Sonner                                   |
 
 ### Mobile (`chatly-mobile`)
 
-| Component | Technology |
-|---|---|
-| Framework | Expo 54 + React Native |
-| Routing | Expo Router v6 |
-| Styling | NativeWind (Tailwind for RN) |
-| State Management | Zustand |
+
+| Component        | Technology                   |
+| ---------------- | ---------------------------- |
+| Framework        | Expo 54 + React Native       |
+| Routing          | Expo Router v6               |
+| Styling          | NativeWind (Tailwind for RN) |
+| State Management | Zustand                      |
 
 ---
 
@@ -222,15 +228,16 @@ chatly-messaging-platform/
 
 ## 🔐 Authentication & Security
 
-| Mechanism | Details |
-|---|---|
-| JWT Access Token | 1-day TTL, HMAC-SHA256 signed |
-| JWT Refresh Token | 7-day TTL, single-use rotation |
-| Token Blacklist | Stored in Redis on logout |
-| Password Hashing | BCrypt |
-| WebSocket Auth | JWT validated at handshake via channel interceptor |
-| CORS | Configurable per environment (dev / prod) |
-| Session Policy | Stateless (`SessionCreationPolicy.STATELESS`) |
+
+| Mechanism         | Details                                            |
+| ----------------- | -------------------------------------------------- |
+| JWT Access Token  | 1-day TTL, HMAC-SHA256 signed                      |
+| JWT Refresh Token | 7-day TTL, single-use rotation                     |
+| Token Blacklist   | Stored in Redis on logout                          |
+| Password Hashing  | BCrypt                                             |
+| WebSocket Auth    | JWT validated at handshake via channel interceptor |
+| CORS              | Configurable per environment (dev / prod)          |
+| Session Policy    | Stateless (`SessionCreationPolicy.STATELESS`)      |
 
 ---
 
@@ -300,15 +307,16 @@ docker-compose -f chatly-backend/docker-compose.yml up -d
 
 Base URL: `http://localhost:8080`
 
-| Module | Endpoints |
-|---|---|
-| Auth | `POST /api/auth/register` · `POST /api/auth/login` · `POST /api/auth/logout` · `POST /api/auth/refresh` |
-| Users | `GET /api/users/me` · `GET /api/users/{id}` · `PUT /api/users/{id}` |
-| Contacts | `GET /api/contacts` · `POST /api/contacts` · `PUT /api/contacts/{id}/accept` · `PUT /api/contacts/{id}/block` |
-| Conversations | `GET /api/conversations` · `POST /api/conversations` · `GET /api/conversations/{id}` |
-| Messages | `POST /api/messages` · `GET /api/messages/conversation/{id}` · `PUT /api/messages/{id}/seen` |
-| Groups | `GET /api/groups/{id}/members` · `POST /api/groups/{id}/members` · `PUT /api/groups/{id}/members/{uid}/role` · `DELETE /api/groups/{id}/members/{uid}` · `PUT /api/groups/{id}` |
-| Health | `GET /api/health` |
+
+| Module        | Endpoints                                                                                                                                                                           |
+| ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Auth          | `POST /api/auth/register` · `POST /api/auth/login` · `POST /api/auth/logout` · `POST /api/auth/refresh`                                                                          |
+| Users         | `GET /api/users/me` · `GET /api/users/{id}` · `PUT /api/users/{id}`                                                                                                               |
+| Contacts      | `GET /api/contacts` · `POST /api/contacts` · `PUT /api/contacts/{id}/accept` · `PUT /api/contacts/{id}/block`                                                                    |
+| Conversations | `GET /api/conversations` · `POST /api/conversations` · `GET /api/conversations/{id}`                                                                                              |
+| Messages      | `POST /api/messages` · `GET /api/messages/conversation/{id}` · `PUT /api/messages/{id}/seen`                                                                                      |
+| Groups        | `GET /api/groups/{id}/members` · `POST /api/groups/{id}/members` · `PUT /api/groups/{id}/members/{uid}/role` · `DELETE /api/groups/{id}/members/{uid}` · `PUT /api/groups/{id}` |
+| Health        | `GET /api/health`                                                                                                                                                                   |
 
 > Full request/response examples are available in `chatly-backend/docs/Chatly API.postman_collection.json`.
 
@@ -318,19 +326,21 @@ Base URL: `http://localhost:8080`
 
 ### Backend (`application-dev.yml`)
 
-| Key | Default | Description |
-|---|---|---|
-| `spring.datasource.url` | `jdbc:postgresql://localhost:5432/chatly` | PostgreSQL connection URL |
-| `spring.data.mongodb.uri` | `mongodb://localhost:27017/chatly` | MongoDB connection URI |
-| `spring.data.redis.host` | `localhost` | Redis host |
-| `app.jwt.secret` | _(base64 key)_ | HMAC signing key for JWT |
-| `app.jwt.expiration-ms` | `86400000` | Access token TTL (1 day) |
-| `app.cors.allowed-origins` | `http://localhost:3000` | Allowed CORS origins (comma-separated) |
+
+| Key                        | Default                                   | Description                            |
+| -------------------------- | ----------------------------------------- | -------------------------------------- |
+| `spring.datasource.url`    | `jdbc:postgresql://localhost:5432/chatly` | PostgreSQL connection URL              |
+| `spring.data.mongodb.uri`  | `mongodb://localhost:27017/chatly`        | MongoDB connection URI                 |
+| `spring.data.redis.host`   | `localhost`                               | Redis host                             |
+| `app.jwt.secret`           | _(base64 key)_                            | HMAC signing key for JWT               |
+| `app.jwt.expiration-ms`    | `86400000`                                | Access token TTL (1 day)               |
+| `app.cors.allowed-origins` | `http://localhost:3000`                   | Allowed CORS origins (comma-separated) |
 
 ### Frontend (`.env`)
 
-| Key | Example | Description |
-|---|---|---|
+
+| Key                     | Example                 | Description          |
+| ----------------------- | ----------------------- | -------------------- |
 | `VITE_BACKEND_BASE_URL` | `http://localhost:8080` | Backend API base URL |
 
 ---
@@ -339,14 +349,15 @@ Base URL: `http://localhost:8080`
 
 The system is designed for production deployment on **AWS**:
 
-| AWS Service | Purpose |
-|---|---|
-| EC2 / ECS | Spring Boot backend |
-| RDS | PostgreSQL (managed) |
-| MongoDB Atlas | MongoDB (managed) |
-| ElastiCache | Redis (managed) |
-| S3 + CloudFront | Frontend static hosting & CDN |
-| ACM + ALB | TLS termination & load balancing |
+
+| AWS Service     | Purpose                          |
+| --------------- | -------------------------------- |
+| EC2 / ECS       | Spring Boot backend              |
+| RDS             | PostgreSQL (managed)             |
+| MongoDB Atlas   | MongoDB (managed)                |
+| ElastiCache     | Redis (managed)                  |
+| S3 + CloudFront | Frontend static hosting & CDN    |
+| ACM + ALB       | TLS termination & load balancing |
 
 ```bash
 # Build the backend JAR
@@ -361,13 +372,13 @@ cd chatly-frontend && npm run build
 
 ## 🔭 Roadmap
 
-- [ ] Media sharing — image and file uploads via Amazon S3
-- [ ] Push notifications — FCM / APNs integration
-- [ ] End-to-End Encryption (E2EE)
-- [ ] Full-text message search with Elasticsearch
-- [ ] Voice & video calling via WebRTC
-- [ ] CI/CD pipeline with GitHub Actions
-- [ ] Kubernetes-based deployment
+- [ ]  Media sharing — image and file uploads via Amazon S3
+- [ ]  Push notifications — FCM / APNs integration
+- [ ]  End-to-End Encryption (E2EE)
+- [ ]  Full-text message search with Elasticsearch
+- [ ]  Voice & video calling via WebRTC
+- [ ]  CI/CD pipeline with GitHub Actions
+- [ ]  Kubernetes-based deployment
 
 ---
 
