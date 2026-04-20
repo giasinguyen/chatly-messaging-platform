@@ -4,7 +4,6 @@ import { CustomAiIcon } from "@/components/customize/CustomAiIcon";
 
 interface ChatbotHeaderProps {
     title: string;
-    onBack?: () => void;
     sidebarCollapsed?: boolean;
     onToggleSidebar?: () => void;
 }

@@ -25,30 +25,30 @@ graph TB
     Client["Client (chatly-backend)"] 
 
     subgraph agent-server ["agent-server (FastAPI)"]
-        Auth["API Key Auth\n(X-Internal-API-Key + X-User-Id)"]
+        Auth["API Key Auth\n(X-API-Key + X-User-Id)"]
         Router["API Router"]
         Service["Service Layer"]
 
         subgraph Agents["Agent Layer (LangGraph)"]
             CB["ChatbotAgent"]
-            UA["UnifiedAgent\n(ReAct — tools + RAG)"]
+            UA["UnifiedAgent\n(ReAct — tools + RAG + Image Gen)"]
         end
 
         Embed["HuggingFace Embeddings\n(BAAI/bge-base-en-v1.5)"]
     end
 
     Groq["Groq API\n(LLaMA 3.3 70B)"]
-    HF["HuggingFace\nInference API"]
+    HF["HuggingFace\nInference & Gradio APIs"]
     Tavily["Tavily\nWeb Search"]
-    MCP["External MCP Servers\n(JSON-RPC 2.0 over HTTP)"]
+    MCP["External MCP Servers\n(JSON-RPC 2.0 over HTTP/SSE)"]
 
     subgraph Infra["Infrastructure"]
-        Mongo["MongoDB\n(sessions, messages, files)"]
+        Mongo["MongoDB\n(sessions, messages, files, chunks, mcp_servers)"]
         Qdrant["Qdrant\n(vector embeddings)"]
-        MinIO["MinIO\n(file binaries)"]
+        MinIO["MinIO / S3\n(file binaries)"]
     end
 
-    Client -->|"X-Internal-API-Key header"| Auth
+    Client -->|"X-API-Key header"| Auth
     Auth --> Router
     Router --> Service
     Service --> Agents
@@ -56,6 +56,7 @@ graph TB
     Service -->|"embed queries"| HF
     Service -->|"tool calls"| Tavily
     Service -->|"tool calls"| MCP
+    Agents -->|"image gen / stickers"| HF
     Service --> Mongo
     Service --> Qdrant
     Service --> MinIO
@@ -68,37 +69,34 @@ graph TB
 ```mermaid
 graph LR
     subgraph Routers ["Routers (HTTP only)"]
-        R_Auth["auth.py"]
         R_Sessions["sessions.py"]
         R_Chat["chat.py"]
         R_Files["files.py"]
         R_MCP["mcp.py"]
-        R_Users["users.py"]
         R_Health["health.py"]
     end
 
     subgraph Services ["Services (Business Logic)"]
-        AuthSvc["AuthService"]
         SessionSvc["SessionService"]
         ChatSvc["ChatService"]
         FileSvc["FileService"]
         VectorSvc["VectorService"]
         MCPSvc["MCPService"]
         ToolSvc["ToolService"]
+        SystemMCPSvc["SystemMCPService"]
     end
 
     subgraph AgentLayer ["Agents + Graphs"]
-        BaseAgent["BaseAgent (ABC)"]
         ChatbotAgent["ChatbotAgent"]
         UnifiedAgent["UnifiedAgent\n(create_react_agent)"]
         ChatbotGraph["chatbot_graph\nSTART → llm_node → END"]
         RetrieverTool["retriever_tool\nsearch_documents()"]
         MCPTool["mcp_tool"]
         WebSearchTool["web_search_tool"]
+        ImageGenTool["image_gen_tool\ngenerate_image()\ngenerate_sticker()"]
     end
 
     subgraph Repos ["Repositories (Data Access)"]
-        UserRepo["UserRepository"]
         SessionRepo["SessionRepository"]
         MessageRepo["MessageRepository"]
         FileRepo["FileRepository"]
@@ -110,16 +108,15 @@ graph LR
     subgraph DBClients ["DB Clients (Singletons)"]
         MongoClient["Motor AsyncIOMotorClient\napp/db/mongo.py"]
         QdrantClient["AsyncQdrantClient\napp/db/qdrant.py"]
-        MinioClient["Minio Client\napp/storage/minio.py"]
+        StorageClient["Minio Client\napp/storage/minio.py"]
     end
 
     Routers --> Services
     Services --> AgentLayer
     Services --> Repos
-    AgentLayer --> BaseAgent
-    BaseAgent --> ChatbotAgent & UnifiedAgent
+    AgentLayer --> ChatbotAgent & UnifiedAgent
     ChatbotAgent --> ChatbotGraph
-    UnifiedAgent --> RetrieverTool & MCPTool & WebSearchTool
+    UnifiedAgent --> RetrieverTool & MCPTool & WebSearchTool & ImageGenTool
     Repos --> DBClients
 ```
 
@@ -140,7 +137,7 @@ sequenceDiagram
     participant LLM as Groq API
     participant DB as MongoDB
 
-    C->>MW: POST /sessions/{id}/chat + X-Internal-API-Key + X-User-Id
+    C->>MW: POST /sessions/{id}/chat + X-API-Key + X-User-Id
     MW->>MW: verify_api_key() → resolved user_id
     MW->>R: Forward authenticated request
     R->>CS: chat(user_id, session_id, request)
@@ -194,13 +191,18 @@ sequenceDiagram
 flowchart TD
     Start([Chat Request])
     AssembleTools["assemble_tools()\nMCP + web search tools"]
+    CheckImageGen{"Image Gen available?\n(HF API Key set)"}
     CheckHasContext{"VectorService.has_context\n(session has files?)"}
     BuildRetriever["create_retriever_tool()\nsession-scoped Qdrant search"]
-    CheckNeedUnified{"tools list non-empty\nOR has_context?"}
+    BuildImageTools["create_image_gen_tools()\ngenerate_image + sticker"]
+    CheckNeedUnified{"tools list non-empty\nOR has_context\nOR Image Gen enabled?"}
     UnifiedAgent["UnifiedAgent\n(create_react_agent\n+ all tools)"]
     ChatbotAgent["ChatbotAgent\n(conversation graph)"]
 
-    Start --> AssembleTools --> CheckHasContext
+    Start --> AssembleTools --> CheckImageGen
+    CheckImageGen -->|Yes| BuildImageTools
+    CheckImageGen -->|No| CheckHasContext
+    BuildImageTools --> CheckHasContext
     CheckHasContext -->|Yes| BuildRetriever
     CheckHasContext -->|No| CheckNeedUnified
     BuildRetriever --> CheckNeedUnified
@@ -208,9 +210,9 @@ flowchart TD
     CheckNeedUnified -->|No| ChatbotAgent
 ```
 
-Priority: **UnifiedAgent (tools + RAG combined) > ChatbotAgent**
+Priority: **UnifiedAgent (tools + RAG + Image Gen combined) > ChatbotAgent**
 
-The `UnifiedAgent` can handle tools and context simultaneously — RAG retrieval is just another tool (`search_documents`) in the same ReAct loop.
+The `UnifiedAgent` can handle tools, context, and image generation simultaneously — everything is exposed as LangChain tools in a single ReAct loop.
 
 ---
 
@@ -219,34 +221,22 @@ The `UnifiedAgent` can handle tools and context simultaneously — RAG retrieval
 ```mermaid
 flowchart LR
     Upload["POST /files\nmultipart upload"]
-    Validate["Validate\n• session ownership\n• file count ≤ 4\n• size ≤ 5 MB\n• mime type"]
+    Validate["Validate\n• session ownership\n• file count ≤ 4\n• size ≤ 5 MB\n• supported type"]
+    Branch{Is image?}
     Extract["Extract Text\n• PDF → pypdf\n• DOCX → python-docx\n• TXT/MD/CSV/JSON → raw"]
     Split["Chunk Text\nRecursiveCharacterTextSplitter\nsize=1000 overlap=200"]
     Embed["Embed Chunks\nHuggingFace Inference API\nBAAI/bge-base-en-v1.5\nbatch size=16"]
     StoreMeta["Store Metadata\nFileRepository → MongoDB.files"]
     StoreChunks["Store Chunk Text\nChunkRepository → MongoDB.chunks"]
     StoreVectors["Index Vectors\nQdrantRepository → Qdrant\ncollection: agent_server_chunks\ndistance: Cosine"]
-    StoreBinary["Store Binary\nMinIO bucket: uploads\nkey: user_id/session_id/uuid/filename"]
+    StoreBinary["Store Binary\nMinIO / S3\nkey: user_id/session_id/uuid/filename"]
 
-    Upload --> Validate --> Extract --> Split --> Embed
-    Embed --> StoreMeta
+    Upload --> Validate --> Branch
+    Branch -->|No| Extract --> Split --> Embed --> StoreMeta
+    Branch -->|Yes| StoreMeta
     Embed --> StoreChunks
     Embed --> StoreVectors
-    Embed --> StoreBinary
-```
-
-### RAG Retrieval (at chat time)
-
-```mermaid
-flowchart LR
-    Q["User Query"]
-    EmbedQ["Embed query\nHuggingFace API"]
-    Search["Qdrant vector search\nfilter: session_id\ntop_k=5, threshold=0.5"]
-    Context["Inject context\ninto RAG prompt"]
-    LLM["ChatGroq\ngenerate answer"]
-    Ans["Answer"]
-
-    Q --> EmbedQ --> Search --> Context --> LLM --> Ans
+    StoreMeta --> StoreBinary
 ```
 
 ---
@@ -262,13 +252,13 @@ sequenceDiagram
     participant Ext as External MCP Server
     participant DB as MongoDB
 
-    U->>API: POST /mcp/servers {name, url, headers}
-    API->>MCPC: list_tools(url)
-    MCPC->>Ext: POST /mcp {"method": "tools/list", ...}
-    Ext-->>MCPC: [{name, description, inputSchema}, ...]
+    U->>API: POST /mcp/servers {name, url, transport, headers}
+    API->>MCPC: list_tools(url, transport)
+    MCPC->>Ext: tools/list (HTTP POST or SSE)
+    Ext-->>MCPC: [tool definitions]
     MCPC-->>MCPS: tool list
     MCPS->>DB: MCPRepository.create()
-    DB-->>API: server ID
+    DB-->>API: server record
     API-->>U: 201 MCPServerResponse
 
     U->>API: POST /sessions/{id}/chat {mcp_server_ids: ["srv1"]}
@@ -277,8 +267,8 @@ sequenceDiagram
     DB-->>MCPS: [server docs]
     MCPS->>Ext: tools/list (live fetch)
     Ext-->>MCPS: tool definitions
-    MCPS-->>API: LangChain BaseTool list
-    API->>API: build ToolAgent with tools
+    MCPS-->>API: tool info + server metadata
+    API->>API: build UnifiedAgent with dynamic MCP tools
     API->>Ext: call_tool() via MCPClient (during ReAct loop)
     Ext-->>API: tool result
     API-->>U: final answer
@@ -316,18 +306,18 @@ stateDiagram-v2
         LangGraph prebuilt create_react_agent
         LLM decides which tools to call
         Loops until final answer
-        Checkpointer: MemorySaver
     end note
 
     note right of tools
         Any combination of:
         • search_documents (Qdrant retriever)
+        • generate_image / generate_sticker
         • mcp_tool (external MCP servers)
         • web_search_tool (Tavily)
     end note
 ```
 
-Each `UnifiedAgent` instance is built fresh per request by `_select_agent()` and receives only the tools relevant to that request. RAG retrieval is exposed as a LangChain `@tool` — no separate graph is needed.
+Each `UnifiedAgent` instance is built fresh per request by `_select_agent()` and receives only the tools relevant to that request.
 
 ---
 
@@ -337,18 +327,9 @@ Each `UnifiedAgent` instance is built fresh per request by `_select_agent()` and
 
 ```mermaid
 erDiagram
-    users {
-        ObjectId _id PK
-        string email UK
-        string hashed_password
-        string full_name
-        bool is_active
-        datetime created_at
-    }
-
     sessions {
         ObjectId _id PK
-        string user_id FK
+        string user_id
         string title
         datetime created_at
         datetime updated_at
@@ -359,19 +340,21 @@ erDiagram
         string session_id FK
         string role
         string content
+        list attachments
         datetime created_at
     }
 
     files {
         ObjectId _id PK
         string session_id FK
-        string user_id FK
+        string user_id
         string filename
         string mime_type
         int size_bytes
         string minio_bucket
         string object_key
         string etag
+        string source
         datetime created_at
     }
 
@@ -379,24 +362,23 @@ erDiagram
         ObjectId _id PK
         string session_id FK
         string file_id FK
-        string user_id FK
+        string user_id
         string content
         int chunk_index
     }
 
     mcp_servers {
         ObjectId _id PK
-        string user_id FK
+        string user_id
         string name
         string url
+        string transport
         dict headers
         bool is_active
         datetime created_at
         datetime updated_at
     }
 
-    users ||--o{ sessions : "has"
-    users ||--o{ mcp_servers : "owns"
     sessions ||--o{ messages : "contains"
     sessions ||--o{ files : "has"
     files ||--o{ chunks : "split into"
@@ -412,10 +394,11 @@ erDiagram
 | `user_id` | string (payload) | Owner reference |
 | `content` | string (payload) | Raw chunk text returned to LLM |
 | `chunk_index` | int (payload) | Position within original file |
+| `filename` | string (payload) | Source filename for citations |
 
-### MinIO Bucket (`uploads`)
+### Object Storage Bucket (`uploads`)
 
-Object key pattern: `{user_id}/{session_id}/{uuid4}/{original_filename}`
+Object key pattern: `{user_id}/{session_id}/{uuid4 or 'generated'}/{filename}`
 
 ---
 
@@ -428,7 +411,7 @@ flowchart TD
     CORS["CORSMiddleware\nCheck Origin"]
     Route["Route Handler"]
     Protected{Protected\nroute?}
-    APIKey["verify_api_key()\nConstant-time compare\nX-Internal-API-Key header"]
+    APIKey["verify_api_key()\nConstant-time compare\nX-API-Key header"]
     UserID["Extract X-User-Id header\n(forwarded by chatly-backend)"]
     Ownership["Service-level\nownership check\nuser_id == doc.user_id"]
     Business["Business Logic"]
@@ -439,16 +422,6 @@ flowchart TD
     Protected -->|Yes| APIKey --> UserID --> Ownership --> Business
     Protected -->|No| Public
 ```
-
-**Key security properties:**
-
-- **Internal API key** (`INTERNAL_API_KEY` env var) verified with constant-time comparison — shared secret between `chatly-backend` and `agent-server`
-- `X-User-Id` header forwarded by `chatly-backend` — agent-server trusts it after API key validation
-- **Ownership enforced** at the service layer for every session/file/MCP operation — explicit `user_id` checks
-- File uploads validated: MIME type, size limit (default 5 MB), file count per session (max 4)
-- Rate limiting on chat endpoints: 30 requests / minute (SlowAPI)
-- CORS origins explicitly configured via `CORS_ORIGINS` env var
-- MCP server connectivity verified **before** persisting to database
 
 ---
 
@@ -471,18 +444,6 @@ graph TB
     MinIOInit --> MinIO
 ```
 
-**Health checks:** All data services (`mongodb`, `qdrant`, `minio`) have Docker health checks. The `app` service waits for all three to be healthy before starting.
-
-**Startup sequence in `app/main.py` lifespan:**
-1. Ping MongoDB: `admin.command("ping")`
-2. Ping Qdrant: `get_collections()`
-3. Ensure MinIO bucket exists: `ensure_bucket_exists(minio_client, bucket_name)`
-4. All three steps skipped when `APP_ENV=test`
-
-**Shutdown sequence:**
-1. `close_client()` — MongoDB Motor client
-2. `close_client()` — Qdrant async client
-
 ---
 
 ## 11. Layer Responsibilities
@@ -492,21 +453,10 @@ graph TB
 | **Routers** | `app/routers/` | HTTP request/response, status codes, DI injection | Business logic, DB calls |
 | **Services** | `app/services/` | Business logic, orchestration, ownership checks | Direct DB/Motor calls |
 | **Repositories** | `app/repositories/` | All MongoDB and Qdrant I/O | Business logic |
-| **Agents** | `app/agents/` | LangGraph invocation, streaming | Direct DB calls |
+| **Agents** | `app/agents/` | LangGraph invocation, token streaming | Direct DB calls |
 | **Graphs** | `app/graphs/` | LangGraph state machine definitions | Side effects outside state |
 | **DB clients** | `app/db/` | Motor and Qdrant singleton clients | Business logic |
-| **Storage** | `app/storage/` | MinIO singleton client | Business logic |
+| **Storage** | `app/storage/` | MinIO / S3 singleton client | Business logic |
 | **Models** | `app/models/` | Pydantic schemas for API I/O | Logic |
-| **Utils** | `app/utils/` | LLM factory, embedder factory, JWT helpers | Stateful operations |
-
-### Dependency Rule
-
-```
-Routers → Services → Repositories → DB Clients
-              ↓
-           Agents → Graphs → LLM (Groq)
-              ↓
-           Tools → MCPClient / TavilySearch
-```
-
-No layer may import from a layer above it. Repositories are the **only** layer allowed to call Motor or Qdrant clients directly.
+| **Utils** | `app/utils/` | LLM factory, embedder factory | Stateful operations |
+| **Tools** | `app/tools/` | External tool implementations (Retriever, MCP, Web, Image Gen) | Business logic |

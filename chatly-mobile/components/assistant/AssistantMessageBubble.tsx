@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Markdown from '@ronradtke/react-native-markdown-display';
@@ -68,7 +69,7 @@ const markdownStyles = {
 
 import { Platform } from 'react-native';
 
-export function AssistantMessageBubble({
+export const AssistantMessageBubble = memo(function AssistantMessageBubble({
   message,
   isLast,
   isError,
@@ -160,4 +161,9 @@ export function AssistantMessageBubble({
       </View>
     </View>
   );
-}
+}, (prev, next) =>
+  prev.message.id === next.message.id &&
+  prev.message.content === next.message.content &&
+  prev.isLast === next.isLast &&
+  prev.isError === next.isError
+);

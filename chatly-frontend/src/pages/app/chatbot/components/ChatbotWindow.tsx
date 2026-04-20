@@ -9,6 +9,7 @@ import { ChatbotEmptyState } from "./ChatbotEmptyState";
 import { useChatbotStore } from "@/store/chatbot.store";
 import { useAgentStream } from "@/hooks/useAgentStream";
 import { agentService } from "@/services/agent.service";
+import { AgentThinking } from "./AgentThinking";
 import { toast } from "sonner";
 import type { AgentMessage, MessageAttachment } from "@/types/agent";
 
@@ -40,7 +41,7 @@ export function ChatbotWindow({ sessionId, sidebarCollapsed, onToggleSidebar }: 
         setDraft,
     } = useChatbotStore();
 
-    const { startStream, cancelStream } = useAgentStream();
+    const { startStream, cancelStream, resumeStream, toolCalls, interrupt } = useAgentStream(sessionId);
     const messages = sessionId ? (messagesBySession[sessionId] ?? []) : [];
     const session = sessions.find((s) => s.id === sessionId);
     const isStreaming =
@@ -196,11 +197,21 @@ export function ChatbotWindow({ sessionId, sidebarCollapsed, onToggleSidebar }: 
                 <ChatbotMessageList
                     messages={messages}
                     sessionId={sessionId}
+                    interrupt={interrupt}
+                    onApprove={() => resumeStream(sessionId, true)}
+                    onReject={() => resumeStream(sessionId, false)}
                     onEdit={handleEdit}
                     onRetry={handleRetry}
                     onRetryLast={handleRetryLast}
                 />
             ) : null}
+
+            {/* Tool call progress while streaming */}
+            {isStreaming && toolCalls.length > 0 && (
+                <div className="px-4">
+                    <AgentThinking toolCalls={toolCalls} />
+                </div>
+            )}
 
             {/* Composer — always visible */}
             <ChatbotComposer
@@ -208,8 +219,9 @@ export function ChatbotWindow({ sessionId, sidebarCollapsed, onToggleSidebar }: 
                 isStreaming={isStreaming}
                 onCancel={cancelStream}
                 onSend={handleSend}
-                disabled={isStreaming}
+                disabled={isStreaming || interrupt !== null}
             />
+
         </div>
     );
 }
