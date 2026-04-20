@@ -306,6 +306,9 @@ public class GroupService {
         if (request.getRequireApproval() != null && isOwnerOrAdmin) {
             conversation.setRequireApproval(request.getRequireApproval());
         }
+        if (request.getAiProactiveEnabled() != null && isOwnerOrAdmin) {
+            conversation.setAiProactiveEnabled(request.getAiProactiveEnabled());
+        }
 
         conversation = conversationRepository.save(conversation);
         ConversationResponse response = conversationMapper.toResponse(conversation);

@@ -1,5 +1,6 @@
 import { memo } from "react";
 import { Loader2, ShieldOff, Upload } from "lucide-react";
+import { CustomAiIcon } from "@/components/customize/CustomAiIcon";
 import {
     AlertDialog,
     AlertDialogAction,
@@ -30,14 +31,17 @@ export const DragDropOverlay = memo(function DragDropOverlay() {
 
 interface TypingIndicatorProps {
     typingDisplayName: string;
+    isAi?: boolean;
 }
 
 export const TypingIndicator = memo(function TypingIndicator({
     typingDisplayName,
+    isAi,
 }: TypingIndicatorProps) {
     return (
         <div className="absolute bottom-24 left-6 z-10 animate-in fade-in slide-in-from-bottom-2">
             <div className="flex items-center gap-2 bg-muted/80 backdrop-blur-sm px-3 py-1.5 rounded-full border border-border shadow-sm">
+                {isAi && <CustomAiIcon className="h-4 w-4 text-primary" />}
                 <div className="flex gap-1">
                     <span
                         className="w-1.5 h-1.5 bg-brand rounded-full animate-bounce"

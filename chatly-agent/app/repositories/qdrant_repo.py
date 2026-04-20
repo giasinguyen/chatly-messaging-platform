@@ -42,24 +42,28 @@ class QdrantRepository:
         chunks: Sequence[str],
         embeddings: Sequence[Sequence[float]],
         filename: str = "",
+        conversation_id: str | None = None,
     ) -> None:
         """Persist chunk vectors and payloads to Qdrant."""
         await self._ensure_collection()
 
         points: list[models.PointStruct] = []
         for index, (content, vector) in enumerate(zip(chunks, embeddings, strict=True)):
+            payload: dict[str, Any] = {
+                "session_id": session_id,
+                "file_id": file_id,
+                "user_id": user_id,
+                "content": content,
+                "chunk_index": index,
+                "filename": filename,
+            }
+            if conversation_id is not None:
+                payload["conversation_id"] = conversation_id
             points.append(
                 models.PointStruct(
                     id=str(uuid.uuid4()),
                     vector=list(vector),
-                    payload={
-                        "session_id": session_id,
-                        "file_id": file_id,
-                        "user_id": user_id,
-                        "content": content,
-                        "chunk_index": index,
-                        "filename": filename,
-                    },
+                    payload=payload,
                 )
             )
 
@@ -126,3 +130,46 @@ class QdrantRepository:
             points_selector=selector,
             wait=True,
         )
+
+    async def search_combined(
+        self,
+        embedding: list[float],
+        session_id: str,
+        conversation_id: str,
+        top_k: int = 5,
+        threshold: float = 0.5,
+    ) -> list[dict[str, Any]]:
+        """Search vectors matching either session or conversation scope (OR logic)."""
+        await self._ensure_collection()
+
+        query_filter = models.Filter(
+            should=[
+                models.FieldCondition(
+                    key="session_id",
+                    match=models.MatchValue(value=session_id),
+                ),
+                models.FieldCondition(
+                    key="conversation_id",
+                    match=models.MatchValue(value=conversation_id),
+                ),
+            ],
+            min_should=models.MinShould(conditions=[], min_count=1),
+        )
+        response = await self._client.query_points(
+            collection_name=self._collection_name,
+            query=embedding,
+            query_filter=query_filter,
+            with_payload=True,
+            limit=top_k,
+            score_threshold=threshold,
+        )
+
+        rows: list[dict[str, Any]] = []
+        for point in response.points:
+            payload = point.payload or {}
+            if not isinstance(payload, dict):
+                continue
+            row = dict(payload)
+            row["score"] = float(point.score)
+            rows.append(row)
+        return rows

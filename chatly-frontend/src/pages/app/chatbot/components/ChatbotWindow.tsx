@@ -9,9 +9,14 @@ import { ChatbotEmptyState } from "./ChatbotEmptyState";
 import { useChatbotStore } from "@/store/chatbot.store";
 import { useAgentStream } from "@/hooks/useAgentStream";
 import { agentService } from "@/services/agent.service";
+import { conversationService } from "@/services/conversation.service";
+import { fileService } from "@/services/file.service";
+import { ForwardToChatDialog } from "./ForwardToChatDialog";
+import { useAuthStore } from "@/store/auth.store";
 import { AgentThinking } from "./AgentThinking";
 import { toast } from "sonner";
 import type { AgentMessage, MessageAttachment } from "@/types/agent";
+import type { Attachment } from "@/types/message";
 
 const DRAFT_SESSION_PLACEHOLDER = "__new__";
 
@@ -25,6 +30,8 @@ export function ChatbotWindow({ sessionId, sidebarCollapsed, onToggleSidebar }: 
     const navigate = useNavigate();
     const [searchParams, setSearchParams] = useSearchParams();
     const autoSendFired = useRef(false);
+    const { user } = useAuthStore();
+    const [forwardingAgentMessage, setForwardingAgentMessage] = useState<AgentMessage | null>(null);
     const {
         sessions,
         messagesBySession,
@@ -49,6 +56,24 @@ export function ChatbotWindow({ sessionId, sidebarCollapsed, onToggleSidebar }: 
     const [loadingHistory, setLoadingHistory] = useState(
         sessionId ? !messagesBySession[sessionId]?.length : false,
     );
+    const [contextConversationName, setContextConversationName] = useState<string | undefined>();
+
+    // Load context conversation name when session has a context_conversation_id
+    useEffect(() => {
+        if (!session?.context_conversation_id) {
+            setContextConversationName(undefined);
+            return;
+        }
+        conversationService.getById(session.context_conversation_id)
+            .then((res) => {
+                if (res.code === 1000 && res.result) {
+                    setContextConversationName(res.result.name ?? "Group chat");
+                }
+            })
+            .catch(() => {
+                // Silently ignore — name is non-critical
+            });
+    }, [session?.context_conversation_id]);
 
     // Set active session and load history
     useEffect(() => {
@@ -95,6 +120,43 @@ export function ChatbotWindow({ sessionId, sidebarCollapsed, onToggleSidebar }: 
             cancelled = true;
         };
     }, [sessionId]);
+
+    const handleForwardToChat = useCallback((msg: AgentMessage) => {
+        setForwardingAgentMessage(msg);
+    }, []);
+
+    const handleForwardToChatConfirm = useCallback(
+        async (conversationId: string) => {
+            if (!forwardingAgentMessage || !sessionId) return;
+
+            const uploadedAttachments: Attachment[] = [];
+            for (const att of forwardingAgentMessage.attachments) {
+                try {
+                    const blob = await agentService.downloadFile(sessionId, att.file_id);
+                    const file = new File([blob], att.filename, { type: att.content_type });
+                    const uploaded = await fileService.upload(file, conversationId);
+                    uploadedAttachments.push({
+                        fileId: uploaded.fileId,
+                        url: uploaded.url,
+                        name: uploaded.fileName,
+                        type: uploaded.fileType,
+                        size: uploaded.fileSize,
+                    });
+                } catch {
+                    toast.error(`Could not transfer file: ${att.filename}`);
+                }
+            }
+
+            setForwardingAgentMessage(null);
+            navigate(`/chat/${conversationId}`, {
+                state: {
+                    prefillContent: forwardingAgentMessage.content || undefined,
+                    prefillAttachments: uploadedAttachments.length > 0 ? uploadedAttachments : undefined,
+                },
+            });
+        },
+        [forwardingAgentMessage, sessionId, navigate],
+    );
 
     const handleSend = useCallback(
         async (content: string, attachments: MessageAttachment[] = []) => {
@@ -192,7 +254,12 @@ export function ChatbotWindow({ sessionId, sidebarCollapsed, onToggleSidebar }: 
 
             {/* Messages or empty state */}
             {showEmptyState ? (
-                <ChatbotEmptyState />
+                <ChatbotEmptyState
+                    sidebarCollapsed={sidebarCollapsed}
+                    onToggleSidebar={onToggleSidebar}
+                    onChipSelect={handleSend}
+                    contextConversationName={contextConversationName}
+                />
             ) : sessionId ? (
                 <ChatbotMessageList
                     messages={messages}
@@ -203,6 +270,7 @@ export function ChatbotWindow({ sessionId, sidebarCollapsed, onToggleSidebar }: 
                     onEdit={handleEdit}
                     onRetry={handleRetry}
                     onRetryLast={handleRetryLast}
+                    onForwardToChat={handleForwardToChat}
                 />
             ) : null}
 
@@ -220,6 +288,16 @@ export function ChatbotWindow({ sessionId, sidebarCollapsed, onToggleSidebar }: 
                 onCancel={cancelStream}
                 onSend={handleSend}
                 disabled={isStreaming || interrupt !== null}
+            />
+
+            {/* Forward agent message to chat conversation */}
+            <ForwardToChatDialog
+                open={!!forwardingAgentMessage}
+                currentUserId={user?.id ?? ""}
+                onOpenChange={(open) => {
+                    if (!open) setForwardingAgentMessage(null);
+                }}
+                onConfirm={handleForwardToChatConfirm}
             />
 
         </div>

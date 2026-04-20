@@ -5,6 +5,7 @@ import {
     Settings,
     Trash2,
     MessageSquare,
+    MessagesSquare,
     Pencil,
     Check,
     X,
@@ -182,6 +183,8 @@ export function ChatbotSessionSidebar({ activeSessionId, onToggleCollapse }: Pro
                         {sessions.map((session) => {
                             const isEditing = editingId === session.id;
                             const isActive = session.id === activeSessionId;
+                            const isGroupContext = !!session.context_conversation_id;
+                            const SessionIcon = isGroupContext ? MessagesSquare : MessageSquare;
                             return (
                                 <div
                                     key={session.id}
@@ -191,14 +194,18 @@ export function ChatbotSessionSidebar({ activeSessionId, onToggleCollapse }: Pro
                                     className={cn(
                                         "w-full flex items-center gap-3 px-4 py-3 text-left transition-colors group cursor-pointer",
                                         isActive
-                                            ? "bg-brand/8 border-r-2 border-brand"
+                                            ? isGroupContext
+                                                ? "bg-violet-500/8 border-r-2 border-violet-500"
+                                                : "bg-brand/8 border-r-2 border-brand"
                                             : "hover:bg-muted/50",
                                     )}
                                 >
-                                    <MessageSquare
+                                    <SessionIcon
                                         className={cn(
                                             "h-4 w-4 shrink-0",
-                                            isActive ? "text-brand" : "text-muted-foreground",
+                                            isActive
+                                                ? isGroupContext ? "text-violet-500" : "text-brand"
+                                                : isGroupContext ? "text-violet-400" : "text-muted-foreground",
                                         )}
                                     />
                                     <div className="flex-1 min-w-0">
@@ -254,9 +261,16 @@ export function ChatbotSessionSidebar({ activeSessionId, onToggleCollapse }: Pro
                                                 >
                                                     {session.title}
                                                 </p>
-                                                <p className="text-[11px] text-muted-foreground truncate">
-                                                    {new Date(session.created_at).toLocaleDateString("en-US")}
-                                                </p>
+                                                <div className="flex items-center gap-1.5 mt-0.5">
+                                                    {isGroupContext && (
+                                                        <span className="inline-flex items-center rounded-full bg-violet-100 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400 text-[10px] font-medium px-1.5 py-0 leading-4 shrink-0">
+                                                            group
+                                                        </span>
+                                                    )}
+                                                    <p className="text-[11px] text-muted-foreground truncate">
+                                                        {new Date(session.created_at).toLocaleDateString("en-US")}
+                                                    </p>
+                                                </div>
                                             </>
                                         )}
                                     </div>

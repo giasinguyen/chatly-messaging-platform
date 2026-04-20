@@ -8,7 +8,11 @@ from langchain_core.tools import BaseTool
 from langchain_groq import ChatGroq
 from minio import Minio
 
+from app.config import settings
+from app.services.system_mcp import SystemMCPService
+
 from app.agents.chatbot_agent import ChatbotAgent
+from app.agents.mention_agent import MentionAgent
 from app.agents.unified_agent import UnifiedAgent
 from app.models.chat import ChatInput, ChatRequest, ChatResponse, ResumeRequest, SessionStatusResponse
 from app.models.stream import (
@@ -48,6 +52,7 @@ class ChatService:
         bucket_name: str = "uploads",
         checkpointer: Any | None = None,
         interrupt_repo: InterruptRepository | None = None,
+        system_mcp: SystemMCPService | None = None,
     ) -> None:
         self._session_service = session_service
         self._message_repo = message_repo
@@ -60,6 +65,7 @@ class ChatService:
         self._bucket_name = bucket_name
         self._checkpointer = checkpointer
         self._interrupt_repo = interrupt_repo
+        self._system_mcp = system_mcp
 
     async def _resolve_attachments(
         self,
@@ -87,6 +93,7 @@ class ChatService:
         mcp_server_ids: list[str],
         use_web_search: bool,
         extra_tools: list[BaseTool] | None = None,
+        context_conversation_id: str | None = None,
     ) -> ChatbotAgent | UnifiedAgent:
         """
         Agent selection priority:
@@ -100,7 +107,9 @@ class ChatService:
                 user_id, mcp_server_ids, use_web_search
             )
 
-        has_context = await self._vector_service.has_context(session_id)
+        has_context = await self._vector_service.has_context(
+            session_id, conversation_id=context_conversation_id
+        )
         merged_extra = list(extra_tools) if extra_tools else []
 
         if tools or has_context or merged_extra:
@@ -108,7 +117,10 @@ class ChatService:
                 raise ValueError("LLM is required for unified agent")
             all_tools = list(tools)
             if has_context:
-                all_tools.append(create_retriever_tool(self._vector_service, session_id))
+                all_tools.append(create_retriever_tool(
+                    self._vector_service, session_id,
+                    conversation_id=context_conversation_id,
+                ))
             all_tools.extend(merged_extra)
             logger.info(
                 "Agent selected: UnifiedAgent (tools=%d has_context=%s) user_id=%s session_id=%s",
@@ -138,31 +150,54 @@ class ChatService:
                 history.append(HumanMessage(content=content))
         return history
 
-    async def _build_session_context(self, session_id: str) -> str:
-        """Build a runtime context block listing files uploaded in this session.
+    async def _build_session_context(
+        self,
+        user_id: str,
+        session_id: str,
+        context_conversation_id: str | None = None,
+    ) -> str:
+        """Build a runtime context block injected verbatim into the system prompt.
 
-        The returned string is injected verbatim into the system prompt so the
-        LLM always knows which file_ids are available without having to guess.
-        Returns an empty string when no files are present.
+        Includes:
+        - Chatly platform skill instructions fetched from backend MCP resources
+          (cached per process with a 5-minute TTL).
+        - Active conversation context when the session is linked to a group/DM.
+        - List of files uploaded in this session (when present).
         """
-        if self._file_repo is None:
-            return ""
-        files = await self._file_repo.find_by_session(session_id)
-        if not files:
-            return ""
-        lines = []
-        for row in files:
-            mime = str(row.get("mime_type", ""))
-            kind = "image" if mime.startswith("image/") else "document"
-            lines.append(
-                f"  - {row['filename']} [{kind}] (file_id: {row['id']})"
+        parts: list[str] = []
+
+        if self._system_mcp is not None:
+            skill_context = await self._system_mcp.get_skill_context(user_id)
+            if skill_context:
+                parts.append(skill_context)
+
+        if context_conversation_id is not None:
+            parts.append(
+                f"\n\n## Active Conversation Context\n"
+                f"You are currently assisting inside conversation ID: `{context_conversation_id}`.\n"
+                f"When the user says 'this group', 'here', 'this conversation', or similar, "
+                f"they are referring to conversation ID: `{context_conversation_id}`.\n"
+                f"Use `getConversationInfo` or `getGroupInfo` to fetch details when needed.\n"
             )
-        return (
-            "\nFiles uploaded in this session"
-            " (use the exact file_id when calling tools):\n"
-            + "\n".join(lines)
-            + "\n"
-        )
+
+        if self._file_repo is not None:
+            files = await self._file_repo.find_by_session(session_id)
+            if files:
+                lines = []
+                for row in files:
+                    mime = str(row.get("mime_type", ""))
+                    kind = "image" if mime.startswith("image/") else "document"
+                    lines.append(
+                        f"  - {row['filename']} [{kind}] (file_id: {row['id']})"
+                    )
+                parts.append(
+                    "\nFiles uploaded in this session"
+                    " (use the exact file_id when calling tools):\n"
+                    + "\n".join(lines)
+                    + "\n"
+                )
+
+        return "".join(parts)
 
     def _build_image_tools(
         self,
@@ -193,7 +228,8 @@ class ChatService:
         request: ChatRequest,
     ) -> ChatResponse:
         """Run one full chat turn and persist both user and assistant messages."""
-        await self._session_service.get_session(user_id, session_id)
+        session = await self._session_service.get_session(user_id, session_id)
+        conv_id: str | None = session.get("context_conversation_id")
 
         rows = await self._message_repo.find_by_session(session_id)
         history = self._to_langchain_history(rows)
@@ -201,10 +237,11 @@ class ChatService:
         generated_attachments: list[dict[str, Any]] = []
         image_tools = self._build_image_tools(user_id, session_id, generated_attachments)
         session_context, agent = await asyncio.gather(
-            self._build_session_context(session_id),
+            self._build_session_context(user_id, session_id, context_conversation_id=conv_id),
             self._select_agent(
                 user_id, session_id, request.mcp_server_ids, request.use_web_search,
                 extra_tools=image_tools,
+                context_conversation_id=conv_id,
             ),
         )
 
@@ -354,6 +391,7 @@ class ChatService:
         user_id: str,
         request: ChatRequest,
         approved: bool,
+        generated_attachments: list[dict[str, Any]] | None = None,
     ) -> AsyncIterator[str]:
         """Resume a graph from an interrupt_before=['tools'] pause.
 
@@ -361,6 +399,10 @@ class ChatService:
         If approved=False: inject ToolMessage rejections then resume so the LLM
             can respond without executing the sensitive tools.
         Yields SSE strings; handles chained interrupts.
+
+        ``generated_attachments`` must be the same list passed to
+        ``_build_image_tools`` so that any files created by image/sticker tools
+        during this resumed turn are captured and included in the done_event.
         """
         if not approved:
             # Inject rejection ToolMessages so the graph skips the tools node
@@ -383,7 +425,8 @@ class ChatService:
             )
 
         full_content = [""]
-        generated_attachments: list[dict[str, Any]] = []
+        if generated_attachments is None:
+            generated_attachments = []
         try:
             # Resume from checkpoint by passing None as input
             async for event in graph.astream_events(None, config, version="v2"):
@@ -456,7 +499,8 @@ class ChatService:
                 )
                 return
 
-        await self._session_service.get_session(user_id, session_id)
+        session = await self._session_service.get_session(user_id, session_id)
+        conv_id: str | None = session.get("context_conversation_id")
 
         rows = await self._message_repo.find_by_session(session_id)
         history = self._to_langchain_history(rows)
@@ -464,10 +508,11 @@ class ChatService:
         generated_attachments: list[dict[str, Any]] = []
         image_tools = self._build_image_tools(user_id, session_id, generated_attachments)
         session_context, agent = await asyncio.gather(
-            self._build_session_context(session_id),
+            self._build_session_context(user_id, session_id, context_conversation_id=conv_id),
             self._select_agent(
                 user_id, session_id, request.mcp_server_ids, request.use_web_search,
                 extra_tools=image_tools,
+                context_conversation_id=conv_id,
             ),
         )
         agent_type = agent.agent_type
@@ -561,13 +606,17 @@ class ChatService:
             return
 
         tool_config = interrupt_doc.tool_config
+        # Rebuild image tools with a fresh attachment list so that any files
+        # created during this resumed turn are captured in the done_event.
+        generated_attachments: list[dict[str, Any]] = []
+        image_tools = self._build_image_tools(user_id, session_id, generated_attachments)
         # Reconstruct the agent with the exact tool set from the original request
         agent = await self._select_agent(
             user_id,
             session_id,
             mcp_server_ids=tool_config.get("mcp_server_ids", []),
             use_web_search=bool(tool_config.get("use_web_search", False)),
-            extra_tools=[],
+            extra_tools=image_tools,
         )
 
         if not isinstance(agent, UnifiedAgent):
@@ -584,7 +633,8 @@ class ChatService:
             file_ids=tool_config.get("file_ids", []),
         )
         async for sse in self._resume_graph(
-            agent._graph, config, session_id, user_id, request_placeholder, body.approved
+            agent._graph, config, session_id, user_id, request_placeholder, body.approved,
+            generated_attachments,
         ):
             yield sse
 
@@ -607,3 +657,48 @@ class ChatService:
                 interrupted_at=interrupt_doc.created_at,
             )
         return SessionStatusResponse(status="idle")
+
+    # ── Group @AI Mention ────────────────────────────────────────────
+
+    async def run_group_assist(
+        self,
+        user_id: str,
+        session_id: str,
+        conversation_id: str,
+        content: str,
+    ) -> None:
+        """Handle an @AI mention in a group conversation.
+
+        Creates a :class:`MentionAgent` that gathers context via read-only
+        MCP tools, generates a response, and deterministically delivers it
+        to the group via ``sendAiMessage``.
+        """
+        rows = await self._message_repo.find_by_session(session_id)
+        history = self._to_langchain_history(rows)
+
+        session_context = await self._build_session_context(
+            user_id, session_id, context_conversation_id=conversation_id,
+        )
+
+        # Assemble MCP tools (full set — MentionAgent partitions internally).
+        tools: list[BaseTool] = []
+        if self._tool_service:
+            tools = await self._tool_service.assemble_tools(user_id, [], False)
+
+        if self._llm is None:
+            raise ValueError("LLM is required for MentionAgent")
+
+        agent = MentionAgent(
+            llm=self._llm,
+            tools=tools,
+            conversation_id=conversation_id,
+        )
+
+        await self._message_repo.create_message(session_id, "user", content)
+        response_text = await agent.run(
+            message=content,
+            user_id=user_id,
+            session_context=session_context,
+            history=history,
+        )
+        await self._message_repo.create_message(session_id, "assistant", response_text)

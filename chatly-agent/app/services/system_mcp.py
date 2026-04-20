@@ -11,6 +11,7 @@ Current system MCPs:
 """
 import asyncio
 import logging
+import time
 from typing import Any
 
 from app.config import settings
@@ -22,6 +23,12 @@ logger = logging.getLogger(__name__)
 _BACKEND_SERVER_NAME = "chatly-backend"
 _MAX_RETRIES = 3
 _RETRY_BASE_DELAY_S = 1.0
+
+_SKILL_URI_PREFIX = "chatly://skills/"
+_SKILL_CACHE_TTL_S = 300.0  # 5 min — skills change only on backend redeploy
+_SKILL_CACHE_KEY = "chatly-backend-skills"
+_skill_cache: dict[str, tuple[str, float]] = {}
+_skill_cache_lock = asyncio.Lock()
 
 
 class SystemMCPService:
@@ -115,6 +122,61 @@ class SystemMCPService:
             last_error,
         )
         return []
+
+    async def get_skill_context(self, user_id: str) -> str:
+        """Return concatenated skill resource content from chatly-backend.
+
+        Uses a process-wide TTL cache keyed on ``_SKILL_CACHE_KEY`` — skill
+        content is identical for all users and changes only on backend redeploy.
+        """
+        now = time.monotonic()
+        cached = _skill_cache.get(_SKILL_CACHE_KEY)
+        if cached is not None and now < cached[1]:
+            return cached[0]
+
+        async with _skill_cache_lock:
+            # Double-checked locking: another coroutine may have populated the
+            # cache while this one waited for the lock.
+            cached = _skill_cache.get(_SKILL_CACHE_KEY)
+            if cached is not None and now < cached[1]:
+                return cached[0]
+
+            content = await self._fetch_skill_resources(user_id)
+            _skill_cache[_SKILL_CACHE_KEY] = (content, time.monotonic() + _SKILL_CACHE_TTL_S)
+            logger.info(
+                "Skill resource cache refreshed (%d chars, TTL=%.0fs)",
+                len(content),
+                _SKILL_CACHE_TTL_S,
+            )
+            return content
+
+    async def _fetch_skill_resources(self, user_id: str) -> str:
+        """Fetch and concatenate all chatly://skills/* resources from the backend."""
+        client = self._get_backend_client(user_id)
+        if client is None:
+            return ""
+        try:
+            resources = await client.list_resources()
+            skill_uris = [
+                str(r.get("uri", ""))
+                for r in resources
+                if str(r.get("uri", "")).startswith(_SKILL_URI_PREFIX)
+            ]
+            if not skill_uris:
+                logger.warning(
+                    "No skill resources found on backend MCP (prefix=%s)",
+                    _SKILL_URI_PREFIX,
+                )
+                return ""
+            parts: list[str] = []
+            for uri in skill_uris:
+                text = await client.read_resource(uri)
+                if text:
+                    parts.append(text)
+            return "\n\n---\n\n".join(parts)
+        except Exception as exc:
+            logger.warning("Failed to fetch skill resources from backend MCP: %s", exc)
+            return ""
 
     def list_configured_servers(self) -> list[dict[str, Any]]:
         """Return metadata for each configured system MCP server.

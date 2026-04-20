@@ -4,12 +4,14 @@ import com.chatly.dto.response.FileUploadResponse;
 import com.chatly.exception.AppException;
 import com.chatly.exception.ErrorCode;
 import com.chatly.model.mongo.FileMetadata;
+import com.chatly.proxy.AgentProxyClient;
 import com.chatly.repository.mongo.FileMetadataRepository;
 import com.chatly.storage.StorageProvider;
 import com.chatly.storage.UploadResult;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -20,6 +22,15 @@ import java.util.Set;
 @Service
 @RequiredArgsConstructor
 public class FileUploadService {
+
+    private static final Set<String> INDEXABLE_MIME_TYPES = Set.of(
+            "application/pdf",
+            "application/msword",
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            "application/vnd.ms-excel",
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            "text/plain"
+    );
 
     private static final Set<String> ALLOWED_MIME_TYPES = Set.of(
             "image/jpeg", "image/png", "image/gif", "image/webp", "image/svg+xml",
@@ -43,6 +54,7 @@ public class FileUploadService {
 
     private final StorageProvider storageProvider;
     private final FileMetadataRepository fileMetadataRepository;
+    private final AgentProxyClient agentProxyClient;
 
     public FileUploadResponse upload(MultipartFile file, String conversationId, String uploadedBy) {
         validateFile(file);
@@ -63,6 +75,19 @@ public class FileUploadService {
 
         metadata = fileMetadataRepository.save(metadata);
         log.debug("FileMetadata saved: id={}, provider={}", metadata.getId(), metadata.getProvider());
+
+        if (conversationId != null && !conversationId.isBlank()
+                && metadata.getFileType() != null
+                && INDEXABLE_MIME_TYPES.contains(metadata.getFileType())) {
+            agentProxyClient.triggerFileIndexAsync(
+                    conversationId,
+                    metadata.getId(),
+                    metadata.getUrl(),
+                    metadata.getFileName(),
+                    metadata.getFileType(),
+                    uploadedBy
+            );
+        }
 
         return FileUploadResponse.builder()
                 .fileId(metadata.getId())
@@ -162,6 +187,18 @@ public class FileUploadService {
     }
 
     // -------------------------------------------------------------------------
+
+    /**
+     * Download a file by its ID. Returns metadata + resource stream.
+     */
+    public FileDownloadResult downloadFile(String fileId) {
+        FileMetadata metadata = fileMetadataRepository.findById(fileId)
+                .orElseThrow(() -> new AppException(ErrorCode.FILE_NOT_FOUND));
+        Resource resource = storageProvider.download(metadata.getStorageKey());
+        return new FileDownloadResult(metadata, resource);
+    }
+
+    public record FileDownloadResult(FileMetadata metadata, Resource resource) {}
 
     private void validateFile(MultipartFile file) {
         if (file == null || file.isEmpty()) {

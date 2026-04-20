@@ -4,6 +4,7 @@ from io import BytesIO
 from typing import Any, Protocol
 from uuid import uuid4
 
+import httpx
 from docx import Document
 from fastapi import UploadFile
 from langchain_text_splitters import RecursiveCharacterTextSplitter
@@ -214,6 +215,91 @@ class FileService:
             str(row.get("object_key", "")),
         )
         await self._file_repo.delete(file_id)
+
+    async def index_conversation_file(
+        self,
+        conversation_id: str,
+        file_url: str,
+        filename: str,
+        mime_type: str,
+        uploaded_by: str,
+        backend_file_id: str,
+    ) -> None:
+        """Download a file from *file_url* and index it under *conversation_id* scope.
+
+        Called by the internal endpoint when the backend uploads a file to a
+        group conversation.  Chunks are stored with ``conversation_id`` so the
+        retriever tool can search across all session + conversation files.
+        """
+        async with httpx.AsyncClient(timeout=30) as client:
+            response = await client.get(file_url)
+            response.raise_for_status()
+            payload = response.content
+
+        if len(payload) > settings.max_file_size_mb * 1024 * 1024:
+            raise ValueError("File size exceeds limit")
+
+        text = self._extract_text(payload, filename, mime_type).strip()
+        if not text:
+            raise ValueError("File has no extractable text")
+
+        splitter = RecursiveCharacterTextSplitter(
+            chunk_size=settings.chunk_size,
+            chunk_overlap=settings.chunk_overlap,
+        )
+        chunks = splitter.split_text(text)
+
+        try:
+            embeddings = await self._embed_chunks(chunks)
+        except Exception as exc:
+            raise ValueError(f"Embedding failed: {exc}") from exc
+
+        object_key = f"conversations/{conversation_id}/{uuid4()}/{filename}"
+        self._minio_client.put_object(
+            self._bucket_name,
+            object_key,
+            data=BytesIO(payload),
+            length=len(payload),
+            content_type=mime_type or "application/octet-stream",
+        )
+
+        metadata = await self._file_repo.create(
+            {
+                "conversation_id": conversation_id,
+                "user_id": uploaded_by,
+                "backend_file_id": backend_file_id,
+                "filename": filename,
+                "mime_type": mime_type,
+                "size_bytes": len(payload),
+                "minio_bucket": self._bucket_name,
+                "object_key": object_key,
+                "created_at": datetime.now(UTC),
+            }
+        )
+
+        file_id = str(metadata["id"])
+        # session_id is not meaningful here; use conversation_id as the scope anchor
+        await self._chunk_repo.insert_many(
+            [
+                {
+                    "file_id": file_id,
+                    "conversation_id": conversation_id,
+                    "user_id": uploaded_by,
+                    "content": content,
+                    "chunk_index": index,
+                }
+                for index, content in enumerate(chunks)
+            ]
+        )
+        await self._vector_service.index_chunks(
+            session_id=conversation_id,
+            file_id=file_id,
+            user_id=uploaded_by,
+            chunks=chunks,
+            embeddings=embeddings,
+            filename=filename,
+            conversation_id=conversation_id,
+        )
 
     def _extract_text(self, content: bytes, filename: str, mime_type: str) -> str:
         """Dispatch file content extraction by extension and mime type."""

@@ -20,11 +20,13 @@ import com.chatly.model.mongo.Attachment;
 import com.chatly.model.mongo.Poll;
 import com.chatly.model.mongo.Reaction;
 import com.chatly.model.mongo.ReadReceipt;
+import com.chatly.proxy.AgentProxyClient;
 import com.chatly.repository.mongo.ConversationRepository;
 import com.chatly.repository.mongo.MessageRepository;
 import com.chatly.repository.postgres.UserRepository;
 import com.chatly.websocket.ChatEvent;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.mongodb.core.MongoTemplate;
@@ -32,6 +34,7 @@ import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.mongodb.core.query.Update;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.scheduling.TaskScheduler;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
@@ -39,12 +42,14 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class MessageService {
 
     private final MessageRepository messageRepository;
@@ -55,9 +60,16 @@ public class MessageService {
     private final NotificationService notificationService;
     private final ContactService contactService;
     private final UserRepository userRepository;
+    private final AgentProxyClient agentProxyClient;
+    private final TaskScheduler taskScheduler;
 
     private static final long RECALL_LIMIT_HOURS = 24;
     private static final long EDIT_LIMIT_MINUTES = 15;
+    private static final int MAX_MESSAGES_PER_RANGE = 100;
+    private static final String AI_MENTION_TRIGGER = "@AI";
+    private static final long UNANSWERED_CHECK_DELAY_S = 1800;
+    private static final String AI_TYPING_USER_ID = "AI";
+    private static final long AI_TYPING_TIMEOUT_S = 120;
     private static final Set<String> ALLOWED_EMOJIS = Set.of("👍", "❤️", "😂", "😮", "😢", "😡", "🔥", "👏");
         private static final Set<MessageType> FORWARDABLE_TYPES = Set.of(MessageType.TEXT, MessageType.IMAGE, MessageType.FILE, MessageType.GIF, MessageType.STICKER);
 
@@ -95,6 +107,22 @@ public class MessageService {
         // Send mention notifications (separate from normal notifications)
         if (message.getMentions() != null && !message.getMentions().isEmpty()) {
             notifyMentionedUsers(conversation, savedMessage, senderId);
+        }
+
+        // Trigger AI assist when a GROUP message contains the @AI mention and the feature is enabled
+        if (conversation.getType() == ConversationType.GROUP
+                && Boolean.TRUE.equals(conversation.getAiProactiveEnabled())
+                && isAiMention(request.getContent())) {
+            broadcastAiTyping(conversation.getId(), true);
+            scheduleAiTypingTimeout(conversation.getId());
+            agentProxyClient.triggerAssistAsync(conversation.getId(), senderId, request.getContent());
+        }
+
+        // Schedule an unanswered-question check: if nobody replies after 30 min, trigger AI
+        if (conversation.getType() == ConversationType.GROUP
+                && Boolean.TRUE.equals(conversation.getAiProactiveEnabled())
+                && isQuestion(request.getContent())) {
+            scheduleUnansweredCheck(conversation.getId(), savedMessage.getId(), senderId);
         }
 
         return messageMapper.toResponse(savedMessage);
@@ -144,6 +172,19 @@ public class MessageService {
                 .findByConversationIdOrderByCreatedAtDesc(conversationId, PageRequest.of(page, size));
 
         return messages.getContent().stream()
+                .map(messageMapper::toResponse)
+                .toList();
+    }
+
+    public List<MessageResponse> getByConversationAndTimeRange(
+            String conversationId, String userId, Instant from, Instant to) {
+        getConversationForParticipant(conversationId, userId);
+
+        List<Message> messages = messageRepository
+                .findByConversationIdAndCreatedAtBetweenOrderByCreatedAtAsc(
+                        conversationId, from, to, PageRequest.of(0, MAX_MESSAGES_PER_RANGE));
+
+        return messages.stream()
                 .map(messageMapper::toResponse)
                 .toList();
     }
@@ -504,6 +545,45 @@ public class MessageService {
         return response;
     }
 
+    /**
+     * Send an AI-generated response message to a group conversation.
+     * The message is attributed to the requesting user but typed as AGENT.
+     * Stops the AI typing indicator and does NOT re-trigger AI processing.
+     */
+    public MessageResponse sendAiMessage(String onBehalfOfUserId, String conversationId, String content) {
+        Conversation conversation = getConversationForParticipant(conversationId, onBehalfOfUserId);
+
+        broadcastAiTyping(conversationId, false);
+
+        Message message = Message.builder()
+                .conversationId(conversationId)
+                .senderId(onBehalfOfUserId)
+                .content(content)
+                .type(MessageType.AGENT)
+                .build();
+
+        Message savedMessage = persistAndBroadcast(conversation, message, onBehalfOfUserId);
+        return messageMapper.toResponse(savedMessage);
+    }
+
+    private void broadcastAiTyping(String conversationId, boolean typing) {
+        Object payload = Map.of("userId", AI_TYPING_USER_ID, "typing", typing);
+        messagingTemplate.convertAndSend(
+                "/topic/conversation." + conversationId + ".typing",
+                payload
+        );
+    }
+
+    private void scheduleAiTypingTimeout(String conversationId) {
+        taskScheduler.schedule(
+                () -> {
+                    broadcastAiTyping(conversationId, false);
+                    log.warn("AI typing timeout reached for conversation={}", conversationId);
+                },
+                Instant.now().plusSeconds(AI_TYPING_TIMEOUT_S)
+        );
+    }
+
     private void broadcastEvent(String conversationId, ChatEvent.ChatAction action, MessageResponse message) {
         messagingTemplate.convertAndSend(
                 "/topic/conversation." + conversationId,
@@ -572,6 +652,7 @@ public class MessageService {
                         case VIDEO -> "[Video]";
                         case AUDIO -> "[Audio]";
                         case LOCATION -> "[Location]";
+                        case AGENT -> "[AI Response]";
                         default -> "[Message]";
                 };
         }
@@ -640,6 +721,54 @@ public class MessageService {
                                                 .build())
                                 .collect(java.util.stream.Collectors.toCollection(ArrayList::new));
         }
+
+    private static boolean isAiMention(String content) {
+        return content != null && content.contains(AI_MENTION_TRIGGER);
+    }
+
+    private static boolean isQuestion(String content) {
+        if (content == null || content.isBlank()) return false;
+        String lower = content.toLowerCase();
+        return content.contains("?")
+                || lower.startsWith("how ")
+                || lower.startsWith("what ")
+                || lower.startsWith("when ")
+                || lower.startsWith("where ")
+                || lower.startsWith("why ")
+                || lower.startsWith("who ")
+                || lower.startsWith("can ")
+                || lower.startsWith("could ")
+                || lower.startsWith("should ");
+    }
+
+    private void scheduleUnansweredCheck(String conversationId, String messageId, String senderId) {
+        Instant checkAt = Instant.now().plusSeconds(UNANSWERED_CHECK_DELAY_S);
+        taskScheduler.schedule(
+                () -> checkAndTriggerIfUnanswered(conversationId, messageId, senderId),
+                checkAt
+        );
+    }
+
+    private void checkAndTriggerIfUnanswered(String conversationId, String messageId, String senderId) {
+        try {
+            Message triggerMessage = messageRepository.findById(messageId).orElse(null);
+            if (triggerMessage == null) return;
+
+            // Count messages sent in the conversation AFTER the original question
+            long replyCount = messageRepository
+                    .countByConversationIdAndCreatedAtAfterAndSenderIdNot(
+                            conversationId, triggerMessage.getCreatedAt(), senderId);
+
+            if (replyCount == 0) {
+                String prompt = "An unanswered question was posted 30 minutes ago: \""
+                        + triggerMessage.getContent()
+                        + "\"\nPlease help answer or suggest who in the group might know.";
+                agentProxyClient.triggerAssistAsync(conversationId, senderId, prompt);
+            }
+        } catch (Exception e) {
+            log.warn("Unanswered question check failed for message={}: {}", messageId, e.getMessage());
+        }
+    }
 
     private void notifyMentionedUsers(Conversation conversation, Message message, String senderId) {
         Set<String> mentionedIds = new LinkedHashSet<>();

@@ -1,5 +1,6 @@
 package com.chatly.storage;
 
+import org.springframework.core.io.Resource;
 import org.springframework.web.multipart.MultipartFile;
 
 public interface StorageProvider {
@@ -19,4 +20,12 @@ public interface StorageProvider {
      * @param storageKey provider-specific key returned from {@link UploadResult#storageKey()}
      */
     void delete(String storageKey);
+
+    /**
+     * Download a file by its storage key.
+     *
+     * @param storageKey provider-specific key returned from {@link UploadResult#storageKey()}
+     * @return a Spring {@link Resource} wrapping the file bytes
+     */
+    Resource download(String storageKey);
 }

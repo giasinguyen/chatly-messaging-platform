@@ -1,6 +1,6 @@
 export type ConversationType = "PRIVATE" | "GROUP";
 
-export type MessageType = "TEXT" | "IMAGE" | "FILE" | "VIDEO" | "AUDIO" | "STICKER" | "GIF" | "SYSTEM" | "POLL" | "VCARD" | "CALL" | "LOCATION";
+export type MessageType = "TEXT" | "IMAGE" | "FILE" | "VIDEO" | "AUDIO" | "STICKER" | "GIF" | "SYSTEM" | "POLL" | "VCARD" | "CALL" | "LOCATION" | "AGENT";
 
 
 export interface LastMessage {
@@ -29,4 +29,5 @@ export interface ConversationResponse {
     allowMembersUpdateInfo?: boolean; // If true, all members can update group name/avatar; default true
     requireApproval?: boolean;
     inviteToken?: string | null;
+    aiProactiveEnabled?: boolean; // If true, AI will proactively answer unanswered questions in this group
 }
