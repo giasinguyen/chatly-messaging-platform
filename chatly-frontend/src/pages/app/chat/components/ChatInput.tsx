@@ -46,6 +46,7 @@ import type { Message, Attachment, Poll, ChatUser, LocationPayload } from "@/typ
 import { useAudioRecorder, MicPermissionDeniedError } from "@/hooks/useAudioRecorder";
 import { AudioRecordingBar } from "./AudioRecordingBar";
 import { RichTextMessageEditor, type RichTextMessageEditorRef } from "./RichTextMessageEditor";
+import { toMessagePreviewText } from "./richTextMessage.utils";
 
 const LazyMediaPicker = lazy(() => import("@/components/media-picker/MediaPicker").then(m => ({ default: m.MediaPicker })));
 
@@ -636,6 +637,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
         content.trim().length === 0 &&
         pendingFiles.length === 0 &&
         !isRecordingAudio;
+    const replyPreviewText = replyingTo ? toMessagePreviewText(replyingTo.content) : "";
 
     return (
         <div className="border-t border-border bg-background font-inter relative">
@@ -668,7 +670,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
                             {senderName ?? "You"}
                         </p>
                         <p className="text-[11px] text-muted-foreground truncate">
-                            {replyingTo.content}
+                            {replyPreviewText}
                         </p>
                     </div>
                     <Button

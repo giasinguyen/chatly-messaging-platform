@@ -165,6 +165,7 @@ interface EditorBridgeProps {
 
 function EditorBridge({ onEditorReady, onSend, initialHtml }: EditorBridgeProps) {
     const [editor] = useLexicalComposerContext();
+    const lastHydratedHtmlRef = useRef<string | null>(null);
 
     useEffect(() => {
         onEditorReady(editor);
@@ -186,13 +187,31 @@ function EditorBridge({ onEditorReady, onSend, initialHtml }: EditorBridgeProps)
     }, [editor, onSend]);
 
     useEffect(() => {
-        if (!initialHtml?.trim()) {
+        const normalizedHtml = initialHtml?.trim() ?? "";
+
+        if (!normalizedHtml) {
+            if (lastHydratedHtmlRef.current === "") {
+                return;
+            }
+            lastHydratedHtmlRef.current = "";
+            editor.update(() => {
+                const root = $getRoot();
+                root.clear();
+                root.append($createParagraphNode());
+            });
             return;
         }
+
+        if (lastHydratedHtmlRef.current === normalizedHtml) {
+            return;
+        }
+
+        lastHydratedHtmlRef.current = normalizedHtml;
+
         editor.update(() => {
             const root = $getRoot();
             root.clear();
-            const dom = new DOMParser().parseFromString(initialHtml, "text/html");
+            const dom = new DOMParser().parseFromString(normalizedHtml, "text/html");
             const nodes = $generateNodesFromDOM(editor, dom);
             if (nodes.length > 0) {
                 root.append(...nodes);

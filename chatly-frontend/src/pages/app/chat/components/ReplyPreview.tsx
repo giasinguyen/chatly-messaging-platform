@@ -1,6 +1,7 @@
 import { useCallback } from "react";
 import { cn } from "@/lib/utils";
 import type { Message, ChatUser } from "@/types/message";
+import { toMessagePreviewText } from "./richTextMessage.utils";
 
 interface ReplyPreviewProps {
     replyMessage: Message;
@@ -12,6 +13,7 @@ interface ReplyPreviewProps {
 }
 
 export function ReplyPreview({ replyMessage, participant, currentUserId, senderName, isMe }: ReplyPreviewProps) {
+    const previewText = toMessagePreviewText(replyMessage.content);
     const resolvedSenderName =
         senderName ??
         (replyMessage.senderId === currentUserId
@@ -40,7 +42,7 @@ export function ReplyPreview({ replyMessage, participant, currentUserId, senderN
             <p className={cn("font-semibold text-[10px] mb-0.5", isMe ? "text-white/90" : "text-brand")}>
                 {resolvedSenderName}
             </p>
-            <p className="line-clamp-1 text-[11px]">{replyMessage.content}</p>
+            <p className="line-clamp-1 text-[11px]">{previewText}</p>
         </button>
     );
 }
