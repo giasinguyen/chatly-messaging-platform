@@ -16,7 +16,7 @@ import {
   File as PhosphorFile,
 } from 'phosphor-react-native';
 import { Colors } from '@/constants/theme';
-import { formatMessageTime } from '@/utils/format';
+import { formatMessageTime, richTextToPlainText } from '@/utils/format';
 import { ImageLightbox } from '@/components/ui/ImageLightbox';
 import { VideoPlayer } from '@/components/chat/VideoPlayer';
 import { AudioPlayer } from '@/components/chat/AudioPlayer';
@@ -81,6 +81,7 @@ export function MessageBubble({
   onScrollToMessage,
 }: MessageBubbleProps) {
   const { content, type, recalled, edited, createdAt, readBy, attachments } = message;
+  const normalizedTextContent = richTextToPlainText(content);
   const groupCallRealtimeState = useCallStore((state) => state.groupCallRealtimeState);
 
   const screenWidth = Dimensions.get('window').width;
@@ -293,7 +294,7 @@ export function MessageBubble({
       : /(@\S+)/g;
 
     // Split by URLs first, then parse mentions within non-URL parts
-    const urlParts = content.split(URL_REGEX);
+    const urlParts = normalizedTextContent.split(URL_REGEX);
     const hasLinks = urlParts.some((p) => /^https?:\/\//.test(p));
 
     const renderWithMentions = (text: string, color: string) => {
@@ -318,7 +319,7 @@ export function MessageBubble({
     if (!hasLinks) {
       return (
         <Text className="text-[15px] leading-5" style={{ color: textColor }}>
-          {renderWithMentions(content, textColor)}
+          {renderWithMentions(normalizedTextContent, textColor)}
         </Text>
       );
     }
@@ -1046,7 +1047,7 @@ export function MessageBubble({
                   ? '📊 Poll'
                   : replyToMessage.type === 'VCARD'
                   ? '👤 Contact'
-                  : replyToMessage.content}
+                  : richTextToPlainText(replyToMessage.content)}
               </Text>
             </TouchableOpacity>
           )}
