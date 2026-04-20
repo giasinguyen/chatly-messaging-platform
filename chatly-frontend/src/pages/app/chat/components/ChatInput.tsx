@@ -738,7 +738,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
             <div className="px-6 pt-3 pb-4 space-y-2">
                 {/* Row 1: Toolbar */}
                 <div className="flex items-center gap-1">
-                    <div className="mr-2 inline-flex items-center rounded-md border border-border p-0.5">
+                    <div className="order-last ml-auto inline-flex items-center rounded-md border border-border p-0.5">
                         <Button
                             type="button"
                             variant="ghost"

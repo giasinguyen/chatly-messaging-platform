@@ -1,5 +1,5 @@
-import { useMemo, useRef } from 'react';
-import { View, Text, TextInput, TouchableOpacity } from 'react-native';
+import { forwardRef, useImperativeHandle, useMemo, useRef } from 'react';
+import { Keyboard, View, Text, TextInput, TouchableOpacity } from 'react-native';
 import {
   RichEditor,
   RichToolbar,
@@ -20,10 +20,16 @@ interface TextRichComposerProps {
   placeholder?: string;
   minHeight?: number;
   showToolbar?: boolean;
+  showModeToggle?: boolean;
   editorKey?: string;
 }
 
-export function TextRichComposer({
+export interface TextRichComposerRef {
+  blur: () => void;
+  focus: (targetMode?: ComposerMode) => void;
+}
+
+export const TextRichComposer = forwardRef<TextRichComposerRef, TextRichComposerProps>(function TextRichComposer({
   mode,
   onModeChange,
   plainText,
@@ -33,9 +39,11 @@ export function TextRichComposer({
   placeholder = 'Type a message...',
   minHeight = 44,
   showToolbar = true,
+  showModeToggle = true,
   editorKey = 'default',
-}: TextRichComposerProps) {
+}, ref) {
   const editorRef = useRef<RichEditor>(null);
+  const plainInputRef = useRef<TextInput>(null);
 
   const editorInitialHtml = useMemo(() => {
     if (richHtml.trim()) {
@@ -44,45 +52,63 @@ export function TextRichComposer({
     return '<p></p>';
   }, [richHtml]);
 
+  useImperativeHandle(ref, () => ({
+    blur: () => {
+      plainInputRef.current?.blur();
+      editorRef.current?.blurContentEditor();
+      Keyboard.dismiss();
+    },
+    focus: (targetMode) => {
+      if (targetMode === 'editor') {
+        editorRef.current?.focusContentEditor();
+        return;
+      }
+      plainInputRef.current?.focus();
+    },
+  }), []);
+
   return (
     <View style={{ width: '100%' }}>
-      <View
-        style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          marginBottom: 6,
-          gap: 6,
-        }}>
-        <TouchableOpacity
-          onPress={() => onModeChange('plain')}
+      {showModeToggle && (
+        <View
           style={{
-            paddingHorizontal: 10,
-            paddingVertical: 5,
-            borderRadius: 999,
-            backgroundColor: mode === 'plain' ? Colors.ctaLight : Colors.white,
-            borderWidth: 1,
-            borderColor: Colors.borderLight,
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'flex-end',
+            marginBottom: 4,
+            gap: 6,
           }}>
-          <Text style={{ fontSize: 12, fontWeight: '600', color: Colors.text }}>
-            Text
-          </Text>
-        </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => onModeChange('plain')}
+            style={{
+              paddingHorizontal: 10,
+              paddingVertical: 5,
+              borderRadius: 999,
+              backgroundColor: mode === 'plain' ? Colors.ctaLight : Colors.white,
+              borderWidth: 1,
+              borderColor: Colors.borderLight,
+            }}>
+            <Text style={{ fontSize: 11, fontWeight: '600', color: Colors.text }}>
+              Text
+            </Text>
+          </TouchableOpacity>
 
-        <TouchableOpacity
-          onPress={() => onModeChange('editor')}
-          style={{
-            paddingHorizontal: 10,
-            paddingVertical: 5,
-            borderRadius: 999,
-            backgroundColor: mode === 'editor' ? Colors.ctaLight : Colors.white,
-            borderWidth: 1,
-            borderColor: Colors.borderLight,
-          }}>
-          <Text style={{ fontSize: 12, fontWeight: '600', color: Colors.text }}>
-            Editor
-          </Text>
-        </TouchableOpacity>
-      </View>
+          <TouchableOpacity
+            onPress={() => onModeChange('editor')}
+            style={{
+              paddingHorizontal: 10,
+              paddingVertical: 5,
+              borderRadius: 999,
+              backgroundColor: mode === 'editor' ? Colors.ctaLight : Colors.white,
+              borderWidth: 1,
+              borderColor: Colors.borderLight,
+            }}>
+            <Text style={{ fontSize: 11, fontWeight: '600', color: Colors.text }}>
+              Editor
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       {mode === 'plain' ? (
         <View
@@ -94,6 +120,7 @@ export function TextRichComposer({
             justifyContent: 'center',
           }}>
           <TextInput
+            ref={plainInputRef}
             value={plainText}
             onChangeText={onPlainTextChange}
             placeholder={placeholder}
@@ -110,6 +137,7 @@ export function TextRichComposer({
         </View>
       ) : (
         <View
+          key={editorKey}
           style={{
             borderRadius: 14,
             borderWidth: 1,
@@ -119,6 +147,7 @@ export function TextRichComposer({
           }}>
           {showToolbar && (
             <RichToolbar
+              key={`${editorKey}-toolbar`}
               editor={editorRef}
               selectedIconTint={Colors.cta}
               iconTint={Colors.textMuted}
@@ -138,7 +167,7 @@ export function TextRichComposer({
             />
           )}
           <RichEditor
-            key={editorKey}
+            key={`${editorKey}-editor`}
             ref={editorRef}
             initialContentHTML={editorInitialHtml}
             placeholder={placeholder}
@@ -151,16 +180,26 @@ export function TextRichComposer({
             }}
             style={{ minHeight }}
             onChange={(html) => onRichHtmlChange(html)}
-            onInput={(text) => {
-              if (!text || text === '\n') {
+            onInput={(payload: unknown) => {
+              const inputText =
+                typeof payload === 'string'
+                  ? payload
+                  : typeof payload === 'object' &&
+                      payload !== null &&
+                      'data' in payload &&
+                      typeof payload.data === 'string'
+                    ? payload.data
+                    : '';
+
+              if (!inputText || inputText === '\n') {
                 onPlainTextChange('');
                 return;
               }
-              onPlainTextChange(richTextToPlainText(text));
+              onPlainTextChange(richTextToPlainText(inputText));
             }}
           />
         </View>
       )}
     </View>
   );
-}
+});

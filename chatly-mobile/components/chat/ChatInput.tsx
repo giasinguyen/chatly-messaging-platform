@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { View, TouchableOpacity, Text, Image, ActivityIndicator, Alert, Modal, FlatList, Pressable, Keyboard } from 'react-native';
 import { Image as ExpoImage } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
@@ -17,7 +17,7 @@ import { VoiceRecordingBar } from '@/components/chat/VoiceRecordingBar';
 import { useAuthStore } from '@/store/auth.store';
 import { useVoiceRecorder, MicPermissionDeniedError } from '@/hooks/useVoiceRecorder';
 import type { Message, Attachment, Poll, LocationPayload } from '@/types/message';
-import { TextRichComposer, type ComposerMode } from '@/components/chat/TextRichComposer';
+import { TextRichComposer, type ComposerMode, type TextRichComposerRef } from '@/components/chat/TextRichComposer';
 import { richTextToPlainText } from '@/utils/format';
 
 interface GroupMember {
@@ -67,8 +67,10 @@ function getDocumentIcon(mimeType: string): { name: string; color: string } {
 }
 
 export function ChatInput({ conversationId, onSend, onTyping, replyingTo, onCancelReply, isGroup, groupMembers }: ChatInputProps) {
+  const composerRef = useRef<TextRichComposerRef>(null);
   const { user } = useAuthStore();
   const [composerMode, setComposerMode] = useState<ComposerMode>('plain');
+  const [editorInstanceKey, setEditorInstanceKey] = useState(0);
   const [text, setText] = useState('');
   const [richHtml, setRichHtml] = useState('');
   const [isTyping, setIsTyping] = useState(false);
@@ -224,6 +226,10 @@ export function ChatInput({ conversationId, onSend, onTyping, replyingTo, onCanc
     setSelectedPriority(null);
     onTyping?.(false);
     onCancelReply?.();
+    if (composerMode === 'editor') {
+      setEditorInstanceKey((prev) => prev + 1);
+    }
+    composerRef.current?.blur();
     Keyboard.dismiss();
   };
 
@@ -250,6 +256,10 @@ export function ChatInput({ conversationId, onSend, onTyping, replyingTo, onCanc
       setSelectedPriority((prev) => (prev === 'IMPORTANT' ? null : 'IMPORTANT'));
     } else if (optionId === 'urgent') {
       setSelectedPriority((prev) => (prev === 'URGENT' ? null : 'URGENT'));
+    } else if (optionId === 'mode-plain') {
+      setComposerMode('plain');
+    } else if (optionId === 'mode-editor') {
+      setComposerMode('editor');
     } else if (optionId === 'reminder') {
       setShowReminderModal(true);
     } else if (optionId === 'poll') {
@@ -346,6 +356,15 @@ export function ChatInput({ conversationId, onSend, onTyping, replyingTo, onCanc
   const handleCancelRecording = useCallback(async () => {
     await cancelRecording();
   }, [cancelRecording]);
+
+  useEffect(() => {
+    const focusDelayMs = 140;
+    const timer = setTimeout(() => {
+      composerRef.current?.focus(composerMode);
+    }, focusDelayMs);
+
+    return () => clearTimeout(timer);
+  }, [composerMode]);
 
   return (
     <View style={{ backgroundColor: Colors.white }}>
@@ -625,6 +644,7 @@ export function ChatInput({ conversationId, onSend, onTyping, replyingTo, onCanc
             maxHeight: composerMode === 'plain' ? 120 : 220,
           }}>
           <TextRichComposer
+            ref={composerRef}
             mode={composerMode}
             onModeChange={setComposerMode}
             plainText={text}
@@ -634,7 +654,8 @@ export function ChatInput({ conversationId, onSend, onTyping, replyingTo, onCanc
             placeholder="Type a message..."
             minHeight={44}
             showToolbar={composerMode === 'editor'}
-            editorKey="chat-input-composer"
+            showModeToggle={false}
+            editorKey={`chat-input-composer-${editorInstanceKey}`}
           />
         </View>
 
@@ -851,6 +872,76 @@ export function ChatInput({ conversationId, onSend, onTyping, replyingTo, onCanc
                   Send stickers
                 </Text>
               </View>
+            </TouchableOpacity>
+
+            <View
+              style={{
+                height: 1,
+                backgroundColor: Colors.borderLight,
+                marginHorizontal: 20,
+                marginVertical: 4,
+              }}
+            />
+
+            {/* Input mode options */}
+            <TouchableOpacity
+              onPress={() => handleOptionSelect('mode-plain')}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                paddingHorizontal: 20,
+                paddingVertical: 14,
+                backgroundColor: composerMode === 'plain' ? '#eff6ff' : 'transparent',
+              }}>
+              <View
+                style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: 18,
+                  backgroundColor: '#dbeafe',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginRight: 14,
+                }}>
+                <Ionicons name="text-outline" size={20} color="#2563eb" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 15, fontWeight: '500', color: Colors.text }}>Text mode</Text>
+                <Text style={{ fontSize: 12, color: Colors.textMuted, marginTop: 1 }}>
+                  Simple plain text input
+                </Text>
+              </View>
+              {composerMode === 'plain' && <Ionicons name="checkmark-circle" size={20} color="#2563eb" />}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => handleOptionSelect('mode-editor')}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                paddingHorizontal: 20,
+                paddingVertical: 14,
+                backgroundColor: composerMode === 'editor' ? '#f5f3ff' : 'transparent',
+              }}>
+              <View
+                style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: 18,
+                  backgroundColor: '#ede9fe',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginRight: 14,
+                }}>
+                <Ionicons name="create-outline" size={20} color="#7c3aed" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 15, fontWeight: '500', color: Colors.text }}>Editor mode</Text>
+                <Text style={{ fontSize: 12, color: Colors.textMuted, marginTop: 1 }}>
+                  Rich text with formatting
+                </Text>
+              </View>
+              {composerMode === 'editor' && <Ionicons name="checkmark-circle" size={20} color="#7c3aed" />}
             </TouchableOpacity>
 
             <View
