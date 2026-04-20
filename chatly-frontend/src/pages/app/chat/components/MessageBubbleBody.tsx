@@ -22,6 +22,8 @@ import { LocationMessageRenderer } from "./LocationMessageRenderer";
 import { TextMessageBody } from "./TextMessageBody";
 import { MessageAttachmentRenderer } from "./MessageAttachmentRenderer";
 import { AudioMessagePlayer } from "@/components/AudioMessagePlayer";
+import { RichTextMessageEditor } from "./RichTextMessageEditor";
+import { isRichTextHtml } from "./richTextMessage.utils";
 
 interface MessageBubbleBodyProps {
     msg: Message;
@@ -29,8 +31,11 @@ interface MessageBubbleBodyProps {
     replySenderName?: string;
     isMe: boolean;
     isBeingEdited: boolean;
-    editDraft: string;
-    setEditDraft: (value: string) => void;
+    editPlainDraft: string;
+    setEditPlainDraft: (value: string) => void;
+    editHtmlDraft: string;
+    setEditRichDraft: (nextHtml: string, nextText: string) => void;
+    isEditingRichText: boolean;
     onCommitEdit: () => void;
     onCancelEdit: () => void;
     currentUserId: string;
@@ -52,8 +57,11 @@ export function MessageBubbleBody(props: MessageBubbleBodyProps) {
         replySenderName,
         isMe,
         isBeingEdited,
-        editDraft,
-        setEditDraft,
+        editPlainDraft,
+        setEditPlainDraft,
+        editHtmlDraft,
+        setEditRichDraft,
+        isEditingRichText,
         onCommitEdit,
         onCancelEdit,
         currentUserId,
@@ -85,6 +93,7 @@ export function MessageBubbleBody(props: MessageBubbleBodyProps) {
     }
 
     if (isBeingEdited) {
+        const shouldUseRichEditor = isEditingRichText || isRichTextHtml(msg.content);
         const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
             if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
@@ -93,31 +102,45 @@ export function MessageBubbleBody(props: MessageBubbleBodyProps) {
             if (e.key === "Escape") onCancelEdit();
         };
         const handleChange = (e: ChangeEvent<HTMLInputElement>) =>
-            setEditDraft(e.target.value);
+            setEditPlainDraft(e.target.value);
 
         return (
-            <div className="flex items-center gap-1">
-                <Input
-                    autoFocus
-                    value={editDraft}
-                    onChange={handleChange}
-                    onKeyDown={handleKeyDown}
-                    className="h-8 text-sm min-w-50 max-w-xs"
-                />
-                <button
-                    onClick={onCommitEdit}
-                    className="p-1.5 rounded-full bg-brand text-white hover:bg-brand/80 shrink-0"
-                    title="Save"
-                >
-                    <Send size={12} />
-                </button>
-                <button
-                    onClick={onCancelEdit}
-                    className="p-1.5 rounded-full hover:bg-muted text-muted-foreground shrink-0"
-                    title="Cancel"
-                >
-                    <X size={12} />
-                </button>
+            <div className="flex flex-col gap-2 min-w-70 max-w-xl">
+                {shouldUseRichEditor ? (
+                    <RichTextMessageEditor
+                        key={`edit-${msg.id}`}
+                        initialHtml={editHtmlDraft}
+                        onChange={setEditRichDraft}
+                        onSend={onCommitEdit}
+                        mode="editor"
+                    />
+                ) : (
+                    <div className="flex items-center gap-1">
+                        <Input
+                            autoFocus
+                            value={editPlainDraft}
+                            onChange={handleChange}
+                            onKeyDown={handleKeyDown}
+                            className="h-8 text-sm min-w-50 max-w-xs"
+                        />
+                    </div>
+                )}
+                <div className="flex items-center gap-1 self-end">
+                    <button
+                        onClick={onCommitEdit}
+                        className="p-1.5 rounded-full bg-brand text-white hover:bg-brand/80 shrink-0"
+                        title="Save"
+                    >
+                        <Send size={12} />
+                    </button>
+                    <button
+                        onClick={onCancelEdit}
+                        className="p-1.5 rounded-full hover:bg-muted text-muted-foreground shrink-0"
+                        title="Cancel"
+                    >
+                        <X size={12} />
+                    </button>
+                </div>
             </div>
         );
     }

@@ -22,8 +22,11 @@ interface MessageBubbleContainerProps {
     highlightKeyword?: string | null;
     lastSeenByOthersIdx: number;
     editingId: string | null;
-    editDraft: string;
-    setEditDraft: (value: string) => void;
+    editPlainDraft: string;
+    setEditPlainDraft: (value: string) => void;
+    editHtmlDraft: string;
+    setEditRichDraft: (nextHtml: string, nextText: string) => void;
+    isEditingRichText: boolean;
     onStartEdit: (msg: Message) => void;
     onCommitEdit: () => void;
     onCancelEdit: () => void;
@@ -61,8 +64,11 @@ export function MessageBubbleContainer(props: MessageBubbleContainerProps) {
         highlightKeyword,
         lastSeenByOthersIdx,
         editingId,
-        editDraft,
-        setEditDraft,
+        editPlainDraft,
+        setEditPlainDraft,
+        editHtmlDraft,
+        setEditRichDraft,
+        isEditingRichText,
         onStartEdit,
         onCommitEdit,
         onCancelEdit,
@@ -185,8 +191,11 @@ export function MessageBubbleContainer(props: MessageBubbleContainerProps) {
                         replySenderName={replySenderName}
                         isMe={isMe}
                         isBeingEdited={isBeingEdited}
-                        editDraft={editDraft}
-                        setEditDraft={setEditDraft}
+                        editPlainDraft={editPlainDraft}
+                        setEditPlainDraft={setEditPlainDraft}
+                        editHtmlDraft={editHtmlDraft}
+                        setEditRichDraft={setEditRichDraft}
+                        isEditingRichText={isEditingRichText}
                         onCommitEdit={onCommitEdit}
                         onCancelEdit={onCancelEdit}
                         currentUserId={currentUserId}
