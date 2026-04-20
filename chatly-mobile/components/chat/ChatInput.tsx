@@ -87,6 +87,7 @@ export function ChatInput({ conversationId, onSend, onTyping, replyingTo, onCanc
   const [isAudioSending, setIsAudioSending] = useState(false);
 
   const { isRecording, elapsedSeconds, startRecording, stopRecording, cancelRecording } = useVoiceRecorder();
+  const replyPreviewText = replyingTo ? richTextToPlainText(replyingTo.content) : '';
 
   // Mention detection
   const mentionQuery = useMemo(() => {
@@ -497,7 +498,7 @@ export function ChatInput({ conversationId, onSend, onTyping, replyingTo, onCanc
                         ? '🎨 Sticker'
                         : replyingTo.type === 'LOCATION'
                         ? '📍 Location'
-                        : replyingTo.content}
+                        : replyPreviewText}
             </Text>
           </View>
           <TouchableOpacity onPress={onCancelReply} className="ml-2 p-1">
