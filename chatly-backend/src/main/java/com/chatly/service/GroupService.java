@@ -365,6 +365,28 @@ public class GroupService {
                 .build();
     }
 
+    public InviteLinkInfoResponse getInviteLinkInfo(String inviteToken, String userId) {
+        Conversation conversation = conversationRepository.findAll().stream()
+                .filter(c -> inviteToken.equals(c.getInviteToken()) && c.getType() == ConversationType.GROUP)
+                .findFirst()
+                .orElseThrow(() -> new AppException(ErrorCode.GROUP_INVITE_TOKEN_INVALID));
+
+        UUID uid = UUID.fromString(userId);
+        boolean isAlreadyMember = groupMemberRepository.existsByConversationIdAndUserId(conversation.getId(), uid);
+        boolean hasPendingRequest = pendingJoinRequestRepository.existsByConversationIdAndUserId(conversation.getId(), userId);
+        int memberCount = conversation.getParticipantIds() != null ? conversation.getParticipantIds().size() : 0;
+
+        return InviteLinkInfoResponse.builder()
+                .conversationId(conversation.getId())
+                .name(conversation.getName())
+                .avatarUrl(conversation.getAvatarUrl())
+                .memberCount(memberCount)
+                .requireApproval(Boolean.TRUE.equals(conversation.getRequireApproval()))
+                .isAlreadyMember(isAlreadyMember)
+                .hasPendingRequest(hasPendingRequest)
+                .build();
+    }
+
     @Transactional
     public GroupMemberResponse joinByInviteLink(String inviteToken, String userId) {
         Conversation conversation = conversationRepository.findAll().stream()

@@ -7,6 +7,7 @@ import type {
     UpdateRoleRequest,
     GroupUpdateRequest,
     InviteLinkResponse,
+    InviteLinkInfoResponse,
     PendingJoinResponse,
     GroupReminderRequest,
     GroupReminderResponse,
@@ -112,6 +113,15 @@ export const groupService = {
     ): Promise<ApiResponse<GroupMemberResponse>> => {
         const response = await axiosClient.post<ApiResponse<GroupMemberResponse>>(
             `/api/groups/join/${inviteToken}`,
+        );
+        return response.data;
+    },
+
+    getInviteLinkInfo: async (
+        inviteToken: string,
+    ): Promise<ApiResponse<InviteLinkInfoResponse>> => {
+        const response = await axiosClient.get<ApiResponse<InviteLinkInfoResponse>>(
+            `/api/groups/invite/${inviteToken}/info`,
         );
         return response.data;
     },
