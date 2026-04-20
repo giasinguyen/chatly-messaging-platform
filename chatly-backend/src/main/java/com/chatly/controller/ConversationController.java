@@ -60,6 +60,14 @@ public class ConversationController {
                 .build();
     }
 
+    @DeleteMapping("/{id}/dissolve")
+    ApiResponse<Void> dissolve(@PathVariable String id) {
+        conversationService.dissolve(id, getAuthenticatedUserId());
+        return ApiResponse.<Void>builder()
+                .message("Group dissolved successfully")
+                .build();
+    }
+
     // ==================== Pin / Unpin ====================
 
     @PutMapping("/{id}/pin")

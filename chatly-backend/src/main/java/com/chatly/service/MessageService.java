@@ -525,6 +525,13 @@ public class MessageService {
         private Message persistAndBroadcast(Conversation conversation, Message message, String actorId) {
                 Message savedMessage = messageRepository.save(message);
                 updateLastMessage(conversation.getId(), savedMessage);
+
+                // Clear per-user deletions so conversation reappears for all participants
+                if (conversation.getDeletedBy() != null && !conversation.getDeletedBy().isEmpty()) {
+                        conversation.getDeletedBy().clear();
+                        conversationRepository.save(conversation);
+                }
+
                 notifyParticipants(conversation, savedMessage, actorId);
                 broadcastEvent(conversation.getId(), ChatEvent.ChatAction.SEND, messageMapper.toResponse(savedMessage));
                 return savedMessage;

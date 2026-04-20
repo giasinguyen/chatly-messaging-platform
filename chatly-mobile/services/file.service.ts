@@ -63,10 +63,16 @@ export const fileService = {
   async getByConversation(
     conversationId: string,
     type?: 'image' | 'video' | 'file',
+    page?: number,
+    size?: number,
   ): Promise<FileUploadResponse[]> {
+    const params: Record<string, string | number> = {};
+    if (type) params.type = type;
+    if (page !== undefined) params.page = page;
+    if (size !== undefined) params.size = size;
     const { data } = await axiosClient.get<{ result: FileUploadResponse[] }>(
       `/api/files/conversation/${conversationId}`,
-      { params: type ? { type } : {} },
+      { params },
     );
     return data.result;
   },

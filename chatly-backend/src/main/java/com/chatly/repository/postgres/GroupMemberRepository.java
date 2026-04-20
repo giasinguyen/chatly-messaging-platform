@@ -21,4 +21,8 @@ public interface GroupMemberRepository extends JpaRepository<GroupMember, UUID> 
     void deleteByConversationIdAndUserId(String conversationId, UUID userId);
 
     List<GroupMember> findByConversationIdAndRoleIn(String conversationId, List<GroupRole> roles);
+
+    List<GroupMember> findByConversationIdAndRoleInOrderByJoinedAtAsc(String conversationId, List<GroupRole> roles);
+
+    List<GroupMember> findByConversationIdOrderByJoinedAtAsc(String conversationId);
 }

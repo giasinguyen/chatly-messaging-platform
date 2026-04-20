@@ -62,4 +62,8 @@ public class Conversation {
     /** userId -> muteUntil (null value = muted indefinitely) */
     @Builder.Default
     private Map<String, Instant> mutedBy = new HashMap<>();
+
+    /** User IDs who soft-deleted this conversation from their chat list */
+    @Builder.Default
+    private Set<String> deletedBy = new HashSet<>();
 }
