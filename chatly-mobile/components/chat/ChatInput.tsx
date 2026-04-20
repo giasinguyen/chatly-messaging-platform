@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback } from 'react';
-import { View, TextInput, TouchableOpacity, Text, Image, ActivityIndicator, Alert, Modal, FlatList, Pressable } from 'react-native';
+import { View, TouchableOpacity, Text, Image, ActivityIndicator, Alert, Modal, FlatList, Pressable, Keyboard } from 'react-native';
 import { Image as ExpoImage } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -17,6 +17,8 @@ import { VoiceRecordingBar } from '@/components/chat/VoiceRecordingBar';
 import { useAuthStore } from '@/store/auth.store';
 import { useVoiceRecorder, MicPermissionDeniedError } from '@/hooks/useVoiceRecorder';
 import type { Message, Attachment, Poll, LocationPayload } from '@/types/message';
+import { TextRichComposer, type ComposerMode } from '@/components/chat/TextRichComposer';
+import { richTextToPlainText } from '@/utils/format';
 
 interface GroupMember {
   id: string;
@@ -66,7 +68,9 @@ function getDocumentIcon(mimeType: string): { name: string; color: string } {
 
 export function ChatInput({ conversationId, onSend, onTyping, replyingTo, onCancelReply, isGroup, groupMembers }: ChatInputProps) {
   const { user } = useAuthStore();
+  const [composerMode, setComposerMode] = useState<ComposerMode>('plain');
   const [text, setText] = useState('');
+  const [richHtml, setRichHtml] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([]);
@@ -197,7 +201,12 @@ export function ChatInput({ conversationId, onSend, onTyping, replyingTo, onCanc
   };
 
   const isUploading = pendingFiles.some((p) => !p.uploaded && !p.error);
-  const canSend = (text.trim().length > 0 || pendingFiles.some((p) => p.uploaded)) && !isUploading;
+  const hasAttachment = pendingFiles.some((p) => p.uploaded);
+  const hasTextContent =
+    composerMode === 'plain'
+      ? text.trim().length > 0
+      : richTextToPlainText(richHtml).trim().length > 0;
+  const canSend = (hasTextContent || hasAttachment) && !isUploading;
 
   const handleSend = () => {
     if (!canSend) return;
@@ -206,13 +215,16 @@ export function ChatInput({ conversationId, onSend, onTyping, replyingTo, onCanc
       .filter((p) => p.uploaded)
       .map((p) => p.uploaded!);
 
-    onSend(text.trim(), attachments.length ? attachments : undefined, undefined, selectedPriority ?? undefined);
+    const outgoingContent = composerMode === 'editor' ? richHtml.trim() : text.trim();
+    onSend(outgoingContent, attachments.length ? attachments : undefined, undefined, selectedPriority ?? undefined);
     setText('');
+    setRichHtml('');
     setPendingFiles([]);
     setIsTyping(false);
     setSelectedPriority(null);
     onTyping?.(false);
     onCancelReply?.();
+    Keyboard.dismiss();
   };
 
   const handleEmojiPick = (emoji: EmojiType) => {
@@ -272,7 +284,7 @@ export function ChatInput({ conversationId, onSend, onTyping, replyingTo, onCanc
           const first = reverse[0];
           address = [first.streetNumber, first.street, first.district, first.city, first.region].filter(Boolean).join(', ');
         }
-      } catch (e) {}
+      } catch {}
 
       setTempLocation({
         latitude: position.coords.latitude,
@@ -604,28 +616,30 @@ export function ChatInput({ conversationId, onSend, onTyping, replyingTo, onCanc
           />
         </TouchableOpacity>
 
-        {/* Text input */}
+        {/* Text / Editor composer */}
         <View
           className="mx-2 flex-1 rounded-2xl px-4 py-2"
           style={{
-            backgroundColor: Colors.white,
+            backgroundColor: 'transparent',
             minHeight: 38,
-            maxHeight: 120,
+            maxHeight: composerMode === 'plain' ? 120 : 220,
           }}>
-          <TextInput
-            className="text-[15px]"
-            style={{ color: Colors.text, maxHeight: 100 }}
+          <TextRichComposer
+            mode={composerMode}
+            onModeChange={setComposerMode}
+            plainText={text}
+            onPlainTextChange={handleChangeText}
+            richHtml={richHtml}
+            onRichHtmlChange={setRichHtml}
             placeholder="Type a message..."
-            placeholderTextColor={Colors.textLight}
-            value={text}
-            onChangeText={handleChangeText}
-            multiline
-            textAlignVertical="center"
+            minHeight={44}
+            showToolbar={composerMode === 'editor'}
+            editorKey="chat-input-composer"
           />
         </View>
 
         {/* Mic button — shown when text and files are empty */}
-        {text === '' && pendingFiles.length === 0 ? (
+        {composerMode === 'plain' && text === '' && pendingFiles.length === 0 ? (
           <TouchableOpacity
             onPress={handleStartRecording}
             className="items-center justify-center pb-1"

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { View, Text, TouchableOpacity, Image, Linking, Modal, Pressable, FlatList, Dimensions } from 'react-native';
 import { Image as ExpoImage } from 'expo-image';
+import RenderHtml from 'react-native-render-html';
 import { Ionicons } from '@expo/vector-icons';
 import {
   FilePdf,
@@ -16,7 +17,7 @@ import {
   File as PhosphorFile,
 } from 'phosphor-react-native';
 import { Colors } from '@/constants/theme';
-import { formatMessageTime, richTextToPlainText } from '@/utils/format';
+import { formatMessageTime, isRichTextHtml, richTextToPlainText } from '@/utils/format';
 import { ImageLightbox } from '@/components/ui/ImageLightbox';
 import { VideoPlayer } from '@/components/chat/VideoPlayer';
 import { AudioPlayer } from '@/components/chat/AudioPlayer';
@@ -285,6 +286,40 @@ export function MessageBubble({
   const renderTextContent = () => {
     const URL_REGEX = /(https?:\/\/[^\s<>"]+)/g;
     const textColor = isMe ? Colors.bubbleSenderText : Colors.bubbleReceiverText;
+    const htmlContent = content;
+
+    if (isRichTextHtml(htmlContent)) {
+      return (
+        <RenderHtml
+          contentWidth={maxBubbleWidth - 32}
+          source={{ html: `<div>${htmlContent}</div>` }}
+          baseStyle={{ color: textColor, fontSize: 15, lineHeight: 21 }}
+          tagsStyles={{
+            p: { marginTop: 0, marginBottom: 4, color: textColor },
+            div: { marginTop: 0, marginBottom: 4, color: textColor },
+            span: { color: textColor },
+            strong: { fontWeight: '700', color: textColor },
+            b: { fontWeight: '700', color: textColor },
+            em: { fontStyle: 'italic', color: textColor },
+            i: { fontStyle: 'italic', color: textColor },
+            u: { textDecorationLine: 'underline', color: textColor },
+            s: { textDecorationLine: 'line-through', color: textColor },
+            ul: { marginTop: 0, marginBottom: 4, paddingLeft: 14 },
+            ol: { marginTop: 0, marginBottom: 4, paddingLeft: 14 },
+            li: { marginBottom: 2, color: textColor },
+          }}
+          renderersProps={{
+            a: {
+              onPress: (_, href) => {
+                if (href) {
+                  Linking.openURL(href);
+                }
+              },
+            },
+          }}
+        />
+      );
+    }
 
     // Build mention regex from known participant names (longest first to avoid partial matches)
     const names = [...(participantNames ?? []), 'all'].filter(Boolean).sort((a, b) => b.length - a.length);
