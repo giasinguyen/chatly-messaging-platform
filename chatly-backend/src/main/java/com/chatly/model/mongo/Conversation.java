@@ -66,4 +66,7 @@ public class Conversation {
     /** When true, the AI assistant may proactively post into this group conversation. */
     @Builder.Default
     private Boolean aiProactiveEnabled = false;
+    /** User IDs who soft-deleted this conversation from their chat list */
+    @Builder.Default
+    private Set<String> deletedBy = new HashSet<>();
 }

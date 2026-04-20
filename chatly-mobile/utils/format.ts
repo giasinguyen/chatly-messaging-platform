@@ -70,7 +70,7 @@ function decodeHtmlEntities(text: string): string {
 }
 
 export function isRichTextHtml(text: string): boolean {
-  return /<\/?(p|br|ul|ol|li|strong|b|i|em|u|s|span)\b/i.test(text);
+  return /<\/?(div|p|br|ul|ol|li|strong|b|i|em|u|s|span)\b/i.test(text);
 }
 
 export function richTextToPlainText(text: string): string {
@@ -81,6 +81,8 @@ export function richTextToPlainText(text: string): string {
     .replace(/<li[^>]*>/gi, '\n• ')
     .replace(/<\/li>/gi, '')
     .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/div>/gi, '\n')
+    .replace(/<div[^>]*>/gi, '')
     .replace(/<\/p>/gi, '\n')
     .replace(/<p[^>]*>/gi, '')
     .replace(/<\/?(ul|ol|strong|b|i|em|u|s|span)[^>]*>/gi, '');

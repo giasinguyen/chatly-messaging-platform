@@ -29,6 +29,16 @@ export interface InviteLinkResponse {
     inviteLink: string;
 }
 
+export interface InviteLinkInfoResponse {
+    conversationId: string;
+    name: string;
+    avatarUrl: string | null;
+    memberCount: number;
+    requireApproval: boolean;
+    alreadyMember: boolean;
+    hasPendingRequest: boolean;
+}
+
 export interface PendingJoinResponse {
     id: string;
     conversationId: string;

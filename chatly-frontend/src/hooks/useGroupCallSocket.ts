@@ -284,16 +284,20 @@ export function useGroupCallSocket() {
                     const activeCall = useCallStore.getState().activeCall;
                     if (!activeCall || !user || signal.senderId === user.id) break;
 
-                    const payload = signal.payload as { requesterName?: unknown } | undefined;
-                    const fallbackName = useCallStore.getState().groupParticipantInfo[signal.senderId]?.name
-                        ?? "A participant";
-                    const requesterName =
-                        typeof payload?.requesterName === "string" && payload.requesterName.trim().length > 0
-                            ? payload.requesterName
-                            : fallbackName;
+                    // Keep backward compatibility with older clients that still request consent.
+                    // New flow upgrades group calls directly without prompting other participants.
+                    const client = socketService.getClient();
+                    if (!client?.connected) break;
 
-                    pendingIncomingGroupVideoUpgradeRequesterIdRef.current = signal.senderId;
-                    setIncomingGroupVideoUpgradeRequest({ requesterName });
+                    client.publish({
+                        destination: "/app/call.group.signal",
+                        body: JSON.stringify({
+                            type: "GROUP_VIDEO_UPGRADE_ACCEPT",
+                            callId: activeCall.callId,
+                            senderId: user.id,
+                            receiverId: signal.senderId,
+                        }),
+                    });
                     break;
                 }
 
@@ -626,28 +630,11 @@ export function useGroupCallSocket() {
 
         const isAlreadyVideoCall = activeCall.type === "VIDEO";
 
-        if (!isAlreadyVideoCall) {
-            peerIds.forEach((peerId) => {
-                client.publish({
-                    destination: "/app/call.group.signal",
-                    body: JSON.stringify({
-                        type: "GROUP_VIDEO_UPGRADE_REQUEST",
-                        callId: activeCall.callId,
-                        senderId: user.id,
-                        receiverId: peerId,
-                        payload: {
-                            requesterName: user.displayName,
-                        },
-                    }),
-                });
-            });
-
-            await waitForGroupVideoUpgradeDecision(peerIds);
-        }
-
         const hasLocalVideoTrack = await groupWebRTCRef.current.enableLocalVideoTrack();
         setCameraOff(!hasLocalVideoTrack);
-        upgradeCall();
+        if (!isAlreadyVideoCall) {
+            upgradeCall();
+        }
 
         await Promise.all(
             peerIds.map(async (peerId) => {
@@ -664,7 +651,7 @@ export function useGroupCallSocket() {
                 });
             }),
         );
-    }, [user, waitForGroupVideoUpgradeDecision, setCameraOff, upgradeCall]);
+    }, [user, setCameraOff, upgradeCall]);
 
     return {
         initiateGroupCall,

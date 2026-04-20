@@ -191,18 +191,17 @@ public class GroupService {
     private void transferOwnershipBeforeLeave(String conversationId, String ownerUserId) {
         UUID ownerUid = UUID.fromString(ownerUserId);
 
-        // Find an ADMIN to promote
-        List<GroupMember> admins = groupMemberRepository.findByConversationIdAndRoleIn(
+        // Find an ADMIN to promote (ordered by joinedAt for deterministic selection)
+        List<GroupMember> admins = groupMemberRepository.findByConversationIdAndRoleInOrderByJoinedAtAsc(
                 conversationId, List.of(GroupRole.ADMIN));
-        // Filter out the leaving owner (shouldn't be in admins, but just in case)
         admins = admins.stream().filter(m -> !m.getUser().getId().equals(ownerUid)).toList();
 
         GroupMember newOwner;
         if (!admins.isEmpty()) {
             newOwner = admins.getFirst();
         } else {
-            // No admins — promote first regular member
-            List<GroupMember> allMembers = groupMemberRepository.findByConversationId(conversationId);
+            // No admins — promote earliest-joined regular member
+            List<GroupMember> allMembers = groupMemberRepository.findByConversationIdOrderByJoinedAtAsc(conversationId);
             List<GroupMember> candidates = allMembers.stream()
                     .filter(m -> !m.getUser().getId().equals(ownerUid))
                     .toList();
@@ -244,8 +243,18 @@ public class GroupService {
 
         GroupRole newRole = request.getRole();
 
+        // Cannot change own role
+        if (requesterId.equals(targetUserId)) {
+            throw new AppException(ErrorCode.GROUP_PERMISSION_DENIED);
+        }
+
         // ADMIN cannot assign OWNER role
         if (requester.getRole() == GroupRole.ADMIN && newRole == GroupRole.OWNER) {
+            throw new AppException(ErrorCode.GROUP_PERMISSION_DENIED);
+        }
+
+        // ADMIN cannot change another ADMIN's role — only OWNER can
+        if (requester.getRole() == GroupRole.ADMIN && target.getRole() == GroupRole.ADMIN) {
             throw new AppException(ErrorCode.GROUP_PERMISSION_DENIED);
         }
 
@@ -355,6 +364,28 @@ public class GroupService {
         return InviteLinkResponse.builder()
                 .inviteToken(conversation.getInviteToken())
                 .inviteLink("/join/" + conversation.getInviteToken())
+                .build();
+    }
+
+    public InviteLinkInfoResponse getInviteLinkInfo(String inviteToken, String userId) {
+        Conversation conversation = conversationRepository.findAll().stream()
+                .filter(c -> inviteToken.equals(c.getInviteToken()) && c.getType() == ConversationType.GROUP)
+                .findFirst()
+                .orElseThrow(() -> new AppException(ErrorCode.GROUP_INVITE_TOKEN_INVALID));
+
+        UUID uid = UUID.fromString(userId);
+        boolean isAlreadyMember = groupMemberRepository.existsByConversationIdAndUserId(conversation.getId(), uid);
+        boolean hasPendingRequest = pendingJoinRequestRepository.existsByConversationIdAndUserId(conversation.getId(), userId);
+        int memberCount = conversation.getParticipantIds() != null ? conversation.getParticipantIds().size() : 0;
+
+        return InviteLinkInfoResponse.builder()
+                .conversationId(conversation.getId())
+                .name(conversation.getName())
+                .avatarUrl(conversation.getAvatarUrl())
+                .memberCount(memberCount)
+                .requireApproval(Boolean.TRUE.equals(conversation.getRequireApproval()))
+                .isAlreadyMember(isAlreadyMember)
+                .hasPendingRequest(hasPendingRequest)
                 .build();
     }
 
@@ -720,11 +751,13 @@ public class GroupService {
             Conversation conversation = conversationRepository.findById(conversationId).orElse(null);
             if (conversation == null) return;
             ConversationResponse convResponse = conversationMapper.toResponse(conversation);
+            GroupMemberResponse memberResponse = toMemberResponse(updatedMember);
             messagingTemplate.convertAndSend(
                     "/topic/conversation." + conversationId,
                     ChatEvent.builder()
                             .action(ChatEvent.ChatAction.ROLE_UPDATED)
                             .conversationData(convResponse)
+                            .updatedMember(memberResponse)
                             .build()
             );
         } catch (Exception e) {

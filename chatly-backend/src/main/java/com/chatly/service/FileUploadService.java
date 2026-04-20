@@ -114,6 +114,10 @@ public class FileUploadService {
     }
 
     public List<FileUploadResponse> getByConversation(String conversationId, String type) {
+        return getByConversation(conversationId, type, 0, Integer.MAX_VALUE);
+    }
+
+    public List<FileUploadResponse> getByConversation(String conversationId, String type, int page, int size) {
         List<FileMetadata> files = fileMetadataRepository.findByConversationIdOrderByCreatedAtDesc(conversationId);
 
         if (type != null && !type.isBlank()) {
@@ -129,7 +133,11 @@ public class FileUploadService {
             }).toList();
         }
 
-        return files.stream().map(m -> FileUploadResponse.builder()
+        int skip = page * size;
+        return files.stream()
+                .skip(skip)
+                .limit(size)
+                .map(m -> FileUploadResponse.builder()
                 .fileId(m.getId())
                 .provider(m.getProvider())
                 .url(m.getUrl())

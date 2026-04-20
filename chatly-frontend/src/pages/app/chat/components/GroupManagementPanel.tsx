@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { groupService } from "@/services/group.service";
 import { conversationService } from "@/services/conversation.service";
 import { fileService } from "@/services/file.service";
+import { socketService } from "@/services/socket.service";
 import { useAuthStore } from "@/store/auth.store";
 import { useNotificationStore } from "@/store/notification.store";
 import { AddMembersDialog } from "./AddMembersDialog";
@@ -194,6 +195,27 @@ export function GroupManagementPanel({
         }
     }, [open, fetchMembers, initialGroupName, initialGroupAvatar]);
 
+    // Listen for ROLE_UPDATED events to refresh the member list in realtime
+    useEffect(() => {
+        if (!open || !conversationId) return;
+        const client = socketService.getClient();
+        if (!client?.connected) return;
+
+        const sub = client.subscribe(
+            `/topic/conversation.${conversationId}`,
+            (frame) => {
+                try {
+                    const event = JSON.parse(frame.body);
+                    if (event.action === "ROLE_UPDATED") {
+                        fetchMembers();
+                    }
+                } catch { /* ignore */ }
+            },
+        );
+
+        return () => { sub.unsubscribe(); };
+    }, [open, conversationId, fetchMembers]);
+
     // ── Actions ───────────────────────────────────────────────────────
     const handleAvatarFileChange = async (
         e: React.ChangeEvent<HTMLInputElement>,
@@ -296,7 +318,7 @@ export function GroupManagementPanel({
             const data = res.result;
             if (data) {
                 setInviteToken(data.inviteToken);
-                setInviteLink(`${window.location.origin}/join/${data.inviteToken}`);
+                setInviteLink(`${import.meta.env.VITE_WEB_BASE_URL || window.location.origin}/join/${data.inviteToken}`);
             }
         } catch {
             toast.error("Failed to create invite link");
@@ -312,7 +334,7 @@ export function GroupManagementPanel({
             const data = res.result;
             if (data) {
                 setInviteToken(data.inviteToken);
-                setInviteLink(`${window.location.origin}/join/${data.inviteToken}`);
+                setInviteLink(`${import.meta.env.VITE_WEB_BASE_URL || window.location.origin}/join/${data.inviteToken}`);
             }
             toast.success("Invite link reset");
         } catch {

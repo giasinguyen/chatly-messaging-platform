@@ -1,5 +1,4 @@
 import { useEffect, useCallback, useRef } from 'react';
-import { Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { socketService } from '@/services/socket.service';
 import { useAuthStore } from '@/store/auth.store';
@@ -249,46 +248,14 @@ export function useGroupCallSocket() {
           const activeCall = useCallStore.getState().activeCall;
           if (!activeCall || !user || signal.senderId === user.id) break;
 
-          const requesterId = signal.senderId;
-          const fallbackName = useCallStore.getState().groupParticipantInfo[requesterId]?.name ?? 'A participant';
-          const payload = signal.payload as { requesterName?: unknown } | undefined;
-          const requesterName =
-            typeof payload?.requesterName === 'string' && payload.requesterName.trim().length > 0
-              ? payload.requesterName
-              : fallbackName;
-
-          Alert.alert(
-            'Video call request',
-            `${requesterName} wants to upgrade this group voice call to video.`,
-            [
-              {
-                text: 'Decline',
-                style: 'cancel',
-                onPress: () => {
-                  shouldAutoEnableCameraForRequesterRef.current.delete(requesterId);
-                  socketService.publish('/app/call.group.signal', {
-                    type: 'GROUP_VIDEO_UPGRADE_REJECT',
-                    callId: activeCall.callId,
-                    senderId: user.id,
-                    receiverId: requesterId,
-                  });
-                },
-              },
-              {
-                text: 'Accept',
-                onPress: () => {
-                  shouldAutoEnableCameraForRequesterRef.current.add(requesterId);
-                  socketService.publish('/app/call.group.signal', {
-                    type: 'GROUP_VIDEO_UPGRADE_ACCEPT',
-                    callId: activeCall.callId,
-                    senderId: user.id,
-                    receiverId: requesterId,
-                  });
-                },
-              },
-            ],
-            { cancelable: false },
-          );
+          // Keep backward compatibility with older clients that still send consent requests.
+          // New flow skips consent and renegotiates directly.
+          socketService.publish('/app/call.group.signal', {
+            type: 'GROUP_VIDEO_UPGRADE_ACCEPT',
+            callId: activeCall.callId,
+            senderId: user.id,
+            receiverId: signal.senderId,
+          });
           break;
         }
 
@@ -374,10 +341,10 @@ export function useGroupCallSocket() {
             activeParticipantCount?: unknown;
           } | undefined;
 
-          const isCallEnded = leavePayload?.callEnded === true;
+          const isCallEnded = leavePayload?.callEnded === true || leavingId === 'system';
           const activeParticipantCount = typeof leavePayload?.activeParticipantCount === 'number'
             ? leavePayload.activeParticipantCount
-            : (isCallEnded ? 1 : Math.max(1, Object.keys(useCallStore.getState().groupParticipantInfo).length));
+            : (isCallEnded ? 0 : Math.max(1, Object.keys(useCallStore.getState().groupParticipantInfo).length));
 
           setGroupCallRealtimeState(signal.callId, isCallEnded, activeParticipantCount);
 
@@ -598,25 +565,11 @@ export function useGroupCallSocket() {
 
     const isAlreadyVideoCall = activeCall.type === 'VIDEO';
 
-    if (!isAlreadyVideoCall) {
-      peerIds.forEach((peerId) => {
-        socketService.publish('/app/call.group.signal', {
-          type: 'GROUP_VIDEO_UPGRADE_REQUEST',
-          callId: activeCall.callId,
-          senderId: user.id,
-          receiverId: peerId,
-          payload: {
-            requesterName: user.displayName,
-          },
-        });
-      });
-
-      await waitForGroupVideoUpgradeDecision(peerIds);
-    }
-
     const hasLocalVideoTrack = await groupWebRTCRef.current.enableLocalVideoTrack();
     setCameraOff(!hasLocalVideoTrack);
-    upgradeCall();
+    if (!isAlreadyVideoCall) {
+      upgradeCall();
+    }
 
     await Promise.all(
       peerIds.map(async (peerId) => {
@@ -630,7 +583,7 @@ export function useGroupCallSocket() {
         });
       }),
     );
-  }, [user, waitForGroupVideoUpgradeDecision, setCameraOff, upgradeCall]);
+  }, [user, setCameraOff, upgradeCall]);
 
   return {
     initiateGroupCall,

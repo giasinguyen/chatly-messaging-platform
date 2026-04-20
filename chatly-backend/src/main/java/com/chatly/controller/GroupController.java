@@ -106,6 +106,13 @@ public class GroupController {
                 .build();
     }
 
+    @GetMapping("/invite/{inviteToken}/info")
+    ApiResponse<InviteLinkInfoResponse> getInviteLinkInfo(@PathVariable String inviteToken) {
+        return ApiResponse.<InviteLinkInfoResponse>builder()
+                .result(groupService.getInviteLinkInfo(inviteToken, getAuthenticatedUserId()))
+                .build();
+    }
+
     // ── Pending Join Requests ────────────────────────────────────────
 
     @GetMapping("/{conversationId}/pending")

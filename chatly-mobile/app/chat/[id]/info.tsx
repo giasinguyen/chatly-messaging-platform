@@ -243,8 +243,9 @@ export default function GroupInfoScreen() {
                     await groupService.removeMember(conversationId, member.userId);
                     setMembers((prev) => prev.filter((m) => m.userId !== member.userId));
                     Alert.alert('Success', 'Removed from group.');
-                  } catch (e: any) {
-                    Alert.alert('Error', e?.response?.data?.message || 'Could not remove member.');
+                  } catch (e: unknown) {
+                    const msg = e instanceof Error ? e.message : 'Could not remove member.';
+                    Alert.alert('Error', msg);
                   }
                 },
               },
@@ -263,8 +264,9 @@ export default function GroupInfoScreen() {
             await groupService.updateRole(conversationId, member.userId, { role: newRole as GroupRole });
             setMembers((prev) => prev.map((m) => (m.userId === member.userId ? { ...m, role: newRole as GroupRole } : m)));
             Alert.alert('Success', 'Privileges updated.');
-          } catch (e: any) {
-            Alert.alert('Error', e?.response?.data?.message || 'Could not update privileges.');
+          } catch (e: unknown) {
+            const msg = e instanceof Error ? e.message : 'Could not update privileges.';
+            Alert.alert('Error', msg);
           }
         },
       });
@@ -307,7 +309,7 @@ export default function GroupInfoScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
-              await conversationService.delete(conversationId);
+              await conversationService.dissolve(conversationId);
               router.dismissAll();
             } catch (e: unknown) {
               const msg = e instanceof Error ? e.message : 'Could not dissolve group.';
@@ -570,7 +572,7 @@ export default function GroupInfoScreen() {
         </View>
       </View>
 
-      <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
+      <ScrollView contentContainerStyle={{ paddingBottom: Math.max(40, insets.bottom + 16) }} keyboardShouldPersistTaps="handled">
         {/* ── Profile card ── */}
         <View style={{ alignItems: 'center', paddingTop: 28, paddingBottom: 20, backgroundColor: Colors.white, marginBottom: 8 }}>
           <TouchableOpacity
@@ -591,11 +593,11 @@ export default function GroupInfoScreen() {
             </View>
           </TouchableOpacity>
           <TouchableOpacity
-            style={{ marginTop: 12, flexDirection: 'row', alignItems: 'center' }}
+            style={{ marginTop: 12, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 24 }}
             onPress={isGroup && canManage ? handleChangeName : undefined}
             disabled={!isGroup || !canManage}
           >
-            <Text style={{ fontSize: 20, fontWeight: 'bold', color: Colors.text }}>
+            <Text numberOfLines={2} style={{ fontSize: 20, fontWeight: 'bold', color: Colors.text, flexShrink: 1, textAlign: 'center' }}>
               {isGroup ? (conversation?.name ?? 'Untitled Group') : (otherUser?.displayName ?? '...')}
             </Text>
             {isGroup && canManage && (
@@ -670,9 +672,14 @@ export default function GroupInfoScreen() {
         {/* ── Media (Ảnh, file, link) ── */}
         {mediaFiles.length > 0 && (
           <View style={{ backgroundColor: Colors.white, padding: 16, marginBottom: 8 }}>
-            <Text style={{ fontWeight: '600', fontSize: 15, color: Colors.text, marginBottom: 10 }}>
-              Media, files, links
-            </Text>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+              <Text style={{ fontWeight: '600', fontSize: 15, color: Colors.text }}>
+                Media ({mediaFiles.length})
+              </Text>
+              <TouchableOpacity onPress={() => router.push(`/chat/${conversationId}/shared-media?tab=media`)}>
+                <Text style={{ fontSize: 13, color: Colors.cta }}>View All</Text>
+              </TouchableOpacity>
+            </View>
             <ImageLightbox
               images={mediaImageUrls}
               initialIndex={lightboxIndex}
@@ -691,12 +698,58 @@ export default function GroupInfoScreen() {
                   </TouchableOpacity>
                 ))}
                 {mediaFiles.length > 4 && (
-                  <View style={{ width: 80, height: 80, borderRadius: 8, backgroundColor: Colors.bg, alignItems: 'center', justifyContent: 'center' }}>
+                  <TouchableOpacity
+                    onPress={() => router.push(`/chat/${conversationId}/shared-media?tab=media`)}
+                    style={{ width: 80, height: 80, borderRadius: 8, backgroundColor: Colors.bg, alignItems: 'center', justifyContent: 'center' }}
+                  >
                     <Ionicons name="arrow-forward" size={22} color={Colors.cta} />
-                  </View>
+                  </TouchableOpacity>
                 )}
               </View>
             </ScrollView>
+          </View>
+        )}
+
+        {/* ── Files ── */}
+        {docFiles.length > 0 && (
+          <View style={{ backgroundColor: Colors.white, padding: 16, marginBottom: 8 }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+              <Text style={{ fontWeight: '600', fontSize: 15, color: Colors.text }}>
+                Files ({docFiles.length})
+              </Text>
+              <TouchableOpacity onPress={() => router.push(`/chat/${conversationId}/shared-media?tab=files`)}>
+                <Text style={{ fontSize: 13, color: Colors.cta }}>View All</Text>
+              </TouchableOpacity>
+            </View>
+            {docFiles.slice(0, 5).map((file) => {
+              const sizeStr = file.fileSize
+                ? file.fileSize > 1048576
+                  ? `${(file.fileSize / 1048576).toFixed(1)} MB`
+                  : `${(file.fileSize / 1024).toFixed(0)} KB`
+                : '';
+              return (
+                <TouchableOpacity
+                  key={file.fileId}
+                  onPress={() => Linking.openURL(file.url)}
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    paddingVertical: 8,
+                    borderBottomWidth: 0.5,
+                    borderBottomColor: Colors.borderLight,
+                  }}
+                >
+                  <View style={{ width: 36, height: 36, borderRadius: 8, backgroundColor: Colors.ctaLight, alignItems: 'center', justifyContent: 'center', marginRight: 10 }}>
+                    <Ionicons name="document-text" size={18} color={Colors.cta} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text numberOfLines={1} style={{ fontSize: 13, fontWeight: '500', color: Colors.text }}>{file.fileName}</Text>
+                    {sizeStr ? <Text style={{ fontSize: 11, color: Colors.textLight }}>{sizeStr}</Text> : null}
+                  </View>
+                  <Ionicons name="download-outline" size={18} color={Colors.textLight} />
+                </TouchableOpacity>
+              );
+            })}
           </View>
         )}
 
@@ -727,10 +780,10 @@ export default function GroupInfoScreen() {
               >
                 <Avatar uri={item.avatar} name={item.displayName} size={40} />
                 <View style={{ flex: 1, marginLeft: 12 }}>
-                  <Text style={{ fontWeight: '500', color: Colors.text }}>
+                  <Text numberOfLines={1} style={{ fontWeight: '500', color: Colors.text }}>
                     {item.userId === user?.id ? 'You' : item.displayName}
                   </Text>
-                  <Text style={{ fontSize: 12, marginTop: 1, color: Colors.textLight }}>@{item.username}</Text>
+                  <Text numberOfLines={1} style={{ fontSize: 12, marginTop: 1, color: Colors.textLight }}>@{item.username}</Text>
                 </View>
                 {item.role !== 'MEMBER' && (
                   <View style={{ borderRadius: 4, paddingHorizontal: 8, paddingVertical: 2, backgroundColor: item.role === 'OWNER' ? '#FFE8D6' : Colors.ctaLight }}>
@@ -807,8 +860,8 @@ export default function GroupInfoScreen() {
               >
                 <Avatar uri={req.avatarUrl} name={req.displayName} size={40} />
                 <View style={{ flex: 1, marginLeft: 12 }}>
-                  <Text style={{ fontWeight: '500', color: Colors.text }}>{req.displayName}</Text>
-                  <Text style={{ fontSize: 12, color: Colors.textLight }}>@{req.username}</Text>
+                  <Text numberOfLines={1} style={{ fontWeight: '500', color: Colors.text }}>{req.displayName}</Text>
+                  <Text numberOfLines={1} style={{ fontSize: 12, color: Colors.textLight }}>@{req.username}</Text>
                 </View>
                 <TouchableOpacity
                   onPress={() => handleApprovePending(req.userId)}

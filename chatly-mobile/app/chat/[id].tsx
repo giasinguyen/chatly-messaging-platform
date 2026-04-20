@@ -25,6 +25,7 @@ import { MessageActions } from '@/components/chat/MessageActions';
 import { ForwardMessageModal } from '@/components/chat/ForwardMessageModal';
 import { TypingIndicator } from '@/components/chat/TypingIndicator';
 import { MessageSearch } from '@/components/chat/MessageSearch';
+import { TextRichComposer, type ComposerMode } from '@/components/chat/TextRichComposer';
 import { messageService } from '@/services/message.service';
 import { conversationService } from '@/services/conversation.service';
 import { contactService } from '@/services/contact.service';
@@ -38,7 +39,7 @@ import { useCallContext } from '@/contexts/CallContext';
 import { useCallStore } from '@/store/call.store';
 import { usePresenceSocket } from '@/hooks/usePresenceSocket';
 import { Colors } from '@/constants/theme';
-import { formatDateSeparator } from '@/utils/format';
+import { formatDateSeparator, isRichTextHtml, richTextToPlainText } from '@/utils/format';
 import type { Message, ChatEvent, Attachment, Poll } from '@/types/message';
 import type { ConversationResponse } from '@/types/conversation';
 import type { UserResponse } from '@/types/auth';
@@ -86,6 +87,10 @@ export default function ChatScreen() {
   const [contacts, setContacts] = useState<ContactResponse[]>([]);
   const [mentionModalUser, setMentionModalUser] = useState<UserResponse | null>(null);
   const [showMentionModal, setShowMentionModal] = useState(false);
+  const [editModalVisible, setEditModalVisible] = useState(false);
+  const [editMode, setEditMode] = useState<ComposerMode>('plain');
+  const [editPlainDraft, setEditPlainDraft] = useState('');
+  const [editRichDraft, setEditRichDraft] = useState('');
   const [pinnedMessages, setPinnedMessages] = useState<Message[]>([]);
   const [currentPinnedIdx, setCurrentPinnedIdx] = useState(0);
   const [showPinnedList, setShowPinnedList] = useState(false);
@@ -454,23 +459,37 @@ export default function ChatScreen() {
 
   const handleEdit = useCallback(async () => {
     if (!selectedMessage || !conversationId) return;
-    // Simple prompt for edit
-    Alert.prompt?.(
-      'Edit Message',
-      '',
-      async (newContent: string) => {
-        if (!newContent?.trim()) return;
-        try {
-          const res = await messageService.edit(selectedMessage.id, newContent.trim());
-          updateMessage(conversationId, selectedMessage.id, res.result);
-        } catch (error: any) {
-          Alert.alert('Error', error?.response?.data?.message ?? 'Could not edit message.');
-        }
-      },
-      'plain-text',
-      selectedMessage.content
-    );
-  }, [selectedMessage, conversationId, updateMessage]);
+    const initialIsRich = isRichTextHtml(selectedMessage.content);
+    setEditMode(initialIsRich ? 'editor' : 'plain');
+    setEditRichDraft(initialIsRich ? selectedMessage.content : '');
+    setEditPlainDraft(initialIsRich ? richTextToPlainText(selectedMessage.content) : selectedMessage.content);
+    setEditModalVisible(true);
+  }, [selectedMessage, conversationId]);
+
+  const handleConfirmEdit = useCallback(async () => {
+    if (!selectedMessage || !conversationId) return;
+    const nextContent = editMode === 'editor' ? editRichDraft.trim() : editPlainDraft.trim();
+    if (!nextContent) {
+      setEditModalVisible(false);
+      return;
+    }
+    try {
+      const res = await messageService.edit(selectedMessage.id, nextContent);
+      updateMessage(conversationId, selectedMessage.id, res.result);
+      setEditModalVisible(false);
+      setEditPlainDraft('');
+      setEditRichDraft('');
+    } catch (error: unknown) {
+      const msg =
+        typeof error === 'object' &&
+        error !== null &&
+        'response' in error &&
+        typeof (error as { response?: { data?: { message?: string } } }).response?.data?.message === 'string'
+          ? (error as { response?: { data?: { message?: string } } }).response?.data?.message ?? 'Could not edit message.'
+          : 'Could not edit message.';
+      Alert.alert('Error', msg);
+    }
+  }, [selectedMessage, conversationId, editMode, editRichDraft, editPlainDraft, updateMessage]);
 
   const handleRecall = useCallback(async () => {
     if (!selectedMessage || !conversationId) return;
@@ -603,35 +622,47 @@ export default function ChatScreen() {
         return;
       }
 
-      const ringingMessage = messages.find((message) => {
-        if (message.type !== 'CALL') return false;
+      const parseCallPayload = (rawContent: string): { callId?: string; status?: string; callType?: string } | null => {
         try {
-          const payload = JSON.parse(message.content) as { callId?: string; status?: string };
-          return payload.callId === callId && (payload.status === 'RINGING' || payload.status === 'ONGOING');
+          return JSON.parse(rawContent) as { callId?: string; status?: string; callType?: string };
         } catch {
-          return false;
+          return null;
         }
+      };
+
+      const activeCallMessage = messages.find((message) => {
+        if (message.type !== 'CALL') return false;
+        const payload = parseCallPayload(message.content);
+        if (!payload || payload.callId !== callId) return false;
+
+        const status = (payload.status ?? '').toUpperCase();
+        return status === 'RINGING' || status === 'ONGOING';
       });
+
+      const fallbackCallMessage = activeCallMessage
+        ?? messages.find((message) => {
+          if (message.type !== 'CALL') return false;
+          const payload = parseCallPayload(message.content);
+          return payload?.callId === callId;
+        });
 
       let callType: 'VOICE' | 'VIDEO' = 'VOICE';
       let initiatorId = '';
 
-      if (ringingMessage) {
-        try {
-          const payload = JSON.parse(ringingMessage.content) as { callType?: string };
-          callType = payload.callType === 'VIDEO' ? 'VIDEO' : 'VOICE';
-        } catch {
-          callType = 'VOICE';
-        }
-        initiatorId = ringingMessage.senderId;
+      if (fallbackCallMessage) {
+        const payload = parseCallPayload(fallbackCallMessage.content);
+        callType = payload?.callType === 'VIDEO' ? 'VIDEO' : 'VOICE';
+        initiatorId = fallbackCallMessage.senderId;
       }
+
+      const initiator = initiatorId ? participantMap[initiatorId] : null;
 
       useCallStore.getState().setIncomingGroupCall({
         callId,
         conversationId,
         initiatorId,
-        initiatorName: 'Unknown',
-        initiatorAvatar: null,
+        initiatorName: initiator?.displayName ?? 'Unknown',
+        initiatorAvatar: initiator?.avatarUrl ?? null,
         groupName: conversation.name ?? 'Group',
         groupAvatarUrl: conversation.avatarUrl ?? null,
         type: callType,
@@ -641,7 +672,7 @@ export default function ChatScreen() {
       useCallStore.getState().setCallStatus('RINGING');
       joinGroupCall(true);
     },
-    [messages, conversationId, conversation, joinGroupCall]
+    [messages, participantMap, conversationId, conversation, joinGroupCall]
   );
 
   const handleMentionPress = useCallback(
@@ -1044,6 +1075,76 @@ export default function ChatScreen() {
         onClose={() => setForwardVisible(false)}
         onConfirm={handleForward}
       />
+
+      <Modal
+        visible={editModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setEditModalVisible(false)}>
+        <Pressable
+          style={{
+            flex: 1,
+            backgroundColor: 'rgba(0,0,0,0.35)',
+            justifyContent: 'center',
+            paddingHorizontal: 16,
+          }}
+          onPress={() => setEditModalVisible(false)}>
+          <Pressable
+            style={{
+              backgroundColor: Colors.white,
+              borderRadius: 16,
+              padding: 14,
+              maxHeight: '75%',
+            }}
+            onPress={() => {}}>
+            <Text style={{ fontSize: 18, fontWeight: '700', color: Colors.text, marginBottom: 10 }}>
+              Edit message
+            </Text>
+
+            <TextRichComposer
+              mode={editMode}
+              onModeChange={setEditMode}
+              plainText={editPlainDraft}
+              onPlainTextChange={setEditPlainDraft}
+              richHtml={editRichDraft}
+              onRichHtmlChange={setEditRichDraft}
+              placeholder="Edit message..."
+              minHeight={120}
+              showToolbar={editMode === 'editor'}
+              editorKey={selectedMessage?.id ?? 'edit-message'}
+            />
+
+            <View
+              style={{
+                marginTop: 12,
+                flexDirection: 'row',
+                justifyContent: 'flex-end',
+                gap: 10,
+              }}>
+              <TouchableOpacity
+                onPress={() => setEditModalVisible(false)}
+                style={{
+                  paddingHorizontal: 14,
+                  paddingVertical: 10,
+                  borderRadius: 10,
+                  backgroundColor: Colors.bg,
+                }}>
+                <Text style={{ color: Colors.textMuted, fontWeight: '600' }}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={handleConfirmEdit}
+                style={{
+                  paddingHorizontal: 16,
+                  paddingVertical: 10,
+                  borderRadius: 10,
+                  backgroundColor: Colors.cta,
+                }}>
+                <Text style={{ color: '#fff', fontWeight: '700' }}>Save</Text>
+              </TouchableOpacity>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
 
       {/* Pinned messages list modal */}
       <Modal
