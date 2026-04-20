@@ -54,3 +54,14 @@ export function sanitizeRichTextHtml(content: string): string {
         return `style="${safeDeclarations.join("; ")}"`;
     });
 }
+
+export function toMessagePreviewText(content: string): string {
+    if (!content) {
+        return "";
+    }
+    if (!isRichTextHtml(content)) {
+        return content;
+    }
+    const parsed = new DOMParser().parseFromString(content, "text/html");
+    return parsed.body.textContent?.replace(/\s+/g, " ").trim() ?? "";
+}

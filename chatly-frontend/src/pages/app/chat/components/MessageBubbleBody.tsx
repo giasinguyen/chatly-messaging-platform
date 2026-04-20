@@ -109,7 +109,7 @@ export function MessageBubbleBody(props: MessageBubbleBodyProps) {
                 {shouldUseRichEditor ? (
                     <RichTextMessageEditor
                         key={`edit-${msg.id}`}
-                        initialHtml={editHtmlDraft}
+                        initialHtml={msg.content}
                         onChange={setEditRichDraft}
                         onSend={onCommitEdit}
                         mode="editor"
