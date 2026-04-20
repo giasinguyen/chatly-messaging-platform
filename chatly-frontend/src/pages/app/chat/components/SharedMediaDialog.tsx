@@ -6,11 +6,18 @@ import {
     DialogTitle,
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { Image, FileText, Link as LinkIcon, Download, Loader2 } from "lucide-react";
 import { fileService, type FileUploadResponse } from "@/services/file.service";
 import { messageService } from "@/services/message.service";
+
+type ActiveTab = "media" | "files" | "links";
+
+const TAB_TITLES: Record<ActiveTab, string> = {
+    media: "Shared Media",
+    files: "Files",
+    links: "Links",
+};
 
 const PAGE_SIZE = 20;
 const URL_REGEX = /(https?:\/\/[^\s<>"]+)/g;
@@ -28,6 +35,8 @@ export function SharedMediaDialog({
     onOpenChange,
     defaultTab = "media",
 }: SharedMediaDialogProps) {
+    const [activeTab, setActiveTab] = useState<ActiveTab>(defaultTab);
+
     const [media, setMedia] = useState<FileUploadResponse[]>([]);
     const [files, setFiles] = useState<FileUploadResponse[]>([]);
     const [links, setLinks] = useState<{ url: string; domain: string }[]>([]);
@@ -87,6 +96,7 @@ export function SharedMediaDialog({
 
     useEffect(() => {
         if (!open) return;
+        setActiveTab(defaultTab);
         setMedia([]);
         setFiles([]);
         setLinks([]);
@@ -97,16 +107,16 @@ export function SharedMediaDialog({
         loadMedia(0, false);
         loadFiles(0, false);
         loadLinks();
-    }, [open, conversationId, loadMedia, loadFiles, loadLinks]);
+    }, [open, conversationId, defaultTab, loadMedia, loadFiles, loadLinks]);
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-lg p-0 gap-0 overflow-hidden max-h-[85vh] flex flex-col">
                 <DialogHeader className="px-5 pt-5 pb-3 shrink-0">
-                    <DialogTitle className="text-base">Shared Media</DialogTitle>
+                    <DialogTitle className="text-base">{TAB_TITLES[activeTab]}</DialogTitle>
                 </DialogHeader>
 
-                <Tabs defaultValue={defaultTab} className="flex flex-1 min-h-0 flex-col overflow-hidden">
+                <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as ActiveTab)} className="flex flex-1 min-h-0 flex-col overflow-hidden">
                     <div className="px-5 shrink-0">
                         <TabsList className="h-9 w-full bg-muted/50">
                             <TabsTrigger value="media" className="flex-1 gap-1.5 text-xs">
@@ -126,7 +136,7 @@ export function SharedMediaDialog({
 
                     {/* Media Tab */}
                     <TabsContent value="media" className="mt-0 flex-1 min-h-0 overflow-hidden flex flex-col px-5 pb-5">
-                        <ScrollArea className="flex-1 min-h-0 pt-3">
+                        <div className="flex-1 min-h-0 overflow-y-auto pt-3 pr-1">
                             {media.length === 0 && !loadingMedia ? (
                                 <p className="text-xs text-muted-foreground text-center py-10">No media yet</p>
                             ) : (
@@ -169,12 +179,12 @@ export function SharedMediaDialog({
                                     <Loader2 size={20} className="animate-spin text-muted-foreground" />
                                 </div>
                             )}
-                        </ScrollArea>
+                        </div>
                     </TabsContent>
 
                     {/* Files Tab */}
                     <TabsContent value="files" className="mt-0 flex-1 min-h-0 overflow-hidden flex flex-col px-5 pb-5">
-                        <ScrollArea className="flex-1 min-h-0 pt-3">
+                        <div className="flex-1 min-h-0 overflow-y-auto pt-3 pr-1">
                             {files.length === 0 && !loadingFiles ? (
                                 <p className="text-xs text-muted-foreground text-center py-10">No files yet</p>
                             ) : (
@@ -232,12 +242,12 @@ export function SharedMediaDialog({
                                     <Loader2 size={20} className="animate-spin text-muted-foreground" />
                                 </div>
                             )}
-                        </ScrollArea>
+                        </div>
                     </TabsContent>
 
                     {/* Links Tab */}
                     <TabsContent value="links" className="mt-0 flex-1 min-h-0 overflow-hidden flex flex-col px-5 pb-5">
-                        <ScrollArea className="flex-1 min-h-0 pt-3">
+                        <div className="flex-1 min-h-0 overflow-y-auto pt-3 pr-1">
                             {links.length === 0 && !loadingLinks ? (
                                 <p className="text-xs text-muted-foreground text-center py-10">No links yet</p>
                             ) : (
@@ -268,7 +278,7 @@ export function SharedMediaDialog({
                                     <Loader2 size={20} className="animate-spin text-muted-foreground" />
                                 </div>
                             )}
-                        </ScrollArea>
+                        </div>
                     </TabsContent>
                 </Tabs>
             </DialogContent>
