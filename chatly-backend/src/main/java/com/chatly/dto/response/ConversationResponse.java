@@ -26,6 +26,7 @@ public class ConversationResponse {
     private String inviteToken;
     private boolean isPinned;
     private boolean isMuted;
+    private Boolean aiProactiveEnabled;
     private Instant createdAt;
     private Instant updatedAt;
 }

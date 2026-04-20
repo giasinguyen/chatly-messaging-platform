@@ -62,4 +62,8 @@ public class Conversation {
     /** userId -> muteUntil (null value = muted indefinitely) */
     @Builder.Default
     private Map<String, Instant> mutedBy = new HashMap<>();
+
+    /** When true, the AI assistant may proactively post into this group conversation. */
+    @Builder.Default
+    private Boolean aiProactiveEnabled = false;
 }
