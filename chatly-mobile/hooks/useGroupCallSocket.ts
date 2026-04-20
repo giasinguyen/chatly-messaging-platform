@@ -374,10 +374,10 @@ export function useGroupCallSocket() {
             activeParticipantCount?: unknown;
           } | undefined;
 
-          const isCallEnded = leavePayload?.callEnded === true;
+          const isCallEnded = leavePayload?.callEnded === true || leavingId === 'system';
           const activeParticipantCount = typeof leavePayload?.activeParticipantCount === 'number'
             ? leavePayload.activeParticipantCount
-            : (isCallEnded ? 1 : Math.max(1, Object.keys(useCallStore.getState().groupParticipantInfo).length));
+            : (isCallEnded ? 0 : Math.max(1, Object.keys(useCallStore.getState().groupParticipantInfo).length));
 
           setGroupCallRealtimeState(signal.callId, isCallEnded, activeParticipantCount);
 

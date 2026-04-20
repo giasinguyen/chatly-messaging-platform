@@ -249,8 +249,15 @@ public class CallWebSocketController {
         log.info("Group call initiated: callId={} by={} conversationId={} invitees={}",
                 signal.getCallId(), senderId, conversationId, invitees.size());
 
-        // No chat message saved at initiation — members are notified via WebSocket signal.
-        // A call record is only saved when the call properly ends (ENDED status).
+        // Persist an active CALL message so clients can render a "Tap to join" card.
+        messageService.saveCallMessage(
+            conversationId,
+            senderId,
+            callType,
+            CallStatus.RINGING,
+            0L,
+            signal.getCallId()
+        );
 
         invitees.stream()
                 .filter(id -> !id.equals(senderId))
@@ -267,10 +274,15 @@ public class CallWebSocketController {
         String senderId = (String) headerAccessor.getSessionAttributes().get("userId");
         signal.setSenderId(senderId);
 
+        Map<String, Object> expiredPayload = new java.util.HashMap<>();
+        expiredPayload.put("callEnded", true);
+        expiredPayload.put("activeParticipantCount", 0);
+
         CallSignalMessage expiredSignal = CallSignalMessage.builder()
                 .type(SignalType.GROUP_LEAVE)
                 .callId(signal.getCallId())
                 .senderId("system")
+                .payload(expiredPayload)
                 .build();
 
         callSessionRepository.findByCallId(signal.getCallId()).ifPresentOrElse(session -> {

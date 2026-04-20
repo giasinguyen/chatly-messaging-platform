@@ -646,8 +646,9 @@ export function MessageBubble({
       case 'CALL': {
         let callData: { callType?: string; status?: string; duration?: number; callId?: string } = {};
         try { callData = JSON.parse(content); } catch { /* ignore */ }
-        const isMissed = callData.status === 'MISSED' || callData.status === 'REJECTED';
-        const isGroupCallActiveStatus = callData.status === 'RINGING' || callData.status === 'ONGOING';
+        const normalizedCallStatus = (callData.status ?? '').toUpperCase();
+        const isMissed = normalizedCallStatus === 'MISSED' || normalizedCallStatus === 'REJECTED';
+        const isGroupCallActiveStatus = normalizedCallStatus === 'RINGING' || normalizedCallStatus === 'ONGOING';
         const isVideo = callData.callType === 'VIDEO';
         const duration = callData.duration ?? 0;
         const realtimeState = callData.callId ? groupCallRealtimeState[callData.callId] : undefined;

@@ -90,7 +90,13 @@ export function ActiveCallOverlay() {
   // Don't show if no active call
   if (callStatus !== 'ONGOING' || !activeCall) return null;
 
-  const isVideoCall = activeCall.type === 'VIDEO';
+  const hasLocalVideoTrack = Boolean(
+    localStream?.getVideoTracks().some((track) => track.readyState === 'live'),
+  );
+  const hasRemoteVideoTrack = Boolean(
+    remoteStream?.getVideoTracks().some((track) => track.readyState === 'live'),
+  );
+  const isVideoCall = activeCall.type === 'VIDEO' || hasLocalVideoTrack || hasRemoteVideoTrack;
 
   const handleToggleMute = () => {
     const newMuted = !isMuted;
@@ -114,12 +120,12 @@ export function ActiveCallOverlay() {
   };
 
   const handleToggleCamera = async () => {
-    const hasLocalVideoTrack = Boolean(
+    const hasLiveLocalVideoTrack = Boolean(
       localStream?.getVideoTracks().some((track) => track.readyState === 'live'),
     );
 
     // If this side has no video sender yet, enabling camera requires renegotiation.
-    if (isCameraOff && !hasLocalVideoTrack) {
+    if (isCameraOff && !hasLiveLocalVideoTrack) {
       try {
         await upgradeToVideo();
       } catch (error) {
@@ -175,7 +181,7 @@ export function ActiveCallOverlay() {
         }}
       >
         {/* Thumbnail video or avatar */}
-        {isVideoCall && remoteStream ? (
+        {isVideoCall && hasRemoteVideoTrack && remoteStream ? (
           <RTCView
             key={remoteStreamKey}
             streamURL={getStreamUrl(remoteStream)}
@@ -215,7 +221,7 @@ export function ActiveCallOverlay() {
       }}
     >
       {/* Video remote stream (full screen background) */}
-      {isVideoCall && remoteStream ? (
+      {isVideoCall && hasRemoteVideoTrack && remoteStream ? (
         <RTCView
           key={remoteStreamKey}
           streamURL={getStreamUrl(remoteStream)}
@@ -236,7 +242,7 @@ export function ActiveCallOverlay() {
       )}
 
       {/* Video local stream (picture-in-picture) */}
-      {isVideoCall && localStream && (
+      {isVideoCall && hasLocalVideoTrack && localStream && (
         <View
           style={{
             position: 'absolute',
