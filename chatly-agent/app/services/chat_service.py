@@ -143,12 +143,18 @@ class ChatService:
                 history.append(HumanMessage(content=content))
         return history
 
-    async def _build_session_context(self, user_id: str, session_id: str) -> str:
+    async def _build_session_context(
+        self,
+        user_id: str,
+        session_id: str,
+        context_conversation_id: str | None = None,
+    ) -> str:
         """Build a runtime context block injected verbatim into the system prompt.
 
         Includes:
         - Chatly platform skill instructions fetched from backend MCP resources
           (cached per process with a 5-minute TTL).
+        - Active conversation context when the session is linked to a group/DM.
         - List of files uploaded in this session (when present).
         """
         parts: list[str] = []
@@ -157,6 +163,15 @@ class ChatService:
             skill_context = await self._system_mcp.get_skill_context(user_id)
             if skill_context:
                 parts.append(skill_context)
+
+        if context_conversation_id is not None:
+            parts.append(
+                f"\n\n## Active Conversation Context\n"
+                f"You are currently assisting inside conversation ID: `{context_conversation_id}`.\n"
+                f"When the user says 'this group', 'here', 'this conversation', or similar, "
+                f"they are referring to conversation ID: `{context_conversation_id}`.\n"
+                f"Use `getConversationInfo` or `getGroupInfo` to fetch details when needed.\n"
+            )
 
         if self._file_repo is not None:
             files = await self._file_repo.find_by_session(session_id)
@@ -206,7 +221,8 @@ class ChatService:
         request: ChatRequest,
     ) -> ChatResponse:
         """Run one full chat turn and persist both user and assistant messages."""
-        await self._session_service.get_session(user_id, session_id)
+        session = await self._session_service.get_session(user_id, session_id)
+        conv_id: str | None = session.get("context_conversation_id")
 
         rows = await self._message_repo.find_by_session(session_id)
         history = self._to_langchain_history(rows)
@@ -214,7 +230,7 @@ class ChatService:
         generated_attachments: list[dict[str, Any]] = []
         image_tools = self._build_image_tools(user_id, session_id, generated_attachments)
         session_context, agent = await asyncio.gather(
-            self._build_session_context(user_id, session_id),
+            self._build_session_context(user_id, session_id, context_conversation_id=conv_id),
             self._select_agent(
                 user_id, session_id, request.mcp_server_ids, request.use_web_search,
                 extra_tools=image_tools,
@@ -469,7 +485,8 @@ class ChatService:
                 )
                 return
 
-        await self._session_service.get_session(user_id, session_id)
+        session = await self._session_service.get_session(user_id, session_id)
+        conv_id: str | None = session.get("context_conversation_id")
 
         rows = await self._message_repo.find_by_session(session_id)
         history = self._to_langchain_history(rows)
@@ -477,7 +494,7 @@ class ChatService:
         generated_attachments: list[dict[str, Any]] = []
         image_tools = self._build_image_tools(user_id, session_id, generated_attachments)
         session_context, agent = await asyncio.gather(
-            self._build_session_context(user_id, session_id),
+            self._build_session_context(user_id, session_id, context_conversation_id=conv_id),
             self._select_agent(
                 user_id, session_id, request.mcp_server_ids, request.use_web_search,
                 extra_tools=image_tools,

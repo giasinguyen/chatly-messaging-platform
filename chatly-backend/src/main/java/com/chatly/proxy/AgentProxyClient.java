@@ -1,5 +1,7 @@
 package com.chatly.proxy;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ByteArrayResource;
@@ -17,10 +19,13 @@ import reactor.core.publisher.Mono;
 
 import java.io.IOException;
 import java.time.Duration;
+import java.util.Map;
 
 @Component
 @Slf4j
 public class AgentProxyClient {
+
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     private final WebClient webClient;
     private final int timeoutSeconds;
@@ -161,6 +166,38 @@ public class AgentProxyClient {
                 })
                 .timeout(Duration.ofSeconds(timeoutSeconds))
                 .block();
+    }
+
+    /**
+     * Fire-and-forget POST to the agent's {@code /internal/assist} endpoint.
+     * Returns immediately; any error is logged and suppressed.
+     */
+    public void triggerAssistAsync(String conversationId, String userId, String content) {
+        Map<String, String> payload = Map.of(
+                "user_id", userId,
+                "conversation_id", conversationId,
+                "content", content
+        );
+        byte[] bodyBytes;
+        try {
+            bodyBytes = OBJECT_MAPPER.writeValueAsBytes(payload);
+        } catch (JsonProcessingException ex) {
+            log.warn("Failed to serialize AI assist request: {}", ex.getMessage());
+            return;
+        }
+        webClient.post()
+                .uri("/internal/assist")
+                .header("X-User-Id", userId)
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(bodyBytes)
+                .retrieve()
+                .onStatus(HttpStatusCode::isError, this::handleAgentError)
+                .bodyToMono(Void.class)
+                .timeout(Duration.ofSeconds(timeoutSeconds))
+                .subscribe(
+                        null,
+                        ex -> log.warn("AI assist trigger failed conversation={}: {}", conversationId, ex.getMessage())
+                );
     }
 
     private Mono<? extends Throwable> handleAgentError(ClientResponse response) {

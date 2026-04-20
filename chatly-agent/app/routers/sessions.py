@@ -29,7 +29,11 @@ async def create_session(
     service: SessionService = Depends(get_session_service),  # noqa: B008
 ) -> SessionResponse:
     """Create a new session for current user."""
-    session = await service.create_session(ctx.user_id, payload.title)
+    session = await service.create_session(
+        ctx.user_id,
+        payload.title,
+        context_conversation_id=payload.context_conversation_id,
+    )
     return SessionResponse(**session)
 
 

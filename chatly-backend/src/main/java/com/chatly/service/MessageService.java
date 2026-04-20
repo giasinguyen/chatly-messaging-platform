@@ -20,6 +20,7 @@ import com.chatly.model.mongo.Attachment;
 import com.chatly.model.mongo.Poll;
 import com.chatly.model.mongo.Reaction;
 import com.chatly.model.mongo.ReadReceipt;
+import com.chatly.proxy.AgentProxyClient;
 import com.chatly.repository.mongo.ConversationRepository;
 import com.chatly.repository.mongo.MessageRepository;
 import com.chatly.repository.postgres.UserRepository;
@@ -55,10 +56,12 @@ public class MessageService {
     private final NotificationService notificationService;
     private final ContactService contactService;
     private final UserRepository userRepository;
+    private final AgentProxyClient agentProxyClient;
 
     private static final long RECALL_LIMIT_HOURS = 24;
     private static final long EDIT_LIMIT_MINUTES = 15;
     private static final int MAX_MESSAGES_PER_RANGE = 100;
+    private static final String AI_MENTION_TRIGGER = "@AI";
     private static final Set<String> ALLOWED_EMOJIS = Set.of("👍", "❤️", "😂", "😮", "😢", "😡", "🔥", "👏");
         private static final Set<MessageType> FORWARDABLE_TYPES = Set.of(MessageType.TEXT, MessageType.IMAGE, MessageType.FILE, MessageType.GIF, MessageType.STICKER);
 
@@ -96,6 +99,13 @@ public class MessageService {
         // Send mention notifications (separate from normal notifications)
         if (message.getMentions() != null && !message.getMentions().isEmpty()) {
             notifyMentionedUsers(conversation, savedMessage, senderId);
+        }
+
+        // Trigger AI assist when a GROUP message contains the @AI mention and the feature is enabled
+        if (conversation.getType() == ConversationType.GROUP
+                && Boolean.TRUE.equals(conversation.getAiProactiveEnabled())
+                && isAiMention(request.getContent())) {
+            agentProxyClient.triggerAssistAsync(conversation.getId(), senderId, request.getContent());
         }
 
         return messageMapper.toResponse(savedMessage);
@@ -647,6 +657,10 @@ public class MessageService {
                                                 .build())
                                 .collect(java.util.stream.Collectors.toCollection(ArrayList::new));
         }
+
+    private static boolean isAiMention(String content) {
+        return content != null && content.contains(AI_MENTION_TRIGGER);
+    }
 
     private void notifyMentionedUsers(Conversation conversation, Message message, String senderId) {
         Set<String> mentionedIds = new LinkedHashSet<>();
