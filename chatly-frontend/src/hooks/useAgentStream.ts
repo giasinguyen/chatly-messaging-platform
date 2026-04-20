@@ -13,6 +13,8 @@ import type {
     ToolEndEventData,
 } from "@/types/agent";
 
+const HINT_ROTATION_INTERVAL_MS = 3000;
+
 /**
  * Hook for streaming chat responses via POST SSE.
  * Handles normal token streaming, tool call progress, and HITL interrupts.
@@ -22,8 +24,11 @@ export function useAgentStream(sessionId?: string) {
     const [toolCalls, setToolCalls] = useState<ToolCallState[]>([]);
     const [interrupt, setInterrupt] = useState<InterruptData | null>(null);
 
-    // Check for a pending interrupt when the session is first loaded
+    // Reset interrupt state and check for a pending interrupt when session changes
     useEffect(() => {
+        setInterrupt(null);
+        setToolCalls([]);
+
         if (!sessionId) return;
         agentService.getSessionStatus(sessionId).then((status) => {
             if (status.status === "interrupted" && status.interrupt_data) {
@@ -162,7 +167,7 @@ export function useAgentStream(sessionId?: string) {
             hintTimer = setInterval(() => {
                 hintIdx = (hintIdx + 1) % hints.length;
                 useChatbotStore.getState().setStatusHint(hints[hintIdx]);
-            }, 3000);
+            }, HINT_ROTATION_INTERVAL_MS);
 
             try {
                 const response = await agentService.chatStream(sid, payload, controller.signal);

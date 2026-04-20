@@ -9,7 +9,7 @@ import { ChatbotEmptyState } from "./ChatbotEmptyState";
 import { useChatbotStore } from "@/store/chatbot.store";
 import { useAgentStream } from "@/hooks/useAgentStream";
 import { agentService } from "@/services/agent.service";
-import { AgentThinking } from "@/components/agent/AgentThinking";
+import { AgentThinking } from "./AgentThinking";
 import { toast } from "sonner";
 import type { AgentMessage, MessageAttachment } from "@/types/agent";
 

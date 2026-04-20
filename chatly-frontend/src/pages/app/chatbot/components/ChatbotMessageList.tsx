@@ -9,10 +9,12 @@ import { ChatbotThinkingIndicator } from "./ChatbotThinkingIndicator";
 import { ChatbotMessageMenu } from "./ChatbotMessageMenu";
 import { AttachmentPreview } from "./AttachmentPreview";
 import { useChatbotStore } from "@/store/chatbot.store";
-import { InterruptCard } from "@/components/agent/InterruptCard";
+import { InterruptCard } from "./InterruptCard";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeHighlight from "rehype-highlight";
+
+const SCROLL_NEAR_BOTTOM_THRESHOLD_PX = 120;
 
 const MARKDOWN_CLASSES =
     "prose prose-sm dark:prose-invert max-w-none wrap-break-word [&_pre]:overflow-x-auto [&_pre]:rounded-lg [&_pre]:bg-muted [&_pre]:p-3 [&_code]:text-sm [&_table]:text-sm [&_p]:leading-relaxed [&_img]:rounded-lg [&_img]:max-h-80";
@@ -46,8 +48,7 @@ export function ChatbotMessageList({ messages, sessionId, interrupt, onApprove, 
     const handleScroll = useCallback(() => {
         const el = containerRef.current;
         if (!el) return;
-        const threshold = 120;
-        const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < threshold;
+        const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < SCROLL_NEAR_BOTTOM_THRESHOLD_PX;
         isNearBottomRef.current = nearBottom;
         setShowScrollDown(!nearBottom);
     }, []);
