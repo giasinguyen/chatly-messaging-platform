@@ -18,10 +18,6 @@ class ChatbotAgent(BaseAgent):
         self._graph = build_chatbot_graph(llm)
         self.agent_type: str = "chatbot"
 
-    def _build_run_config(self, session_id: str) -> dict[str, dict[str, str]]:
-        """Build per-session LangGraph runtime config."""
-        return {"configurable": {"thread_id": session_id}}
-
     def _build_messages(self, input: ChatInput) -> list[Any]:
         """Prepend system prompt then history, then current user turn."""
         return [
@@ -36,7 +32,6 @@ class ChatbotAgent(BaseAgent):
         """Run full chatbot turn and return the final assistant message."""
         result = await self._graph.ainvoke(
             {"messages": self._build_messages(input)},
-            config=self._build_run_config(input.session_id),
         )
         content = str(result["messages"][-1].content)
         return ChatOutput(
