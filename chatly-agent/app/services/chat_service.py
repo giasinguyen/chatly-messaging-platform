@@ -391,6 +391,7 @@ class ChatService:
         user_id: str,
         request: ChatRequest,
         approved: bool,
+        generated_attachments: list[dict[str, Any]] | None = None,
     ) -> AsyncIterator[str]:
         """Resume a graph from an interrupt_before=['tools'] pause.
 
@@ -398,6 +399,10 @@ class ChatService:
         If approved=False: inject ToolMessage rejections then resume so the LLM
             can respond without executing the sensitive tools.
         Yields SSE strings; handles chained interrupts.
+
+        ``generated_attachments`` must be the same list passed to
+        ``_build_image_tools`` so that any files created by image/sticker tools
+        during this resumed turn are captured and included in the done_event.
         """
         if not approved:
             # Inject rejection ToolMessages so the graph skips the tools node
@@ -420,7 +425,8 @@ class ChatService:
             )
 
         full_content = [""]
-        generated_attachments: list[dict[str, Any]] = []
+        if generated_attachments is None:
+            generated_attachments = []
         try:
             # Resume from checkpoint by passing None as input
             async for event in graph.astream_events(None, config, version="v2"):
@@ -600,13 +606,17 @@ class ChatService:
             return
 
         tool_config = interrupt_doc.tool_config
+        # Rebuild image tools with a fresh attachment list so that any files
+        # created during this resumed turn are captured in the done_event.
+        generated_attachments: list[dict[str, Any]] = []
+        image_tools = self._build_image_tools(user_id, session_id, generated_attachments)
         # Reconstruct the agent with the exact tool set from the original request
         agent = await self._select_agent(
             user_id,
             session_id,
             mcp_server_ids=tool_config.get("mcp_server_ids", []),
             use_web_search=bool(tool_config.get("use_web_search", False)),
-            extra_tools=[],
+            extra_tools=image_tools,
         )
 
         if not isinstance(agent, UnifiedAgent):
@@ -623,7 +633,8 @@ class ChatService:
             file_ids=tool_config.get("file_ids", []),
         )
         async for sse in self._resume_graph(
-            agent._graph, config, session_id, user_id, request_placeholder, body.approved
+            agent._graph, config, session_id, user_id, request_placeholder, body.approved,
+            generated_attachments,
         ):
             yield sse
 
