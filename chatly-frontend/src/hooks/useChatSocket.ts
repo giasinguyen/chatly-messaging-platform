@@ -1,4 +1,4 @@
-import { useEffect, useCallback } from "react";
+import { useEffect, useCallback, useRef } from "react";
 import { socketService } from "@/services/socket.service";
 import { useAuthStore } from "@/store/auth.store";
 import type { Message, ChatEvent, Attachment, Poll } from "@/types/message";
@@ -23,6 +23,13 @@ export function useChatSocket({
 }: UseChatSocketProps) {
     const { user } = useAuthStore();
 
+    const onEventRef = useRef(onEvent);
+    const onTypingRef = useRef(onTyping);
+    const onReadRef = useRef(onRead);
+    onEventRef.current = onEvent;
+    onTypingRef.current = onTyping;
+    onReadRef.current = onRead;
+
     useEffect(() => {
         if (!conversationId || !user) return;
 
@@ -42,7 +49,7 @@ export function useChatSocket({
                 `/topic/conversation.${conversationId}`,
                 (payload) => {
                     const event = JSON.parse(payload.body) as ChatEvent;
-                    onEvent(event);
+                    onEventRef.current(event);
                 }
             );
 
@@ -51,7 +58,7 @@ export function useChatSocket({
                 `/topic/conversation.${conversationId}.typing`,
                 (payload) => {
                     const data = JSON.parse(payload.body);
-                    onTyping(data);
+                    onTypingRef.current(data);
                 }
             );
 
@@ -60,7 +67,7 @@ export function useChatSocket({
                 `/topic/conversation.${conversationId}.read`,
                 (payload) => {
                     const msg = JSON.parse(payload.body);
-                    onRead(msg);
+                    onReadRef.current(msg);
                 }
             );
 
@@ -79,7 +86,7 @@ export function useChatSocket({
                 if (cleanup) cleanup();
             });
         };
-    }, [conversationId, user, onEvent, onTyping, onRead]);
+    }, [conversationId, user]);
 
     const sendMessage = useCallback(
         (content: string, replyToId: string | null = null, attachments?: Attachment[], poll?: Poll, priority?: string, mentions?: string[], messageType?: string, location?: import("@/types/message").LocationPayload): boolean => {

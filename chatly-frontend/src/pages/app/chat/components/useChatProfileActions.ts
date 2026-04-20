@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { contactService } from "@/services/contact.service";
 import { fileService } from "@/services/file.service";
@@ -35,6 +36,7 @@ export function useChatProfileActions({
     setBlockStatus,
     showProfileDialog,
 }: UseChatProfileActionsOptions) {
+    const navigate = useNavigate();
     const [sendingContact, setSendingContact] = useState(false);
     const [blockConfirmAction, setBlockConfirmAction] = useState<"block" | "unblock" | null>(null);
     const [blockActionLoading, setBlockActionLoading] = useState(false);
@@ -228,6 +230,20 @@ export function useChatProfileActions({
         setParticipant,
     ]);
 
+    const handleLeaveGroup = useCallback(async () => {
+        if (!conversation?.id || !currentUserId) return;
+        if (!window.confirm("Are you sure you want to leave this group?")) return;
+        try {
+            await groupService.removeMember(conversation.id, currentUserId);
+            toast.success("You have left the group");
+            navigate("/chat");
+        } catch (error: unknown) {
+            const msg =
+                error instanceof Error ? error.message : "Could not leave group";
+            toast.error(msg);
+        }
+    }, [conversation?.id, currentUserId, navigate]);
+
     return {
         sendingContact,
         blockConfirmAction,
@@ -246,5 +262,6 @@ export function useChatProfileActions({
         handleUnblockContact,
         handleGroupAvatarFileChange,
         handleSaveGroupProfile,
+        handleLeaveGroup,
     };
 }

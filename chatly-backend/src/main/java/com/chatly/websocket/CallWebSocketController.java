@@ -338,6 +338,11 @@ public class CallWebSocketController {
                     session.setStatus(finalStatus);
                     callSessionRepository.save(session);
 
+                        Map<String, Object> leavePayload = new java.util.HashMap<>();
+                        leavePayload.put("callEnded", true);
+                        leavePayload.put("activeParticipantCount", session.getParticipants().size());
+                        signal.setPayload(leavePayload);
+
                     log.info("Group call {} ended ({}). Duration: {}s",
                             signal.getCallId(), finalStatus, durationSeconds);
 
@@ -368,6 +373,12 @@ public class CallWebSocketController {
                     }
                 } else {
                     callSessionRepository.save(session);
+
+                    Map<String, Object> leavePayload = new java.util.HashMap<>();
+                    leavePayload.put("callEnded", false);
+                    leavePayload.put("activeParticipantCount", session.getParticipants().size());
+                    signal.setPayload(leavePayload);
+
                     log.info("Participant {} left group call {}. Remaining active: {}",
                             senderId, signal.getCallId(), session.getParticipants().size());
 

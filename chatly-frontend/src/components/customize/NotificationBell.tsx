@@ -7,6 +7,7 @@ import { useNotificationSocket } from "@/hooks/useNotificationSocket";
 import { useAuthStore } from "@/store/auth.store";
 import { useNotificationStore } from "@/store/notification.store";
 import { useConversationPrefsStore } from "@/store/conversationPrefs.store";
+import { useContactStore } from "@/store/contact.store";
 import type { Notification, NotificationEvent } from "@/types/notification";
 
 export function NotificationBell() {
@@ -57,6 +58,9 @@ export function NotificationBell() {
             if (!isMuted) {
                 new Audio("/sounds/message_ting_ting.mp3").play().catch(() => {});
             }
+        }
+        if (event.notification.type === "FRIEND_REQUEST") {
+            useContactStore.getState().triggerPendingRefresh();
         }
     }, [addNotification, convPrefs]);
 

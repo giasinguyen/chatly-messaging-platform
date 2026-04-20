@@ -26,6 +26,11 @@ import type { GroupReminderResponse } from "@/types/group";
 
 const pad = (n: number) => String(n).padStart(2, "0");
 
+function formatReminderTime(iso: string): string {
+    const d = new Date(iso);
+    return `${pad(d.getHours())}:${pad(d.getMinutes())} - ${pad(d.getDate())}/${pad(d.getMonth() + 1)}`;
+}
+
 function todayString(): string {
     const d = new Date();
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
@@ -349,52 +354,59 @@ export function RemindersDialog({
                                 <div
                                     key={r.id}
                                     className={cn(
-                                        "group flex items-start gap-2.5 rounded-lg border border-border/50 px-3 py-2.5 transition-colors hover:bg-muted/30",
+                                        "group rounded-xl border border-border/50 overflow-hidden transition-opacity",
                                         r.completed && "opacity-60",
                                     )}
                                 >
-                                    <button
-                                        type="button"
-                                        className="mt-0.5 shrink-0"
-                                        onClick={() => handleToggle(r.id)}
-                                    >
-                                        {r.completed ? (
-                                            <CheckCircle2 size={16} className="text-green-500" />
-                                        ) : (
-                                            <Circle size={16} className="text-muted-foreground" />
+                                    {/* Card header bar */}
+                                    <div className={cn(
+                                        "flex items-center gap-2 px-3 py-1.5 border-b border-border/40",
+                                        r.completed ? "bg-green-50 dark:bg-green-950/30" : "bg-brand/5 dark:bg-brand/10",
+                                    )}>
+                                        <button
+                                            type="button"
+                                            className="shrink-0"
+                                            onClick={() => handleToggle(r.id)}
+                                        >
+                                            {r.completed ? (
+                                                <CheckCircle2 size={15} className="text-green-500" />
+                                            ) : (
+                                                <Circle size={15} className="text-muted-foreground" />
+                                            )}
+                                        </button>
+                                        <Clock size={12} className={r.completed ? "text-green-500" : "text-brand"} />
+                                        {r.remindAt && (
+                                            <span className={cn("text-[11px] font-semibold", r.completed ? "text-green-600" : "text-brand")}>
+                                                {formatReminderTime(r.remindAt)}
+                                            </span>
                                         )}
-                                    </button>
-                                    <div className="flex-1 min-w-0">
-                                        <p className={cn("text-sm font-medium", r.completed && "line-through")}>
+                                        <div className="flex items-center gap-0.5 ml-auto shrink-0 opacity-0 group-hover:opacity-100">
+                                            <Button
+                                                size="icon"
+                                                variant="ghost"
+                                                className="h-5 w-5 text-muted-foreground hover:text-foreground"
+                                                onClick={() => startEdit(r)}
+                                            >
+                                                <Pencil size={11} />
+                                            </Button>
+                                            <Button
+                                                size="icon"
+                                                variant="ghost"
+                                                className="h-5 w-5 text-muted-foreground hover:text-destructive"
+                                                onClick={() => handleDelete(r.id)}
+                                            >
+                                                <Trash2 size={11} />
+                                            </Button>
+                                        </div>
+                                    </div>
+                                    {/* Card body */}
+                                    <div className="px-3 py-2.5">
+                                        <p className={cn("text-sm font-semibold", r.completed && "line-through text-muted-foreground")}>
                                             {r.title}
                                         </p>
                                         {r.description && (
-                                            <p className="text-xs text-muted-foreground mt-0.5">{r.description}</p>
+                                            <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{r.description}</p>
                                         )}
-                                        {r.remindAt && (
-                                            <p className="text-[10px] text-brand mt-1 flex items-center gap-1">
-                                                <Clock size={10} />
-                                                {new Date(r.remindAt).toLocaleString("en-US")}
-                                            </p>
-                                        )}
-                                    </div>
-                                    <div className="flex items-center gap-0.5 shrink-0 opacity-0 group-hover:opacity-100">
-                                        <Button
-                                            size="icon"
-                                            variant="ghost"
-                                            className="h-6 w-6 text-muted-foreground hover:text-foreground"
-                                            onClick={() => startEdit(r)}
-                                        >
-                                            <Pencil size={12} />
-                                        </Button>
-                                        <Button
-                                            size="icon"
-                                            variant="ghost"
-                                            className="h-6 w-6 text-muted-foreground hover:text-destructive"
-                                            onClick={() => handleDelete(r.id)}
-                                        >
-                                            <Trash2 size={12} />
-                                        </Button>
                                     </div>
                                 </div>
                                 ),

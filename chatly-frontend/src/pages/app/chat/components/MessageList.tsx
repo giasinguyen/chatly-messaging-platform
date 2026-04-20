@@ -14,6 +14,7 @@ import {
     TIME_GAP_THRESHOLD,
     type FailedMessageItem,
 } from "./messageList.utils";
+import { isRichTextHtml } from "./richTextMessage.utils";
 
 interface MessageListProps {
     messages: Message[];
@@ -85,7 +86,10 @@ export function MessageList({
     });
 
     const [editingId, setEditingId] = useState<string | null>(null);
-    const [editDraft, setEditDraft] = useState("");
+    const [editPlainDraft, setEditPlainDraft] = useState("");
+    const [editHtmlDraft, setEditHtmlDraft] = useState("");
+    const [editTextDraft, setEditTextDraft] = useState("");
+    const [isEditingRichText, setIsEditingRichText] = useState(false);
     const [recallConfirmId, setRecallConfirmId] = useState<string | null>(null);
     const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
     const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
@@ -108,19 +112,45 @@ export function MessageList({
     }, [messages, currentUserId]);
 
     const handleStartEdit = useCallback((msg: Message) => {
+        const isRich = isRichTextHtml(msg.content);
         setEditingId(msg.id);
-        setEditDraft(msg.content);
+        setIsEditingRichText(isRich);
+        if (isRich) {
+            setEditHtmlDraft(msg.content);
+            const textContent = new DOMParser()
+                .parseFromString(msg.content, "text/html")
+                .body.textContent?.trim() ?? "";
+            setEditTextDraft(textContent);
+            setEditPlainDraft("");
+            return;
+        }
+        setEditPlainDraft(msg.content);
+        setEditHtmlDraft("");
+        setEditTextDraft(msg.content.trim());
     }, []);
     const handleCommitEdit = useCallback(() => {
-        if (editingId && editDraft.trim()) {
-            onEdit(editingId, editDraft.trim());
+        if (!editingId) {
+            return;
+        }
+        if (isEditingRichText) {
+            if (editTextDraft.trim()) {
+                onEdit(editingId, editHtmlDraft.trim());
+            }
+        } else if (editPlainDraft.trim()) {
+            onEdit(editingId, editPlainDraft.trim());
         }
         setEditingId(null);
-        setEditDraft("");
-    }, [editingId, editDraft, onEdit]);
+        setEditPlainDraft("");
+        setEditHtmlDraft("");
+        setEditTextDraft("");
+        setIsEditingRichText(false);
+    }, [editingId, isEditingRichText, editTextDraft, editHtmlDraft, editPlainDraft, onEdit]);
     const handleCancelEdit = useCallback(() => {
         setEditingId(null);
-        setEditDraft("");
+        setEditPlainDraft("");
+        setEditHtmlDraft("");
+        setEditTextDraft("");
+        setIsEditingRichText(false);
     }, []);
 
     const handleOpenImage = useCallback(
@@ -179,8 +209,14 @@ export function MessageList({
                 highlightKeyword={highlightKeyword}
                 lastSeenByOthersIdx={lastSeenByOthersIdx}
                 editingId={editingId}
-                editDraft={editDraft}
-                setEditDraft={setEditDraft}
+                editPlainDraft={editPlainDraft}
+                setEditPlainDraft={setEditPlainDraft}
+                editHtmlDraft={editHtmlDraft}
+                setEditRichDraft={(nextHtml, nextText) => {
+                    setEditHtmlDraft(nextHtml);
+                    setEditTextDraft(nextText);
+                }}
+                isEditingRichText={isEditingRichText}
                 onStartEdit={handleStartEdit}
                 onCommitEdit={handleCommitEdit}
                 onCancelEdit={handleCancelEdit}

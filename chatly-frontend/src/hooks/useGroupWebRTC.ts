@@ -1,5 +1,7 @@
 import { useRef, useCallback, useState } from "react";
 import type { CallType } from "@/types/call";
+import { requestMicrophoneStream } from "@/utils/call/audioMedia";
+import { requestCameraTrack, requestVideoCallStream } from "@/utils/call/videoMedia";
 
 const ICE_SERVERS: RTCConfiguration = {
     iceServers: [
@@ -17,6 +19,23 @@ const ICE_SERVERS: RTCConfiguration = {
     ],
     iceCandidatePoolSize: 10,
 };
+
+function ensureReceiveOnlyVideo(connection: RTCPeerConnection): void {
+    const videoTransceiver = connection
+        .getTransceivers()
+        .find((transceiver) =>
+            transceiver.sender.track?.kind === "video"
+            || transceiver.receiver.track?.kind === "video",
+        );
+
+    if (!videoTransceiver) {
+        connection.addTransceiver("video", { direction: "recvonly" });
+        return;
+    }
+
+    videoTransceiver.sender.replaceTrack(null).catch(() => {});
+    videoTransceiver.direction = "recvonly";
+}
 
 interface GroupWebRTCCallbacks {
     onIceCandidate?: (peerId: string, candidate: RTCIceCandidateInit) => void;
@@ -39,22 +58,9 @@ export function useGroupWebRTC(callbacks?: GroupWebRTCCallbacks) {
     const [remoteStreams, setRemoteStreams] = useState<Record<string, MediaStream>>({});
 
     const initLocalStream = useCallback(async (type: CallType): Promise<MediaStream> => {
-        const constraints: MediaStreamConstraints = {
-            audio: true,
-            video: type === "VIDEO" ? { facingMode: "user", width: 640, height: 480 } : false,
-        };
-
-        let stream: MediaStream;
-        try {
-            stream = await navigator.mediaDevices.getUserMedia(constraints);
-        } catch (err) {
-            if (type === "VIDEO") {
-                // Fall back to audio-only if camera unavailable
-                stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            } else {
-                throw err;
-            }
-        }
+        const stream = type === "VIDEO"
+            ? await requestVideoCallStream()
+            : await requestMicrophoneStream();
 
         localStreamRef.current = stream;
         setLocalStream(stream);
@@ -209,15 +215,61 @@ export function useGroupWebRTC(callbacks?: GroupWebRTCCallbacks) {
             });
         } else if (!cameraOff) {
             // Voice call → add video track to stream and all peer connections
-            const videoStream = await navigator.mediaDevices.getUserMedia({ video: true });
-            const videoTrack = videoStream.getVideoTracks()[0];
+            const videoTrack = await requestCameraTrack();
             stream.addTrack(videoTrack);
             setLocalStream(new MediaStream(stream.getTracks()));
 
-            peersRef.current.forEach(({ connection }) => {
+            peers.current.forEach(({ connection }) => {
                 connection.addTrack(videoTrack, stream);
             });
         }
+    }, []);
+
+    const enableLocalVideoTrack = useCallback(async (): Promise<boolean> => {
+        const stream = localStreamRef.current;
+        if (!stream) {
+            throw new Error("No local stream available for camera upgrade.");
+        }
+
+        const existingVideoTrack = stream
+            .getVideoTracks()
+            .find((track) => track.readyState === "live");
+
+        if (existingVideoTrack) {
+            existingVideoTrack.enabled = true;
+            return true;
+        }
+
+        let videoTrack: MediaStreamTrack | null = null;
+        try {
+            videoTrack = await requestCameraTrack();
+        } catch (error) {
+            console.warn("[GroupWebRTC] Camera unavailable, switching to receive-only video.", error);
+        }
+
+        if (!videoTrack) {
+            peers.current.forEach(({ connection }) => {
+                ensureReceiveOnlyVideo(connection);
+            });
+            return false;
+        }
+
+        stream.addTrack(videoTrack);
+        setLocalStream(new MediaStream(stream.getTracks()));
+
+        peers.current.forEach(({ connection }) => {
+            const existingVideoSender = connection
+                .getSenders()
+                .find((sender) => sender.track?.kind === "video");
+
+            if (existingVideoSender) {
+                existingVideoSender.replaceTrack(videoTrack).catch(() => {});
+            } else {
+                connection.addTrack(videoTrack, stream);
+            }
+        });
+
+        return true;
     }, []);
 
     return {
@@ -233,5 +285,6 @@ export function useGroupWebRTC(callbacks?: GroupWebRTCCallbacks) {
         endAll,
         toggleMute,
         toggleCamera,
+        enableLocalVideoTrack,
     };
 }

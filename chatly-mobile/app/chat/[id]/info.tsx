@@ -23,6 +23,7 @@ import * as Clipboard from 'expo-clipboard';
 import { ImageLightbox } from '@/components/ui/ImageLightbox';
 
 import { groupService } from '@/services/group.service';
+import { conversationService } from '@/services/conversation.service';
 import { contactService } from '@/services/contact.service';
 import { fileService, type FileUploadResponse } from '@/services/file.service';
 import { userService } from '@/services/user.service';
@@ -30,6 +31,7 @@ import { useAuthStore } from '@/store/auth.store';
 import { useConversationStore } from '@/store/conversation.store';
 import { useConversationPrefsStore } from '@/store/conversationPrefs.store';
 import { isConvMuted } from '@/store/conversationPrefs.store';
+import { useNotificationStore } from '@/store/notification.store';
 import { Colors } from '@/constants/theme';
 import { Avatar } from '@/components/ui/Avatar';
 import type { GroupMemberResponse, GroupRole, PendingJoinResponse, GroupReminderResponse, GroupNoteResponse } from '@/types/group';
@@ -155,6 +157,18 @@ export default function GroupInfoScreen() {
 
   const canManage = currentUserRole === 'OWNER' || currentUserRole === 'ADMIN';
 
+  // Realtime pending requests: re-fetch when a GROUP_JOIN_REQUEST notification arrives
+  const notifications = useNotificationStore((s) => s.notifications);
+  const removeByTypeAndReference = useNotificationStore((s) => s.removeByTypeAndReference);
+  const joinRequestCount = useMemo(
+    () => notifications.filter((n) => n.type === 'GROUP_JOIN_REQUEST' && n.referenceId === conversationId).length,
+    [notifications, conversationId],
+  );
+  useEffect(() => {
+    if (canManage) fetchPendingRequests();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [joinRequestCount, canManage]);
+
   const handleChangeName = () => {
     if (!canManage) return;
     Alert.prompt('Change Group Name', 'Enter new name', [
@@ -273,12 +287,36 @@ export default function GroupInfoScreen() {
           try {
             await groupService.removeMember(conversationId, user?.id || '');
             router.dismissAll();
-          } catch (e: any) {
-            Alert.alert('Error', e?.response?.data?.message || 'Could not leave group.');
+          } catch (e: unknown) {
+            const msg = e instanceof Error ? e.message : 'Could not leave group.';
+            Alert.alert('Error', msg);
           }
         },
       },
     ]);
+  };
+
+  const handleDissolveGroup = () => {
+    Alert.alert(
+      'Dissolve Group',
+      'This will permanently delete the group, all messages, and remove all members. This action cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Dissolve',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await conversationService.delete(conversationId);
+              router.dismissAll();
+            } catch (e: unknown) {
+              const msg = e instanceof Error ? e.message : 'Could not dissolve group.';
+              Alert.alert('Error', msg);
+            }
+          },
+        },
+      ],
+    );
   };
 
   const handleOpenAddModal = () => {
@@ -353,7 +391,7 @@ export default function GroupInfoScreen() {
 
   // ── Pending Requests ──
   const fetchPendingRequests = async () => {
-    if (!conversationId || currentUserRole !== 'OWNER') return;
+    if (!conversationId || !canManage) return;
     try {
       const res = await groupService.getPendingRequests(conversationId);
       setPendingRequests(res.result ?? []);
@@ -363,6 +401,7 @@ export default function GroupInfoScreen() {
   const handleApprovePending = async (userId: string) => {
     try {
       await groupService.approvePendingRequest(conversationId, userId);
+      removeByTypeAndReference('GROUP_JOIN_REQUEST', conversationId);
       fetchPendingRequests();
       fetchMembers();
     } catch { Alert.alert('Error', 'Could not approve request.'); }
@@ -371,6 +410,7 @@ export default function GroupInfoScreen() {
   const handleRejectPending = async (userId: string) => {
     try {
       await groupService.rejectPendingRequest(conversationId, userId);
+      removeByTypeAndReference('GROUP_JOIN_REQUEST', conversationId);
       fetchPendingRequests();
     } catch { Alert.alert('Error', 'Could not reject request.'); }
   };
@@ -806,7 +846,7 @@ export default function GroupInfoScreen() {
               style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, height: 54 }}
             >
               <Ionicons name="document-text-outline" size={22} color={Colors.textMuted} style={{ marginRight: 14 }} />
-              <Text style={{ flex: 1, fontSize: 15, color: Colors.text }}>Notes, pins, polls</Text>
+              <Text style={{ flex: 1, fontSize: 15, color: Colors.text }}>Notes</Text>
               <Ionicons name="chevron-forward" size={16} color={Colors.textLight} />
             </TouchableOpacity>
           </View>
@@ -843,6 +883,16 @@ export default function GroupInfoScreen() {
             <Ionicons name="chevron-forward" size={16} color={Colors.textLight} />
           </TouchableOpacity>
         </View>
+
+        {/* ── Dissolve group (owner only) ── */}
+        {isGroup && currentUserRole === 'OWNER' && (
+          <TouchableOpacity
+            onPress={handleDissolveGroup}
+            style={{ backgroundColor: Colors.white, paddingVertical: 16, alignItems: 'center', marginBottom: 4 }}
+          >
+            <Text style={{ color: Colors.error, fontSize: 16, fontWeight: '600' }}>Dissolve group</Text>
+          </TouchableOpacity>
+        )}
 
         {/* ── Leave group ── */}
         {isGroup && (
@@ -984,33 +1034,82 @@ export default function GroupInfoScreen() {
                 <Text style={{ color: Colors.textLight, marginTop: 8 }}>No reminders yet</Text>
               </View>
             )}
-            renderItem={({ item }) => (
-              <View style={{ backgroundColor: Colors.white, borderRadius: 10, padding: 14, marginBottom: 8, flexDirection: 'row', alignItems: 'center' }}>
-                <TouchableOpacity onPress={() => handleToggleReminder(item.id)} style={{ marginRight: 12 }}>
-                  <Ionicons
-                    name={item.completed ? 'checkmark-circle' : 'ellipse-outline'}
-                    size={24}
-                    color={item.completed ? '#4CAF50' : Colors.borderLight}
-                  />
-                </TouchableOpacity>
-                <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 15, fontWeight: '500', color: Colors.text, textDecorationLine: item.completed ? 'line-through' : 'none' }}>
-                    {item.title}
-                  </Text>
-                  {item.description ? (
-                    <Text style={{ fontSize: 13, color: Colors.textLight, marginTop: 2 }}>{item.description}</Text>
-                  ) : null}
-                  {item.remindAt ? (
-                    <Text style={{ fontSize: 11, color: Colors.cta, marginTop: 4 }}>
-                      {new Date(item.remindAt).toLocaleString('en-US')}
+            renderItem={({ item }) => {
+              const isCompleted = item.completed;
+              const timeStr = item.remindAt
+                ? (() => {
+                    const d = new Date(item.remindAt);
+                    const hh = String(d.getHours()).padStart(2, '0');
+                    const mm = String(d.getMinutes()).padStart(2, '0');
+                    const dd = String(d.getDate()).padStart(2, '0');
+                    const mo = String(d.getMonth() + 1).padStart(2, '0');
+                    return `${hh}:${mm} - ${dd}/${mo}`;
+                  })()
+                : null;
+
+              return (
+                <View
+                  style={{
+                    backgroundColor: Colors.white,
+                    borderRadius: 12,
+                    marginBottom: 10,
+                    overflow: 'hidden',
+                    borderWidth: 1,
+                    borderColor: Colors.borderLight,
+                    opacity: isCompleted ? 0.7 : 1,
+                  }}
+                >
+                  {/* Header bar */}
+                  <View
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      paddingHorizontal: 12,
+                      paddingVertical: 7,
+                      backgroundColor: isCompleted ? '#f0fdf4' : `${Colors.cta}10`,
+                      borderBottomWidth: 1,
+                      borderBottomColor: Colors.borderLight,
+                      gap: 6,
+                    }}
+                  >
+                    <TouchableOpacity onPress={() => handleToggleReminder(item.id)}>
+                      <Ionicons
+                        name={isCompleted ? 'checkmark-circle' : 'ellipse-outline'}
+                        size={20}
+                        color={isCompleted ? '#16a34a' : Colors.cta}
+                      />
+                    </TouchableOpacity>
+                    <Ionicons name="alarm-outline" size={13} color={isCompleted ? '#16a34a' : Colors.cta} />
+                    {timeStr ? (
+                      <Text style={{ fontSize: 12, fontWeight: '600', color: isCompleted ? '#16a34a' : Colors.cta, flex: 1 }}>
+                        {timeStr}
+                      </Text>
+                    ) : <View style={{ flex: 1 }} />}
+                    <TouchableOpacity onPress={() => handleDeleteReminder(item.id)} style={{ padding: 4 }}>
+                      <Ionicons name="trash-outline" size={16} color={Colors.error} />
+                    </TouchableOpacity>
+                  </View>
+                  {/* Body */}
+                  <View style={{ paddingHorizontal: 12, paddingVertical: 10 }}>
+                    <Text
+                      style={{
+                        fontSize: 14,
+                        fontWeight: '600',
+                        color: Colors.text,
+                        textDecorationLine: isCompleted ? 'line-through' : 'none',
+                      }}
+                    >
+                      {item.title}
                     </Text>
-                  ) : null}
+                    {item.description ? (
+                      <Text style={{ fontSize: 12, color: Colors.textMuted, marginTop: 4, lineHeight: 17 }}>
+                        {item.description}
+                      </Text>
+                    ) : null}
+                  </View>
                 </View>
-                <TouchableOpacity onPress={() => handleDeleteReminder(item.id)} style={{ padding: 6 }}>
-                  <Ionicons name="trash-outline" size={18} color={Colors.error} />
-                </TouchableOpacity>
-              </View>
-            )}
+              );
+            }}
           />
         </View>
       </Modal>

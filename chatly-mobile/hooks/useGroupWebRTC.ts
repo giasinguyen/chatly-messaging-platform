@@ -193,6 +193,59 @@ export function useGroupWebRTC(callbacks?: GroupWebRTCCallbacks) {
     }
   }, []);
 
+  const enableLocalVideoTrack = useCallback(async (): Promise<boolean> => {
+    const stream = localStreamRef.current;
+    if (!stream) {
+      throw new Error('No local stream available for camera upgrade.');
+    }
+
+    const existingVideoTrack = stream
+      .getVideoTracks()
+      .find((track) => track.readyState === 'live');
+
+    if (existingVideoTrack) {
+      existingVideoTrack.enabled = true;
+      return true;
+    }
+
+    if (!mediaDevices) {
+      return false;
+    }
+
+    let videoTrack: MediaStreamTrack | null = null;
+    try {
+      const videoStream = await mediaDevices.getUserMedia({
+        video: { facingMode: 'user', width: 640, height: 480 },
+        audio: false,
+      });
+      videoTrack = videoStream.getVideoTracks()[0] ?? null;
+    } catch (error) {
+      console.warn('[GroupWebRTC] Camera unavailable, switching to receive-only video.', error);
+      return false;
+    }
+
+    if (!videoTrack) {
+      return false;
+    }
+
+    stream.addTrack(videoTrack);
+    setLocalStream(MediaStream ? new MediaStream(stream.getTracks()) : stream);
+
+    peers.current.forEach(({ connection }) => {
+      const existingVideoSender = connection
+        .getSenders()
+        .find((sender) => sender.track?.kind === 'video');
+
+      if (existingVideoSender) {
+        existingVideoSender.replaceTrack(videoTrack).catch(() => {});
+      } else {
+        connection.addTrack(videoTrack, stream);
+      }
+    });
+
+    return true;
+  }, []);
+
   return {
     localStream,
     remoteStreams,
@@ -206,5 +259,6 @@ export function useGroupWebRTC(callbacks?: GroupWebRTCCallbacks) {
     endAll,
     toggleMute,
     toggleCamera,
+    enableLocalVideoTrack,
   };
 }

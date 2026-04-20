@@ -1,5 +1,7 @@
 import { useRef, useCallback, useState, useEffect } from "react";
 import type { CallType } from "@/types/call";
+import { requestMicrophoneStream } from "@/utils/call/audioMedia";
+import { requestCameraTrack, requestVideoCallStream } from "@/utils/call/videoMedia";
 
 const ICE_SERVERS: RTCConfiguration = {
     iceServers: [
@@ -128,34 +130,9 @@ export function useWebRTC() {
             let stream: MediaStream;
 
             if (type === "VIDEO") {
-                try {
-                    // Try full video+audio first
-                    stream = await navigator.mediaDevices.getUserMedia({
-                        audio: true,
-                        video: { facingMode: "user", width: 640, height: 480 },
-                    });
-                } catch (videoErr) {
-                    const name = videoErr instanceof DOMException ? videoErr.name : "";
-                    if (name === "NotFoundError" || name === "DevicesNotFoundError" || name === "NotReadableError") {
-                        // No camera — fall back to audio-only and continue the video call
-                        console.warn("[WebRTC] No camera found, falling back to audio-only for video call");
-                        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                    } else if (name === "NotAllowedError") {
-                        throw new Error("Please grant microphone/camera permission to make the call.");
-                    } else {
-                        throw new Error("Unable to access media device.");
-                    }
-                }
+                stream = await requestVideoCallStream();
             } else {
-                try {
-                    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                } catch (audioErr) {
-                    const name = audioErr instanceof DOMException ? audioErr.name : "";
-                    if (name === "NotAllowedError") {
-                        throw new Error("Please grant microphone permission to make the call.");
-                    }
-                    throw new Error("Microphone is inaccessible.");
-                }
+                stream = await requestMicrophoneStream();
             }
 
             setLocalStream(stream);
@@ -299,10 +276,7 @@ export function useWebRTC() {
         } else {
             // Re-acquire camera
             try {
-                const vs = await navigator.mediaDevices.getUserMedia({
-                    video: { facingMode: "user", width: 640, height: 480 },
-                });
-                const newTrack = vs.getVideoTracks()[0];
+                const newTrack = await requestCameraTrack();
 
                 if (pc) {
                     const sender = pc.getSenders().find(
@@ -327,31 +301,61 @@ export function useWebRTC() {
         }
     }, []);
 
-    // Upgrade a voice call to video via renegotiation
-    const upgradeToVideo = useCallback(async (): Promise<RTCSessionDescriptionInit> => {
+    // Upgrade a voice call to video via renegotiation.
+    // If local camera is unavailable, fall back to recv-only video so call flow can still upgrade.
+    const upgradeToVideo = useCallback(async (): Promise<{
+        offer: RTCSessionDescriptionInit;
+        hasLocalVideoTrack: boolean;
+    }> => {
         const pc = peerConnection.current;
         if (!pc) throw new Error("No active peer connection");
 
-        const videoStream = await navigator.mediaDevices.getUserMedia({
-            video: { facingMode: "user", width: 640, height: 480 },
-        });
-        const videoTrack = videoStream.getVideoTracks()[0];
+        let videoTrack: MediaStreamTrack | null = null;
+        try {
+            videoTrack = await requestCameraTrack();
+        } catch (error) {
+            console.warn("[WebRTC] Camera unavailable during upgrade, switching to receive-only video.", error);
+        }
 
-        // Add video track to the peer connection
-        pc.addTrack(videoTrack, videoStream);
+        const videoTransceiver = pc
+            .getTransceivers()
+            .find((transceiver) =>
+                transceiver.sender.track?.kind === "video"
+                || transceiver.receiver.track?.kind === "video",
+            );
 
-        // Merge video track into localStream for display
-        setLocalStream((prev) => {
-            if (prev) {
-                return new MediaStream([...prev.getTracks(), videoTrack]);
+        if (videoTrack) {
+            if (videoTransceiver) {
+                await videoTransceiver.sender.replaceTrack(videoTrack);
+                videoTransceiver.direction = "sendrecv";
+            } else {
+                const baseStream = localStreamRef.current ?? new MediaStream([videoTrack]);
+                pc.addTrack(videoTrack, baseStream);
             }
-            return videoStream;
-        });
+
+            // Merge video track into localStream for display
+            const nextStream = localStreamRef.current
+                ? new MediaStream([...localStreamRef.current.getAudioTracks(), videoTrack])
+                : new MediaStream([videoTrack]);
+            setLocalStream(nextStream);
+            localStreamRef.current = nextStream;
+        } else {
+            // Camera is unavailable: keep local camera off but still negotiate video receiver capability.
+            if (videoTransceiver) {
+                await videoTransceiver.sender.replaceTrack(null);
+                videoTransceiver.direction = "recvonly";
+            } else {
+                pc.addTransceiver("video", { direction: "recvonly" });
+            }
+        }
 
         // Create renegotiation offer
-        const offer = await pc.createOffer();
+        const offer = await pc.createOffer({
+            offerToReceiveAudio: true,
+            offerToReceiveVideo: true,
+        });
         await pc.setLocalDescription(offer);
-        return offer;
+        return { offer, hasLocalVideoTrack: Boolean(videoTrack) };
     }, []);
 
     return {

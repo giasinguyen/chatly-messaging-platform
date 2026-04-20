@@ -35,6 +35,7 @@ export interface ChatProfileDialogProps {
     onAvatarFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
     onSaveGroupProfile: () => void;
     onOpenGroupPanel: () => void;
+    onLeaveGroup: () => void;
 }
 
 export const ChatProfileDialog = memo(function ChatProfileDialog({
@@ -66,6 +67,7 @@ export const ChatProfileDialog = memo(function ChatProfileDialog({
     onAvatarFileChange,
     onSaveGroupProfile,
     onOpenGroupPanel,
+    onLeaveGroup,
 }: ChatProfileDialogProps) {
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
@@ -109,6 +111,7 @@ export const ChatProfileDialog = memo(function ChatProfileDialog({
                         onAvatarFileChange={onAvatarFileChange}
                         onSaveGroupProfile={onSaveGroupProfile}
                         onOpenGroupPanel={onOpenGroupPanel}
+                        onLeaveGroup={onLeaveGroup}
                     />
                 )}
             </DialogContent>

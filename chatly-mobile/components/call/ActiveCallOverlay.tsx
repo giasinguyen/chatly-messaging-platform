@@ -1,22 +1,13 @@
-import { View, Text, TouchableOpacity } from 'react-native';
+import { Alert, View, Text, TouchableOpacity } from 'react-native';
 import { useEffect, useRef, useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
+import { setAudioModeAsync } from 'expo-audio';
 
 let RTCView: any;
 try {
   RTCView = require('react-native-webrtc').RTCView;
 } catch (e) {
   RTCView = View; // fallback for Expo Go
-}
-
-let Audio: any;
-try {
-  Audio = require('expo-av').Audio;
-} catch (e) {
-  // Expo Go fallback — mock method for speaker output
-  Audio = {
-    setAudioModeAsync: async () => {},
-  };
 }
 
 import { Avatar } from '@/components/ui/Avatar';
@@ -28,6 +19,13 @@ function formatDuration(seconds: number): string {
   const mins = Math.floor(seconds / 60);
   const secs = seconds % 60;
   return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+}
+
+function getStreamUrl(stream: MediaStream): string {
+  if ('toURL' in stream && typeof (stream as { toURL?: unknown }).toURL === 'function') {
+    return (stream as MediaStream & { toURL: () => string }).toURL();
+  }
+  return '';
 }
 
 export function ActiveCallOverlay() {
@@ -43,31 +41,32 @@ export function ActiveCallOverlay() {
     incrementDuration,
   } = useCallStore();
 
-  const { endCall, localStream, remoteStream, remoteStreamKey, toggleCamera } = useCallContext();
+  const { endCall, localStream, remoteStream, remoteStreamKey, toggleCamera, upgradeToVideo } = useCallContext();
   const [isExpanded, setIsExpanded] = useState(false);
   const [isSpeakerOn, setIsSpeakerOn] = useState(false);
+  const [isUpgradingToVideo, setIsUpgradingToVideo] = useState(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Activate audio session when call starts
   useEffect(() => {
     if (callStatus !== 'ONGOING') return;
 
-    Audio.setAudioModeAsync({
-      allowsRecordingIOS: true,
-      playsInSilentModeIOS: true,
-      staysActiveInBackground: true,
-      shouldDuckAndroid: false,
-      playThroughEarpieceAndroid: true, // default earpiece
+    setAudioModeAsync({
+      allowsRecording: true,
+      playsInSilentMode: true,
+      shouldPlayInBackground: true,
+      interruptionMode: 'doNotMix',
+      shouldRouteThroughEarpiece: true,
     }).catch(console.error);
 
     return () => {
       // Reset to normal media mode after call ends
-      Audio.setAudioModeAsync({
-        allowsRecordingIOS: false,
-        playsInSilentModeIOS: false,
-        staysActiveInBackground: false,
-        shouldDuckAndroid: true,
-        playThroughEarpieceAndroid: false,
+      setAudioModeAsync({
+        allowsRecording: false,
+        playsInSilentMode: false,
+        shouldPlayInBackground: false,
+        interruptionMode: 'duckOthers',
+        shouldRouteThroughEarpiece: false,
       }).catch(console.error);
     };
   }, [callStatus]);
@@ -104,19 +103,48 @@ export function ActiveCallOverlay() {
 
   const handleToggleSpeaker = () => {
     const next = !isSpeakerOn;
-    Audio.setAudioModeAsync({
-      allowsRecordingIOS: true,
-      playsInSilentModeIOS: true,
-      staysActiveInBackground: true,
-      shouldDuckAndroid: false,
-      playThroughEarpieceAndroid: !next, // false = speaker, true = earpiece
+    setAudioModeAsync({
+      allowsRecording: true,
+      playsInSilentMode: true,
+      shouldPlayInBackground: true,
+      interruptionMode: 'doNotMix',
+      shouldRouteThroughEarpiece: !next,
     }).catch(console.error);
     setIsSpeakerOn(next);
   };
 
-  const handleToggleCamera = () => {
+  const handleToggleCamera = async () => {
+    const hasLocalVideoTrack = Boolean(
+      localStream?.getVideoTracks().some((track) => track.readyState === 'live'),
+    );
+
+    // If this side has no video sender yet, enabling camera requires renegotiation.
+    if (isCameraOff && !hasLocalVideoTrack) {
+      try {
+        await upgradeToVideo();
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Failed to enable camera.';
+        Alert.alert('Camera Error', message);
+      }
+      return;
+    }
+
     toggleCameraStore();
     toggleCamera(!isCameraOff);
+  };
+
+  const handleUpgradeToVideo = async () => {
+    if (isUpgradingToVideo) return;
+
+    try {
+      setIsUpgradingToVideo(true);
+      await upgradeToVideo();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to upgrade to video call.';
+      Alert.alert('Upgrade Failed', message);
+    } finally {
+      setIsUpgradingToVideo(false);
+    }
   };
 
   const handleEndCall = () => {
@@ -150,7 +178,7 @@ export function ActiveCallOverlay() {
         {isVideoCall && remoteStream ? (
           <RTCView
             key={remoteStreamKey}
-            streamURL={remoteStream.toURL()}
+            streamURL={getStreamUrl(remoteStream)}
             style={{ flex: 1 }}
             objectFit="cover"
           />
@@ -190,7 +218,7 @@ export function ActiveCallOverlay() {
       {isVideoCall && remoteStream ? (
         <RTCView
           key={remoteStreamKey}
-          streamURL={remoteStream.toURL()}
+          streamURL={getStreamUrl(remoteStream)}
           style={{ flex: 1 }}
           objectFit="cover"
         />
@@ -223,7 +251,7 @@ export function ActiveCallOverlay() {
           }}
         >
           <RTCView
-            streamURL={localStream.toURL()}
+            streamURL={getStreamUrl(localStream)}
             style={{ flex: 1 }}
             objectFit="cover"
             mirror
@@ -289,6 +317,27 @@ export function ActiveCallOverlay() {
           >
             <Ionicons
               name={isCameraOff ? 'videocam-off' : 'videocam'}
+              size={26}
+              color={Colors.white}
+            />
+          </TouchableOpacity>
+        )}
+
+        {!isVideoCall && (
+          <TouchableOpacity
+            onPress={handleUpgradeToVideo}
+            className="items-center justify-center"
+            style={{
+              width: 56,
+              height: 56,
+              borderRadius: 28,
+              backgroundColor: isUpgradingToVideo ? Colors.error : 'rgba(255, 255, 255, 0.2)',
+            }}
+            activeOpacity={0.7}
+            disabled={isUpgradingToVideo}
+          >
+            <Ionicons
+              name="videocam"
               size={26}
               color={Colors.white}
             />
