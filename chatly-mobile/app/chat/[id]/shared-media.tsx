@@ -322,7 +322,7 @@ export default function SharedMediaScreen() {
               color: Colors.text,
             }}
           >
-            Shared Media
+            {activeTab === 'media' ? 'Shared Media' : activeTab === 'files' ? 'Files' : 'Links'}
           </Text>
           <View style={{ width: 24 }} />
         </View>
