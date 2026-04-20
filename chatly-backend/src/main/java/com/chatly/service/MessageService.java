@@ -58,6 +58,7 @@ public class MessageService {
 
     private static final long RECALL_LIMIT_HOURS = 24;
     private static final long EDIT_LIMIT_MINUTES = 15;
+    private static final int MAX_MESSAGES_PER_RANGE = 100;
     private static final Set<String> ALLOWED_EMOJIS = Set.of("👍", "❤️", "😂", "😮", "😢", "😡", "🔥", "👏");
         private static final Set<MessageType> FORWARDABLE_TYPES = Set.of(MessageType.TEXT, MessageType.IMAGE, MessageType.FILE, MessageType.GIF, MessageType.STICKER);
 
@@ -144,6 +145,19 @@ public class MessageService {
                 .findByConversationIdOrderByCreatedAtDesc(conversationId, PageRequest.of(page, size));
 
         return messages.getContent().stream()
+                .map(messageMapper::toResponse)
+                .toList();
+    }
+
+    public List<MessageResponse> getByConversationAndTimeRange(
+            String conversationId, String userId, Instant from, Instant to) {
+        getConversationForParticipant(conversationId, userId);
+
+        List<Message> messages = messageRepository
+                .findByConversationIdAndCreatedAtBetweenOrderByCreatedAtAsc(
+                        conversationId, from, to, PageRequest.of(0, MAX_MESSAGES_PER_RANGE));
+
+        return messages.stream()
                 .map(messageMapper::toResponse)
                 .toList();
     }
