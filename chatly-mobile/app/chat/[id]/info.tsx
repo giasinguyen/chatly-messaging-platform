@@ -671,7 +671,7 @@ export default function GroupInfoScreen() {
         {mediaFiles.length > 0 && (
           <View style={{ backgroundColor: Colors.white, padding: 16, marginBottom: 8 }}>
             <Text style={{ fontWeight: '600', fontSize: 15, color: Colors.text, marginBottom: 10 }}>
-              Media, files, links
+              Media ({mediaFiles.length})
             </Text>
             <ImageLightbox
               images={mediaImageUrls}
@@ -697,6 +697,44 @@ export default function GroupInfoScreen() {
                 )}
               </View>
             </ScrollView>
+          </View>
+        )}
+
+        {/* ── Files ── */}
+        {docFiles.length > 0 && (
+          <View style={{ backgroundColor: Colors.white, padding: 16, marginBottom: 8 }}>
+            <Text style={{ fontWeight: '600', fontSize: 15, color: Colors.text, marginBottom: 10 }}>
+              Files ({docFiles.length})
+            </Text>
+            {docFiles.slice(0, 5).map((file) => {
+              const sizeStr = file.fileSize
+                ? file.fileSize > 1048576
+                  ? `${(file.fileSize / 1048576).toFixed(1)} MB`
+                  : `${(file.fileSize / 1024).toFixed(0)} KB`
+                : '';
+              return (
+                <TouchableOpacity
+                  key={file.fileId}
+                  onPress={() => Linking.openURL(file.url)}
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    paddingVertical: 8,
+                    borderBottomWidth: 0.5,
+                    borderBottomColor: Colors.borderLight,
+                  }}
+                >
+                  <View style={{ width: 36, height: 36, borderRadius: 8, backgroundColor: Colors.ctaLight, alignItems: 'center', justifyContent: 'center', marginRight: 10 }}>
+                    <Ionicons name="document-text" size={18} color={Colors.cta} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text numberOfLines={1} style={{ fontSize: 13, fontWeight: '500', color: Colors.text }}>{file.fileName}</Text>
+                    {sizeStr ? <Text style={{ fontSize: 11, color: Colors.textLight }}>{sizeStr}</Text> : null}
+                  </View>
+                  <Ionicons name="download-outline" size={18} color={Colors.textLight} />
+                </TouchableOpacity>
+              );
+            })}
           </View>
         )}
 

@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { AddMembersDialog } from "./AddMembersDialog";
+import { SharedMediaDialog } from "./SharedMediaDialog";
 import { NotesDialog } from "./NotesDialog";
 import { PinnedMessagesDialog } from "./PinnedMessagesDialog";
 import { RemindersDialog } from "./RemindersDialog";
@@ -108,6 +109,10 @@ export function ConversationInfoPanel({
     // Add members dialog (group only)
     const [showAddMembersDialog, setShowAddMembersDialog] = useState(false);
 
+    // Shared media dialog
+    const [sharedMediaOpen, setSharedMediaOpen] = useState(false);
+    const [sharedMediaTab, setSharedMediaTab] = useState<"media" | "files" | "links">("media");
+
     // Media & files from S3
     const [mediaFiles, setMediaFiles] = useState<FileUploadResponse[]>([]);
     const [docFiles, setDocFiles] = useState<FileUploadResponse[]>([]);
@@ -147,7 +152,7 @@ export function ConversationInfoPanel({
         };
         fetchFiles();
         return () => { cancelled = true; };
-    }, [conversation.id]);
+    }, [conversation.id, conversation.lastMessage?.timestamp]);
 
     // Group name editing (group only)
     const [isEditingGroupName, setIsEditingGroupName] = useState(false);
@@ -726,11 +731,12 @@ export function ConversationInfoPanel({
                                 <Image size={15} className="text-muted-foreground" />
                                 <span className="text-sm font-medium text-foreground">Media</span>
                             </div>
-                            {mediaFiles.length > 6 && (
-                                <span className="text-[12px] text-muted-foreground">
-                                    {mediaFiles.length} items
-                                </span>
-                            )}
+                            <button
+                                className="text-[12px] text-brand hover:underline cursor-pointer bg-transparent border-none p-0"
+                                onClick={() => { setSharedMediaTab("media"); setSharedMediaOpen(true); }}
+                            >
+                                View all ({mediaFiles.length})
+                            </button>
                         </div>
                         {mediaFiles.length === 0 ? (
                             <p className="text-xs text-muted-foreground text-center py-3">No media yet</p>
@@ -764,6 +770,12 @@ export function ConversationInfoPanel({
                                 <FileText size={15} className="text-muted-foreground" />
                                 <span className="text-sm font-medium text-foreground">File</span>
                             </div>
+                            <button
+                                className="text-[12px] text-brand hover:underline cursor-pointer bg-transparent border-none p-0"
+                                onClick={() => { setSharedMediaTab("files"); setSharedMediaOpen(true); }}
+                            >
+                                View all ({docFiles.length})
+                            </button>
                         </div>
                         {docFiles.length === 0 ? (
                             <p className="text-xs text-muted-foreground text-center py-3">No files yet</p>
@@ -811,6 +823,12 @@ export function ConversationInfoPanel({
                                     <LinkIcon size={15} className="text-muted-foreground" />
                                     <span className="text-sm font-medium text-foreground">Link</span>
                                 </div>
+                                <button
+                                    className="text-[12px] text-brand hover:underline cursor-pointer bg-transparent border-none p-0"
+                                    onClick={() => { setSharedMediaTab("links"); setSharedMediaOpen(true); }}
+                                >
+                                    View all ({linkMessages.length})
+                                </button>
                                 <div className="flex flex-col gap-2">
                                     {linkMessages.map((link, i) => (
                                         <a key={i} href={link.url} target="_blank" rel="noopener noreferrer"
@@ -915,6 +933,14 @@ export function ConversationInfoPanel({
                     </p>
                 </DialogContent>
             </Dialog>
+
+            {/* Shared Media Dialog */}
+            <SharedMediaDialog
+                conversationId={conversation.id}
+                open={sharedMediaOpen}
+                onOpenChange={setSharedMediaOpen}
+                defaultTab={sharedMediaTab}
+            />
         </aside>
     );
 }

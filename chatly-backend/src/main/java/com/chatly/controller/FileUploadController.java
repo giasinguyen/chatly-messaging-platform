@@ -54,8 +54,10 @@ public class FileUploadController {
     @GetMapping("/conversation/{conversationId}")
     public ApiResponse<List<FileUploadResponse>> getByConversation(
             @PathVariable String conversationId,
-            @RequestParam(value = "type", required = false) String type) {
-        List<FileUploadResponse> files = fileUploadService.getByConversation(conversationId, type);
+            @RequestParam(value = "type", required = false) String type,
+            @RequestParam(value = "page", required = false, defaultValue = "0") int page,
+            @RequestParam(value = "size", required = false, defaultValue = "20") int size) {
+        List<FileUploadResponse> files = fileUploadService.getByConversation(conversationId, type, page, size);
         return ApiResponse.<List<FileUploadResponse>>builder()
                 .result(files)
                 .build();
