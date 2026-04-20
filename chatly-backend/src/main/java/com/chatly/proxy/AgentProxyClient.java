@@ -132,6 +132,37 @@ public class AgentProxyClient {
         return streamTimeoutSeconds * 1000L;
     }
 
+    /**
+     * Forward a binary download — preserves Content-Type and Content-Disposition
+     * from the upstream agent response so browsers receive correct headers.
+     */
+    public ResponseEntity<byte[]> forwardBinary(
+            String agentPath,
+            String userId
+    ) {
+        return webClient.get()
+                .uri(agentPath)
+                .header("X-User-Id", userId)
+                .retrieve()
+                .onStatus(HttpStatusCode::isError, this::handleAgentError)
+                .toEntity(byte[].class)
+                .map(entity -> {
+                    var headers = new org.springframework.http.HttpHeaders();
+                    var contentType = entity.getHeaders().getContentType();
+                    if (contentType != null) {
+                        headers.setContentType(contentType);
+                    }
+                    var disposition = entity.getHeaders().getFirst("Content-Disposition");
+                    if (disposition != null) {
+                        headers.set("Content-Disposition", disposition);
+                    }
+                    headers.setCacheControl("private, max-age=3600");
+                    return new ResponseEntity<>(entity.getBody(), headers, entity.getStatusCode());
+                })
+                .timeout(Duration.ofSeconds(timeoutSeconds))
+                .block();
+    }
+
     private Mono<? extends Throwable> handleAgentError(ClientResponse response) {
         return response.bodyToMono(String.class)
                 .defaultIfEmpty("<empty body>")

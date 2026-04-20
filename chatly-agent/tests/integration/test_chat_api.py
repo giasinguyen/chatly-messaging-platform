@@ -76,6 +76,7 @@ class InMemoryChatService:
             content="Hello from assistant",
             session_id=session_id,
             message_id="m-assistant",
+            agent_type="chatbot",
         )
 
     async def stream_chat(
@@ -106,9 +107,9 @@ class InMemoryChatService:
                 "created_at": datetime.now(UTC),
             }
         )
-        yield 'data: {"token": "Hel"}\n\n'
-        yield 'data: {"token": "lo"}\n\n'
-        yield "data: [DONE]\n\n"
+        yield 'data: {"type": "token", "data": {"content": "Hel"}}\n\n'
+        yield 'data: {"type": "token", "data": {"content": "lo"}}\n\n'
+        yield 'data: {"type": "done", "data": {"agent_type": "chatbot", "message_id": "m-assistant"}}\n\n'
 
 
 store = InMemoryStore()
@@ -156,8 +157,8 @@ def test_stream_endpoint_returns_sse_events() -> None:
 
     _clear_overrides()
     assert response.status_code == 200
-    assert 'data: {"token": "Hel"}' in response.text
-    assert "data: [DONE]" in response.text
+    assert '"type": "token"' in response.text
+    assert '"type": "done"' in response.text
 
 
 def test_history_contains_two_messages_after_one_chat_turn() -> None:

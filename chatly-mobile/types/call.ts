@@ -2,7 +2,27 @@ export type CallType = 'VOICE' | 'VIDEO';
 
 export type CallStatus = 'RINGING' | 'ONGOING' | 'ENDED' | 'MISSED' | 'REJECTED';
 
-export type SignalType = 'OFFER' | 'ANSWER' | 'ICE_CANDIDATE' | 'INITIATE' | 'END';
+export type SignalType =
+  | 'OFFER'
+  | 'ANSWER'
+  | 'ICE_CANDIDATE'
+  | 'INITIATE'
+  | 'END'
+  | 'VIDEO_UPGRADE_REQUEST'
+  | 'VIDEO_UPGRADE_ACCEPT'
+  | 'VIDEO_UPGRADE_REJECT'
+  | 'RENEGOTIATE_OFFER'
+  | 'RENEGOTIATE_ANSWER'
+  | 'GROUP_INITIATE'
+  | 'GROUP_JOIN'
+  | 'GROUP_OFFER'
+  | 'GROUP_ANSWER'
+  | 'GROUP_LEAVE'
+  | 'GROUP_VIDEO_UPGRADE_REQUEST'
+  | 'GROUP_VIDEO_UPGRADE_ACCEPT'
+  | 'GROUP_VIDEO_UPGRADE_REJECT'
+  | 'GROUP_RENEGOTIATE_OFFER'
+  | 'GROUP_RENEGOTIATE_ANSWER';
 
 export interface CallSignal {
   type: SignalType;
@@ -19,6 +39,7 @@ export interface CallSession {
   participants: string[];
   type: CallType;
   status: CallStatus;
+  isGroup?: boolean;
   startedAt?: string;
   endedAt?: string;
 }
@@ -37,4 +58,21 @@ export interface IncomingCall {
   callerName: string;
   callerAvatar: string | null;
   type: CallType;
+}
+
+export interface IncomingGroupCall {
+  callId: string;
+  conversationId: string;
+  initiatorId: string;
+  initiatorName: string;
+  initiatorAvatar: string | null;
+  groupName: string;
+  groupAvatarUrl: string | null;
+  type: CallType;
+  participantCount: number;
+}
+
+export interface GroupParticipantInfo {
+  name: string;
+  avatar: string | null;
 }

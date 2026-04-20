@@ -70,6 +70,10 @@ public class GroupService {
             // Return a special response with userId so frontend knows it's pending
             User targetUser = userRepository.findById(targetUid)
                     .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+
+            // Notify admins/owners about the new join request
+            notifyAdminsOfJoinRequest(conversation, targetUser);
+
             return GroupMemberResponse.builder()
                     .userId(targetUser.getId().toString())
                     .username(targetUser.getUsername())
@@ -125,23 +129,35 @@ public class GroupService {
 
     /**
      * Remove a member from a group conversation.
-     * Only OWNER or ADMIN can remove members.
+     * A member can always remove themselves (leave).
+     * Only OWNER or ADMIN can remove other members.
      * ADMIN cannot remove OWNER or other ADMINs.
+     * When OWNER leaves, ownership is transferred to an ADMIN (or first MEMBER if no ADMINs).
      */
     @Transactional
     public void removeMember(String conversationId, String targetUserId, String requesterId) {
         Conversation conversation = getGroupConversation(conversationId);
-        GroupMember requester = requireOwnerOrAdmin(conversationId, requesterId);
 
         UUID targetUid = UUID.fromString(targetUserId);
+        boolean isSelfLeave = targetUserId.equals(requesterId);
 
         GroupMember target = groupMemberRepository.findByConversationIdAndUserId(conversationId, targetUid)
                 .orElseThrow(() -> new AppException(ErrorCode.GROUP_MEMBER_NOT_FOUND));
 
-        // ADMIN cannot remove OWNER or other ADMINs
-        if (requester.getRole() == GroupRole.ADMIN
-                && (target.getRole() == GroupRole.OWNER || target.getRole() == GroupRole.ADMIN)) {
-            throw new AppException(ErrorCode.GROUP_PERMISSION_DENIED);
+        if (isSelfLeave) {
+            // Any member can leave on their own
+            // If OWNER is leaving, transfer ownership first
+            if (target.getRole() == GroupRole.OWNER) {
+                transferOwnershipBeforeLeave(conversationId, targetUserId);
+            }
+        } else {
+            // Kicking another member requires OWNER or ADMIN
+            GroupMember requester = requireOwnerOrAdmin(conversationId, requesterId);
+            // ADMIN cannot remove OWNER or other ADMINs
+            if (requester.getRole() == GroupRole.ADMIN
+                    && (target.getRole() == GroupRole.OWNER || target.getRole() == GroupRole.ADMIN)) {
+                throw new AppException(ErrorCode.GROUP_PERMISSION_DENIED);
+            }
         }
 
         groupMemberRepository.deleteByConversationIdAndUserId(conversationId, targetUid);
@@ -150,13 +166,61 @@ public class GroupService {
         conversation.getParticipantIds().remove(targetUserId);
         conversationRepository.save(conversation);
 
-        // Send system message about removed member
+        // Send system message
         try {
             User targetUser = userRepository.findById(targetUid).orElse(null);
-            User requesterUser = userRepository.findById(UUID.fromString(requesterId)).orElse(null);
             String targetName = targetUser != null ? targetUser.getDisplayName() : "A member";
-            String requesterName = requesterUser != null ? requesterUser.getDisplayName() : "Someone";
-            String content = requesterName + " removed " + targetName + " from the group";
+            String content;
+            if (isSelfLeave) {
+                content = targetName + " left the group";
+            } else {
+                User requesterUser = userRepository.findById(UUID.fromString(requesterId)).orElse(null);
+                String requesterName = requesterUser != null ? requesterUser.getDisplayName() : "Someone";
+                content = requesterName + " removed " + targetName + " from the group";
+            }
+            messageService.sendSystemMessage(conversationId, content);
+        } catch (Exception e) {
+            // Don't fail if system message fails
+        }
+    }
+
+    /**
+     * Transfer OWNER role to the best candidate before the current owner leaves.
+     * Priority: first ADMIN (by join order), then first MEMBER.
+     */
+    private void transferOwnershipBeforeLeave(String conversationId, String ownerUserId) {
+        UUID ownerUid = UUID.fromString(ownerUserId);
+
+        // Find an ADMIN to promote (ordered by joinedAt for deterministic selection)
+        List<GroupMember> admins = groupMemberRepository.findByConversationIdAndRoleInOrderByJoinedAtAsc(
+                conversationId, List.of(GroupRole.ADMIN));
+        admins = admins.stream().filter(m -> !m.getUser().getId().equals(ownerUid)).toList();
+
+        GroupMember newOwner;
+        if (!admins.isEmpty()) {
+            newOwner = admins.getFirst();
+        } else {
+            // No admins — promote earliest-joined regular member
+            List<GroupMember> allMembers = groupMemberRepository.findByConversationIdOrderByJoinedAtAsc(conversationId);
+            List<GroupMember> candidates = allMembers.stream()
+                    .filter(m -> !m.getUser().getId().equals(ownerUid))
+                    .toList();
+            if (candidates.isEmpty()) {
+                return; // Last member leaving — no one to transfer to
+            }
+            newOwner = candidates.getFirst();
+        }
+
+        newOwner.setRole(GroupRole.OWNER);
+        groupMemberRepository.save(newOwner);
+
+        // Broadcast role change to all participants
+        broadcastRoleUpdate(conversationId, newOwner);
+
+        // Send system message about ownership transfer
+        try {
+            User newOwnerUser = newOwner.getUser();
+            String content = newOwnerUser.getDisplayName() + " is now the group owner";
             messageService.sendSystemMessage(conversationId, content);
         } catch (Exception e) {
             // Don't fail if system message fails
@@ -179,8 +243,18 @@ public class GroupService {
 
         GroupRole newRole = request.getRole();
 
+        // Cannot change own role
+        if (requesterId.equals(targetUserId)) {
+            throw new AppException(ErrorCode.GROUP_PERMISSION_DENIED);
+        }
+
         // ADMIN cannot assign OWNER role
         if (requester.getRole() == GroupRole.ADMIN && newRole == GroupRole.OWNER) {
+            throw new AppException(ErrorCode.GROUP_PERMISSION_DENIED);
+        }
+
+        // ADMIN cannot change another ADMIN's role — only OWNER can
+        if (requester.getRole() == GroupRole.ADMIN && target.getRole() == GroupRole.ADMIN) {
             throw new AppException(ErrorCode.GROUP_PERMISSION_DENIED);
         }
 
@@ -195,6 +269,9 @@ public class GroupService {
 
         target.setRole(newRole);
         groupMemberRepository.save(target);
+
+        // Broadcast role change to all participants
+        broadcastRoleUpdate(conversationId, target);
 
         return toMemberResponse(target);
     }
@@ -287,6 +364,28 @@ public class GroupService {
                 .build();
     }
 
+    public InviteLinkInfoResponse getInviteLinkInfo(String inviteToken, String userId) {
+        Conversation conversation = conversationRepository.findAll().stream()
+                .filter(c -> inviteToken.equals(c.getInviteToken()) && c.getType() == ConversationType.GROUP)
+                .findFirst()
+                .orElseThrow(() -> new AppException(ErrorCode.GROUP_INVITE_TOKEN_INVALID));
+
+        UUID uid = UUID.fromString(userId);
+        boolean isAlreadyMember = groupMemberRepository.existsByConversationIdAndUserId(conversation.getId(), uid);
+        boolean hasPendingRequest = pendingJoinRequestRepository.existsByConversationIdAndUserId(conversation.getId(), userId);
+        int memberCount = conversation.getParticipantIds() != null ? conversation.getParticipantIds().size() : 0;
+
+        return InviteLinkInfoResponse.builder()
+                .conversationId(conversation.getId())
+                .name(conversation.getName())
+                .avatarUrl(conversation.getAvatarUrl())
+                .memberCount(memberCount)
+                .requireApproval(Boolean.TRUE.equals(conversation.getRequireApproval()))
+                .isAlreadyMember(isAlreadyMember)
+                .hasPendingRequest(hasPendingRequest)
+                .build();
+    }
+
     @Transactional
     public GroupMemberResponse joinByInviteLink(String inviteToken, String userId) {
         Conversation conversation = conversationRepository.findAll().stream()
@@ -330,6 +429,10 @@ public class GroupService {
                     .invitedBy(null)
                     .build());
             User u = userRepository.findById(uid).orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+
+            // Notify admins/owners about the new join request
+            notifyAdminsOfJoinRequest(conversation, u);
+
             return GroupMemberResponse.builder()
                     .userId(u.getId().toString()).username(u.getUsername())
                     .displayName(u.getDisplayName()).avatar(u.getAvatarUrl())
@@ -373,7 +476,12 @@ public class GroupService {
                 .orElseThrow(() -> new AppException(ErrorCode.GROUP_PENDING_REQUEST_NOT_FOUND));
 
         pendingJoinRequestRepository.deleteByConversationIdAndUserId(conversationId, targetUserId);
-        return doAddMember(conversation, targetUserId, requesterId);
+        GroupMemberResponse result = doAddMember(conversation, targetUserId, requesterId);
+
+        // Broadcast MEMBER_JOINED to all existing group members
+        notifyMembersOfJoin(conversation, targetUserId);
+
+        return result;
     }
 
     @Transactional
@@ -383,6 +491,51 @@ public class GroupService {
         PendingJoinRequest pending = pendingJoinRequestRepository.findFirstByConversationIdAndUserId(conversationId, targetUserId)
                 .orElseThrow(() -> new AppException(ErrorCode.GROUP_PENDING_REQUEST_NOT_FOUND));
         pendingJoinRequestRepository.deleteByConversationIdAndUserId(conversationId, targetUserId);
+    }
+
+    /**
+     * Notify all OWNER and ADMIN members about a new join request.
+     */
+    private void notifyAdminsOfJoinRequest(Conversation conversation, User requester) {
+        String groupName = conversation.getName() != null ? conversation.getName() : "group";
+        String content = requester.getDisplayName() + " requested to join " + groupName;
+
+        List<GroupMember> admins = groupMemberRepository.findByConversationIdAndRoleIn(
+                conversation.getId(), List.of(GroupRole.OWNER, GroupRole.ADMIN));
+
+        for (GroupMember admin : admins) {
+            notificationService.createAndPush(
+                    NotificationType.GROUP_JOIN_REQUEST,
+                    requester.getId().toString(),
+                    admin.getUser().getId().toString(),
+                    content,
+                    conversation.getId()
+            );
+        }
+    }
+
+    /**
+     * Notify all existing group members that a new member has joined.
+     */
+    private void notifyMembersOfJoin(Conversation conversation, String newMemberId) {
+        User newUser = userRepository.findById(UUID.fromString(newMemberId)).orElse(null);
+        if (newUser == null) return;
+
+        String groupName = conversation.getName() != null ? conversation.getName() : "group";
+        String content = newUser.getDisplayName() + " joined " + groupName;
+
+        List<GroupMember> members = groupMemberRepository.findByConversationId(conversation.getId());
+        for (GroupMember member : members) {
+            String memberId = member.getUser().getId().toString();
+            if (memberId.equals(newMemberId)) continue;
+            notificationService.createAndPush(
+                    NotificationType.MEMBER_JOINED,
+                    newMemberId,
+                    memberId,
+                    content,
+                    conversation.getId()
+            );
+        }
     }
 
     // ── Reminders ────────────────────────────────────────────────────
@@ -587,6 +740,25 @@ public class GroupService {
         } catch (Exception e) {
             // Log but don't throw - broadcast failure shouldn't break the update
             System.err.println("Failed to broadcast group update: " + e.getMessage());
+        }
+    }
+
+    private void broadcastRoleUpdate(String conversationId, GroupMember updatedMember) {
+        try {
+            Conversation conversation = conversationRepository.findById(conversationId).orElse(null);
+            if (conversation == null) return;
+            ConversationResponse convResponse = conversationMapper.toResponse(conversation);
+            GroupMemberResponse memberResponse = toMemberResponse(updatedMember);
+            messagingTemplate.convertAndSend(
+                    "/topic/conversation." + conversationId,
+                    ChatEvent.builder()
+                            .action(ChatEvent.ChatAction.ROLE_UPDATED)
+                            .conversationData(convResponse)
+                            .updatedMember(memberResponse)
+                            .build()
+            );
+        } catch (Exception e) {
+            System.err.println("Failed to broadcast role update: " + e.getMessage());
         }
     }
 }

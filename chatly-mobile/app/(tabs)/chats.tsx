@@ -143,8 +143,9 @@ export default function ChatsScreen() {
             try {
               await conversationService.delete(conversation.id);
               removeConversation(conversation.id);
-            } catch (error: any) {
-              Alert.alert('Error', error?.response?.data?.message ?? 'Could not delete conversation.');
+            } catch (error: unknown) {
+              const msg = error instanceof Error ? error.message : 'Could not delete conversation.';
+              Alert.alert('Error', msg);
             }
           },
         },

@@ -1,10 +1,13 @@
+import { useState } from "react";
 import { Phone, Video, Users, ChevronLeft, Search, Pin, BellOff, PanelRightOpen, PanelRightClose } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { PresenceIndicator } from "@/components/customize/PresenceIndicator";
+import { GroupCallMemberPicker } from "@/components/call/GroupCallMemberPicker";
 import { useCallContext } from "@/contexts/CallContext";
 import { useCallStore } from "@/store/call.store";
 import type { ChatUser } from "@/types/message";
+import type { CallType } from "@/types/call";
 
 interface ChatHeaderProps {
     user: ChatUser;
@@ -22,13 +25,14 @@ interface ChatHeaderProps {
     isPinned?: boolean;
     isMuted?: boolean;
     nickname?: string | null;
+    memberCount?: number;
 }
 
-export function ChatHeader({ user, onOpenProfile, isGroup, conversationId, otherUserId, onOpenGroupPanel, onToggleSearch, onToggleInfoPanel, isInfoPanelOpen, presenceStatus, lastSeen, onBack, isPinned, isMuted, nickname }: ChatHeaderProps) {
-    const { initiateCall } = useCallContext();
+export function ChatHeader({ user, onOpenProfile, isGroup, conversationId, otherUserId, onOpenGroupPanel, onToggleSearch, onToggleInfoPanel, isInfoPanelOpen, presenceStatus, lastSeen, onBack, isPinned, isMuted, nickname, memberCount }: ChatHeaderProps) {
+    const { initiateCall, initiateGroupCall } = useCallContext();
     const callStatus = useCallStore((s) => s.callStatus);
+    const [memberPicker, setMemberPicker] = useState<{ visible: boolean; callType: CallType }>({ visible: false, callType: "VOICE" });
 
-    // Chỉ hiển thị nút gọi cho cuộc trò chuyện riêng tư (PRIVATE)
     const showCallButtons = !isGroup && !!conversationId && !!otherUserId;
     const callDisabled = callStatus !== "IDLE";
 
@@ -107,7 +111,7 @@ export function ChatHeader({ user, onOpenProfile, isGroup, conversationId, other
                             variant="ghost"
                             size="icon"
                             className="h-9 w-9 disabled:opacity-50 disabled:cursor-not-allowed"
-                            title="Gọi video"
+                            title="Video call"
                         >
                             <Video size={18} />
                         </Button>
@@ -117,21 +121,35 @@ export function ChatHeader({ user, onOpenProfile, isGroup, conversationId, other
                             variant="ghost"
                             size="icon"
                             className="h-9 w-9 disabled:opacity-50 disabled:cursor-not-allowed"
-                            title="Gọi thoại"
+                            title="Voice call"
                         >
                             <Phone size={18} />
                         </Button>
                     </>
-                ) : (
+                ) : isGroup ? (
                     <>
-                        <Button variant="ghost" size="icon" className="h-9 w-9">
+                        <Button
+                            onClick={() => setMemberPicker({ visible: true, callType: "VIDEO" })}
+                            disabled={callDisabled}
+                            variant="ghost"
+                            size="icon"
+                            className="h-9 w-9 disabled:opacity-50 disabled:cursor-not-allowed"
+                            title="Group video call"
+                        >
                             <Video size={18} />
                         </Button>
-                        <Button variant="ghost" size="icon" className="h-9 w-9">
+                        <Button
+                            onClick={() => setMemberPicker({ visible: true, callType: "VOICE" })}
+                            disabled={callDisabled}
+                            variant="ghost"
+                            size="icon"
+                            className="h-9 w-9 disabled:opacity-50 disabled:cursor-not-allowed"
+                            title="Group voice call"
+                        >
                             <Phone size={18} />
                         </Button>
                     </>
-                )}
+                ) : null}
                 {onToggleInfoPanel && (
                     <Button
                         onClick={onToggleInfoPanel}
@@ -144,6 +162,21 @@ export function ChatHeader({ user, onOpenProfile, isGroup, conversationId, other
                     </Button>
                 )}
             </div>
+
+            {conversationId && (
+                <GroupCallMemberPicker
+                    visible={memberPicker.visible}
+                    conversationId={conversationId}
+                    groupName={user.displayName}
+                    groupAvatar={user.avatarUrl}
+                    callType={memberPicker.callType}
+                    onCall={(selectedIds) => {
+                        setMemberPicker({ visible: false, callType: "VOICE" });
+                        initiateGroupCall(conversationId, memberPicker.callType, user.displayName, selectedIds.length, selectedIds, user.avatarUrl);
+                    }}
+                    onClose={() => setMemberPicker({ visible: false, callType: "VOICE" })}
+                />
+            )}
         </header>
     );
 }

@@ -16,6 +16,8 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { ChatHeader } from '@/components/chat/ChatHeader';
+import { PinnedMessagesBanner } from '@/components/chat/PinnedMessagesBanner';
+import { ActivePollBanner } from '@/components/chat/ActivePollBanner';
 import { MessageBubble } from '@/components/chat/MessageBubble';
 import { ChatInput } from '@/components/chat/ChatInput';
 import { DateSeparator } from '@/components/chat/DateSeparator';
@@ -23,6 +25,7 @@ import { MessageActions } from '@/components/chat/MessageActions';
 import { ForwardMessageModal } from '@/components/chat/ForwardMessageModal';
 import { TypingIndicator } from '@/components/chat/TypingIndicator';
 import { MessageSearch } from '@/components/chat/MessageSearch';
+import { TextRichComposer, type ComposerMode } from '@/components/chat/TextRichComposer';
 import { messageService } from '@/services/message.service';
 import { conversationService } from '@/services/conversation.service';
 import { contactService } from '@/services/contact.service';
@@ -33,9 +36,10 @@ import { useConversationStore } from '@/store/conversation.store';
 import { useContactStore } from '@/store/contact.store';
 import { useChatSocket } from '@/hooks/useChatSocket';
 import { useCallContext } from '@/contexts/CallContext';
+import { useCallStore } from '@/store/call.store';
 import { usePresenceSocket } from '@/hooks/usePresenceSocket';
 import { Colors } from '@/constants/theme';
-import { formatDateSeparator } from '@/utils/format';
+import { formatDateSeparator, isRichTextHtml, richTextToPlainText } from '@/utils/format';
 import type { Message, ChatEvent, Attachment, Poll } from '@/types/message';
 import type { ConversationResponse } from '@/types/conversation';
 import type { UserResponse } from '@/types/auth';
@@ -83,6 +87,15 @@ export default function ChatScreen() {
   const [contacts, setContacts] = useState<ContactResponse[]>([]);
   const [mentionModalUser, setMentionModalUser] = useState<UserResponse | null>(null);
   const [showMentionModal, setShowMentionModal] = useState(false);
+  const [editModalVisible, setEditModalVisible] = useState(false);
+  const [editMode, setEditMode] = useState<ComposerMode>('plain');
+  const [editPlainDraft, setEditPlainDraft] = useState('');
+  const [editRichDraft, setEditRichDraft] = useState('');
+  const [pinnedMessages, setPinnedMessages] = useState<Message[]>([]);
+  const [currentPinnedIdx, setCurrentPinnedIdx] = useState(0);
+  const [showPinnedList, setShowPinnedList] = useState(false);
+  const [currentPollIdx, setCurrentPollIdx] = useState(0);
+  const [isPollBannerDismissed, setIsPollBannerDismissed] = useState(false);
   const sendSeenRef = useRef<(messageId: string) => boolean>(() => false);
 
   const {
@@ -127,9 +140,29 @@ export default function ChatScreen() {
         case 'RECALL':
         case 'REACT':
           updateMessage(conversationId, event.message.id, event.message);
+          // Sync pinned messages list when pin status changes
+          if (event.message.pinned !== undefined) {
+            setPinnedMessages((prev) => {
+              const exists = prev.some((m) => m.id === event.message.id);
+              if (event.message.pinned && !exists) {
+                return [...prev, event.message];
+              }
+              if (!event.message.pinned && exists) {
+                return prev.filter((m) => m.id !== event.message.id);
+              }
+              if (exists) {
+                return prev.map((m) => (m.id === event.message.id ? { ...m, ...event.message } : m));
+              }
+              return prev;
+            });
+          }
           break;
         case 'DELETE':
           removeMessage(conversationId, event.message.id);
+          break;
+        case 'GROUP_UPDATE':
+        case 'ROLE_UPDATED':
+          // Handled at conversation list level, ignore here
           break;
       }
     },
@@ -191,7 +224,7 @@ export default function ChatScreen() {
     },
   });
 
-  const { initiateCall } = useCallContext();
+  const { initiateCall, joinGroupCall } = useCallContext();
 
   const {
     sendMessage: wsSendMessage,
@@ -285,6 +318,18 @@ export default function ChatScreen() {
     fetchMessages();
   }, [conversationId, setMessages, setLoadingMessages, setPage, setHasMore]);
 
+  // Fetch pinned messages
+  useEffect(() => {
+    if (!conversationId) return;
+    messageService
+      .getPinnedMessages(conversationId)
+      .then((res) => {
+        setPinnedMessages(res.result ?? []);
+        setCurrentPinnedIdx(0);
+      })
+      .catch(() => {});
+  }, [conversationId]);
+
   // Load older messages
   const loadMore = useCallback(async () => {
     if (!conversationId || !canLoadMore || loadingMessages || !initialLoadDoneRef.current) return;
@@ -337,6 +382,7 @@ export default function ChatScreen() {
       messageType?: string,
       priority?: 'IMPORTANT' | 'URGENT',
       poll?: Poll,
+      location?: any,
     ) => {
       if (!conversationId || !user) return;
       const replyToId = replyingTo?.id ?? null;
@@ -360,8 +406,8 @@ export default function ChatScreen() {
         timestamp: new Date().toISOString(),
       };
 
-      // Try WebSocket first (skip for poll — REST handles complex payloads)
-      const sent = !poll && wsSendMessage(text, replyToId, attachments, messageType, priority);
+      // Try WebSocket first
+      const sent = wsSendMessage(text, replyToId, attachments, messageType, priority, location, poll);
       if (sent) {
         updateConversation(conversationId, { lastMessage: optimisticLastMsg });
         setReplyingTo(null);
@@ -379,6 +425,7 @@ export default function ChatScreen() {
           attachments,
           priority,
           poll,
+          location,
         });
         addMessage(conversationId, res.result);
         updateConversation(conversationId, {
@@ -412,23 +459,37 @@ export default function ChatScreen() {
 
   const handleEdit = useCallback(async () => {
     if (!selectedMessage || !conversationId) return;
-    // Simple prompt for edit
-    Alert.prompt?.(
-      'Edit Message',
-      '',
-      async (newContent: string) => {
-        if (!newContent?.trim()) return;
-        try {
-          const res = await messageService.edit(selectedMessage.id, newContent.trim());
-          updateMessage(conversationId, selectedMessage.id, res.result);
-        } catch (error: any) {
-          Alert.alert('Error', error?.response?.data?.message ?? 'Could not edit message.');
-        }
-      },
-      'plain-text',
-      selectedMessage.content
-    );
-  }, [selectedMessage, conversationId, updateMessage]);
+    const initialIsRich = isRichTextHtml(selectedMessage.content);
+    setEditMode(initialIsRich ? 'editor' : 'plain');
+    setEditRichDraft(initialIsRich ? selectedMessage.content : '');
+    setEditPlainDraft(initialIsRich ? richTextToPlainText(selectedMessage.content) : selectedMessage.content);
+    setEditModalVisible(true);
+  }, [selectedMessage, conversationId]);
+
+  const handleConfirmEdit = useCallback(async () => {
+    if (!selectedMessage || !conversationId) return;
+    const nextContent = editMode === 'editor' ? editRichDraft.trim() : editPlainDraft.trim();
+    if (!nextContent) {
+      setEditModalVisible(false);
+      return;
+    }
+    try {
+      const res = await messageService.edit(selectedMessage.id, nextContent);
+      updateMessage(conversationId, selectedMessage.id, res.result);
+      setEditModalVisible(false);
+      setEditPlainDraft('');
+      setEditRichDraft('');
+    } catch (error: unknown) {
+      const msg =
+        typeof error === 'object' &&
+        error !== null &&
+        'response' in error &&
+        typeof (error as { response?: { data?: { message?: string } } }).response?.data?.message === 'string'
+          ? (error as { response?: { data?: { message?: string } } }).response?.data?.message ?? 'Could not edit message.'
+          : 'Could not edit message.';
+      Alert.alert('Error', msg);
+    }
+  }, [selectedMessage, conversationId, editMode, editRichDraft, editPlainDraft, updateMessage]);
 
   const handleRecall = useCallback(async () => {
     if (!selectedMessage || !conversationId) return;
@@ -510,12 +571,33 @@ export default function ChatScreen() {
     [conversationId, user, updateMessage]
   );
 
+  const handleClosePoll = useCallback(
+    async (messageId: string) => {
+      if (!conversationId || !user) return;
+      try {
+        const res = await messageService.closePoll(messageId);
+        updateMessage(conversationId, messageId, res.result);
+      } catch {
+        Alert.alert('Error', 'Could not close poll.');
+      }
+    },
+    [conversationId, user, updateMessage]
+  );
+
   const handleTogglePin = useCallback(
     async (messageId: string) => {
       if (!conversationId || !user) return;
       try {
         const res = await messageService.togglePin(messageId);
         updateMessage(conversationId, messageId, res.result);
+        // Sync pinned messages list
+        const updated = res.result;
+        setPinnedMessages((prev) => {
+          if (updated.pinned) {
+            return prev.some((m) => m.id === updated.id) ? prev : [...prev, updated];
+          }
+          return prev.filter((m) => m.id !== updated.id);
+        });
       } catch {
         Alert.alert('Error', 'Could not pin message.');
       }
@@ -528,6 +610,69 @@ export default function ChatScreen() {
       initiateCall(calleeId, conversationId ?? '', 'VOICE', calleeName, calleeAvatar);
     },
     [conversationId, initiateCall]
+  );
+
+  const handleJoinGroupCall = useCallback(
+    (callId: string) => {
+      if (!conversationId || !conversation) return;
+
+      const realtimeState = useCallStore.getState().groupCallRealtimeState[callId];
+      if (realtimeState?.ended) {
+        Alert.alert('Call ended', 'This call has already ended.');
+        return;
+      }
+
+      const parseCallPayload = (rawContent: string): { callId?: string; status?: string; callType?: string } | null => {
+        try {
+          return JSON.parse(rawContent) as { callId?: string; status?: string; callType?: string };
+        } catch {
+          return null;
+        }
+      };
+
+      const activeCallMessage = messages.find((message) => {
+        if (message.type !== 'CALL') return false;
+        const payload = parseCallPayload(message.content);
+        if (!payload || payload.callId !== callId) return false;
+
+        const status = (payload.status ?? '').toUpperCase();
+        return status === 'RINGING' || status === 'ONGOING';
+      });
+
+      const fallbackCallMessage = activeCallMessage
+        ?? messages.find((message) => {
+          if (message.type !== 'CALL') return false;
+          const payload = parseCallPayload(message.content);
+          return payload?.callId === callId;
+        });
+
+      let callType: 'VOICE' | 'VIDEO' = 'VOICE';
+      let initiatorId = '';
+
+      if (fallbackCallMessage) {
+        const payload = parseCallPayload(fallbackCallMessage.content);
+        callType = payload?.callType === 'VIDEO' ? 'VIDEO' : 'VOICE';
+        initiatorId = fallbackCallMessage.senderId;
+      }
+
+      const initiator = initiatorId ? participantMap[initiatorId] : null;
+
+      useCallStore.getState().setIncomingGroupCall({
+        callId,
+        conversationId,
+        initiatorId,
+        initiatorName: initiator?.displayName ?? 'Unknown',
+        initiatorAvatar: initiator?.avatarUrl ?? null,
+        groupName: conversation.name ?? 'Group',
+        groupAvatarUrl: conversation.avatarUrl ?? null,
+        type: callType,
+        participantCount: 0,
+      });
+
+      useCallStore.getState().setCallStatus('RINGING');
+      joinGroupCall(true);
+    },
+    [messages, participantMap, conversationId, conversation, joinGroupCall]
   );
 
   const handleMentionPress = useCallback(
@@ -587,6 +732,16 @@ export default function ChatScreen() {
     },
     [participantMap, userDirectory]
   );
+
+  const activePolls = useMemo(() => {
+    const now = new Date();
+    return messages.filter((m) => {
+      if (m.type !== 'POLL' || !m.poll) return false;
+      if (m.poll.closed) return false;
+      if (m.poll.deadline && new Date(m.poll.deadline) < now) return false;
+      return true;
+    });
+  }, [messages]);
 
   const displayData = useMemo(() => {
     const items: Array<{ type: 'date'; label: string } | { type: 'message'; data: Message }> = [];
@@ -678,6 +833,29 @@ export default function ChatScreen() {
         />
       )}
 
+      {/* Pinned messages banner */}
+      <PinnedMessagesBanner
+        pinnedMessages={pinnedMessages}
+        currentIdx={currentPinnedIdx}
+        onPrev={() => setCurrentPinnedIdx((i) => (i > 0 ? i - 1 : pinnedMessages.length - 1))}
+        onNext={() => setCurrentPinnedIdx((i) => (i < pinnedMessages.length - 1 ? i + 1 : 0))}
+        onPress={(messageId) => handleNavigateToMessage(messageId)}
+        onUnpin={(messageId) => handleTogglePin(messageId)}
+        onViewAll={() => setShowPinnedList(true)}
+      />
+
+      {/* Active polls banner */}
+      {!isPollBannerDismissed && (
+        <ActivePollBanner
+          polls={activePolls}
+          currentIdx={currentPollIdx}
+          onPrev={() => setCurrentPollIdx((i) => (i > 0 ? i - 1 : activePolls.length - 1))}
+          onNext={() => setCurrentPollIdx((i) => (i < activePolls.length - 1 ? i + 1 : 0))}
+          onPress={(messageId) => handleNavigateToMessage(messageId)}
+          onDismiss={() => setIsPollBannerDismissed(true)}
+        />
+      )}
+
       {/* Messages */}
       <View className="flex-1" style={{ backgroundColor: Colors.bg }}>
         {loadingMessages && messages.length === 0 ? (
@@ -716,8 +894,12 @@ export default function ChatScreen() {
                     onLongPress={() => handleLongPress(msg)}
                     onReact={handleReact}
                     onVotePoll={handleVotePoll}
+                    onClosePoll={handleClosePoll}
+                    participantMap={participantMap}
                     replyToMessage={msg.replyToId ? (messageById[msg.replyToId] ?? null) : null}
                     onCallAgain={handleCallAgain}
+                    onJoinGroupCall={handleJoinGroupCall}
+                    isGroupConversation={isGroup}
                     calleeInfo={
                       isMe
                         ? null
@@ -733,6 +915,7 @@ export default function ChatScreen() {
                     onVCardPress={handleVCardPress}
                     onAddFriend={handleAddFriend}
                     vcardFriendStatus={getVcardFriendStatus}
+                    onScrollToMessage={handleNavigateToMessage}
                   />
                 </View>
               );
@@ -892,6 +1075,143 @@ export default function ChatScreen() {
         onClose={() => setForwardVisible(false)}
         onConfirm={handleForward}
       />
+
+      <Modal
+        visible={editModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setEditModalVisible(false)}>
+        <Pressable
+          style={{
+            flex: 1,
+            backgroundColor: 'rgba(0,0,0,0.35)',
+            justifyContent: 'center',
+            paddingHorizontal: 16,
+          }}
+          onPress={() => setEditModalVisible(false)}>
+          <Pressable
+            style={{
+              backgroundColor: Colors.white,
+              borderRadius: 16,
+              padding: 14,
+              maxHeight: '75%',
+            }}
+            onPress={() => {}}>
+            <Text style={{ fontSize: 18, fontWeight: '700', color: Colors.text, marginBottom: 10 }}>
+              Edit message
+            </Text>
+
+            <TextRichComposer
+              mode={editMode}
+              onModeChange={setEditMode}
+              plainText={editPlainDraft}
+              onPlainTextChange={setEditPlainDraft}
+              richHtml={editRichDraft}
+              onRichHtmlChange={setEditRichDraft}
+              placeholder="Edit message..."
+              minHeight={120}
+              showToolbar={editMode === 'editor'}
+              editorKey={selectedMessage?.id ?? 'edit-message'}
+            />
+
+            <View
+              style={{
+                marginTop: 12,
+                flexDirection: 'row',
+                justifyContent: 'flex-end',
+                gap: 10,
+              }}>
+              <TouchableOpacity
+                onPress={() => setEditModalVisible(false)}
+                style={{
+                  paddingHorizontal: 14,
+                  paddingVertical: 10,
+                  borderRadius: 10,
+                  backgroundColor: Colors.bg,
+                }}>
+                <Text style={{ color: Colors.textMuted, fontWeight: '600' }}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={handleConfirmEdit}
+                style={{
+                  paddingHorizontal: 16,
+                  paddingVertical: 10,
+                  borderRadius: 10,
+                  backgroundColor: Colors.cta,
+                }}>
+                <Text style={{ color: '#fff', fontWeight: '700' }}>Save</Text>
+              </TouchableOpacity>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* Pinned messages list modal */}
+      <Modal
+        visible={showPinnedList}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowPinnedList(false)}>
+        <Pressable
+          style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' }}
+          onPress={() => setShowPinnedList(false)}>
+          <Pressable
+            style={{ backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '70%' }}
+            onPress={() => {}}>
+            {/* Header */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 0.5, borderBottomColor: Colors.borderLight }}>
+              <Ionicons name="pin" size={16} color="#F59E0B" />
+              <Text style={{ flex: 1, marginLeft: 8, fontSize: 15, fontWeight: '700', color: Colors.text }}>
+                Pinned Messages ({pinnedMessages.length})
+              </Text>
+              <TouchableOpacity onPress={() => setShowPinnedList(false)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <Ionicons name="close" size={22} color={Colors.textMuted} />
+              </TouchableOpacity>
+            </View>
+            {/* List */}
+            <FlatList
+              data={pinnedMessages}
+              keyExtractor={(item) => item.id}
+              contentContainerStyle={{ paddingVertical: 8 }}
+              renderItem={({ item: msg }) => {
+                const sender = participantMap[msg.senderId];
+                const senderName = sender?.displayName ?? 'Unknown';
+                const msgPreview =
+                  msg.content ||
+                  (msg.type === 'POLL' ? `Poll: ${msg.poll?.question}` : `[${msg.type?.toLowerCase()}]`);
+                return (
+                  <TouchableOpacity
+                    style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12 }}
+                    activeOpacity={0.7}
+                    onPress={() => {
+                      setShowPinnedList(false);
+                      handleNavigateToMessage(msg.id);
+                    }}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontSize: 12, fontWeight: '600', color: Colors.cta }} numberOfLines={1}>
+                        {senderName}
+                      </Text>
+                      <Text style={{ fontSize: 13, color: Colors.text, marginTop: 2 }} numberOfLines={2}>
+                        {msgPreview}
+                      </Text>
+                    </View>
+                    <TouchableOpacity
+                      onPress={() => {
+                        handleTogglePin(msg.id);
+                        if (pinnedMessages.length <= 1) setShowPinnedList(false);
+                      }}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      style={{ marginLeft: 12 }}>
+                      <Ionicons name="pin-outline" size={18} color={Colors.textMuted} />
+                    </TouchableOpacity>
+                  </TouchableOpacity>
+                );
+              }}
+              ItemSeparatorComponent={() => <View style={{ height: 0.5, backgroundColor: Colors.borderLight, marginHorizontal: 16 }} />}
+            />
+          </Pressable>
+        </Pressable>
+      </Modal>
 
       {/* Mention user info modal */}
       <Modal

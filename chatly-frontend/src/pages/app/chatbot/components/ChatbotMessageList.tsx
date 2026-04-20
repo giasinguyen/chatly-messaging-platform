@@ -4,25 +4,33 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
-import type { AgentMessage } from "@/types/agent";
+import type { AgentMessage, InterruptData } from "@/types/agent";
 import { ChatbotThinkingIndicator } from "./ChatbotThinkingIndicator";
 import { ChatbotMessageMenu } from "./ChatbotMessageMenu";
+import { AttachmentPreview } from "./AttachmentPreview";
 import { useChatbotStore } from "@/store/chatbot.store";
+import { InterruptCard } from "./InterruptCard";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeHighlight from "rehype-highlight";
+
+const SCROLL_NEAR_BOTTOM_THRESHOLD_PX = 120;
 
 const MARKDOWN_CLASSES =
     "prose prose-sm dark:prose-invert max-w-none wrap-break-word [&_pre]:overflow-x-auto [&_pre]:rounded-lg [&_pre]:bg-muted [&_pre]:p-3 [&_code]:text-sm [&_table]:text-sm [&_p]:leading-relaxed [&_img]:rounded-lg [&_img]:max-h-80";
 
 interface Props {
     messages: AgentMessage[];
+    sessionId: string;
+    interrupt?: InterruptData | null;
+    onApprove?: () => void;
+    onReject?: () => void;
     onEdit?: (message: AgentMessage) => void;
     onRetry?: (message: AgentMessage) => void;
     onRetryLast?: () => void;
 }
 
-export function ChatbotMessageList({ messages, onEdit, onRetry, onRetryLast }: Props) {
+export function ChatbotMessageList({ messages, sessionId, interrupt, onApprove, onReject, onEdit, onRetry, onRetryLast }: Props) {
     const scrollEndRef = useRef<HTMLDivElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
     const isNearBottomRef = useRef(true);
@@ -40,8 +48,7 @@ export function ChatbotMessageList({ messages, onEdit, onRetry, onRetryLast }: P
     const handleScroll = useCallback(() => {
         const el = containerRef.current;
         if (!el) return;
-        const threshold = 120;
-        const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < threshold;
+        const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < SCROLL_NEAR_BOTTOM_THRESHOLD_PX;
         isNearBottomRef.current = nearBottom;
         setShowScrollDown(!nearBottom);
     }, []);
@@ -114,6 +121,20 @@ export function ChatbotMessageList({ messages, onEdit, onRetry, onRetryLast }: P
                                 <p className="text-sm whitespace-pre-wrap leading-relaxed">
                                     {msg.content}
                                 </p>
+                            )}
+
+                            {/* Attachments */}
+                            {msg.attachments && msg.attachments.length > 0 && (
+                                <div className="flex flex-wrap gap-2 mt-2">
+                                    {msg.attachments.map((att) => (
+                                        <AttachmentPreview
+                                            key={att.file_id}
+                                            attachment={att}
+                                            sessionId={sessionId}
+                                            role={msg.role as "user" | "assistant"}
+                                        />
+                                    ))}
+                                </div>
                             )}
 
                             {/* Copy button for AI messages */}
@@ -192,6 +213,15 @@ export function ChatbotMessageList({ messages, onEdit, onRetry, onRetryLast }: P
 
             {/* Thinking indicator */}
             {isThinking && <ChatbotThinkingIndicator hint={statusHint} />}
+
+            {/* Inline HITL interrupt card */}
+            {interrupt && !isStreaming && onApprove && onReject && (
+                <InterruptCard
+                    interrupt={interrupt}
+                    onApprove={onApprove}
+                    onReject={onReject}
+                />
+            )}
 
             <div ref={scrollEndRef} />
         </div>

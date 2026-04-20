@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { CallStatus, CallSession, IncomingCall, Participant } from "@/types/call";
+import type { CallStatus, CallSession, IncomingCall, IncomingGroupCall, GroupParticipantInfo, Participant } from "@/types/call";
 
 type CallStoreStatus = CallStatus | "IDLE";
 
@@ -9,7 +9,14 @@ export interface OutgoingCallTarget {
     type: "VOICE" | "VIDEO";
 }
 
+export interface GroupCallRealtimeState {
+    ended: boolean;
+    activeParticipantCount: number;
+    updatedAt: number;
+}
+
 interface CallState {
+    // 1-1 call state
     callStatus: CallStoreStatus;
     incomingCall: IncomingCall | null;
     activeCall: CallSession | null;
@@ -20,6 +27,13 @@ interface CallState {
     isCameraOff: boolean;
     callDuration: number;
 
+    // Group call state
+    isGroupCall: boolean;
+    incomingGroupCall: IncomingGroupCall | null;
+    groupParticipantInfo: Record<string, GroupParticipantInfo>;
+    groupCallRealtimeState: Record<string, GroupCallRealtimeState>;
+
+    // 1-1 actions
     setIncomingCall: (call: IncomingCall | null) => void;
     setCallStatus: (status: CallStoreStatus) => void;
     setOutgoingCallTarget: (target: OutgoingCallTarget | null) => void;
@@ -32,9 +46,17 @@ interface CallState {
     upgradeCall: () => void;
     setParticipants: (participants: Participant[]) => void;
     incrementDuration: () => void;
+
+    // Group call actions
+    setIncomingGroupCall: (call: IncomingGroupCall | null) => void;
+    startGroupCall: (session: CallSession) => void;
+    setGroupParticipantInfo: (userId: string, info: GroupParticipantInfo) => void;
+    removeGroupParticipant: (userId: string) => void;
+    setGroupCallRealtimeState: (callId: string, ended: boolean, activeParticipantCount: number) => void;
 }
 
 export const useCallStore = create<CallState>((set) => ({
+    // 1-1 initial state
     callStatus: "IDLE",
     incomingCall: null,
     activeCall: null,
@@ -44,6 +66,12 @@ export const useCallStore = create<CallState>((set) => ({
     isMuted: false,
     isCameraOff: false,
     callDuration: 0,
+
+    // Group initial state
+    isGroupCall: false,
+    incomingGroupCall: null,
+    groupParticipantInfo: {},
+    groupCallRealtimeState: {},
 
     setIncomingCall: (call) => set({ incomingCall: call }),
 
@@ -57,19 +85,23 @@ export const useCallStore = create<CallState>((set) => ({
         set({
             activeCall: session,
             callStatus: "ONGOING",
+            isGroupCall: false,
             callDuration: 0,
             isMuted: false,
-            isCameraOff: false,
+            isCameraOff: session.type !== "VIDEO",
         }),
 
     endCall: () =>
         set({
             callStatus: "IDLE",
             incomingCall: null,
+            incomingGroupCall: null,
             activeCall: null,
             outgoingCallTarget: null,
             pendingOffer: null,
             participants: [],
+            isGroupCall: false,
+            groupParticipantInfo: {},
             isMuted: false,
             isCameraOff: false,
             callDuration: 0,
@@ -92,4 +124,42 @@ export const useCallStore = create<CallState>((set) => ({
 
     incrementDuration: () =>
         set((state) => ({ callDuration: state.callDuration + 1 })),
+
+    // Group call actions
+    setIncomingGroupCall: (call) => set({ incomingGroupCall: call }),
+
+    startGroupCall: (session) =>
+        set({
+            activeCall: session,
+            callStatus: "RINGING",
+            isGroupCall: true,
+            incomingGroupCall: null,
+            callDuration: 0,
+            isMuted: false,
+            isCameraOff: session.type !== "VIDEO",
+        }),
+
+    setGroupParticipantInfo: (userId, info) =>
+        set((state) => ({
+            groupParticipantInfo: { ...state.groupParticipantInfo, [userId]: info },
+        })),
+
+    removeGroupParticipant: (userId) =>
+        set((state) => {
+            const next = { ...state.groupParticipantInfo };
+            delete next[userId];
+            return { groupParticipantInfo: next };
+        }),
+
+    setGroupCallRealtimeState: (callId, ended, activeParticipantCount) =>
+        set((state) => ({
+            groupCallRealtimeState: {
+                ...state.groupCallRealtimeState,
+                [callId]: {
+                    ended,
+                    activeParticipantCount,
+                    updatedAt: Date.now(),
+                },
+            },
+        })),
 }));

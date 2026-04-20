@@ -1,4 +1,5 @@
-import { useEffect, useCallback, useRef } from "react";
+import { useEffect, useCallback, useRef, useState } from "react";
+import type React from "react";
 import { socketService } from "@/services/socket.service";
 import { useAuthStore } from "@/store/auth.store";
 import { useCallStore } from "@/store/call.store";
@@ -10,16 +11,17 @@ function generateCallId(): string {
 }
 
 /**
- * Hook xử lý signaling WebRTC qua STOMP WebSocket.
- * Subscribe /user/{userId}/queue/calls để nhận tín hiệu cuộc gọi.
+ * Hook for handling WebRTC signaling via STOMP WebSocket.
+ * Subscribes to /user/queue/calls to receive call signals.
  */
-export function useCallSocket() {
+export function useCallSocket(groupSignalRef?: React.MutableRefObject<((signal: CallSignal) => void) | null>) {
     const user = useAuthStore((s) => s.user);
     const {
         setIncomingCall,
         setCallStatus,
         setOutgoingCallTarget,
         setPendingOffer,
+        setCameraOff,
         startCall,
         endCall: endCallStore,
         upgradeCall,
@@ -47,9 +49,74 @@ export function useCallSocket() {
         ringtoneRef.current = null;
     }, []);
 
-    // Offer SDP lưu trong Zustand store để bền vững hơn hook-local ref
+    const pendingVideoUpgradeDecisionRef = useRef<{
+        resolve: (accepted: boolean) => void;
+        timeoutId: ReturnType<typeof window.setTimeout>;
+    } | null>(null);
 
-    // Gửi ICE candidate đến peer qua STOMP
+    const resolvePendingVideoUpgradeDecision = useCallback((accepted: boolean) => {
+        const pending = pendingVideoUpgradeDecisionRef.current;
+        if (!pending) return;
+
+        window.clearTimeout(pending.timeoutId);
+        pendingVideoUpgradeDecisionRef.current = null;
+        pending.resolve(accepted);
+    }, []);
+
+    const waitForVideoUpgradeDecision = useCallback((): Promise<boolean> => {
+        if (pendingVideoUpgradeDecisionRef.current) {
+            throw new Error("A video upgrade request is already pending.");
+        }
+
+        return new Promise<boolean>((resolve, reject) => {
+            const timeoutId = window.setTimeout(() => {
+                pendingVideoUpgradeDecisionRef.current = null;
+                reject(new Error("Peer did not respond to the video call request."));
+            }, 20000);
+
+            pendingVideoUpgradeDecisionRef.current = {
+                resolve,
+                timeoutId,
+            };
+        });
+    }, []);
+
+    const pendingIncomingVideoUpgradeRequesterIdRef = useRef<string | null>(null);
+    const [incomingVideoUpgradeRequest, setIncomingVideoUpgradeRequest] = useState<{
+        requesterName: string;
+    } | null>(null);
+
+    const respondToVideoUpgradeRequest = useCallback((accept: boolean) => {
+        const activeCall = useCallStore.getState().activeCall;
+        const client = socketService.getClient();
+        if (!activeCall || !client?.connected || !user) {
+            setIncomingVideoUpgradeRequest(null);
+            pendingIncomingVideoUpgradeRequesterIdRef.current = null;
+            return;
+        }
+
+        const receiverId = pendingIncomingVideoUpgradeRequesterIdRef.current
+            ?? activeCall.participants.find((id) => id !== user.id);
+
+        if (receiverId) {
+            client.publish({
+                destination: "/app/call.renegotiate",
+                body: JSON.stringify({
+                    type: accept ? "VIDEO_UPGRADE_ACCEPT" : "VIDEO_UPGRADE_REJECT",
+                    callId: activeCall.callId,
+                    senderId: user.id,
+                    receiverId,
+                }),
+            });
+        }
+
+        setIncomingVideoUpgradeRequest(null);
+        pendingIncomingVideoUpgradeRequesterIdRef.current = null;
+    }, [user]);
+
+    // Offer SDP stored in Zustand store for persistence across re-renders
+
+    // Send ICE candidate to peer via STOMP
     const sendIceCandidate = useCallback(
         (candidate: RTCIceCandidate) => {
             const activeCall = useCallStore.getState().activeCall;
@@ -75,7 +142,7 @@ export function useCallSocket() {
         [user],
     );
 
-    // Gán callback cho WebRTC
+    // Assign callbacks for WebRTC
     useEffect(() => {
         webrtcRef.current.callbacksRef.current = {
             onIceCandidate: sendIceCandidate,
@@ -91,12 +158,12 @@ export function useCallSocket() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [sendIceCandidate]);
 
-    // Xử lý tín hiệu nhận được từ server
+    // Handle incoming signal from server
     const handleSignal = useCallback(
         async (signal: CallSignal) => {
             switch (signal.type) {
                 case "INITIATE": {
-                    // Cuộc gọi đến
+                    // Incoming call
                     const payload = signal.payload as {
                         callerName: string;
                         callerAvatar: string;
@@ -122,11 +189,11 @@ export function useCallSocket() {
                         sdp?: RTCSessionDescriptionInit;
                     };
                     if (payload.accepted && payload.sdp) {
-                        // Đối phương chấp nhận cuộc gọi
+                        // Peer accepted the call
                         webrtcRef.current.handleRemoteDescription(payload.sdp);
                         setCallStatus("ONGOING");
                     } else {
-                        // Đối phương từ chối cuộc gọi
+                        // Peer rejected the call
                         webrtcRef.current.cleanup();
                         setCallStatus("REJECTED");
                         setTimeout(() => endCallStore(), 2000);
@@ -144,16 +211,47 @@ export function useCallSocket() {
                 }
 
                 case "END": {
-                    // Đối phương kết thúc cuộc gọi
+                    // Peer ended the call
                     webrtcRef.current.cleanup();
                     stopRingtone();
+                    resolvePendingVideoUpgradeDecision(false);
+                    setIncomingVideoUpgradeRequest(null);
+                    pendingIncomingVideoUpgradeRequesterIdRef.current = null;
                     setCallStatus("ENDED");
                     setTimeout(() => endCallStore(), 2000);
                     break;
                 }
 
+                case "VIDEO_UPGRADE_REQUEST": {
+                    const payload = signal.payload as { requesterName?: unknown } | undefined;
+                    const fallbackRequesterName = useCallStore.getState().outgoingCallTarget?.name
+                        ?? useCallStore.getState().incomingCall?.callerName
+                        ?? "Peer";
+                    const requesterName = typeof payload?.requesterName === "string" && payload.requesterName.trim().length > 0
+                        ? payload.requesterName
+                        : fallbackRequesterName;
+
+                    pendingIncomingVideoUpgradeRequesterIdRef.current = signal.senderId;
+                    setIncomingVideoUpgradeRequest({ requesterName });
+                    break;
+                }
+
+                case "VIDEO_UPGRADE_ACCEPT": {
+                    resolvePendingVideoUpgradeDecision(true);
+                    break;
+                }
+
+                case "VIDEO_UPGRADE_REJECT": {
+                    resolvePendingVideoUpgradeDecision(false);
+                    break;
+                }
+
                 case "RENEGOTIATE_OFFER": {
                     // Remote is upgrading the call (e.g. voice → video)
+                    // Receiver should switch to video layout to see peer, but keep own camera off.
+                    setCameraOff(true);
+                    upgradeCall();
+
                     const renoPayload = signal.payload as { sdp: RTCSessionDescriptionInit };
                     await webrtcRef.current.handleRemoteDescription(renoPayload.sdp);
                     const answer = await webrtcRef.current.createAnswer();
@@ -175,7 +273,6 @@ export function useCallSocket() {
                             });
                         }
                     }
-                    upgradeCall();
                     break;
                 }
 
@@ -191,10 +288,21 @@ export function useCallSocket() {
                     console.warn("Unknown call signal type:", signal.type);
             }
         },
-        [setIncomingCall, setCallStatus, endCallStore, setPendingOffer, upgradeCall, playRingtone, stopRingtone],
+        [
+            setIncomingCall,
+            setCallStatus,
+            endCallStore,
+            setPendingOffer,
+            setCameraOff,
+            upgradeCall,
+            playRingtone,
+            stopRingtone,
+            resolvePendingVideoUpgradeDecision,
+            setIncomingVideoUpgradeRequest,
+        ],
     );
 
-    // Subscribe vào queue calls — re-subscribe every time STOMP connects/reconnects
+    // Subscribe to call queue — re-subscribe every time STOMP connects/reconnects
     useEffect(() => {
         if (!user) return;
 
@@ -211,19 +319,28 @@ export function useCallSocket() {
                 `/user/queue/calls`,
                 (message) => {
                     const signal = JSON.parse(message.body) as CallSignal;
+                    if (signal.type.startsWith("GROUP_") || (signal.type === "ICE_CANDIDATE" && useCallStore.getState().isGroupCall)) {
+                        groupSignalRef?.current?.(signal);
+                        return;
+                    }
+
+                    // Some brokers can echo signaling back to sender; ignore our own 1-1 signals.
+                    if (user && signal.senderId === user.id) {
+                        return;
+                    }
+
                     handleSignal(signal);
                 },
             );
-            console.log("[CallSocket] Subscribed to /user/queue/calls");
         });
 
         return () => {
             unregister();
             subscription?.unsubscribe();
         };
-    }, [user, handleSignal]);
+    }, [user, handleSignal, groupSignalRef]);
 
-    // Bắt đầu cuộc gọi (caller gửi offer)
+    // Initiate a call (caller sends offer)
     const initiateCall = useCallback(
         async (receiverId: string, conversationId: string, type: CallType, calleeName?: string, calleeAvatar?: string) => {
             if (!user) return;
@@ -239,8 +356,8 @@ export function useCallSocket() {
                     type,
                 });
 
-                // startCall TRƯỚC initLocalStream để activeCall được set
-                // trước khi ICE candidates bắt đầu fire
+                // startCall BEFORE initLocalStream so activeCall is set
+                // before ICE candidates start firing
                 const callId = generateCallId();
                 const session: CallSession = {
                     callId,
@@ -251,12 +368,12 @@ export function useCallSocket() {
                     status: "RINGING",
                 };
                 startCall(session);
-                setCallStatus("RINGING"); // override 'ONGOING' từ startCall về RINGING
+                setCallStatus("RINGING"); // override 'ONGOING' from startCall back to RINGING
 
                 await webrtcRef.current.initLocalStream(type);
                 const offer = await webrtcRef.current.createOffer();
 
-                // Gửi tín hiệu INITIATE qua STOMP
+                // Send INITIATE signal via STOMP
                 client.publish({
                     destination: "/app/call.initiate",
                     body: JSON.stringify({
@@ -281,7 +398,7 @@ export function useCallSocket() {
         [user, setCallStatus, setOutgoingCallTarget, setPendingOffer, startCall, endCallStore],
     );
 
-    // Trả lời cuộc gọi (accept hoặc reject)
+    // Answer a call (accept or reject)
     const answerCall = useCallback(
         async (accept: boolean) => {
             if (!user) return;
@@ -295,8 +412,8 @@ export function useCallSocket() {
             if (accept) {
                 try {
                     stopRingtone();
-                    // startCall TRƯỚC initLocalStream để activeCall được set
-                    // trước khi ICE candidates bắt đầu fire
+                    // startCall BEFORE initLocalStream so activeCall is set
+                    // before ICE candidates start firing
                     const session: CallSession = {
                         callId: incoming.callId,
                         conversationId: "",
@@ -317,13 +434,13 @@ export function useCallSocket() {
                         return;
                     }
 
-                    // Set remote description (offer) trước khi tạo answer
+                    // Set remote description (offer) before creating answer
                     await webrtcRef.current.handleRemoteDescription(pendingOffer);
                     setPendingOffer(null);
 
                     const answer = await webrtcRef.current.createAnswer();
 
-                    // Gửi answer chấp nhận
+                    // Send accept answer
                     client.publish({
                         destination: "/app/call.answer",
                         body: JSON.stringify({
@@ -334,14 +451,14 @@ export function useCallSocket() {
                             payload: { accepted: true, sdp: answer },
                         }),
                     });
-                    // incomingCall giữ nguyên → ActiveCallOverlay dùng callerName
+                    // incomingCall kept — ActiveCallOverlay uses callerName
                 } catch (error) {
                     console.error("Failed to answer call:", error);
-                    endCallStore(); // endCallStore tự reset incomingCall
+                    endCallStore(); // endCallStore auto-resets incomingCall
                     return;
                 }
             } else {
-                // Từ chối cuộc gọi
+                // Reject the call
                 stopRingtone();
                 setPendingOffer(null);
 
@@ -357,14 +474,14 @@ export function useCallSocket() {
                 });
 
                 setCallStatus("REJECTED");
-                setIncomingCall(null); // chỉ clear khi reject
+                setIncomingCall(null); // only clear when rejecting
                 setTimeout(() => endCallStore(), 1000);
             }
         },
         [user, setIncomingCall, setCallStatus, setPendingOffer, startCall, endCallStore, stopRingtone],
     );
 
-    // Kết thúc cuộc gọi đang diễn ra
+    // End an ongoing call
     const handleEndCall = useCallback(() => {        if (!user) return;
 
         const client = socketService.getClient();
@@ -385,10 +502,13 @@ export function useCallSocket() {
             }
         }
 
+        resolvePendingVideoUpgradeDecision(false);
+        setIncomingVideoUpgradeRequest(null);
+        pendingIncomingVideoUpgradeRequesterIdRef.current = null;
         webrtcRef.current.cleanup();
         setCallStatus("ENDED");
         setTimeout(() => endCallStore(), 1500);
-    }, [user, setCallStatus, endCallStore]);
+    }, [user, setCallStatus, endCallStore, resolvePendingVideoUpgradeDecision]);
 
     // Wrap toggleCamera: ties WebRTC track changes to store state
     const handleToggleCamera = useCallback(async (): Promise<void> => {
@@ -397,15 +517,47 @@ export function useCallSocket() {
     }, []);
 
     // Upgrade an active voice call to video (sends RENEGOTIATE_OFFER to peer)
-    const upgradeToVideo = useCallback(async () => {        if (!user) return;
-        const client = socketService.getClient();
+    const upgradeToVideo = useCallback(async (): Promise<{ hasLocalVideoTrack: boolean }> => {
+        if (!user) throw new Error("Unable to request video call upgrade.");
+
         const activeCall = useCallStore.getState().activeCall;
-        if (!client?.connected || !activeCall) return;
+        if (!activeCall) throw new Error("No active call to upgrade");
+
+        const receiverId = activeCall.participants.find((id) => id !== user.id);
+        if (!receiverId) throw new Error("Cannot identify the peer for upgrade request.");
+
+        const requestingClient = socketService.getClient();
+        if (!requestingClient?.connected) {
+            throw new Error("Signaling is disconnected. Please retry.");
+        }
 
         try {
-            const offer = await webrtcRef.current.upgradeToVideo();
-            const receiverId = activeCall.participants.find((id) => id !== user.id);
-            if (!receiverId) return;
+            requestingClient.publish({
+                destination: "/app/call.renegotiate",
+                body: JSON.stringify({
+                    type: "VIDEO_UPGRADE_REQUEST",
+                    callId: activeCall.callId,
+                    senderId: user.id,
+                    receiverId,
+                    payload: {
+                        requesterName: user.displayName,
+                    },
+                }),
+            });
+
+            const accepted = await waitForVideoUpgradeDecision();
+            if (!accepted) {
+                throw new Error("Peer declined the video call request.");
+            }
+
+            const { offer, hasLocalVideoTrack } = await webrtcRef.current.upgradeToVideo();
+            setCameraOff(!hasLocalVideoTrack);
+            // Switch local UI to video immediately instead of waiting for round-trip signaling.
+            upgradeCall();
+
+            // Best-effort signaling: if socket/user is unavailable, keep local preview on.
+            const client = socketService.getClient();
+            if (!client?.connected) return { hasLocalVideoTrack };
 
             client.publish({
                 destination: "/app/call.renegotiate",
@@ -417,16 +569,21 @@ export function useCallSocket() {
                     payload: { sdp: offer },
                 }),
             });
+
+            return { hasLocalVideoTrack };
         } catch (error) {
             console.error("Failed to upgrade to video:", error);
+            throw error; // Re-throw so caller knows upgrade failed
         }
-    }, [user]);
+    }, [user, setCameraOff, upgradeCall, waitForVideoUpgradeDecision]);
 
     return {
         initiateCall,
         answerCall,
         endCall: handleEndCall,
         upgradeToVideo,
+        incomingVideoUpgradeRequest,
+        respondToVideoUpgradeRequest,
         localStream: webrtc.localStream,
         remoteStream: webrtc.remoteStream,
         localVideoRef: webrtc.localVideoRef,

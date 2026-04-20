@@ -1,8 +1,10 @@
 package com.chatly.dto.request;
 
 import tools.jackson.databind.annotation.JsonDeserialize;
+import com.chatly.constant.ValidationPatternConstants;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.*;
 
@@ -24,9 +26,11 @@ public class RegisterRequest {
     private String phone;
 
     @NotBlank(message = "INVALID_KEY")
+    @Pattern(regexp = ValidationPatternConstants.DISPLAY_NAME_REGEX, message = "INVALID_DISPLAY_NAME_FORMAT")
     private String displayName;
 
     @NotBlank(message = "INVALID_KEY")
+    @Pattern(regexp = ValidationPatternConstants.USERNAME_REGEX, message = "INVALID_USERNAME_FORMAT")
     private String username;
 
     @NotBlank(message = "INVALID_KEY")

@@ -1,7 +1,11 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import { groupService } from "@/services/group.service";
+import { conversationService } from "@/services/conversation.service";
 import { fileService } from "@/services/file.service";
+import { socketService } from "@/services/socket.service";
 import { useAuthStore } from "@/store/auth.store";
+import { useNotificationStore } from "@/store/notification.store";
 import { AddMembersDialog } from "./AddMembersDialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -37,6 +41,7 @@ import {
     QrCode,
     UserCheck,
     UserX,
+    AlertTriangle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -106,9 +111,13 @@ export function GroupManagementPanel({
     onGroupUpdated,
     defaultTab = "members",
 }: GroupManagementPanelProps) {
+    const navigate = useNavigate();
     const { user: currentUser } = useAuthStore();
+    const { notifications, removeByTypeAndReference } = useNotificationStore();
 
     const [members, setMembers] = useState<GroupMemberResponse[]>([]);
+    const [dissolveOpen, setDissolveOpen] = useState(false);
+    const [dissolving, setDissolving] = useState(false);
     const [loading, setLoading] = useState(false);
 
     // Member list filter
@@ -182,6 +191,27 @@ export function GroupManagementPanel({
         }
     }, [open, fetchMembers, initialGroupName, initialGroupAvatar]);
 
+    // Listen for ROLE_UPDATED events to refresh the member list in realtime
+    useEffect(() => {
+        if (!open || !conversationId) return;
+        const client = socketService.getClient();
+        if (!client?.connected) return;
+
+        const sub = client.subscribe(
+            `/topic/conversation.${conversationId}`,
+            (frame) => {
+                try {
+                    const event = JSON.parse(frame.body);
+                    if (event.action === "ROLE_UPDATED") {
+                        fetchMembers();
+                    }
+                } catch { /* ignore */ }
+            },
+        );
+
+        return () => { sub.unsubscribe(); };
+    }, [open, conversationId, fetchMembers]);
+
     // ── Actions ───────────────────────────────────────────────────────
     const handleAvatarFileChange = async (
         e: React.ChangeEvent<HTMLInputElement>,
@@ -252,6 +282,21 @@ export function GroupManagementPanel({
         }
     };
 
+    const handleDissolveGroup = async () => {
+        setDissolving(true);
+        try {
+            await conversationService.delete(conversationId);
+            setDissolveOpen(false);
+            onOpenChange(false);
+            toast.success("Group has been dissolved");
+            navigate("/chat");
+        } catch {
+            toast.error("Could not dissolve group");
+        } finally {
+            setDissolving(false);
+        }
+    };
+
     const canManageMember = (target: GroupMemberResponse): boolean => {
         if (!isOwnerOrAdmin) return false;
         if (target.userId === currentUser?.id) return false;
@@ -268,7 +313,7 @@ export function GroupManagementPanel({
             const data = res.result;
             if (data) {
                 setInviteToken(data.inviteToken);
-                setInviteLink(`${window.location.origin}/join/${data.inviteToken}`);
+                setInviteLink(`${import.meta.env.VITE_WEB_BASE_URL || window.location.origin}/join/${data.inviteToken}`);
             }
         } catch {
             toast.error("Failed to create invite link");
@@ -284,7 +329,7 @@ export function GroupManagementPanel({
             const data = res.result;
             if (data) {
                 setInviteToken(data.inviteToken);
-                setInviteLink(`${window.location.origin}/join/${data.inviteToken}`);
+                setInviteLink(`${import.meta.env.VITE_WEB_BASE_URL || window.location.origin}/join/${data.inviteToken}`);
             }
             toast.success("Invite link reset");
         } catch {
@@ -319,6 +364,7 @@ export function GroupManagementPanel({
         try {
             await groupService.approvePendingRequest(conversationId, userId);
             toast.success("Request approved");
+            removeByTypeAndReference("GROUP_JOIN_REQUEST", conversationId);
             fetchPendingRequests();
             fetchMembers();
         } catch {
@@ -330,11 +376,24 @@ export function GroupManagementPanel({
         try {
             await groupService.rejectPendingRequest(conversationId, userId);
             toast.success("Request rejected");
+            removeByTypeAndReference("GROUP_JOIN_REQUEST", conversationId);
             fetchPendingRequests();
         } catch {
             toast.error("Failed to reject request");
         }
     };
+
+    // Re-fetch pending requests when a GROUP_JOIN_REQUEST notification arrives for this conversation
+    const joinRequestCount = notifications.filter(
+        (n) => n.type === "GROUP_JOIN_REQUEST" && n.referenceId === conversationId,
+    ).length;
+
+    useEffect(() => {
+        if (open && isOwnerOrAdmin) {
+            fetchPendingRequests();
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [joinRequestCount]);
 
     // Fetch invite link + pending on settings tab open
     useEffect(() => {
@@ -370,9 +429,14 @@ export function GroupManagementPanel({
                                 Members
                             </TabsTrigger>
                             {isOwnerOrAdmin && (
-                                <TabsTrigger value="settings" className="flex-1 gap-1.5 text-xs">
+                                <TabsTrigger value="settings" className="flex-1 gap-1.5 text-xs relative">
                                     <Settings size={13} />
                                     Group Settings
+                                    {pendingRequests.length > 0 && (
+                                        <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-bold text-destructive-foreground">
+                                            {pendingRequests.length}
+                                        </span>
+                                    )}
                                 </TabsTrigger>
                             )}
                         </TabsList>
@@ -704,6 +768,26 @@ export function GroupManagementPanel({
                                     )}
                                     Save changes
                                 </Button>
+
+                                {myRole === "OWNER" && (
+                                    <>
+                                        <Separator />
+                                        <div className="space-y-2">
+                                            <label className="text-xs font-medium uppercase tracking-wide text-destructive flex items-center gap-1.5">
+                                                <AlertTriangle size={12} /> Danger Zone
+                                            </label>
+                                            <Button
+                                                variant="destructive"
+                                                size="sm"
+                                                className="w-full gap-2"
+                                                onClick={() => setDissolveOpen(true)}
+                                            >
+                                                <AlertTriangle size={13} />
+                                                Dissolve Group
+                                            </Button>
+                                        </div>
+                                    </>
+                                )}
                             </div>
                             </ScrollArea>
                         </TabsContent>
@@ -727,6 +811,30 @@ export function GroupManagementPanel({
                     </Button>
                     <Button variant="destructive" size="sm" onClick={confirmRemoveMember}>
                         Remove
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+
+        {/* Dissolve Group Confirmation */}
+        <Dialog open={dissolveOpen} onOpenChange={(o) => !dissolving && setDissolveOpen(o)}>
+            <DialogContent className="sm:max-w-sm">
+                <DialogHeader>
+                    <DialogTitle className="flex items-center gap-2 text-destructive">
+                        <AlertTriangle size={16} />
+                        Dissolve Group
+                    </DialogTitle>
+                    <DialogDescription>
+                        This will permanently delete the group, all messages, and remove all members. This action cannot be undone.
+                    </DialogDescription>
+                </DialogHeader>
+                <DialogFooter className="gap-2 sm:gap-0">
+                    <Button variant="outline" size="sm" onClick={() => setDissolveOpen(false)} disabled={dissolving}>
+                        Cancel
+                    </Button>
+                    <Button variant="destructive" size="sm" onClick={handleDissolveGroup} disabled={dissolving}>
+                        {dissolving ? <Loader2 size={13} className="animate-spin" /> : <AlertTriangle size={13} />}
+                        Dissolve
                     </Button>
                 </DialogFooter>
             </DialogContent>

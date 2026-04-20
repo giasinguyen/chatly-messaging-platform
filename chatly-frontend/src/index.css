@@ -188,6 +188,14 @@
     .search-highlight {
         @apply bg-yellow-200/40 dark:bg-yellow-500/20 rounded-lg;
     }
+    .highlight-reply-target {
+        animation: replyFlash 1.5s ease-out;
+    }
+    @keyframes replyFlash {
+        0%   { background-color: rgba(234, 179, 8, 0.25); }
+        60%  { background-color: rgba(234, 179, 8, 0.15); }
+        100% { background-color: transparent; }
+    }
     .card {
         @apply p-10 border border-[#222222]/10 dark:border-white/10 rounded-3xl shadow-[0_7px_14px_#EAEAEA] dark:shadow-none w-full max-w-xs dark:bg-[#1a1c23]/50;
     }

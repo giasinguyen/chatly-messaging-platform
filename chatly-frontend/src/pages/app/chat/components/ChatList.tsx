@@ -94,6 +94,86 @@ function formatZaloTime(dateString: string) {
     return `${day}/${month}`;
 }
 
+function stripHtmlToText(content: string): string {
+    if (!content) return "";
+    if (!/<[a-z][\s\S]*>/i.test(content)) {
+        return content;
+    }
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(content, "text/html");
+    return (doc.body.textContent ?? "").replace(/\s+/g, " ").trim();
+}
+
+const PREVIEW_MAX_LENGTH = 40;
+
+function getFirstMeaningfulChunk(content: string): string {
+    if (!content) return "";
+
+    if (!/<[a-z][\s\S]*>/i.test(content)) {
+        return content.split(/\r?\n+/).map((line) => line.trim()).find(Boolean) ?? "";
+    }
+
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(content, "text/html");
+
+    const firstItem = doc.querySelector("li");
+    if (firstItem?.textContent?.trim()) {
+        return firstItem.textContent.trim();
+    }
+
+    const firstParagraph = doc.querySelector("p");
+    if (firstParagraph?.textContent?.trim()) {
+        return firstParagraph.textContent.trim();
+    }
+
+    return (doc.body.textContent ?? "").replace(/\s+/g, " ").trim();
+}
+
+function truncatePreview(text: string): string {
+    const normalizedText = text.trim();
+    if (normalizedText.length <= PREVIEW_MAX_LENGTH) {
+        return normalizedText;
+    }
+    return `${normalizedText.slice(0, PREVIEW_MAX_LENGTH).trimEnd()}...`;
+}
+
+function formatCallPreview(content: string): string {
+    try {
+        const callData = JSON.parse(content) as {
+            status?: string;
+            callType?: string;
+        };
+        const isMissed =
+            callData.status === "MISSED" || callData.status === "REJECTED";
+        const isVideo = callData.callType === "VIDEO";
+        if (isMissed) {
+            return isVideo ? "📵 Missed video call" : "📵 Missed audio call";
+        }
+        return isVideo ? "🎥 Video call" : "📞 Audio call";
+    } catch {
+        return "📞 Call";
+    }
+}
+
+function formatLastMessagePreview(
+    lastMessage: ConversationResponse["lastMessage"],
+): string {
+    if (!lastMessage) {
+        return "No messages yet";
+    }
+
+    if (lastMessage.type === "IMAGE") return "📷 Photo";
+    if (lastMessage.type === "FILE")
+        return `📎 ${stripHtmlToText(lastMessage.content) || "File"}`;
+    if (lastMessage.type === "STICKER") return "🎭 Sticker";
+    if (lastMessage.type === "VCARD") return "📇 Contact card";
+    if (lastMessage.type === "GIF") return "🎬 GIF";
+    if (lastMessage.type === "CALL") return formatCallPreview(lastMessage.content);
+
+    const text = truncatePreview(getFirstMeaningfulChunk(lastMessage.content));
+    return text || "Message";
+}
+
 export const ChatList = forwardRef(function ChatListComponent(_, ref) {
     const { user: currentUser } = useAuthStore();
     const navigate = useNavigate();
@@ -225,8 +305,8 @@ export const ChatList = forwardRef(function ChatListComponent(_, ref) {
                         return;
                     }
 
-                    // Handle GROUP_UPDATE actions - update group info (name, avatar, etc)
-                    if (event.action === "GROUP_UPDATE") {
+                    // Handle GROUP_UPDATE / ROLE_UPDATED actions - update group info
+                    if (event.action === "GROUP_UPDATE" || event.action === "ROLE_UPDATED") {
                         const updatedConv = event.conversationData;
                         if (!updatedConv) return;
 
@@ -451,7 +531,7 @@ export const ChatList = forwardRef(function ChatListComponent(_, ref) {
                             to={`/chat/${conv.id}`}
                             className={({ isActive }) =>
                                 cn(
-                                    "flex items-center gap-3 px-4 py-3 cursor-pointer select-none transition-colors w-full rounded-lg mx-2",
+                                    "flex items-center gap-3 px-4 py-3 cursor-pointer select-none transition-colors rounded-lg mx-2",
                                     isActive
                                         ? "bg-brand/20 border border-brand/30"
                                         : "hover:bg-muted/40",
@@ -535,46 +615,17 @@ export const ChatList = forwardRef(function ChatListComponent(_, ref) {
                                         </span>
                                     )}
                                 </div>
-                                <div className="flex items-center justify-between">
-                                    <span className="text-[13px] text-muted-foreground/90 truncate block">
+                                <div className="flex items-center justify-between min-w-0">
+                                    <span className="text-[13px] text-muted-foreground/90 truncate block min-w-0 flex-1">
                                         {conv.lastMessage ? (
                                             <>
                                                 {conv.lastMessage.senderId ===
                                                     currentUser?.id && (
                                                     <span>You: </span>
                                                 )}
-                                                {conv.lastMessage.type ===
-                                                "IMAGE"
-                                                    ? "📷 Photo"
-                                                    : conv.lastMessage.type ===
-                                                        "FILE"
-                                                      ? `📎 ${conv.lastMessage.content || "File"}`
-                                                      : conv.lastMessage
-                                                              .type ===
-                                                          "STICKER"
-                                                        ? "🎭 Sticker"
-                                                        : conv.lastMessage.type === "VCARD"
-                                                          ? "📇 Contact card"
-                                                        : conv.lastMessage
-                                                              .type ===
-
-                                                          "CALL"
-                                                          ? (() => {
-                                                              try {
-                                                                const d = JSON.parse(conv.lastMessage.content);
-                                                                const missed = d.status === "MISSED" || d.status === "REJECTED";
-                                                                const video = d.callType === "VIDEO";
-                                                                if (missed) return video ? "📵 Missed video call" : "📵 Missed audio call";
-                                                                return video ? "🎥 Video call" : "📞 Audio call";
-                                                              } catch { return "📞 Call"; }
-                                                            })()
-                                                          : conv.lastMessage
-                                                        
-                                                                .type ===
-                                                          "GIF"
-                                                        ? "🎬 GIF"
-                                                        : conv.lastMessage
-                                                              .content}
+                                                {formatLastMessagePreview(
+                                                    conv.lastMessage,
+                                                )}
                                             </>
                                         ) : (
                                             "No messages yet"

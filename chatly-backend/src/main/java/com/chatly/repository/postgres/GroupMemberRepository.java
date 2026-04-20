@@ -1,5 +1,6 @@
 package com.chatly.repository.postgres;
 
+import com.chatly.model.enums.GroupRole;
 import com.chatly.model.postgres.GroupMember;
 import org.springframework.data.jpa.repository.JpaRepository;
 
@@ -18,4 +19,10 @@ public interface GroupMemberRepository extends JpaRepository<GroupMember, UUID> 
     boolean existsByConversationIdAndUserId(String conversationId, UUID userId);
 
     void deleteByConversationIdAndUserId(String conversationId, UUID userId);
+
+    List<GroupMember> findByConversationIdAndRoleIn(String conversationId, List<GroupRole> roles);
+
+    List<GroupMember> findByConversationIdAndRoleInOrderByJoinedAtAsc(String conversationId, List<GroupRole> roles);
+
+    List<GroupMember> findByConversationIdOrderByJoinedAtAsc(String conversationId);
 }

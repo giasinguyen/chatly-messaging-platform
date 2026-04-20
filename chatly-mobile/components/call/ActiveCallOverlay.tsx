@@ -1,22 +1,13 @@
-import { View, Text, TouchableOpacity } from 'react-native';
+import { Alert, View, Text, TouchableOpacity } from 'react-native';
 import { useEffect, useRef, useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
+import { setAudioModeAsync } from 'expo-audio';
 
 let RTCView: any;
 try {
   RTCView = require('react-native-webrtc').RTCView;
 } catch (e) {
   RTCView = View; // fallback for Expo Go
-}
-
-let Audio: any;
-try {
-  Audio = require('expo-av').Audio;
-} catch (e) {
-  // Expo Go fallback — chỉ mock method dùng cho loa ngoài
-  Audio = {
-    setAudioModeAsync: async () => {},
-  };
 }
 
 import { Avatar } from '@/components/ui/Avatar';
@@ -28,6 +19,13 @@ function formatDuration(seconds: number): string {
   const mins = Math.floor(seconds / 60);
   const secs = seconds % 60;
   return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+}
+
+function getStreamUrl(stream: MediaStream): string {
+  if ('toURL' in stream && typeof (stream as { toURL?: unknown }).toURL === 'function') {
+    return (stream as MediaStream & { toURL: () => string }).toURL();
+  }
+  return '';
 }
 
 export function ActiveCallOverlay() {
@@ -43,36 +41,37 @@ export function ActiveCallOverlay() {
     incrementDuration,
   } = useCallStore();
 
-  const { endCall, localStream, remoteStream, toggleCamera } = useCallContext();
+  const { endCall, localStream, remoteStream, remoteStreamKey, toggleCamera, upgradeToVideo } = useCallContext();
   const [isExpanded, setIsExpanded] = useState(false);
   const [isSpeakerOn, setIsSpeakerOn] = useState(false);
+  const [isUpgradingToVideo, setIsUpgradingToVideo] = useState(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Kích hoạt audio session khi cuộc gọi bắt đầu
+  // Activate audio session when call starts
   useEffect(() => {
     if (callStatus !== 'ONGOING') return;
 
-    Audio.setAudioModeAsync({
-      allowsRecordingIOS: true,
-      playsInSilentModeIOS: true,
-      staysActiveInBackground: true,
-      shouldDuckAndroid: false,
-      playThroughEarpieceAndroid: true, // mặc định dùng tai nghe (earpiece)
+    setAudioModeAsync({
+      allowsRecording: true,
+      playsInSilentMode: true,
+      shouldPlayInBackground: true,
+      interruptionMode: 'doNotMix',
+      shouldRouteThroughEarpiece: true,
     }).catch(console.error);
 
     return () => {
-      // Reset về chế độ media thông thường sau khi kết thúc gọi
-      Audio.setAudioModeAsync({
-        allowsRecordingIOS: false,
-        playsInSilentModeIOS: false,
-        staysActiveInBackground: false,
-        shouldDuckAndroid: true,
-        playThroughEarpieceAndroid: false,
+      // Reset to normal media mode after call ends
+      setAudioModeAsync({
+        allowsRecording: false,
+        playsInSilentMode: false,
+        shouldPlayInBackground: false,
+        interruptionMode: 'duckOthers',
+        shouldRouteThroughEarpiece: false,
       }).catch(console.error);
     };
   }, [callStatus]);
 
-  // Timer đếm thời gian cuộc gọi
+  // Timer for call duration
   useEffect(() => {
     if (callStatus === 'ONGOING') {
       timerRef.current = setInterval(() => {
@@ -88,14 +87,20 @@ export function ActiveCallOverlay() {
     };
   }, [callStatus, incrementDuration]);
 
-  // Không hiển thị nếu không có cuộc gọi đang diễn ra
+  // Don't show if no active call
   if (callStatus !== 'ONGOING' || !activeCall) return null;
 
-  const isVideoCall = activeCall.type === 'VIDEO';
+  const hasLocalVideoTrack = Boolean(
+    localStream?.getVideoTracks().some((track) => track.readyState === 'live'),
+  );
+  const hasRemoteVideoTrack = Boolean(
+    remoteStream?.getVideoTracks().some((track) => track.readyState === 'live'),
+  );
+  const isVideoCall = activeCall.type === 'VIDEO' || hasLocalVideoTrack || hasRemoteVideoTrack;
 
   const handleToggleMute = () => {
     const newMuted = !isMuted;
-    // Bật/tắt audio track trực tiếp trên stream
+    // Toggle audio track on stream directly
     localStream?.getAudioTracks().forEach((track) => {
       track.enabled = !newMuted;
     });
@@ -104,26 +109,55 @@ export function ActiveCallOverlay() {
 
   const handleToggleSpeaker = () => {
     const next = !isSpeakerOn;
-    Audio.setAudioModeAsync({
-      allowsRecordingIOS: true,
-      playsInSilentModeIOS: true,
-      staysActiveInBackground: true,
-      shouldDuckAndroid: false,
-      playThroughEarpieceAndroid: !next, // false = loa ngoài, true = tai nghe
+    setAudioModeAsync({
+      allowsRecording: true,
+      playsInSilentMode: true,
+      shouldPlayInBackground: true,
+      interruptionMode: 'doNotMix',
+      shouldRouteThroughEarpiece: !next,
     }).catch(console.error);
     setIsSpeakerOn(next);
   };
 
-  const handleToggleCamera = () => {
+  const handleToggleCamera = async () => {
+    const hasLiveLocalVideoTrack = Boolean(
+      localStream?.getVideoTracks().some((track) => track.readyState === 'live'),
+    );
+
+    // If this side has no video sender yet, enabling camera requires renegotiation.
+    if (isCameraOff && !hasLiveLocalVideoTrack) {
+      try {
+        await upgradeToVideo();
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Failed to enable camera.';
+        Alert.alert('Camera Error', message);
+      }
+      return;
+    }
+
     toggleCameraStore();
     toggleCamera(!isCameraOff);
+  };
+
+  const handleUpgradeToVideo = async () => {
+    if (isUpgradingToVideo) return;
+
+    try {
+      setIsUpgradingToVideo(true);
+      await upgradeToVideo();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to upgrade to video call.';
+      Alert.alert('Upgrade Failed', message);
+    } finally {
+      setIsUpgradingToVideo(false);
+    }
   };
 
   const handleEndCall = () => {
     endCall();
   };
 
-  // Chế độ thu nhỏ (floating)
+  // Floating mode (collapsed)
   if (!isExpanded) {
     return (
       <TouchableOpacity
@@ -146,10 +180,11 @@ export function ActiveCallOverlay() {
           elevation: 10,
         }}
       >
-        {/* Video thu nhỏ hoặc avatar */}
-        {isVideoCall && remoteStream ? (
+        {/* Thumbnail video or avatar */}
+        {isVideoCall && hasRemoteVideoTrack && remoteStream ? (
           <RTCView
-            streamURL={remoteStream.toURL()}
+            key={remoteStreamKey}
+            streamURL={getStreamUrl(remoteStream)}
             style={{ flex: 1 }}
             objectFit="cover"
           />
@@ -159,7 +194,7 @@ export function ActiveCallOverlay() {
           </View>
         )}
 
-        {/* Thời gian cuộc gọi */}
+        {/* Call duration */}
         <View
           className="items-center py-1"
           style={{ backgroundColor: Colors.online }}
@@ -172,7 +207,7 @@ export function ActiveCallOverlay() {
     );
   }
 
-  // Chế độ mở rộng (full screen)
+  // Expanded mode (full screen)
   return (
     <View
       style={{
@@ -186,9 +221,10 @@ export function ActiveCallOverlay() {
       }}
     >
       {/* Video remote stream (full screen background) */}
-      {isVideoCall && remoteStream ? (
+      {isVideoCall && hasRemoteVideoTrack && remoteStream ? (
         <RTCView
-          streamURL={remoteStream.toURL()}
+          key={remoteStreamKey}
+          streamURL={getStreamUrl(remoteStream)}
           style={{ flex: 1 }}
           objectFit="cover"
         />
@@ -206,7 +242,7 @@ export function ActiveCallOverlay() {
       )}
 
       {/* Video local stream (picture-in-picture) */}
-      {isVideoCall && localStream && (
+      {isVideoCall && hasLocalVideoTrack && localStream && (
         <View
           style={{
             position: 'absolute',
@@ -221,7 +257,7 @@ export function ActiveCallOverlay() {
           }}
         >
           <RTCView
-            streamURL={localStream.toURL()}
+            streamURL={getStreamUrl(localStream)}
             style={{ flex: 1 }}
             objectFit="cover"
             mirror
@@ -239,7 +275,7 @@ export function ActiveCallOverlay() {
         </Text>
       </View>
 
-      {/* Thu nhỏ */}
+      {/* Minimize button */}
       <TouchableOpacity
         onPress={() => setIsExpanded(false)}
         style={{ position: 'absolute', top: 56, left: 16 }}
@@ -248,12 +284,12 @@ export function ActiveCallOverlay() {
         <Ionicons name="chevron-down" size={28} color={Colors.white} />
       </TouchableOpacity>
 
-      {/* Thanh điều khiển */}
+      {/* Controls bar */}
       <View
         className="flex-row items-center justify-center pb-12 pt-6"
         style={{ gap: 24, backgroundColor: 'rgba(0, 0, 0, 0.5)' }}
       >
-        {/* Nút tắt/bật mic */}
+        {/* Mute/unmute mic button */}
         <TouchableOpacity
           onPress={handleToggleMute}
           className="items-center justify-center"
@@ -272,7 +308,7 @@ export function ActiveCallOverlay() {
           />
         </TouchableOpacity>
 
-        {/* Nút camera (chỉ hiển thị trong video call) */}
+        {/* Camera button (only in video call) */}
         {isVideoCall && (
           <TouchableOpacity
             onPress={handleToggleCamera}
@@ -293,7 +329,28 @@ export function ActiveCallOverlay() {
           </TouchableOpacity>
         )}
 
-        {/* Nút loa ngoài */}
+        {!isVideoCall && (
+          <TouchableOpacity
+            onPress={handleUpgradeToVideo}
+            className="items-center justify-center"
+            style={{
+              width: 56,
+              height: 56,
+              borderRadius: 28,
+              backgroundColor: isUpgradingToVideo ? Colors.error : 'rgba(255, 255, 255, 0.2)',
+            }}
+            activeOpacity={0.7}
+            disabled={isUpgradingToVideo}
+          >
+            <Ionicons
+              name="videocam"
+              size={26}
+              color={Colors.white}
+            />
+          </TouchableOpacity>
+        )}
+
+        {/* Speaker button */}
         <TouchableOpacity
           onPress={handleToggleSpeaker}
           className="items-center justify-center"
@@ -312,7 +369,7 @@ export function ActiveCallOverlay() {
           />
         </TouchableOpacity>
 
-        {/* Nút kết thúc cuộc gọi */}
+        {/* End call button */}
         <TouchableOpacity
           onPress={handleEndCall}
           className="items-center justify-center"

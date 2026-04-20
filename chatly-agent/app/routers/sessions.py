@@ -1,9 +1,15 @@
 from fastapi import APIRouter, Depends, Response, status
 
-from app.dependencies import get_request_context, get_session_service
+from app.dependencies import get_file_service, get_request_context, get_session_service
 from app.models.context import RequestContext
 from app.models.message import MessageHistory, MessageResponse
-from app.models.session import SessionCreate, SessionList, SessionResponse, SessionUpdate
+from app.models.session import (
+    SessionCreate,
+    SessionList,
+    SessionResponse,
+    SessionUpdate,
+)
+from app.services.file_service import FileService
 from app.services.session_service import SessionService
 
 router = APIRouter(prefix="/sessions", tags=["sessions"])
@@ -65,15 +71,21 @@ async def get_session(
     "/{session_id}",
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Delete session",
-    description="Delete a session and all its messages. Returns 404 if not found or not owned.",
+    description="Delete a session and all its messages, files, and vectors. Returns 404 if not found or not owned.",
     responses={401: {"description": "Unauthorized"}, 404: {"description": "Session not found"}},
 )
 async def delete_session(
     session_id: str,
     ctx: RequestContext = Depends(get_request_context),  # noqa: B008
     service: SessionService = Depends(get_session_service),  # noqa: B008
+    file_service: FileService = Depends(get_file_service),  # noqa: B008
 ) -> Response:
     """Delete one session owned by current user."""
+    # Validate ownership before any deletion
+    await service.get_session(ctx.user_id, session_id)
+    # Delete uploaded files, chunks, and vectors first
+    await file_service.delete_files_by_session(session_id)
+    # Delete messages and the session record
     await service.delete_session(ctx.user_id, session_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 

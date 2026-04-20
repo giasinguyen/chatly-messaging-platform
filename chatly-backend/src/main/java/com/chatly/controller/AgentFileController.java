@@ -51,5 +51,15 @@ public class AgentFileController {
         return agentProxy.forward(
                 HttpMethod.DELETE, "/sessions/" + sessionId + "/files/" + fileId, userId, null);
     }
+
+    @GetMapping("/{fileId}/content")
+    ResponseEntity<byte[]> download(
+            @PathVariable String sessionId,
+            @PathVariable String fileId,
+            @AuthenticationPrincipal String userId
+    ) {
+        return agentProxy.forwardBinary(
+                "/sessions/" + sessionId + "/files/" + fileId + "/content", userId);
+    }
 }
 

@@ -1,4 +1,9 @@
 import * as z from "zod";
+import {
+    DISPLAY_NAME_INVALID_MESSAGE,
+    USERNAME_ALLOWED_REGEX,
+    USERNAME_INVALID_MESSAGE,
+} from "@/constants/username";
 
 export const registerSchema = z.object({
     identifier: z
@@ -14,8 +19,14 @@ export const registerSchema = z.object({
                 message: "Invalid email or phone number",
             },
         ),
-    displayName: z.string().min(1, "Display name cannot be empty"),
-    username: z.string().min(3, "Username must be at least 3 characters"),
+    displayName: z
+        .string()
+        .min(3, "Display name must be at least 3 characters")
+        .regex(USERNAME_ALLOWED_REGEX, DISPLAY_NAME_INVALID_MESSAGE),
+    username: z
+        .string()
+        .min(3, "Username must be at least 3 characters")
+        .regex(USERNAME_ALLOWED_REGEX, USERNAME_INVALID_MESSAGE),
     password: z.string().min(6, "Password must be at least 6 characters"),
     month: z.string().min(1, "Please select month"),
     day: z.string().min(1, "Please select day"),

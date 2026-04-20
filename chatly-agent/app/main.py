@@ -37,9 +37,16 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         qdrant_client = get_qdrant_client()
         await qdrant_client.get_collections()
         ensure_bucket_exists(get_storage_client(), get_bucket_name())
+        from app.db.checkpointer import get_checkpointer
+        get_checkpointer()
+        from app.db.mongo import get_db
+        from app.repositories.interrupt_repository import InterruptRepository
+        await InterruptRepository(collection=get_db()["interrupt_states"]).setup_indexes()
     yield
     await close_client()
     await close_qdrant_client()
+    from app.db.checkpointer import close_checkpointer
+    close_checkpointer()
 
 
 app = FastAPI(
@@ -91,3 +98,16 @@ async def mcp_not_found_handler(
 ) -> JSONResponse:
     """Map MCPServerNotFoundError to HTTP 404."""
     return JSONResponse(status_code=404, content={"detail": str(exc)})
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(
+    request: Request,
+    exc: Exception,
+) -> JSONResponse:
+    """Catch-all handler — logs the full traceback so silent 500s are visible."""
+    import logging as _logging
+    _logging.getLogger(__name__).exception(
+        "Unhandled exception on %s %s", request.method, request.url.path
+    )
+    return JSONResponse(status_code=500, content={"detail": "Internal Server Error"})

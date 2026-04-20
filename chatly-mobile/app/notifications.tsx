@@ -76,6 +76,10 @@ export default function NotificationsScreen() {
       router.push(`/chat/${notification.referenceId}`);
     } else if (notification.type === 'FRIEND_REQUEST') {
       router.push('/(tabs)/contacts');
+    } else if (notification.type === 'GROUP_JOIN_REQUEST' && notification.referenceId) {
+      router.push(`/chat/${notification.referenceId}/pending-requests`);
+    } else if (notification.type === 'MEMBER_JOINED' && notification.referenceId) {
+      router.push(`/chat/${notification.referenceId}`);
     }
   };
 
@@ -83,6 +87,9 @@ export default function NotificationsScreen() {
     switch (type) {
       case 'NEW_MESSAGE': return { name: 'chatbubble-ellipses', color: Colors.cta };
       case 'FRIEND_REQUEST': return { name: 'person-add', color: '#4CAF50' };
+      case 'GROUP_JOIN_REQUEST': return { name: 'person-add', color: '#FF9800' };
+      case 'MEMBER_JOINED': return { name: 'people', color: '#2196F3' };
+      case 'CALL_MISSED': return { name: 'call', color: '#F44336' };
       default: return { name: 'notifications', color: Colors.textMuted };
     }
   };

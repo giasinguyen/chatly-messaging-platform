@@ -22,6 +22,7 @@ import com.chatly.model.mongo.Reaction;
 import com.chatly.model.mongo.ReadReceipt;
 import com.chatly.repository.mongo.ConversationRepository;
 import com.chatly.repository.mongo.MessageRepository;
+import com.chatly.repository.postgres.UserRepository;
 import com.chatly.websocket.ChatEvent;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -53,6 +54,7 @@ public class MessageService {
     private final SimpMessagingTemplate messagingTemplate;
     private final NotificationService notificationService;
     private final ContactService contactService;
+    private final UserRepository userRepository;
 
     private static final long RECALL_LIMIT_HOURS = 24;
     private static final long EDIT_LIMIT_MINUTES = 15;
@@ -83,6 +85,7 @@ public class MessageService {
                 .replyToId(request.getReplyToId())
                 .attachments(request.getAttachments() != null ? request.getAttachments() : new ArrayList<>())
                 .poll(request.getPoll())
+                .location(request.getLocation())
                 .priority(request.getPriority() != null && ALLOWED_PRIORITIES.contains(request.getPriority()) ? request.getPriority() : null)
                 .mentions(request.getMentions() != null ? request.getMentions() : new ArrayList<>())
                 .build();
@@ -361,7 +364,7 @@ public class MessageService {
 
         String key = String.valueOf(optionIndex);
 
-        if (!poll.isMultipleChoice()) {
+        if (!Boolean.TRUE.equals(poll.getMultipleChoice())) {
             // Remove previous votes by this user
             poll.getVotes().values().forEach(voters -> voters.remove(userId));
         }
@@ -381,6 +384,17 @@ public class MessageService {
 
         MessageResponse response = messageMapper.toResponse(message);
         broadcastEvent(message.getConversationId(), ChatEvent.ChatAction.EDIT, response);
+
+        // Broadcast system message for poll vote
+        if (Boolean.TRUE.equals(poll.getAnonymous())) {
+            sendSystemMessage(message.getConversationId(), "An anonymous user has voted");
+        } else {
+            String voterName = userRepository.findById(UUID.fromString(userId))
+                    .map(u -> u.getDisplayName())
+                    .orElse("Someone");
+            sendSystemMessage(message.getConversationId(), voterName + " has voted in the poll");
+        }
+
         return response;
     }
 
@@ -511,6 +525,13 @@ public class MessageService {
         private Message persistAndBroadcast(Conversation conversation, Message message, String actorId) {
                 Message savedMessage = messageRepository.save(message);
                 updateLastMessage(conversation.getId(), savedMessage);
+
+                // Clear per-user deletions so conversation reappears for all participants
+                if (conversation.getDeletedBy() != null && !conversation.getDeletedBy().isEmpty()) {
+                        conversation.getDeletedBy().clear();
+                        conversationRepository.save(conversation);
+                }
+
                 notifyParticipants(conversation, savedMessage, actorId);
                 broadcastEvent(conversation.getId(), ChatEvent.ChatAction.SEND, messageMapper.toResponse(savedMessage));
                 return savedMessage;
@@ -550,6 +571,7 @@ public class MessageService {
                         case FILE -> "[File]";
                         case VIDEO -> "[Video]";
                         case AUDIO -> "[Audio]";
+                        case LOCATION -> "[Location]";
                         default -> "[Message]";
                 };
         }
@@ -559,11 +581,26 @@ public class MessageService {
          * Gọi từ CallWebSocketController sau khi cuộc gọi kết thúc/nhỡ/từ chối.
          */
         public void saveCallMessage(String conversationId, String initiatorId, CallType callType, CallStatus callStatus, long durationSeconds) {
+                saveCallMessage(conversationId, initiatorId, callType, callStatus, durationSeconds, null);
+        }
+
+        /**
+         * Lưu tin nhắn cuộc gọi có callId (cho group call "tap to join" message).
+         */
+        public void saveCallMessage(String conversationId, String initiatorId, CallType callType, CallStatus callStatus, long durationSeconds, String callId) {
                 conversationRepository.findById(conversationId).ifPresent(conversation -> {
-                        String content = String.format(
-                                "{\"callType\":\"%s\",\"status\":\"%s\",\"duration\":%d}",
-                                callType.name(), callStatus.name(), durationSeconds
-                        );
+                        String content;
+                        if (callId != null) {
+                                content = String.format(
+                                        "{\"callType\":\"%s\",\"status\":\"%s\",\"duration\":%d,\"callId\":\"%s\"}",
+                                        callType.name(), callStatus.name(), durationSeconds, callId
+                                );
+                        } else {
+                                content = String.format(
+                                        "{\"callType\":\"%s\",\"status\":\"%s\",\"duration\":%d}",
+                                        callType.name(), callStatus.name(), durationSeconds
+                                );
+                        }
                         Message message = Message.builder()
                                 .conversationId(conversationId)
                                 .senderId(initiatorId)
@@ -658,6 +695,12 @@ public class MessageService {
             if (fileName != null && !fileName.isBlank()) {
                 content = fileName;
             }
+        }
+        // For LOCATION messages, use address as display content
+        if ((content == null || content.isBlank()) && message.getType() == MessageType.LOCATION) {
+            content = message.getLocation() != null && message.getLocation().getAddress() != null
+                    ? message.getLocation().getAddress()
+                    : "[Location]";
         }
 
         LastMessage lastMessage = LastMessage.builder()

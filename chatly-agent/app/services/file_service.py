@@ -1,3 +1,4 @@
+from contextlib import suppress
 from datetime import UTC, datetime
 from io import BytesIO
 from typing import Any, Protocol
@@ -15,7 +16,8 @@ from app.repositories.file_repo import FileRepository
 from app.services.session_service import SessionService
 from app.services.vector_service import VectorService
 
-SUPPORTED_EXTENSIONS: set[str] = {"txt", "md", "pdf", "docx", "csv", "json"}
+SUPPORTED_EXTENSIONS: set[str] = {"txt", "md", "pdf", "docx", "csv", "json", "jpeg", "jpg", "png", "webp"}
+IMAGE_EXTENSIONS: set[str] = {"jpeg", "jpg", "png", "webp"}
 MAX_FILES_PER_SESSION = 4
 EMBED_BATCH_SIZE = 16
 
@@ -72,6 +74,30 @@ class FileService:
         if len(payload) > settings.max_file_size_mb * 1024 * 1024:
             raise ValueError("File size exceeds 5MB limit")
 
+        object_key = f"{user_id}/{session_id}/{uuid4()}/{filename}"
+
+        if extension in IMAGE_EXTENSIONS:
+            result = self._minio_client.put_object(
+                self._bucket_name,
+                object_key,
+                data=BytesIO(payload),
+                length=len(payload),
+                content_type=content_type or "application/octet-stream",
+            )
+            return await self._file_repo.create(
+                {
+                    "session_id": session_id,
+                    "user_id": user_id,
+                    "filename": filename,
+                    "mime_type": content_type,
+                    "size_bytes": len(payload),
+                    "minio_bucket": self._bucket_name,
+                    "object_key": object_key,
+                    "etag": getattr(result, "etag", None),
+                    "created_at": datetime.now(UTC),
+                }
+            )
+
         text = self._extract_text(payload, filename, content_type).strip()
         if not text:
             raise ValueError("File has no extractable text")
@@ -87,7 +113,6 @@ class FileService:
         except Exception as exc:  # pragma: no cover - external provider behavior
             raise ValueError(f"Embedding failed: {exc}") from exc
 
-        object_key = f"{user_id}/{session_id}/{uuid4()}/{filename}"
         result = self._minio_client.put_object(
             self._bucket_name,
             object_key,
@@ -129,6 +154,7 @@ class FileService:
                 user_id=user_id,
                 chunks=chunks,
                 embeddings=embeddings,
+                filename=filename,
             )
         except Exception as exc:  # pragma: no cover - external provider behavior
             await self._chunk_repo.delete_by_file(str(metadata["id"]))
@@ -152,6 +178,27 @@ class FileService:
         await self._session_service.get_session(user_id, session_id)
         files = await self._file_repo.find_by_session(session_id)
         return [item for item in files if item.get("user_id") == user_id]
+
+    async def get_file(self, user_id: str, session_id: str, file_id: str) -> dict[str, Any]:
+        """Return metadata for one file owned by the user in the given session."""
+        row = await self._file_repo.find_by_user_and_id(user_id, file_id)
+        if row is None or str(row.get("session_id")) != session_id:
+            raise ValueError("File not found")
+        return row
+
+    async def delete_files_by_session(self, session_id: str) -> None:
+        """Delete all files belonging to a session (vectors, chunks, MinIO, metadata)."""
+        files = await self._file_repo.find_by_session(session_id)
+        for row in files:
+            file_id = str(row["id"])
+            await self._vector_service.delete_file_vectors(file_id)
+            await self._chunk_repo.delete_by_file(file_id)
+            with suppress(Exception):  # MinIO errors must not block session deletion
+                self._minio_client.remove_object(
+                    str(row.get("minio_bucket", self._bucket_name)),
+                    str(row.get("object_key", "")),
+                )
+            await self._file_repo.delete(file_id)
 
     async def delete_file(self, user_id: str, session_id: str, file_id: str) -> None:
         """Delete file metadata, chunks, and MinIO object."""

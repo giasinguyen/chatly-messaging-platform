@@ -33,4 +33,9 @@ export const conversationService = {
     const response = await axiosClient.delete<ApiResponse<void>>(`/api/conversations/${id}`);
     return response.data;
   },
+
+  dissolve: async (id: string): Promise<ApiResponse<void>> => {
+    const response = await axiosClient.delete<ApiResponse<void>>(`/api/conversations/${id}/dissolve`);
+    return response.data;
+  },
 };

@@ -1,8 +1,10 @@
-import { useState, useMemo } from 'react';
-import { View, TextInput, TouchableOpacity, Text, Image, ActivityIndicator, Alert, Modal, FlatList, Pressable } from 'react-native';
+import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
+import { View, TouchableOpacity, Text, Image, ActivityIndicator, Alert, Modal, FlatList, Pressable, Keyboard } from 'react-native';
+import { Image as ExpoImage } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
+import * as Location from 'expo-location';
 import EmojiPicker from 'rn-emoji-keyboard';
 import type { EmojiType } from 'rn-emoji-keyboard';
 import { Colors } from '@/constants/theme';
@@ -11,8 +13,12 @@ import { getDisplayUrl, type KlipyItem } from '@/services/klipy.service';
 import { MediaPicker } from '@/components/chat/MediaPicker';
 import { ReminderModal } from '@/components/chat/ReminderModal';
 import { PollModal } from '@/components/chat/PollModal';
+import { VoiceRecordingBar } from '@/components/chat/VoiceRecordingBar';
 import { useAuthStore } from '@/store/auth.store';
-import type { Message, Attachment, Poll } from '@/types/message';
+import { useVoiceRecorder, MicPermissionDeniedError } from '@/hooks/useVoiceRecorder';
+import type { Message, Attachment, Poll, LocationPayload } from '@/types/message';
+import { TextRichComposer, type ComposerMode, type TextRichComposerRef } from '@/components/chat/TextRichComposer';
+import { richTextToPlainText } from '@/utils/format';
 
 interface GroupMember {
   id: string;
@@ -23,7 +29,7 @@ interface GroupMember {
 
 interface ChatInputProps {
   conversationId?: string;
-  onSend: (text: string, attachments?: Attachment[], messageType?: string, priority?: 'IMPORTANT' | 'URGENT', poll?: Poll) => void;
+  onSend: (text: string, attachments?: Attachment[], messageType?: string, priority?: 'IMPORTANT' | 'URGENT', poll?: Poll, location?: LocationPayload) => void;
   onTyping?: (isTyping: boolean) => void;
   replyingTo?: Message | null;
   onCancelReply?: () => void;
@@ -42,9 +48,31 @@ interface PendingFile {
   error?: string;
 }
 
+function getDocumentIcon(mimeType: string): { name: string; color: string } {
+  if (mimeType.includes('pdf')) return { name: 'document-text-outline', color: '#ef4444' };
+  if (mimeType.includes('word') || mimeType.includes('msword') || mimeType.includes('wordprocessingml'))
+    return { name: 'document-outline', color: '#3b82f6' };
+  if (mimeType.includes('sheet') || mimeType.includes('excel') || mimeType.includes('spreadsheetml'))
+    return { name: 'grid-outline', color: '#22c55e' };
+  if (mimeType.includes('csv')) return { name: 'grid-outline', color: '#22c55e' };
+  if (mimeType.includes('presentation') || mimeType.includes('powerpoint') || mimeType.includes('presentationml'))
+    return { name: 'easel-outline', color: '#f97316' };
+  if (mimeType.startsWith('audio/')) return { name: 'musical-notes-outline', color: '#a855f7' };
+  if (mimeType.startsWith('video/')) return { name: 'film-outline', color: '#ec4899' };
+  if (mimeType.includes('zip') || mimeType.includes('rar') || mimeType.includes('7z') || mimeType.includes('tar') || mimeType.includes('gzip'))
+    return { name: 'archive-outline', color: '#78716c' };
+  if (mimeType.startsWith('text/') || mimeType.includes('json') || mimeType.includes('xml'))
+    return { name: 'code-slash-outline', color: '#64748b' };
+  return { name: 'document-outline', color: Colors.textMuted };
+}
+
 export function ChatInput({ conversationId, onSend, onTyping, replyingTo, onCancelReply, isGroup, groupMembers }: ChatInputProps) {
+  const composerRef = useRef<TextRichComposerRef>(null);
   const { user } = useAuthStore();
+  const [composerMode, setComposerMode] = useState<ComposerMode>('plain');
+  const [editorInstanceKey, setEditorInstanceKey] = useState(0);
   const [text, setText] = useState('');
+  const [richHtml, setRichHtml] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([]);
@@ -53,6 +81,13 @@ export function ChatInput({ conversationId, onSend, onTyping, replyingTo, onCanc
   const [selectedPriority, setSelectedPriority] = useState<'IMPORTANT' | 'URGENT' | null>(null);
   const [showReminderModal, setShowReminderModal] = useState(false);
   const [showPollModal, setShowPollModal] = useState(false);
+  const [showLocationPreview, setShowLocationPreview] = useState(false);
+  const [tempLocation, setTempLocation] = useState<LocationPayload | null>(null);
+  const [isAcquiringLocation, setIsAcquiringLocation] = useState(false);
+  const [isAudioSending, setIsAudioSending] = useState(false);
+
+  const { isRecording, elapsedSeconds, startRecording, stopRecording, cancelRecording } = useVoiceRecorder();
+  const replyPreviewText = replyingTo ? richTextToPlainText(replyingTo.content) : '';
 
   // Mention detection
   const mentionQuery = useMemo(() => {
@@ -169,7 +204,12 @@ export function ChatInput({ conversationId, onSend, onTyping, replyingTo, onCanc
   };
 
   const isUploading = pendingFiles.some((p) => !p.uploaded && !p.error);
-  const canSend = (text.trim().length > 0 || pendingFiles.some((p) => p.uploaded)) && !isUploading;
+  const hasAttachment = pendingFiles.some((p) => p.uploaded);
+  const hasTextContent =
+    composerMode === 'plain'
+      ? text.trim().length > 0
+      : richTextToPlainText(richHtml).trim().length > 0;
+  const canSend = (hasTextContent || hasAttachment) && !isUploading;
 
   const handleSend = () => {
     if (!canSend) return;
@@ -178,13 +218,20 @@ export function ChatInput({ conversationId, onSend, onTyping, replyingTo, onCanc
       .filter((p) => p.uploaded)
       .map((p) => p.uploaded!);
 
-    onSend(text.trim(), attachments.length ? attachments : undefined, undefined, selectedPriority ?? undefined);
+    const outgoingContent = composerMode === 'editor' ? richHtml.trim() : text.trim();
+    onSend(outgoingContent, attachments.length ? attachments : undefined, undefined, selectedPriority ?? undefined);
     setText('');
+    setRichHtml('');
     setPendingFiles([]);
     setIsTyping(false);
     setSelectedPriority(null);
     onTyping?.(false);
     onCancelReply?.();
+    if (composerMode === 'editor') {
+      setEditorInstanceKey((prev) => prev + 1);
+    }
+    composerRef.current?.blur();
+    Keyboard.dismiss();
   };
 
   const handleEmojiPick = (emoji: EmojiType) => {
@@ -210,6 +257,10 @@ export function ChatInput({ conversationId, onSend, onTyping, replyingTo, onCanc
       setSelectedPriority((prev) => (prev === 'IMPORTANT' ? null : 'IMPORTANT'));
     } else if (optionId === 'urgent') {
       setSelectedPriority((prev) => (prev === 'URGENT' ? null : 'URGENT'));
+    } else if (optionId === 'mode-plain') {
+      setComposerMode('plain');
+    } else if (optionId === 'mode-editor') {
+      setComposerMode('editor');
     } else if (optionId === 'reminder') {
       setShowReminderModal(true);
     } else if (optionId === 'poll') {
@@ -220,6 +271,101 @@ export function ChatInput({ conversationId, onSend, onTyping, replyingTo, onCanc
   const handleSendPoll = (poll: Poll) => {
     onSend('', undefined, 'POLL', undefined, poll);
   };
+
+  const handleShareLocation = async () => {
+    try {
+      setShowOptionsSheet(false);
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission Denied', 'Please grant location permission to share your location.');
+        return;
+      }
+      
+      setIsAcquiringLocation(true);
+      const position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      
+      // Get human readable address if possible
+      let address = `${position.coords.latitude.toFixed(5)}, ${position.coords.longitude.toFixed(5)}`;
+      try {
+        const reverse = await Location.reverseGeocodeAsync({
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+        });
+        if (reverse && reverse.length > 0) {
+          const first = reverse[0];
+          address = [first.streetNumber, first.street, first.district, first.city, first.region].filter(Boolean).join(', ');
+        }
+      } catch {}
+
+      setTempLocation({
+        latitude: position.coords.latitude,
+        longitude: position.coords.longitude,
+        address: address,
+      });
+      setShowLocationPreview(true);
+      setIsAcquiringLocation(false);
+    } catch (err) {
+      setIsAcquiringLocation(false);
+      console.error(err);
+      Alert.alert('Error', 'Failed to acquire location');
+    }
+  };
+
+  const confirmShareLocation = () => {
+    if (tempLocation) {
+      onSend('Location shared', undefined, 'LOCATION', undefined, undefined, tempLocation);
+      setShowLocationPreview(false);
+      setTempLocation(null);
+    }
+  };
+
+  const handleStartRecording = useCallback(async () => {
+    try {
+      await startRecording();
+    } catch (err) {
+      if (err instanceof MicPermissionDeniedError) {
+        Alert.alert('Permission Denied', 'Please grant microphone permission to send voice messages.');
+      } else {
+        Alert.alert('Error', 'Failed to start recording. Please try again.');
+      }
+    }
+  }, [startRecording]);
+
+  const handleSendAudio = useCallback(async () => {
+    setIsAudioSending(true);
+    try {
+      const result = await stopRecording();
+      if (!result) return;
+      const fileName = `voice_${Date.now()}.m4a`;
+      const uploaded = await fileService.upload(result.uri, fileName, 'audio/mp4', conversationId);
+      const attachment: Attachment = {
+        fileId: uploaded.fileId,
+        url: uploaded.url,
+        name: uploaded.fileName,
+        type: uploaded.fileType,
+        size: uploaded.fileSize,
+        durationSeconds: result.durationSeconds,
+      };
+      onSend('', [attachment], 'AUDIO');
+    } catch {
+      Alert.alert('Error', 'Failed to send voice message. Please try again.');
+    } finally {
+      setIsAudioSending(false);
+    }
+  }, [stopRecording, conversationId, onSend]);
+
+  const handleCancelRecording = useCallback(async () => {
+    await cancelRecording();
+  }, [cancelRecording]);
+
+  useEffect(() => {
+    const focusDelayMs = 140;
+    const timer = setTimeout(() => {
+      composerRef.current?.focus(composerMode);
+    }, focusDelayMs);
+
+    return () => clearTimeout(timer);
+  }, [composerMode]);
 
   return (
     <View style={{ backgroundColor: Colors.white }}>
@@ -350,7 +496,9 @@ export function ChatInput({ conversationId, onSend, onTyping, replyingTo, onCanc
                       ? '🎬 GIF'
                       : replyingTo.type === 'STICKER'
                         ? '🎨 Sticker'
-                        : replyingTo.content}
+                        : replyingTo.type === 'LOCATION'
+                        ? '📍 Location'
+                        : replyPreviewText}
             </Text>
           </View>
           <TouchableOpacity onPress={onCancelReply} className="ml-2 p-1">
@@ -383,7 +531,10 @@ export function ChatInput({ conversationId, onSend, onTyping, replyingTo, onCanc
                 />
               ) : (
                 <View className="flex-1 items-center justify-center">
-                  <Ionicons name="document-outline" size={24} color={Colors.textMuted} />
+                  {(() => {
+                    const icon = getDocumentIcon(p.mimeType);
+                    return <Ionicons name={icon.name as 'document-outline'} size={24} color={icon.color} />;
+                  })()}
                   <Text style={{ fontSize: 8, color: Colors.textMuted }} numberOfLines={1}>
                     {p.name}
                   </Text>
@@ -425,7 +576,18 @@ export function ChatInput({ conversationId, onSend, onTyping, replyingTo, onCanc
         </View>
       )}
 
+      {/* Voice recording bar — replaces the input row while recording */}
+      {isRecording && (
+        <VoiceRecordingBar
+          elapsedSeconds={elapsedSeconds}
+          onSend={handleSendAudio}
+          onCancel={handleCancelRecording}
+          isSending={isAudioSending}
+        />
+      )}
+
       {/* Input row */}
+      {!isRecording && (
       <View
         className="flex-row items-end border-t px-3 py-2"
         style={{
@@ -474,35 +636,50 @@ export function ChatInput({ conversationId, onSend, onTyping, replyingTo, onCanc
           />
         </TouchableOpacity>
 
-        {/* Text input */}
+        {/* Text / Editor composer */}
         <View
           className="mx-2 flex-1 rounded-2xl px-4 py-2"
           style={{
-            backgroundColor: Colors.white,
+            backgroundColor: 'transparent',
             minHeight: 38,
-            maxHeight: 120,
+            maxHeight: composerMode === 'plain' ? 120 : 220,
           }}>
-          <TextInput
-            className="text-[15px]"
-            style={{ color: Colors.text, maxHeight: 100 }}
+          <TextRichComposer
+            ref={composerRef}
+            mode={composerMode}
+            onModeChange={setComposerMode}
+            plainText={text}
+            onPlainTextChange={handleChangeText}
+            richHtml={richHtml}
+            onRichHtmlChange={setRichHtml}
             placeholder="Type a message..."
-            placeholderTextColor={Colors.textLight}
-            value={text}
-            onChangeText={handleChangeText}
-            multiline
-            textAlignVertical="center"
+            minHeight={44}
+            showToolbar={composerMode === 'editor'}
+            showModeToggle={false}
+            editorKey={`chat-input-composer-${editorInstanceKey}`}
           />
         </View>
 
-        {/* Send button */}
-        <TouchableOpacity
-          onPress={handleSend}
-          disabled={!canSend}
-          className="items-center justify-center pb-1"
-          style={{ width: 36, height: 36 }}>
-          <Ionicons name="send" size={24} color={canSend ? Colors.cta : Colors.textLight} />
-        </TouchableOpacity>
+        {/* Mic button — shown when text and files are empty */}
+        {composerMode === 'plain' && text === '' && pendingFiles.length === 0 ? (
+          <TouchableOpacity
+            onPress={handleStartRecording}
+            className="items-center justify-center pb-1"
+            style={{ width: 36, height: 36 }}>
+            <Ionicons name="mic-outline" size={24} color={Colors.cta} />
+          </TouchableOpacity>
+        ) : (
+          /* Send button */
+          <TouchableOpacity
+            onPress={handleSend}
+            disabled={!canSend}
+            className="items-center justify-center pb-1"
+            style={{ width: 36, height: 36 }}>
+            <Ionicons name="send" size={24} color={canSend ? Colors.cta : Colors.textLight} />
+          </TouchableOpacity>
+        )}
       </View>
+      )}
 
       <EmojiPicker
         onEmojiSelected={handleEmojiPick}
@@ -527,6 +704,78 @@ export function ChatInput({ conversationId, onSend, onTyping, replyingTo, onCanc
         onClose={() => setShowPollModal(false)}
         onSend={handleSendPoll}
       />
+
+      {/* Location Preview Modal */}
+      <Modal
+        visible={showLocationPreview}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowLocationPreview(false)}>
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 }}>
+          <View style={{ backgroundColor: Colors.white, borderRadius: 24, width: '100%', overflow: 'hidden', maxWidth: 400 }}>
+            {/* Header */}
+            <View style={{ padding: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 0.5, borderBottomColor: Colors.borderLight }}>
+              <Text style={{ fontSize: 18, fontWeight: '700', color: Colors.text }}>Share Location</Text>
+              <TouchableOpacity onPress={() => setShowLocationPreview(false)}>
+                <Ionicons name="close" size={24} color={Colors.textMuted} />
+              </TouchableOpacity>
+            </View>
+
+            {/* Map Preview */}
+            {tempLocation && (
+              <View style={{ height: 250, backgroundColor: '#f1f5f9', position: 'relative' }}>
+                <ExpoImage
+                  source={{ uri: `https://static-maps.yandex.ru/1.x/?ll=${tempLocation.longitude},${tempLocation.latitude}&size=600,400&z=15&l=map&pt=${tempLocation.longitude},${tempLocation.latitude},pm2rdl` }}
+                  style={{ width: '100%', height: '100%' }}
+                  contentFit="cover"
+                />
+                <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' }}>
+                   <Ionicons name="location" size={40} color="#ef4444" style={{ marginTop: -20 }} />
+                </View>
+              </View>
+            )}
+
+            {/* Location Info */}
+            <View style={{ padding: 20 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                <Ionicons name="navigate-circle" size={20} color={Colors.cta} />
+                <Text style={{ marginLeft: 8, fontSize: 15, fontWeight: '600', color: Colors.text, flex: 1 }}>
+                  Your Current Location
+                </Text>
+              </View>
+              <Text style={{ fontSize: 13, color: Colors.textMuted, lineHeight: 18 }}>
+                {tempLocation?.address}
+              </Text>
+              <Text style={{ fontSize: 11, color: Colors.textLight, marginTop: 4 }}>
+                {tempLocation?.latitude.toFixed(6)}, {tempLocation?.longitude.toFixed(6)}
+              </Text>
+            </View>
+
+            {/* Actions */}
+            <View style={{ padding: 20, paddingTop: 0, flexDirection: 'row', gap: 12 }}>
+              <TouchableOpacity
+                onPress={() => setShowLocationPreview(false)}
+                style={{ flex: 1, paddingVertical: 14, borderRadius: 14, backgroundColor: Colors.bg, alignItems: 'center' }}>
+                <Text style={{ fontSize: 15, fontWeight: '600', color: Colors.text }}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={confirmShareLocation}
+                style={{ flex: 1, paddingVertical: 14, borderRadius: 14, backgroundColor: Colors.cta, alignItems: 'center', flexDirection: 'row', justifyContent: 'center' }}>
+                <Ionicons name="send" size={16} color="white" style={{ marginRight: 8 }} />
+                <Text style={{ fontSize: 15, fontWeight: '600', color: 'white' }}>Send Location</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Loading overlay for location acquisition */}
+      {isAcquiringLocation && (
+        <View style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(255,255,255,0.7)', alignItems: 'center', justifyContent: 'center', zIndex: 999 }}>
+           <ActivityIndicator size="large" color={Colors.cta} />
+           <Text style={{ marginTop: 12, fontSize: 14, color: Colors.text, fontWeight: '500' }}>Acquiring location...</Text>
+        </View>
+      )}
 
       {/* Options bottom sheet */}
       <Modal
@@ -624,6 +873,76 @@ export function ChatInput({ conversationId, onSend, onTyping, replyingTo, onCanc
                   Send stickers
                 </Text>
               </View>
+            </TouchableOpacity>
+
+            <View
+              style={{
+                height: 1,
+                backgroundColor: Colors.borderLight,
+                marginHorizontal: 20,
+                marginVertical: 4,
+              }}
+            />
+
+            {/* Input mode options */}
+            <TouchableOpacity
+              onPress={() => handleOptionSelect('mode-plain')}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                paddingHorizontal: 20,
+                paddingVertical: 14,
+                backgroundColor: composerMode === 'plain' ? '#eff6ff' : 'transparent',
+              }}>
+              <View
+                style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: 18,
+                  backgroundColor: '#dbeafe',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginRight: 14,
+                }}>
+                <Ionicons name="text-outline" size={20} color="#2563eb" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 15, fontWeight: '500', color: Colors.text }}>Text mode</Text>
+                <Text style={{ fontSize: 12, color: Colors.textMuted, marginTop: 1 }}>
+                  Simple plain text input
+                </Text>
+              </View>
+              {composerMode === 'plain' && <Ionicons name="checkmark-circle" size={20} color="#2563eb" />}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => handleOptionSelect('mode-editor')}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                paddingHorizontal: 20,
+                paddingVertical: 14,
+                backgroundColor: composerMode === 'editor' ? '#f5f3ff' : 'transparent',
+              }}>
+              <View
+                style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: 18,
+                  backgroundColor: '#ede9fe',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginRight: 14,
+                }}>
+                <Ionicons name="create-outline" size={20} color="#7c3aed" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 15, fontWeight: '500', color: Colors.text }}>Editor mode</Text>
+                <Text style={{ fontSize: 12, color: Colors.textMuted, marginTop: 1 }}>
+                  Rich text with formatting
+                </Text>
+              </View>
+              {composerMode === 'editor' && <Ionicons name="checkmark-circle" size={20} color="#7c3aed" />}
             </TouchableOpacity>
 
             <View
@@ -780,6 +1099,35 @@ export function ChatInput({ conversationId, onSend, onTyping, replyingTo, onCanc
                 </View>
               </TouchableOpacity>
             )}
+
+            {/* Share Location option */}
+            <TouchableOpacity
+              onPress={handleShareLocation}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                paddingHorizontal: 20,
+                paddingVertical: 14,
+              }}>
+              <View
+                style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: 18,
+                  backgroundColor: '#fee2e2',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginRight: 14,
+                }}>
+                <Ionicons name="location-outline" size={20} color="#ef4444" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 15, fontWeight: '500', color: Colors.text }}>Location</Text>
+                <Text style={{ fontSize: 12, color: Colors.textMuted, marginTop: 1 }}>
+                  Share your current location.
+                </Text>
+              </View>
+            </TouchableOpacity>
           </Pressable>
         </Pressable>
       </Modal>

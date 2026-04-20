@@ -12,6 +12,7 @@ interface NotificationState {
   showBanner: (notification: NotificationResponse) => void;
   hideBanner: () => void;
   markAsRead: (notificationId: string) => void;
+  removeByTypeAndReference: (type: string, referenceId: string) => void;
 }
 
 export const useNotificationStore = create<NotificationState>((set) => ({
@@ -38,4 +39,16 @@ export const useNotificationStore = create<NotificationState>((set) => ({
     ),
     unreadCount: Math.max(0, state.unreadCount - 1),
   })),
+
+  removeByTypeAndReference: (type, referenceId) => set((state) => {
+    const removed = state.notifications.filter(
+      (n) => n.type === type && n.referenceId === referenceId && !n.read
+    ).length;
+    return {
+      notifications: state.notifications.filter(
+        (n) => !(n.type === type && n.referenceId === referenceId)
+      ),
+      unreadCount: Math.max(0, state.unreadCount - removed),
+    };
+  }),
 }));

@@ -1,20 +1,45 @@
-"""Router for MCP server CRUD and tool introspection."""
+"""Router for MCP server CRUD and tool introspection.
+
+Endpoints in this router are split into two groups:
+
+* ``/mcp/servers/*``  — manage *user-owned* (custom) MCP servers persisted in
+  MongoDB.  The chatly-backend system MCP is intentionally excluded from these
+  listings.
+
+* ``/mcp/defaults``   — read-only view of the built-in system MCP servers
+  (currently: chatly-backend).  No auth or write operations are available here.
+"""
 import logging
 
 from fastapi import APIRouter, Depends, Response, status
 
-from app.dependencies import get_mcp_service, get_request_context
+from app.dependencies import (
+    get_mcp_service,
+    get_request_context,
+    get_system_mcp_service,
+)
 from app.models.context import RequestContext
-from app.models.mcp import MCPServerCreate, MCPServerResponse, MCPServerUpdate, MCPToolInfo
+from app.models.mcp import (
+    MCPServerCreate,
+    MCPServerResponse,
+    MCPServerUpdate,
+    MCPToolInfo,
+    SystemMCPServerInfo,
+)
 from app.services.mcp_service import MCPService
+from app.services.system_mcp import SystemMCPService
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/mcp/servers", tags=["mcp"])
+router = APIRouter(prefix="/mcp", tags=["mcp"])
 
+
+# ──────────────────────────────────────────────────────────────────────────────
+# User-owned (custom) MCP servers
+# ──────────────────────────────────────────────────────────────────────────────
 
 @router.post(
-    "",
+    "/servers",
     response_model=MCPServerResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Register MCP server",
@@ -35,28 +60,32 @@ async def register_server(
         name=payload.name,
         url=str(payload.url),
         headers=payload.headers,
+        transport=payload.transport,
     )
     return MCPServerResponse(**record)
 
 
 @router.get(
-    "",
+    "/servers",
     response_model=list[MCPServerResponse],
     summary="List MCP servers",
-    description="Return all MCP servers registered by the current user.",
+    description=(
+        "Return all **user-registered** MCP servers. "
+        "Built-in system servers (chatly-backend) are excluded from this list."
+    ),
     responses={401: {"description": "Unauthorized"}},
 )
 async def list_servers(
     ctx: RequestContext = Depends(get_request_context),  # noqa: B008
     service: MCPService = Depends(get_mcp_service),  # noqa: B008
 ) -> list[MCPServerResponse]:
-    """List all MCP servers owned by the current user."""
+    """List all user-owned MCP servers. System defaults are not included."""
     records = await service.list_servers(ctx.user_id)
     return [MCPServerResponse(**r) for r in records]
 
 
 @router.get(
-    "/{server_id}",
+    "/servers/{server_id}",
     response_model=MCPServerResponse,
     summary="Get MCP server",
     description="Return details for one MCP server owned by the current user.",
@@ -73,7 +102,7 @@ async def get_server(
 
 
 @router.delete(
-    "/{server_id}",
+    "/servers/{server_id}",
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Delete MCP server",
     description="Remove an MCP server configuration owned by the current user.",
@@ -90,7 +119,7 @@ async def delete_server(
 
 
 @router.patch(
-    "/{server_id}/toggle",
+    "/servers/{server_id}/toggle",
     response_model=MCPServerResponse,
     summary="Toggle MCP server",
     description="Enable or disable an MCP server. Disabled servers are skipped during tool assembly.",
@@ -108,7 +137,7 @@ async def toggle_server(
 
 
 @router.get(
-    "/{server_id}/tools",
+    "/servers/{server_id}/tools",
     response_model=list[MCPToolInfo],
     summary="List tools",
     description="Live-fetch the tool list from a registered MCP server.",
@@ -129,7 +158,30 @@ async def list_server_tools(
         MCPToolInfo(
             name=t["name"],
             description=t.get("description", ""),
-            input_schema=t.get("inputSchema", {}),
+            input_schema=t.get("inputSchema") or t.get("input_schema") or {},
         )
         for t in raw_tools
     ]
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# System default MCP servers (read-only)
+# ──────────────────────────────────────────────────────────────────────────────
+
+@router.get(
+    "/defaults",
+    response_model=list[SystemMCPServerInfo],
+    summary="List system default MCP servers",
+    description=(
+        "Return metadata for all built-in system MCP servers configured for "
+        "this chatly-agent deployment.  These servers are always active and "
+        "cannot be modified or deleted by users."
+    ),
+    responses={401: {"description": "Unauthorized"}},
+)
+async def list_default_servers(
+    _ctx: RequestContext = Depends(get_request_context),  # noqa: B008
+    system_service: SystemMCPService = Depends(get_system_mcp_service),  # noqa: B008
+) -> list[SystemMCPServerInfo]:
+    """List configured system MCP servers (chatly-backend, etc.)."""
+    return [SystemMCPServerInfo(**s) for s in system_service.list_configured_servers()]

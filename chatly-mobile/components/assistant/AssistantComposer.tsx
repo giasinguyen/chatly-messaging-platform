@@ -5,9 +5,11 @@ import {
   TouchableOpacity,
   Text,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
+import * as ImagePicker from 'expo-image-picker';
 import { Colors } from '@/constants/theme';
 import { agentFileService } from '@/services/agent-file.service';
 import { useChatbotStore } from '@/store/chatbot.store';
@@ -16,7 +18,7 @@ import { McpConfigModal } from './McpConfigModal';
 
 interface AssistantComposerProps {
   sessionId: string;
-  onSend: (text: string) => void;
+  onSend: (text: string, fileIds: string[]) => void;
   isStreaming?: boolean;
   onCancel?: () => void;
   disabled?: boolean;
@@ -29,6 +31,7 @@ interface PendingFile {
   name: string;
   progress: number;
   done: boolean;
+  fileId?: string;
   error?: string;
 }
 
@@ -64,54 +67,70 @@ export function AssistantComposer({
   const handleSend = () => {
     const text = draft.trim();
     if (!text || disabled || isUploading) return;
-    onSend(text);
+    const fileIds = pendingFiles.filter((p) => p.done && p.fileId).map((p) => p.fileId as string);
+    onSend(text, fileIds);
     setDraft(sessionId, '');
     setPendingFiles([]);
   };
 
+  const processFileUpload = async (uri: string, name: string, mimeType: string) => {
+    const localId = `${Date.now()}-${Math.random()}`;
+    setPendingFiles((prev) => [...prev, { localId, name, progress: 0, done: false }]);
+    try {
+      const uploaded = await agentFileService.upload(sessionId, uri, name, mimeType, (pct) => {
+        setPendingFiles((prev) => prev.map((p) => (p.localId === localId ? { ...p, progress: pct } : p)));
+      });
+      setPendingFiles((prev) =>
+        prev.map((p) => (p.localId === localId ? { ...p, progress: 100, done: true, fileId: uploaded.id } : p)),
+      );
+    } catch {
+      setPendingFiles((prev) => prev.map((p) => (p.localId === localId ? { ...p, error: 'Upload failed' } : p)));
+    }
+  };
+
   const handlePickDocument = async () => {
     try {
-      const result = await DocumentPicker.getDocumentAsync({
-        multiple: true,
-        copyToCacheDirectory: true,
-      });
-
+      const result = await DocumentPicker.getDocumentAsync({ multiple: true, copyToCacheDirectory: true });
       if (result.canceled) return;
-
       for (const asset of result.assets) {
-        const localId = `${Date.now()}-${Math.random()}`;
-        const pending: PendingFile = {
-          localId,
-          name: asset.name,
-          progress: 0,
-          done: false,
-        };
-        setPendingFiles((prev) => [...prev, pending]);
-
-        try {
-          await agentFileService.upload(
-            sessionId,
-            asset.uri,
-            asset.name,
-            asset.mimeType ?? 'application/octet-stream',
-            (pct) => {
-              setPendingFiles((prev) =>
-                prev.map((p) => (p.localId === localId ? { ...p, progress: pct } : p)),
-              );
-            },
-          );
-          setPendingFiles((prev) =>
-            prev.map((p) => (p.localId === localId ? { ...p, progress: 100, done: true } : p)),
-          );
-        } catch {
-          setPendingFiles((prev) =>
-            prev.map((p) => (p.localId === localId ? { ...p, error: 'Upload failed' } : p)),
-          );
-        }
+        await processFileUpload(asset.uri, asset.name, asset.mimeType ?? 'application/octet-stream');
       }
     } catch {
-      // User cancelled or error
+      // user cancelled
     }
+  };
+
+  const handlePickFromLibrary = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: 'images',
+      allowsMultipleSelection: true,
+      quality: 0.9,
+    });
+    if (result.canceled) return;
+    for (const asset of result.assets) {
+      await processFileUpload(asset.uri, asset.fileName ?? 'image.jpg', asset.mimeType ?? 'image/jpeg');
+    }
+  };
+
+  const handlePickFromCamera = async () => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission required', 'Camera access is needed to take photos.');
+      return;
+    }
+    const result = await ImagePicker.launchCameraAsync({ quality: 0.9 });
+    if (result.canceled) return;
+    const asset = result.assets[0];
+    await processFileUpload(asset.uri, asset.fileName ?? 'photo.jpg', asset.mimeType ?? 'image/jpeg');
+  };
+
+  const showAttachMenu = () => {
+    Alert.alert('Attach', 'Choose source', [
+      { text: 'Photo Library', onPress: handlePickFromLibrary },
+      { text: 'Camera', onPress: handlePickFromCamera },
+      { text: 'Document', onPress: handlePickDocument },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
   };
 
   const removePending = (localId: string) => {
@@ -183,7 +202,7 @@ export function AssistantComposer({
       {/* Toolbar row */}
       <View className="flex-row items-center gap-1 px-3 pt-2">
         <TouchableOpacity
-          onPress={handlePickDocument}
+          onPress={showAttachMenu}
           className="h-8 w-8 items-center justify-center rounded-md"
           hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
         >

@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from motor.motor_asyncio import AsyncIOMotorCollection
@@ -50,7 +50,7 @@ class MCPRepository(BaseRepository[dict[str, Any]]):
             {
                 "$set": {
                     "is_active": is_active,
-                    "updated_at": datetime.now(timezone.utc),
+                    "updated_at": datetime.now(UTC),
                 }
             },
             return_document=True,

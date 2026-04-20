@@ -23,4 +23,7 @@ public class Attachment {
 
     @Field("fileSize")
     private Long size;
+
+    @Field("durationSeconds")
+    private Integer durationSeconds;
 }

@@ -2,7 +2,7 @@ import { useEffect, useCallback, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { socketService } from '@/services/socket.service';
 import { useAuthStore } from '@/store/auth.store';
-import type { Message, ChatEvent, Attachment } from '@/types/message';
+import type { Message, ChatEvent, Attachment, Poll } from '@/types/message';
 
 interface TypingData {
   userId: string;
@@ -90,15 +90,17 @@ export function useChatSocket({
 
   // Send a message via WebSocket
   const sendMessage = useCallback(
-    (content: string, replyToId: string | null = null, attachments?: Attachment[], messageType?: string, priority?: 'IMPORTANT' | 'URGENT'): boolean => {
+    (content: string, replyToId: string | null = null, attachments?: Attachment[], messageType?: string, priority?: 'IMPORTANT' | 'URGENT', location?: any, poll?: Poll): boolean => {
       const hasAttachments = attachments && attachments.length > 0;
       return socketService.publish('/app/chat.send', {
         conversationId,
         content,
-        type: messageType ?? (hasAttachments ? resolveMessageType(attachments![0].type) : 'TEXT'),
+        type: messageType ?? (poll ? 'POLL' : (hasAttachments ? resolveMessageType(attachments![0].type) : 'TEXT')),
         replyToId,
         attachments: hasAttachments ? attachments : undefined,
         priority: priority ?? undefined,
+        location: location ?? undefined,
+        poll: poll ?? undefined,
       });
     },
     [conversationId],

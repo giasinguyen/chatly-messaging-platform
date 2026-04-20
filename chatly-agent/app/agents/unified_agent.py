@@ -1,41 +1,63 @@
 """Unified ReAct agent that handles tool use and RAG via a single graph."""
+import warnings
 from collections.abc import AsyncIterator
 from typing import Any
 
-from langchain_core.messages import AIMessageChunk, HumanMessage
+from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_core.tools import BaseTool
 from langchain_groq import ChatGroq
-from langgraph.checkpoint.memory import MemorySaver
-from langgraph.prebuilt import create_react_agent
 
+with warnings.catch_warnings():
+    warnings.simplefilter("ignore")
+    from langgraph.prebuilt import create_react_agent
+
+from app.agents.base import BaseAgent
 from app.models.chat import ChatInput, ChatOutput
+from app.prompts.system_prompt import UNIFIED_AGENT_SYSTEM_PROMPT
 
 
-class UnifiedAgent:
+class UnifiedAgent(BaseAgent):
+    """ReAct agent that handles tool use and document retrieval.
+
+    A fresh graph is built per-request so each call receives the correct
+    tool set without cross-request contamination.  History is injected
+    explicitly from MongoDB on every turn; the optional checkpointer
+    persists interrupt state for HITL (Phase 3+).
     """
-    ReAct agent that handles both tool use and document retrieval.
 
-    Accepts any mix of tools — MCP tools, web search, or retriever_tool.
-    A fresh graph is built per-request via the factory so each call
-    receives the correct tool set without cross-request contamination.
-    """
-
-    def __init__(self, llm: ChatGroq, tools: list[BaseTool]) -> None:
+    def __init__(
+        self,
+        llm: ChatGroq,
+        tools: list[BaseTool],
+        checkpointer: Any | None = None,
+    ) -> None:
         self._llm = llm
         self._tools = tools
-        self._graph = create_react_agent(llm, tools, checkpointer=MemorySaver())
+        # Only enable interrupt_before when a checkpointer is available.
+        # Without checkpointer the graph state cannot be persisted for resumption.
+        interrupt_before = ["tools"] if checkpointer is not None else None
+        self._graph = create_react_agent(
+            llm, tools, checkpointer=checkpointer, interrupt_before=interrupt_before
+        )
         self.agent_type: str = "unified"
 
-    def _build_run_config(self, session_id: str) -> dict[str, dict[str, str]]:
-        """Build per-session LangGraph runtime config."""
-        return {"configurable": {"thread_id": session_id}}
+    def _build_messages(self, input: ChatInput) -> list[Any]:
+        system = SystemMessage(
+            content=UNIFIED_AGENT_SYSTEM_PROMPT.format(
+                user_id=input.user_id,
+                session_context=input.session_context,
+            )
+        )
+        return [system, *input.history, HumanMessage(content=input.message)]
 
-    async def ainvoke(self, input: ChatInput) -> ChatOutput:
+    async def ainvoke(
+        self, input: ChatInput, config: dict[str, Any] | None = None
+    ) -> ChatOutput:
         """Run a full ReAct turn and return the final assistant message."""
-        messages: list[Any] = [*input.history, HumanMessage(content=input.message)]
+        _config = config or {"configurable": {"thread_id": input.session_id}}
         result = await self._graph.ainvoke(
-            {"messages": messages},
-            config=self._build_run_config(input.session_id),
+            {"messages": self._build_messages(input)},
+            config=_config,
         )
         content = str(result["messages"][-1].content)
         return ChatOutput(
@@ -44,17 +66,13 @@ class UnifiedAgent:
             agent_type=self.agent_type,
         )
 
-    async def astream(self, input: ChatInput) -> AsyncIterator[str]:
-        """Stream assistant response tokens from the ReAct graph."""
-        messages: list[Any] = [*input.history, HumanMessage(content=input.message)]
-        async for msg, _metadata in self._graph.astream(
-            {"messages": messages},
-            config=self._build_run_config(input.session_id),
-            stream_mode="messages",
+    async def astream_events(
+        self, input: ChatInput, config: dict[str, Any]
+    ) -> AsyncIterator[dict[str, Any]]:
+        """Delegate to the LangGraph graph's astream_events v2."""
+        async for event in self._graph.astream_events(
+            {"messages": self._build_messages(input)},
+            config=config,
+            version="v2",
         ):
-            if not isinstance(msg, AIMessageChunk) or not msg.content:
-                continue
-            # Skip tool-call chunks (only yield final text tokens)
-            if msg.tool_calls or msg.tool_call_chunks:
-                continue
-            yield str(msg.content)
+            yield event

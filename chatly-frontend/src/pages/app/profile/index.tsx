@@ -36,6 +36,11 @@ import { userService } from "@/services/user.service";
 import { useAuthStore } from "@/store/auth.store";
 import type { UserResponse } from "@/types/auth";
 import { toast } from "sonner";
+import {
+    DISPLAY_NAME_INVALID_MESSAGE,
+    USERNAME_ALLOWED_REGEX,
+    USERNAME_INVALID_MESSAGE,
+} from "@/constants/username";
 
 interface ProfileFormData {
     displayName: string;
@@ -241,8 +246,21 @@ export default function ProfilePage() {
             return;
         }
 
-        if (!form.displayName.trim() || !form.username.trim()) {
+        const trimmedDisplayName = form.displayName.trim();
+        const trimmedUsername = form.username.trim();
+
+        if (!trimmedDisplayName || !trimmedUsername) {
             toast.error("Display name and username cannot be empty");
+            return;
+        }
+
+        if (!USERNAME_ALLOWED_REGEX.test(trimmedDisplayName)) {
+            toast.error(DISPLAY_NAME_INVALID_MESSAGE);
+            return;
+        }
+
+        if (!USERNAME_ALLOWED_REGEX.test(trimmedUsername)) {
+            toast.error(USERNAME_INVALID_MESSAGE);
             return;
         }
 
@@ -266,8 +284,8 @@ export default function ProfilePage() {
             }
 
             const response = await userService.update(user.id, {
-                displayName: form.displayName.trim(),
-                username: form.username.trim(),
+                displayName: trimmedDisplayName,
+                username: trimmedUsername,
                 email: form.email.trim() || undefined,
                 phone: form.phone.trim() || undefined,
                 bio: form.bio.trim() || undefined,

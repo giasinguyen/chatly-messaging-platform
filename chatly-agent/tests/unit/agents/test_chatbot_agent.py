@@ -2,15 +2,15 @@ from collections.abc import AsyncIterator
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from langchain_core.messages import AIMessage
+from langchain_core.messages import AIMessage, AIMessageChunk
 
 from app.agents.chatbot_agent import ChatbotAgent
 from app.models.chat import ChatInput
 
 
-async def _iter_tokens() -> AsyncIterator[AIMessage]:
+async def _iter_chunks() -> AsyncIterator[AIMessageChunk]:
     for token in ["Hel", "lo"]:
-        yield AIMessage(content=token)
+        yield AIMessageChunk(content=token)
 
 
 @pytest.mark.asyncio
@@ -27,7 +27,7 @@ async def test_ainvoke_returns_chat_output(monkeypatch: pytest.MonkeyPatch) -> N
     agent = ChatbotAgent(llm)
 
     result = await agent.ainvoke(
-        ChatInput(message="hi", session_id="session-1", history=[])
+        ChatInput(message="hi", session_id="session-1", user_id="user-1", history=[])
     )
 
     assert result.content == "assistant reply"
@@ -36,7 +36,7 @@ async def test_ainvoke_returns_chat_output(monkeypatch: pytest.MonkeyPatch) -> N
 
 
 @pytest.mark.asyncio
-async def test_astream_yields_tokens(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_astream_events_yields_token_events(monkeypatch: pytest.MonkeyPatch) -> None:
     graph = AsyncMock()
 
     def _build_graph(_: AsyncMock) -> AsyncMock:
@@ -45,14 +45,18 @@ async def test_astream_yields_tokens(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("app.agents.chatbot_agent.build_chatbot_graph", _build_graph)
 
     llm = MagicMock()
-    llm.astream = MagicMock(return_value=_iter_tokens())
+    llm.astream = MagicMock(return_value=_iter_chunks())
     agent = ChatbotAgent(llm)
 
-    chunks = [
-        chunk
-        async for chunk in agent.astream(
-            ChatInput(message="hi", session_id="session-1", history=[])
+    events = [
+        event
+        async for event in agent.astream_events(
+            ChatInput(message="hi", session_id="session-1", user_id="user-1", history=[]),
+            config={"configurable": {"thread_id": "session-1"}},
         )
     ]
 
-    assert chunks == ["Hel", "lo"]
+    assert len(events) == 2
+    assert all(e["event"] == "on_chat_model_stream" for e in events)
+    assert events[0]["data"]["chunk"].content == "Hel"
+    assert events[1]["data"]["chunk"].content == "lo"

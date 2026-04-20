@@ -1,6 +1,6 @@
-"""MCP client (JSON-RPC over HTTP) and MCP server management service."""
+"""MCP client (SSE transport) and MCP server management service."""
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import httpx
@@ -10,63 +10,142 @@ from app.repositories.mcp_repo import MCPRepository
 
 logger = logging.getLogger(__name__)
 
-# JSON-RPC 2.0 method names used by MCP protocol
-_METHOD_LIST_TOOLS = "tools/list"
-_METHOD_CALL_TOOL = "tools/call"
+_HTTP_TIMEOUT = 10.0
 
 
 class MCPClient:
-    """Async JSON-RPC 2.0 client for a single MCP server endpoint."""
+    """Async MCP client supporting two transports:
 
-    def __init__(self, url: str, headers: dict[str, str] | None = None) -> None:
+    * ``"http"``  — Raw JSON-RPC 2.0 over HTTP POST (used by custom user
+      servers such as the bundled math / text demo servers).  A single POST
+      to *url* carries the JSON-RPC request; the response is plain JSON.
+
+    * ``"sse"``   — Legacy SSE transport required by Spring AI 1.0.0
+      (``srping-ai-starter-mcp-server-webmvc``).  The SDK opens a GET SSE
+      stream first, receives a session-specific POST URL, then sends JSON-RPC
+      messages over that URL.  **Only the built-in system MCP server (chatly-
+      backend) uses this transport; custom user servers never should.**
+    """
+
+    def __init__(
+        self,
+        url: str,
+        headers: dict[str, str] | None = None,
+        transport: str = "http",
+    ) -> None:
         self._url = url
         self._headers = headers or {}
+        self._transport = transport
 
-    async def _rpc(self, method: str, params: dict[str, Any], req_id: int = 1) -> Any:
-        """Send a JSON-RPC 2.0 request and return the *result* field."""
-        payload = {
-            "jsonrpc": "2.0",
-            "id": req_id,
-            "method": method,
-            "params": params,
-        }
-        try:
-            async with httpx.AsyncClient(headers=self._headers, timeout=10.0) as client:
-                response = await client.post(self._url, json=payload)
-                response.raise_for_status()
-        except httpx.HTTPStatusError as exc:
-            raise MCPConnectionError(
-                f"MCP server returned HTTP {exc.response.status_code}: {self._url}"
-            ) from exc
-        except httpx.RequestError as exc:
-            raise MCPConnectionError(
-                f"Cannot reach MCP server at {self._url}: {exc}"
-            ) from exc
-
-        data = response.json()
-        if "error" in data:
-            raise MCPConnectionError(
-                f"MCP JSON-RPC error from {self._url}: {data['error']}"
-            )
-        return data.get("result")
+    # ------------------------------------------------------------------ #
+    # Public API                                                           #
+    # ------------------------------------------------------------------ #
 
     async def list_tools(self) -> list[dict[str, Any]]:
         """Fetch the list of tools exposed by this MCP server."""
-        result = await self._rpc(_METHOD_LIST_TOOLS, {})
-        return result.get("tools", [])
+        if self._transport == "sse":
+            return await self._list_tools_sse()
+        return await self._list_tools_http()
 
     async def call_tool(self, tool_name: str, arguments: dict[str, Any]) -> str:
         """Invoke a tool and return its text output."""
-        result = await self._rpc(
-            _METHOD_CALL_TOOL,
-            {"name": tool_name, "arguments": arguments},
-            req_id=2,
-        )
-        # MCP returns content as a list of typed parts; concatenate text parts.
-        content = result.get("content", [])
-        return "\n".join(
-            part["text"] for part in content if part.get("type") == "text"
-        )
+        if self._transport == "sse":
+            return await self._call_tool_sse(tool_name, arguments)
+        return await self._call_tool_http(tool_name, arguments)
+
+    # ------------------------------------------------------------------ #
+    # HTTP transport (raw JSON-RPC 2.0 POST)                             #
+    # ------------------------------------------------------------------ #
+
+    async def _list_tools_http(self) -> list[dict[str, Any]]:
+        payload = {"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {}}
+        try:
+            async with httpx.AsyncClient(
+                headers=self._headers, timeout=_HTTP_TIMEOUT
+            ) as client:
+                response = await client.post(self._url, json=payload)
+                response.raise_for_status()
+            data = response.json()
+            return data.get("result", {}).get("tools", [])
+        except MCPConnectionError:
+            raise
+        except Exception as exc:
+            raise MCPConnectionError(
+                f"HTTP MCP POST to {self._url} failed: {exc}"
+            ) from exc
+
+    async def _call_tool_http(self, tool_name: str, arguments: dict[str, Any]) -> str:
+        payload = {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "tools/call",
+            "params": {"name": tool_name, "arguments": arguments},
+        }
+        try:
+            async with httpx.AsyncClient(
+                headers=self._headers, timeout=_HTTP_TIMEOUT
+            ) as client:
+                response = await client.post(self._url, json=payload)
+                response.raise_for_status()
+            data = response.json()
+            if "error" in data:
+                raise MCPConnectionError(
+                    f"MCP tool '{tool_name}' returned error: {data['error']}"
+                )
+            content = data.get("result", {}).get("content", [])
+            return "\n".join(
+                part["text"]
+                for part in content
+                if isinstance(part, dict) and "text" in part
+            )
+        except MCPConnectionError:
+            raise
+        except Exception as exc:
+            raise MCPConnectionError(
+                f"MCP tool call '{tool_name}' via {self._url} failed: {exc}"
+            ) from exc
+
+    # ------------------------------------------------------------------ #
+    # SSE transport (Spring AI / MCP SDK sse_client)                     #
+    # ------------------------------------------------------------------ #
+
+    async def _list_tools_sse(self) -> list[dict[str, Any]]:
+        from mcp import ClientSession
+        from mcp.client.sse import sse_client
+
+        try:
+            async with sse_client(self._url, headers=self._headers) as (read, write):
+                async with ClientSession(read, write) as session:
+                    await session.initialize()
+                    result = await session.list_tools()
+                    return [tool.model_dump() for tool in result.tools]
+        except MCPConnectionError:
+            raise
+        except Exception as exc:
+            raise MCPConnectionError(
+                f"MCP SSE connection to {self._url} failed: {exc}"
+            ) from exc
+
+    async def _call_tool_sse(self, tool_name: str, arguments: dict[str, Any]) -> str:
+        from mcp import ClientSession
+        from mcp.client.sse import sse_client
+
+        try:
+            async with sse_client(self._url, headers=self._headers) as (read, write):
+                async with ClientSession(read, write) as session:
+                    await session.initialize()
+                    result = await session.call_tool(tool_name, arguments)
+                    return "\n".join(
+                        part.text
+                        for part in result.content
+                        if hasattr(part, "text") and part.text
+                    )
+        except MCPConnectionError:
+            raise
+        except Exception as exc:
+            raise MCPConnectionError(
+                f"MCP tool call '{tool_name}' via {self._url} failed: {exc}"
+            ) from exc
 
 
 class MCPService:
@@ -76,7 +155,11 @@ class MCPService:
         self._repo = mcp_repo
 
     def _make_client(self, record: dict[str, Any]) -> MCPClient:
-        return MCPClient(url=str(record["url"]), headers=record.get("headers", {}))
+        return MCPClient(
+            url=str(record["url"]),
+            headers=record.get("headers", {}),
+            transport=record.get("transport", "http"),
+        )
 
     async def register_server(
         self,
@@ -84,9 +167,10 @@ class MCPService:
         name: str,
         url: str,
         headers: dict[str, str],
+        transport: str = "http",
     ) -> dict[str, Any]:
         """Verify connectivity then persist the server record."""
-        client = MCPClient(url=url, headers=headers)
+        client = MCPClient(url=url, headers=headers, transport=transport)
         # Raises MCPConnectionError if the server is unreachable.
         await client.list_tools()
 
@@ -95,9 +179,10 @@ class MCPService:
             "name": name,
             "url": url,
             "headers": headers,
+            "transport": transport,
             "is_active": True,
-            "created_at": datetime.now(timezone.utc),
-            "updated_at": datetime.now(timezone.utc),
+            "created_at": datetime.now(UTC),
+            "updated_at": datetime.now(UTC),
         }
         return await self._repo.create(doc)
 
@@ -152,7 +237,13 @@ class MCPService:
             try:
                 tools = await client.list_tools()
                 for tool in tools:
-                    all_tools.append({**tool, "server_id": record["id"], "server_url": record["url"], "server_headers": record.get("headers", {})})
+                    all_tools.append({
+                        **tool,
+                        "server_id": record["id"],
+                        "server_url": record["url"],
+                        "server_headers": record.get("headers", {}),
+                        "server_transport": record.get("transport", "http"),
+                    })
             except MCPConnectionError:
                 logger.warning(
                     "Skipping unreachable MCP server %s (%s)",

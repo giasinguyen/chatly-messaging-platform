@@ -18,6 +18,10 @@ import {
     Star,
     AlertTriangle,
     Check,
+    MapPin,
+    Mic,
+    Type,
+    PencilLine,
 } from "lucide-react";
 import { toast } from "sonner";
 import Picker from "@emoji-mart/react";
@@ -38,7 +42,11 @@ import { getDisplayUrl, type KlipyItem } from "@/services/klipy.service";
 import { groupService } from "@/services/group.service";
 import { contactService } from "@/services/contact.service";
 import { useAuthStore } from "@/store/auth.store";
-import type { Message, Attachment, Poll, ChatUser } from "@/types/message";
+import type { Message, Attachment, Poll, ChatUser, LocationPayload } from "@/types/message";
+import { useAudioRecorder, MicPermissionDeniedError } from "@/hooks/useAudioRecorder";
+import { AudioRecordingBar } from "./AudioRecordingBar";
+import { RichTextMessageEditor, type RichTextMessageEditorRef } from "./RichTextMessageEditor";
+import { toMessagePreviewText } from "./richTextMessage.utils";
 
 const LazyMediaPicker = lazy(() => import("@/components/media-picker/MediaPicker").then(m => ({ default: m.MediaPicker })));
 
@@ -48,7 +56,7 @@ interface ChatInputProps {
     replyingTo?: Message | null;
     senderName?: string;
     onCancelReply: () => void;
-    onSendMessage: (content: string, attachments?: Attachment[], poll?: Poll, mentions?: string[], priority?: string, messageType?: string) => void;
+    onSendMessage: (content: string, attachments?: Attachment[], poll?: Poll, mentions?: string[], priority?: string, messageType?: string, location?: LocationPayload) => void;
     onSendVCard?: (user: ChatUser) => void;
     onTyping?: (typing: boolean) => void;
     groupMembers?: ChatUser[];
@@ -86,6 +94,9 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
 }, ref) => {
     const { user } = useAuthStore();
     const [content, setContent] = useState("");
+    const [inputMode, setInputMode] = useState<"plain" | "editor">("plain");
+    const [editorHtmlContent, setEditorHtmlContent] = useState("");
+    const [editorTextContent, setEditorTextContent] = useState("");
     const [isTyping, setIsTyping] = useState(false);
     const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([]);
     const [showEmojiPicker, setShowEmojiPicker] = useState(false);
@@ -94,6 +105,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
     const [pollQuestion, setPollQuestion] = useState("");
     const [pollOptions, setPollOptions] = useState(["", ""]);
     const [pollMultipleChoice, setPollMultipleChoice] = useState(false);
+    const [pollAnonymous, setPollAnonymous] = useState(false);
     const [showReminderDialog, setShowReminderDialog] = useState(false);
     const [reminderTitle, setReminderTitle] = useState("");
     const [reminderDescription, setReminderDescription] = useState("");
@@ -113,8 +125,16 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
     const [vCardUser, setVCardUser] = useState<ChatUser | null>(null);
     const [vCardContacts, setVCardContacts] = useState<ChatUser[]>([]);
     const [vCardLoading, setVCardLoading] = useState(false);
-    const typingTimerRef = useRef<any>(null);
+    // Location dialog state
+    const [showLocationDialog, setShowLocationDialog] = useState(false);
+    const [pendingLocation, setPendingLocation] = useState<LocationPayload | null>(null);
+    const [locationLoading, setLocationLoading] = useState(false);
+    const [isRecordingAudio, setIsRecordingAudio] = useState(false);
+    const [isAudioSending, setIsAudioSending] = useState(false);
+    const { isRecording, elapsedSeconds, analyserNode, startRecording, stopRecording, cancelRecording } = useAudioRecorder();
+    const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const inputRef = useRef<HTMLInputElement>(null);
+    const editorRef = useRef<RichTextMessageEditorRef>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const imageInputRef = useRef<HTMLInputElement>(null);
     const emojiPickerRef = useRef<HTMLDivElement>(null);
@@ -128,6 +148,18 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
             onTyping?.(false);
         }
     }, [isTyping, onTyping]);
+
+    const updateTypingStatus = useCallback((nextText: string) => {
+        if (!isTyping && nextText.trim().length > 0) {
+            setIsTyping(true);
+            onTyping?.(true);
+        }
+
+        if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
+        typingTimerRef.current = setTimeout(() => {
+            stopTyping();
+        }, TYPING_STOP_DELAY);
+    }, [isTyping, onTyping, stopTyping]);
 
     const handleContentChange = (newVal: string) => {
         setContent(newVal);
@@ -143,16 +175,14 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
             setMentionQuery(null);
         }
 
-        if (!isTyping && newVal.trim().length > 0) {
-            setIsTyping(true);
-            onTyping?.(true);
-        }
-
-        if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
-        typingTimerRef.current = setTimeout(() => {
-            stopTyping();
-        }, TYPING_STOP_DELAY);
+        updateTypingStatus(newVal);
     };
+
+    const handleEditorChange = useCallback((nextHtml: string, nextText: string) => {
+        setEditorHtmlContent(nextHtml);
+        setEditorTextContent(nextText);
+        updateTypingStatus(nextText);
+    }, [updateTypingStatus]);
 
     // Filtered mention suggestions
     const mentionSuggestions = useMemo(() => {
@@ -196,9 +226,22 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
 
     useEffect(() => {
         if (replyingTo && inputRef.current) {
-            inputRef.current.focus();
+            if (inputMode === "editor") {
+                editorRef.current?.focus();
+            } else {
+                inputRef.current.focus();
+            }
         }
-    }, [replyingTo]);
+    }, [replyingTo, inputMode]);
+
+    useEffect(() => {
+        setMentionQuery(null);
+        if (inputMode === "editor") {
+            editorRef.current?.focus();
+        } else {
+            inputRef.current?.focus();
+        }
+    }, [inputMode]);
 
     // Close emoji picker on outside click
     useEffect(() => {
@@ -225,6 +268,11 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
     }, [showPriorityMenu]);
 
     const handleEmojiSelect = (emoji: { native: string }) => {
+        if (inputMode === "editor") {
+            editorRef.current?.insertText(emoji.native);
+            editorRef.current?.focus();
+            return;
+        }
         setContent((prev) => prev + emoji.native);
         inputRef.current?.focus();
     };
@@ -318,7 +366,9 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
     // Send Logic
     // ----------------------------------------------------------------
     const isUploading = pendingFiles.some((p) => !p.uploaded && !p.error);
-    const canSend = (content.trim().length > 0 || pendingFiles.some((p) => p.uploaded)) && !isUploading;
+    const hasUploadedFiles = pendingFiles.some((p) => p.uploaded);
+    const activeContent = inputMode === "editor" ? editorTextContent : content;
+    const canSend = (activeContent.trim().length > 0 || hasUploadedFiles) && !isUploading;
 
     // Extract mention user IDs from the content text
     const extractMentions = (text: string): string[] => {
@@ -356,9 +406,33 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
             .filter((p) => p.uploaded)
             .map((p) => p.uploaded!);
 
-        const mentions = extractMentions(content);
-        onSendMessage(content.trim(), attachments.length ? attachments : undefined, undefined, mentions.length ? mentions : undefined, selectedPriority ?? undefined);
+        const liveEditorContent =
+            inputMode === "editor"
+                ? editorRef.current?.getContent() ?? {
+                      html: editorHtmlContent,
+                      text: editorTextContent,
+                  }
+                : null;
+        const messageContent =
+            inputMode === "editor"
+                ? liveEditorContent?.html.trim() ?? ""
+                : content.trim();
+        const mentionSourceText =
+            inputMode === "editor"
+                ? liveEditorContent?.text ?? editorTextContent
+                : content;
+        const mentions = extractMentions(mentionSourceText);
+        onSendMessage(
+            messageContent,
+            attachments.length ? attachments : undefined,
+            undefined,
+            mentions.length ? mentions : undefined,
+            selectedPriority ?? undefined,
+        );
         setContent("");
+        setEditorHtmlContent("");
+        setEditorTextContent("");
+        editorRef.current?.clear();
         setMentionQuery(null);
         setPendingFiles([]);
         setSelectedPriority(null);
@@ -389,6 +463,13 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
             }
         }
 
+        if (e.key === "Escape" && isRecordingAudio) {
+            e.preventDefault();
+            cancelRecording();
+            setIsRecordingAudio(false);
+            return;
+        }
+
         if (e.key === "Enter" && !e.shiftKey) {
             e.preventDefault();
             handleSend();
@@ -403,12 +484,14 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
             question: trimmedQuestion,
             options: validOptions,
             multipleChoice: pollMultipleChoice,
+            anonymous: pollAnonymous,
             votes: {},
         });
         setShowPollDialog(false);
         setPollQuestion("");
         setPollOptions(["", ""]);
         setPollMultipleChoice(false);
+        setPollAnonymous(false);
     };
 
     const handleMediaSelect = (item: KlipyItem) => {
@@ -457,6 +540,105 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
         }
     };
 
+    const handleShareLocation = () => {
+        if (!navigator.geolocation) {
+            toast.error("Geolocation is not supported by your browser");
+            return;
+        }
+        setShowPriorityMenu(false);
+        setLocationLoading(true);
+        toast.promise(
+            new Promise<LocationPayload>((resolve, reject) => {
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        resolve({
+                            latitude: position.coords.latitude,
+                            longitude: position.coords.longitude,
+                            address: `${position.coords.latitude.toFixed(6)}, ${position.coords.longitude.toFixed(6)}`,
+                        });
+                    },
+                    (error) => {
+                        reject(error);
+                    },
+                    { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+                );
+            }),
+            {
+                loading: "Fetching location...",
+                success: (loc) => {
+                    setPendingLocation(loc);
+                    setShowLocationDialog(true);
+                    setLocationLoading(false);
+                    return "Location acquired";
+                },
+                error: (err: GeolocationPositionError) => {
+                    setLocationLoading(false);
+                    if (err.code === 1) { // PERMISSION_DENIED
+                        return "Location access denied. Please allow in browser URL bar.";
+                    }
+                    if (err.code === 2) { // POSITION_UNAVAILABLE
+                        return "Location unavailable. Ensure GPS/Network is active.";
+                    }
+                    if (err.code === 3) { // TIMEOUT
+                        return "Location request timed out.";
+                    }
+                    return `Failed: ${err.message}`;
+                }
+            }
+        );
+    };
+
+    const handleStartRecording = async () => {
+        try {
+            await startRecording();
+            setIsRecordingAudio(true);
+        } catch (err: unknown) {
+            if (err instanceof MicPermissionDeniedError) {
+                toast.error("Microphone access denied. Please allow it in your browser settings.");
+            } else {
+                toast.error("Could not access microphone.");
+            }
+        }
+    };
+
+    const handleSendAudio = async () => {
+        setIsAudioSending(true);
+        try {
+            const result = await stopRecording();
+            setIsRecordingAudio(false);
+            if (!result) return;
+            const { blob, durationSeconds } = result;
+            const extension = blob.type.includes("mp4") ? "mp4" : "webm";
+            const file = new File([blob], `voice-message.${extension}`, { type: blob.type });
+            const uploaded = await fileService.upload(file, conversationId);
+            const attachment: Attachment = {
+                fileId: uploaded.fileId,
+                url: uploaded.url,
+                name: uploaded.fileName,
+                type: uploaded.fileType,
+                size: uploaded.fileSize,
+                durationSeconds,
+            };
+            onSendMessage("", [attachment], undefined, undefined, undefined, "AUDIO");
+        } catch {
+            toast.error("Failed to upload audio message.");
+        } finally {
+            setIsAudioSending(false);
+        }
+    };
+
+    const handleCancelRecording = () => {
+        cancelRecording();
+        setIsRecordingAudio(false);
+    };
+
+    const showMicButton =
+        inputMode === "plain" &&
+        content.trim().length === 0 &&
+        pendingFiles.length === 0 &&
+        !isRecordingAudio;
+    const replyPreviewText = replyingTo ? toMessagePreviewText(replyingTo.content) : "";
+
     return (
         <div className="border-t border-border bg-background font-inter relative">
             {/* MediaPicker overlay */}
@@ -488,7 +670,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
                             {senderName ?? "You"}
                         </p>
                         <p className="text-[11px] text-muted-foreground truncate">
-                            {replyingTo.content}
+                            {replyPreviewText}
                         </p>
                     </div>
                     <Button
@@ -558,6 +740,36 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
             <div className="px-6 pt-3 pb-4 space-y-2">
                 {/* Row 1: Toolbar */}
                 <div className="flex items-center gap-1">
+                    <div className="order-last ml-auto inline-flex items-center rounded-md border border-border p-0.5">
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className={cn(
+                                "h-7 gap-1 px-2 text-xs",
+                                inputMode === "plain" &&
+                                    "bg-accent text-accent-foreground",
+                            )}
+                            onClick={() => setInputMode("plain")}
+                        >
+                            <Type size={12} />
+                            Text
+                        </Button>
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className={cn(
+                                "h-7 gap-1 px-2 text-xs",
+                                inputMode === "editor" &&
+                                    "bg-accent text-accent-foreground",
+                            )}
+                            onClick={() => setInputMode("editor")}
+                        >
+                            <PencilLine size={12} />
+                            Editor
+                        </Button>
+                    </div>
                     {/* Hidden file inputs */}
                     <input
                         ref={imageInputRef}
@@ -821,16 +1033,44 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
                                     />
                                     Send business cards
                                 </button>
+                                <button
+                                    type="button"
+                                    disabled={locationLoading}
+                                    className="flex items-center gap-2.5 w-full px-3 py-2.5 text-sm text-left hover:bg-accent transition-colors disabled:opacity-50"
+                                    onClick={handleShareLocation}
+                                >
+                                    {locationLoading ? (
+                                        <Loader2 size={15} className="text-muted-foreground shrink-0 animate-spin" />
+                                    ) : (
+                                        <MapPin
+                                            size={15}
+                                            className="text-green-600 dark:text-green-500 shrink-0"
+                                        />
+                                    )}
+                                    Share location
+                                </button>
                             </div>
                         )}
                     </div>
                 </div>
 
                 {/* Row 2: Text input + send */}
+                {(isRecordingAudio || isRecording) && (
+                    <AudioRecordingBar
+                        elapsedSeconds={elapsedSeconds}
+                        analyserNode={analyserNode}
+                        onSend={handleSendAudio}
+                        onCancel={handleCancelRecording}
+                        isSending={isAudioSending}
+                    />
+                )}
+
+                {!isRecordingAudio && (
                 <div className="flex items-center gap-2">
                     <div className="flex-1 relative">
                         {/* Mention autocomplete dropdown */}
-                        {mentionQuery !== null &&
+                        {inputMode === "plain" &&
+                            mentionQuery !== null &&
                             mentionSuggestions.length > 0 && (
                                 <div
                                     ref={mentionListRef}
@@ -871,31 +1111,62 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
                                     ))}
                                 </div>
                             )}
-                        <Input
-                            ref={inputRef}
-                            placeholder="Type a message. Use @ to mention"
-                            value={content}
-                            onChange={(e) =>
-                                handleContentChange(e.target.value)
-                            }
-                            onKeyDown={handleKeyDown}
-                            onPaste={handlePaste}
-                            className="bg-transparent border-transparent focus-visible:ring-0 focus-visible:border-transparent p-0 h-10 text-[15px] shadow-none placeholder:text-muted-foreground/50"
-                        />
-                    </div>
-                    <Button
-                        onClick={handleSend}
-                        disabled={!canSend}
-                        className="h-10 px-6 bg-brand text-white hover:bg-brand/90 transition-all active:scale-95 disabled:opacity-50 disabled:scale-100"
-                    >
-                        {isUploading ? (
-                            <Loader2 size={18} className="mr-2 animate-spin" />
+                        {inputMode === "plain" ? (
+                            <Input
+                                ref={inputRef}
+                                placeholder="Type a message. Use @ to mention"
+                                value={content}
+                                onChange={(e) =>
+                                    handleContentChange(e.target.value)
+                                }
+                                onKeyDown={handleKeyDown}
+                                onPaste={handlePaste}
+                                className="bg-transparent border-transparent focus-visible:ring-0 focus-visible:border-transparent p-0 h-10 text-[15px] shadow-none placeholder:text-muted-foreground/50"
+                            />
                         ) : (
-                            <SendHorizontal size={18} className="mr-2" />
+                            <div
+                                onPaste={(e) => {
+                                    const files = Array.from(e.clipboardData.files ?? []);
+                                    if (files.length > 0) {
+                                        e.preventDefault();
+                                        processFiles(files);
+                                    }
+                                }}
+                            >
+                                <RichTextMessageEditor
+                                    ref={editorRef}
+                                    mode={inputMode}
+                                    onChange={handleEditorChange}
+                                    onSend={handleSend}
+                                />
+                            </div>
                         )}
-                        <span className="font-medium text-sm">Send</span>
-                    </Button>
+                    </div>
+                    {showMicButton ? (
+                        <Button
+                            type="button"
+                            onClick={handleStartRecording}
+                            className="h-10 w-10 shrink-0 bg-brand text-white hover:bg-brand/90 rounded-full p-0 transition-all active:scale-95"
+                            title="Record voice message"
+                        >
+                            <Mic size={18} />
+                        </Button>
+                    ) : (
+                        <Button
+                            onClick={handleSend}
+                            disabled={!canSend}
+                            className="h-10 px-6 bg-brand text-white hover:bg-brand/90 transition-all active:scale-95 disabled:opacity-50 disabled:scale-100"
+                        >
+                            {isUploading ? (
+                                <Loader2 size={18} className="mr-2 animate-spin" />
+                            ) : (
+                                <SendHorizontal size={18} className="mr-2" />
+                            )}
+                            <span className="font-medium text-sm">Send</span>
+                        </Button>
+                    )}
                 </div>
+                )}
             </div>
 
             {/* Poll creation dialog */}
@@ -975,6 +1246,20 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
                             />
                             <Label htmlFor="poll-multiple">
                                 Allow multiple choice
+                            </Label>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <input
+                                type="checkbox"
+                                id="poll-anonymous"
+                                checked={pollAnonymous}
+                                onChange={(e) =>
+                                    setPollAnonymous(e.target.checked)
+                                }
+                                className="h-4 w-4 rounded border-border text-brand focus:ring-brand"
+                            />
+                            <Label htmlFor="poll-anonymous">
+                                Anonymous voting
                             </Label>
                         </div>
                     </div>
@@ -1163,6 +1448,50 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
                             }}
                         >
                             Send card
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+            <Dialog open={showLocationDialog} onOpenChange={setShowLocationDialog}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>Share Location</DialogTitle>
+                    </DialogHeader>
+                    {pendingLocation && (
+                        <div className="flex flex-col gap-4 py-4">
+                            <div className="rounded-lg overflow-hidden border border-border bg-muted/30">
+                                <iframe
+                                    title="Map preview"
+                                    width="100%"
+                                    height="200"
+                                    frameBorder="0"
+                                    scrolling="no"
+                                    src={`https://www.openstreetmap.org/export/embed.html?bbox=${pendingLocation.longitude - 0.005}%2C${pendingLocation.latitude - 0.005}%2C${pendingLocation.longitude + 0.005}%2C${pendingLocation.latitude + 0.005}&layer=mapnik&marker=${pendingLocation.latitude}%2C${pendingLocation.longitude}`}
+                                    className="w-full h-[200px] pointer-events-none border-0"
+                                />
+                            </div>
+                            <div className="flex items-center gap-2 px-1 text-sm">
+                                <MapPin size={16} className="text-muted-foreground shrink-0" />
+                                <span className="font-medium">{pendingLocation.address}</span>
+                            </div>
+                        </div>
+                    )}
+                    <DialogFooter>
+                        <Button variant="ghost" onClick={() => setShowLocationDialog(false)}>
+                            Cancel
+                        </Button>
+                        <Button
+                            onClick={() => {
+                                if (pendingLocation) {
+                                    onSendMessage("Location shared", undefined, undefined, undefined, undefined, "LOCATION", pendingLocation);
+                                    setShowLocationDialog(false);
+                                    setPendingLocation(null);
+                                }
+                            }}
+                            className="gap-2"
+                        >
+                            <SendHorizontal size={16} />
+                            Send Location
                         </Button>
                     </DialogFooter>
                 </DialogContent>

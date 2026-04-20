@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
+import { toast } from "sonner";
 import {
     Mic,
     MicOff,
@@ -9,7 +10,6 @@ import {
     Maximize2,
     Minimize2,
     PhoneOff,
-    VideoIcon,
 } from "lucide-react";
 import { useCallStore } from "@/store/call.store";
 
@@ -24,7 +24,7 @@ interface ActiveCallOverlayProps {
     remoteStream: MediaStream | null;
     onEndCall: () => void;
     onToggleCamera?: () => Promise<void>;
-    onUpgradeToVideo?: () => void;
+    onUpgradeToVideo?: () => Promise<{ hasLocalVideoTrack: boolean }>;
 }
 
 export function ActiveCallOverlay({
@@ -35,8 +35,8 @@ export function ActiveCallOverlay({
     onUpgradeToVideo,
 }: ActiveCallOverlayProps) {
     // Video refs nội bộ — đảm bảo stream được attach đúng thời điểm overlay mount
-    const localVideoRef = useRef<HTMLVideoElement>(null);
-    const remoteVideoRef = useRef<HTMLVideoElement>(null);
+    const localVideoRef = useRef<HTMLVideoElement | null>(null);
+    const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
     const remoteAudioRef = useRef<HTMLAudioElement>(null);
 
     // Release camera/mic immediately when overlay unmounts (call ended)
@@ -60,6 +60,11 @@ export function ActiveCallOverlay({
         // even if it contains the same tracks (e.g. after replaceTrack)
         if (remoteVideoRef.current) {
             remoteVideoRef.current.srcObject = remoteStream;
+            // Remote audio is rendered via hidden audio element; keep video muted for reliable autoplay.
+            remoteVideoRef.current.muted = true;
+            remoteVideoRef.current.play().catch((err) => {
+                console.warn("Remote video autoplay failed:", err);
+            });
         }
         if (remoteAudioRef.current) {
             remoteAudioRef.current.srcObject = remoteStream;
@@ -80,12 +85,36 @@ export function ActiveCallOverlay({
         incomingCall,
     } = useCallStore();
 
-    // Tên và avatar của người bên kia:
-    // - Caller (gọi đi): dùng outgoingCallTarget
-    // - Callee (nhận): dùng incomingCall (callerName/callerAvatar)
-    const peerName = outgoingCallTarget?.name ?? incomingCall?.callerName ?? "Người dùng";
+    // Peer name and avatar:
+    // - Caller (outgoing): use outgoingCallTarget
+    // - Callee (incoming): use incomingCall (callerName/callerAvatar)
+    const peerName = outgoingCallTarget?.name ?? incomingCall?.callerName ?? "User";
     const peerAvatar = outgoingCallTarget?.avatarUrl ?? incomingCall?.callerAvatar ?? null;
     const peerInitial = peerName.charAt(0).toUpperCase();
+
+    const attachLocalVideoRef = useCallback(
+        (element: HTMLVideoElement | null) => {
+            localVideoRef.current = element;
+            if (element && localStream) {
+                element.srcObject = localStream;
+            }
+        },
+        [localStream],
+    );
+
+    const attachRemoteVideoRef = useCallback(
+        (element: HTMLVideoElement | null) => {
+            remoteVideoRef.current = element;
+            if (element && remoteStream) {
+                element.srcObject = remoteStream;
+                element.muted = true;
+                element.play().catch((err) => {
+                    console.warn("Remote video autoplay failed:", err);
+                });
+            }
+        },
+        [remoteStream],
+    );
 
     const [isExpanded, setIsExpanded] = useState(false);
     const [isSpeakerOn, setIsSpeakerOn] = useState(true);
@@ -137,7 +166,22 @@ export function ActiveCallOverlay({
         });
     };
 
-    // Timer đếm thời gian cuộc gọi
+    const handleUpgradeToVideo = async () => {
+        try {
+            const result = await onUpgradeToVideo?.();
+            if (result?.hasLocalVideoTrack === false) {
+                toast.success("No local camera detected. Upgraded to video call with camera off");
+                return;
+            }
+            toast.success("Camera enabled, upgrading to video call");
+        } catch (error) {
+            const message = error instanceof Error ? error.message : "Failed to upgrade to video call";
+            console.error("Upgrade to video error:", error);
+            toast.error(message);
+        }
+    };
+
+    // Call duration timer
     useEffect(() => {
         if (callStatus === "ONGOING") {
             timerRef.current = setInterval(() => {
@@ -160,30 +204,34 @@ export function ActiveCallOverlay({
 
     if (callStatus !== "ONGOING" || !activeCall) return null;
 
-    const isVideoCall = activeCall.type === "VIDEO";
+    const hasLocalVideoTrack = Boolean(
+        localStream?.getVideoTracks().some((track) => track.readyState === "live"),
+    );
+    const isVideoCall = activeCall.type === "VIDEO" || hasLocalVideoTrack;
 
     // Hidden audio element — plays remote stream for both voice and video calls
     const remoteAudioEl = (
         <audio ref={remoteAudioRef} autoPlay playsInline style={{ display: "none" }} />
     );
 
-    // Chế độ mở rộng (full screen)
+    // Expanded mode (full screen)
     if (isExpanded) {
         return (
-            <div className="fixed inset-0 z-40 flex flex-col bg-gray-900 text-white">
+            <div className="fixed inset-0 z-40 bg-gray-900 text-white">
                 {remoteAudioEl}
                 {/* Video area */}
-                <div className="relative flex-1">
+                <div className="relative h-full w-full min-h-0">
                     {/* Remote video */}
                     {isVideoCall && remoteStream ? (
                         <video
-                            ref={remoteVideoRef}
+                            ref={attachRemoteVideoRef}
                             autoPlay
                             playsInline
-                            className="h-full w-full object-cover"
+                            muted
+                            className="h-full w-full bg-black object-contain"
                         />
                     ) : (
-                        <div className="flex h-full w-full flex-col items-center justify-center bg-gray-800 gap-4">
+                        <div className="flex h-full w-full flex-col items-center justify-center gap-4 bg-gray-800">
                             {peerAvatar ? (
                                 <img src={peerAvatar} alt={peerName} className="h-24 w-24 rounded-full object-cover" />
                             ) : (
@@ -197,94 +245,102 @@ export function ActiveCallOverlay({
 
                     {/* Local video PiP */}
                     {isVideoCall && (
-                        <div className="absolute bottom-4 right-4 overflow-hidden rounded-lg border-2 border-white">
-                            <video
-                                ref={localVideoRef}
-                                autoPlay
-                                playsInline
-                                muted
-                                className="h-auto w-32 bg-gray-700 object-cover"
-                            />
+                        <div className="absolute bottom-28 right-4 z-20 h-[140px] w-32 overflow-hidden rounded-lg border-2 border-white bg-gray-900">
+                            {hasLocalVideoTrack ? (
+                                <video
+                                    ref={attachLocalVideoRef}
+                                    autoPlay
+                                    playsInline
+                                    muted
+                                    className="h-full w-full bg-gray-700 object-cover"
+                                />
+                            ) : (
+                                <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-gray-800 text-[11px] text-gray-300">
+                                    <VideoOff size={16} />
+                                    <span>Camera off</span>
+                                </div>
+                            )}
                         </div>
                     )}
 
-                    {/* Thời gian */}
+                    {/* Duration */}
                     <div className="absolute left-0 right-0 top-6 text-center">
                         <span className="rounded-full bg-black/40 px-4 py-1.5 text-sm font-medium">
                             {formatDuration(callDuration)}
                         </span>
                     </div>
 
-                    {/* Nút thu nhỏ */}
+                    {/* Minimize button */}
                     <button
                         onClick={() => setIsExpanded(false)}
-                        className="absolute left-4 top-6 rounded-lg bg-black/40 p-2 transition-colors hover:bg-black/60"
+                        className="absolute left-4 top-6 z-30 rounded-lg bg-black/40 p-2 transition-colors hover:bg-black/60"
                     >
                         <Minimize2 size={20} />
                     </button>
-                </div>
 
-                {/* Controls bar */}
-                <div className="flex items-center justify-center gap-5 bg-black/50 px-6 py-5">
-                    <button
-                        onClick={handleToggleMute}
-                        className={`flex h-12 w-12 items-center justify-center rounded-full transition-colors ${
-                            isMuted ? "bg-red-500 hover:bg-red-600" : "bg-white/20 hover:bg-white/30"
-                        }`}
-                    >
-                        {isMuted ? <MicOff size={22} /> : <Mic size={22} />}
-                    </button>
-
-                    {isVideoCall && (
+                    {/* Controls bar */}
+                    <div className="absolute inset-x-0 bottom-0 z-30 flex items-center justify-center gap-5 bg-black/50 px-6 py-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
                         <button
-                            onClick={handleToggleCamera}
+                            onClick={handleToggleMute}
                             className={`flex h-12 w-12 items-center justify-center rounded-full transition-colors ${
-                                isCameraOff ? "bg-red-500 hover:bg-red-600" : "bg-white/20 hover:bg-white/30"
+                                isMuted ? "bg-red-500 hover:bg-red-600" : "bg-white/20 hover:bg-white/30"
                             }`}
                         >
-                            {isCameraOff ? <VideoOff size={22} /> : <Video size={22} />}
+                            {isMuted ? <MicOff size={22} /> : <Mic size={22} />}
                         </button>
-                    )}
 
-                    <button
-                        onClick={handleToggleSpeaker}
-                        className="flex h-12 w-12 items-center justify-center rounded-full bg-white/20 transition-colors hover:bg-white/30"
-                    >
-                        {isSpeakerOn ? <Volume2 size={22} /> : <VolumeX size={22} />}
-                    </button>
+                        {isVideoCall && (
+                            <button
+                                onClick={handleToggleCamera}
+                                className={`flex h-12 w-12 items-center justify-center rounded-full transition-colors ${
+                                    isCameraOff ? "bg-red-500 hover:bg-red-600" : "bg-white/20 hover:bg-white/30"
+                                }`}
+                            >
+                                {isCameraOff ? <VideoOff size={22} /> : <Video size={22} />}
+                            </button>
+                        )}
 
-                    {!isVideoCall && onUpgradeToVideo && (
                         <button
-                            onClick={onUpgradeToVideo}
+                            onClick={handleToggleSpeaker}
                             className="flex h-12 w-12 items-center justify-center rounded-full bg-white/20 transition-colors hover:bg-white/30"
-                            title="Upgrade to video call"
                         >
-                            <VideoIcon size={22} />
+                            {isSpeakerOn ? <Volume2 size={22} /> : <VolumeX size={22} />}
                         </button>
-                    )}
 
-                    <button
-                        onClick={onEndCall}
-                        className="flex h-12 w-12 items-center justify-center rounded-full bg-red-500 transition-colors hover:bg-red-600"
-                    >
-                        <PhoneOff size={22} />
-                    </button>
+                        {!isVideoCall && onUpgradeToVideo && (
+                            <button
+                                onClick={handleUpgradeToVideo}
+                                className="flex h-12 w-12 items-center justify-center rounded-full bg-red-500 transition-colors hover:bg-red-600"
+                                title="Turn camera on and upgrade to video call"
+                            >
+                                <VideoOff size={22} />
+                            </button>
+                        )}
+
+                        <button
+                            onClick={onEndCall}
+                            className="flex h-12 w-12 items-center justify-center rounded-full bg-red-500 transition-colors hover:bg-red-600"
+                        >
+                            <PhoneOff size={22} />
+                        </button>
+                    </div>
                 </div>
             </div>
         );
     }
 
-    // Chế độ thu nhỏ (floating)
+    // Floating mode (collapsed)
     return (
         <div className="fixed bottom-6 right-6 z-40 w-72 overflow-hidden rounded-2xl bg-gray-900 text-white shadow-2xl">
             {remoteAudioEl}
-            {/* Video hoặc avatar */}
+            {/* Video or avatar */}
             <div className="relative">
                 {isVideoCall && remoteStream ? (
                     <video
-                        ref={remoteVideoRef}
+                        ref={attachRemoteVideoRef}
                         autoPlay
                         playsInline
+                        muted
                         className="aspect-video w-full bg-gray-800 object-cover"
                     />
                 ) : (
@@ -304,7 +360,7 @@ export function ActiveCallOverlay({
                 {isVideoCall && (
                     <div className="absolute bottom-2 right-2 overflow-hidden rounded-lg">
                         <video
-                            ref={localVideoRef}
+                            ref={attachLocalVideoRef}
                             autoPlay
                             playsInline
                             muted
@@ -314,13 +370,13 @@ export function ActiveCallOverlay({
                 )}
             </div>
 
-            {/* Thông tin cuộc gọi */}
+            {/* Call info */}
             <div className="px-3 pt-2">
                 <p className="text-sm font-semibold truncate">{peerName}</p>
                 <p className="text-xs text-gray-400">{formatDuration(callDuration)}</p>
             </div>
 
-            {/* Thanh điều khiển */}
+            {/* Controls bar */}
             <div className="flex items-center justify-around p-3">
                 <button
                     onClick={handleToggleMute}
@@ -355,11 +411,11 @@ export function ActiveCallOverlay({
 
                 {!isVideoCall && onUpgradeToVideo && (
                     <button
-                        onClick={onUpgradeToVideo}
+                        onClick={handleUpgradeToVideo}
                         className="rounded-lg p-1.5 transition-colors hover:bg-white/10"
-                        title="Upgrade to video call"
+                        title="Turn camera on and upgrade to video call"
                     >
-                        <VideoIcon size={18} />
+                        <VideoOff size={18} className="text-red-400" />
                     </button>
                 )}
 

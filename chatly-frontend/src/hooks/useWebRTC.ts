@@ -1,5 +1,7 @@
 import { useRef, useCallback, useState, useEffect } from "react";
 import type { CallType } from "@/types/call";
+import { requestMicrophoneStream } from "@/utils/call/audioMedia";
+import { requestCameraTrack, requestVideoCallStream } from "@/utils/call/videoMedia";
 
 const ICE_SERVERS: RTCConfiguration = {
     iceServers: [
@@ -34,7 +36,7 @@ export function useWebRTC() {
     const localVideoRef = useRef<HTMLVideoElement>(null);
     const remoteVideoRef = useRef<HTMLVideoElement>(null);
 
-    // Callback refs — consumer gán trước khi gọi các method
+    // Callback refs — consumer assigns before calling methods
     const callbacksRef = useRef<Partial<UseWebRTCCallbacks>>({});
 
     // Buffer ICE candidates that arrive before setRemoteDescription is called
@@ -68,14 +70,14 @@ export function useWebRTC() {
 
         const pc = new RTCPeerConnection(ICE_SERVERS);
 
-        // Xử lý ICE candidate
+        // Handle ICE candidate
         pc.onicecandidate = (event) => {
             if (event.candidate) {
                 callbacksRef.current.onIceCandidate?.(event.candidate);
             }
         };
 
-        // Xử lý remote stream — build a persistent MediaStream from individual tracks
+        // Handle remote stream — build a persistent MediaStream from individual tracks
         // event.streams[0] can be undefined when peer uses replaceTrack without a stream
         const remoteMediaStream = new MediaStream();
         pc.ontrack = (event) => {
@@ -103,7 +105,7 @@ export function useWebRTC() {
             };
         };
 
-        // Theo dõi trạng thái kết nối
+        // Monitor connection state
         pc.onconnectionstatechange = () => {
             console.log("[WebRTC] connectionState:", pc.connectionState);
             callbacksRef.current.onConnectionStateChange?.(pc.connectionState);
@@ -121,41 +123,16 @@ export function useWebRTC() {
         return pc;
     }, []);
 
-    // Khởi tạo local stream (camera/mic)
-    // Lưu ý: getUserMedia yêu cầu HTTPS hoặc localhost
+    // Initialize local stream (camera/mic)
+    // Note: getUserMedia requires HTTPS or localhost
     const initLocalStream = useCallback(
         async (type: CallType): Promise<MediaStream> => {
             let stream: MediaStream;
 
             if (type === "VIDEO") {
-                try {
-                    // Try full video+audio first
-                    stream = await navigator.mediaDevices.getUserMedia({
-                        audio: true,
-                        video: { facingMode: "user", width: 640, height: 480 },
-                    });
-                } catch (videoErr) {
-                    const name = videoErr instanceof DOMException ? videoErr.name : "";
-                    if (name === "NotFoundError" || name === "DevicesNotFoundError" || name === "NotReadableError") {
-                        // No camera — fall back to audio-only and continue the video call
-                        console.warn("[WebRTC] No camera found, falling back to audio-only for video call");
-                        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                    } else if (name === "NotAllowedError") {
-                        throw new Error("Please grant microphone/camera permission to make the call.");
-                    } else {
-                        throw new Error("Unable to access media device.");
-                    }
-                }
+                stream = await requestVideoCallStream();
             } else {
-                try {
-                    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                } catch (audioErr) {
-                    const name = audioErr instanceof DOMException ? audioErr.name : "";
-                    if (name === "NotAllowedError") {
-                        throw new Error("Please grant microphone permission to make the call.");
-                    }
-                    throw new Error("Microphone is inaccessible.");
-                }
+                stream = await requestMicrophoneStream();
             }
 
             setLocalStream(stream);
@@ -170,7 +147,7 @@ export function useWebRTC() {
         [createPeerConnection],
     );
 
-    // Tạo offer SDP
+    // Create offer SDP
     const createOffer = useCallback(async (): Promise<RTCSessionDescriptionInit> => {
         const pc = createPeerConnection();
         const offer = await pc.createOffer({
@@ -181,7 +158,7 @@ export function useWebRTC() {
         return offer;
     }, [createPeerConnection]);
 
-    // Tạo answer SDP (cho callee)
+    // Create answer SDP (for callee)
     const createAnswer = useCallback(async (): Promise<RTCSessionDescriptionInit> => {
         const pc = createPeerConnection();
         const answer = await pc.createAnswer();
@@ -189,7 +166,7 @@ export function useWebRTC() {
         return answer;
     }, [createPeerConnection]);
 
-    // Set remote description (offer hoặc answer từ peer)
+    // Set remote description (offer or answer from peer)
     const handleRemoteDescription = useCallback(
         async (sdp: RTCSessionDescriptionInit): Promise<void> => {
             const pc = createPeerConnection();
@@ -212,7 +189,7 @@ export function useWebRTC() {
         [createPeerConnection],
     );
 
-    // Thêm ICE candidate từ peer (buffer if remote description not yet set)
+    // Add ICE candidate from peer (buffer if remote description not yet set)
     const addIceCandidate = useCallback(async (candidate: RTCIceCandidateInit): Promise<void> => {
         const pc = peerConnection.current;
         if (!pc || !remoteDescriptionSet.current) {
@@ -227,7 +204,7 @@ export function useWebRTC() {
         }
     }, []);
 
-    // Dọn dẹp tất cả streams và connections
+    // Cleanup all streams and connections
     // Uses refs (not state) so this callback is never stale
     const cleanup = useCallback(() => {
         localStreamRef.current?.getTracks().forEach((track) => track.stop());
@@ -266,7 +243,7 @@ export function useWebRTC() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    // Toggle audio track (mute/unmute thực sự)
+    // Toggle audio track (true mute/unmute)
     const toggleMute = useCallback(() => {
         if (!peerConnection.current) return;
         peerConnection.current.getSenders().forEach((sender) => {
@@ -299,10 +276,7 @@ export function useWebRTC() {
         } else {
             // Re-acquire camera
             try {
-                const vs = await navigator.mediaDevices.getUserMedia({
-                    video: { facingMode: "user", width: 640, height: 480 },
-                });
-                const newTrack = vs.getVideoTracks()[0];
+                const newTrack = await requestCameraTrack();
 
                 if (pc) {
                     const sender = pc.getSenders().find(
@@ -327,31 +301,61 @@ export function useWebRTC() {
         }
     }, []);
 
-    // Upgrade a voice call to video via renegotiation
-    const upgradeToVideo = useCallback(async (): Promise<RTCSessionDescriptionInit> => {
+    // Upgrade a voice call to video via renegotiation.
+    // If local camera is unavailable, fall back to recv-only video so call flow can still upgrade.
+    const upgradeToVideo = useCallback(async (): Promise<{
+        offer: RTCSessionDescriptionInit;
+        hasLocalVideoTrack: boolean;
+    }> => {
         const pc = peerConnection.current;
         if (!pc) throw new Error("No active peer connection");
 
-        const videoStream = await navigator.mediaDevices.getUserMedia({
-            video: { facingMode: "user", width: 640, height: 480 },
-        });
-        const videoTrack = videoStream.getVideoTracks()[0];
+        let videoTrack: MediaStreamTrack | null = null;
+        try {
+            videoTrack = await requestCameraTrack();
+        } catch (error) {
+            console.warn("[WebRTC] Camera unavailable during upgrade, switching to receive-only video.", error);
+        }
 
-        // Add video track to the peer connection
-        pc.addTrack(videoTrack, videoStream);
+        const videoTransceiver = pc
+            .getTransceivers()
+            .find((transceiver) =>
+                transceiver.sender.track?.kind === "video"
+                || transceiver.receiver.track?.kind === "video",
+            );
 
-        // Merge video track into localStream for display
-        setLocalStream((prev) => {
-            if (prev) {
-                return new MediaStream([...prev.getTracks(), videoTrack]);
+        if (videoTrack) {
+            if (videoTransceiver) {
+                await videoTransceiver.sender.replaceTrack(videoTrack);
+                videoTransceiver.direction = "sendrecv";
+            } else {
+                const baseStream = localStreamRef.current ?? new MediaStream([videoTrack]);
+                pc.addTrack(videoTrack, baseStream);
             }
-            return videoStream;
-        });
+
+            // Merge video track into localStream for display
+            const nextStream = localStreamRef.current
+                ? new MediaStream([...localStreamRef.current.getAudioTracks(), videoTrack])
+                : new MediaStream([videoTrack]);
+            setLocalStream(nextStream);
+            localStreamRef.current = nextStream;
+        } else {
+            // Camera is unavailable: keep local camera off but still negotiate video receiver capability.
+            if (videoTransceiver) {
+                await videoTransceiver.sender.replaceTrack(null);
+                videoTransceiver.direction = "recvonly";
+            } else {
+                pc.addTransceiver("video", { direction: "recvonly" });
+            }
+        }
 
         // Create renegotiation offer
-        const offer = await pc.createOffer();
+        const offer = await pc.createOffer({
+            offerToReceiveAudio: true,
+            offerToReceiveVideo: true,
+        });
         await pc.setLocalDescription(offer);
-        return offer;
+        return { offer, hasLocalVideoTrack: Boolean(videoTrack) };
     }, []);
 
     return {

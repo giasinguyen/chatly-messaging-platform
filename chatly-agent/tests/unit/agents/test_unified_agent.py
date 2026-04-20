@@ -10,9 +10,9 @@ from app.agents.unified_agent import UnifiedAgent
 from app.models.chat import ChatInput
 
 
-async def _iter_chunks() -> AsyncIterator[dict]:
-    yield {"messages": [AIMessageChunk(content="Hel")]}
-    yield {"messages": [AIMessageChunk(content="lo")]}
+async def _iter_events() -> AsyncIterator[dict]:
+    yield {"event": "on_chat_model_stream", "data": {"chunk": AIMessageChunk(content="Hel")}}
+    yield {"event": "on_chat_model_stream", "data": {"chunk": AIMessageChunk(content="lo")}}
 
 
 @pytest.mark.asyncio
@@ -27,7 +27,7 @@ async def test_ainvoke_returns_chat_output() -> None:
         llm = AsyncMock()
         agent = UnifiedAgent(llm=llm, tools=[fake_tool])
         result = await agent.ainvoke(
-            ChatInput(message="hi", session_id="session-1", history=[])
+            ChatInput(message="hi", session_id="session-1", user_id="user-1", history=[])
         )
 
     assert result.content == "unified reply"
@@ -36,20 +36,24 @@ async def test_ainvoke_returns_chat_output() -> None:
 
 
 @pytest.mark.asyncio
-async def test_astream_yields_tokens() -> None:
+async def test_astream_events_delegates_to_graph() -> None:
     graph = MagicMock()
     graph.ainvoke = AsyncMock(return_value={"messages": []})
-    graph.astream = MagicMock(return_value=_iter_chunks())
+    graph.astream_events = MagicMock(return_value=_iter_events())
     fake_tool = MagicMock(spec=BaseTool)
 
     with patch("app.agents.unified_agent.create_react_agent", return_value=graph):
         llm = AsyncMock()
         agent = UnifiedAgent(llm=llm, tools=[fake_tool])
-        chunks = [
-            chunk
-            async for chunk in agent.astream(
-                ChatInput(message="hi", session_id="session-1", history=[])
+        events = [
+            event
+            async for event in agent.astream_events(
+                ChatInput(message="hi", session_id="session-1", user_id="user-1", history=[]),
+                config={"configurable": {"thread_id": "session-1"}},
             )
         ]
 
-    assert chunks == ["Hel", "lo"]
+    assert len(events) == 2
+    assert all(e["event"] == "on_chat_model_stream" for e in events)
+    assert events[0]["data"]["chunk"].content == "Hel"
+    assert events[1]["data"]["chunk"].content == "lo"

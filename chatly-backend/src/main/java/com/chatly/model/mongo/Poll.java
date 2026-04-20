@@ -2,6 +2,7 @@ package com.chatly.model.mongo;
 
 import lombok.*;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -20,7 +21,7 @@ public class Poll {
     private List<String> options = new ArrayList<>();
 
     @Builder.Default
-    private boolean multipleChoice = false;
+    private Boolean multipleChoice = false;
 
     /**
      * Map of optionIndex -> list of userIds who voted for that option
@@ -31,4 +32,11 @@ public class Poll {
     /** True when the creator has locked the poll — no more voting allowed */
     @Builder.Default
     private Boolean closed = false;
+
+    /** Optional deadline after which voting is automatically closed */
+    private Instant deadline;
+
+    /** When true, voter identities are hidden from other participants */
+    @Builder.Default
+    private Boolean anonymous = false;
 }

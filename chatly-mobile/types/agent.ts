@@ -12,6 +12,14 @@ export interface AgentSessionList {
   total: number;
 }
 
+// ─── Message Attachment ─────────────────────────────────────
+export interface MessageAttachment {
+  file_id: string;
+  filename: string;
+  content_type: string;
+  size: number;
+}
+
 // ─── Agent Message ──────────────────────────────────────────
 export type AgentRole = 'user' | 'assistant' | 'system';
 
@@ -20,6 +28,7 @@ export interface AgentMessage {
   session_id: string;
   role: AgentRole;
   content: string;
+  attachments?: MessageAttachment[];
   created_at: string;
 }
 
@@ -32,6 +41,7 @@ export interface AgentChatRequest {
   message: string;
   use_web_search: boolean;
   mcp_server_ids: string[];
+  file_ids: string[];
 }
 
 export interface AgentChatResponse {
@@ -41,17 +51,37 @@ export interface AgentChatResponse {
   agent_type: string;
 }
 
-/** SSE stream chunk shapes */
-export interface AgentStreamTokenChunk {
-  token: string;
+/** SSE stream event types */
+export type StreamEventType = 'token' | 'tool_start' | 'tool_end' | 'interrupt' | 'error' | 'done';
+
+export interface AgentStreamEvent {
+  type: StreamEventType;
+  data: Record<string, unknown>;
 }
 
-export interface AgentStreamDoneChunk {
-  done: true;
+export interface TokenEventData {
+  content: string;
+}
+
+export interface ToolStartEventData {
+  tool: string;
+  input: Record<string, unknown>;
+}
+
+export interface ToolEndEventData {
+  tool: string;
+  output: string;
+}
+
+export interface ErrorEventData {
+  message: string;
+}
+
+export interface DoneEventData {
   agent_type: string;
+  message_id: string;
+  attachments?: MessageAttachment[];
 }
-
-export type AgentStreamChunk = AgentStreamTokenChunk | AgentStreamDoneChunk;
 
 // ─── File ───────────────────────────────────────────────────
 export interface AgentFile {
@@ -85,6 +115,30 @@ export interface McpTool {
   name: string;
   description: string;
   input_schema: Record<string, unknown>;
+}
+
+// ─── HITL (Human-in-the-Loop) ───────────────────────────────
+export interface ToolCallState {
+  tool: string;
+  input?: Record<string, unknown>;
+  output?: string;
+  status: 'running' | 'done' | 'cancelled';
+}
+
+export interface InterruptData {
+  type: 'confirm_tool' | 'fill_form';
+  tool_name: string;
+  tool_input: Record<string, unknown>;
+  message: string;
+  all_pending: { tool: string; input: Record<string, unknown> }[];
+  form_schema?: Record<string, unknown>;
+  thread_id: string;
+}
+
+export interface SessionStatusResponse {
+  status: 'idle' | 'interrupted';
+  interrupt_data: InterruptData | null;
+  interrupted_at: string | null;
 }
 
 // ─── Streaming UI State ─────────────────────────────────────

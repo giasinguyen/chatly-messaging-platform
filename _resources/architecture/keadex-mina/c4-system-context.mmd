@@ -1,0 +1,20 @@
+%%{init: {"theme": "default"}}%%
+C4Context
+    title Chatly Messaging Platform — System Context (C4 Level 1)
+
+    Person(webUser, "Web User", "Uses Chatly via web browser")
+    Person(mobileUser, "Mobile User", "Uses Chatly via Expo mobile app")
+
+    System(chatly, "Chatly Messaging Platform", "Real-time messaging with AI assistant, file sharing, and video/audio calls")
+
+    System_Ext(groqLlm, "Groq LLM API", "LLM inference — Llama 3.3 70B")
+    System_Ext(huggingFace, "HuggingFace API", "Embedding models — BGE-base-en-v1.5")
+    System_Ext(tavily, "Tavily Search API", "Web search for AI agent tools")
+    System_Ext(pushServices, "APNs / FCM", "Mobile push notification delivery")
+
+    Rel(webUser, chatly, "Uses", "HTTPS + WebSocket")
+    Rel(mobileUser, chatly, "Uses", "HTTPS + WebSocket")
+    Rel(chatly, groqLlm, "LLM inference", "HTTPS")
+    Rel(chatly, huggingFace, "Embedding requests", "HTTPS")
+    Rel(chatly, tavily, "Web search", "HTTPS")
+    Rel(chatly, pushServices, "Push notifications", "HTTPS")

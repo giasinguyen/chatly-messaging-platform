@@ -40,20 +40,20 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="assistant"
-        options={{
-          title: 'Assistant',
-          tabBarIcon: ({ color, size }) => (
-            <CustomAiIcon size={size} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
         name="contacts"
         options={{
           title: 'Contacts',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="people-outline" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="assistant"
+        options={{
+          title: 'Assistant',
+          tabBarIcon: ({ color, size }) => (
+            <CustomAiIcon size={size} color={color} />
           ),
         }}
       />

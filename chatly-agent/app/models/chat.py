@@ -1,3 +1,6 @@
+from datetime import datetime
+from typing import Any, Literal
+
 from langchain_core.messages import BaseMessage
 from pydantic import BaseModel, Field
 
@@ -8,6 +11,12 @@ class ChatRequest(BaseModel):
     message: str = Field(..., min_length=1, max_length=8192)
     use_web_search: bool = False
     mcp_server_ids: list[str] = Field(default_factory=list)
+    file_ids: list[str] = Field(
+        default_factory=list,
+        description=(
+            "IDs of files uploaded in this session to attach to the user message."
+        ),
+    )
 
 
 class ChatResponse(BaseModel):
@@ -24,7 +33,12 @@ class ChatInput(BaseModel):
 
     message: str = Field(..., min_length=1, max_length=8192)
     session_id: str
+    user_id: str
     history: list[BaseMessage] = Field(default_factory=list)
+    session_context: str = Field(
+        default="",
+        description="Runtime context injected into the system prompt.",
+    )
 
     model_config = {"arbitrary_types_allowed": True, "frozen": True}
 
@@ -35,3 +49,18 @@ class ChatOutput(BaseModel):
     content: str
     session_id: str
     agent_type: str
+
+
+class ResumeRequest(BaseModel):
+    """Request body for resuming after a HITL interrupt."""
+
+    approved: bool = True
+    form_data: dict[str, Any] | None = None
+
+
+class SessionStatusResponse(BaseModel):
+    """Status of a session — idle or interrupted."""
+
+    status: Literal["idle", "interrupted"]
+    interrupt_data: dict[str, Any] | None = None
+    interrupted_at: datetime | None = None

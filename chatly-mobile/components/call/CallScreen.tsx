@@ -20,7 +20,7 @@ interface CallScreenProps {
 }
 
 export function CallScreen({ visible, incomingCall, onAccept, onReject }: CallScreenProps) {
-  // Animation pulsing cho vòng tròn xung quanh avatar
+  // Pulsing animation for circle around avatar
   const pulseScale = useSharedValue(1);
   const pulseOpacity = useSharedValue(0.6);
 
@@ -61,9 +61,9 @@ export function CallScreen({ visible, incomingCall, onAccept, onReject }: CallSc
         className="flex-1 items-center justify-center"
         style={{ backgroundColor: 'rgba(0, 0, 0, 0.85)' }}
       >
-        {/* Thông tin người gọi */}
+        {/* Caller info */}
         <View className="items-center mb-12">
-          {/* Vòng tròn pulsing */}
+          {/* Pulsing circle */}
           <View className="items-center justify-center" style={{ width: 140, height: 140 }}>
             <Animated.View
               style={[
@@ -99,9 +99,9 @@ export function CallScreen({ visible, incomingCall, onAccept, onReject }: CallSc
           </Text>
         </View>
 
-        {/* Nút chấp nhận / từ chối */}
+        {/* Accept / Reject buttons */}
         <View className="flex-row items-center justify-center" style={{ gap: 60 }}>
-          {/* Nút từ chối (đỏ) */}
+          {/* Reject button (red) */}
           <View className="items-center">
             <TouchableOpacity
               onPress={onReject}
@@ -117,11 +117,11 @@ export function CallScreen({ visible, incomingCall, onAccept, onReject }: CallSc
               <Ionicons name="close" size={36} color={Colors.white} />
             </TouchableOpacity>
             <Text className="text-sm mt-2" style={{ color: Colors.textLight }}>
-              Từ chối
+              Decline
             </Text>
           </View>
 
-          {/* Nút chấp nhận (xanh lá) */}
+          {/* Accept button (green) */}
           <View className="items-center">
             <TouchableOpacity
               onPress={onAccept}
@@ -141,7 +141,7 @@ export function CallScreen({ visible, incomingCall, onAccept, onReject }: CallSc
               />
             </TouchableOpacity>
             <Text className="text-sm mt-2" style={{ color: Colors.textLight }}>
-              Chấp nhận
+              Accept
             </Text>
           </View>
         </View>

@@ -2,6 +2,8 @@ import { Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { StatusHint } from "@/types/agent";
 
+const DOT_ANIMATION_INTERVAL_MS = 500;
+
 const HINT_LABELS: Record<StatusHint, string> = {
     thinking: "Thinking",
     searching_web: "Searching the web",
@@ -19,7 +21,7 @@ export function ChatbotThinkingIndicator({ hint }: Props) {
     useEffect(() => {
         const interval = setInterval(() => {
             setDots((prev) => (prev.length >= 3 ? "" : prev + "."));
-        }, 500);
+        }, DOT_ANIMATION_INTERVAL_MS);
         return () => clearInterval(interval);
     }, []);
 

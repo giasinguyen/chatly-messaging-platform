@@ -13,6 +13,7 @@ export interface Attachment {
     name?: string;
     type?: string;
     size?: number;
+    durationSeconds?: number;
 }
 
 export interface EditHistoryEntry {
@@ -32,6 +33,15 @@ export interface Poll {
     multipleChoice: boolean;
     votes: Record<string, string[]>; // optionIndex -> userIds
     closed?: boolean;
+    deadline?: string;
+    anonymous?: boolean;
+}
+
+export interface LocationPayload {
+    latitude: number;
+    longitude: number;
+    address?: string;
+    mapSnapshotUrl?: string;
 }
 
 /**
@@ -67,6 +77,9 @@ export interface Message {
     // Poll
     poll?: Poll | null;
 
+    // Location
+    location?: LocationPayload | null;
+
     // Pin
     pinned: boolean;
     pinnedAt: string | null;
@@ -85,7 +98,7 @@ export interface Message {
 /**
  * ChatEvent – wrapper for all realtime message and group update events from WebSocket.
  */
-export type ChatAction = "SEND" | "EDIT" | "RECALL" | "DELETE" | "GROUP_UPDATE" | "REACT";
+export type ChatAction = "SEND" | "EDIT" | "RECALL" | "DELETE" | "GROUP_UPDATE" | "REACT" | "ROLE_UPDATED";
 export interface ChatEvent {
     action: ChatAction;
     message?: Message;
