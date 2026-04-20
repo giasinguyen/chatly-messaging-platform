@@ -20,6 +20,8 @@ import {
     Check,
     MapPin,
     Mic,
+    Type,
+    PencilLine,
 } from "lucide-react";
 import { toast } from "sonner";
 import Picker from "@emoji-mart/react";
@@ -43,6 +45,7 @@ import { useAuthStore } from "@/store/auth.store";
 import type { Message, Attachment, Poll, ChatUser, LocationPayload } from "@/types/message";
 import { useAudioRecorder, MicPermissionDeniedError } from "@/hooks/useAudioRecorder";
 import { AudioRecordingBar } from "./AudioRecordingBar";
+import { RichTextMessageEditor, type RichTextMessageEditorRef } from "./RichTextMessageEditor";
 
 const LazyMediaPicker = lazy(() => import("@/components/media-picker/MediaPicker").then(m => ({ default: m.MediaPicker })));
 
@@ -90,6 +93,9 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
 }, ref) => {
     const { user } = useAuthStore();
     const [content, setContent] = useState("");
+    const [inputMode, setInputMode] = useState<"plain" | "editor">("plain");
+    const [editorHtmlContent, setEditorHtmlContent] = useState("");
+    const [editorTextContent, setEditorTextContent] = useState("");
     const [isTyping, setIsTyping] = useState(false);
     const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([]);
     const [showEmojiPicker, setShowEmojiPicker] = useState(false);
@@ -127,6 +133,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
     const { isRecording, elapsedSeconds, analyserNode, startRecording, stopRecording, cancelRecording } = useAudioRecorder();
     const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const inputRef = useRef<HTMLInputElement>(null);
+    const editorRef = useRef<RichTextMessageEditorRef>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const imageInputRef = useRef<HTMLInputElement>(null);
     const emojiPickerRef = useRef<HTMLDivElement>(null);
@@ -140,6 +147,18 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
             onTyping?.(false);
         }
     }, [isTyping, onTyping]);
+
+    const updateTypingStatus = useCallback((nextText: string) => {
+        if (!isTyping && nextText.trim().length > 0) {
+            setIsTyping(true);
+            onTyping?.(true);
+        }
+
+        if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
+        typingTimerRef.current = setTimeout(() => {
+            stopTyping();
+        }, TYPING_STOP_DELAY);
+    }, [isTyping, onTyping, stopTyping]);
 
     const handleContentChange = (newVal: string) => {
         setContent(newVal);
@@ -155,16 +174,14 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
             setMentionQuery(null);
         }
 
-        if (!isTyping && newVal.trim().length > 0) {
-            setIsTyping(true);
-            onTyping?.(true);
-        }
-
-        if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
-        typingTimerRef.current = setTimeout(() => {
-            stopTyping();
-        }, TYPING_STOP_DELAY);
+        updateTypingStatus(newVal);
     };
+
+    const handleEditorChange = useCallback((nextHtml: string, nextText: string) => {
+        setEditorHtmlContent(nextHtml);
+        setEditorTextContent(nextText);
+        updateTypingStatus(nextText);
+    }, [updateTypingStatus]);
 
     // Filtered mention suggestions
     const mentionSuggestions = useMemo(() => {
@@ -208,9 +225,22 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
 
     useEffect(() => {
         if (replyingTo && inputRef.current) {
-            inputRef.current.focus();
+            if (inputMode === "editor") {
+                editorRef.current?.focus();
+            } else {
+                inputRef.current.focus();
+            }
         }
-    }, [replyingTo]);
+    }, [replyingTo, inputMode]);
+
+    useEffect(() => {
+        setMentionQuery(null);
+        if (inputMode === "editor") {
+            editorRef.current?.focus();
+        } else {
+            inputRef.current?.focus();
+        }
+    }, [inputMode]);
 
     // Close emoji picker on outside click
     useEffect(() => {
@@ -237,6 +267,11 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
     }, [showPriorityMenu]);
 
     const handleEmojiSelect = (emoji: { native: string }) => {
+        if (inputMode === "editor") {
+            editorRef.current?.insertText(emoji.native);
+            editorRef.current?.focus();
+            return;
+        }
         setContent((prev) => prev + emoji.native);
         inputRef.current?.focus();
     };
@@ -330,7 +365,9 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
     // Send Logic
     // ----------------------------------------------------------------
     const isUploading = pendingFiles.some((p) => !p.uploaded && !p.error);
-    const canSend = (content.trim().length > 0 || pendingFiles.some((p) => p.uploaded)) && !isUploading;
+    const hasUploadedFiles = pendingFiles.some((p) => p.uploaded);
+    const activeContent = inputMode === "editor" ? editorTextContent : content;
+    const canSend = (activeContent.trim().length > 0 || hasUploadedFiles) && !isUploading;
 
     // Extract mention user IDs from the content text
     const extractMentions = (text: string): string[] => {
@@ -368,9 +405,33 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
             .filter((p) => p.uploaded)
             .map((p) => p.uploaded!);
 
-        const mentions = extractMentions(content);
-        onSendMessage(content.trim(), attachments.length ? attachments : undefined, undefined, mentions.length ? mentions : undefined, selectedPriority ?? undefined);
+        const liveEditorContent =
+            inputMode === "editor"
+                ? editorRef.current?.getContent() ?? {
+                      html: editorHtmlContent,
+                      text: editorTextContent,
+                  }
+                : null;
+        const messageContent =
+            inputMode === "editor"
+                ? liveEditorContent?.html.trim() ?? ""
+                : content.trim();
+        const mentionSourceText =
+            inputMode === "editor"
+                ? liveEditorContent?.text ?? editorTextContent
+                : content;
+        const mentions = extractMentions(mentionSourceText);
+        onSendMessage(
+            messageContent,
+            attachments.length ? attachments : undefined,
+            undefined,
+            mentions.length ? mentions : undefined,
+            selectedPriority ?? undefined,
+        );
         setContent("");
+        setEditorHtmlContent("");
+        setEditorTextContent("");
+        editorRef.current?.clear();
         setMentionQuery(null);
         setPendingFiles([]);
         setSelectedPriority(null);
@@ -570,7 +631,11 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
         setIsRecordingAudio(false);
     };
 
-    const showMicButton = content.trim().length === 0 && pendingFiles.length === 0 && !isRecordingAudio;
+    const showMicButton =
+        inputMode === "plain" &&
+        content.trim().length === 0 &&
+        pendingFiles.length === 0 &&
+        !isRecordingAudio;
 
     return (
         <div className="border-t border-border bg-background font-inter relative">
@@ -673,6 +738,36 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
             <div className="px-6 pt-3 pb-4 space-y-2">
                 {/* Row 1: Toolbar */}
                 <div className="flex items-center gap-1">
+                    <div className="mr-2 inline-flex items-center rounded-md border border-border p-0.5">
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className={cn(
+                                "h-7 gap-1 px-2 text-xs",
+                                inputMode === "plain" &&
+                                    "bg-accent text-accent-foreground",
+                            )}
+                            onClick={() => setInputMode("plain")}
+                        >
+                            <Type size={12} />
+                            Text
+                        </Button>
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className={cn(
+                                "h-7 gap-1 px-2 text-xs",
+                                inputMode === "editor" &&
+                                    "bg-accent text-accent-foreground",
+                            )}
+                            onClick={() => setInputMode("editor")}
+                        >
+                            <PencilLine size={12} />
+                            Editor
+                        </Button>
+                    </div>
                     {/* Hidden file inputs */}
                     <input
                         ref={imageInputRef}
@@ -972,7 +1067,8 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
                 <div className="flex items-center gap-2">
                     <div className="flex-1 relative">
                         {/* Mention autocomplete dropdown */}
-                        {mentionQuery !== null &&
+                        {inputMode === "plain" &&
+                            mentionQuery !== null &&
                             mentionSuggestions.length > 0 && (
                                 <div
                                     ref={mentionListRef}
@@ -1013,17 +1109,36 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
                                     ))}
                                 </div>
                             )}
-                        <Input
-                            ref={inputRef}
-                            placeholder="Type a message. Use @ to mention"
-                            value={content}
-                            onChange={(e) =>
-                                handleContentChange(e.target.value)
-                            }
-                            onKeyDown={handleKeyDown}
-                            onPaste={handlePaste}
-                            className="bg-transparent border-transparent focus-visible:ring-0 focus-visible:border-transparent p-0 h-10 text-[15px] shadow-none placeholder:text-muted-foreground/50"
-                        />
+                        {inputMode === "plain" ? (
+                            <Input
+                                ref={inputRef}
+                                placeholder="Type a message. Use @ to mention"
+                                value={content}
+                                onChange={(e) =>
+                                    handleContentChange(e.target.value)
+                                }
+                                onKeyDown={handleKeyDown}
+                                onPaste={handlePaste}
+                                className="bg-transparent border-transparent focus-visible:ring-0 focus-visible:border-transparent p-0 h-10 text-[15px] shadow-none placeholder:text-muted-foreground/50"
+                            />
+                        ) : (
+                            <div
+                                onPaste={(e) => {
+                                    const files = Array.from(e.clipboardData.files ?? []);
+                                    if (files.length > 0) {
+                                        e.preventDefault();
+                                        processFiles(files);
+                                    }
+                                }}
+                            >
+                                <RichTextMessageEditor
+                                    ref={editorRef}
+                                    mode={inputMode}
+                                    onChange={handleEditorChange}
+                                    onSend={handleSend}
+                                />
+                            </div>
+                        )}
                     </div>
                     {showMicButton ? (
                         <Button

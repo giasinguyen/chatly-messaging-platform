@@ -4,12 +4,13 @@ from typing import Any
 from langchain_core.messages import AIMessageChunk, HumanMessage, SystemMessage
 from langchain_groq import ChatGroq
 
+from app.agents.base import BaseAgent
 from app.graphs.chatbot_graph import build_chatbot_graph
 from app.models.chat import ChatInput, ChatOutput
 from app.prompts.system_prompt import CHATLY_SYSTEM_PROMPT
 
 
-class ChatbotAgent:
+class ChatbotAgent(BaseAgent):
     """Conversational chatbot backed by LangGraph and ChatGroq."""
 
     def __init__(self, llm: ChatGroq) -> None:
@@ -29,7 +30,9 @@ class ChatbotAgent:
             HumanMessage(content=input.message),
         ]
 
-    async def ainvoke(self, input: ChatInput) -> ChatOutput:
+    async def ainvoke(
+        self, input: ChatInput, config: dict[str, Any] | None = None
+    ) -> ChatOutput:
         """Run full chatbot turn and return the final assistant message."""
         result = await self._graph.ainvoke(
             {"messages": self._build_messages(input)},
@@ -42,13 +45,11 @@ class ChatbotAgent:
             agent_type=self.agent_type,
         )
 
-    async def astream(self, input: ChatInput) -> AsyncIterator[str]:
-        """Stream assistant response as token chunks."""
+    async def astream_events(
+        self, input: ChatInput, config: dict[str, Any]
+    ) -> AsyncIterator[dict[str, Any]]:
+        """Yield on_chat_model_stream events wrapping each LLM token."""
         messages = self._build_messages(input)
         async for chunk in self._llm.astream(messages):
             if isinstance(chunk, AIMessageChunk) and chunk.content:
-                yield str(chunk.content)
-                continue
-            text = getattr(chunk, "content", "")
-            if text:
-                yield str(text)
+                yield {"event": "on_chat_model_stream", "data": {"chunk": chunk}}

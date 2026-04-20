@@ -2,7 +2,7 @@ import { View, Text, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Avatar } from '@/components/ui/Avatar';
 import { Colors } from '@/constants/theme';
-import { formatRelativeTime, truncateText } from '@/utils/format';
+import { firstMeaningfulPreview, formatRelativeTime, richTextToPlainText, truncateText } from '@/utils/format';
 import type { ConversationResponse } from '@/types/conversation';
 
 interface ConversationItemProps {
@@ -59,13 +59,13 @@ export function ConversationItem({
         preview = prefix + '📷 Image';
         break;
       case 'FILE':
-        preview = prefix + '📎 ' + (lastMessage.content || 'Attachment');
+        preview = prefix + '📎 ' + (firstMeaningfulPreview(lastMessage.content || '', 35) || 'Attachment');
         break;
       case 'VIDEO':
-        preview = prefix + '🎬 ' + (lastMessage.content || 'Video');
+        preview = prefix + '🎬 ' + (firstMeaningfulPreview(lastMessage.content || '', 35) || 'Video');
         break;
       case 'AUDIO':
-        preview = prefix + '🎵 ' + (lastMessage.content || 'Audio');
+        preview = prefix + '🎵 ' + (firstMeaningfulPreview(lastMessage.content || '', 35) || 'Audio');
         break;
       case 'GIF':
         preview = prefix + '🎬 GIF';
@@ -77,7 +77,7 @@ export function ConversationItem({
         preview = prefix + '📇 Contact card';
         break;
       case 'SYSTEM':
-        preview = lastMessage.content;
+        preview = firstMeaningfulPreview(lastMessage.content, 35);
         break;
       case 'CALL': {
         let callData: { callType?: string; status?: string } = {};
@@ -92,7 +92,7 @@ export function ConversationItem({
         break;
       }
       default:
-        preview = prefix + lastMessage.content;
+        preview = prefix + firstMeaningfulPreview(lastMessage.content, 35);
     }
   }
 
@@ -144,7 +144,7 @@ export function ConversationItem({
             }}
             numberOfLines={1}
           >
-            {truncateText(preview, 35)}
+            {truncateText(richTextToPlainText(preview), 35)}
           </Text>
           {conversation.unreadCount > 0 && (
             <View 

@@ -7,6 +7,7 @@ import type {
   AgentMessageHistory,
   AgentChatRequest,
   AgentChatResponse,
+  SessionStatusResponse,
 } from '@/types/agent';
 
 const BASE = '/api/ai/sessions';
@@ -68,5 +69,31 @@ export const agentService = {
       signal,
       reactNative: { textStreaming: true },
     } as any);
+  },
+
+  // ─── Chat (SSE stream resume) — resume after HITL interrupt ─
+  chatStreamResume: async (
+    sessionId: string,
+    approved: boolean,
+    signal?: AbortSignal,
+  ): Promise<Response> => {
+    const token = await AsyncStorage.getItem('access_token');
+    return fetch(`${API_BASE_URL}${BASE}/${sessionId}/chat/stream/resume`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'text/event-stream',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({ approved }),
+      signal,
+      reactNative: { textStreaming: true },
+    } as any);
+  },
+
+  // ─── Session status (for reconnect / interrupt detection) ─
+  getSessionStatus: async (sessionId: string): Promise<SessionStatusResponse> => {
+    const res = await axiosClient.get(`${BASE}/${sessionId}/chat/status`);
+    return res.data;
   },
 };

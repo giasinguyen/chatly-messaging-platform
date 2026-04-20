@@ -1,5 +1,6 @@
 import { cn } from "@/lib/utils";
 import type { ChatUser } from "@/types/message";
+import { isRichTextHtml, sanitizeRichTextHtml } from "./richTextMessage.utils";
 
 interface TextMessageBodyProps {
     content: string;
@@ -59,6 +60,21 @@ export function TextMessageBody({
     onOpenSenderProfile,
 }: TextMessageBodyProps) {
     if (!content) return null;
+
+    if (isRichTextHtml(content)) {
+        const safeHtml = sanitizeRichTextHtml(content);
+        return (
+            <div
+                className={cn(
+                    "chat-rich-text break-words",
+                    isMe && "text-white [&_a]:text-white/90",
+                    !isMe && "text-foreground",
+                    "[&_p]:my-0 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5",
+                )}
+                dangerouslySetInnerHTML={{ __html: safeHtml }}
+            />
+        );
+    }
 
     const combinedRegex = buildCombinedRegex(participantDirectory);
     const parts = content.split(combinedRegex);

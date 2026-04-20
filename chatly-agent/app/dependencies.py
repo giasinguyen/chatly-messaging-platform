@@ -9,6 +9,7 @@ from app.db.qdrant import get_client as get_qdrant_client
 from app.models.context import RequestContext
 from app.repositories.chunk_repo import ChunkRepository
 from app.repositories.file_repo import FileRepository
+from app.repositories.interrupt_repository import InterruptRepository
 from app.repositories.mcp_repo import MCPRepository
 from app.repositories.message_repo import MessageRepository
 from app.repositories.qdrant_repo import QdrantRepository
@@ -50,6 +51,13 @@ def get_file_repository(
 ) -> FileRepository:
     """Build file repository dependency."""
     return FileRepository(collection=db["files"])
+
+
+def get_interrupt_repository(
+    db: AsyncIOMotorDatabase[dict[str, Any]] = Depends(get_database),  # noqa: B008
+) -> InterruptRepository:
+    """Build interrupt state repository dependency."""
+    return InterruptRepository(collection=db["interrupt_states"])
 
 
 def get_chunk_repository(
@@ -123,8 +131,14 @@ def get_chat_service(
     vector_service: VectorService = Depends(get_vector_service),  # noqa: B008
     tool_service: ToolService = Depends(get_tool_service),  # noqa: B008
     file_repo: FileRepository = Depends(get_file_repository),  # noqa: B008
+    interrupt_repo: InterruptRepository = Depends(get_interrupt_repository),  # noqa: B008
 ) -> ChatService:
     """Build chat service dependency."""
+    from app.config import settings
+    checkpointer = None
+    if settings.app_env != "test":
+        from app.db.checkpointer import get_checkpointer
+        checkpointer = get_checkpointer()
     return ChatService(
         session_service=session_service,
         message_repo=message_repo,
@@ -135,6 +149,8 @@ def get_chat_service(
         file_repo=file_repo,
         minio_client=get_storage_client(),
         bucket_name=get_bucket_name(),
+        checkpointer=checkpointer,
+        interrupt_repo=interrupt_repo,
     )
 
 

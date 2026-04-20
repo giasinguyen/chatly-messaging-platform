@@ -59,6 +59,48 @@ export function truncateText(text: string, maxLength: number): string {
   return text.substring(0, maxLength) + '...';
 }
 
+function decodeHtmlEntities(text: string): string {
+  return text
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'");
+}
+
+export function isRichTextHtml(text: string): boolean {
+  return /<\/?(p|br|ul|ol|li|strong|b|i|em|u|s|span)\b/i.test(text);
+}
+
+export function richTextToPlainText(text: string): string {
+  if (!text) return '';
+  if (!isRichTextHtml(text)) return text;
+
+  const withListBreaks = text
+    .replace(/<li[^>]*>/gi, '\n• ')
+    .replace(/<\/li>/gi, '')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/p>/gi, '\n')
+    .replace(/<p[^>]*>/gi, '')
+    .replace(/<\/?(ul|ol|strong|b|i|em|u|s|span)[^>]*>/gi, '');
+
+  return decodeHtmlEntities(withListBreaks)
+    .replace(/\r/g, '')
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+export function firstMeaningfulPreview(text: string, maxLength: number): string {
+  const normalized = richTextToPlainText(text);
+  const firstLine = normalized
+    .split('\n')
+    .map((line) => line.trim())
+    .find(Boolean) ?? '';
+  return truncateText(firstLine, maxLength);
+}
+
 /**
  * Get user initials from display name for avatar fallback
  */
