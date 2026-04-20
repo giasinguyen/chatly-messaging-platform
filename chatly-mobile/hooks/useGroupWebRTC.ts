@@ -35,11 +35,56 @@ interface PeerEntry {
 export function useGroupWebRTC(callbacks?: GroupWebRTCCallbacks) {
   const peers = useRef<Map<string, PeerEntry>>(new Map());
   const localStreamRef = useRef<MediaStream | null>(null);
+  const remoteStreamsRef = useRef<Record<string, MediaStream>>({});
   const callbacksRef = useRef(callbacks);
   callbacksRef.current = callbacks;
 
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [remoteStreams, setRemoteStreams] = useState<Record<string, MediaStream>>({});
+
+  const mergeRemoteStream = useCallback(
+    (peerId: string, streamFromEvent: MediaStream | undefined, trackFromEvent: MediaStreamTrack | undefined) => {
+      const existingStream = remoteStreamsRef.current[peerId];
+      const tracksById = new Map<string, MediaStreamTrack>();
+
+      existingStream?.getTracks().forEach((track) => {
+        if (track.readyState !== 'ended') {
+          tracksById.set(track.id, track);
+        }
+      });
+
+      streamFromEvent?.getTracks().forEach((track) => {
+        if (track.readyState !== 'ended') {
+          tracksById.set(track.id, track);
+        }
+      });
+
+      if (trackFromEvent && trackFromEvent.readyState !== 'ended') {
+        tracksById.set(trackFromEvent.id, trackFromEvent);
+      }
+
+      const mergedTracks = Array.from(tracksById.values());
+      if (mergedTracks.length === 0) return;
+
+      const nextStream = MediaStream
+        ? new MediaStream(mergedTracks)
+        : (streamFromEvent ?? existingStream);
+      if (!nextStream) return;
+
+      remoteStreamsRef.current = {
+        ...remoteStreamsRef.current,
+        [peerId]: nextStream,
+      };
+
+      setRemoteStreams((prev) => ({
+        ...prev,
+        [peerId]: nextStream,
+      }));
+
+      callbacksRef.current?.onPeerStream?.(peerId, nextStream);
+    },
+    [],
+  );
 
   const initLocalStream = useCallback(async (type: CallType): Promise<MediaStream> => {
     if (!mediaDevices) {
@@ -72,23 +117,20 @@ export function useGroupWebRTC(callbacks?: GroupWebRTCCallbacks) {
     };
 
     pc.ontrack = (event: { streams: MediaStream[]; track: MediaStreamTrack }) => {
-      const remote = event.streams[0];
-      if (remote) {
-        setRemoteStreams((prev) => ({ ...prev, [peerId]: remote }));
-        callbacksRef.current?.onPeerStream?.(peerId, remote);
-      } else if (event.track) {
-        // react-native-webrtc may not populate event.streams; build stream from track
-        setRemoteStreams((prev) => {
-          const existing = prev[peerId];
-          const tracks = existing ? [...existing.getTracks(), event.track] : [event.track];
-          const ms = MediaStream ? new MediaStream(tracks) : existing;
-          return ms ? { ...prev, [peerId]: ms } : prev;
-        });
+      // During voice -> video renegotiation, track updates can arrive with either
+      // empty streams or stale stream objects. Always merge by track id and clone.
+      mergeRemoteStream(peerId, event.streams[0], event.track);
+
+      if (event.track) {
+        event.track.onunmute = () => {
+          mergeRemoteStream(peerId, event.streams[0], event.track);
+        };
       }
     };
 
     pc.onconnectionstatechange = () => {
-      if (pc.connectionState === 'failed' || pc.connectionState === 'disconnected') {
+      // disconnected can be transient while networks renegotiate; avoid eager teardown.
+      if (pc.connectionState === 'failed' || pc.connectionState === 'closed') {
         callbacksRef.current?.onPeerConnectionFailed?.(peerId);
       }
     };
@@ -100,7 +142,7 @@ export function useGroupWebRTC(callbacks?: GroupWebRTCCallbacks) {
 
     peers.current.set(peerId, { connection: pc });
     return pc;
-  }, []);
+  }, [mergeRemoteStream]);
 
   const createOfferForPeer = useCallback(
     async (peerId: string): Promise<RTCSessionDescriptionInit> => {
@@ -149,6 +191,9 @@ export function useGroupWebRTC(callbacks?: GroupWebRTCCallbacks) {
     if (!entry) return;
     entry.connection.close();
     peers.current.delete(peerId);
+    const nextRemoteStreams = { ...remoteStreamsRef.current };
+    delete nextRemoteStreams[peerId];
+    remoteStreamsRef.current = nextRemoteStreams;
     setRemoteStreams((prev) => {
       const next = { ...prev };
       delete next[peerId];
@@ -161,6 +206,7 @@ export function useGroupWebRTC(callbacks?: GroupWebRTCCallbacks) {
     peers.current.clear();
     localStreamRef.current?.getTracks().forEach((track) => track.stop());
     localStreamRef.current = null;
+    remoteStreamsRef.current = {};
     setLocalStream(null);
     setRemoteStreams({});
   }, []);

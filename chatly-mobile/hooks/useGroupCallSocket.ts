@@ -88,28 +88,6 @@ export function useGroupCallSocket() {
     }
   }, []);
 
-  const waitForGroupVideoUpgradeDecision = useCallback((peerIds: string[]): Promise<void> => {
-    if (peerIds.length === 0) return Promise.resolve();
-
-    if (pendingGroupVideoUpgradeDecisionRef.current) {
-      throw new Error('A group video upgrade request is already pending.');
-    }
-
-    return new Promise<void>((resolve, reject) => {
-      const timeoutId = setTimeout(() => {
-        pendingGroupVideoUpgradeDecisionRef.current = null;
-        reject(new Error('Some participants did not respond to the video call request.'));
-      }, 20000);
-
-      pendingGroupVideoUpgradeDecisionRef.current = {
-        remainingPeerIds: new Set(peerIds),
-        resolve,
-        reject,
-        timeoutId,
-      };
-    });
-  }, []);
-
   const handleSignalRef = useRef<((signal: CallSignal) => void) | null>(null);
 
   useEffect(() => {
@@ -141,7 +119,6 @@ export function useGroupCallSocket() {
       cancelled = true;
       sub?.unsubscribe();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   const handleSignal = useCallback(
