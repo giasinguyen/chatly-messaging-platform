@@ -1,12 +1,18 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { groupService } from "@/services/group.service";
-import { Loader2, CheckCircle2, XCircle, Clock, Users } from "lucide-react";
+import { Loader2, CheckCircle2, XCircle, Clock, Users, Smartphone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import type { InviteLinkInfoResponse } from "@/types/group";
 
 type PageStatus = "loading" | "preview" | "joining" | "success" | "pending" | "error";
+
+const APP_SCHEME = "chatly-mobile";
+
+function isMobileDevice() {
+    return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+}
 
 export default function JoinByInvitePage() {
     const { token } = useParams<{ token: string }>();
@@ -15,7 +21,12 @@ export default function JoinByInvitePage() {
     const [groupInfo, setGroupInfo] = useState<InviteLinkInfoResponse | null>(null);
     const [conversationId, setConversationId] = useState<string | null>(null);
     const [errorMsg, setErrorMsg] = useState("Failed to join group");
+    const [showAppBanner, setShowAppBanner] = useState(false);
     const calledRef = useRef(false);
+
+    useEffect(() => {
+        if (isMobileDevice()) setShowAppBanner(true);
+    }, []);
 
     useEffect(() => {
         if (!token) {
@@ -47,6 +58,10 @@ export default function JoinByInvitePage() {
             });
     }, [token]);
 
+    const handleOpenInApp = () => {
+        window.location.href = `${APP_SCHEME}://join/${token}`;
+    };
+
     const handleJoin = async () => {
         if (!token) return;
         setStatus("joining");
@@ -73,6 +88,18 @@ export default function JoinByInvitePage() {
     return (
         <div className="min-h-screen flex items-center justify-center bg-background p-4">
             <div className="max-w-sm w-full text-center space-y-4">
+                {showAppBanner && (
+                    <div className="flex items-center gap-3 p-3 rounded-xl border bg-muted/40 text-left mb-2">
+                        <Smartphone className="h-5 w-5 text-brand shrink-0" />
+                        <div className="flex-1 min-w-0">
+                            <p className="text-xs font-medium">Open in Chatly app</p>
+                            <p className="text-[11px] text-muted-foreground">For the best experience</p>
+                        </div>
+                        <Button size="sm" className="text-xs shrink-0" onClick={handleOpenInApp}>
+                            Open
+                        </Button>
+                    </div>
+                )}
                 {(status === "loading" || status === "joining") && (
                     <>
                         <Loader2 className="h-10 w-10 animate-spin text-brand mx-auto" />

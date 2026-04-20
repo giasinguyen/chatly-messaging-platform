@@ -216,7 +216,7 @@ export function ConversationInfoPanel({
         try {
             const res = await groupService.getOrCreateInviteLink(conversation.id);
             if (res.result) {
-                setInviteLink(`${window.location.origin}/join/${res.result.inviteToken}`);
+                setInviteLink(`${import.meta.env.VITE_WEB_BASE_URL || window.location.origin}/join/${res.result.inviteToken}`);
             }
         } catch { /* silent */ } finally { setInviteLinkLoading(false); }
     }, [isGroup, conversation.id]);
@@ -226,7 +226,7 @@ export function ConversationInfoPanel({
         try {
             const res = await groupService.resetInviteLink(conversation.id);
             if (res.result) {
-                setInviteLink(`${window.location.origin}/join/${res.result.inviteToken}`);
+                setInviteLink(`${import.meta.env.VITE_WEB_BASE_URL || window.location.origin}/join/${res.result.inviteToken}`);
             }
             toast.success("Invite link reset");
         } catch { toast.error("Could not reset invite link"); }
