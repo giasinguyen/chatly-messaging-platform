@@ -82,6 +82,19 @@ export function useAgentStream(sessionId?: string) {
                             );
                         } else if (event.type === "interrupt") {
                             const interruptData = event.data as unknown as InterruptData;
+                            // Commit any partial LLM text that appeared before the interrupt
+                            const partialContent = useChatbotStore.getState().streamingContent;
+                            if (partialContent.trim()) {
+                                useChatbotStore.getState().appendMessage(sid, {
+                                    id: `assistant-partial-${Date.now()}`,
+                                    session_id: sid,
+                                    role: "assistant",
+                                    content: partialContent,
+                                    attachments: [],
+                                    created_at: new Date().toISOString(),
+                                });
+                                useChatbotStore.getState().setStreamingContent("");
+                            }
                             setInterrupt(interruptData);
                             useChatbotStore.getState().setStreamingStatus("idle");
                         } else if (event.type === "done") {
