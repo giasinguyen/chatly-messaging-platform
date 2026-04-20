@@ -313,7 +313,7 @@ export function GroupManagementPanel({
             const data = res.result;
             if (data) {
                 setInviteToken(data.inviteToken);
-                setInviteLink(`${window.location.origin}/join/${data.inviteToken}`);
+                setInviteLink(`${import.meta.env.VITE_WEB_BASE_URL || window.location.origin}/join/${data.inviteToken}`);
             }
         } catch {
             toast.error("Failed to create invite link");
@@ -329,7 +329,7 @@ export function GroupManagementPanel({
             const data = res.result;
             if (data) {
                 setInviteToken(data.inviteToken);
-                setInviteLink(`${window.location.origin}/join/${data.inviteToken}`);
+                setInviteLink(`${import.meta.env.VITE_WEB_BASE_URL || window.location.origin}/join/${data.inviteToken}`);
             }
             toast.success("Invite link reset");
         } catch {
