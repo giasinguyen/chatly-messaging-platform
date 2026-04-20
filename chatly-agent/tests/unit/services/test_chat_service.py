@@ -3,6 +3,7 @@ from collections.abc import AsyncIterator
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from langchain_core.messages import AIMessageChunk
 from langchain_core.tools import BaseTool
 
 from app.models.chat import ChatOutput, ChatRequest
@@ -10,9 +11,11 @@ from app.services.chat_service import ChatService
 from app.services.tool_service import ToolService
 
 
-async def _iter_tokens(tokens: list[str]) -> AsyncIterator[str]:
+async def _iter_events(tokens: list[str]) -> AsyncIterator[dict]:
+    """Yield on_chat_model_stream events for each token."""
     for token in tokens:
-        yield token
+        chunk = AIMessageChunk(content=token)
+        yield {"event": "on_chat_model_stream", "data": {"chunk": chunk}}
 
 
 @pytest.mark.asyncio
@@ -90,7 +93,7 @@ async def test_stream_chat_yields_sse_and_persists_full_response() -> None:
 
     chatbot_agent = AsyncMock()
     chatbot_agent.agent_type = "chatbot"
-    chatbot_agent.astream = MagicMock(return_value=_iter_tokens(["Hel", "lo"]))
+    chatbot_agent.astream_events = MagicMock(return_value=_iter_events(["Hel", "lo"]))
 
     service = ChatService(
         session_service=session_service,
@@ -108,13 +111,20 @@ async def test_stream_chat_yields_sse_and_persists_full_response() -> None:
         )
     ]
 
-    assert chunks[0] == 'data: {"token": "Hel"}\n\n'
-    assert chunks[1] == 'data: {"token": "lo"}\n\n'
-    assert chunks[2] == f"data: {json.dumps({'done': True, 'agent_type': 'chatbot'})}\n\n"
+    token_chunks = [c for c in chunks if '"type": "token"' in c]
+    done_chunks = [c for c in chunks if '"type": "done"' in c]
+    assert len(token_chunks) == 2
+    assert json.loads(token_chunks[0].removeprefix("data: ").strip())["data"]["content"] == "Hel"
+    assert json.loads(token_chunks[1].removeprefix("data: ").strip())["data"]["content"] == "lo"
+    assert len(done_chunks) == 1
+    done_data = json.loads(done_chunks[0].removeprefix("data: ").strip())
+    assert done_data["data"]["message_id"] == "m-assistant"
+    assert done_data["data"]["agent_type"] == "chatbot"
     message_repo.create_message.assert_any_await(
         "session-1",
         "assistant",
         "Hello",
+        attachments=None,
     )
 
 
