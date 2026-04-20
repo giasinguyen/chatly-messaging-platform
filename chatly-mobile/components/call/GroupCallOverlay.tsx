@@ -1,5 +1,4 @@
-import { View, Text, FlatList, TouchableOpacity } from 'react-native';
-import { Alert } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, Alert } from 'react-native';
 import { useEffect, useRef, useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { setAudioModeAsync } from 'expo-audio';
@@ -41,6 +40,13 @@ function ParticipantTile({ peerId: _peerId, name, avatar, stream, isVideoCall }:
   const hasLiveVideoTrack = Boolean(
     stream?.getVideoTracks().some((track) => track.readyState === 'live'),
   );
+  const streamRenderKey = stream
+    ? stream
+      .getTracks()
+      .map((track) => `${track.kind}:${track.id}:${track.readyState}`)
+      .sort()
+      .join('|')
+    : 'no-stream';
 
   return (
     <View
@@ -56,7 +62,12 @@ function ParticipantTile({ peerId: _peerId, name, avatar, stream, isVideoCall }:
       }}
     >
       {hasLiveVideoTrack && stream ? (
-        <RTCView streamURL={getStreamUrl(stream)} style={{ flex: 1, width: '100%' }} objectFit="cover" />
+        <RTCView
+          key={`${_peerId}:${streamRenderKey}`}
+          streamURL={getStreamUrl(stream)}
+          style={{ flex: 1, width: '100%' }}
+          objectFit="cover"
+        />
       ) : (
         <View className="flex-1 items-center justify-center" style={{ padding: 12 }}>
           <Avatar uri={avatar} name={name} size={56} />
