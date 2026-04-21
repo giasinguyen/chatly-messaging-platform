@@ -26,7 +26,7 @@
             "compileSdkVersion": 35,
             "targetSdkVersion": 35,
             "buildToolsVersion": "35.0.0",
-            "kotlinVersion": "1.9.25"
+            "kotlinVersion": "2.1.0"
           }
         }
     ]
