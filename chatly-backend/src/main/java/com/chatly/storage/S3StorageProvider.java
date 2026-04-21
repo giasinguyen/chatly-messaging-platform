@@ -9,10 +9,15 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.multipart.MultipartFile;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
+import org.springframework.core.io.InputStreamResource;
+import org.springframework.core.io.Resource;
+import software.amazon.awssdk.core.ResponseInputStream;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
+import software.amazon.awssdk.services.s3.model.GetObjectResponse;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 
 import java.io.IOException;
@@ -78,5 +83,20 @@ public class S3StorageProvider implements StorageProvider {
                 .build();
         s3Client.deleteObject(request);
         log.debug("Deleted from S3: {}", storageKey);
+    }
+
+    @Override
+    public Resource download(String storageKey) {
+        try {
+            GetObjectRequest request = GetObjectRequest.builder()
+                    .bucket(bucket)
+                    .key(storageKey)
+                    .build();
+            ResponseInputStream<GetObjectResponse> stream = s3Client.getObject(request);
+            return new InputStreamResource(stream);
+        } catch (Exception e) {
+            log.error("Failed to download from S3: {}", storageKey, e);
+            throw new AppException(ErrorCode.FILE_NOT_FOUND);
+        }
     }
 }

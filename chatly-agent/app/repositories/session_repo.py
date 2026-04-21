@@ -44,3 +44,20 @@ class SessionRepository(BaseRepository[dict[str, Any]]):
         if doc is None:
             return None
         return cast(dict[str, Any], to_str_id(doc))
+
+    async def find_by_user_and_conversation(
+        self,
+        user_id: str,
+        conversation_id: str,
+    ) -> dict[str, Any] | None:
+        """Return the most recent session linked to a conversation for a user."""
+        doc = await self._col.find_one(
+            {
+                "user_id": user_id,
+                "context_conversation_id": conversation_id,
+            },
+            sort=[("updated_at", -1)],
+        )
+        if doc is None:
+            return None
+        return cast(dict[str, Any], to_str_id(doc))

@@ -7,8 +7,12 @@ from app.services.vector_service import VectorService
 logger = logging.getLogger(__name__)
 
 
-def create_retriever_tool(vector_service: VectorService, session_id: str) -> BaseTool:
-    """Create a retriever tool scoped to a specific session."""
+def create_retriever_tool(
+    vector_service: VectorService,
+    session_id: str,
+    conversation_id: str | None = None,
+) -> BaseTool:
+    """Create a retriever tool scoped to a session (and optionally a conversation)."""
 
     @tool
     async def search_documents(query: str) -> str:
@@ -22,12 +26,16 @@ def create_retriever_tool(vector_service: VectorService, session_id: str) -> Bas
         content when using results in your answer.
         """
         chunks = await vector_service.similarity_search(
-            query, session_id, threshold=0.3
-        )
-        logger.info(
-            "search_documents: query=%r session_id=%s results=%d",
             query,
             session_id,
+            threshold=0.3,
+            conversation_id=conversation_id,
+        )
+        logger.info(
+            "search_documents: query=%r session_id=%s conversation_id=%s results=%d",
+            query,
+            session_id,
+            conversation_id,
             len(chunks),
         )
         if not chunks:

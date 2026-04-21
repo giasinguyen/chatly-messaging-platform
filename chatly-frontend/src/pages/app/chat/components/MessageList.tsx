@@ -24,6 +24,7 @@ interface MessageListProps {
     currentUserId: string;
     onReply: (msg: Message) => void;
     onForward: (msg: Message) => void;
+    onForwardToAi?: (msg: Message) => void;
     onRecall: (messageId: string) => void;
     onEdit: (messageId: string, newContent: string) => void;
     onDelete: (messageId: string) => void;
@@ -55,6 +56,7 @@ export function MessageList({
     currentUserId,
     onReply,
     onForward,
+    onForwardToAi,
     onRecall,
     onEdit,
     onDelete,
@@ -222,6 +224,7 @@ export function MessageList({
                 onCancelEdit={handleCancelEdit}
                 onReply={onReply}
                 onForward={onForward}
+                onForwardToAi={onForwardToAi}
                 onReact={onReact}
                 onOpenSenderProfile={onOpenSenderProfile}
                 onVotePoll={onVotePoll}

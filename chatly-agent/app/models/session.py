@@ -7,6 +7,7 @@ class SessionCreate(BaseModel):
     """Payload to create a chat session."""
 
     title: str = "New Chat"
+    context_conversation_id: str | None = None
 
 
 class SessionUpdate(BaseModel):
@@ -21,6 +22,7 @@ class SessionResponse(BaseModel):
     id: str
     user_id: str
     title: str
+    context_conversation_id: str | None = None
     created_at: datetime
     updated_at: datetime
 

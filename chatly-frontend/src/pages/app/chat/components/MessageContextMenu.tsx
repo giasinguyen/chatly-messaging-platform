@@ -9,6 +9,7 @@ import {
     Forward,
     Star,
     AlertTriangle,
+    Bot,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -27,6 +28,7 @@ interface MessageContextMenuProps {
     children: ReactNode;
     onReply: (msg: Message) => void;
     onForward: (msg: Message) => void;
+    onForwardToAi?: (msg: Message) => void;
     onStartEdit: (msg: Message) => void;
     onRequestRecall: (messageId: string) => void;
     onRequestDelete: (messageId: string) => void;
@@ -40,6 +42,7 @@ export function MessageContextMenu({
     children,
     onReply,
     onForward,
+    onForwardToAi,
     onStartEdit,
     onRequestRecall,
     onRequestDelete,
@@ -67,7 +70,13 @@ export function MessageContextMenu({
                         Forward
                     </ContextMenuItem>
                 )}
-                {msg.type === "TEXT" && !msg.recalled && (
+                {!msg.recalled && onForwardToAi && (
+                    <ContextMenuItem onClick={() => onForwardToAi(msg)} className="gap-2 text-violet-600 focus:text-violet-600">
+                        <Bot size={14} />
+                        Ask AI
+                    </ContextMenuItem>
+                )}
+                {(msg.type === "TEXT" || msg.type === "AGENT") && !msg.recalled && (
                     <ContextMenuItem onClick={handleCopy} className="gap-2">
                         <Copy size={14} />
                         Copy message

@@ -13,4 +13,5 @@ public class GroupUpdateRequest {
     private String avatar;
     private Boolean allowMembersUpdateInfo;
     private Boolean requireApproval;
+    private Boolean aiProactiveEnabled;
 }

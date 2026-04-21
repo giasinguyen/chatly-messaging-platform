@@ -56,6 +56,7 @@ interface GroupManagementPanelProps {
     initialGroupAvatar?: string;
     initialRequireApproval?: boolean;
     initialAllowMembersUpdate?: boolean;
+    initialAiProactiveEnabled?: boolean;
     onGroupUpdated?: (name: string, avatarUrl?: string) => void;
     defaultTab?: "members" | "settings";
 }
@@ -108,6 +109,7 @@ export function GroupManagementPanel({
     initialGroupAvatar = "",
     initialRequireApproval = false,
     initialAllowMembersUpdate = true,
+    initialAiProactiveEnabled = false,
     onGroupUpdated,
     defaultTab = "members",
 }: GroupManagementPanelProps) {
@@ -136,6 +138,7 @@ export function GroupManagementPanel({
     const [avatarUploading, setAvatarUploading] = useState(false);
     const [allowMembersUpdate, setAllowMembersUpdate] = useState(initialAllowMembersUpdate);
     const [requireApproval, setRequireApproval] = useState(initialRequireApproval);
+    const [aiProactiveEnabled, setAiProactiveEnabled] = useState(initialAiProactiveEnabled);
     const avatarInputRef = useRef<HTMLInputElement>(null);
 
     // Invite link
@@ -188,6 +191,7 @@ export function GroupManagementPanel({
             setGroupAvatar(initialGroupAvatar);
             setRequireApproval(initialRequireApproval);
             setAllowMembersUpdate(initialAllowMembersUpdate);
+            setAiProactiveEnabled(initialAiProactiveEnabled);
         }
     }, [open, fetchMembers, initialGroupName, initialGroupAvatar]);
 
@@ -272,6 +276,7 @@ export function GroupManagementPanel({
                 avatar: groupAvatar.trim() || undefined,
                 allowMembersUpdateInfo: allowMembersUpdate,
                 requireApproval,
+                aiProactiveEnabled,
             });
             toast.success("Group info saved");
             onGroupUpdated?.(groupName.trim(), groupAvatar.trim() || undefined);
@@ -697,6 +702,34 @@ export function GroupManagementPanel({
                                             className={cn(
                                                 "absolute top-1 h-4 w-4 rounded-full bg-white transition-transform",
                                                 requireApproval ? "translate-x-5" : "translate-x-1"
+                                            )}
+                                        />
+                                    </button>
+                                </div>
+
+                                <div className="flex items-center justify-between gap-3 rounded-lg border border-border/50 bg-muted/20 px-3 py-2.5">
+                                    <div className="flex-1 min-w-0">
+                                        <p className="text-sm font-medium text-foreground">
+                                            AI proactive assistant
+                                        </p>
+                                        <p className="mt-1 text-xs text-muted-foreground">
+                                            Let AI suggest answers to unanswered questions in this group
+                                        </p>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => setAiProactiveEnabled(!aiProactiveEnabled)}
+                                        disabled={!isOwnerOrAdmin}
+                                        className={cn(
+                                            "relative h-6 w-10 shrink-0 rounded-full transition-colors",
+                                            aiProactiveEnabled ? "bg-violet-500" : "bg-muted/40",
+                                            !isOwnerOrAdmin && "opacity-50 cursor-not-allowed"
+                                        )}
+                                    >
+                                        <div
+                                            className={cn(
+                                                "absolute top-1 h-4 w-4 rounded-full bg-white transition-transform",
+                                                aiProactiveEnabled ? "translate-x-5" : "translate-x-1"
                                             )}
                                         />
                                     </button>

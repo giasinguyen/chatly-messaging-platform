@@ -10,7 +10,12 @@ import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import reactor.core.publisher.Hooks;
 
-import com.chatly.ai.mcp.ChatlyMcpTools;
+import com.chatly.ai.mcp.ConversationTools;
+import com.chatly.ai.mcp.GroupTools;
+import com.chatly.ai.mcp.MessageTools;
+import com.chatly.ai.mcp.PollTools;
+import com.chatly.ai.mcp.ReminderTools;
+import com.chatly.ai.mcp.UserTools;
 
 @SpringBootApplication
 @EnableScheduling
@@ -30,8 +35,16 @@ public class ChatlyBackendApplication {
     }
 
     @Bean
-    public MethodToolCallbackProvider chatlyMcpToolCallbacks(ChatlyMcpTools tools) {
-        return MethodToolCallbackProvider.builder().toolObjects(tools).build();
+    public MethodToolCallbackProvider chatlyMcpToolCallbacks(
+            UserTools userTools,
+            ConversationTools conversationTools,
+            MessageTools messageTools,
+            GroupTools groupTools,
+            ReminderTools reminderTools,
+            PollTools pollTools) {
+        return MethodToolCallbackProvider.builder()
+                .toolObjects(userTools, conversationTools, messageTools, groupTools, reminderTools, pollTools)
+                .build();
     }
 
 }

@@ -1,9 +1,28 @@
 """Dynamic LangChain tool wrapper for MCP server tools."""
 from collections.abc import Callable, Coroutine
-from typing import Any
+from typing import Any, Optional
 
 from langchain_core.tools import BaseTool
-from pydantic import BaseModel, create_model
+from pydantic import BaseModel, Field, create_model
+
+# JSON Schema type → Python type mapping.
+_JSON_SCHEMA_TYPE_MAP: dict[str, type] = {
+    "string": str,
+    "integer": int,
+    "number": float,
+    "boolean": bool,
+}
+
+
+def _resolve_python_type(prop_schema: dict[str, Any]) -> type:
+    """Map a JSON Schema property definition to a Python type."""
+    json_type = prop_schema.get("type", "string")
+    if json_type == "array":
+        items_type = _JSON_SCHEMA_TYPE_MAP.get(
+            prop_schema.get("items", {}).get("type", "string"), str,
+        )
+        return list[items_type]  # type: ignore[valid-type]
+    return _JSON_SCHEMA_TYPE_MAP.get(json_type, str)
 
 
 def create_mcp_tool(
@@ -25,13 +44,22 @@ def create_mcp_tool(
 
     # Determine the first required key for raw-string input fallback.
     required_keys: list[str] = input_schema.get("required", [])
+    required_set: set[str] = set(required_keys)
     first_key: str | None = required_keys[0] if required_keys else None
 
-    # Build a minimal Pydantic args schema so LangChain can validate inputs.
+    # Build a Pydantic args schema that respects JSON Schema types.
     properties: dict[str, Any] = input_schema.get("properties", {})
-    field_definitions: dict[str, Any] = {
-        key: (str, ...) for key in properties
-    }
+    field_definitions: dict[str, Any] = {}
+    for key, prop_schema in properties.items():
+        python_type = _resolve_python_type(prop_schema)
+        description = prop_schema.get("description", "")
+        if key in required_set:
+            field_definitions[key] = (python_type, Field(description=description))
+        else:
+            field_definitions[key] = (
+                Optional[python_type],
+                Field(default=None, description=description),
+            )
     ArgsSchema: type[BaseModel] = create_model(  # noqa: N806
         f"{tool_name}Args", **field_definitions
     )

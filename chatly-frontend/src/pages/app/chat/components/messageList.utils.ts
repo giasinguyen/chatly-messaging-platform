@@ -14,7 +14,7 @@ export interface LightboxImage {
 export function canRecall(msg: Message, currentUserId: string): boolean {
     if (msg.recalled) return false;
     if (msg.senderId !== currentUserId) return false;
-    if (msg.type === "SYSTEM" || msg.type === "CALL") return false;
+    if (msg.type === "SYSTEM" || msg.type === "CALL" || msg.type === "AGENT") return false;
     const age = Date.now() - new Date(msg.createdAt).getTime();
     return age < RECALL_LIMIT_MS;
 }
@@ -29,7 +29,7 @@ export function canEdit(msg: Message, currentUserId: string): boolean {
 
 export function canForward(msg: Message): boolean {
     if (msg.recalled) return false;
-    return ["TEXT", "IMAGE", "FILE", "GIF", "STICKER"].includes(msg.type);
+    return ["TEXT", "IMAGE", "FILE", "GIF", "STICKER", "AGENT"].includes(msg.type);
 }
 
 export function formatSeenTime(readAt: string): string {
@@ -46,9 +46,11 @@ export function formatSeenTime(readAt: string): string {
 export function shouldShowAvatar(messages: Message[], index: number): boolean {
     const currentMsg = messages[index];
     if (!currentMsg || index === 0) return true;
+    if (currentMsg.type === "AGENT") return true;
     const prevMsg = messages[index - 1];
     if (!prevMsg) return true;
     if (prevMsg.senderId !== currentMsg.senderId) return true;
+    if (prevMsg.type !== currentMsg.type) return true;
     const timeDiff =
         new Date(currentMsg.createdAt).getTime() -
         new Date(prevMsg.createdAt).getTime();
@@ -58,9 +60,11 @@ export function shouldShowAvatar(messages: Message[], index: number): boolean {
 export function isLastInGroup(messages: Message[], index: number): boolean {
     const currentMsg = messages[index];
     if (!currentMsg) return false;
+    if (currentMsg.type === "AGENT") return true;
     const nextMsg = messages[index + 1];
     if (!nextMsg) return true;
     if (nextMsg.senderId !== currentMsg.senderId) return true;
+    if (nextMsg.type !== currentMsg.type) return true;
     const timeDiff =
         new Date(nextMsg.createdAt).getTime() -
         new Date(currentMsg.createdAt).getTime();

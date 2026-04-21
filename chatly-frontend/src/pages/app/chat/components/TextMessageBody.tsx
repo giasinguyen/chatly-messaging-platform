@@ -43,6 +43,7 @@ function buildCombinedRegex(participantDirectory: Record<string, ChatUser>): Reg
             u.username,
         ]),
         "all",
+        "AI",
     ].filter(Boolean).sort((a, b) => b.length - a.length);
     const escapedNames = mentionNames.map((n) =>
         n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
@@ -107,6 +108,23 @@ export function TextMessageBody({
                 }
                 if (/^@/.test(part)) {
                     const mentionName = part.replace(/^@/, "");
+
+                    if (mentionName === "AI") {
+                        return (
+                            <span
+                                key={i}
+                                className={cn(
+                                    "inline-flex items-center gap-0.5 font-semibold rounded px-0.5",
+                                    isMe
+                                        ? "text-white/90 bg-white/15"
+                                        : "text-violet-600 dark:text-violet-400 bg-violet-100 dark:bg-violet-900/30",
+                                )}
+                            >
+                                {part}
+                            </span>
+                        );
+                    }
+
                     const mentionedUser =
                         mentionName === "all"
                             ? null

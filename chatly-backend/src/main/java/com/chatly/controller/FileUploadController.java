@@ -4,6 +4,10 @@ import com.chatly.dto.response.ApiResponse;
 import com.chatly.dto.response.FileUploadResponse;
 import com.chatly.service.FileUploadService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.core.io.Resource;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
@@ -75,6 +79,26 @@ public class FileUploadController {
         return ApiResponse.<List<FileUploadResponse>>builder()
                 .result(files)
                 .build();
+    }
+
+    /**
+     * Download / proxy a file by its fileId.
+     * This avoids CORS issues when the file is stored on an external provider (e.g. S3).
+     */
+    @GetMapping("/{fileId}/download")
+    public ResponseEntity<Resource> download(@PathVariable String fileId) {
+        FileUploadService.FileDownloadResult result = fileUploadService.downloadFile(fileId);
+        String contentType = result.metadata().getFileType() != null
+                ? result.metadata().getFileType()
+                : "application/octet-stream";
+        String fileName = result.metadata().getFileName() != null
+                ? result.metadata().getFileName()
+                : "file";
+
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType(contentType))
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + fileName + "\"")
+                .body(result.resource());
     }
 
     // -------------------------------------------------------------------------

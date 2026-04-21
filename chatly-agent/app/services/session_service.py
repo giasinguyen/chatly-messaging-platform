@@ -17,17 +17,23 @@ class SessionService:
         self._session_repo = session_repo
         self._message_repo = message_repo
 
-    async def create_session(self, user_id: str, title: str) -> dict[str, Any]:
+    async def create_session(
+        self,
+        user_id: str,
+        title: str,
+        context_conversation_id: str | None = None,
+    ) -> dict[str, Any]:
         """Create a new session for the user."""
         now = datetime.now(UTC)
-        return await self._session_repo.create(
-            {
-                "user_id": user_id,
-                "title": title,
-                "created_at": now,
-                "updated_at": now,
-            }
-        )
+        doc: dict[str, Any] = {
+            "user_id": user_id,
+            "title": title,
+            "created_at": now,
+            "updated_at": now,
+        }
+        if context_conversation_id is not None:
+            doc["context_conversation_id"] = context_conversation_id
+        return await self._session_repo.create(doc)
 
     async def list_sessions(self, user_id: str) -> list[dict[str, Any]]:
         """List all sessions owned by the user."""
@@ -57,3 +63,21 @@ class SessionService:
         """Return messages of an owned session."""
         await self.get_session(user_id, session_id)
         return await self._message_repo.find_by_session(session_id)
+
+    async def find_or_create_for_conversation(
+        self,
+        user_id: str,
+        conversation_id: str,
+        title: str = "Group AI Session",
+    ) -> dict[str, Any]:
+        """Return the most recent session linked to a conversation, or create one."""
+        existing = await self._session_repo.find_by_user_and_conversation(
+            user_id, conversation_id
+        )
+        if existing is not None:
+            return existing
+        return await self.create_session(
+            user_id,
+            title=title,
+            context_conversation_id=conversation_id,
+        )

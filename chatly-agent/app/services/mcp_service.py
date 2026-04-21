@@ -53,6 +53,18 @@ class MCPClient:
             return await self._call_tool_sse(tool_name, arguments)
         return await self._call_tool_http(tool_name, arguments)
 
+    async def list_resources(self) -> list[dict[str, Any]]:
+        """Fetch the list of resources exposed by this MCP server."""
+        if self._transport == "sse":
+            return await self._list_resources_sse()
+        return await self._list_resources_http()
+
+    async def read_resource(self, uri: str) -> str:
+        """Read a resource by URI and return its text content."""
+        if self._transport == "sse":
+            return await self._read_resource_sse(uri)
+        return await self._read_resource_http(uri)
+
     # ------------------------------------------------------------------ #
     # HTTP transport (raw JSON-RPC 2.0 POST)                             #
     # ------------------------------------------------------------------ #
@@ -145,6 +157,101 @@ class MCPClient:
         except Exception as exc:
             raise MCPConnectionError(
                 f"MCP tool call '{tool_name}' via {self._url} failed: {exc}"
+            ) from exc
+
+    # ------------------------------------------------------------------ #
+    # Resource — HTTP transport                                           #
+    # ------------------------------------------------------------------ #
+
+    async def _list_resources_http(self) -> list[dict[str, Any]]:
+        payload = {"jsonrpc": "2.0", "id": 1, "method": "resources/list", "params": {}}
+        try:
+            async with httpx.AsyncClient(
+                headers=self._headers, timeout=_HTTP_TIMEOUT
+            ) as client:
+                response = await client.post(self._url, json=payload)
+                response.raise_for_status()
+            data = response.json()
+            return data.get("result", {}).get("resources", [])
+        except MCPConnectionError:
+            raise
+        except Exception as exc:
+            raise MCPConnectionError(
+                f"HTTP MCP resources/list at {self._url} failed: {exc}"
+            ) from exc
+
+    async def _read_resource_http(self, uri: str) -> str:
+        payload = {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "resources/read",
+            "params": {"uri": uri},
+        }
+        try:
+            async with httpx.AsyncClient(
+                headers=self._headers, timeout=_HTTP_TIMEOUT
+            ) as client:
+                response = await client.post(self._url, json=payload)
+                response.raise_for_status()
+            data = response.json()
+            if "error" in data:
+                raise MCPConnectionError(
+                    f"MCP resource '{uri}' returned error: {data['error']}"
+                )
+            contents = data.get("result", {}).get("contents", [])
+            return "\n".join(
+                part["text"]
+                for part in contents
+                if isinstance(part, dict) and "text" in part
+            )
+        except MCPConnectionError:
+            raise
+        except Exception as exc:
+            raise MCPConnectionError(
+                f"HTTP MCP resources/read '{uri}' at {self._url} failed: {exc}"
+            ) from exc
+
+    # ------------------------------------------------------------------ #
+    # Resource — SSE transport                                            #
+    # ------------------------------------------------------------------ #
+
+    async def _list_resources_sse(self) -> list[dict[str, Any]]:
+        from mcp import ClientSession
+        from mcp.client.sse import sse_client
+
+        try:
+            async with sse_client(self._url, headers=self._headers) as (read, write):
+                async with ClientSession(read, write) as session:
+                    await session.initialize()
+                    result = await session.list_resources()
+                    return [r.model_dump() for r in result.resources]
+        except MCPConnectionError:
+            raise
+        except Exception as exc:
+            raise MCPConnectionError(
+                f"MCP SSE list_resources at {self._url} failed: {exc}"
+            ) from exc
+
+    async def _read_resource_sse(self, uri: str) -> str:
+        from mcp import ClientSession
+        from mcp.client.sse import sse_client
+        from pydantic import AnyUrl
+
+        try:
+            async with sse_client(self._url, headers=self._headers) as (read, write):
+                async with ClientSession(read, write) as session:
+                    await session.initialize()
+                    result = await session.read_resource(AnyUrl(uri))
+                    return "\n".join(
+                        c.text
+                        for c in result.contents
+                        if hasattr(c, "text") and c.text
+                    )
+        except MCPConnectionError:
+            raise
+        except Exception as exc:
+            raise MCPConnectionError(
+                f"MCP SSE read_resource '{uri}' at {self._url} failed: {exc}"
             ) from exc
 
 
