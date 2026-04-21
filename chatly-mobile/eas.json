@@ -6,16 +6,28 @@
   "build": {
     "development": {
       "developmentClient": true,
-      "distribution": "internal"
+      "distribution": "internal",
+      "image": "expo-51",
+      "env": {
+        "EXPO_USE_COMMUNITY_AUTOLINKING": "0"
+      }
     },
     "preview": {
       "distribution": "internal",
+      "image": "expo-51",
+      "env": {
+        "EXPO_USE_COMMUNITY_AUTOLINKING": "0"
+      },
       "android": {
-        "buildType": "apk" 
+        "buildType": "apk"
       }
     },
     "production": {
       "autoIncrement": true,
+      "image": "expo-51",
+      "env": {
+        "EXPO_USE_COMMUNITY_AUTOLINKING": "0"
+      },
       "android": {
         "buildType": "apk"
       }
