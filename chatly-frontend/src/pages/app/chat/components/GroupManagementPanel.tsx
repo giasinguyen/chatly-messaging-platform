@@ -412,7 +412,7 @@ export function GroupManagementPanel({
     return (
         <>
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-md p-0 gap-0 overflow-hidden max-h-[85vh] flex flex-col">
+            <DialogContent className="sm:max-w-md p-0 gap-0 overflow-x-hidden overflow-y-auto max-h-[85vh] flex flex-col">
                 {/* Header */}
                 <DialogHeader className="px-5 pt-5 pb-3 shrink-0">
                     <DialogTitle className="flex items-center gap-2 text-base">
@@ -480,7 +480,7 @@ export function GroupManagementPanel({
                         </div>
 
                         {/* Member list */}
-                        <ScrollArea className="-mx-1 flex-1 min-h-0 px-1">
+                        <ScrollArea type="always" className="-mx-1 flex-1 min-h-0 px-1 pr-2">
                             {loading ? (
                                 <div className="flex items-center justify-center py-10">
                                     <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
@@ -523,7 +523,7 @@ export function GroupManagementPanel({
                             value="settings"
                             className="mt-0 flex flex-1 min-h-0 flex-col px-5 pb-5"
                         >
-                            <ScrollArea className="flex-1 min-h-0 -mx-1 px-1">
+                            <ScrollArea type="always" className="flex-1 min-h-0 -mx-1 px-1 pr-2">
                             <div className="space-y-4 pt-3">
                                 <div className="space-y-1.5">
                                     <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
