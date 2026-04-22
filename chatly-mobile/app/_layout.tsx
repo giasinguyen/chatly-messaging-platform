@@ -3,6 +3,9 @@ import { useEffect, useCallback } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Slot, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import * as SplashScreen from 'expo-splash-screen';
+import { useFonts } from 'expo-font';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { useAuthStore } from '@/store/auth.store';
 import { setupAxiosInterceptors } from '@/lib/axiosClient';
 import { socketService } from '@/services/socket.service';
@@ -22,6 +25,8 @@ import { View, ActivityIndicator } from 'react-native';
 import { Colors } from '@/constants/theme';
 import { notificationService } from '@/services/notification.service';
 import { useNotificationStore } from '@/store/notification.store';
+
+void SplashScreen.preventAutoHideAsync();
 
 function AuthGateInner({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, hydrated, hydrate, setAuth, clearAuth } = useAuthStore();
@@ -149,6 +154,22 @@ function AuthGate({ children }: { children: React.ReactNode }) {
 }
 
 export default function RootLayout() {
+  const [fontsLoaded] = useFonts({
+    ...Ionicons.font,
+  });
+
+  useEffect(() => {
+    if (fontsLoaded) {
+      SplashScreen.hideAsync().catch(() => {
+        // Ignore splash hide race conditions during startup.
+      });
+    }
+  }, [fontsLoaded]);
+
+  if (!fontsLoaded) {
+    return null;
+  }
+
   return (
     <SafeAreaProvider>
       <StatusBar style="dark" />
