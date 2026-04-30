@@ -1,8 +1,16 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { ImageIcon, TypeIcon, Music, ChevronLeft, Image as ImageIcon2 } from "lucide-react";
+import { ImageIcon, TypeIcon, Music, ChevronLeft, Image as ImageIcon2, Settings, Globe, Users, Lock, ChevronDown, Minus, Plus } from "lucide-react";
 import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import {
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from "@/components/ui/popover";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
+import { Slider } from "@/components/ui/slider";
 
 interface CreateStoryModalProps {
     isOpen: boolean;
@@ -10,6 +18,7 @@ interface CreateStoryModalProps {
 }
 
 type StoryStep = "choose" | "text" | "photo";
+type StoryPrivacy = "public" | "friends" | "custom";
 
 const BACKGROUNDS = [
     "bg-gradient-to-br from-blue-500 to-cyan-400",
@@ -29,6 +38,10 @@ export function CreateStoryModal({ isOpen, onClose }: CreateStoryModalProps) {
     const [textValue, setTextValue] = useState("");
     const [bgIndex, setBgIndex] = useState(0);
     const [font, setFont] = useState("Clean");
+    const [fontSize, setFontSize] = useState(30); // Default font size
+
+    // Global Story State
+    const [privacy, setPrivacy] = useState<StoryPrivacy>("public");
 
     // Photo Story State
     const [photoUrl, setPhotoUrl] = useState<string | null>(null);
@@ -39,6 +52,8 @@ export function CreateStoryModal({ isOpen, onClose }: CreateStoryModalProps) {
         setTextValue("");
         setPhotoUrl(null);
         setBgIndex(0);
+        setFontSize(30);
+        setPrivacy("public");
         onClose();
     };
 
@@ -99,7 +114,66 @@ export function CreateStoryModal({ isOpen, onClose }: CreateStoryModalProps) {
                                 <Button variant="ghost" size="icon" className="rounded-full" onClick={() => setStep("choose")}>
                                     <ChevronLeft className="w-6 h-6" />
                                 </Button>
-                                <h2 className="font-bold text-xl">Your story</h2>
+                                <div className="flex-1">
+                                    <h2 className="font-bold text-xl leading-none">Your story</h2>
+                                </div>
+                                <Popover>
+                                    <PopoverTrigger asChild>
+                                        <Button variant="ghost" size="icon" className="rounded-full">
+                                            <Settings className="w-5 h-5 text-muted-foreground" />
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-80 p-0 rounded-xl overflow-hidden shadow-2xl" align="end">
+                                        <div className="p-4 border-b border-border bg-muted/30">
+                                            <h3 className="font-bold text-lg">Story privacy</h3>
+                                            <p className="text-sm text-muted-foreground">Who can see your story?</p>
+                                        </div>
+                                        <div className="p-4">
+                                            <RadioGroup 
+                                                value={privacy} 
+                                                onValueChange={(v) => setPrivacy(v as StoryPrivacy)}
+                                                className="gap-4"
+                                            >
+                                                <div className="flex items-center justify-between group cursor-pointer" onClick={() => setPrivacy("public")}>
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center">
+                                                            <Globe className="w-5 h-5" />
+                                                        </div>
+                                                        <div>
+                                                            <Label className="font-bold cursor-pointer">Public</Label>
+                                                            <p className="text-xs text-muted-foreground">Anyone on ChatLy</p>
+                                                        </div>
+                                                    </div>
+                                                    <RadioGroupItem value="public" />
+                                                </div>
+                                                <div className="flex items-center justify-between group cursor-pointer" onClick={() => setPrivacy("friends")}>
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center">
+                                                            <Users className="w-5 h-5" />
+                                                        </div>
+                                                        <div>
+                                                            <Label className="font-bold cursor-pointer">Friends</Label>
+                                                            <p className="text-xs text-muted-foreground">Only your friends</p>
+                                                        </div>
+                                                    </div>
+                                                    <RadioGroupItem value="friends" />
+                                                </div>
+                                                <div className="flex items-center justify-between group cursor-pointer" onClick={() => setPrivacy("custom")}>
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center">
+                                                            <Lock className="w-5 h-5" />
+                                                        </div>
+                                                        <div>
+                                                            <Label className="font-bold cursor-pointer">Custom</Label>
+                                                            <p className="text-xs text-muted-foreground">Choose people</p>
+                                                        </div>
+                                                    </div>
+                                                    <RadioGroupItem value="custom" />
+                                                </div>
+                                            </RadioGroup>
+                                        </div>
+                                    </PopoverContent>
+                                </Popover>
                             </div>
 
                             <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-6">
@@ -125,6 +199,39 @@ export function CreateStoryModal({ isOpen, onClose }: CreateStoryModalProps) {
                                                     <option key={f} value={f}>{f}</option>
                                                 ))}
                                             </select>
+                                        </div>
+
+                                        <div className="flex flex-col gap-2">
+                                            <div className="flex items-center justify-between">
+                                                <label className="text-sm font-semibold text-muted-foreground">Font Size</label>
+                                                <span className="text-xs font-medium bg-muted px-2 py-0.5 rounded-md">{fontSize}px</span>
+                                            </div>
+                                            <div className="flex items-center gap-3 px-1">
+                                                <Button 
+                                                    variant="ghost" 
+                                                    size="icon" 
+                                                    className="h-8 w-8 rounded-full bg-muted/50"
+                                                    onClick={() => setFontSize(prev => Math.max(12, prev - 2))}
+                                                >
+                                                    <Minus className="w-4 h-4" />
+                                                </Button>
+                                                <Slider 
+                                                    value={[fontSize]} 
+                                                    min={12} 
+                                                    max={100} 
+                                                    step={1} 
+                                                    onValueChange={(v) => setFontSize(v[0])}
+                                                    className="flex-1"
+                                                />
+                                                <Button 
+                                                    variant="ghost" 
+                                                    size="icon" 
+                                                    className="h-8 w-8 rounded-full bg-muted/50"
+                                                    onClick={() => setFontSize(prev => Math.min(100, prev + 2))}
+                                                >
+                                                    <Plus className="w-4 h-4" />
+                                                </Button>
+                                            </div>
                                         </div>
 
                                         <div className="flex flex-col gap-2">
@@ -174,13 +281,16 @@ export function CreateStoryModal({ isOpen, onClose }: CreateStoryModalProps) {
                                 step === "text" ? BACKGROUNDS[bgIndex] : "bg-black"
                             )}>
                                 {step === "text" && (
-                                    <span className={cn(
-                                        "text-white font-bold",
-                                        font === "Clean" ? "font-sans text-3xl" :
-                                            font === "Headline" ? "font-serif text-4xl uppercase tracking-wider" :
-                                                font === "Casual" ? "font-mono text-2xl" :
-                                                    "font-sans text-3xl italic"
-                                    )}>
+                                    <span 
+                                        className={cn(
+                                            "text-white font-bold",
+                                            font === "Clean" ? "font-sans" :
+                                                font === "Headline" ? "font-serif uppercase tracking-wider" :
+                                                    font === "Casual" ? "font-mono" :
+                                                        "font-sans italic"
+                                        )}
+                                        style={{ fontSize: `${fontSize}px`, lineHeight: 1.2 }}
+                                    >
                                         {textValue || "Start typing..."}
                                     </span>
                                 )}
