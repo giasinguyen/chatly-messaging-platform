@@ -1,0 +1,43 @@
+@startuml Chatly_Sequence_Private_Chat
+title Chatly - Private Chat 1-1 (Simple)
+
+autonumber
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+
+actor "User A" as UserA
+actor "User B" as UserB
+participant "Client A" as ClientA
+participant "ConversationController\nPOST /api/conversations" as ConversationController
+participant "ChatMessageController\nSTOMP /app/chat.send" as ChatWsController
+participant "MessageService" as MessageService
+participant "ConversationRepository" as ConversationRepo
+participant "ContactService" as ContactService
+participant "MessageRepository" as MessageRepo
+participant "Topic /topic/conversation.{id}" as TopicConversation
+participant "User Queue /queue/errors" as QueueErrors
+
+UserA -> ClientA: Open chat with User B
+opt Conversation not created yet
+  ClientA -> ConversationController: create private conversation
+  ConversationController --> ClientA: conversationId
+end
+
+ClientA -> ChatWsController: chat.send{conversationId, content}
+ChatWsController -> MessageService: send(senderId, request)
+MessageService -> ConversationRepo: findById(conversationId)
+MessageService -> ContactService: isBlocked(userA, userB)
+
+alt Blocked or not participant
+  MessageService --> ChatWsController: AppException(...)
+  ChatWsController --> QueueErrors: {code, message}
+  QueueErrors --> ClientA: Error event
+else Success
+  MessageService -> MessageRepo: save(message)
+  MessageRepo --> MessageService: saved
+  MessageService -> TopicConversation: ChatEvent{SEND}
+  TopicConversation --> ClientA: New message
+  TopicConversation --> UserB: New message
+end
+
+@enduml

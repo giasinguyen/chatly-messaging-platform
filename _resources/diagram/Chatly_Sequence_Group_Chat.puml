@@ -1,0 +1,42 @@
+@startuml Chatly_Sequence_Group_Chat
+title Chatly - Group Chat (Simple)
+
+autonumber
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+
+actor "Group Member" as Member
+participant "Client" as Client
+participant "ChatMessageController\nSTOMP /app/chat.send" as ChatWsController
+participant "MessageService" as MessageService
+participant "ConversationRepository" as ConversationRepo
+participant "MessageRepository" as MessageRepo
+participant "NotificationService" as NotificationService
+participant "AgentProxyClient" as AgentProxy
+participant "Topic /topic/conversation.{id}" as TopicConversation
+participant "User Queue /queue/errors" as QueueErrors
+
+Member -> Client: Send group message
+Client -> ChatWsController: chat.send{conversationId, content}
+ChatWsController -> MessageService: send(senderId, request)
+MessageService -> ConversationRepo: findById(conversationId)
+
+alt Not participant or invalid conversation
+  MessageService --> ChatWsController: AppException(...)
+  ChatWsController --> QueueErrors: {code, message}
+  QueueErrors --> Client: Error event
+else Success
+  MessageService -> MessageRepo: save(message)
+  MessageRepo --> MessageService: saved
+  MessageService -> NotificationService: createAndPush(NEW_MESSAGE)
+  NotificationService --> MessageService: done
+  MessageService -> TopicConversation: ChatEvent{SEND}
+  TopicConversation --> Client: Broadcast to members
+
+  opt Mention or @AI feature
+    MessageService -> NotificationService: create mention notification
+    MessageService -> AgentProxy: triggerAssistAsync(...)
+  end
+end
+
+@enduml

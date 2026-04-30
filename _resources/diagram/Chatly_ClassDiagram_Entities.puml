@@ -1,0 +1,622 @@
+@startuml Chatly_ClassDiagram_Entities
+!theme plain
+top to bottom direction
+
+skinparam classAttributeIconSize 0
+skinparam classFontSize 11
+skinparam classBorderColor #495057
+skinparam classBackgroundColor #DBEAFE
+skinparam classHeaderBackgroundColor #1D4ED8
+skinparam classHeaderFontColor #FFFFFF
+skinparam classHeaderFontStyle bold
+skinparam classHeaderFontSize 12
+
+skinparam class<<valueobject>> {
+  BackgroundColor #FEF9C3
+  BorderColor #CA8A04
+  HeaderBackgroundColor #CA8A04
+  HeaderFontColor #FFFFFF
+}
+
+skinparam class<<enum>> {
+  BackgroundColor #F3E8FF
+  BorderColor #7C3AED
+  HeaderBackgroundColor #7C3AED
+  HeaderFontColor #FFFFFF
+}
+
+skinparam class<<sql>> {
+  BackgroundColor #DCFCE7
+  BorderColor #15803D
+  HeaderBackgroundColor #15803D
+  HeaderFontColor #FFFFFF
+}
+
+skinparam class<<mongo>> {
+  BackgroundColor #DBEAFE
+  BorderColor #1D4ED8
+  HeaderBackgroundColor #1D4ED8
+  HeaderFontColor #FFFFFF
+}
+
+skinparam class<<agent>> {
+  BackgroundColor #FCE7F3
+  BorderColor #BE185D
+  HeaderBackgroundColor #BE185D
+  HeaderFontColor #FFFFFF
+}
+
+skinparam packageFontSize 13
+skinparam packageFontStyle bold
+skinparam packageBorderThickness 2
+skinparam arrowColor #374151
+skinparam arrowFontSize 10
+skinparam nodesep 40
+skinparam ranksep 60
+
+title Chatly -- Class Diagram: Entity Classes (UML)
+
+' =====================================================
+' ENUMS
+' =====================================================
+package "Enumerations" #F5F3FF {
+
+  enum UserStatus <<enum>> {
+    ONLINE
+    OFFLINE
+    AWAY
+  }
+
+  enum ContactStatus <<enum>> {
+    PENDING
+    ACCEPTED
+    BLOCKED
+  }
+
+  enum GroupRole <<enum>> {
+    OWNER
+    ADMIN
+    MEMBER
+  }
+
+  enum ClientPlatform <<enum>> {
+    WEB
+    MOBILE
+  }
+
+  enum ConversationType <<enum>> {
+    PRIVATE
+    GROUP
+  }
+
+  enum MessageType <<enum>> {
+    TEXT
+    IMAGE
+    FILE
+    VIDEO
+    AUDIO
+    SYSTEM
+    POLL
+    CALL
+    GIF
+    STICKER
+    VCARD
+    LOCATION
+  }
+
+  enum MessageStatus <<enum>> {
+    SENT
+    DELIVERED
+    READ
+  }
+
+  enum NotificationType <<enum>> {
+    NEW_MESSAGE
+    MENTION
+    FRIEND_REQUEST
+    GROUP_INVITE
+    GROUP_JOIN_REQUEST
+    MEMBER_JOINED
+    CALL_MISSED
+    SYSTEM
+  }
+
+  enum CallType <<enum>> {
+    VOICE
+    VIDEO
+  }
+
+  enum CallStatus <<enum>> {
+    RINGING
+    ONGOING
+    ENDED
+    MISSED
+    REJECTED
+  }
+}
+
+' =====================================================
+' SQL ENTITIES (PostgreSQL)
+' =====================================================
+package "SQL Entities -- PostgreSQL" #F0FDF4 {
+
+  class User <<sql>> {
+    --Attributes--
+    +id : UUID <<PK>>
+    +username : String <<unique>>
+    +email : String <<unique, nullable>>
+    +emailVerified : boolean
+    -password : String
+    +displayName : String
+    +avatarUrl : String
+    +phone : String <<unique, nullable>>
+    +dob : Instant
+    +bio : String
+    +status : UserStatus
+    +lastSeen : Instant
+    +deviceTokens : Set<String>
+    -passwordChangedAt : Instant
+    +createdAt : Instant
+    +updatedAt : Instant
+    --Methods--
+    +isEmailVerified() : boolean
+    +isPasswordExpired() : boolean
+  }
+
+  class Contact <<sql>> {
+    --Attributes--
+    +id : UUID <<PK>>
+    +user : User <<FK>>
+    +contact : User <<FK>>
+    +status : ContactStatus
+    +blockedBy : UUID
+    +createdAt : Instant
+    .. unique(user_id, contact_id) ..
+    --Methods--
+    +isBlocked() : boolean
+    +isPending() : boolean
+  }
+
+  class GroupMember <<sql>> {
+    --Attributes--
+    +id : UUID <<PK>>
+    +conversationId : String <<ref>>
+    +user : User <<FK>>
+    +role : GroupRole
+    +nickname : String
+    +joinedAt : Instant
+    .. unique(conversation_id, user_id) ..
+    --Methods--
+    +isOwner() : boolean
+    +isAdmin() : boolean
+    +hasRole(role: GroupRole) : boolean
+  }
+
+  class UserLoginSession <<sql>> {
+    --Attributes--
+    +id : UUID <<PK>>
+    +userId : UUID <<ref>>
+    +platform : ClientPlatform
+    +revoked : boolean
+    +revokedAt : Instant
+    +deviceLabel : String
+    +userAgent : String
+    +ipAddress : String
+    +locationLabel : String
+    +geoSnapshot : JsonNode
+    +createdAt : Instant
+    +lastSeenAt : Instant
+    --Methods--
+    +isActive() : boolean
+    +revoke() : void
+  }
+
+  class EmailVerificationOtp <<sql>> {
+    --Attributes--
+    +id : UUID <<PK>>
+    +userId : UUID <<ref>>
+    +verificationToken : String
+    +expiresAt : Instant
+    +used : boolean
+    +createdAt : Instant
+    --Methods--
+    +isExpired() : boolean
+    +isUsed() : boolean
+    +isValid() : boolean
+  }
+}
+
+' =====================================================
+' MONGO ENTITIES (chatly-backend)
+' =====================================================
+package "MongoDB Entities -- chatly-backend" #EFF6FF {
+
+  class Conversation <<mongo>> {
+    --Attributes--
+    +id : String <<PK>>
+    +type : ConversationType
+    +name : String
+    +avatarUrl : String
+    +creatorId : String
+    +participantIds : List<String>
+    +lastMessage : LastMessage
+    +allowMembersUpdateInfo : Boolean
+    +requireApproval : Boolean
+    +inviteToken : String
+    +pinnedBy : Set<String>
+    +mutedBy : Map<String, Instant>
+    +deletedBy : Set<String>
+    +createdAt : Instant
+    +updatedAt : Instant
+    --Methods--
+    +isGroup() : boolean
+    +isPrivate() : boolean
+    +isMutedBy(userId: String) : boolean
+    +isPinnedBy(userId: String) : boolean
+  }
+
+  class Message <<mongo>> {
+    --Attributes--
+    +id : String <<PK>>
+    +conversationId : String <<ref>>
+    +senderId : String
+    +content : String
+    +type : MessageType
+    +status : MessageStatus
+    +replyToId : String <<self-ref>>
+    +forwardedFromId : String
+    +forwardedFromConversationId : String
+    +attachments : List<Attachment>
+    +readBy : List<ReadReceipt>
+    +recalled : boolean
+    +recalledAt : Instant
+    +recalledBy : String
+    +edited : boolean
+    +editedAt : Instant
+    +editHistory : List<EditHistory>
+    +reactions : List<Reaction>
+    +poll : Poll
+    +location : LocationPayload
+    +pinned : boolean
+    +pinnedAt : Instant
+    +pinnedBy : String
+    +priority : String
+    +mentions : List<String>
+    +createdAt : Instant
+    +updatedAt : Instant
+    --Methods--
+    +isRecalled() : boolean
+    +isEdited() : boolean
+    +isPinned() : boolean
+    +hasReaction(userId: String) : boolean
+    +isReadBy(userId: String) : boolean
+  }
+
+  class Notification <<mongo>> {
+    --Attributes--
+    +id : String <<PK>>
+    +type : NotificationType
+    +senderId : String
+    +receiverId : String
+    +referenceId : String
+    +content : String
+    +read : boolean
+    +createdAt : Instant
+    --Methods--
+    +markRead() : void
+    +isRead() : boolean
+  }
+
+  class UserSettings <<mongo>> {
+    --Attributes--
+    +id : String <<PK>>
+    +userId : String <<unique, ref>>
+    +privacy : PrivacySettings
+    +notifications : NotificationSettings
+    +messages : MessageSettings
+    +createdAt : Instant
+    +updatedAt : Instant
+    --Methods--
+    +getPrivacy() : PrivacySettings
+    +getNotifications() : NotificationSettings
+    +getMessages() : MessageSettings
+  }
+
+  class CallSession <<mongo>> {
+    --Attributes--
+    +id : String <<PK>>
+    +callId : String <<unique>>
+    +conversationId : String <<ref>>
+    +initiatorId : String
+    +participants : List<String>
+    +type : CallType
+    +status : CallStatus
+    +startedAt : LocalDateTime
+    +endedAt : LocalDateTime
+    --Methods--
+    +isOngoing() : boolean
+    +getDuration() : Duration
+    +hasParticipant(userId: String) : boolean
+  }
+
+  class FileMetadata <<mongo>> {
+    --Attributes--
+    +id : String <<PK>>
+    +provider : String
+    +storageKey : String
+    +url : String
+    +fileName : String
+    +fileType : String
+    +fileSize : Long
+    +uploadedBy : String
+    +conversationId : String <<ref>>
+    +createdAt : Instant
+    --Methods--
+    +isImage() : boolean
+    +isVideo() : boolean
+    +getFileSizeMB() : double
+  }
+
+  class GroupNote <<mongo>> {
+    --Attributes--
+    +id : String <<PK>>
+    +conversationId : String <<ref>>
+    +creatorId : String
+    +title : String
+    +content : String
+    +pinned : Boolean
+    +createdAt : Instant
+    +updatedAt : Instant
+    --Methods--
+    +pin() : void
+    +unpin() : void
+  }
+
+  class GroupReminder <<mongo>> {
+    --Attributes--
+    +id : String <<PK>>
+    +conversationId : String <<ref>>
+    +creatorId : String
+    +title : String
+    +description : String
+    +remindAt : Instant
+    +completed : Boolean
+    +notified : Boolean
+    +createdAt : Instant
+    --Methods--
+    +complete() : void
+    +isOverdue() : boolean
+    +markNotified() : void
+  }
+
+  class PendingJoinRequest <<mongo>> {
+    --Attributes--
+    +id : String <<PK>>
+    +conversationId : String <<ref>>
+    +userId : String
+    +invitedBy : String
+    +createdAt : Instant
+    .. unique(conversationId, userId) ..
+    --Methods--
+    +approve() : void
+    +reject() : void
+  }
+}
+
+' =====================================================
+' VALUE OBJECTS
+' =====================================================
+package "Value Objects (Embedded)" #FFFBEB {
+
+  class LastMessage <<valueobject>> {
+    +senderId : String
+    +content : String
+    +type : MessageType
+    +timestamp : Instant
+  }
+
+  class Attachment <<valueobject>> {
+    +fileId : String
+    +name : String
+    +url : String
+    +type : String
+    +size : Long
+    +durationSeconds : Integer
+  }
+
+  class ReadReceipt <<valueobject>> {
+    +userId : String
+    +readAt : Instant
+  }
+
+  class Reaction <<valueobject>> {
+    +userId : String
+    +emoji : String
+    +createdAt : Instant
+  }
+
+  class EditHistory <<valueobject>> {
+    +content : String
+    +editedAt : Instant
+  }
+
+  class Poll <<valueobject>> {
+    +question : String
+    +options : List<String>
+    +multipleChoice : Boolean
+    +votes : Map<String, List<String>>
+    +closed : Boolean
+    +deadline : Instant
+    +anonymous : Boolean
+    --Methods--
+    +isClosed() : boolean
+    +getVoteCount(option: String) : int
+  }
+
+  class LocationPayload <<valueobject>> {
+    +latitude : Double
+    +longitude : Double
+    +address : String
+    +mapSnapshotUrl : String
+  }
+
+  class PrivacySettings <<valueobject>> {
+    +showOnlineStatus : Boolean
+    +showLastSeen : Boolean
+    +showReadReceipts : Boolean
+    +allowFriendRequests : Boolean
+  }
+
+  class NotificationSettings <<valueobject>> {
+    +messageSound : Boolean
+    +groupSound : Boolean
+    +callSound : Boolean
+    +showPreview : Boolean
+  }
+
+  class MessageSettings <<valueobject>> {
+    +enterToSend : Boolean
+    +autoDownloadMedia : Boolean
+    +fontSize : String
+  }
+}
+
+' =====================================================
+' AGENT ENTITIES
+' =====================================================
+package "Agent Entities -- chatly-agent (MongoDB)" #FDF2F8 {
+
+  class AgentSession <<agent>> {
+    --Attributes--
+    +_id : ObjectId <<PK>>
+    +user_id : String <<ref>>
+    +title : String
+    +created_at : DateTime
+    +updated_at : DateTime
+    --Methods--
+    +rename(title: String) : void
+  }
+
+  class AgentMessage <<agent>> {
+    --Attributes--
+    +_id : ObjectId <<PK>>
+    +session_id : ObjectId <<ref>>
+    +role : String
+    +content : String
+    +attachments : List
+    +created_at : DateTime
+    --Methods--
+    +isUserMessage() : boolean
+    +isAssistantMessage() : boolean
+  }
+
+  class AgentFile <<agent>> {
+    --Attributes--
+    +_id : ObjectId <<PK>>
+    +session_id : ObjectId <<ref>>
+    +user_id : String
+    +filename : String
+    +mime_type : String
+    +size_bytes : Long
+    +minio_bucket : String
+    +object_key : String
+    +etag : String
+    +created_at : DateTime
+    --Methods--
+    +getSizeMB() : double
+    +isIndexed() : boolean
+  }
+
+  class Chunk <<agent>> {
+    --Attributes--
+    +_id : ObjectId <<PK>>
+    +file_id : ObjectId <<ref>>
+    +session_id : ObjectId <<ref>>
+    +user_id : String
+    +content : String
+    +chunk_index : Integer
+    --Methods--
+    +getEmbedding() : float[]
+  }
+
+  class MCPServer <<agent>> {
+    --Attributes--
+    +_id : ObjectId <<PK>>
+    +user_id : String <<ref>>
+    +name : String
+    +url : String
+    +headers : Map<String, String>
+    +transport : String
+    +is_active : boolean
+    +created_at : DateTime
+    +updated_at : DateTime
+    --Methods--
+    +activate() : void
+    +deactivate() : void
+    +isActive() : boolean
+  }
+}
+
+' =====================================================
+' RELATIONSHIPS
+' =====================================================
+
+' -- SQL --
+User "1" --> "0..*" Contact        : requester >
+User "1" --> "0..*" Contact        : target >
+User "1" --> "0..*" GroupMember    : member of >
+User "1" --> "0..*" UserLoginSession : has >
+User "1" --> "0..*" EmailVerificationOtp : has >
+
+User       ..>  UserStatus
+Contact    ..>  ContactStatus
+GroupMember ..> GroupRole
+UserLoginSession ..> ClientPlatform
+
+' -- cross-store --
+GroupMember "0..*" ..> "1" Conversation  : conversationId (ref) >
+
+' -- UserSettings -> User --
+UserSettings "1" ..> "1" User : userId (ref) >
+
+' -- Conversation -> Mongo docs --
+Conversation "1" --> "0..*" Message            : conversationId >
+Conversation "1" --> "0..*" GroupNote          : conversationId >
+Conversation "1" --> "0..*" GroupReminder      : conversationId >
+Conversation "1" --> "0..*" PendingJoinRequest : conversationId >
+Conversation "1" --> "0..*" CallSession        : conversationId >
+Conversation "1" --> "0..*" FileMetadata       : conversationId >
+
+' -- Message self-ref --
+Message "0..1" --> "0..*" Message : replyToId (self) >
+
+' -- Conversation embedded --
+Conversation *--  LastMessage
+
+' -- Message embedded --
+Message *-- "0..*" Attachment
+Message *-- "0..*" ReadReceipt
+Message *-- "0..*" Reaction
+Message *-- "0..*" EditHistory
+Message *-- "0..1" Poll
+Message *-- "0..1" LocationPayload
+
+' -- UserSettings embedded --
+UserSettings *-- PrivacySettings
+UserSettings *-- NotificationSettings
+UserSettings *-- MessageSettings
+
+' -- Enums used by Mongo --
+Conversation ..> ConversationType
+Message      ..> MessageType
+Message      ..> MessageStatus
+Notification ..> NotificationType
+CallSession  ..> CallType
+CallSession  ..> CallStatus
+
+' -- Agent relationships --
+AgentSession "1" --> "0..*" AgentMessage : session_id >
+AgentSession "1" --> "0..*" AgentFile    : session_id >
+AgentFile    "1" --> "0..*" Chunk        : file_id >
+
+@enduml

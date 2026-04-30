@@ -1,0 +1,476 @@
+@startuml Chatly_Class_System
+!theme plain
+top to bottom direction
+
+skinparam classAttributeIconSize 0
+skinparam classFontSize 11
+skinparam classBorderColor #6C757D
+skinparam classBackgroundColor #F8F9FA
+skinparam classHeaderBackgroundColor #DEE2E6
+
+skinparam packageFontSize 12
+skinparam packageFontStyle bold
+skinparam packageBorderThickness 2
+
+skinparam arrowColor #495057
+skinparam arrowFontSize 10
+skinparam linetype ortho
+skinparam nodesep 30
+skinparam ranksep 50
+
+title Chatly -- Class Diagram: System Overview
+
+' =========================================================
+' FRONTEND (React)
+' =========================================================
+package "chatly-frontend (React)" #EEF6FF {
+
+  package "Services" #DBEAFE {
+    class FE_AuthService       <<service>>
+    class FE_UserService       <<service>>
+    class FE_ContactService    <<service>>
+    class FE_ConversationService <<service>>
+    class FE_MessageService    <<service>>
+    class FE_GroupService      <<service>>
+    class FE_NotificationService <<service>>
+    class FE_FileService       <<service>>
+    class FE_CallService       <<service>>
+    class FE_SocketService     <<service>>
+    class FE_AgentService      <<service>>
+    class FE_AgentFileService  <<service>>
+    class FE_McpService        <<service>>
+    class FE_SessionService    <<service>>
+  }
+
+  package "Hooks & Context" #BFDBFE {
+    class FE_CallSocketProvider <<context>>
+    class FE_useChatSocket      <<hook>>
+    class FE_usePresenceSocket  <<hook>>
+    class FE_useNotificationSocket <<hook>>
+    class FE_useCallSocket      <<hook>>
+    class FE_useGroupCallSocket <<hook>>
+    class FE_useWebRTC          <<hook>>
+    class FE_useGroupWebRTC     <<hook>>
+    class FE_useAudioRecorder   <<hook>>
+    class FE_useAgentStream     <<hook>>
+  }
+
+  package "Stores" #93C5FD {
+    class FE_AuthStore           <<store>>
+    class FE_ChatbotStore        <<store>>
+    class FE_CallStore           <<store>>
+    class FE_ContactStore        <<store>>
+    class FE_ConversationPrefsStore <<store>>
+    class FE_NotificationStore   <<store>>
+    class FE_ThemeStore          <<store>>
+    class FE_UiStore             <<store>>
+  }
+
+  FE_CallSocketProvider ..> FE_useCallSocket
+  FE_CallSocketProvider ..> FE_useGroupCallSocket
+  FE_SocketService ..> FE_useChatSocket
+  FE_SocketService ..> FE_usePresenceSocket
+  FE_SocketService ..> FE_useNotificationSocket
+  FE_CallService   ..> FE_useWebRTC
+  FE_CallService   ..> FE_useGroupWebRTC
+  FE_CallService   ..> FE_CallStore
+  FE_AuthService   ..> FE_AuthStore
+  FE_AgentService  ..> FE_ChatbotStore
+  FE_NotificationService ..> FE_NotificationStore
+  FE_ConversationService ..> FE_ConversationPrefsStore
+}
+
+' =========================================================
+' MOBILE (Expo React Native)
+' =========================================================
+package "chatly-mobile (Expo)" #FFF3E0 {
+
+  package "Services " #FDE68A {
+    class MB_AuthService         <<service>>
+    class MB_UserService         <<service>>
+    class MB_ContactService      <<service>>
+    class MB_ConversationService <<service>>
+    class MB_MessageService      <<service>>
+    class MB_GroupService        <<service>>
+    class MB_NotificationService <<service>>
+    class MB_FileService         <<service>>
+    class MB_CallService         <<service>>
+    class MB_SocketService       <<service>>
+    class MB_AgentService        <<service>>
+    class MB_AgentFileService    <<service>>
+    class MB_McpService          <<service>>
+    class MB_SessionService      <<service>>
+  }
+
+  package "Hooks & Context " #FCD34D {
+    class MB_CallSocketProvider    <<context>>
+    class MB_useChatSocket         <<hook>>
+    class MB_usePresenceSocket     <<hook>>
+    class MB_useNotificationSocket <<hook>>
+    class MB_useCallSocket         <<hook>>
+    class MB_useGroupCallSocket    <<hook>>
+    class MB_useWebRTC             <<hook>>
+    class MB_useGroupWebRTC        <<hook>>
+    class MB_useVoiceRecorder      <<hook>>
+    class MB_useExpoPush           <<hook>>
+    class MB_useAgentStream        <<hook>>
+  }
+
+  package "Stores " #F59E0B {
+    class MB_AuthStore              <<store>>
+    class MB_ChatbotStore           <<store>>
+    class MB_CallStore              <<store>>
+    class MB_ContactStore           <<store>>
+    class MB_ConversationStore      <<store>>
+    class MB_ConversationPrefsStore <<store>>
+    class MB_MessageStore           <<store>>
+    class MB_NotificationStore      <<store>>
+  }
+
+  MB_CallSocketProvider ..> MB_useCallSocket
+  MB_CallSocketProvider ..> MB_useGroupCallSocket
+  MB_SocketService ..> MB_useChatSocket
+  MB_SocketService ..> MB_usePresenceSocket
+  MB_SocketService ..> MB_useNotificationSocket
+  MB_CallService   ..> MB_useWebRTC
+  MB_CallService   ..> MB_useGroupWebRTC
+  MB_CallService   ..> MB_CallStore
+  MB_AuthService   ..> MB_AuthStore
+  MB_AgentService  ..> MB_ChatbotStore
+  MB_NotificationService ..> MB_NotificationStore
+  MB_ConversationService ..> MB_ConversationStore
+  MB_MessageService ..> MB_MessageStore
+}
+
+' =========================================================
+' BACKEND (Spring Boot)
+' =========================================================
+package "chatly-backend (Spring Boot)" #E8F5E9 {
+
+  package "REST Controllers" #BBF7D0 {
+    class AuthController         <<controller>>
+    class AuthSessionController  <<controller>>
+    class UserController         <<controller>>
+    class UserSettingsController <<controller>>
+    class ContactController      <<controller>>
+    class ConversationController <<controller>>
+    class MessageController      <<controller>>
+    class GroupController        <<controller>>
+    class NotificationController <<controller>>
+    class FileUploadController   <<controller>>
+    class CallHistoryController  <<controller>>
+    class HealthController       <<controller>>
+  }
+
+  package "Agent Proxy Controllers" #86EFAC {
+    class AgentSessionController <<controller>>
+    class AgentChatController    <<controller>>
+    class AgentFileController    <<controller>>
+    class AgentMcpController     <<controller>>
+  }
+
+  package "WebSocket Controllers" #4ADE80 {
+    class ChatMessageController  <<ws-controller>>
+    class CallWebSocketController <<ws-controller>>
+    class PresenceEventListener  <<listener>>
+  }
+
+  package "Services " #34D399 {
+    class AuthService          <<service>>
+    class UserService          <<service>>
+    class ContactService       <<service>>
+    class ConversationService  <<service>>
+    class MessageService       <<service>>
+    class GroupService         <<service>>
+    class NotificationService  <<service>>
+    class UserSettingsService  <<service>>
+    class FileUploadService    <<service>>
+    class PresenceService      <<service>>
+    class UserSessionService   <<service>>
+    class TokenBlacklistService <<service>>
+    class EmailVerificationMailService <<service>>
+    class ExpoPushService      <<service>>
+    class AsyncNotificationService <<service>>
+    class GeoIpLookupService   <<service>>
+    class AgentProxyClient     <<client>>
+  }
+
+  package "Repositories " #A7F3D0 {
+    class UserRepository                 <<repository>>
+    class ContactRepository              <<repository>>
+    class EmailVerificationOtpRepository <<repository>>
+    class UserLoginSessionRepository     <<repository>>
+    class ConversationRepository         <<repository>>
+    class MessageRepository              <<repository>>
+    class GroupMemberRepository          <<repository>>
+    class PendingJoinRequestRepository   <<repository>>
+    class GroupReminderRepository        <<repository>>
+    class GroupNoteRepository            <<repository>>
+    class NotificationRepository         <<repository>>
+    class FileMetadataRepository         <<repository>>
+    class CallSessionRepository          <<repository>>
+    class UserSettingsRepository         <<repository>>
+  }
+
+  package "Mappers " #6EE7B7 {
+    class UserMapper         <<mapper>>
+    class ContactMapper      <<mapper>>
+    class ConversationMapper <<mapper>>
+    class MessageMapper      <<mapper>>
+  }
+
+  package "Security & Infra" #059669 {
+    class WebSecurityConfig         <<config>>
+    class JwtAuthenticationFilter   <<filter>>
+    class JwtProvider               <<component>>
+    class WebSocketConfig           <<config>>
+    class WebSocketAuthInterceptor  <<interceptor>>
+    class JwtHandshakeHandler       <<handler>>
+    class PasswordChangeTokenValidator <<validator>>
+    class SessionTokenValidator     <<validator>>
+    class SimpMessagingTemplate     <<infra>>
+    class RedisCache                <<infra>>
+    class WebClient                 <<infra>>
+  }
+
+  ' -- Controller -> Service/Repo --
+  AuthController         ..> AuthService
+  AuthSessionController  ..> UserSessionService
+  UserController         ..> UserService
+  UserSettingsController ..> UserSettingsService
+  ContactController      ..> ContactService
+  ConversationController ..> ConversationService
+  MessageController      ..> MessageService
+  GroupController        ..> GroupService
+  NotificationController ..> NotificationService
+  FileUploadController   ..> FileUploadService
+  CallHistoryController  ..> CallSessionRepository
+
+  AgentSessionController ..> AgentProxyClient
+  AgentChatController    ..> AgentProxyClient
+  AgentFileController    ..> AgentProxyClient
+  AgentMcpController     ..> AgentProxyClient
+
+  ChatMessageController  ..> MessageService
+  ChatMessageController  ..> SimpMessagingTemplate
+  CallWebSocketController ..> CallSessionRepository
+  CallWebSocketController ..> ConversationRepository
+  CallWebSocketController ..> MessageService
+  CallWebSocketController ..> SimpMessagingTemplate
+  PresenceEventListener  ..> PresenceService
+  PresenceEventListener  ..> MessageService
+  PresenceEventListener  ..> SimpMessagingTemplate
+
+  ' -- Service -> Repo/Infra --
+  AuthService          ..> UserRepository
+  AuthService          ..> EmailVerificationOtpRepository
+  AuthService          ..> JwtProvider
+  AuthService          ..> TokenBlacklistService
+  AuthService          ..> UserSessionService
+  AuthService          ..> EmailVerificationMailService
+
+  UserService          ..> UserRepository
+  UserService          ..> ContactRepository
+  UserService          ..> UserMapper
+
+  ContactService       ..> ContactRepository
+  ContactService       ..> UserRepository
+  ContactService       ..> ContactMapper
+  ContactService       ..> NotificationService
+
+  ConversationService  ..> ConversationRepository
+  ConversationService  ..> GroupMemberRepository
+  ConversationService  ..> UserRepository
+  ConversationService  ..> ConversationMapper
+
+  MessageService       ..> MessageRepository
+  MessageService       ..> ConversationRepository
+  MessageService       ..> MessageMapper
+  MessageService       ..> NotificationService
+
+  GroupService         ..> ConversationRepository
+  GroupService         ..> GroupMemberRepository
+  GroupService         ..> UserRepository
+  GroupService         ..> PendingJoinRequestRepository
+  GroupService         ..> GroupReminderRepository
+  GroupService         ..> GroupNoteRepository
+  GroupService         ..> NotificationService
+
+  NotificationService  ..> NotificationRepository
+  NotificationService  ..> UserRepository
+  NotificationService  ..> ExpoPushService
+  NotificationService  ..> AsyncNotificationService
+  NotificationService  ..> SimpMessagingTemplate
+
+  UserSettingsService  ..> UserSettingsRepository
+  FileUploadService    ..> FileMetadataRepository
+  PresenceService      ..> UserRepository
+  PresenceService      ..> SimpMessagingTemplate
+  UserSessionService   ..> UserLoginSessionRepository
+  UserSessionService   ..> UserRepository
+  UserSessionService   ..> GeoIpLookupService
+  TokenBlacklistService ..> RedisCache
+  AgentProxyClient     ..> WebClient
+
+  ' -- Security wiring --
+  WebSecurityConfig        ..> JwtAuthenticationFilter
+  JwtAuthenticationFilter  ..> JwtProvider
+  WebSocketConfig          ..> WebSocketAuthInterceptor
+  WebSocketAuthInterceptor ..> JwtProvider
+  JwtHandshakeHandler      ..> JwtProvider
+  PasswordChangeTokenValidator ..> UserRepository
+  SessionTokenValidator    ..> UserLoginSessionRepository
+}
+
+' =========================================================
+' AGENT (FastAPI)
+' =========================================================
+package "chatly-agent (FastAPI)" #FCE4EC {
+
+  package "Routers" #FBCFE8 {
+    class SessionsRouter <<router>>
+    class ChatRouter     <<router>>
+    class FilesRouter    <<router>>
+    class McpRouter      <<router>>
+    class HealthRouter   <<router>>
+  }
+
+  package "Services  " #F9A8D4 {
+    class AG_ChatService    <<service>>
+    class AG_SessionService <<service>>
+    class AG_FileService    <<service>>
+    class AG_VectorService  <<service>>
+    class AG_MCPService     <<service>>
+    class AG_SystemMCPService <<service>>
+    class AG_ToolService    <<service>>
+  }
+
+  package "Agents" #F472B6 {
+    class ChatbotAgent <<agent>>
+    class UnifiedAgent <<agent>>
+  }
+
+  package "Repositories  " #EC4899 {
+    class AG_SessionRepository  <<repository>>
+    class AG_MessageRepository  <<repository>>
+    class AG_FileRepository     <<repository>>
+    class AG_ChunkRepository    <<repository>>
+    class AG_MCPRepository      <<repository>>
+    class AG_QdrantRepository   <<repository>>
+  }
+
+  package "Infra  " #DB2777 {
+    class AG_MongoClient  <<singleton>>
+    class AG_QdrantClient <<singleton>>
+    class AG_MinioClient  <<singleton>>
+    class AG_MCPClient    <<client>>
+    class AG_Embedder     <<component>>
+  }
+
+  SessionsRouter ..> AG_SessionService
+  SessionsRouter ..> AG_FileService
+  ChatRouter     ..> AG_ChatService
+  FilesRouter    ..> AG_FileService
+  McpRouter      ..> AG_MCPService
+  McpRouter      ..> AG_SystemMCPService
+
+  AG_ChatService    ..> AG_SessionService
+  AG_ChatService    ..> AG_MessageRepository
+  AG_ChatService    ..> AG_ToolService
+  AG_ChatService    ..> AG_VectorService
+  AG_ChatService    ..> AG_FileRepository
+  AG_ChatService    ..> ChatbotAgent
+  AG_ChatService    ..> UnifiedAgent
+
+  AG_SessionService ..> AG_SessionRepository
+  AG_SessionService ..> AG_MessageRepository
+
+  AG_FileService    ..> AG_SessionService
+  AG_FileService    ..> AG_FileRepository
+  AG_FileService    ..> AG_ChunkRepository
+  AG_FileService    ..> AG_VectorService
+  AG_FileService    ..> AG_MinioClient
+  AG_FileService    ..> AG_Embedder
+
+  AG_VectorService  ..> AG_ChunkRepository
+  AG_VectorService  ..> AG_QdrantRepository
+  AG_VectorService  ..> AG_Embedder
+
+  AG_MCPService     ..> AG_MCPRepository
+  AG_MCPService     ..> AG_MCPClient
+  AG_SystemMCPService ..> AG_MCPClient
+
+  AG_ToolService    ..> AG_MCPService
+  AG_ToolService    ..> AG_SystemMCPService
+
+  AG_SessionRepository  ..> AG_MongoClient
+  AG_MessageRepository  ..> AG_MongoClient
+  AG_FileRepository     ..> AG_MongoClient
+  AG_ChunkRepository    ..> AG_MongoClient
+  AG_MCPRepository      ..> AG_MongoClient
+  AG_QdrantRepository   ..> AG_QdrantClient
+}
+
+' =========================================================
+' DATASTORES
+' =========================================================
+package "Datastores & External" #FFFDE7 {
+  class PostgreSQL  <<database>>
+  class MongoDB_BE  <<database>>
+  class Redis       <<cache>>
+  class MongoDB_AG  <<database>>
+  class Qdrant      <<vector-db>>
+  class MinIO_S3    <<object-storage>>
+  class SMTPProvider    <<external>>
+  class ExpoPushGateway <<external>>
+  class GroqAPI         <<external>>
+  class TavilyAPI       <<external>>
+  class MCPServersExt   <<external>>
+}
+
+' =========================================================
+' CROSS-MODULE DEPENDENCIES
+' =========================================================
+
+' Frontend -> Backend
+FE_AuthService       ..> AuthController       : REST HTTPS
+FE_MessageService    ..> MessageController    : REST HTTPS
+FE_SocketService     ..> ChatMessageController : WSS STOMP /ws
+FE_CallService       ..> CallWebSocketController : WSS /ws
+
+' Mobile -> Backend
+MB_AuthService       ..> AuthController       : REST HTTPS
+MB_MessageService    ..> MessageController    : REST HTTPS
+MB_SocketService     ..> ChatMessageController : WSS /ws-raw
+
+' Backend -> Agent
+AgentProxyClient     ..> SessionsRouter : internal HTTP\nX-Internal-API-Key
+AgentProxyClient     ..> ChatRouter     : internal HTTP
+AgentProxyClient     ..> FilesRouter    : internal HTTP
+AgentProxyClient     ..> McpRouter      : internal HTTP
+
+' Agent -> Backend MCP SSE
+AG_MCPClient ..> AuthController : MCP SSE\n/api/ai/mcp/sse
+
+' Backend -> Datastores
+UserRepository       ..> PostgreSQL  : JDBC
+ContactRepository    ..> PostgreSQL  : JDBC
+ConversationRepository ..> MongoDB_BE : Mongo wire
+MessageRepository    ..> MongoDB_BE  : Mongo wire
+NotificationRepository ..> MongoDB_BE : Mongo wire
+TokenBlacklistService ..> Redis      : RESP
+FileUploadService    ..> MinIO_S3    : S3 API
+
+' Backend -> External
+ExpoPushService      ..> ExpoPushGateway : HTTPS
+EmailVerificationMailService ..> SMTPProvider : SMTP
+
+' Agent -> Datastores & External
+AG_MongoClient  ..> MongoDB_AG : Mongo wire
+AG_QdrantClient ..> Qdrant     : HTTP :6333
+AG_MinioClient  ..> MinIO_S3   : S3 API
+AG_ToolService  ..> GroqAPI    : HTTPS (LLM)
+AG_ToolService  ..> TavilyAPI  : HTTPS (search)
+AG_MCPClient    ..> MCPServersExt : MCP SSE
+
+@enduml

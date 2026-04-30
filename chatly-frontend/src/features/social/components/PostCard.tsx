@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { memo, useState } from "react";
 import { MoreHorizontal, Heart, MessageCircle, Share2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -19,11 +19,16 @@ const REACTION_EMOJIS: Record<ReactionType, string> = {
 
 interface PostCardProps {
     post: Post;
+    onPostUpdate?: (postId: string, updates: Partial<Post>) => void;
+    onPostRemove?: (postId: string) => void;
 }
 
-export function PostCard({ post }: PostCardProps) {
+function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
     const currentUserId = useAuthStore((s) => s.user?.id);
-    const { updatePost, removePost } = usePostStore();
+    const fallbackUpdate = usePostStore((s) => s.updatePost);
+    const fallbackRemove = usePostStore((s) => s.removePost);
+    const updatePost = onPostUpdate ?? fallbackUpdate;
+    const removePost = onPostRemove ?? fallbackRemove;
     const [pickerOpen, setPickerOpen] = useState(false);
 
     const myReaction = post.reactions.find((r) => r.reactedByMe);
@@ -56,16 +61,16 @@ export function PostCard({ post }: PostCardProps) {
     };
 
     return (
-        <article className="rounded-3xl bg-white shadow-sm border border-gray-100 overflow-hidden">
+        <article className="rounded-3xl bg-card shadow-sm border border-border overflow-hidden">
             {/* Header */}
             <div className="flex items-center justify-between px-5 pt-4 pb-2">
-                <div className="flex items-center gap-2.5">
-                    <div className="size-9 rounded-full bg-indigo-100 flex items-center justify-center text-sm font-semibold text-indigo-600">
+                <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="size-9 rounded-full bg-indigo-100 flex items-center justify-center text-sm font-semibold text-indigo-600 flex-shrink-0">
                         {post.authorId.slice(0, 1).toUpperCase()}
                     </div>
-                    <div>
-                        <p className="text-sm font-medium text-gray-900">{post.authorId}</p>
-                        <p className="text-xs text-gray-400">
+                    <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-foreground truncate">{post.authorId}</p>
+                        <p className="text-xs text-muted-foreground">
                             {new Date(post.createdAt).toLocaleDateString()}
                         </p>
                     </div>
@@ -74,7 +79,7 @@ export function PostCard({ post }: PostCardProps) {
                     <Button
                         size="icon-xs"
                         variant="ghost"
-                        className="rounded-lg text-gray-400"
+                        className="rounded-lg text-muted-foreground"
                         onClick={handleDelete}
                     >
                         <MoreHorizontal className="size-4" />
@@ -83,7 +88,7 @@ export function PostCard({ post }: PostCardProps) {
             </div>
 
             {/* Content */}
-            <p className="px-5 py-2 text-sm text-gray-800 whitespace-pre-wrap leading-relaxed">
+            <p className="px-5 py-2 text-sm text-foreground whitespace-pre-wrap leading-relaxed">
                 {post.content}
             </p>
 
@@ -102,7 +107,7 @@ export function PostCard({ post }: PostCardProps) {
             {post.mediaUrls.length > 0 && (
                 <div className={cn("grid gap-0.5", post.mediaUrls.length > 1 ? "grid-cols-2" : "grid-cols-1")}>
                     {post.mediaUrls.slice(0, 4).map((url, idx) => (
-                        <div key={url} className="relative aspect-video bg-gray-100">
+                        <div key={url} className="relative aspect-video bg-muted">
                             {url.match(/\.(mp4|webm)$/i) ? (
                                 <video src={url} className="w-full h-full object-cover" muted controls />
                             ) : (
@@ -119,11 +124,11 @@ export function PostCard({ post }: PostCardProps) {
             )}
 
             {/* Footer actions */}
-            <div className="flex items-center gap-1 px-4 py-3 border-t border-gray-50">
+            <div className="flex items-center gap-1 px-4 py-3 border-t border-border">
                 {/* Reaction button with picker */}
                 <div className="relative">
                     {pickerOpen && (
-                        <div className="absolute bottom-full left-0 mb-2 flex gap-1 rounded-2xl bg-white shadow-lg border border-gray-100 px-3 py-2 z-10">
+                        <div className="absolute bottom-full left-0 mb-2 flex gap-1 rounded-2xl bg-card shadow-lg border border-border px-3 py-2 z-10">
                             {(Object.entries(REACTION_EMOJIS) as [ReactionType, string][]).map(
                                 ([type, emoji]) => (
                                     <button
@@ -143,7 +148,7 @@ export function PostCard({ post }: PostCardProps) {
                         variant="ghost"
                         className={cn(
                             "gap-1.5 rounded-xl text-xs font-normal",
-                            myReaction ? "text-pink-500" : "text-gray-500",
+                            myReaction ? "text-pink-500" : "text-muted-foreground",
                         )}
                         onMouseEnter={() => setPickerOpen(true)}
                         onMouseLeave={() => setPickerOpen(false)}
@@ -157,7 +162,7 @@ export function PostCard({ post }: PostCardProps) {
                 <Button
                     size="sm"
                     variant="ghost"
-                    className="gap-1.5 rounded-xl text-xs font-normal text-gray-500"
+                    className="gap-1.5 rounded-xl text-xs font-normal text-muted-foreground"
                 >
                     <MessageCircle className="size-4" />
                     {post.commentCount > 0 && post.commentCount}
@@ -166,7 +171,7 @@ export function PostCard({ post }: PostCardProps) {
                 <Button
                     size="sm"
                     variant="ghost"
-                    className="gap-1.5 rounded-xl text-xs font-normal text-gray-500"
+                    className="gap-1.5 rounded-xl text-xs font-normal text-muted-foreground"
                 >
                     <Share2 className="size-4" />
                     {post.shareCount > 0 && post.shareCount}
@@ -175,3 +180,45 @@ export function PostCard({ post }: PostCardProps) {
         </article>
     );
 }
+
+function areStringArraysEqual(left: string[], right: string[]): boolean {
+    if (left === right) return true;
+    if (left.length !== right.length) return false;
+    for (let i = 0; i < left.length; i += 1) {
+        if (left[i] !== right[i]) return false;
+    }
+    return true;
+}
+
+function areReactionsEqual(left: Post["reactions"], right: Post["reactions"]): boolean {
+    if (left === right) return true;
+    if (left.length !== right.length) return false;
+    for (let i = 0; i < left.length; i += 1) {
+        const a = left[i];
+        const b = right[i];
+        if (a.type !== b.type || a.count !== b.count || a.reactedByMe !== b.reactedByMe) {
+            return false;
+        }
+    }
+    return true;
+}
+
+function arePostsEqual(prev: PostCardProps, next: PostCardProps): boolean {
+    const prevPost = prev.post;
+    const nextPost = next.post;
+
+    if (prevPost === nextPost) return true;
+    if (prevPost.id !== nextPost.id) return false;
+    if (prevPost.updatedAt !== nextPost.updatedAt) return false;
+    if (prevPost.content !== nextPost.content) return false;
+    if (prevPost.visibility !== nextPost.visibility) return false;
+    if (prevPost.commentCount !== nextPost.commentCount) return false;
+    if (prevPost.shareCount !== nextPost.shareCount) return false;
+    if (!areStringArraysEqual(prevPost.mediaUrls, nextPost.mediaUrls)) return false;
+    if (!areStringArraysEqual(prevPost.hashtags, nextPost.hashtags)) return false;
+    if (!areReactionsEqual(prevPost.reactions, nextPost.reactions)) return false;
+
+    return true;
+}
+
+export const PostCard = memo(PostCardBase, arePostsEqual);

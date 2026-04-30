@@ -1,0 +1,34 @@
+@startuml Chatly_Sequence_Group_Management
+title Chatly - Group Management (Simple)
+
+autonumber
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+
+actor "Owner/Admin" as Manager
+participant "Client" as Client
+participant "GroupController\n/api/groups/*" as GroupController
+participant "GroupService" as GroupService
+participant "ConversationRepository" as ConversationRepo
+participant "GroupMemberRepository" as GroupMemberRepo
+participant "NotificationService" as NotificationService
+participant "Topic /topic/conversation.{id}" as TopicConversation
+participant "GlobalExceptionHandler" as ExceptionHandler
+
+Manager -> Client: Choose group action
+Client -> GroupController: request(conversationId, action, payload)
+GroupController -> GroupService: execute(action)
+
+alt Permission denied or not found
+  GroupService -> ExceptionHandler: AppException(...)
+  ExceptionHandler --> Client: HTTP 4xx\nApiResponse{error}
+else Success
+  GroupService -> ConversationRepo: update group data
+  GroupService -> GroupMemberRepo: update members/roles
+  GroupService -> NotificationService: createAndPush(...) 
+  GroupService -> TopicConversation: ChatEvent{GROUP_UPDATE or ROLE_UPDATED}
+  GroupService --> GroupController: response
+  GroupController --> Client: HTTP 200\nApiResponse{code:1000, result}
+end
+
+@enduml

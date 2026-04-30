@@ -1,0 +1,336 @@
+@startuml Chatly_Entity_Mongo_Backend
+!theme plain
+top to bottom direction
+
+skinparam classAttributeIconSize 0
+skinparam class {
+  BackgroundColor #E8F5E9
+  BorderColor #43A047
+  FontSize 11
+  HeaderBackgroundColor #43A047
+  HeaderFontColor #FFFFFF
+  HeaderFontStyle bold
+}
+skinparam class<<valueobject>> {
+  BackgroundColor #FFF9C4
+  BorderColor #F9A825
+  HeaderBackgroundColor #F9A825
+  HeaderFontColor #FFFFFF
+}
+skinparam class<<enum>> {
+  BackgroundColor #F3E5F5
+  BorderColor #8E24AA
+  HeaderBackgroundColor #8E24AA
+  HeaderFontColor #FFFFFF
+}
+skinparam package {
+  BackgroundColor #F5FFF5
+  BorderColor #43A047
+  FontSize 13
+  FontStyle bold
+}
+skinparam arrow {
+  Color #43A047
+  FontSize 10
+}
+skinparam linetype ortho
+skinparam nodesep 40
+skinparam ranksep 50
+
+title Chatly -- Entity Diagram: MongoDB Entities (chatly-backend)
+
+package "MongoDB -- chatly-backend" {
+
+  ' ── Main entities ──
+  class Conversation <<document>> {
+    + id : String <<PK>>
+    --
+    # type : ConversationType
+    # name : String
+    # avatarUrl : String
+    # creatorId : String
+    # participantIds : List<String>
+    # lastMessage : LastMessage
+    # allowMembersUpdateInfo : Boolean
+    # requireApproval : Boolean
+    # inviteToken : String
+    # pinnedBy : Set<String>
+    # mutedBy : Map<String, Instant>
+    # deletedBy : Set<String>
+    # createdAt : Instant
+    # updatedAt : Instant
+  }
+
+  class Message <<document>> {
+    + id : String <<PK>>
+    --
+    # conversationId : String <<ref>>
+    # senderId : String
+    # content : String
+    # type : MessageType
+    # status : MessageStatus
+    # replyToId : String <<self-ref>>
+    # forwardedFromId : String
+    # forwardedFromConversationId : String
+    # attachments : List<Attachment>
+    # readBy : List<ReadReceipt>
+    # recalled : boolean
+    # recalledAt : Instant
+    # recalledBy : String
+    # edited : boolean
+    # editedAt : Instant
+    # editHistory : List<EditHistory>
+    # reactions : List<Reaction>
+    # poll : Poll
+    # location : LocationPayload
+    # pinned : boolean
+    # pinnedAt : Instant
+    # pinnedBy : String
+    # priority : String
+    # mentions : List<String>
+    # createdAt : Instant
+    # updatedAt : Instant
+  }
+
+  class Notification <<document>> {
+    + id : String <<PK>>
+    --
+    # type : NotificationType
+    # senderId : String
+    # receiverId : String
+    # referenceId : String
+    # content : String
+    # read : boolean
+    # createdAt : Instant
+  }
+
+  class UserSettings <<document>> {
+    + id : String <<PK>>
+    --
+    # userId : String <<unique, ref -> User>>
+    # privacy : PrivacySettings
+    # notifications : NotificationSettings
+    # messages : MessageSettings
+    # createdAt : Instant
+    # updatedAt : Instant
+  }
+
+  class CallSession <<document>> {
+    + id : String <<PK>>
+    --
+    # callId : String <<unique>>
+    # conversationId : String <<ref>>
+    # initiatorId : String
+    # participants : List<String>
+    # type : CallType
+    # status : CallStatus
+    # startedAt : LocalDateTime
+    # endedAt : LocalDateTime
+  }
+
+  class FileMetadata <<document>> {
+    + id : String <<PK>>
+    --
+    # provider : String
+    # storageKey : String
+    # url : String
+    # fileName : String
+    # fileType : String
+    # fileSize : Long
+    # uploadedBy : String
+    # conversationId : String <<ref>>
+    # createdAt : Instant
+  }
+
+  class GroupNote <<document>> {
+    + id : String <<PK>>
+    --
+    # conversationId : String <<ref>>
+    # creatorId : String
+    # title : String
+    # content : String
+    # pinned : Boolean
+    # createdAt : Instant
+    # updatedAt : Instant
+  }
+
+  class GroupReminder <<document>> {
+    + id : String <<PK>>
+    --
+    # conversationId : String <<ref>>
+    # creatorId : String
+    # title : String
+    # description : String
+    # remindAt : Instant
+    # completed : Boolean
+    # notified : Boolean
+    # createdAt : Instant
+  }
+
+  class PendingJoinRequest <<document>> {
+    + id : String <<PK>>
+    --
+    # conversationId : String <<ref>>
+    # userId : String
+    # invitedBy : String
+    # createdAt : Instant
+    .. constraint ..
+    unique(conversationId, userId)
+  }
+
+  ' ── Value Objects ──
+  class LastMessage <<valueobject>> {
+    senderId : String
+    content : String
+    type : MessageType
+    timestamp : Instant
+  }
+
+  class Attachment <<valueobject>> {
+    fileId : String
+    name : String
+    url : String
+    type : String
+    size : Long
+    durationSeconds : Integer
+  }
+
+  class ReadReceipt <<valueobject>> {
+    userId : String
+    readAt : Instant
+  }
+
+  class Reaction <<valueobject>> {
+    userId : String
+    emoji : String
+    createdAt : Instant
+  }
+
+  class EditHistory <<valueobject>> {
+    content : String
+    editedAt : Instant
+  }
+
+  class Poll <<valueobject>> {
+    question : String
+    options : List<String>
+    multipleChoice : Boolean
+    votes : Map<String, List<String>>
+    closed : Boolean
+    deadline : Instant
+    anonymous : Boolean
+  }
+
+  class LocationPayload <<valueobject>> {
+    latitude : Double
+    longitude : Double
+    address : String
+    mapSnapshotUrl : String
+  }
+
+  class PrivacySettings <<valueobject>> {
+    showOnlineStatus : Boolean
+    showLastSeen : Boolean
+    showReadReceipts : Boolean
+    allowFriendRequests : Boolean
+  }
+
+  class NotificationSettings <<valueobject>> {
+    messageSound : Boolean
+    groupSound : Boolean
+    callSound : Boolean
+    showPreview : Boolean
+  }
+
+  class MessageSettings <<valueobject>> {
+    enterToSend : Boolean
+    autoDownloadMedia : Boolean
+    fontSize : String
+  }
+
+  ' ── Enums ──
+  enum ConversationType <<enum>> {
+    PRIVATE
+    GROUP
+  }
+
+  enum MessageType <<enum>> {
+    TEXT
+    IMAGE
+    FILE
+    VIDEO
+    AUDIO
+    SYSTEM
+    POLL
+    CALL
+    GIF
+    STICKER
+    VCARD
+    LOCATION
+  }
+
+  enum MessageStatus <<enum>> {
+    SENT
+    DELIVERED
+    READ
+  }
+
+  enum NotificationType <<enum>> {
+    NEW_MESSAGE
+    MENTION
+    FRIEND_REQUEST
+    GROUP_INVITE
+    GROUP_JOIN_REQUEST
+    MEMBER_JOINED
+    CALL_MISSED
+    SYSTEM
+  }
+
+  enum CallType <<enum>> {
+    VOICE
+    VIDEO
+  }
+
+  enum CallStatus <<enum>> {
+    RINGING
+    ONGOING
+    ENDED
+    MISSED
+    REJECTED
+  }
+}
+
+' ── Document relationships (logical refs) ──
+Conversation "1" --> "0..*" Message          : conversationId >
+Conversation "1" --> "0..*" GroupNote        : conversationId >
+Conversation "1" --> "0..*" GroupReminder    : conversationId >
+Conversation "1" --> "0..*" PendingJoinRequest : conversationId >
+Conversation "1" --> "0..*" CallSession      : conversationId >
+Conversation "1" --> "0..*" FileMetadata     : conversationId >
+Message      "0..1" --> "0..*" Message       : replyToId (self) >
+
+' ── Embedded value objects ──
+Conversation *-- LastMessage
+Message      *-- Attachment
+Message      *-- ReadReceipt
+Message      *-- Reaction
+Message      *-- EditHistory
+Message      *-- Poll
+Message      *-- LocationPayload
+UserSettings *-- PrivacySettings
+UserSettings *-- NotificationSettings
+UserSettings *-- MessageSettings
+
+' ── Enum usage ──
+Conversation ..> ConversationType
+Message      ..> MessageType
+Message      ..> MessageStatus
+Notification ..> NotificationType
+CallSession  ..> CallType
+CallSession  ..> CallStatus
+
+note right of UserSettings
+  userId references SQL User.id
+end note
+
+@enduml
