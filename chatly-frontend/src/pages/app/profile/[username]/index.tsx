@@ -39,6 +39,8 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
+import { FollowButton } from "@/components/social/FollowButton";
+import { FollowerStats } from "@/components/social/FollowerStats";
 import { contactService } from "@/services/contact.service";
 import { conversationService } from "@/services/conversation.service";
 import { userService } from "@/services/user.service";
@@ -312,6 +314,11 @@ export default function UsernameProfilePage() {
                                     </>
                                 ) : (
                                     <>
+                                        {/* Follow Button - Always visible unless blocked */}
+                                        {!direction && targetUserId && (
+                                            <FollowButton userId={targetUserId} />
+                                        )}
+
                                         {/* Action Buttons for other users */}
                                         {direction === "I_BLOCKED" && (
                                             <Button variant="outline" size="sm" onClick={() => setConfirmDialog("unblock")} disabled={actionLoading}>
@@ -385,8 +392,13 @@ export default function UsernameProfilePage() {
                         </div>
 
                         <div className="flex gap-6 my-3">
-                            <div className="text-base"><span className="font-bold text-foreground">0</span> <span className="text-muted-foreground">Posts</span></div>
-                            <div className="text-base"><span className="font-bold text-foreground">{contactStatus === 'ACCEPTED' ? 1 : 0}</span> <span className="text-muted-foreground">Friends</span></div>
+                            {!isLimited && targetUserId ? (
+                                <FollowerStats userId={targetUserId} />
+                            ) : (
+                                <div className="text-base text-muted-foreground italic">
+                                    Stats hidden due to privacy settings
+                                </div>
+                            )}
                         </div>
 
                         <div className="flex flex-col gap-1 max-w-lg">
