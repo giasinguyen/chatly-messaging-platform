@@ -3,6 +3,7 @@ package com.chatly.model.enums;
 public enum NotificationType {
     NEW_MESSAGE,
     MENTION,
+    NEW_FOLLOWER,
     FRIEND_REQUEST,
     GROUP_INVITE,
     GROUP_JOIN_REQUEST,
