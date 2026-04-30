@@ -1,5 +1,6 @@
 import { useState, useRef } from "react";
 import { domToPng } from "modern-screenshot";
+import { toast } from "sonner";
 
 import {
     Play,
@@ -17,7 +18,8 @@ import {
     Plus,
     Music,
     RotateCw,
-    Minus
+    Minus,
+    Video
 } from "lucide-react";
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -39,7 +41,7 @@ interface CreateStoryModalProps {
     onClose: () => void;
 }
 
-type StoryStep = "choose" | "text" | "photo";
+type StoryStep = "choose" | "text" | "photo" | "video";
 type StoryPrivacy = "public" | "friends" | "custom";
 
 const BACKGROUNDS = [
@@ -98,6 +100,11 @@ export function CreateStoryModal({ isOpen, onClose }: CreateStoryModalProps) {
     const [imagePosition, setImagePosition] = useState({ x: 0, y: 0 });
     const isImageDragging = useRef(false);
     const imageDragStart = useRef({ x: 0, y: 0 });
+
+    // Video Story State
+    const [videoUrl, setVideoUrl] = useState<string | null>(null);
+    const videoInputRef = useRef<HTMLInputElement>(null);
+
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     // Music State
@@ -156,6 +163,14 @@ export function CreateStoryModal({ isOpen, onClose }: CreateStoryModalProps) {
     };
 
     const handleExport = async () => {
+        if (step === "video" && videoUrl) {
+            const link = document.createElement("a");
+            link.download = "story-video.mp4";
+            link.href = videoUrl;
+            link.click();
+            return;
+        }
+
         if (!storyRef.current) return;
         try {
             const dataUrl = await domToPng(storyRef.current, {
@@ -223,6 +238,7 @@ export function CreateStoryModal({ isOpen, onClose }: CreateStoryModalProps) {
         setTextValue("");
         setTextPosition({ x: 0, y: 0 });
         setPhotoUrl(null);
+        setVideoUrl(null);
         setImagePosition({ x: 0, y: 0 });
         setBgIndex(0);
         setFontSize(30);
@@ -239,6 +255,23 @@ export function CreateStoryModal({ isOpen, onClose }: CreateStoryModalProps) {
             setPhotoUrl(url);
             setStep("photo");
         }
+    };
+
+    const handleVideoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            if (file.size > 5 * 1024 * 1024) {
+                toast.error("Video size must be less than 5MB");
+                return;
+            }
+            const url = URL.createObjectURL(file);
+            setVideoUrl(url);
+            setStep("video");
+        }
+    };
+
+    const triggerVideoInput = () => {
+        videoInputRef.current?.click();
     };
 
     const triggerFileInput = () => {
@@ -265,6 +298,17 @@ export function CreateStoryModal({ isOpen, onClose }: CreateStoryModalProps) {
                                     <ImageIcon className="w-6 h-6" />
                                 </div>
                                 <span className="text-white font-bold text-center px-4">Create a photo story</span>
+                                <div className="absolute inset-0 bg-black/10 opacity-0 group-hover:opacity-100 transition-opacity" />
+                            </button>
+
+                            <button
+                                onClick={triggerVideoInput}
+                                className="w-48 h-72 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-400 flex flex-col items-center justify-center gap-4 hover:scale-105 transition-transform shadow-lg relative overflow-hidden group"
+                            >
+                                <div className="w-14 h-14 bg-white rounded-full flex items-center justify-center text-emerald-500 shadow-md">
+                                    <Video className="w-6 h-6" />
+                                </div>
+                                <span className="text-white font-bold text-center px-4">Create a video story</span>
                                 <div className="absolute inset-0 bg-black/10 opacity-0 group-hover:opacity-100 transition-opacity" />
                             </button>
 
@@ -573,6 +617,18 @@ export function CreateStoryModal({ isOpen, onClose }: CreateStoryModalProps) {
                                     </div>
                                 )}
 
+                                {step === "video" && videoUrl && (
+                                    <div className="w-full h-full bg-black flex items-center justify-center transition-colors duration-500">
+                                        <video
+                                            src={videoUrl}
+                                            controls
+                                            autoPlay
+                                            loop
+                                            className="w-full h-full object-contain"
+                                        />
+                                    </div>
+                                )}
+
                                 {/* Music Sticker */}
                                 {selectedTrack && showMusicSticker && (
                                     <div
@@ -700,6 +756,15 @@ export function CreateStoryModal({ isOpen, onClose }: CreateStoryModalProps) {
             </Dialog>
 
             <audio ref={audioRef} className="hidden" onEnded={() => setPlayingTrackId(null)} />
+
+            {/* Hidden video input */}
+            <input
+                type="file"
+                ref={videoInputRef}
+                accept="video/*"
+                className="hidden"
+                onChange={handleVideoSelect}
+            />
 
             {/* Hidden file input */}
             <input
