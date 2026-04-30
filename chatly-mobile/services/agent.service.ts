@@ -3,6 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import axiosClient from '@/lib/axiosClient';
 import type {
   AgentSession,
+  AgentSessionCreateOptions,
   AgentSessionList,
   AgentMessageHistory,
   AgentChatRequest,
@@ -14,8 +15,17 @@ const API_BASE_URL = (process.env.EXPO_PUBLIC_API_BASE_URL ?? 'http://10.0.2.2:8
 
 export const agentService = {
   // ─── Sessions ────────────────────────────────────────────
-  createSession: async (title = 'New Chat'): Promise<AgentSession> => {
-    const res = await axiosClient.post(BASE, { title });
+  createSession: async (
+    titleOrOptions: string | AgentSessionCreateOptions = 'New Chat',
+  ): Promise<AgentSession> => {
+    const payload =
+      typeof titleOrOptions === 'string'
+        ? { title: titleOrOptions }
+        : {
+            title: titleOrOptions.title ?? 'New Chat',
+            context_conversation_id: titleOrOptions.context_conversation_id,
+          };
+    const res = await axiosClient.post(BASE, payload);
     return res.data;
   },
 

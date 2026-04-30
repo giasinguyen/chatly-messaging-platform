@@ -3,8 +3,14 @@ export interface AgentSession {
   id: string;
   user_id: string;
   title: string;
+  context_conversation_id?: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface AgentSessionCreateOptions {
+  title?: string;
+  context_conversation_id?: string;
 }
 
 export interface AgentSessionList {

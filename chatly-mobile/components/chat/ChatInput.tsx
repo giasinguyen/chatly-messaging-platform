@@ -35,6 +35,9 @@ interface ChatInputProps {
   onCancelReply?: () => void;
   isGroup?: boolean;
   groupMembers?: GroupMember[];
+  prefilledText?: string;
+  prefilledToken?: string;
+  onPrefillApplied?: () => void;
 }
 
 interface PendingFile {
@@ -66,8 +69,20 @@ function getDocumentIcon(mimeType: string): { name: string; color: string } {
   return { name: 'document-outline', color: Colors.textMuted };
 }
 
-export function ChatInput({ conversationId, onSend, onTyping, replyingTo, onCancelReply, isGroup, groupMembers }: ChatInputProps) {
+export function ChatInput({
+  conversationId,
+  onSend,
+  onTyping,
+  replyingTo,
+  onCancelReply,
+  isGroup,
+  groupMembers,
+  prefilledText,
+  prefilledToken,
+  onPrefillApplied,
+}: ChatInputProps) {
   const composerRef = useRef<TextRichComposerRef>(null);
+  const lastAppliedPrefillTokenRef = useRef<string | undefined>(undefined);
   const { user } = useAuthStore();
   const [composerMode, setComposerMode] = useState<ComposerMode>('plain');
   const [editorInstanceKey, setEditorInstanceKey] = useState(0);
@@ -366,6 +381,23 @@ export function ChatInput({ conversationId, onSend, onTyping, replyingTo, onCanc
 
     return () => clearTimeout(timer);
   }, [composerMode]);
+
+  useEffect(() => {
+    if (!prefilledText || !prefilledToken) return;
+    if (lastAppliedPrefillTokenRef.current === prefilledToken) return;
+
+    lastAppliedPrefillTokenRef.current = prefilledToken;
+    setComposerMode('plain');
+    setText(prefilledText);
+    onPrefillApplied?.();
+
+    const focusDelayMs = 120;
+    const timer = setTimeout(() => {
+      composerRef.current?.focus('plain');
+    }, focusDelayMs);
+
+    return () => clearTimeout(timer);
+  }, [prefilledText, prefilledToken, onPrefillApplied]);
 
   return (
     <View style={{ backgroundColor: Colors.white }}>

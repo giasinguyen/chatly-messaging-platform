@@ -48,7 +48,11 @@ import type { ContactResponse } from '@/types/contact';
 const PAGE_SIZE = 20;
 
 export default function ChatScreen() {
-  const { id: conversationId } = useLocalSearchParams<{ id: string }>();
+  const {
+    id: conversationId,
+    prefill,
+    prefill_token,
+  } = useLocalSearchParams<{ id: string; prefill?: string; prefill_token?: string }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const user = useAuthStore((s) => s.user);
@@ -96,7 +100,23 @@ export default function ChatScreen() {
   const [showPinnedList, setShowPinnedList] = useState(false);
   const [currentPollIdx, setCurrentPollIdx] = useState(0);
   const [isPollBannerDismissed, setIsPollBannerDismissed] = useState(false);
+  const [activePrefillToken, setActivePrefillToken] = useState<string | undefined>(prefill_token);
   const sendSeenRef = useRef<(messageId: string) => boolean>(() => false);
+
+  useEffect(() => {
+    if (prefill_token) {
+      setActivePrefillToken(prefill_token);
+    }
+  }, [prefill_token]);
+
+  const decodedPrefillText = useMemo(() => {
+    if (!prefill) return undefined;
+    try {
+      return decodeURIComponent(prefill);
+    } catch {
+      return prefill;
+    }
+  }, [prefill]);
 
   const {
     getBlockDirection,
@@ -1020,6 +1040,9 @@ export default function ChatScreen() {
             onTyping={sendTyping}
             replyingTo={replyingTo}
             onCancelReply={() => setReplyingTo(null)}
+            prefilledText={decodedPrefillText}
+            prefilledToken={activePrefillToken}
+            onPrefillApplied={() => setActivePrefillToken(undefined)}
             isGroup={isGroup}
             groupMembers={
               isGroup

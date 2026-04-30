@@ -29,6 +29,11 @@ import { AssistantThinkingIndicator } from '@/components/assistant/AssistantThin
 import { AssistantStreamingBubble } from '@/components/assistant/AssistantStreamingBubble';
 import { formatRelativeTime } from '@/utils/format';
 import type { AgentSession, AgentMessage } from '@/types/agent';
+import { AssistantMessageActions } from '@/components/assistant/AssistantMessageActions';
+import { ForwardToChatModal } from '@/components/assistant/ForwardToChatModal';
+import { AssistantQuickChips } from '@/components/assistant/AssistantQuickChips';
+import { useConversationStore } from '@/store/conversation.store';
+import { useAuthStore } from '@/store/auth.store';
 
 export default function AssistantScreen() {
   const router = useRouter();
@@ -57,6 +62,9 @@ export default function AssistantScreen() {
     setDraft,
   } = useChatbotStore();
 
+  const conversations = useConversationStore((s) => s.conversations);
+  const currentUserId = useAuthStore((s) => s.user?.id ?? '');
+
   const { startStream, cancelStream } = useAgentStream();
 
   const messages = messagesBySession[activeSessionId ?? ''] ?? [];
@@ -64,7 +72,6 @@ export default function AssistantScreen() {
   const isThinking = streamingStatus === 'connecting' || streamingStatus === 'thinking';
   const hasChat = activeSessionId && messages.length > 0;
 
-  const [loadingSessions, setLoadingSessions] = useState(true);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [showSessions, setShowSessions] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -72,9 +79,16 @@ export default function AssistantScreen() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState('');
   const [mcpConfigVisible, setMcpConfigVisible] = useState(false);
+  const [selectedMessage, setSelectedMessage] = useState<AgentMessage | null>(null);
+  const [messageActionsVisible, setMessageActionsVisible] = useState(false);
+  const [forwardModalVisible, setForwardModalVisible] = useState(false);
 
   const session = sessions.find((s) => s.id === activeSessionId);
   const title = session?.title ?? 'AI Assistant';
+  const contextConversationName =
+    session?.context_conversation_id
+      ? conversations.find((conversation) => conversation.id === session.context_conversation_id)?.name ?? 'this group'
+      : undefined;
 
   // ─── Load sessions on mount ──────────────────────────────
   const loadSessions = useCallback(async () => {
@@ -87,7 +101,7 @@ export default function AssistantScreen() {
   }, [setSessions]);
 
   useEffect(() => {
-    loadSessions().finally(() => setLoadingSessions(false));
+    loadSessions();
   }, [loadSessions]);
 
   // ─── Load history when activeSessionId changes ───────────
@@ -176,6 +190,26 @@ export default function AssistantScreen() {
   const handleCopy = useCallback(async (content: string) => {
     await Clipboard.setStringAsync(content);
   }, []);
+
+  const handleForwardToChat = useCallback(
+    async (conversationId: string) => {
+      if (!selectedMessage) return;
+      const encoded = encodeURIComponent(selectedMessage.content);
+      const token = Date.now().toString();
+      setForwardModalVisible(false);
+      setSelectedMessage(null);
+      router.push(`/chat/${conversationId}?prefill=${encoded}&prefill_token=${token}`);
+    },
+    [selectedMessage, router],
+  );
+
+  const handleChipSelect = useCallback(
+    (query: string) => {
+      const targetSessionId = activeSessionId ?? '__new__';
+      setDraft(targetSessionId, query);
+    },
+    [activeSessionId, setDraft],
+  );
 
   // ─── New chat ────────────────────────────────────────────
   const handleNewChat = useCallback(() => {
@@ -281,6 +315,10 @@ export default function AssistantScreen() {
           isError={isLastAssistant}
           onRetry={isLastAssistant ? handleRetry : undefined}
           onCopy={handleCopy}
+          onLongPress={() => {
+            setSelectedMessage(item);
+            setMessageActionsVisible(true);
+          }}
         />
       );
     },
@@ -300,6 +338,7 @@ export default function AssistantScreen() {
   const renderSessionItem = ({ item }: { item: AgentSession }) => {
     const isEditing = editingId === item.id;
     const isActive = activeSessionId === item.id;
+    const isContextSession = !!item.context_conversation_id;
     return (
       <TouchableOpacity
         onPress={() => handleSelectSession(item)}
@@ -314,9 +353,9 @@ export default function AssistantScreen() {
       >
         <View
           className="h-10 w-10 rounded-xl items-center justify-center"
-          style={{ backgroundColor: isActive ? Colors.cta : Colors.ctaLight }}
+          style={{ backgroundColor: isActive ? Colors.cta : isContextSession ? '#EEF2FF' : Colors.ctaLight }}
         >
-          <CustomAiIcon size={18} color={isActive ? Colors.white : Colors.cta} />
+          <CustomAiIcon size={18} color={isActive ? Colors.white : isContextSession ? '#4338CA' : Colors.cta} />
         </View>
         <View className="ml-3 flex-1">
           {isEditing ? (
@@ -338,6 +377,13 @@ export default function AssistantScreen() {
           <Text className="text-xs mt-0.5" style={{ color: Colors.textMuted }}>
             {formatRelativeTime(item.updated_at || item.created_at)}
           </Text>
+          {isContextSession && (
+            <View className="self-start rounded-full px-2 py-0.5 mt-1" style={{ backgroundColor: '#EEF2FF' }}>
+              <Text className="text-[10px] font-medium" style={{ color: '#4338CA' }}>
+                Group
+              </Text>
+            </View>
+          )}
         </View>
         {isActive && <Ionicons name="checkmark-circle" size={20} color={Colors.cta} />}
       </TouchableOpacity>
@@ -450,6 +496,10 @@ export default function AssistantScreen() {
                 Enter a question to start chatting with AI.{'\n'}
                 You can upload documents, search the web and use MCP tools.
               </Text>
+              <AssistantQuickChips
+                onChipSelect={handleChipSelect}
+                contextConversationName={contextConversationName}
+              />
             </View>
           )}
         </View>
@@ -504,6 +554,28 @@ export default function AssistantScreen() {
           />
         </View>
       </Modal>
+
+      <AssistantMessageActions
+        visible={messageActionsVisible}
+        onClose={() => setMessageActionsVisible(false)}
+        onCopy={() => {
+          if (selectedMessage) {
+            handleCopy(selectedMessage.content);
+          }
+        }}
+        onForwardToChat={() => {
+          if (selectedMessage) {
+            setForwardModalVisible(true);
+          }
+        }}
+      />
+
+      <ForwardToChatModal
+        visible={forwardModalVisible}
+        currentUserId={currentUserId}
+        onClose={() => setForwardModalVisible(false)}
+        onConfirm={handleForwardToChat}
+      />
     </View>
   );
 }
