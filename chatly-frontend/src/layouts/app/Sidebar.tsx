@@ -10,7 +10,8 @@ import { socketService } from "@/services/socket.service";
 import { toast } from "sonner";
 import { NotificationBell } from "@/components/customize/NotificationBell";
 import { useNotificationStore } from "@/store/notification.store";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { storyService } from "@/services/story.service";
 import {
     AlertDialog,
     AlertDialogAction,
@@ -34,6 +35,25 @@ export function Sidebar({ user }: SidebarProps) {
         (s) => s.notifications.filter((n) => n.type === "NEW_MESSAGE" && !n.read).length,
     );
     const [showLogoutDialog, setShowLogoutDialog] = useState(false);
+    const [hasActiveStories, setHasActiveStories] = useState(false);
+    
+    useEffect(() => {
+        const checkStories = async () => {
+            try {
+                const res = await storyService.getMyStories();
+                if (res.code === 1000) {
+                    // Check if any story was created in the last 24h
+                    const now = new Date().getTime();
+                    const dayAgo = now - (24 * 60 * 60 * 1000);
+                    const hasRecent = res.result.some(s => new Date(s.createdAt).getTime() > dayAgo);
+                    setHasActiveStories(hasRecent);
+                }
+            } catch (error) {
+                console.error("Failed to check stories", error);
+            }
+        };
+        checkStories();
+    }, []);
 
     const handleLogout = async () => {
         try {
@@ -68,16 +88,26 @@ export function Sidebar({ user }: SidebarProps) {
                     className="relative mb-2 transition-transform hover:scale-105"
                     title="Profile"
                 >
-                    <Avatar className="h-11 w-11 border-2 border-blue-400">
-                        <AvatarImage
-                            src={user?.avatarUrl}
-                            className="object-cover"
-                        />
-                        <AvatarFallback className="bg-muted text-lg text-muted-foreground font-medium">
-                            {user?.displayName?.charAt(0)?.toUpperCase() || "U"}
-                        </AvatarFallback>
-                    </Avatar>
-                    <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-brand bg-green-500" />
+                    <div className={cn(
+                        "p-[2px] rounded-full",
+                        hasActiveStories ? "bg-gradient-to-tr from-brand via-blue-500 to-cyan-400 shadow-[0_0_8px_rgba(59,130,246,0.5)]" : "bg-transparent"
+                    )}>
+                        <div className="bg-brand p-[2px] rounded-full">
+                            <Avatar className={cn(
+                                "h-11 w-11",
+                                !hasActiveStories && "border-2 border-blue-400/30"
+                            )}>
+                                <AvatarImage
+                                    src={user?.avatarUrl}
+                                    className="object-cover"
+                                />
+                                <AvatarFallback className="bg-muted text-lg text-muted-foreground font-medium">
+                                    {user?.displayName?.charAt(0)?.toUpperCase() || "U"}
+                                </AvatarFallback>
+                            </Avatar>
+                        </div>
+                    </div>
+                    <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-brand bg-green-500 z-10" />
                 </NavLink>
 
                 {/* Nav Icons */}

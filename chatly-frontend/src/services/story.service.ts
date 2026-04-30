@@ -8,6 +8,11 @@ export const storyService = {
         return response.data;
     },
 
+    getFeed: async (): Promise<ApiResponse<Story[]>> => {
+        const response = await axiosClient.get<ApiResponse<Story[]>>("/api/stories/feed");
+        return response.data;
+    },
+
     getMyStories: async (): Promise<ApiResponse<Story[]>> => {
         const response = await axiosClient.get<ApiResponse<Story[]>>("/api/stories/me");
         return response.data;

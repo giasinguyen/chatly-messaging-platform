@@ -21,4 +21,5 @@ public class StoryResponse {
     private Integer fontSize;
     private String privacy;
     private Instant createdAt;
+    private UserResponse user;
 }

@@ -42,11 +42,13 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { contactService } from "@/services/contact.service";
 import { conversationService } from "@/services/conversation.service";
 import { userService } from "@/services/user.service";
+import { storyService } from "@/services/story.service";
 import { useAuthStore } from "@/store/auth.store";
 import { useContactStore } from "@/store/contact.store";
 import type { UserResponse } from "@/types/auth";
 import type { ContactResponse } from "@/types/contact";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 type ConfirmDialogType = "block" | "unblock" | "remove";
 
@@ -59,6 +61,7 @@ export default function UsernameProfilePage() {
     const [profile, setProfile] = useState<UserResponse | null>(null);
     const [contactRecord, setContactRecord] = useState<ContactResponse | null>(null);
     const [targetUserId, setTargetUserId] = useState<string | null>(null);
+    const [hasActiveStories, setHasActiveStories] = useState(false);
     const [loading, setLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState(false);
     const [confirmDialog, setConfirmDialog] = useState<ConfirmDialogType | null>(null);
@@ -83,12 +86,14 @@ export default function UsernameProfilePage() {
             setTargetUserId(resolvedId);
 
             // Fetch fully blocked-aware profile and contact records
-            const [profileRes, contactRes] = await Promise.all([
+            const [profileRes, contactRes, storiesRes] = await Promise.all([
                 userService.getUserById(resolvedId),
                 contactService.getByUser(resolvedId),
+                storyService.getUserStories(resolvedId)
             ]);
             setProfile(profileRes.result);
             setContactRecord(contactRes.result ?? null);
+            setHasActiveStories(storiesRes.result?.length > 0);
         } catch {
             toast.error("Could not load profile");
         } finally {
@@ -272,13 +277,21 @@ export default function UsernameProfilePage() {
                 {/* Profile Header Section */}
                 <section className="flex flex-col md:flex-row items-start md:items-center gap-10 mb-10">
                     {/* Avatar */}
-                    <div className="flex-shrink-0">
-                        <Avatar className="w-24 h-24 md:w-36 md:h-36 rounded-full border-4 border-background shadow-lg">
-                            <AvatarImage src={profile.avatarUrl} className="object-cover" />
-                            <AvatarFallback className="text-4xl font-semibold bg-gradient-to-tr from-pink-400 to-indigo-500 text-white">
-                                {userInitial}
-                            </AvatarFallback>
-                        </Avatar>
+                    <div className={cn(
+                        "flex-shrink-0 rounded-full",
+                        hasActiveStories && "p-1 bg-gradient-to-tr from-brand via-blue-500 to-cyan-400"
+                    )}>
+                        <div className={cn(
+                            "rounded-full",
+                            hasActiveStories && "p-1 bg-background"
+                        )}>
+                            <Avatar className="w-24 h-24 md:w-36 md:h-36 rounded-full border-4 border-background shadow-lg">
+                                <AvatarImage src={profile.avatarUrl} className="object-cover" />
+                                <AvatarFallback className="text-4xl font-semibold bg-gradient-to-tr from-pink-400 to-indigo-500 text-white">
+                                    {userInitial}
+                                </AvatarFallback>
+                            </Avatar>
+                        </div>
                     </div>
 
                     {/* Profile Info */}

@@ -9,4 +9,5 @@ import java.util.List;
 @Repository
 public interface StoryRepository extends MongoRepository<Story, String> {
     List<Story> findAllByUserIdOrderByCreatedAtDesc(String userId);
+    List<Story> findAllByUserIdInOrderByCreatedAtDesc(List<String> userIds);
 }

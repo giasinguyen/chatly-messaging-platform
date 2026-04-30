@@ -25,6 +25,13 @@ public class StoryController {
                 .build();
     }
 
+    @GetMapping("/feed")
+    ApiResponse<List<StoryResponse>> getFeed() {
+        return ApiResponse.<List<StoryResponse>>builder()
+                .result(storyService.getStoriesFeed(getAuthenticatedUserId()))
+                .build();
+    }
+
     @GetMapping("/me")
     ApiResponse<List<StoryResponse>> getMyStories() {
         return ApiResponse.<List<StoryResponse>>builder()

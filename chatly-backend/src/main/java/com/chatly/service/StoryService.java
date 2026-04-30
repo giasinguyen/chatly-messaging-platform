@@ -9,4 +9,5 @@ public interface StoryService {
     StoryResponse createStory(String userId, StoryCreationRequest request);
     List<StoryResponse> getUserStories(String userId);
     List<StoryResponse> getActiveStoriesForUser(String userId);
+    List<StoryResponse> getStoriesFeed(String userId);
 }
