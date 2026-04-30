@@ -1,12 +1,10 @@
-import { useState, useRef, useEffect } from "react";
-import { motion, useDragControls } from "framer-motion";
+import { useState, useRef } from "react";
+import { motion } from "framer-motion";
 
 import {
-    Search,
     Play,
     Pause,
     X,
-    Check,
     Loader2,
     Bookmark,
     ImageIcon,
@@ -16,9 +14,10 @@ import {
     Globe,
     Users,
     Lock,
-    Minus,
     Plus,
-    Music
+    Music,
+    RotateCw,
+    Minus
 } from "lucide-react";
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -26,10 +25,9 @@ import { Button } from "@/components/ui/button";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Slider } from "@/components/ui/slider";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
-
+import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
 import { musicService } from "@/services/music.service";
@@ -84,8 +82,10 @@ export function CreateStoryModal({ isOpen, onClose }: CreateStoryModalProps) {
     // Text Story State
     const [textValue, setTextValue] = useState("");
     const [bgIndex, setBgIndex] = useState(0);
+    const [imageScale, setImageScale] = useState(1);
+    const [imageRotation, setImageRotation] = useState(0);
+    const [fontSize, setFontSize] = useState(30);
     const [font, setFont] = useState("Clean");
-    const [fontSize, setFontSize] = useState(30); // Default font size
 
     // Global Story State
     const [privacy, setPrivacy] = useState<StoryPrivacy>("public");
@@ -96,13 +96,11 @@ export function CreateStoryModal({ isOpen, onClose }: CreateStoryModalProps) {
 
     // Music State
     const [isMusicModalOpen, setIsMusicModalOpen] = useState(false);
-    const [searchQuery, setSearchQuery] = useState("");
     const [selectedTrack, setSelectedTrack] = useState<MusicTrack | null>(null);
     const [tracks, setTracks] = useState<MusicTrack[]>([]);
     const [isLoadingMusic, setIsLoadingMusic] = useState(false);
     const [playingTrackId, setPlayingTrackId] = useState<string | null>(null);
     const audioRef = useRef<HTMLAudioElement | null>(null);
-    const [activeTab, setActiveTab] = useState("for-you");
     const [selectedCategory, setSelectedCategory] = useState("chill");
     const [showMusicSticker, setShowMusicSticker] = useState(true);
 
@@ -288,58 +286,13 @@ export function CreateStoryModal({ isOpen, onClose }: CreateStoryModalProps) {
                                 {step === "text" && (
                                     <>
                                         <div className="flex flex-col gap-2">
+                                            <label className="text-sm font-semibold text-muted-foreground">Content</label>
                                             <textarea
                                                 className="w-full h-32 bg-background border border-border rounded-xl p-3 resize-none focus:outline-none focus:border-brand transition-colors"
                                                 placeholder="Start typing..."
                                                 value={textValue}
                                                 onChange={(e) => setTextValue(e.target.value)}
                                             />
-                                        </div>
-
-                                        <div className="flex flex-col gap-2">
-                                            <label className="text-sm font-semibold text-muted-foreground">Font</label>
-                                            <select
-                                                className="w-full bg-background border border-border rounded-lg p-2 focus:outline-none"
-                                                value={font}
-                                                onChange={(e) => setFont(e.target.value)}
-                                            >
-                                                {FONTS.map(f => (
-                                                    <option key={f} value={f}>{f}</option>
-                                                ))}
-                                            </select>
-                                        </div>
-
-                                        <div className="flex flex-col gap-2">
-                                            <div className="flex items-center justify-between">
-                                                <label className="text-sm font-semibold text-muted-foreground">Font Size</label>
-                                                <span className="text-xs font-medium bg-muted px-2 py-0.5 rounded-md">{fontSize}px</span>
-                                            </div>
-                                            <div className="flex items-center gap-3 px-1">
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    className="h-8 w-8 rounded-full bg-muted/50"
-                                                    onClick={() => setFontSize(prev => Math.max(12, prev - 2))}
-                                                >
-                                                    <Minus className="w-4 h-4" />
-                                                </Button>
-                                                <Slider
-                                                    value={[fontSize]}
-                                                    min={12}
-                                                    max={100}
-                                                    step={1}
-                                                    onValueChange={(v) => setFontSize(v[0])}
-                                                    className="flex-1"
-                                                />
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    className="h-8 w-8 rounded-full bg-muted/50"
-                                                    onClick={() => setFontSize(prev => Math.min(100, prev + 2))}
-                                                >
-                                                    <Plus className="w-4 h-4" />
-                                                </Button>
-                                            </div>
                                         </div>
 
                                         <div className="flex flex-col gap-2">
@@ -363,12 +316,100 @@ export function CreateStoryModal({ isOpen, onClose }: CreateStoryModalProps) {
 
                                 {step === "photo" && (
                                     <>
-                                        <Button variant="outline" className="w-full justify-start gap-3 h-12 rounded-xl">
-                                            <TypeIcon className="w-5 h-5" /> Add text
-                                        </Button>
+                                        <div className="flex flex-col gap-2">
+                                            <label className="text-sm font-semibold text-muted-foreground">Add Text</label>
+                                            <Input
+                                                placeholder="Add text to your photo..."
+                                                value={textValue}
+                                                onChange={(e) => setTextValue(e.target.value)}
+                                                className="h-12 rounded-xl border-border bg-muted/20 focus-visible:ring-brand"
+                                            />
+                                        </div>
+
+                                        <div className="flex flex-col gap-2">
+                                            <label className="text-sm font-semibold text-muted-foreground">Image Edit</label>
+                                            <div className="space-y-4 p-3 bg-muted/20 rounded-xl">
+                                                <div className="space-y-2">
+                                                    <div className="flex justify-between text-[10px] uppercase font-bold text-muted-foreground">
+                                                        <span>Scale</span>
+                                                        <span>{Math.round(imageScale * 100)}%</span>
+                                                    </div>
+                                                    <Slider
+                                                        value={[imageScale]}
+                                                        onValueChange={(vals) => setImageScale(vals[0])}
+                                                        min={0.5}
+                                                        max={3}
+                                                        step={0.1}
+                                                    />
+                                                </div>
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    className="w-full h-8 text-xs gap-2 rounded-lg"
+                                                    onClick={() => setImageRotation((prev) => (prev + 90) % 360)}
+                                                >
+                                                    <RotateCw className="w-3.5 h-3.5" /> Rotate 90°
+                                                </Button>
+                                            </div>
+                                        </div>
+
+                                        <div className="flex flex-col gap-2">
+                                            <label className="text-sm font-semibold text-muted-foreground">Backgrounds</label>
+                                            <div className="flex flex-wrap gap-2">
+                                                <button
+                                                    onClick={() => setBgIndex(-1)}
+                                                    className={cn(
+                                                        "w-8 h-8 rounded-full border-2 bg-black transition-transform hover:scale-110",
+                                                        bgIndex === -1 ? "border-foreground scale-110 shadow-md" : "border-transparent"
+                                                    )}
+                                                />
+                                                {BACKGROUNDS.map((bg, idx) => (
+                                                    <button
+                                                        key={bg}
+                                                        onClick={() => setBgIndex(idx)}
+                                                        className={cn(
+                                                            "w-8 h-8 rounded-full border-2 transition-transform hover:scale-110",
+                                                            bg,
+                                                            bgIndex === idx ? "border-foreground scale-110 shadow-md" : "border-transparent"
+                                                        )}
+                                                    />
+                                                ))}
+                                            </div>
+                                        </div>
                                     </>
                                 )}
 
+                                {/* Common Text Style Controls (Visible when textValue exists) */}
+                                {textValue && (
+                                    <div className="flex flex-col gap-4 p-4 bg-muted/10 rounded-2xl border border-border/50">
+                                        <div className="flex flex-col gap-2">
+                                            <div className="flex items-center justify-between">
+                                                <label className="text-sm font-semibold text-muted-foreground">Font Size</label>
+                                                <span className="text-xs font-medium bg-muted px-2 py-0.5 rounded-md">{fontSize}px</span>
+                                            </div>
+                                            <Slider
+                                                value={[fontSize]}
+                                                min={12}
+                                                max={100}
+                                                step={1}
+                                                onValueChange={(v) => setFontSize(v[0])}
+                                            />
+                                        </div>
+
+                                        <div className="flex flex-col gap-2">
+                                            <label className="text-sm font-semibold text-muted-foreground">Font Family</label>
+                                            <select
+                                                className="w-full bg-background border border-border rounded-lg p-2 text-sm focus:outline-none"
+                                                value={font}
+                                                onChange={(e) => setFont(e.target.value)}
+                                            >
+                                                {FONTS.map(f => <option key={f} value={f}>{f}</option>)}
+                                            </select>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Music Controls */}
                                 <div className="flex flex-col gap-2">
                                     <div className="flex items-center justify-between">
                                         <label className="text-sm font-semibold text-muted-foreground">Music</label>
@@ -430,13 +471,13 @@ export function CreateStoryModal({ isOpen, onClose }: CreateStoryModalProps) {
                         {/* RIGHT PREVIEW */}
                         <div
                             ref={previewContainerRef}
-                            className="flex-1 bg-muted flex items-center justify-center p-8 relative overflow-hidden"
+                            className="flex-1 bg-muted flex items-center justify-center relative overflow-hidden"
                         >
                             <h3 className="absolute top-6 left-6 font-semibold text-muted-foreground">Preview</h3>
 
                             <div className={cn(
-                                "h-[90%] max-h-[800px] aspect-[9/16] rounded-2xl shadow-2xl overflow-hidden relative flex items-center justify-center text-center p-8 break-words whitespace-pre-wrap",
-                                step === "text" ? BACKGROUNDS[bgIndex] : "bg-black"
+                                "h-[90%] max-h-[800px] aspect-[9/16] rounded-2xl shadow-2xl overflow-hidden relative flex items-center justify-center text-center break-words whitespace-pre-wrap transition-colors duration-500",
+                                step === "text" ? (BACKGROUNDS[bgIndex] + " p-8") : (bgIndex === -1 ? "bg-black" : BACKGROUNDS[bgIndex])
                             )}>
                                 {step === "text" && (
                                     <motion.div
@@ -455,13 +496,52 @@ export function CreateStoryModal({ isOpen, onClose }: CreateStoryModalProps) {
                                             )}
                                             style={{ fontSize: `${fontSize}px`, lineHeight: 1.2 }}
                                         >
-                                            {textValue || "Start typing..."}
+                                            {textValue || "YOUR FEELING ?"}
                                         </span>
                                     </motion.div>
                                 )}
 
                                 {step === "photo" && photoUrl && (
-                                    <img src={photoUrl} alt="Story preview" className="w-full h-full object-cover select-none pointer-events-none" />
+                                    <div className={cn(
+                                        "w-full h-full relative overflow-hidden flex items-center justify-center transition-colors duration-500",
+                                        bgIndex === -1 ? "bg-black" : BACKGROUNDS[bgIndex]
+                                    )}>
+                                        <motion.img
+                                            src={photoUrl}
+                                            alt="Story preview"
+                                            className="w-full h-full object-cover select-none cursor-move origin-center"
+                                            style={{
+                                                scale: imageScale,
+                                                rotate: imageRotation,
+                                            }}
+                                            drag
+                                            dragConstraints={{ left: -500, right: 500, top: -500, bottom: 500 }}
+                                            dragMomentum={false}
+                                        />
+
+                                        {/* Overlays on photo */}
+                                        {textValue && (
+                                            <motion.div
+                                                drag
+                                                dragConstraints={previewContainerRef}
+                                                dragMomentum={false}
+                                                className="absolute z-30 cursor-move"
+                                            >
+                                                <span
+                                                    className={cn(
+                                                        "text-white font-bold block drop-shadow-lg select-none",
+                                                        font === "Clean" ? "font-sans" :
+                                                            font === "Headline" ? "font-serif uppercase tracking-wider" :
+                                                                font === "Casual" ? "font-mono" :
+                                                                    "font-sans italic"
+                                                    )}
+                                                    style={{ fontSize: `${fontSize}px`, lineHeight: 1.2 }}
+                                                >
+                                                    {textValue}
+                                                </span>
+                                            </motion.div>
+                                        )}
+                                    </div>
                                 )}
 
                                 {/* Music Sticker */}
