@@ -2,6 +2,7 @@ package com.chatly.proxy;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ByteArrayResource;
@@ -20,6 +21,7 @@ import reactor.core.publisher.Mono;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.Map;
+import java.util.concurrent.TimeoutException;
 
 @Component
 @Slf4j
@@ -129,7 +131,8 @@ public class AgentProxyClient {
                 .retrieve()
                 .onStatus(HttpStatusCode::isError, this::handleAgentError)
                 .bodyToFlux(String.class)
-                .timeout(Duration.ofSeconds(streamTimeoutSeconds));
+                .timeout(Duration.ofSeconds(streamTimeoutSeconds))
+                .onErrorResume(e -> Flux.just(buildStreamErrorPayload(e)));
     }
 
     /** Expose stream timeout in milliseconds for {@code SseEmitter} timeout. */
@@ -264,6 +267,55 @@ public class AgentProxyClient {
                         ex -> log.warn("File index trigger failed conversation={} file={}: {}",
                                 conversationId, fileId, ex.getMessage())
                 );
+    }
+
+    private String buildStreamErrorPayload(Throwable e) {
+        final String message;
+        final String code;
+        final String category;
+        final boolean retryable;
+
+        if (e instanceof TimeoutException) {
+            message = "The AI service did not respond in time. Please try again.";
+            code = "PROXY_TIMEOUT";
+            category = "timeout";
+            retryable = true;
+        } else if (e instanceof AgentProxyException ape) {
+            int status = ape.getAgentStatusCode().value();
+            if (status == 429) {
+                message = "AI service is busy. Please wait a moment and try again.";
+                code = "PROXY_RATE_LIMITED";
+                category = "rate_limit";
+                retryable = true;
+            } else if (status >= 500) {
+                message = "AI service is temporarily unavailable.";
+                code = "PROXY_UPSTREAM_ERROR";
+                category = "provider_error";
+                retryable = true;
+            } else {
+                message = "Invalid request to AI service.";
+                code = "PROXY_BAD_REQUEST";
+                category = "validation_error";
+                retryable = false;
+            }
+        } else {
+            message = "An unexpected error occurred in the AI service.";
+            code = "PROXY_INTERNAL_ERROR";
+            category = "internal";
+            retryable = false;
+        }
+
+        log.error("Stream proxy error — code={} category={}: {}", code, category, e.getMessage());
+
+        ObjectNode data = OBJECT_MAPPER.createObjectNode()
+                .put("message", message)
+                .put("code", code)
+                .put("category", category)
+                .put("retryable", retryable);
+        ObjectNode root = OBJECT_MAPPER.createObjectNode();
+        root.put("type", "error");
+        root.set("data", data);
+        return root.toString();
     }
 
     private Mono<? extends Throwable> handleAgentError(ClientResponse response) {
