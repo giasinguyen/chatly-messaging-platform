@@ -11,4 +11,6 @@ public interface PostRepository extends MongoRepository<Post, String> {
     Page<Post> findByAuthorIdOrderByCreatedAtDesc(String authorId, Pageable pageable);
 
     Page<Post> findByVisibilityOrderByCreatedAtDesc(PostVisibility visibility, Pageable pageable);
+
+    long countByAuthorId(String authorId);
 }
