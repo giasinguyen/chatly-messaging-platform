@@ -1,4 +1,4 @@
-import { MessageCircle, Users, Settings, Cloud, LogOut, Home, PlusCircle, Compass } from "lucide-react";
+import { MessageCircle, Users, Settings, Cloud, LogOut, Home, Compass } from "lucide-react";
 import { CustomAiIcon } from "@/components/customize/CustomAiIcon";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { NavLink, useNavigate } from "react-router-dom";
@@ -21,9 +21,7 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { CreatePostModal } from "@/components/app/CreatePostModal";
-import { CreateOptionsModal } from "@/components/app/CreateOptionsModal";
-import { CreateStoryModal } from "@/components/app/CreateStoryModal";
+
 
 interface SidebarProps {
     user: UserResponse | null;
@@ -36,9 +34,6 @@ export function Sidebar({ user }: SidebarProps) {
         (s) => s.notifications.filter((n) => n.type === "NEW_MESSAGE" && !n.read).length,
     );
     const [showLogoutDialog, setShowLogoutDialog] = useState(false);
-    const [showOptionsModal, setShowOptionsModal] = useState(false);
-    const [showPostModal, setShowPostModal] = useState(false);
-    const [showStoryModal, setShowStoryModal] = useState(false);
 
     const handleLogout = async () => {
         try {
@@ -62,7 +57,6 @@ export function Sidebar({ user }: SidebarProps) {
         { to: "/contact", icon: Users, label: "Contacts", badge: 0 },
         { to: "/chatbot", icon: CustomAiIcon, label: "AI Chat", badge: 0, highlight: true },
         { to: "/cloud", icon: Cloud, label: "Cloud", badge: 0 },
-        { onClick: () => setShowOptionsModal(true), icon: PlusCircle, label: "Create", badge: 0 },
     ];
 
     return (
@@ -88,85 +82,63 @@ export function Sidebar({ user }: SidebarProps) {
 
                 {/* Nav Icons */}
                 <div className="flex flex-col items-center gap-1 w-full">
-                    {navItems.map((item) => {
-                        if (item.onClick) {
-                            return (
-                                <button
-                                    key={item.label}
-                                    onClick={item.onClick}
-                                    title={item.label}
-                                    className="w-full flex justify-center py-3 relative transition-all duration-300 hover:bg-black/10 text-white/70"
-                                >
-                                    <div className="relative">
-                                        <item.icon className="h-6 w-6 transition-colors text-white/70" />
+                    {navItems.map((item) => (
+                        <NavLink
+                            key={item.to}
+                            to={item.to}
+                            title={item.label}
+                            className={({ isActive }) =>
+                                cn(
+                                    "w-full flex justify-center py-3 relative transition-all duration-300",
+                                    item.highlight
+                                        ? isActive
+                                            ? "bg-linear-to-r from-blue-500/30 to-cyan-400/20"
+                                            : "hover:bg-linear-to-r hover:from-blue-500/20 hover:to-cyan-400/10 text-white/70"
+                                        : isActive
+                                            ? "bg-black/20"
+                                            : "hover:bg-black/10 text-white/70",
+                                )
+                            }
+                        >
+                            {({ isActive }) => (
+                                <>
+                                    {isActive && (
+                                        <div className={cn(
+                                            "absolute left-0 top-0 bottom-0 w-1 rounded-r-full",
+                                            item.highlight
+                                                ? "bg-linear-to-b from-blue-400 to-cyan-300"
+                                                : "bg-white",
+                                        )} />
+                                    )}
+                                    <div className={cn(
+                                        "relative",
+                                        item.highlight && !isActive && "animate-pulse-subtle",
+                                    )}>
+                                        <item.icon
+                                            className={cn(
+                                                "h-6 w-6 transition-colors",
+                                                item.highlight
+                                                    ? isActive
+                                                        ? "text-cyan-200 drop-shadow-[0_0_6px_rgba(34,211,238,0.4)]"
+                                                        : "text-cyan-300/80"
+                                                    : isActive
+                                                        ? "text-white"
+                                                        : "text-white/70",
+                                            )}
+                                        />
+                                        {item.highlight && (
+                                            <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-cyan-400 shadow-[0_0_6px_rgba(34,211,238,0.6)]" />
+                                        )}
                                     </div>
                                     {item.badge > 0 && (
                                         <span className="absolute top-2 right-2 min-w-4.5 h-4.5 flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-bold px-1 leading-none">
                                             {item.badge > 99 ? "99+" : item.badge}
                                         </span>
                                     )}
-                                </button>
-                            );
-                        }
-
-                        return (
-                            <NavLink
-                                key={item.to}
-                                to={item.to}
-                                title={item.label}
-                                className={({ isActive }) =>
-                                    cn(
-                                        "w-full flex justify-center py-3 relative transition-all duration-300",
-                                        item.highlight
-                                            ? isActive
-                                                ? "bg-linear-to-r from-blue-500/30 to-cyan-400/20"
-                                                : "hover:bg-linear-to-r hover:from-blue-500/20 hover:to-cyan-400/10 text-white/70"
-                                            : isActive
-                                                ? "bg-black/20"
-                                                : "hover:bg-black/10 text-white/70",
-                                    )
-                                }
-                            >
-                                {({ isActive }) => (
-                                    <>
-                                        {isActive && (
-                                            <div className={cn(
-                                                "absolute left-0 top-0 bottom-0 w-1 rounded-r-full",
-                                                item.highlight
-                                                    ? "bg-linear-to-b from-blue-400 to-cyan-300"
-                                                    : "bg-white",
-                                            )} />
-                                        )}
-                                        <div className={cn(
-                                            "relative",
-                                            item.highlight && !isActive && "animate-pulse-subtle",
-                                        )}>
-                                            <item.icon
-                                                className={cn(
-                                                    "h-6 w-6 transition-colors",
-                                                    item.highlight
-                                                        ? isActive
-                                                            ? "text-cyan-200 drop-shadow-[0_0_6px_rgba(34,211,238,0.4)]"
-                                                            : "text-cyan-300/80"
-                                                        : isActive
-                                                            ? "text-white"
-                                                            : "text-white/70",
-                                                )}
-                                            />
-                                            {item.highlight && (
-                                                <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-cyan-400 shadow-[0_0_6px_rgba(34,211,238,0.6)]" />
-                                            )}
-                                        </div>
-                                        {item.badge > 0 && (
-                                            <span className="absolute top-2 right-2 min-w-4.5 h-4.5 flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-bold px-1 leading-none">
-                                                {item.badge > 99 ? "99+" : item.badge}
-                                            </span>
-                                        )}
-                                    </>
-                                )}
-                            </NavLink>
-                        );
-                    })}
+                                </>
+                            )}
+                        </NavLink>
+                    ))}
 
                     {/* Notification Bell */}
                     <NotificationBell />
@@ -236,29 +208,7 @@ export function Sidebar({ user }: SidebarProps) {
                 </AlertDialogContent>
             </AlertDialog>
 
-            <CreateOptionsModal
-                isOpen={showOptionsModal}
-                onClose={() => setShowOptionsModal(false)}
-                onSelectPost={() => {
-                    setShowOptionsModal(false);
-                    setShowPostModal(true);
-                }}
-                onSelectStory={() => {
-                    setShowOptionsModal(false);
-                    setShowStoryModal(true);
-                }}
-            />
 
-            <CreatePostModal
-                isOpen={showPostModal}
-                onClose={() => setShowPostModal(false)}
-                user={user}
-            />
-
-            <CreateStoryModal
-                isOpen={showStoryModal}
-                onClose={() => setShowStoryModal(false)}
-            />
         </nav>
     );
 }

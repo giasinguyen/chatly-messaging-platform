@@ -1,8 +1,15 @@
 import { Plus, MoreHorizontal, Heart, MessageCircle, Send, Bookmark } from "lucide-react";
 import { useAuthStore } from "@/store/auth.store";
+import { useState } from "react";
+import { CreatePostModal } from "@/components/app/CreatePostModal";
+import { CreateOptionsModal } from "@/components/app/CreateOptionsModal";
+import { CreateStoryModal } from "@/components/app/CreateStoryModal";
 
 export default function HomePage() {
     const { user } = useAuthStore();
+    const [showOptionsModal, setShowOptionsModal] = useState(false);
+    const [showPostModal, setShowPostModal] = useState(false);
+    const [showStoryModal, setShowStoryModal] = useState(false);
 
     return (
         <div className="w-full h-full flex justify-center overflow-y-auto bg-background relative hide-scrollbar">
@@ -11,6 +18,19 @@ export default function HomePage() {
                 {/* Stories Carousel */}
                 <div className="w-full relative">
                     <div className="flex gap-4 overflow-x-auto hide-scrollbar pb-3 pt-1 snap-x">
+                        {/* Create */}
+                        <div
+                            className="flex flex-col items-center gap-1 snap-start cursor-pointer group"
+                            onClick={() => setShowOptionsModal(true)}
+                        >
+                            <div className="relative w-16 h-16 rounded-full bg-muted flex items-center justify-center border-2 border-background shadow-sm group-hover:scale-105 transition-transform">
+                                <Plus className="text-muted-foreground w-8 h-8" />
+                                <div className="absolute -bottom-1 -right-1 bg-primary text-primary-foreground rounded-full w-5 h-5 flex items-center justify-center border-2 border-background">
+                                    <Plus className="w-3 h-3 font-bold" />
+                                </div>
+                            </div>
+                            <span className="text-sm text-muted-foreground truncate w-16 text-center">Create</span>
+                        </div>
                         {/* Active Story 1 */}
                         <div className="flex flex-col items-center gap-1 snap-start cursor-pointer group">
                             <div className="p-[2.5px] rounded-full bg-gradient-to-tr from-brand via-blue-500 to-cyan-400 group-hover:scale-105 transition-transform shadow-sm">
@@ -238,6 +258,30 @@ export default function HomePage() {
 
                 <p className="mt-4 text-[11px] text-muted-foreground text-center">© 2027 ChatLy - The Challenger Team</p>
             </aside>
+
+            <CreateOptionsModal
+                isOpen={showOptionsModal}
+                onClose={() => setShowOptionsModal(false)}
+                onSelectPost={() => {
+                    setShowOptionsModal(false);
+                    setShowPostModal(true);
+                }}
+                onSelectStory={() => {
+                    setShowOptionsModal(false);
+                    setShowStoryModal(true);
+                }}
+            />
+
+            <CreatePostModal
+                isOpen={showPostModal}
+                onClose={() => setShowPostModal(false)}
+                user={user}
+            />
+
+            <CreateStoryModal
+                isOpen={showStoryModal}
+                onClose={() => setShowStoryModal(false)}
+            />
         </div>
     );
 }
