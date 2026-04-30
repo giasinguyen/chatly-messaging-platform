@@ -81,7 +81,7 @@ export default function HomePage() {
                         </div>
                         {/* Post Media */}
                         <div className="w-full rounded-xl overflow-hidden mb-4 bg-muted">
-                            <img alt="Post media" className="w-full h-auto object-cover max-h-[600px]" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC2HjRZw-MPzv72QKyAl3-TmBbRuTDggYYnjqTfqfij9tZhEXlpgxEYyVVGE6kHoPR6_zCzt4w1hJfp5C4FD-GYiRJCycZ0ANYbR2HLpI4uNaSmhR-V08G4ihvvEeeaQT_9FsTWtTXlsuEwWSZ89C-wH_rzQXhhYGyOsTvEo997kKZIaKXKQOtCNnMnE6F6DhH8Y5KzPPdZ2XStEbvfzA6mlfuCpGrjPEcsHH25o4dqM2ci3fRaBQuRq8FZpdFdJonsN_Co6GxDHjg" />
+                            <img alt="Post media" className="w-full h-auto object-cover max-h-[600px]" src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSgmSL9PPcOx7y3K__MP6Q8PEdNfjPGuoZuqA&s" />
                         </div>
                         {/* Post Actions */}
                         <div className="flex items-center justify-between mb-3">
@@ -131,38 +131,34 @@ export default function HomePage() {
                         {/* Post Header */}
                         <div className="flex items-center justify-between mb-3">
                             <div className="flex items-center gap-3 cursor-pointer">
-                                <img alt="Avatar" className="w-10 h-10 rounded-full object-cover border border-border" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCtghlpq6iaqp7lnOgJgIWD-jBccoBR0FmrE1Wdv5GUvc4PghQUo6SJs5qgf81Got-V8VgBjuaV6wvR1COOGHOSrRDr1Xniw6Db19zMkmUNa7kI0R_jGKfOgmpTFlIeRLyD1EdmYoBYIFr9Z1I6_i5kf1sFhxaphKej44X_EGKO5I4O-W8Qf6TORZgq4aEfos1wCzAeZoOFyXfnzpFiC-Y_zIf3GD6Pwg5UCflk2jo1RU1Liy0sxL3HLU2wVetKYUVhFKkLzAK9SBU" />
+                                <img alt="Avatar" className="w-10 h-10 rounded-full object-cover border border-border" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAdlQDZ-KEw3ik6jcpWcfP5IopF5lA3JSu0X5BxzImcSLLSao6pfN3LD4iZJ8H_r3QWa2bWbCMktJTfEg-wgWZP253El5hztU_X6tVQ5RHICJ50-YI3_mufj43vaQcLAq9A5syJeskJiEZHfsHXpEizq9HpdB-GrP-4lAb2y2gMtPJueE4ZqT62E6mpv-XdxR8uUvOzDWVgaE6AbtPpkuEzm0pPagMbBuaFaLT_Vnjzj-FlDqg5bUdJkOBtoA67tv2_fVEJE0LeEyc" />
                                 <div>
                                     <h3 className="font-semibold text-foreground flex items-center gap-1">
-                                        mike_d
+                                        sarah.j
                                         <span className="w-1 h-1 rounded-full bg-muted-foreground inline-block"></span>
-                                        <span className="text-sm text-muted-foreground font-normal">5h</span>
+                                        <span className="text-sm text-muted-foreground font-normal">2h</span>
                                     </h3>
-                                    <p className="text-xs text-muted-foreground">Design Studio</p>
+                                    <p className="text-xs text-muted-foreground">Kyoto, Japan</p>
                                 </div>
                             </div>
                             <button className="text-muted-foreground hover:text-foreground transition-colors p-1 rounded-full hover:bg-muted">
                                 <MoreHorizontal className="w-5 h-5" />
                             </button>
                         </div>
-                        {/* Post Media (Minimalist Bento-style grid for multiple images) */}
-                        <div className="w-full rounded-xl overflow-hidden mb-4 grid grid-cols-2 gap-1 bg-muted">
-                            <img alt="Workspace details" className="w-full h-64 object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD4ZVMOUA0ko30EU2N7OywUAflhMMGEzU3JaQ7zLqyTxXZHMAwM5E3Avcbju9-ZozYgH0M7ZZhR0pnBObqyKjipNR8WflC5WffUNQP-z-5CTGW5kdwtBm01NPfW9hbRUiA4wDF8PvndZgHU8ZGvBxpgb09FrnfzHo3KRHrVdEpKbDV3FVlvWSACWVRbjwB1NY6PUOp7Kw_R3rpqM3zduXVjxlYzVMWDIg-0cjlki2L-3j1phkyIyxtVQqNfsGPHQuP--ntjGvNOZl4" />
-                            <div className="grid grid-rows-2 gap-1">
-                                <img alt="Macbook detail" className="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAF-_Cw-DQWkgsZ5Kr9GMtzSVnPh1XqiufhaBEatmHAD2_jCa-lPTWSyJiv60_M3UyC9UM_2HQqV-X6GaTZIzWQH9rSEuUxCPvQ8u5x1FJw7pwN3TCXKWfTpDsyqL7Xr_DOaDBPjYp9RBKFRbU3DSu12h9_vPnGJ_Eit5UsofQlor27nMSZq3-BA1WpimDUvam7wJcIr7pa0PefnNOfnqGc5_WIzbuyudsLuQgCZL653Zj2wZX2C1FAAilLMiVVe5sqSjidsF05NxI" />
-                                <img alt="Coffee detail" className="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAPz9WjYewuXTHzufaTM2DvrwSsRPUYURhoVK9G7yIcnfJgK0X2sQZ4t4kDbT6cusbEAiCf4VrlbQuIX0K4mtIyHGMxcPKsH1ZvKzrjoOiagBYl7zI-yPQ7ZGqaQsTnUed9XXpmpNHyFGggA0MdM2T_JA1xGNZ7LdLsOK38yUc4ym47hnAoBG_-EjWLUhk0qRROWWg5JhL4fGIOprtrZyYOMqAOxPeiG93mWyAXdOd96u8yW3fWSSfORniSit1j1NS7X1k_nc1Wstw" />
-                            </div>
+                        {/* Post Media */}
+                        <div className="w-full rounded-xl overflow-hidden mb-4 bg-muted">
+                            <img alt="Post media" className="w-full h-auto object-cover max-h-[600px]" src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSgmSL9PPcOx7y3K__MP6Q8PEdNfjPGuoZuqA&s" />
                         </div>
                         {/* Post Actions */}
                         <div className="flex items-center justify-between mb-3">
                             <div className="flex items-center gap-4">
-                                <button className="flex items-center gap-1 text-muted-foreground hover:text-red-500 transition-colors group">
-                                    <Heart className="w-6 h-6 group-hover:scale-110 transition-transform" />
-                                    <span className="font-semibold text-sm text-foreground">892</span>
+                                <button className="flex items-center gap-1 text-foreground hover:text-red-500 transition-colors group">
+                                    <Heart className="w-6 h-6 group-hover:scale-110 transition-transform fill-red-500 text-red-500" />
+                                    <span className="font-semibold text-sm">2,451</span>
                                 </button>
                                 <button className="flex items-center gap-1 text-muted-foreground hover:text-foreground transition-colors group">
                                     <MessageCircle className="w-6 h-6 group-hover:scale-110 transition-transform" />
-                                    <span className="font-semibold text-sm text-foreground">45</span>
+                                    <span className="font-semibold text-sm">128</span>
                                 </button>
                                 <button className="flex items-center gap-1 text-muted-foreground hover:text-foreground transition-colors group">
                                     <Send className="w-6 h-6 group-hover:scale-110 transition-transform" />
@@ -175,15 +171,24 @@ export default function HomePage() {
                         {/* Caption & Comments */}
                         <div className="flex flex-col gap-1">
                             <p className="text-base text-foreground">
-                                <span className="font-semibold mr-1">mike_d</span>
-                                Weekend workspace refresh complete. Loving the new minimalist setup and the natural light in this corner. Focus mode activated. 🎧☕
+                                <span className="font-semibold mr-1">sarah.j</span>
+                                Evening walks through Gion are truly magical. The lanterns give everything such a warm, nostalgic glow. ✨🏮
                             </p>
+                            {/* Tags */}
+                            <div className="flex flex-wrap gap-2 mt-2">
+                                <span className="px-3 py-1 bg-brand/10 text-brand rounded-full font-semibold text-[11px] uppercase tracking-wider">#Travel</span>
+                                <span className="px-3 py-1 bg-brand/10 text-brand rounded-full font-semibold text-[11px] uppercase tracking-wider">#Kyoto</span>
+                                <span className="px-3 py-1 bg-brand/10 text-brand rounded-full font-semibold text-[11px] uppercase tracking-wider">#Japan</span>
+                            </div>
                             <button className="text-muted-foreground text-sm text-left mt-2 hover:underline decoration-border underline-offset-2">
-                                View all 45 comments
+                                View all 128 comments
                             </button>
-                            <p className="text-sm text-muted-foreground mt-1">
-                                <span className="font-semibold text-foreground mr-1">design_guru</span> Super clean setup! Link to the chair?
-                            </p>
+                            {/* Add Comment Input (Minimal) */}
+                            <div className="flex items-center gap-3 mt-3 pt-3 border-t border-border relative">
+                                <img alt="Your Avatar" className="w-8 h-8 rounded-full object-cover" src={user?.avatarUrl || "https://lh3.googleusercontent.com/aida-public/AB6AXuDiWCK8eU36XEfrbqiJZBRgtZo4ia0h9UnSXoPZ6TmLd4c4bnTZxeOvu2ljozhYxj1cqN-Bqe6tSMDXNN1cPILsBFaTHYMRgbCV8EtOGgUw__L2SKT-4GmCmoVeLhJKUY5liFTwxe43Uh2O-4ldLr1mADZ06-fj83LbDdgrW8_4LTYCsQ2VgEKOKWAUe52M1waBRbx4qnQ9wdWhwC7nkVKwJemA4vh0ZQqk6HaLqWGMi0r9mE0PNFXfQoBfYJqvLYY8UmWwrNcSfMY"} />
+                                <input className="flex-1 bg-transparent border-none focus:ring-0 p-0 text-sm text-foreground placeholder:text-muted-foreground border-b border-transparent focus:border-brand transition-colors focus:outline-none" placeholder="Add a comment..." type="text" />
+                                <button className="text-brand font-semibold text-[13px] hover:text-brand-dark transition-colors">Post</button>
+                            </div>
                         </div>
                     </article>
                 </div>
