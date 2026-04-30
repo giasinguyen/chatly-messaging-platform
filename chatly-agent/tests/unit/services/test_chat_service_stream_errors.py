@@ -86,3 +86,96 @@ async def test_stream_chat_maps_timeout_error_to_structured_sse_event() -> None:
     assert payload["data"]["category"] == "timeout"
     assert payload["data"]["code"] == "MODEL_TIMEOUT"
     assert payload["data"]["retryable"] is True
+
+
+def _build_service() -> ChatService:
+    """Return a ChatService with all dependencies stubbed out."""
+    session_service = AsyncMock()
+    message_repo = AsyncMock()
+    message_repo.find_by_session.return_value = []
+    message_repo.create_message.side_effect = [{"id": "m-user"}]
+    return ChatService(
+        session_service=session_service,
+        message_repo=message_repo,
+        chatbot_agent=AsyncMock(agent_type="chatbot"),
+        vector_service=AsyncMock(has_context=AsyncMock(return_value=False)),
+    )
+
+
+@pytest.mark.asyncio
+async def test_stream_chat_maps_provider_error_to_structured_sse_event() -> None:
+    service = _build_service()
+    service._chatbot_agent.astream_events = MagicMock(
+        return_value=_raise_in_stream(Exception("upstream provider error: 503 Service Unavailable"))
+    )
+
+    chunks = [
+        chunk
+        async for chunk in service.stream_chat(
+            user_id="user-1",
+            session_id="session-1",
+            request=ChatRequest(message="hello"),
+        )
+    ]
+
+    assert len(chunks) == 1
+    payload = json.loads(chunks[0].removeprefix("data: ").strip())
+    assert payload["type"] == "error"
+    assert payload["data"]["category"] == "provider_error"
+    assert payload["data"]["code"] == "MODEL_PROVIDER_ERROR"
+    assert payload["data"]["retryable"] is True
+
+
+@pytest.mark.asyncio
+async def test_stream_chat_maps_unknown_error_to_internal_sse_event() -> None:
+    service = _build_service()
+    service._chatbot_agent.astream_events = MagicMock(
+        return_value=_raise_in_stream(RuntimeError("unexpected internal failure"))
+    )
+
+    chunks = [
+        chunk
+        async for chunk in service.stream_chat(
+            user_id="user-1",
+            session_id="session-1",
+            request=ChatRequest(message="hello"),
+        )
+    ]
+
+    assert len(chunks) == 1
+    payload = json.loads(chunks[0].removeprefix("data: ").strip())
+    assert payload["type"] == "error"
+    assert payload["data"]["category"] == "internal_error"
+    assert payload["data"]["code"] == "AGENT_INTERNAL_ERROR"
+    assert payload["data"]["retryable"] is False
+
+
+def test_classify_stream_error_rate_limit() -> None:
+    service = _build_service()
+    message, code, category, retryable = service._classify_stream_error(
+        Exception("rate limit exceeded — quota exhausted")
+    )
+    assert code == "MODEL_RATE_LIMIT"
+    assert category == "rate_limit"
+    assert retryable is True
+    assert message  # safe user-facing text present
+
+
+def test_classify_stream_error_timeout() -> None:
+    service = _build_service()
+    message, code, category, retryable = service._classify_stream_error(
+        TimeoutError("deadline exceeded")
+    )
+    assert code == "MODEL_TIMEOUT"
+    assert category == "timeout"
+    assert retryable is True
+
+
+def test_classify_stream_error_internal() -> None:
+    service = _build_service()
+    message, code, category, retryable = service._classify_stream_error(
+        ValueError("something completely unexpected")
+    )
+    assert code == "AGENT_INTERNAL_ERROR"
+    assert category == "internal_error"
+    assert retryable is False
