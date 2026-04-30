@@ -1,5 +1,6 @@
 import { View, Text, TouchableOpacity, Modal, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { CustomAiIcon } from '@/components/ui/CustomAiIcon';
 import { Colors } from '@/constants/theme';
 import type { Message } from '@/types/message';
 
@@ -16,13 +17,16 @@ interface MessageActionsProps {
   onRecall?: () => void;
   onDelete?: () => void;
   onTogglePin?: () => void;
+  onAskAi?: () => void;
 }
 
 interface ActionItem {
-  icon: keyof typeof Ionicons.glyphMap;
+  icon?: keyof typeof Ionicons.glyphMap;
+  customIcon?: React.ReactNode;
   label: string;
   onPress: () => void;
   destructive?: boolean;
+  brand?: boolean;
 }
 
 export function MessageActions({
@@ -38,6 +42,7 @@ export function MessageActions({
   onRecall,
   onDelete,
   onTogglePin,
+  onAskAi,
 }: MessageActionsProps) {
   if (!message) return null;
 
@@ -51,6 +56,7 @@ export function MessageActions({
     { icon: 'arrow-undo-outline', label: 'Reply', onPress: onReply },
     ...(onForward ? [{ icon: 'arrow-redo-outline' as const, label: 'Forward', onPress: onForward }] : []),
     { icon: 'copy-outline', label: 'Copy', onPress: onCopy },
+    ...(!message.recalled && onAskAi ? [{ customIcon: <CustomAiIcon size={22} color={Colors.cta} />, label: 'Ask AI', onPress: onAskAi, brand: true }] : []),
   ];
 
   if (canEdit && onEdit) {
@@ -131,14 +137,16 @@ export function MessageActions({
               className="flex-row items-center px-6 py-3.5"
               activeOpacity={0.7}
             >
-              <Ionicons
-                name={action.icon}
-                size={22}
-                color={action.destructive ? Colors.error : Colors.text}
-              />
+              {action.customIcon ?? (
+                <Ionicons
+                  name={action.icon!}
+                  size={22}
+                  color={action.destructive ? Colors.error : action.brand ? Colors.cta : Colors.text}
+                />
+              )}
               <Text
                 className="ml-4 text-base"
-                style={{ color: action.destructive ? Colors.error : Colors.text }}
+                style={{ color: action.destructive ? Colors.error : action.brand ? Colors.cta : Colors.text }}
               >
                 {action.label}
               </Text>

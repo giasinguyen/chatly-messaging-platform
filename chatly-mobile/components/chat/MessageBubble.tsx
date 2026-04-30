@@ -21,6 +21,7 @@ import { formatMessageTime, isRichTextHtml, richTextToPlainText } from '@/utils/
 import { ImageLightbox } from '@/components/ui/ImageLightbox';
 import { VideoPlayer } from '@/components/chat/VideoPlayer';
 import { AudioPlayer } from '@/components/chat/AudioPlayer';
+import { CoAuthorAvatar } from '@/components/ui/CoAuthorAvatar';
 import { useCallStore } from '@/store/call.store';
 import type { Message, Reaction } from '@/types/message';
 
@@ -805,6 +806,8 @@ export function MessageBubble({
             </Text>
           </View>
         );
+      case 'AGENT':
+        return renderTextContent();
       default:
         return renderTextContent();
     }
@@ -999,28 +1002,38 @@ export function MessageBubble({
       )}
 
       <View style={{ flexDirection: 'row', alignItems: 'flex-end' }}>
-        {/* Avatar for group received messages */}
+      {/* Avatar for group received messages */}
         {!isMe && showAvatar && (
-          <View
-            style={{
-              width: 28,
-              height: 28,
-              borderRadius: 14,
-              backgroundColor: Colors.cta,
-              alignItems: 'center',
-              justifyContent: 'center',
-              marginRight: 6,
-              overflow: 'hidden',
-            }}
-          >
-            {senderAvatarUrl ? (
-              <Image source={{ uri: senderAvatarUrl }} style={{ width: 28, height: 28, borderRadius: 14 }} />
-            ) : (
-              <Text style={{ fontSize: 11, fontWeight: 'bold', color: 'white' }}>
-                {(senderName ?? '?').charAt(0).toUpperCase()}
-              </Text>
-            )}
-          </View>
+          type === 'AGENT' ? (
+            <View style={{ marginRight: 6, alignSelf: 'flex-end' }}>
+              <CoAuthorAvatar
+                userAvatarUrl={senderAvatarUrl}
+                userDisplayName={senderName ?? '?'}
+                size={28}
+              />
+            </View>
+          ) : (
+            <View
+              style={{
+                width: 28,
+                height: 28,
+                borderRadius: 14,
+                backgroundColor: Colors.cta,
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginRight: 6,
+                overflow: 'hidden',
+              }}
+            >
+              {senderAvatarUrl ? (
+                <Image source={{ uri: senderAvatarUrl }} style={{ width: 28, height: 28, borderRadius: 14 }} />
+              ) : (
+                <Text style={{ fontSize: 11, fontWeight: 'bold', color: 'white' }}>
+                  {(senderName ?? '?').charAt(0).toUpperCase()}
+                </Text>
+              )}
+            </View>
+          )
         )}
 
         <TouchableOpacity

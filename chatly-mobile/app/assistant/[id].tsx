@@ -26,11 +26,11 @@ import type { AgentMessage } from '@/types/agent';
 import { AssistantMessageActions } from '@/components/assistant/AssistantMessageActions';
 import { ForwardToChatModal } from '@/components/assistant/ForwardToChatModal';
 import { AssistantQuickChips } from '@/components/assistant/AssistantQuickChips';
+import { CustomAiIcon } from '@/components/ui/CustomAiIcon';
 import { useConversationStore } from '@/store/conversation.store';
-import { useAuthStore } from '@/store/auth.store';
 
 export default function AssistantChatScreen() {
-  const { id: sessionId } = useLocalSearchParams<{ id: string }>();
+  const { id: sessionId, prefill, prefill_token } = useLocalSearchParams<{ id: string; prefill?: string; prefill_token?: string }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const flatListRef = useRef<LegendListRef>(null);
@@ -97,6 +97,19 @@ export default function AssistantChatScreen() {
       resetStreaming();
     };
   }, [sessionId, setActiveSessionId, setMessages, resetStreaming]);
+
+  // Apply prefill from navigation params (e.g. Ask AI from chat)
+  const appliedPrefillTokenRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!sessionId || !prefill || !prefill_token) return;
+    if (appliedPrefillTokenRef.current === prefill_token) return;
+    appliedPrefillTokenRef.current = prefill_token;
+    try {
+      setDraft(sessionId, decodeURIComponent(prefill));
+    } catch {
+      setDraft(sessionId, prefill);
+    }
+  }, [sessionId, prefill, prefill_token, setDraft]);
 
   // Auto-scroll when new messages or streaming content
   useEffect(() => {
@@ -257,7 +270,7 @@ export default function AssistantChatScreen() {
                   className="h-20 w-20 rounded-2xl items-center justify-center mb-5"
                   style={{ backgroundColor: Colors.ctaLight }}
                 >
-                  <Ionicons name="sparkles-outline" size={34} color={Colors.cta} />
+                  <CustomAiIcon size={34} color={Colors.cta} />
                 </View>
                 <Text className="text-xl font-semibold text-center" style={{ color: Colors.text }}>
                   Chatly AI Assistant
