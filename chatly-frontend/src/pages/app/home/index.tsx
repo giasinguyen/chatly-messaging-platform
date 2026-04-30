@@ -29,7 +29,7 @@ export default function HomePage() {
                                     <Plus className="w-3 h-3 font-bold" />
                                 </div>
                             </div>
-                            <span className="text-sm text-muted-foreground truncate w-16 text-center">Create</span>
+                            <span className="text-sm text-muted-foreground truncate w-16 text-center">News</span>
                         </div>
                         {/* Active Story 1 */}
                         <div className="flex flex-col items-center gap-1 snap-start cursor-pointer group">
