@@ -21,9 +21,8 @@ import { AssistantHeader } from '@/components/assistant/AssistantHeader';
 import { AssistantMessageBubble } from '@/components/assistant/AssistantMessageBubble';
 import { AssistantComposer } from '@/components/assistant/AssistantComposer';
 import { AssistantListFooter } from '@/components/assistant/AssistantListFooter';
-import { InterruptCard } from '@/components/assistant/InterruptCard';
 import type { AgentMessage } from '@/types/agent';
-// LỖI KHÔNG RENDER ĐƯỢC InterruptCard. TẠM THỜI BỎ CUỘC 
+
 export default function AssistantChatScreen() {
   const { id: sessionId } = useLocalSearchParams<{ id: string }>();
   const insets = useSafeAreaInsets();
@@ -45,11 +44,7 @@ export default function AssistantChatScreen() {
     toolCalls,
   } = useChatbotStore();
 
-  // Individual selector — interrupt data for footer/overlay rendering + composer disable
-  const interrupt = useChatbotStore((s) => s.interrupt);
-  const isInterrupted = interrupt !== null;
-
-  const { startStream, resumeStream, cancelStream } = useAgentStream(sessionId);
+  const { startStream, cancelStream } = useAgentStream(sessionId);
   const messages = useMemo(() => messagesBySession[sessionId ?? ''] ?? [], [messagesBySession, sessionId]);
   const isStreaming = streamingStatus === 'connecting' || streamingStatus === 'streaming';
 
@@ -90,7 +85,7 @@ export default function AssistantChatScreen() {
     if (!showScrollDown) {
       setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
     }
-  }, [messages.length, streamingContent, isInterrupted, showScrollDown]);
+  }, [messages.length, streamingContent, showScrollDown]);
 
   const handleSend = useCallback(
     async (text: string, fileIds: string[] = []) => {
@@ -152,16 +147,6 @@ export default function AssistantChatScreen() {
   const handleCopy = useCallback(async (content: string) => {
     await Clipboard.setStringAsync(content);
   }, []);
-
-  const handleApproveInterrupt = useCallback(() => {
-    if (!sessionId) return;
-    resumeStream(sessionId, true);
-  }, [sessionId, resumeStream]);
-
-  const handleRejectInterrupt = useCallback(() => {
-    if (!sessionId) return;
-    resumeStream(sessionId, false);
-  }, [sessionId, resumeStream]);
 
   const handleScroll = useCallback(
     (event: {
@@ -226,7 +211,7 @@ export default function AssistantChatScreen() {
                 renderItem={renderItem}
                 keyExtractor={keyExtractor}
                 ListFooterComponent={AssistantListFooter}
-                extraData={`${streamingStatus}-${streamingContent.length}-${toolCalls.length}-${isInterrupted}`}
+                extraData={`${streamingStatus}-${streamingContent.length}-${toolCalls.length}`}
                 onScroll={handleScroll}
                 scrollEventThrottle={100}
                 contentContainerStyle={{
@@ -262,31 +247,12 @@ export default function AssistantChatScreen() {
             )}
           </View>
 
-          {/* Absolute overlay interrupt card — backup rendering outside list */}
-          {interrupt !== null && (
-            <View
-              style={{
-                position: 'absolute',
-                bottom: 80,
-                left: 0,
-                right: 0,
-                zIndex: 100,
-                pointerEvents: 'box-none',
-              }}>
-              <InterruptCard
-                interrupt={interrupt}
-                onApprove={handleApproveInterrupt}
-                onReject={handleRejectInterrupt}
-              />
-            </View>
-          )}
-
           <AssistantComposer
             sessionId={sessionId ?? ''}
             onSend={handleSend}
             isStreaming={isStreaming}
             onCancel={cancelStream}
-            disabled={isStreaming || isInterrupted}
+            disabled={isStreaming}
             mcpConfigVisible={mcpConfigVisible}
             onMcpConfigChange={setMcpConfigVisible}
           />

@@ -1,6 +1,5 @@
-import { useRef, useCallback, useEffect } from 'react';
-import { Alert, AppState } from 'react-native';
-import type { AppStateStatus } from 'react-native';
+import { useRef, useCallback } from 'react';
+import { Alert } from 'react-native';
 import { agentService } from '@/services/agent.service';
 import { useChatbotStore } from '@/store/chatbot.store';
 import type {
@@ -10,7 +9,6 @@ import type {
   TokenEventData,
   ToolStartEventData,
   ToolEndEventData,
-  InterruptData,
 } from '@/types/agent';
 
 export function useAgentStream(sessionId?: string) {
@@ -26,31 +24,6 @@ export function useAgentStream(sessionId?: string) {
     }
     tokenFlushTimerRef.current = null;
   }, []);
-
-  // Check for pending interrupt on mount and when app returns to foreground
-  useEffect(() => {
-    if (!sessionId) return;
-
-    const checkStatus = () => {
-      console.log('[SSE] checkStatus for session:', sessionId);
-      agentService.getSessionStatus(sessionId).then((status) => {
-        console.log('[SSE] checkStatus response:', JSON.stringify(status));
-        if (status.status === 'interrupted' && status.interrupt_data) {
-          useChatbotStore.getState().setInterrupt(status.interrupt_data);
-        }
-      }).catch((err: unknown) => {
-        console.warn('[SSE] checkStatus failed:', err);
-      });
-    };
-
-    checkStatus();
-
-    const handleAppState = (nextState: AppStateStatus) => {
-      if (nextState === 'active') checkStatus();
-    };
-    const sub = AppState.addEventListener('change', handleAppState);
-    return () => sub.remove();
-  }, [sessionId]);
 
   /** Dispatch a single parsed SSE line into the store. */
   const dispatchEvent = useCallback((event: AgentStreamEvent, sid: string) => {
@@ -75,30 +48,6 @@ export function useAgentStream(sessionId?: string) {
         output: toolData.output,
         status: 'done',
       });
-    } else if (event.type === 'interrupt') {
-      // Flush any pending tokens before handling interrupt
-      if (tokenFlushTimerRef.current) {
-        clearTimeout(tokenFlushTimerRef.current);
-        tokenFlushTimerRef.current = null;
-      }
-      flushTokenBuffer();
-
-      const interruptData = event.data as unknown as InterruptData;
-      console.log('[SSE] >>> INTERRUPT received:', JSON.stringify(interruptData).slice(0, 500));
-      // Commit any partial content that appeared before the interrupt
-      const partialContent = useChatbotStore.getState().streamingContent;
-      if (partialContent.trim()) {
-        useChatbotStore.getState().appendMessage(sid, {
-          id: `assistant-partial-${Date.now()}`,
-          session_id: sid,
-          role: 'assistant',
-          content: partialContent,
-          created_at: new Date().toISOString(),
-        });
-        useChatbotStore.getState().setStreamingContent('');
-      }
-      useChatbotStore.getState().setInterrupt(interruptData);
-      useChatbotStore.getState().setStreamingStatus('idle');
     } else if (event.type === 'done') {
       // Flush any pending tokens before finalizing
       if (tokenFlushTimerRef.current) {
@@ -141,7 +90,7 @@ export function useAgentStream(sessionId?: string) {
     }
   }, [dispatchEvent]);
 
-  /** Shared SSE reader — used by both startStream and resumeStream */
+  /** Shared SSE reader for streaming responses. */
   const processEventStream = useCallback(async (response: Response, sid: string) => {
     if (!response.body) throw new Error('No response body');
 
@@ -179,9 +128,9 @@ export function useAgentStream(sessionId?: string) {
       parseSseLine(buffer, sid);
     }
 
-    // Finalize if stream ended without a done event (e.g. interrupt ended the stream)
+    // Finalize if stream ended without a done event
     const currentStatus = useChatbotStore.getState().streamingStatus;
-    console.log('[SSE] post-stream status:', currentStatus, 'interrupt:', useChatbotStore.getState().interrupt !== null);
+    console.log('[SSE] post-stream status:', currentStatus);
     if (currentStatus === 'streaming') {
       const finalContent = useChatbotStore.getState().streamingContent;
       if (finalContent) {
@@ -207,7 +156,6 @@ export function useAgentStream(sessionId?: string) {
     store.setStreamingContent('');
     store.setStatusHint('thinking');
     store.setToolCalls([]);
-    store.setInterrupt(null);
 
     // Heuristic status hint rotation
     let hintTimer: ReturnType<typeof setInterval> | undefined;
@@ -243,44 +191,6 @@ export function useAgentStream(sessionId?: string) {
     }
   }, [processEventStream]);
 
-  const resumeStream = useCallback(async (sid: string, approved: boolean) => {
-    abortRef.current?.abort();
-    const controller = new AbortController();
-    abortRef.current = controller;
-
-    const store = useChatbotStore.getState();
-    store.setStreamingStatus('connecting');
-    store.setStreamingContent('');
-    store.setInterrupt(null);
-    store.setToolCalls([]);
-
-    if (!approved) {
-      store.setToolCalls(
-        store.toolCalls.map((tc) =>
-          tc.status === 'running' ? { ...tc, status: 'cancelled' } : tc,
-        ),
-      );
-    }
-
-    try {
-      const response = await agentService.chatStreamResume(sid, approved, controller.signal);
-      if (!response.ok) throw new Error(`Resume request failed: ${response.status}`);
-
-      await processEventStream(response, sid);
-    } catch (err: unknown) {
-      const isAbort =
-        err instanceof Error && (err.name === 'AbortError' || err.message === 'Aborted');
-      if (isAbort) {
-        useChatbotStore.getState().setStreamingStatus('idle');
-      } else {
-        Alert.alert('Error', 'Could not resume the session');
-        useChatbotStore.getState().setStreamingStatus('error');
-      }
-    } finally {
-      abortRef.current = null;
-    }
-  }, [processEventStream]);
-
   const cancelStream = useCallback(() => {
     abortRef.current?.abort();
     abortRef.current = null;
@@ -293,5 +203,5 @@ export function useAgentStream(sessionId?: string) {
     useChatbotStore.getState().resetStreaming();
   }, [flushTokenBuffer]);
 
-  return { startStream, resumeStream, cancelStream };
+  return { startStream, cancelStream };
 }

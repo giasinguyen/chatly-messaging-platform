@@ -52,7 +52,7 @@ export interface AgentChatResponse {
 }
 
 /** SSE stream event types */
-export type StreamEventType = 'token' | 'tool_start' | 'tool_end' | 'interrupt' | 'error' | 'done';
+export type StreamEventType = 'token' | 'tool_start' | 'tool_end' | 'error' | 'done';
 
 export interface AgentStreamEvent {
   type: StreamEventType;
@@ -117,28 +117,12 @@ export interface McpTool {
   input_schema: Record<string, unknown>;
 }
 
-// ─── HITL (Human-in-the-Loop) ───────────────────────────────
+// ─── Tool Progress ───────────────────────────────────────────
 export interface ToolCallState {
   tool: string;
   input?: Record<string, unknown>;
   output?: string;
   status: 'running' | 'done' | 'cancelled';
-}
-
-export interface InterruptData {
-  type: 'confirm_tool' | 'fill_form';
-  tool_name: string;
-  tool_input: Record<string, unknown>;
-  message: string;
-  all_pending: { tool: string; input: Record<string, unknown> }[];
-  form_schema?: Record<string, unknown>;
-  thread_id: string;
-}
-
-export interface SessionStatusResponse {
-  status: 'idle' | 'interrupted';
-  interrupt_data: InterruptData | null;
-  interrupted_at: string | null;
 }
 
 // ─── Streaming UI State ─────────────────────────────────────

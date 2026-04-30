@@ -40,11 +40,6 @@ def error_event(message: str) -> str:
     return _fmt("error", {"message": message})
 
 
-def interrupt_event(data: dict[str, Any]) -> str:
-    """SSE frame emitted when the agent pauses for user confirmation (HITL)."""
-    return _fmt("interrupt", data)
-
-
 def done_event(
     agent_type: str,
     message_id: str,

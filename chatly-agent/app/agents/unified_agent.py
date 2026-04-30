@@ -20,9 +20,8 @@ class UnifiedAgent(BaseAgent):
     """ReAct agent that handles tool use and document retrieval.
 
     A fresh graph is built per-request so each call receives the correct
-    tool set without cross-request contamination.  History is injected
-    explicitly from MongoDB on every turn; the optional checkpointer
-    persists interrupt state for HITL (Phase 3+).
+    tool set without cross-request contamination. History is injected
+    explicitly from MongoDB on every turn.
     """
 
     def __init__(
@@ -33,11 +32,8 @@ class UnifiedAgent(BaseAgent):
     ) -> None:
         self._llm = llm
         self._tools = tools
-        # Only enable interrupt_before when a checkpointer is available.
-        # Without checkpointer the graph state cannot be persisted for resumption.
-        interrupt_before = ["tools"] if checkpointer is not None else None
         self._graph = create_react_agent(
-            llm, tools, checkpointer=checkpointer, interrupt_before=interrupt_before
+            llm, tools, checkpointer=checkpointer
         )
         self.agent_type: str = "unified"
 

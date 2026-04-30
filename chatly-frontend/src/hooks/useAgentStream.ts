@@ -6,7 +6,6 @@ import type {
     AgentChatRequest,
     AgentStreamEvent,
     DoneEventData,
-    InterruptData,
     TokenEventData,
     ToolCallState,
     ToolStartEventData,
@@ -17,26 +16,15 @@ const HINT_ROTATION_INTERVAL_MS = 3000;
 
 /**
  * Hook for streaming chat responses via POST SSE.
- * Handles normal token streaming, tool call progress, and HITL interrupts.
+ * Handles normal token streaming and tool call progress.
  */
 export function useAgentStream(sessionId?: string) {
     const abortRef = useRef<AbortController | null>(null);
     const [toolCalls, setToolCalls] = useState<ToolCallState[]>([]);
-    const [interrupt, setInterrupt] = useState<InterruptData | null>(null);
 
-    // Reset interrupt state and check for a pending interrupt when session changes
+    // Reset local tool progress when session changes
     useEffect(() => {
-        setInterrupt(null);
         setToolCalls([]);
-
-        if (!sessionId) return;
-        agentService.getSessionStatus(sessionId).then((status) => {
-            if (status.status === "interrupted" && status.interrupt_data) {
-                setInterrupt(status.interrupt_data);
-            }
-        }).catch(() => {
-            // Status check is best-effort — ignore network errors
-        });
     }, [sessionId]);
 
     const _processEventStream = useCallback(
@@ -85,23 +73,6 @@ export function useAgentStream(sessionId?: string) {
                                         : tc,
                                 ),
                             );
-                        } else if (event.type === "interrupt") {
-                            const interruptData = event.data as unknown as InterruptData;
-                            // Commit any partial LLM text that appeared before the interrupt
-                            const partialContent = useChatbotStore.getState().streamingContent;
-                            if (partialContent.trim()) {
-                                useChatbotStore.getState().appendMessage(sid, {
-                                    id: `assistant-partial-${Date.now()}`,
-                                    session_id: sid,
-                                    role: "assistant",
-                                    content: partialContent,
-                                    attachments: [],
-                                    created_at: new Date().toISOString(),
-                                });
-                                useChatbotStore.getState().setStreamingContent("");
-                            }
-                            setInterrupt(interruptData);
-                            useChatbotStore.getState().setStreamingStatus("idle");
                         } else if (event.type === "done") {
                             const doneData = event.data as unknown as DoneEventData;
                             const finalContent = useChatbotStore.getState().streamingContent;
@@ -126,7 +97,7 @@ export function useAgentStream(sessionId?: string) {
                 }
             }
 
-            // Finalize if done event was never sent (e.g. interrupt ended the stream)
+            // Finalize if done event was never sent
             const currentStatus = useChatbotStore.getState().streamingStatus;
             if (currentStatus === "streaming") {
                 const finalContent = useChatbotStore.getState().streamingContent;
@@ -157,7 +128,6 @@ export function useAgentStream(sessionId?: string) {
             store.setStreamingContent("");
             store.setStatusHint("thinking");
             setToolCalls([]);
-            setInterrupt(null);
 
             let hintTimer: ReturnType<typeof setInterval> | undefined;
             const hints = payload.use_web_search
@@ -190,52 +160,11 @@ export function useAgentStream(sessionId?: string) {
         [_processEventStream],
     );
 
-    const resumeStream = useCallback(
-        async (sid: string, approved: boolean) => {
-            abortRef.current?.abort();
-            const controller = new AbortController();
-            abortRef.current = controller;
-
-            useChatbotStore.getState().setStreamingStatus("connecting");
-            useChatbotStore.getState().setStreamingContent("");
-            setInterrupt(null);
-            setToolCalls([]);
-
-            if (!approved) {
-                setToolCalls((prev) =>
-                    prev.map((tc) =>
-                        tc.status === "running" ? { ...tc, status: "cancelled" } : tc,
-                    ),
-                );
-            }
-
-            try {
-                const response = await agentService.chatStreamResume(
-                    sid,
-                    approved,
-                    controller.signal,
-                );
-                if (!response.ok) throw new Error(`Resume request failed: ${response.status}`);
-                await _processEventStream(response, sid);
-            } catch (err: unknown) {
-                if (err instanceof DOMException && err.name === "AbortError") {
-                    useChatbotStore.getState().setStreamingStatus("idle");
-                } else {
-                    toast.error("Could not resume the session");
-                    useChatbotStore.getState().setStreamingStatus("error");
-                }
-            } finally {
-                abortRef.current = null;
-            }
-        },
-        [_processEventStream],
-    );
-
     const cancelStream = useCallback(() => {
         abortRef.current?.abort();
         abortRef.current = null;
         useChatbotStore.getState().resetStreaming();
     }, []);
 
-    return { startStream, resumeStream, cancelStream, toolCalls, interrupt };
+    return { startStream, cancelStream, toolCalls };
 }
