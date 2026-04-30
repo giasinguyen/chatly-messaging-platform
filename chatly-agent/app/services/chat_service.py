@@ -32,6 +32,18 @@ from app.tools.retriever_tool import create_retriever_tool
 
 logger = logging.getLogger(__name__)
 
+RATE_LIMIT_PATTERNS = (
+    "rate limit",
+    "too many requests",
+    "quota exceeded",
+    "429",
+)
+TIMEOUT_PATTERNS = (
+    "timeout",
+    "timed out",
+    "deadline exceeded",
+)
+
 
 class ChatService:
     """Business logic for chat invocation and streaming."""
@@ -216,6 +228,57 @@ class ChatService:
             generated_attachments=generated_attachments,
         )
 
+    def _classify_stream_error(
+        self,
+        exc: Exception,
+    ) -> tuple[str, str, str, bool]:
+        """Classify agent/runtime exceptions into a stable client error payload."""
+        error_type = type(exc).__name__.lower()
+        message = str(exc).lower()
+        signature = f"{error_type} {message}"
+
+        if any(pattern in signature for pattern in RATE_LIMIT_PATTERNS):
+            return (
+                "Model rate limit reached. Please retry in a moment.",
+                "MODEL_RATE_LIMIT",
+                "rate_limit",
+                True,
+            )
+
+        if isinstance(exc, TimeoutError) or any(
+            pattern in signature for pattern in TIMEOUT_PATTERNS
+        ):
+            return (
+                "Model request timed out. Please try again.",
+                "MODEL_TIMEOUT",
+                "timeout",
+                True,
+            )
+
+        provider_keywords = (
+            "groq",
+            "openai",
+            "anthropic",
+            "provider",
+            "apierror",
+            "service unavailable",
+            "bad gateway",
+        )
+        if any(keyword in signature for keyword in provider_keywords):
+            return (
+                "Model provider is temporarily unavailable. Please retry later.",
+                "MODEL_PROVIDER_ERROR",
+                "provider_error",
+                True,
+            )
+
+        return (
+            "The agent could not generate a response right now. Please try again.",
+            "AGENT_INTERNAL_ERROR",
+            "internal_error",
+            True,
+        )
+
     async def chat(
         self,
         user_id: str,
@@ -339,11 +402,17 @@ class ChatService:
                         else str(raw_output)
                     )
                     yield tool_end_event(tool_name, tool_output)
-        except Exception:
+        except Exception as exc:
             logger.exception(
                 "Streaming error for user_id=%s session_id=%s", user_id, session_id
             )
-            yield error_event("An error occurred while generating the response")
+            err_message, err_code, err_category, retryable = self._classify_stream_error(exc)
+            yield error_event(
+                message=err_message,
+                code=err_code,
+                category=err_category,
+                retryable=retryable,
+            )
             return
 
         assistant = await self._message_repo.create_message(
