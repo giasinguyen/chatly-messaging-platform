@@ -36,13 +36,13 @@ spring:
             mode: never # chịu khó gọi Postman 'register / create' data sample đi seed lag vc:v
             data-locations: classpath:db/seed-data.sql
 
+    mongodb:
+        uri: ${SPRING_DATA_MONGODB_URI:mongodb://localhost:27017/chatly}
     data:
         redis:
             host: ${REDIS_HOST:localhost}
             port: ${REDIS_PORT:6379}
             password: ${REDIS_PASSWORD:admin}
-    mongodb:
-        uri: ${SPRING_DATA_MONGODB_URI:mongodb://localhost:27017/chatly}
     servlet:
         multipart:
             enabled: true
@@ -92,6 +92,11 @@ app:
         enabled: true
     mcp:
         internal-api-key: ${APP_MCP_INTERNAL_API_KEY:${AGENT_API_KEY:change-me-use-a-long-random-string-min-32-chars}}
+    music:
+        jamendo:
+            client-id: ${JAMENDO_CLIENT_ID:4d1f4e11}
+            client-secret: ${JAMENDO_CLIENT_SECRET:e77a4bbbd6e1404feeb5316426051971}
+            base-url: ${JAMENDO_BASE_URL:https://api.jamendo.com/v3.0}
 
 # ── AI Agent ──────────────────────────────────────────────────────────────────
 agent:
