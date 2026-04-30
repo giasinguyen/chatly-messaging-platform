@@ -33,7 +33,10 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
 import { musicService } from "@/services/music.service";
+import { storyService } from "@/services/story.service";
+import { fileService } from "@/services/file.service";
 import type { MusicTrack } from "@/types/music";
+import { StoryType } from "@/types/story";
 
 
 interface CreateStoryModalProps {
@@ -106,6 +109,8 @@ export function CreateStoryModal({ isOpen, onClose }: CreateStoryModalProps) {
     const videoInputRef = useRef<HTMLInputElement>(null);
 
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const [storyFile, setStoryFile] = useState<File | null>(null);
+    const [isSharing, setIsSharing] = useState(false);
 
     // Music State
     const [isMusicModalOpen, setIsMusicModalOpen] = useState(false);
@@ -160,6 +165,41 @@ export function CreateStoryModal({ isOpen, onClose }: CreateStoryModalProps) {
     const onImagePointerUp = (e: React.PointerEvent) => {
         isImageDragging.current = false;
         e.currentTarget.releasePointerCapture(e.pointerId);
+    };
+
+    const handleShare = async () => {
+        setIsSharing(true);
+        try {
+            let mediaUrl = "";
+            if (storyFile) {
+                const uploadRes = await fileService.upload(storyFile);
+                mediaUrl = uploadRes.url;
+            }
+
+            const payload = {
+                type: step === "text" ? StoryType.TEXT : (step === "photo" ? StoryType.PHOTO : StoryType.VIDEO),
+                content: textValue,
+                mediaUrl: mediaUrl,
+                musicUrl: selectedTrack?.audioUrl,
+                musicName: selectedTrack?.name,
+                bgIndex: bgIndex,
+                fontSize: fontSize,
+                privacy: privacy
+            };
+
+            const response = await storyService.create(payload);
+            if (response.code === 1000) {
+                toast.success("Story shared successfully!");
+                handleClose();
+            } else {
+                toast.error(response.message || "Failed to share story");
+            }
+        } catch (error: unknown) {
+            console.error("Failed to share story", error);
+            toast.error("An error occurred while sharing your story");
+        } finally {
+            setIsSharing(false);
+        }
     };
 
     const handleExport = async () => {
@@ -239,6 +279,7 @@ export function CreateStoryModal({ isOpen, onClose }: CreateStoryModalProps) {
         setTextPosition({ x: 0, y: 0 });
         setPhotoUrl(null);
         setVideoUrl(null);
+        setStoryFile(null);
         setImagePosition({ x: 0, y: 0 });
         setBgIndex(0);
         setFontSize(30);
@@ -250,8 +291,10 @@ export function CreateStoryModal({ isOpen, onClose }: CreateStoryModalProps) {
     };
 
     const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files && e.target.files[0]) {
-            const url = URL.createObjectURL(e.target.files[0]);
+        const file = e.target.files?.[0];
+        if (file) {
+            setStoryFile(file);
+            const url = URL.createObjectURL(file);
             setPhotoUrl(url);
             setStep("photo");
         }
@@ -264,6 +307,7 @@ export function CreateStoryModal({ isOpen, onClose }: CreateStoryModalProps) {
                 toast.error("Video size must be less than 5MB");
                 return;
             }
+            setStoryFile(file);
             const url = URL.createObjectURL(file);
             setVideoUrl(url);
             setStep("video");
@@ -550,7 +594,13 @@ export function CreateStoryModal({ isOpen, onClose }: CreateStoryModalProps) {
                             <div className="p-4 border-t border-border flex gap-3">
                                 <Button variant="secondary" className="flex-1" onClick={handleClose}>Discard</Button>
                                 <Button variant="outline" className="flex-1" onClick={handleExport}>Export</Button>
-                                <Button className="flex-1">Share</Button>
+                                <Button 
+                                    className="flex-1 rounded-xl h-12 font-bold bg-brand hover:bg-brand/90"
+                                    onClick={handleShare}
+                                    disabled={isSharing}
+                                >
+                                    {isSharing ? <Loader2 className="w-4 h-4 animate-spin" /> : "Share"}
+                                </Button>
                             </div>
                         </div>
 
