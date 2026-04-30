@@ -17,6 +17,7 @@ import * as Clipboard from 'expo-clipboard';
 import { Colors } from '@/constants/theme';
 import { agentService } from '@/services/agent.service';
 import { useChatbotStore } from '@/store/chatbot.store';
+import { useAuthStore } from '@/store/auth.store';
 import { useAgentStream } from '@/hooks/useAgentStream';
 import { AssistantHeader } from '@/components/assistant/AssistantHeader';
 import { AssistantMessageBubble } from '@/components/assistant/AssistantMessageBubble';

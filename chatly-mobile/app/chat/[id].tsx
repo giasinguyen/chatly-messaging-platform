@@ -482,8 +482,11 @@ export default function ChatScreen() {
     if (!selectedMessage || !conversationId) return;
     setActionsVisible(false);
     try {
-      const res = await agentService.createSession({ context_conversation_id: conversationId });
-      const sessionId = res.result?.id;
+      const res = await agentService.createSession({
+        title: conversation?.name,
+        context_conversation_id: conversationId,
+      });
+      const sessionId = res.id;
       if (!sessionId) return;
       const encoded = encodeURIComponent(selectedMessage.content);
       const token = `ai-${Date.now()}`;
@@ -491,19 +494,22 @@ export default function ChatScreen() {
     } catch {
       Alert.alert('Error', 'Could not start AI session.');
     }
-  }, [selectedMessage, conversationId, router]);
+  }, [selectedMessage, conversationId, conversation?.name, router]);
 
   const handleAskAiFromHeader = useCallback(async () => {
     if (!conversationId) return;
     try {
-      const res = await agentService.createSession({ context_conversation_id: conversationId });
-      const sessionId = res.result?.id;
+      const res = await agentService.createSession({
+        title: conversation?.name,
+        context_conversation_id: conversationId,
+      });
+      const sessionId = res.id;
       if (!sessionId) return;
       router.push(`/assistant/${sessionId}`);
     } catch {
       Alert.alert('Error', 'Could not start AI session.');
     }
-  }, [conversationId, router]);
+  }, [conversationId, conversation?.name, router]);
 
   const handleEdit = useCallback(async () => {
     if (!selectedMessage || !conversationId) return;
@@ -1075,6 +1081,7 @@ export default function ChatScreen() {
             prefilledToken={activePrefillToken}
             onPrefillApplied={() => setActivePrefillToken(undefined)}
             isGroup={isGroup}
+            showAiMention={isGroup && !!conversation?.aiProactiveEnabled}
             groupMembers={
               isGroup
                 ? Object.values(participantMap)

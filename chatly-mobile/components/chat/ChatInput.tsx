@@ -18,6 +18,7 @@ import { useAuthStore } from '@/store/auth.store';
 import { useVoiceRecorder, MicPermissionDeniedError } from '@/hooks/useVoiceRecorder';
 import type { Message, Attachment, Poll, LocationPayload } from '@/types/message';
 import { TextRichComposer, type ComposerMode, type TextRichComposerRef } from '@/components/chat/TextRichComposer';
+import { CustomAiIcon } from '@/components/ui/CustomAiIcon';
 import { richTextToPlainText } from '@/utils/format';
 
 interface GroupMember {
@@ -27,6 +28,9 @@ interface GroupMember {
   avatarUrl?: string;
 }
 
+const VIRTUAL_MENTION_ALL: GroupMember = { id: '__all__', displayName: 'All', username: 'all' };
+const VIRTUAL_MENTION_AI: GroupMember = { id: '__ai__', displayName: 'AI', username: 'ai' };
+
 interface ChatInputProps {
   conversationId?: string;
   onSend: (text: string, attachments?: Attachment[], messageType?: string, priority?: 'IMPORTANT' | 'URGENT', poll?: Poll, location?: LocationPayload) => void;
@@ -35,6 +39,7 @@ interface ChatInputProps {
   onCancelReply?: () => void;
   isGroup?: boolean;
   groupMembers?: GroupMember[];
+  showAiMention?: boolean;
   prefilledText?: string;
   prefilledToken?: string;
   onPrefillApplied?: () => void;
@@ -77,6 +82,7 @@ export function ChatInput({
   onCancelReply,
   isGroup,
   groupMembers,
+  showAiMention,
   prefilledText,
   prefilledToken,
   onPrefillApplied,
@@ -112,16 +118,19 @@ export function ChatInput({
   }, [text, isGroup, groupMembers]);
 
   const mentionSuggestions = useMemo<GroupMember[]>(() => {
-    if (mentionQuery === null || !groupMembers?.length) return [];
+    if (mentionQuery === null) return [];
     const q = mentionQuery.toLowerCase();
-    return groupMembers
-      .filter(
-        (m) =>
-          m.displayName.toLowerCase().includes(q) ||
-          m.username.toLowerCase().includes(q),
-      )
-      .slice(0, 6);
-  }, [mentionQuery, groupMembers]);
+    const virtual: GroupMember[] = [
+      ...('all'.includes(q) || 'All'.toLowerCase().includes(q) ? [VIRTUAL_MENTION_ALL] : []),
+      ...(showAiMention && ('ai'.includes(q) || 'AI'.toLowerCase().includes(q)) ? [VIRTUAL_MENTION_AI] : []),
+    ];
+    const members = (groupMembers ?? []).filter(
+      (m) =>
+        m.displayName.toLowerCase().includes(q) ||
+        m.username.toLowerCase().includes(q),
+    ).slice(0, 6);
+    return [...virtual, ...members];
+  }, [mentionQuery, groupMembers, showAiMention]);
 
   const handleChangeText = (value: string) => {
     setText(value);
@@ -430,13 +439,17 @@ export function ChatInput({
                     width: 32,
                     height: 32,
                     borderRadius: 16,
-                    backgroundColor: Colors.cta,
+                    backgroundColor: item.id === '__ai__' ? Colors.ctaLight : Colors.cta,
                     alignItems: 'center',
                     justifyContent: 'center',
                     marginRight: 10,
                     overflow: 'hidden',
                   }}>
-                  {item.avatarUrl ? (
+                  {item.id === '__all__' ? (
+                    <Ionicons name="people" size={18} color="white" />
+                  ) : item.id === '__ai__' ? (
+                    <CustomAiIcon size={18} color={Colors.cta} />
+                  ) : item.avatarUrl ? (
                     <Image source={{ uri: item.avatarUrl }} style={{ width: 32, height: 32 }} />
                   ) : (
                     <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 13 }}>
