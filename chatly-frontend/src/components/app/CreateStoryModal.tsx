@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { motion } from "framer-motion";
+import { domToPng } from "modern-screenshot";
 
 import {
     Play,
@@ -82,6 +82,9 @@ export function CreateStoryModal({ isOpen, onClose }: CreateStoryModalProps) {
     // Text Story State
     const [textValue, setTextValue] = useState("");
     const [bgIndex, setBgIndex] = useState(0);
+    const [textPosition, setTextPosition] = useState({ x: 0, y: 0 });
+    const isDragging = useRef(false);
+    const dragStart = useRef({ x: 0, y: 0 });
     const [imageScale, setImageScale] = useState(1);
     const [imageRotation, setImageRotation] = useState(0);
     const [fontSize, setFontSize] = useState(30);
@@ -92,6 +95,9 @@ export function CreateStoryModal({ isOpen, onClose }: CreateStoryModalProps) {
 
     // Photo Story State
     const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+    const [imagePosition, setImagePosition] = useState({ x: 0, y: 0 });
+    const isImageDragging = useRef(false);
+    const imageDragStart = useRef({ x: 0, y: 0 });
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     // Music State
@@ -105,6 +111,68 @@ export function CreateStoryModal({ isOpen, onClose }: CreateStoryModalProps) {
     const [showMusicSticker, setShowMusicSticker] = useState(true);
 
     const previewContainerRef = useRef<HTMLDivElement>(null);
+    const storyRef = useRef<HTMLDivElement>(null);
+
+    const onPointerDown = (e: React.PointerEvent) => {
+        isDragging.current = true;
+        dragStart.current = {
+            x: e.clientX - textPosition.x,
+            y: e.clientY - textPosition.y
+        };
+        e.currentTarget.setPointerCapture(e.pointerId);
+    };
+
+    const onPointerMove = (e: React.PointerEvent) => {
+        if (!isDragging.current) return;
+        let newX = e.clientX - dragStart.current.x;
+        let newY = e.clientY - dragStart.current.y;
+        setTextPosition({ x: newX, y: newY });
+    };
+
+    const onPointerUp = (e: React.PointerEvent) => {
+        isDragging.current = false;
+        e.currentTarget.releasePointerCapture(e.pointerId);
+    };
+
+    const onImagePointerDown = (e: React.PointerEvent) => {
+        isImageDragging.current = true;
+        imageDragStart.current = {
+            x: e.clientX - imagePosition.x,
+            y: e.clientY - imagePosition.y
+        };
+        e.currentTarget.setPointerCapture(e.pointerId);
+    };
+
+    const onImagePointerMove = (e: React.PointerEvent) => {
+        if (!isImageDragging.current) return;
+        let newX = e.clientX - imageDragStart.current.x;
+        let newY = e.clientY - imageDragStart.current.y;
+        setImagePosition({ x: newX, y: newY });
+    };
+
+    const onImagePointerUp = (e: React.PointerEvent) => {
+        isImageDragging.current = false;
+        e.currentTarget.releasePointerCapture(e.pointerId);
+    };
+
+    const handleExport = async () => {
+        if (!storyRef.current) return;
+        try {
+            const dataUrl = await domToPng(storyRef.current, {
+                scale: 2, // Higher quality
+                features: {
+                    // Disable features that might cause issues if necessary
+                }
+            });
+            const link = document.createElement("a");
+            link.download = "story.png";
+            link.href = dataUrl;
+            link.click();
+        } catch (err: any) {
+            console.error("Failed to export image", err);
+            alert("Export failed: " + (err?.message || String(err)));
+        }
+    };
 
     const fetchMusic = async (genre: string) => {
         setIsLoadingMusic(true);
@@ -153,7 +221,9 @@ export function CreateStoryModal({ isOpen, onClose }: CreateStoryModalProps) {
     const handleClose = () => {
         setStep("choose");
         setTextValue("");
+        setTextPosition({ x: 0, y: 0 });
         setPhotoUrl(null);
+        setImagePosition({ x: 0, y: 0 });
         setBgIndex(0);
         setFontSize(30);
         setPrivacy("public");
@@ -379,36 +449,6 @@ export function CreateStoryModal({ isOpen, onClose }: CreateStoryModalProps) {
                                     </>
                                 )}
 
-                                {/* Common Text Style Controls (Visible when textValue exists) */}
-                                {textValue && (
-                                    <div className="flex flex-col gap-4 p-4 bg-muted/10 rounded-2xl border border-border/50">
-                                        <div className="flex flex-col gap-2">
-                                            <div className="flex items-center justify-between">
-                                                <label className="text-sm font-semibold text-muted-foreground">Font Size</label>
-                                                <span className="text-xs font-medium bg-muted px-2 py-0.5 rounded-md">{fontSize}px</span>
-                                            </div>
-                                            <Slider
-                                                value={[fontSize]}
-                                                min={12}
-                                                max={100}
-                                                step={1}
-                                                onValueChange={(v) => setFontSize(v[0])}
-                                            />
-                                        </div>
-
-                                        <div className="flex flex-col gap-2">
-                                            <label className="text-sm font-semibold text-muted-foreground">Font Family</label>
-                                            <select
-                                                className="w-full bg-background border border-border rounded-lg p-2 text-sm focus:outline-none"
-                                                value={font}
-                                                onChange={(e) => setFont(e.target.value)}
-                                            >
-                                                {FONTS.map(f => <option key={f} value={f}>{f}</option>)}
-                                            </select>
-                                        </div>
-                                    </div>
-                                )}
-
                                 {/* Music Controls */}
                                 <div className="flex flex-col gap-2">
                                     <div className="flex items-center justify-between">
@@ -464,7 +504,8 @@ export function CreateStoryModal({ isOpen, onClose }: CreateStoryModalProps) {
 
                             <div className="p-4 border-t border-border flex gap-3">
                                 <Button variant="secondary" className="flex-1" onClick={handleClose}>Discard</Button>
-                                <Button className="flex-1">Share to story</Button>
+                                <Button variant="outline" className="flex-1" onClick={handleExport}>Export</Button>
+                                <Button className="flex-1">Share</Button>
                             </div>
                         </div>
 
@@ -475,30 +516,25 @@ export function CreateStoryModal({ isOpen, onClose }: CreateStoryModalProps) {
                         >
                             <h3 className="absolute top-6 left-6 font-semibold text-muted-foreground">Preview</h3>
 
-                            <div className={cn(
+                            <div
+                                ref={storyRef}
+                                className={cn(
                                 "h-[90%] max-h-[800px] aspect-[9/16] rounded-2xl shadow-2xl overflow-hidden relative flex items-center justify-center text-center break-words whitespace-pre-wrap transition-colors duration-500",
                                 step === "text" ? (BACKGROUNDS[bgIndex] + " p-8") : (bgIndex === -1 ? "bg-black" : BACKGROUNDS[bgIndex])
                             )}>
                                 {step === "text" && (
-                                    <motion.div
-                                        drag
-                                        dragConstraints={previewContainerRef}
-                                        dragMomentum={false}
-                                        className="cursor-move z-10"
-                                    >
+                                    <div className="flex items-center justify-center w-full h-full z-10">
                                         <span
-                                            className={cn(
-                                                "text-white font-bold block",
-                                                font === "Clean" ? "font-sans" :
-                                                    font === "Headline" ? "font-serif uppercase tracking-wider" :
-                                                        font === "Casual" ? "font-mono" :
-                                                            "font-sans italic"
-                                            )}
-                                            style={{ fontSize: `${fontSize}px`, lineHeight: 1.2 }}
+                                            className="text-white font-bold block text-center font-sans cursor-move touch-none"
+                                            style={{ fontSize: "30px", lineHeight: 1.2, transform: `translate(${textPosition.x}px, ${textPosition.y}px)` }}
+                                            onPointerDown={onPointerDown}
+                                            onPointerMove={onPointerMove}
+                                            onPointerUp={onPointerUp}
+                                            onPointerCancel={onPointerUp}
                                         >
                                             {textValue || "YOUR FEELING ?"}
                                         </span>
-                                    </motion.div>
+                                    </div>
                                 )}
 
                                 {step === "photo" && photoUrl && (
@@ -506,51 +542,41 @@ export function CreateStoryModal({ isOpen, onClose }: CreateStoryModalProps) {
                                         "w-full h-full relative overflow-hidden flex items-center justify-center transition-colors duration-500",
                                         bgIndex === -1 ? "bg-black" : BACKGROUNDS[bgIndex]
                                     )}>
-                                        <motion.img
+                                        <img
                                             src={photoUrl}
                                             alt="Story preview"
-                                            className="w-full h-full object-cover select-none cursor-move origin-center"
+                                            className="w-full h-full object-cover select-none origin-center cursor-move touch-none relative z-10"
                                             style={{
-                                                scale: imageScale,
-                                                rotate: imageRotation,
+                                                transform: `translate(${imagePosition.x}px, ${imagePosition.y}px) scale(${imageScale}) rotate(${imageRotation}deg)`,
                                             }}
-                                            drag
-                                            dragConstraints={{ left: -500, right: 500, top: -500, bottom: 500 }}
-                                            dragMomentum={false}
+                                            onPointerDown={onImagePointerDown}
+                                            onPointerMove={onImagePointerMove}
+                                            onPointerUp={onImagePointerUp}
+                                            onPointerCancel={onImagePointerUp}
                                         />
 
                                         {/* Overlays on photo */}
                                         {textValue && (
-                                            <motion.div
-                                                drag
-                                                dragConstraints={previewContainerRef}
-                                                dragMomentum={false}
-                                                className="absolute z-30 cursor-move"
-                                            >
+                                            <div className="absolute inset-0 flex items-center justify-center z-30 pointer-events-none">
                                                 <span
-                                                    className={cn(
-                                                        "text-white font-bold block drop-shadow-lg select-none",
-                                                        font === "Clean" ? "font-sans" :
-                                                            font === "Headline" ? "font-serif uppercase tracking-wider" :
-                                                                font === "Casual" ? "font-mono" :
-                                                                    "font-sans italic"
-                                                    )}
-                                                    style={{ fontSize: `${fontSize}px`, lineHeight: 1.2 }}
+                                                    className="text-white font-bold block drop-shadow-lg select-none text-center font-sans cursor-move touch-none pointer-events-auto"
+                                                    style={{ fontSize: "30px", lineHeight: 1.2, transform: `translate(${textPosition.x}px, ${textPosition.y}px)` }}
+                                                    onPointerDown={onPointerDown}
+                                                    onPointerMove={onPointerMove}
+                                                    onPointerUp={onPointerUp}
+                                                    onPointerCancel={onPointerUp}
                                                 >
                                                     {textValue}
                                                 </span>
-                                            </motion.div>
+                                            </div>
                                         )}
                                     </div>
                                 )}
 
                                 {/* Music Sticker */}
                                 {selectedTrack && showMusicSticker && (
-                                    <motion.div
-                                        drag
-                                        dragConstraints={previewContainerRef}
-                                        dragMomentum={false}
-                                        className="absolute bottom-10 left-1/2 -translate-x-1/2 bg-white/90 backdrop-blur-md rounded-2xl p-3 flex items-center gap-3 shadow-xl border border-white/50 w-[80%] max-w-[280px] animate-in fade-in zoom-in slide-in-from-bottom-4 duration-300 cursor-move z-20"
+                                    <div
+                                        className="absolute bottom-10 left-1/2 -translate-x-1/2 bg-white/90 backdrop-blur-md rounded-2xl p-3 flex items-center gap-3 shadow-xl border border-white/50 w-[80%] max-w-[280px] animate-in fade-in zoom-in slide-in-from-bottom-4 duration-300 z-20"
                                     >
                                         <img src={selectedTrack.albumImage} className="w-12 h-12 rounded-lg shadow-sm pointer-events-none select-none" alt="Album" />
                                         <div className="flex-1 text-left overflow-hidden pointer-events-none select-none">
@@ -566,7 +592,7 @@ export function CreateStoryModal({ isOpen, onClose }: CreateStoryModalProps) {
                                         >
                                             {playingTrackId === selectedTrack.id ? <Pause className="w-4 h-4 fill-current" /> : <Play className="w-4 h-4 fill-current" />}
                                         </button>
-                                    </motion.div>
+                                    </div>
                                 )}
                             </div>
                         </div>
