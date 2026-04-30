@@ -43,6 +43,7 @@ import { FollowButton } from "@/components/social/FollowButton";
 import { FollowerStats } from "@/components/social/FollowerStats";
 import { contactService } from "@/services/contact.service";
 import { conversationService } from "@/services/conversation.service";
+import { followService } from "@/services/follow.service";
 import { userService } from "@/services/user.service";
 import { useAuthStore } from "@/store/auth.store";
 import { useContactStore } from "@/store/contact.store";
@@ -61,6 +62,7 @@ export default function UsernameProfilePage() {
     const [profile, setProfile] = useState<UserResponse | null>(null);
     const [contactRecord, setContactRecord] = useState<ContactResponse | null>(null);
     const [targetUserId, setTargetUserId] = useState<string | null>(null);
+    const [initialIsFollowing, setInitialIsFollowing] = useState<boolean | undefined>(undefined);
     const [loading, setLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState(false);
     const [confirmDialog, setConfirmDialog] = useState<ConfirmDialogType | null>(null);
@@ -85,12 +87,19 @@ export default function UsernameProfilePage() {
             setTargetUserId(resolvedId);
 
             // Fetch fully blocked-aware profile and contact records
-            const [profileRes, contactRes] = await Promise.all([
+            const [profileRes, contactRes, statsRes] = await Promise.all([
                 userService.getUserById(resolvedId),
                 contactService.getByUser(resolvedId),
+                followService.getStats(resolvedId),
             ]);
             setProfile(profileRes.result);
             setContactRecord(contactRes.result ?? null);
+            const followFromMetadata = statsRes.result?.metadata?.isFollowing;
+            if (typeof followFromMetadata === "boolean") {
+                setInitialIsFollowing(followFromMetadata);
+            } else {
+                setInitialIsFollowing(undefined);
+            }
         } catch {
             toast.error("Could not load profile");
         } finally {
@@ -316,7 +325,7 @@ export default function UsernameProfilePage() {
                                     <>
                                         {/* Follow Button - Always visible unless blocked */}
                                         {!direction && targetUserId && (
-                                            <FollowButton userId={targetUserId} />
+                                            <FollowButton userId={targetUserId} initialIsFollowing={initialIsFollowing} />
                                         )}
 
                                         {/* Action Buttons for other users */}

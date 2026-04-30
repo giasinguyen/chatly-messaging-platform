@@ -1,16 +1,17 @@
 import { useState, useRef, useEffect } from "react";
-import { MessageSquare, MoreHorizontal, ShieldOff, UserMinus } from "lucide-react";
+import { MessageSquare, MoreHorizontal, ShieldOff, UserMinus, UserCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 interface FriendActionsProps {
     onMessage: () => void;
+    onPreviewProfile: () => void;
     onBlock: () => void;
     onRemove: () => void;
 }
 
 // Shadcn DropdownMenu not work here!. Implement DropdownMenu with html/Tailwind. 
-export function FriendActions({ onMessage, onBlock, onRemove }: FriendActionsProps) {
+export function FriendActions({ onMessage, onPreviewProfile, onBlock, onRemove }: FriendActionsProps) {
     const [open, setOpen] = useState(false);
     const menuRef = useRef<HTMLDivElement>(null);
 
@@ -42,7 +43,17 @@ export function FriendActions({ onMessage, onBlock, onRemove }: FriendActionsPro
                 </Button>
 
                 {open && (
-                    <div className="absolute right-0 top-full mt-1 z-50 min-w-[8rem] rounded-md border border-border bg-popover p-1 text-popover-foreground shadow-md">
+                    <div className="absolute right-0 top-full mt-1 z-50 min-w-[10rem] rounded-md border border-border bg-popover p-1 text-popover-foreground shadow-md">
+                        <button
+                            className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-foreground hover:bg-accent transition-colors"
+                            onMouseDown={(e) => {
+                                e.preventDefault();
+                                setOpen(false);
+                                onPreviewProfile();
+                            }}
+                        >
+                            <UserCircle className="h-4 w-4" /> View Profile
+                        </button>
                         <button
                             className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-destructive hover:bg-destructive/10 transition-colors"
                             onMouseDown={(e) => {
