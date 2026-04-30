@@ -81,6 +81,9 @@ export interface ToolEndEventData {
 
 export interface ErrorEventData {
   message: string;
+  code?: string;
+  category?: string;
+  retryable?: boolean;
 }
 
 export interface DoneEventData {
