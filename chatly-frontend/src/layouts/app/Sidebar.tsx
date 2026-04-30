@@ -22,6 +22,8 @@ import {
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { CreatePostModal } from "@/components/app/CreatePostModal";
+import { CreateOptionsModal } from "@/components/app/CreateOptionsModal";
+import { CreateStoryModal } from "@/components/app/CreateStoryModal";
 
 interface SidebarProps {
     user: UserResponse | null;
@@ -34,7 +36,9 @@ export function Sidebar({ user }: SidebarProps) {
         (s) => s.notifications.filter((n) => n.type === "NEW_MESSAGE" && !n.read).length,
     );
     const [showLogoutDialog, setShowLogoutDialog] = useState(false);
-    const [showCreateDialog, setShowCreateDialog] = useState(false);
+    const [showOptionsModal, setShowOptionsModal] = useState(false);
+    const [showPostModal, setShowPostModal] = useState(false);
+    const [showStoryModal, setShowStoryModal] = useState(false);
 
     const handleLogout = async () => {
         try {
@@ -57,7 +61,7 @@ export function Sidebar({ user }: SidebarProps) {
         { to: "/contact", icon: Users, label: "Contacts", badge: 0 },
         { to: "/chatbot", icon: CustomAiIcon, label: "AI Chat", badge: 0, highlight: true },
         { to: "/cloud", icon: Cloud, label: "Cloud", badge: 0 },
-        { onClick: () => setShowCreateDialog(true), icon: PlusCircle, label: "Create", badge: 0 },
+        { onClick: () => setShowOptionsModal(true), icon: PlusCircle, label: "Create", badge: 0 },
     ];
 
     return (
@@ -231,10 +235,28 @@ export function Sidebar({ user }: SidebarProps) {
                 </AlertDialogContent>
             </AlertDialog>
 
+            <CreateOptionsModal
+                isOpen={showOptionsModal}
+                onClose={() => setShowOptionsModal(false)}
+                onSelectPost={() => {
+                    setShowOptionsModal(false);
+                    setShowPostModal(true);
+                }}
+                onSelectStory={() => {
+                    setShowOptionsModal(false);
+                    setShowStoryModal(true);
+                }}
+            />
+
             <CreatePostModal
-                isOpen={showCreateDialog}
-                onClose={() => setShowCreateDialog(false)}
+                isOpen={showPostModal}
+                onClose={() => setShowPostModal(false)}
                 user={user}
+            />
+
+            <CreateStoryModal
+                isOpen={showStoryModal}
+                onClose={() => setShowStoryModal(false)}
             />
         </nav>
     );

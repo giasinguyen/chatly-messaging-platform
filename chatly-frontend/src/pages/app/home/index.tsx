@@ -11,16 +11,6 @@ export default function HomePage() {
                 {/* Stories Carousel */}
                 <div className="w-full relative">
                     <div className="flex gap-4 overflow-x-auto hide-scrollbar pb-3 pt-1 snap-x">
-                        {/* Create Story Item */}
-                        <div className="flex flex-col items-center gap-1 snap-start cursor-pointer group">
-                            <div className="relative w-16 h-16 rounded-full bg-muted flex items-center justify-center border-2 border-background shadow-sm group-hover:scale-105 transition-transform">
-                                <Plus className="text-muted-foreground w-8 h-8" />
-                                <div className="absolute -bottom-1 -right-1 bg-primary text-primary-foreground rounded-full w-5 h-5 flex items-center justify-center border-2 border-background">
-                                    <Plus className="w-3 h-3 font-bold" />
-                                </div>
-                            </div>
-                            <span className="text-sm text-muted-foreground truncate w-16 text-center">Your story</span>
-                        </div>
                         {/* Active Story 1 */}
                         <div className="flex flex-col items-center gap-1 snap-start cursor-pointer group">
                             <div className="p-[2.5px] rounded-full bg-gradient-to-tr from-brand via-blue-500 to-cyan-400 group-hover:scale-105 transition-transform shadow-sm">
@@ -47,13 +37,6 @@ export default function HomePage() {
                                 </div>
                             </div>
                             <span className="text-sm text-muted-foreground truncate w-16 text-center">emma_w</span>
-                        </div>
-                        {/* Viewed Story (No Gradient Ring, simple border) */}
-                        <div className="flex flex-col items-center gap-1 snap-start cursor-pointer group">
-                            <div className="p-[2px] rounded-full border-2 border-muted group-hover:scale-105 transition-transform shadow-sm">
-                                <img alt="Story" className="w-14 h-14 rounded-full object-cover border-2 border-background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD8ucj377arHpK4uzBDX8fWUK924Z4QM42Hpm5Vk5y-OFOvCxf-DFvp-IdxIcO_Va4T2p3AzWzp8JDGXV1wlQj1gyHNCtnReR2sDIMS3u0mf09qX49EEWk5xAs2OgWKD1cpBcUYAghl0cx-yz-i_O1s8aHPHGFK6wUh7nR4gSMxFY1FG9v_usdhcKlqRPnWpxuEvEG_v9kmvUv0gAhxzA2Ivl23LE7a8hfzXY1o4GSeV4RIq6fQzmgjM4GS04PpwZ5idh4Cw24xsQw" />
-                            </div>
-                            <span className="text-sm text-muted-foreground truncate w-16 text-center">alex_k</span>
                         </div>
                     </div>
                 </div>
