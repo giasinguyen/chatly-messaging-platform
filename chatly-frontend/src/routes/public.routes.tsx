@@ -21,6 +21,4 @@ export const publicRoutes: RouteObject[] = [
             { path: "privacy", element: <PrivacyPage /> },
         ],
     },
-    // fallback routes
-    { path: "home", element: <Navigate to="/" replace /> },
 ];

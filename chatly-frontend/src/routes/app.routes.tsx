@@ -11,6 +11,8 @@ const ContactPage = lazy(() => import("@/pages/app/contact"));
 const ProfilePage = lazy(() => import("@/pages/app/profile"));
 const UserProfilePage = lazy(() => import("@/pages/app/profile/[userId]"));
 const SettingsPage = lazy(() => import("@/pages/app/settings"));
+const HomePage = lazy(() => import("@/pages/app/home"));
+const CreatePage = lazy(() => import("@/pages/app/create"));
 
 export const appRoutes: RouteObject[] = [
     {
@@ -23,6 +25,8 @@ export const appRoutes: RouteObject[] = [
             </ProtectedRoute>
         ),
         children: [
+            { index: true, element: <HomePage /> },
+            { path: "home", element: <HomePage /> },
             { path: "chat", element: <ChatPage /> },
             { path: "chat/:id", element: <ChatPage /> },
             { path: "chatbot", element: <ChatbotPage /> },
@@ -30,6 +34,7 @@ export const appRoutes: RouteObject[] = [
             { path: "cloud", element: <CloudPage /> },
             { path: "contact", element: <ContactPage /> },
             { path: "profile", element: <ProfilePage /> },
+            { path: "create", element: <CreatePage /> },
             { path: "profile/:userId", element: <UserProfilePage /> },
             { path: "settings", element: <SettingsPage /> },
         ],

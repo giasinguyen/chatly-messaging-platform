@@ -69,7 +69,7 @@ export const Header = () => {
                                 <div className="hidden md:flex items-center gap-3 mr-1">
                                     {isAuthenticated ? (
                                         <Link
-                                            to="/chat"
+                                            to="/home"
                                             className="bg-brand hover:bg-brand-hover text-white px-5 py-2 rounded-lg font-medium transition-all hover:scale-105 active:scale-95 shadow-sm tracking-tight"
                                         >
                                             Go to Chat
