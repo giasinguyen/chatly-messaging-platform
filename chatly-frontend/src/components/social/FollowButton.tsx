@@ -1,18 +1,7 @@
-import {
-    Check,
-    Loader2,
-    UserMinus,
-    UserPlus,
-    ChevronDown,
-} from "lucide-react";
+import { Check, Loader2, UserMinus, UserPlus, ChevronDown } from "lucide-react";
 import { useCallback, useState } from "react";
 import { Button } from "@/components/ui/button";
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { followService } from "@/services/follow.service";
 import { useFollowStore } from "@/store/follow.store";
 import { toast } from "sonner";
@@ -30,19 +19,12 @@ export function FollowButton({ userId, initialIsFollowing = false }: FollowButto
     const handleFollow = useCallback(async () => {
         setLoading(true);
         try {
-            // Optimistic update
             setFollowing(userId, true);
-
             await followService.follow(userId);
             toast.success("Following");
         } catch (error) {
-            // Rollback on error
             setFollowing(userId, false);
-            const msg =
-                error instanceof Error
-                    ? error.message
-                    : "Failed to follow user";
-            toast.error(msg);
+            toast.error(error instanceof Error ? error.message : "Failed to follow");
         } finally {
             setLoading(false);
         }
@@ -51,19 +33,12 @@ export function FollowButton({ userId, initialIsFollowing = false }: FollowButto
     const handleUnfollow = useCallback(async () => {
         setLoading(true);
         try {
-            // Optimistic update
             setFollowing(userId, false);
-
             await followService.unfollow(userId);
             toast.success("Unfollowed");
         } catch (error) {
-            // Rollback on error
             setFollowing(userId, true);
-            const msg =
-                error instanceof Error
-                    ? error.message
-                    : "Failed to unfollow user";
-            toast.error(msg);
+            toast.error(error instanceof Error ? error.message : "Failed to unfollow");
         } finally {
             setLoading(false);
         }
@@ -75,27 +50,14 @@ export function FollowButton({ userId, initialIsFollowing = false }: FollowButto
         return (
             <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                    <Button
-                        variant="default"
-                        size="sm"
-                        disabled={loading}
-                        className="gap-2"
-                    >
-                        {loading ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                            <Check className="h-4 w-4" />
-                        )}
+                    <Button variant="default" size="sm" disabled={loading} className="gap-2">
+                        {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
                         Following
                         <ChevronDown className="h-3 w-3" />
                     </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                    <DropdownMenuItem
-                        onClick={handleUnfollow}
-                        disabled={loading}
-                        className="text-destructive"
-                    >
+                    <DropdownMenuItem onClick={handleUnfollow} disabled={loading} className="text-destructive">
                         <UserMinus className="mr-2 h-4 w-4" />
                         Unfollow
                     </DropdownMenuItem>
@@ -105,18 +67,8 @@ export function FollowButton({ userId, initialIsFollowing = false }: FollowButto
     }
 
     return (
-        <Button
-            variant="outline"
-            size="sm"
-            onClick={handleFollow}
-            disabled={loading}
-            className="gap-2"
-        >
-            {loading ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-                <UserPlus className="h-4 w-4" />
-            )}
+        <Button variant="outline" size="sm" onClick={handleFollow} disabled={loading} className="gap-2">
+            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />}
             Follow
         </Button>
     );
