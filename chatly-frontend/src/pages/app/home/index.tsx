@@ -1,13 +1,20 @@
-import { Plus, MoreHorizontal, Heart, MessageCircle, Send, Bookmark } from "lucide-react";
+import { Plus } from "lucide-react";
 import { useAuthStore } from "@/store/auth.store";
-import { useState, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { CreatePostModal } from "@/components/app/CreatePostModal";
 import { CreateOptionsModal } from "@/components/app/CreateOptionsModal";
 import { CreateStoryModal } from "@/components/app/CreateStoryModal";
+import { HOME_FEED_ROOT_MARGIN } from "@/constants/feed";
+import { FeedList } from "@/pages/app/feed/components/FeedList";
+import { NewPostBanner } from "@/pages/app/feed/components/NewPostBanner";
+import { useInfiniteScroll } from "@/hooks/useInfiniteScroll";
+import { socketService } from "@/services/socket.service";
+import { useFeedStore } from "@/store/feed.store";
 import { storyService } from "@/services/story.service";
 import type { Story } from "@/types/story";
+import type { Post } from "@/types/post";
 
 export default function HomePage() {
     const { user } = useAuthStore();
@@ -17,6 +24,21 @@ export default function HomePage() {
     const [showStoryModal, setShowStoryModal] = useState(false);
     const [stories, setStories] = useState<Story[]>([]);
     const [isLoadingStories, setIsLoadingStories] = useState(true);
+
+    const posts = useFeedStore((s) => s.posts);
+    const nextCursor = useFeedStore((s) => s.nextCursor);
+    const hasMore = useFeedStore((s) => s.hasMore);
+    const pendingNewPosts = useFeedStore((s) => s.pendingNewPosts);
+    const isLoading = useFeedStore((s) => s.isLoading);
+    const isLoadingMore = useFeedStore((s) => s.isLoadingMore);
+    const loadInitialFeed = useFeedStore((s) => s.loadInitialFeed);
+    const loadMore = useFeedStore((s) => s.loadMore);
+    const flushPendingPosts = useFeedStore((s) => s.flushPendingPosts);
+    const addPendingPost = useFeedStore((s) => s.addPendingPost);
+    const updatePost = useFeedStore((s) => s.updatePost);
+    const removePost = useFeedStore((s) => s.removePost);
+
+    const pendingCount = pendingNewPosts.length;
 
     useEffect(() => {
         const fetchStories = async () => {
@@ -33,6 +55,68 @@ export default function HomePage() {
         };
         fetchStories();
     }, []);
+
+    useEffect(() => {
+        loadInitialFeed();
+    }, [loadInitialFeed]);
+
+    const handleLoadMore = useCallback(
+        (cursor: string | null) => {
+            loadMore(cursor);
+        },
+        [loadMore],
+    );
+
+    const { sentinelRef } = useInfiniteScroll(handleLoadMore, nextCursor, {
+        hasMore,
+        isLoading: isLoading || isLoadingMore,
+        rootMargin: HOME_FEED_ROOT_MARGIN,
+        threshold: 0,
+    });
+
+    const handleFlushPending = useCallback(() => {
+        if (pendingCount === 0) return;
+        flushPendingPosts();
+        window.scrollTo({ top: 0, behavior: "smooth" });
+    }, [pendingCount, flushPendingPosts]);
+
+    useEffect(() => {
+        if (!user?.id) return;
+
+        let isMounted = true;
+
+        const setup = async () => {
+            const token = localStorage.getItem("access_token");
+            if (!token) return;
+
+            await socketService.connect(token);
+            const client = socketService.getClient();
+            if (!client || !isMounted) return;
+
+            const subscription = client.subscribe(
+                `/topic/feed/${user.id}`,
+                (payload) => {
+                    try {
+                        const post = JSON.parse(payload.body) as Post;
+                        addPendingPost(post);
+                    } catch (_error: unknown) {
+                        return;
+                    }
+                },
+            );
+
+            return () => subscription.unsubscribe();
+        };
+
+        const cleanupPromise = setup();
+
+        return () => {
+            isMounted = false;
+            cleanupPromise.then((cleanup) => {
+                if (cleanup) cleanup();
+            });
+        };
+    }, [user?.id, addPendingPost]);
 
     const groupedStories = useMemo(() => {
         const groups: Record<string, { user: any; stories: Story[] }> = {};
@@ -96,72 +180,17 @@ export default function HomePage() {
                 </div>
 
                 {/* Feed Posts */}
-                <div className="flex flex-col gap-8">
-                    {/* Post Card 1 */}
-                    <article className="bg-card rounded-[24px] p-6 shadow-sm border border-border">
-                        {/* Post Header */}
-                        <div className="flex items-center justify-between mb-3">
-                            <div className="flex items-center gap-3 cursor-pointer">
-                                <img alt="Avatar" className="w-10 h-10 rounded-full object-cover border border-border" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAdlQDZ-KEw3ik6jcpWcfP5IopF5lA3JSu0X5BxzImcSLLSao6pfN3LD4iZJ8H_r3QWa2bWbCMktJTfEg-wgWZP253El5hztU_X6tVQ5RHICJ50-YI3_mufj43vaQcLAq9A5syJeskJiEZHfsHXpEizq9HpdB-GrP-4lAb2y2gMtPJueE4ZqT62E6mpv-XdxR8uUvOzDWVgaE6AbtPpkuEzm0pPagMbBuaFaLT_Vnjzj-FlDqg5bUdJkOBtoA67tv2_fVEJE0LeEyc" />
-                                <div>
-                                    <h3 className="font-semibold text-foreground flex items-center gap-1">
-                                        sarah.j
-                                        <span className="w-1 h-1 rounded-full bg-muted-foreground inline-block"></span>
-                                        <span className="text-sm text-muted-foreground font-normal">2h</span>
-                                    </h3>
-                                    <p className="text-xs text-muted-foreground">Kyoto, Japan</p>
-                                </div>
-                            </div>
-                            <button className="text-muted-foreground hover:text-foreground transition-colors p-1 rounded-full hover:bg-muted">
-                                <MoreHorizontal className="w-5 h-5" />
-                            </button>
-                        </div>
-                        {/* Post Media */}
-                        <div className="w-full rounded-xl overflow-hidden mb-4 bg-muted">
-                            <img alt="Post media" className="w-full h-auto object-cover max-h-[600px]" src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSgmSL9PPcOx7y3K__MP6Q8PEdNfjPGuoZuqA&s" />
-                        </div>
-                        {/* Post Actions */}
-                        <div className="flex items-center justify-between mb-3">
-                            <div className="flex items-center gap-4">
-                                <button className="flex items-center gap-1 text-foreground hover:text-red-500 transition-colors group">
-                                    <Heart className="w-6 h-6 group-hover:scale-110 transition-transform fill-red-500 text-red-500" />
-                                    <span className="font-semibold text-sm">2,451</span>
-                                </button>
-                                <button className="flex items-center gap-1 text-muted-foreground hover:text-foreground transition-colors group">
-                                    <MessageCircle className="w-6 h-6 group-hover:scale-110 transition-transform" />
-                                    <span className="font-semibold text-sm">128</span>
-                                </button>
-                                <button className="flex items-center gap-1 text-muted-foreground hover:text-foreground transition-colors group">
-                                    <Send className="w-6 h-6 group-hover:scale-110 transition-transform" />
-                                </button>
-                            </div>
-                            <button className="text-muted-foreground hover:text-foreground transition-colors group">
-                                <Bookmark className="w-6 h-6 group-hover:scale-110 transition-transform" />
-                            </button>
-                        </div>
-                        {/* Caption & Comments */}
-                        <div className="flex flex-col gap-1">
-                            <p className="text-base text-foreground">
-                                <span className="font-semibold mr-1">sarah.j</span>
-                                Evening walks through Gion are truly magical. The lanterns give everything such a warm, nostalgic glow. ✨🏮
-                            </p>
-                            {/* Tags */}
-                            <div className="flex flex-wrap gap-2 mt-2">
-                                <span className="px-3 py-1 bg-brand/10 text-brand rounded-full font-semibold text-[11px] uppercase tracking-wider">#Travel</span>
-                                <span className="px-3 py-1 bg-brand/10 text-brand rounded-full font-semibold text-[11px] uppercase tracking-wider">#Kyoto</span>
-                                <span className="px-3 py-1 bg-brand/10 text-brand rounded-full font-semibold text-[11px] uppercase tracking-wider">#Japan</span>
-                            </div>
-                            <button className="text-muted-foreground text-sm text-left mt-2 hover:underline decoration-border underline-offset-2">
-                                View all 128 comments
-                            </button>
-                            {/* Add Comment Input (Minimal) */}
-                            <div className="flex items-center gap-3 mt-3 pt-3 border-t border-border relative">
-                                <img alt="Your Avatar" className="w-8 h-8 rounded-full object-cover" src={user?.avatarUrl || "https://lh3.googleusercontent.com/aida-public/AB6AXuDiWCK8eU36XEfrbqiJZBRgtZo4ia0h9UnSXoPZ6TmLd4c4bnTZxeOvu2ljozhYxj1cqN-Bqe6tSMDXNN1cPILsBFaTHYMRgbCV8EtOGgUw__L2SKT-4GmCmoVeLhJKUY5liFTwxe43Uh2O-4ldLr1mADZ06-fj83LbDdgrW8_4LTYCsQ2VgEKOKWAUe52M1waBRbx4qnQ9wdWhwC7nkVKwJemA4vh0ZQqk6HaLqWGMi0r9mE0PNFXfQoBfYJqvLYY8UmWwrNcSfMY"} />
-                                <input className="flex-1 bg-transparent border-none focus:ring-0 p-0 text-sm text-foreground placeholder:text-muted-foreground border-b border-transparent focus:border-brand transition-colors focus:outline-none" placeholder="Add a comment..." type="text" />
-                                <button className="text-brand font-semibold text-[13px] hover:text-brand-dark transition-colors">Post</button>
-                            </div>
-                        </div>
-                    </article>
+                <div className="flex flex-col gap-6">
+                    <NewPostBanner count={pendingCount} onClick={handleFlushPending} />
+                    <FeedList
+                        posts={posts}
+                        hasMore={hasMore}
+                        isLoading={isLoading}
+                        isLoadingMore={isLoadingMore}
+                        sentinelRef={sentinelRef}
+                        onPostUpdate={updatePost}
+                        onPostRemove={removePost}
+                    />
                 </div>
             </div>
 

@@ -1,8 +1,10 @@
 import axiosClient from "@/lib/axiosClient";
+import { HOME_FEED_PAGE_SIZE } from "@/constants/feed";
 import type { ApiResponse } from "@/types/auth";
 import type {
     Post,
     PostPage,
+    FeedResponse,
     CreatePostRequest,
     UpdatePostRequest,
     ReactToPostRequest,
@@ -18,6 +20,21 @@ export const postService = {
         const response = await axiosClient.get<ApiResponse<PostPage>>("/api/posts/feed", {
             params: { page, size, sort: "createdAt,desc" },
         });
+        return response.data;
+    },
+
+    getHomeFeed: async (
+        cursor: string | null,
+        size: number = HOME_FEED_PAGE_SIZE,
+    ): Promise<ApiResponse<FeedResponse>> => {
+        const params: Record<string, string | number> = { size };
+        if (cursor) {
+            params.cursor = cursor;
+        }
+        const response = await axiosClient.get<ApiResponse<FeedResponse>>(
+            "/api/feed/home",
+            { params },
+        );
         return response.data;
     },
 

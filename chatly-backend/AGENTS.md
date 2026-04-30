@@ -91,6 +91,7 @@ Do not add new channels without updating `AGENTS.md` in root.
 | `/app/chat.seen` | client → server | Mark message as seen |
 | `/topic/conversation/{id}` | server → client | Incoming messages |
 | `/topic/presence` | server → client | Online/offline broadcast |
+| `/topic/feed/{userId}` | server → client | New posts for the user's home feed |
 | `/queue/errors` | server → client | Private error delivery |
 
 ---

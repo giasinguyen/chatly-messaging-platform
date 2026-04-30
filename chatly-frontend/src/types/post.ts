@@ -44,3 +44,9 @@ export interface PostPage {
     number: number;
     last: boolean;
 }
+
+export interface FeedResponse {
+    items: Post[];
+    nextCursor: string | null;
+    hasMore: boolean;
+}

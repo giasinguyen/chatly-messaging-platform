@@ -52,6 +52,9 @@ public class Post {
     @Builder.Default
     private int shareCount = 0;
 
+    @Builder.Default
+    private boolean isDeleted = false;
+
     @CreatedDate
     private Instant createdAt;
 

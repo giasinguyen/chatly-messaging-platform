@@ -50,4 +50,22 @@ public interface ContactRepository extends JpaRepository<Contact, UUID> {
      */
     @Query("SELECT c FROM Contact c WHERE (c.user.id = :userId AND c.contact.id = :otherId) OR (c.user.id = :otherId AND c.contact.id = :userId)")
     Optional<Contact> findByParticipants(@Param("userId") UUID userId, @Param("otherId") UUID otherId);
+
+    /**
+     * Skeleton follow graph: returns IDs of users that {@code userId} has as ACCEPTED contacts
+     * (the side where userId sent the request). Replace with the real follow table query when
+     * Dev 1 merges the follow system.
+     */
+    @Query("SELECT CAST(c.contact.id AS string) FROM Contact c WHERE c.user.id = :userId AND c.status = 'ACCEPTED'")
+    List<String> findFollowingIds(@Param("userId") UUID userId);
+
+    /**
+     * Returns String IDs of all users that {@code userId} has explicitly blocked.
+     * Used by FeedService to exclude blocked authors from the feed.
+     */
+        @Query("SELECT CASE WHEN c.user.id = :userId THEN CAST(c.contact.id AS string) "
+            + "ELSE CAST(c.user.id AS string) END "
+            + "FROM Contact c WHERE (c.user.id = :userId OR c.contact.id = :userId) "
+            + "AND c.status = 'BLOCKED' AND c.blockedBy = :userId")
+    List<String> findBlockedUserIds(@Param("userId") UUID userId);
 }
