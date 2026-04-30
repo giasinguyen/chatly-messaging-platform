@@ -248,7 +248,7 @@ export default function HomePage() {
                     </div>
                 </div>
 
-                <p className="mt-4 text-[11px] text-muted-foreground text-end">© 2024 ChatLy</p>
+                <p className="mt-4 text-[11px] text-muted-foreground text-center">© 2027 ChatLy - The Challenger Team</p>
             </aside>
         </div>
     );

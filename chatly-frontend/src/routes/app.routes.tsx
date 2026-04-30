@@ -13,6 +13,7 @@ const UserProfilePage = lazy(() => import("@/pages/app/profile/[userId]"));
 const SettingsPage = lazy(() => import("@/pages/app/settings"));
 const HomePage = lazy(() => import("@/pages/app/home"));
 const CreatePage = lazy(() => import("@/pages/app/create"));
+const UsernamePage = lazy(() => import("@/pages/app/[username]"));
 
 export const appRoutes: RouteObject[] = [
     {
@@ -37,6 +38,7 @@ export const appRoutes: RouteObject[] = [
             { path: "create", element: <CreatePage /> },
             { path: "profile/:userId", element: <UserProfilePage /> },
             { path: "settings", element: <SettingsPage /> },
+            { path: ":username", element: <UsernamePage /> },
         ],
     },
 ];
