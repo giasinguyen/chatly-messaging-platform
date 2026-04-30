@@ -1,0 +1,32 @@
+@startuml Chatly_Sequence_Update_Profile
+title Chatly - Update Profile (Simple)
+
+autonumber
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+
+actor "Authenticated User" as U
+participant "Client" as Client
+participant "UserController\nPUT /api/users/{id}" as UserController
+participant "UserService" as UserService
+participant "UserRepository" as UserRepo
+participant "GlobalExceptionHandler" as ExceptionHandler
+
+U -> Client: Update profile
+Client -> UserController: UserUpdateRequest
+UserController -> UserService: update(userId, request)
+UserService -> UserRepo: findById + validate uniqueness
+
+alt Validation failed / user not found / duplicate field
+  UserService -> ExceptionHandler: AppException(...)
+  ExceptionHandler --> Client: HTTP 4xx\nApiResponse{error}
+else Success
+  UserService -> UserRepo: save(updated user)
+  UserRepo --> UserService: saved user
+  UserService --> UserController: UserResponse
+  UserController --> Client: HTTP 200\nApiResponse{code:1000, result}
+end
+
+Client --> U: Show updated profile
+
+@enduml

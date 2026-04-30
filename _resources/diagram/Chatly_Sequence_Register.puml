@@ -1,0 +1,34 @@
+@startuml Chatly_Sequence_Register
+title Chatly - Register (Simple)
+
+autonumber
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+
+actor Guest as G
+participant "Client" as Client
+participant "AuthController\nPOST /api/auth/register" as AuthController
+participant "AuthService" as AuthService
+participant "UserRepository" as UserRepo
+participant "EmailVerificationMailService" as MailService
+participant "GlobalExceptionHandler" as ExceptionHandler
+
+G -> Client: Fill register form
+Client -> AuthController: RegisterRequest
+AuthController -> AuthService: register(request)
+
+alt Invalid input or duplicate account
+  AuthService -> ExceptionHandler: AppException(...)
+  ExceptionHandler --> Client: HTTP 4xx\nApiResponse{error}
+else Success
+  AuthService -> UserRepo: save(user)
+  UserRepo --> AuthService: userId
+  AuthService -> MailService: sendVerificationLink(user, link)
+  MailService --> AuthService: sent
+  AuthService --> AuthController: RegisterResponse{userId}
+  AuthController --> Client: HTTP 200\nApiResponse{code:1000, result}
+end
+
+Client --> G: Show result
+
+@enduml

@@ -1,0 +1,31 @@
+@startuml Chatly_Sequence_Block_Unblock
+title Chatly - Block / Unblock User (Simple)
+
+autonumber
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+
+actor "Authenticated User" as U
+participant "Client" as Client
+participant "ContactController\n/api/contacts/*" as ContactController
+participant "ContactService" as ContactService
+participant "ContactRepository" as ContactRepo
+participant "GlobalExceptionHandler" as ExceptionHandler
+
+U -> Client: Choose block or unblock
+Client -> ContactController: request(target, action)
+ContactController -> ContactService: block/unblock(target, currentUserId)
+
+alt Not found / not authorized / invalid target
+  ContactService -> ExceptionHandler: AppException(...)
+  ExceptionHandler --> Client: HTTP 4xx\nApiResponse{error}
+else Success
+  ContactService -> ContactRepo: save(status=BLOCKED or ACCEPTED)
+  ContactRepo --> ContactService: saved
+  ContactService --> ContactController: ContactResponse
+  ContactController --> Client: HTTP 200\nApiResponse{code:1000, result}
+end
+
+Client --> U: Show result
+
+@enduml
