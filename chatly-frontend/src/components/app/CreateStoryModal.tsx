@@ -508,21 +508,20 @@ export function CreateStoryModal({ isOpen, onClose }: CreateStoryModalProps) {
                                             </Button>
                                         )}
                                     </div>
-                                    <Button
-                                        variant="outline"
+                                    <div
                                         className={cn(
-                                            "w-full justify-start gap-3 h-12 rounded-xl border-border transition-all relative overflow-hidden",
+                                            "w-full flex items-center gap-3 h-12 rounded-xl border border-border px-4 transition-all relative overflow-hidden cursor-pointer hover:bg-muted/50",
                                             selectedTrack && "border-brand bg-brand/5 text-brand"
                                         )}
                                         onClick={handleOpenMusic}
                                     >
-                                        <Music className="w-5 h-5" />
+                                        <Music className="w-5 h-5 flex-shrink-0" />
                                         {selectedTrack ? (
                                             <div className="flex-1 flex items-center justify-between overflow-hidden">
-                                                <span className="truncate font-bold">{selectedTrack.name}</span>
+                                                <span className="truncate font-bold text-sm">{selectedTrack.name}</span>
                                                 <div className="flex items-center gap-1">
                                                     <div
-                                                        className="p-1 hover:bg-brand/10 rounded-md transition-colors"
+                                                        className="p-1.5 hover:bg-brand/10 rounded-md transition-colors"
                                                         onClick={(e) => {
                                                             e.stopPropagation();
                                                             togglePlay(selectedTrack);
@@ -530,19 +529,21 @@ export function CreateStoryModal({ isOpen, onClose }: CreateStoryModalProps) {
                                                     >
                                                         {playingTrackId === selectedTrack.id ? <Pause className="w-4 h-4 fill-current" /> : <Play className="w-4 h-4 fill-current" />}
                                                     </div>
-                                                    <X
-                                                        className="w-4 h-4 hover:text-red-500 cursor-pointer"
+                                                    <div
+                                                        className="p-1.5 hover:bg-red-100 hover:text-red-500 rounded-md transition-colors"
                                                         onClick={(e) => {
                                                             e.stopPropagation();
                                                             setSelectedTrack(null);
                                                             setPlayingTrackId(null);
                                                             if (audioRef.current) audioRef.current.pause();
                                                         }}
-                                                    />
+                                                    >
+                                                        <X className="w-4 h-4" />
+                                                    </div>
                                                 </div>
                                             </div>
-                                        ) : "Add music"}
-                                    </Button>
+                                        ) : <span className="text-sm font-medium">Add music</span>}
+                                    </div>
                                 </div>
                             </div>
 
@@ -563,9 +564,9 @@ export function CreateStoryModal({ isOpen, onClose }: CreateStoryModalProps) {
                             <div
                                 ref={storyRef}
                                 className={cn(
-                                "h-[90%] max-h-[800px] aspect-[9/16] rounded-2xl shadow-2xl overflow-hidden relative flex items-center justify-center text-center break-words whitespace-pre-wrap transition-colors duration-500",
-                                step === "text" ? (BACKGROUNDS[bgIndex] + " p-8") : (bgIndex === -1 ? "bg-black" : BACKGROUNDS[bgIndex])
-                            )}>
+                                    "h-[90%] max-h-[800px] aspect-[9/16] rounded-2xl shadow-2xl overflow-hidden relative flex items-center justify-center text-center break-words whitespace-pre-wrap transition-colors duration-500",
+                                    step === "text" ? (BACKGROUNDS[bgIndex] + " p-8") : (bgIndex === -1 ? "bg-black" : BACKGROUNDS[bgIndex])
+                                )}>
                                 {step === "text" && (
                                     <div className="flex items-center justify-center w-full h-full z-10">
                                         <span
