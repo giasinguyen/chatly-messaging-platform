@@ -24,9 +24,9 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
 
+  mongodb:
+    uri: ${MONGODB_URI:mongodb://localhost:27017/chatly}
   data:
-    mongodb:
-      uri: ${MONGODB_URI:mongodb://localhost:27017/chatly}
     redis:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
@@ -59,6 +59,11 @@ app:
     from: ${APP_MAIL_FROM:${SPRING_MAIL_USERNAME}}
   mcp:
     internal-api-key: ${APP_MCP_INTERNAL_API_KEY:${AGENT_API_KEY}}
+  music:
+    jamendo:
+      client-id: ${JAMENDO_CLIENT_ID}
+      client-secret: ${JAMENDO_CLIENT_SECRET}
+      base-url: ${JAMENDO_BASE_URL:https://api.jamendo.com/v3.0}
 
 agent:
   base-url: ${AGENT_BASE_URL:http://chatly-agent:8000}

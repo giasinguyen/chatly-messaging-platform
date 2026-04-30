@@ -528,7 +528,7 @@ export default function ProfilePage() {
 }
 
 interface InfoRowProps {
-    icon: ComponentType<{ className?: string; size?: number }>;
+    icon: ComponentType<{ className?: string; size?: number | string }>;
     label: string;
     value: string;
 }

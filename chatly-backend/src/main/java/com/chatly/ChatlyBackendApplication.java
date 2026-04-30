@@ -8,7 +8,9 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
 import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.annotation.EnableScheduling;
+import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Hooks;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import com.chatly.ai.mcp.ConversationTools;
 import com.chatly.ai.mcp.GroupTools;
@@ -47,5 +49,13 @@ public class ChatlyBackendApplication {
                 .build();
     }
 
-}
+    @Bean
+    public WebClient.Builder webClientBuilder() {
+        return WebClient.builder();
+    }
 
+    @Bean
+    public ObjectMapper objectMapper() {
+        return new ObjectMapper();
+    }
+}

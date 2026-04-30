@@ -74,31 +74,46 @@ function formatDob(dob?: string) {
 }
 
 export default function UserProfilePage() {
-    const { userId } = useParams<{ userId: string }>();
+    const { username } = useParams<{ username: string }>();
     const navigate = useNavigate();
     const currentUser = useAuthStore((s) => s.user);
     const invalidateContacts = useContactStore((s) => s.invalidate);
 
     const [profile, setProfile] = useState<UserResponse | null>(null);
     const [contactRecord, setContactRecord] = useState<ContactResponse | null>(null);
+    const [targetUserId, setTargetUserId] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState(false);
     const [confirmDialog, setConfirmDialog] = useState<ConfirmDialogType | null>(null);
 
     // Redirect to own profile if viewing self
     useEffect(() => {
-        if (userId && currentUser?.id && userId === currentUser.id) {
-            navigate("/profile", { replace: true });
+        if (targetUserId && currentUser?.id && targetUserId === currentUser.id) {
+            navigate(`/${currentUser.username || 'profile'}`, { replace: true });
         }
-    }, [userId, currentUser?.id, navigate]);
+    }, [targetUserId, currentUser?.id, currentUser?.username, navigate]);
 
     const loadData = useCallback(async () => {
-        if (!userId || userId === currentUser?.id) return;
+        if (!username) return;
         setLoading(true);
         try {
+            // First, find the user by username to get their ID
+            const searchRes = await userService.search(username, 0, 10);
+            const foundUser = searchRes.result?.items.find(u => u.username === username);
+            
+            if (!foundUser) {
+                setProfile(null);
+                return;
+            }
+            
+            const resolvedId = foundUser.id;
+            setTargetUserId(resolvedId);
+
+            if (resolvedId === currentUser?.id) return;
+
             const [profileRes, contactRes] = await Promise.all([
-                userService.getUserById(userId),
-                contactService.getByUser(userId),
+                userService.getUserById(resolvedId),
+                contactService.getByUser(resolvedId),
             ]);
             setProfile(profileRes.result);
             setContactRecord(contactRes.result ?? null);
@@ -107,7 +122,7 @@ export default function UserProfilePage() {
         } finally {
             setLoading(false);
         }
-    }, [userId, currentUser?.id]);
+    }, [username, currentUser?.id]);
 
     useEffect(() => {
         loadData();
@@ -131,10 +146,10 @@ export default function UserProfilePage() {
 
     // ── Action handlers ───────────────────────────────────────────────────────
     const handleSendFriendRequest = async () => {
-        if (!userId) return;
+        if (!targetUserId) return;
         setActionLoading(true);
         try {
-            await contactService.sendRequest({ contactId: userId });
+            await contactService.sendRequest({ contactId: targetUserId });
             toast.success("Friend request sent!");
             await loadData();
         } catch {
@@ -190,10 +205,10 @@ export default function UserProfilePage() {
     };
 
     const handleBlock = async () => {
-        if (!userId) return;
+        if (!targetUserId) return;
         setActionLoading(true);
         try {
-            const res = await contactService.blockByUser(userId);
+            const res = await contactService.blockByUser(targetUserId);
             setContactRecord(res.result);
             invalidateContacts();
             toast.success(`Blocked ${profile?.displayName}`);
@@ -206,10 +221,10 @@ export default function UserProfilePage() {
     };
 
     const handleUnblock = async () => {
-        if (!userId) return;
+        if (!targetUserId) return;
         setActionLoading(true);
         try {
-            const res = await contactService.unblockByUser(userId);
+            const res = await contactService.unblockByUser(targetUserId);
             setContactRecord(res.result);
             invalidateContacts();
             toast.success(`Unblocked ${profile?.displayName}`);
@@ -222,13 +237,13 @@ export default function UserProfilePage() {
     };
 
     const handleMessage = async () => {
-        if (!userId) return;
+        if (!targetUserId) return;
         try {
             const convsRes = await conversationService.getMyConversations();
             const existing = convsRes.result?.find(
                 (c) =>
                     c.type === "PRIVATE" &&
-                    c.participantIds.includes(userId) &&
+                    c.participantIds.includes(targetUserId) &&
                     c.participantIds.includes(currentUser!.id),
             );
             if (existing) {
@@ -237,7 +252,7 @@ export default function UserProfilePage() {
             }
             const res = await conversationService.create({
                 type: "PRIVATE",
-                participantIds: [userId],
+                participantIds: [targetUserId],
             });
             if (res.result) navigate(`/chat/${res.result.id}`);
         } catch {
@@ -246,7 +261,7 @@ export default function UserProfilePage() {
     };
 
     const handleCopyLink = () => {
-        navigator.clipboard.writeText(`${window.location.origin}/profile/${userId}`);
+        navigator.clipboard.writeText(`${window.location.origin}/${username}`);
         toast.success("Profile link copied!");
     };
 
@@ -669,7 +684,7 @@ function MoreActionsMenu({ onCopyLink }: MoreActionsMenuProps) {
 }
 
 interface InfoRowProps {
-    icon: ComponentType<{ className?: string; size?: number }>;
+    icon: ComponentType<{ className?: string; size?: number | string }>;
     label: string;
     value: string;
 }
