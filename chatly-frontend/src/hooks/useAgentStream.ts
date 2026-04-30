@@ -6,6 +6,7 @@ import type {
     AgentChatRequest,
     AgentStreamEvent,
     DoneEventData,
+    ErrorEventData,
     TokenEventData,
     ToolCallState,
     ToolStartEventData,
@@ -87,8 +88,18 @@ export function useAgentStream(sessionId?: string) {
                             useChatbotStore.getState().setStreamingStatus("done");
                             setToolCalls([]);
                         } else if (event.type === "error") {
-                            const errData = event.data as { message: string };
-                            toast.error(errData.message ?? "AI response error");
+                            const errData = event.data as unknown as ErrorEventData;
+                            const errMessage = errData.message ?? "AI response error";
+                            toast.error(errMessage);
+                            useChatbotStore.getState().setStreamingContent("");
+                            useChatbotStore.getState().appendMessage(sid, {
+                                id: `error-${Date.now()}`,
+                                session_id: sid,
+                                role: "assistant",
+                                content: errMessage,
+                                attachments: [],
+                                created_at: new Date().toISOString(),
+                            });
                             useChatbotStore.getState().setStreamingStatus("error");
                         }
                     } catch {
@@ -141,7 +152,16 @@ export function useAgentStream(sessionId?: string) {
 
             try {
                 const response = await agentService.chatStream(sid, payload, controller.signal);
-                if (!response.ok) throw new Error(`Stream request failed: ${response.status}`);
+                if (!response.ok) {
+                    let userMessage = "AI service is temporarily unavailable. Please try again.";
+                    try {
+                        const body = await response.json() as { message?: string };
+                        if (body.message) userMessage = body.message;
+                    } catch {
+                        // body is not JSON, keep default
+                    }
+                    throw new Error(userMessage);
+                }
                 clearInterval(hintTimer);
                 hintTimer = undefined;
                 await _processEventStream(response, sid);
@@ -149,7 +169,17 @@ export function useAgentStream(sessionId?: string) {
                 if (err instanceof DOMException && err.name === "AbortError") {
                     useChatbotStore.getState().setStreamingStatus("idle");
                 } else {
-                    toast.error("Could not receive response from AI");
+                    const message = err instanceof Error ? err.message : "Could not receive response from AI";
+                    toast.error(message);
+                    useChatbotStore.getState().setStreamingContent("");
+                    useChatbotStore.getState().appendMessage(sid, {
+                        id: `error-${Date.now()}`,
+                        session_id: sid,
+                        role: "assistant",
+                        content: message,
+                        attachments: [],
+                        created_at: new Date().toISOString(),
+                    });
                     useChatbotStore.getState().setStreamingStatus("error");
                 }
             } finally {
