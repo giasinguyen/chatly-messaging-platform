@@ -19,6 +19,7 @@ from langgraph.prebuilt import create_react_agent
 logger = logging.getLogger(__name__)
 
 SEND_AI_MESSAGE_TOOL_NAME = "sendAiMessage"
+SEND_TEXT_MESSAGE_TOOL_NAME = "sendTextMessage"
 
 MENTION_SYSTEM_PROMPT = (
     "You are Chatly AI, responding to an @AI mention in a group conversation.\n"
@@ -34,8 +35,7 @@ MENTION_SYSTEM_PROMPT = (
     "- listGroupNotes — shared group notes\n\n"
     "**Actions:**\n"
     "- createGroupPoll — create a poll (pass `options` as a list of strings, e.g. [\"A\", \"B\"])\n"
-    "- createGroupReminder / listGroupReminders — manage reminders (always list first to avoid duplicates)\n"
-    "- sendTextMessage — send a regular text message\n\n"
+    "- createGroupReminder / listGroupReminders — manage reminders (always list first to avoid duplicates)\n\n"
     "Use context tools first when you need background info, then perform actions as requested.\n\n"
     "{session_context}"
     "## Response Rules\n"
@@ -70,12 +70,17 @@ class MentionAgent:
         self._conversation_id = conversation_id
         self._llm = llm
 
-        # Partition: pull sendAiMessage out, keep the rest as research tools.
+        # Partition: pull both send tools out — sendAiMessage is used for final
+        # delivery, sendTextMessage must not be available to the ReAct loop to
+        # prevent the LLM from posting a duplicate TEXT message before the
+        # deterministic sendAiMessage call at the end.
         self._send_tool: BaseTool | None = None
         research_tools: list[BaseTool] = []
         for tool in tools:
             if tool.name == SEND_AI_MESSAGE_TOOL_NAME:
                 self._send_tool = tool
+            elif tool.name == SEND_TEXT_MESSAGE_TOOL_NAME:
+                pass  # excluded — delivery is handled via sendAiMessage
             else:
                 research_tools.append(tool)
 

@@ -3,11 +3,11 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import axiosClient from '@/lib/axiosClient';
 import type {
   AgentSession,
+  AgentSessionCreateOptions,
   AgentSessionList,
   AgentMessageHistory,
   AgentChatRequest,
   AgentChatResponse,
-  SessionStatusResponse,
 } from '@/types/agent';
 
 const BASE = '/api/ai/sessions';
@@ -15,8 +15,17 @@ const API_BASE_URL = (process.env.EXPO_PUBLIC_API_BASE_URL ?? 'http://10.0.2.2:8
 
 export const agentService = {
   // ─── Sessions ────────────────────────────────────────────
-  createSession: async (title = 'New Chat'): Promise<AgentSession> => {
-    const res = await axiosClient.post(BASE, { title });
+  createSession: async (
+    titleOrOptions: string | AgentSessionCreateOptions = 'New Chat',
+  ): Promise<AgentSession> => {
+    const payload =
+      typeof titleOrOptions === 'string'
+        ? { title: titleOrOptions }
+        : {
+            title: titleOrOptions.title ?? 'New Chat',
+            context_conversation_id: titleOrOptions.context_conversation_id,
+          };
+    const res = await axiosClient.post(BASE, payload);
     return res.data;
   },
 
@@ -71,29 +80,4 @@ export const agentService = {
     } as any);
   },
 
-  // ─── Chat (SSE stream resume) — resume after HITL interrupt ─
-  chatStreamResume: async (
-    sessionId: string,
-    approved: boolean,
-    signal?: AbortSignal,
-  ): Promise<Response> => {
-    const token = await AsyncStorage.getItem('access_token');
-    return fetch(`${API_BASE_URL}${BASE}/${sessionId}/chat/stream/resume`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Accept: 'text/event-stream',
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-      body: JSON.stringify({ approved }),
-      signal,
-      reactNative: { textStreaming: true },
-    } as any);
-  },
-
-  // ─── Session status (for reconnect / interrupt detection) ─
-  getSessionStatus: async (sessionId: string): Promise<SessionStatusResponse> => {
-    const res = await axiosClient.get(`${BASE}/${sessionId}/chat/status`);
-    return res.data;
-  },
 };

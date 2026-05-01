@@ -88,6 +88,11 @@ public enum ErrorCode {
     AGENT_SERVICE_ERROR(2000, "AI service temporarily unavailable", HttpStatus.BAD_GATEWAY),
     AGENT_BAD_REQUEST(2001, "Invalid AI service request", HttpStatus.BAD_REQUEST),
 
+    ALREADY_FOLLOWING(2202, "You are already following this user", HttpStatus.CONFLICT),
+    NOT_FOLLOWING(2203, "You are not following this user", HttpStatus.NOT_FOUND),
+    CANNOT_FOLLOW_SELF(2207, "You cannot follow yourself", HttpStatus.BAD_REQUEST),
+    FOLLOW_ACTION_BLOCKED(2208, "Follow action is blocked due to privacy restrictions", HttpStatus.FORBIDDEN),
+
     SETTINGS_INVALID_SECTION(1900, "Invalid settings section. Allowed: privacy, notifications, messages", HttpStatus.BAD_REQUEST);
 
     private final int code;

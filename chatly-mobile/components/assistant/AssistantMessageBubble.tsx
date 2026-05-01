@@ -13,6 +13,7 @@ interface AssistantMessageBubbleProps {
   onRetry?: () => void;
   onCopy?: (content: string) => void;
   sessionId: string;
+  onLongPress?: () => void;
 }
 
 const markdownStyles = {
@@ -76,6 +77,7 @@ export const AssistantMessageBubble = memo(function AssistantMessageBubble({
   onRetry,
   onCopy,
   sessionId,
+  onLongPress,
 }: AssistantMessageBubbleProps) {
   const isUser = message.role === 'user';
 
@@ -112,7 +114,10 @@ export const AssistantMessageBubble = memo(function AssistantMessageBubble({
   // AI message
   return (
     <View className="px-4 py-1">
-      <View
+      <TouchableOpacity
+        onLongPress={onLongPress}
+        delayLongPress={240}
+        activeOpacity={1}
         className="max-w-[90%] rounded-2xl px-4 py-2.5"
         style={{
           backgroundColor: Colors.bubbleReceiver,
@@ -158,12 +163,13 @@ export const AssistantMessageBubble = memo(function AssistantMessageBubble({
             </Text>
           </TouchableOpacity>
         )}
-      </View>
+      </TouchableOpacity>
     </View>
   );
 }, (prev, next) =>
   prev.message.id === next.message.id &&
   prev.message.content === next.message.content &&
   prev.isLast === next.isLast &&
-  prev.isError === next.isError
+  prev.isError === next.isError &&
+  prev.onLongPress === next.onLongPress
 );

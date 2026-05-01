@@ -21,8 +21,9 @@ import { formatMessageTime, isRichTextHtml, richTextToPlainText } from '@/utils/
 import { ImageLightbox } from '@/components/ui/ImageLightbox';
 import { VideoPlayer } from '@/components/chat/VideoPlayer';
 import { AudioPlayer } from '@/components/chat/AudioPlayer';
+import { CoAuthorAvatar } from '@/components/ui/CoAuthorAvatar';
 import { useCallStore } from '@/store/call.store';
-import type { Message, Reaction } from '@/types/message';
+import type { Message } from '@/types/message';
 
 interface ParticipantInfo {
   id: string;
@@ -226,7 +227,9 @@ export function MessageBubble({
                 borderRadius: 12,
                 paddingHorizontal: 12,
                 paddingVertical: 8,
-                backgroundColor: isMe ? 'rgba(0,0,0,0.15)' : 'rgba(0,0,0,0.07)',
+                backgroundColor: isMe ? 'rgba(255,255,255,0.16)' : Colors.bgCard,
+                borderWidth: 1,
+                borderColor: isMe ? 'rgba(255,255,255,0.22)' : Colors.borderLight,
               }}
             >
               {/* Phosphor file icon */}
@@ -667,8 +670,8 @@ export function MessageBubble({
                     alignItems: 'center',
                     borderRadius: 16,
                     borderWidth: 1,
-                    borderColor: '#fca5a5',
-                    backgroundColor: '#fef2f2',
+                    borderColor: Colors.border,
+                    backgroundColor: Colors.bgCard,
                     paddingHorizontal: 14,
                     paddingVertical: 10,
                     minWidth: 190,
@@ -682,17 +685,17 @@ export function MessageBubble({
                       borderRadius: 18,
                       alignItems: 'center',
                       justifyContent: 'center',
-                      backgroundColor: 'rgba(239,68,68,0.14)',
+                      backgroundColor: Colors.borderLight,
                       marginRight: 10,
                     }}
                   >
-                    <Ionicons name="call" size={16} color="#dc2626" />
+                    <Ionicons name="call" size={16} color={Colors.textMuted} />
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={{ color: '#b91c1c', fontSize: 13, fontWeight: '600' }}>
+                    <Text style={{ color: Colors.text, fontSize: 13, fontWeight: '600' }}>
                       Group {typeLabel} call
                     </Text>
-                    <Text style={{ color: '#dc2626', fontSize: 11, opacity: 0.75, marginTop: 1 }}>
+                    <Text style={{ color: Colors.textMuted, fontSize: 11, opacity: 0.8, marginTop: 1 }}>
                       Call ended
                     </Text>
                   </View>
@@ -711,8 +714,8 @@ export function MessageBubble({
                   alignItems: 'center',
                   borderRadius: 16,
                   borderWidth: 1,
-                  borderColor: '#86efac',
-                  backgroundColor: '#f0fdf4',
+                  borderColor: 'rgba(0,113,227,0.28)',
+                  backgroundColor: Colors.ctaLight,
                   paddingHorizontal: 14,
                   paddingVertical: 10,
                   minWidth: 190,
@@ -725,17 +728,17 @@ export function MessageBubble({
                     borderRadius: 18,
                     alignItems: 'center',
                     justifyContent: 'center',
-                    backgroundColor: 'rgba(34,197,94,0.15)',
+                    backgroundColor: 'rgba(0,113,227,0.14)',
                     marginRight: 10,
                   }}
                 >
-                  <Ionicons name="call" size={16} color="#16a34a" />
+                  <Ionicons name="call" size={16} color={Colors.cta} />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={{ color: '#15803d', fontSize: 13, fontWeight: '600' }}>
+                  <Text style={{ color: Colors.cta, fontSize: 13, fontWeight: '600' }}>
                     Group {typeLabel} call
                   </Text>
-                  <Text style={{ color: '#16a34a', fontSize: 11, opacity: 0.75, marginTop: 1 }}>
+                  <Text style={{ color: Colors.textMuted, fontSize: 11, opacity: 0.85, marginTop: 1 }}>
                     Tap to join
                   </Text>
                 </View>
@@ -747,14 +750,14 @@ export function MessageBubble({
         const callLabel = isMissed
           ? (isVideo ? 'Missed video call' : 'Missed audio call')
           : (isVideo ? 'Video call' : 'Audio call');
-        const callColor = isMissed ? '#ef4444' : '#16a34a';
+        const callColor = isMissed ? Colors.error : Colors.cta;
         return (
           <View style={{ marginVertical: 4, paddingHorizontal: 16, alignItems: isMe ? 'flex-end' : 'flex-start' }}>
             <View
               style={{
-                backgroundColor: isMissed ? '#fef2f2' : '#f0fdf4',
+                backgroundColor: isMissed ? '#FFF2F0' : Colors.ctaLight,
                 borderWidth: 1,
-                borderColor: isMissed ? '#fca5a5' : '#86efac',
+                borderColor: isMissed ? '#FFD8D3' : 'rgba(0,113,227,0.28)',
                 borderRadius: 16,
                 paddingHorizontal: 14,
                 paddingVertical: 10,
@@ -783,12 +786,12 @@ export function MessageBubble({
                     paddingVertical: 6,
                     paddingHorizontal: 12,
                     borderRadius: 10,
-                    backgroundColor: 'rgba(239,68,68,0.08)',
+                    backgroundColor: 'rgba(255,59,48,0.12)',
                   }}
                   activeOpacity={0.7}
                 >
-                  <Ionicons name="call" size={12} color="#ef4444" />
-                  <Text style={{ color: '#ef4444', fontSize: 11, fontWeight: '600', marginLeft: 4 }}>
+                  <Ionicons name="call" size={12} color={Colors.error} />
+                  <Text style={{ color: Colors.error, fontSize: 11, fontWeight: '600', marginLeft: 4 }}>
                     Call back
                   </Text>
                 </TouchableOpacity>
@@ -805,6 +808,8 @@ export function MessageBubble({
             </Text>
           </View>
         );
+      case 'AGENT':
+        return renderTextContent();
       default:
         return renderTextContent();
     }
@@ -993,34 +998,44 @@ export function MessageBubble({
       {/* Pinned indicator */}
       {message.pinned && (
         <View className={`flex-row items-center mb-0.5 ${isMe ? 'justify-end' : 'justify-start'}`}>
-          <Ionicons name="pin" size={10} color="#f59e0b" />
-          <Text className="ml-1 text-[10px]" style={{ color: '#d97706' }}>Pinned</Text>
+          <Ionicons name="pin" size={10} color={Colors.cta} />
+          <Text className="ml-1 text-[10px]" style={{ color: Colors.cta }}>Pinned</Text>
         </View>
       )}
 
       <View style={{ flexDirection: 'row', alignItems: 'flex-end' }}>
-        {/* Avatar for group received messages */}
+      {/* Avatar for group received messages */}
         {!isMe && showAvatar && (
-          <View
-            style={{
-              width: 28,
-              height: 28,
-              borderRadius: 14,
-              backgroundColor: Colors.cta,
-              alignItems: 'center',
-              justifyContent: 'center',
-              marginRight: 6,
-              overflow: 'hidden',
-            }}
-          >
-            {senderAvatarUrl ? (
-              <Image source={{ uri: senderAvatarUrl }} style={{ width: 28, height: 28, borderRadius: 14 }} />
-            ) : (
-              <Text style={{ fontSize: 11, fontWeight: 'bold', color: 'white' }}>
-                {(senderName ?? '?').charAt(0).toUpperCase()}
-              </Text>
-            )}
-          </View>
+          type === 'AGENT' ? (
+            <View style={{ marginRight: 6, alignSelf: 'flex-end' }}>
+              <CoAuthorAvatar
+                userAvatarUrl={senderAvatarUrl}
+                userDisplayName={senderName ?? '?'}
+                size={28}
+              />
+            </View>
+          ) : (
+            <View
+              style={{
+                width: 28,
+                height: 28,
+                borderRadius: 14,
+                backgroundColor: Colors.cta,
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginRight: 6,
+                overflow: 'hidden',
+              }}
+            >
+              {senderAvatarUrl ? (
+                <Image source={{ uri: senderAvatarUrl }} style={{ width: 28, height: 28, borderRadius: 14 }} />
+              ) : (
+                <Text style={{ fontSize: 11, fontWeight: 'bold', color: 'white' }}>
+                  {(senderName ?? '?').charAt(0).toUpperCase()}
+                </Text>
+              )}
+            </View>
+          )
         )}
 
         <TouchableOpacity

@@ -1,9 +1,10 @@
-import { View, Text, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, Alert, Modal, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import { Avatar } from '@/components/ui/Avatar';
+import { CustomAiIcon } from '@/components/ui/CustomAiIcon';
 import { Colors } from '@/constants/theme';
 import { useCallContext } from '@/contexts/CallContext';
 import { useCallStore } from '@/store/call.store';
@@ -20,6 +21,7 @@ interface ChatHeaderProps {
   receiverId?: string;
   onToggleSearch?: () => void;
   onPressInfo?: () => void;
+  onAskAi?: () => void;
 }
 
 export function ChatHeader({
@@ -32,6 +34,7 @@ export function ChatHeader({
   receiverId,
   onToggleSearch,
   onPressInfo,
+  onAskAi,
 }: ChatHeaderProps) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -43,8 +46,10 @@ export function ChatHeader({
     callType: CallType;
   }>({ visible: false, callType: 'VOICE' });
 
+  const [callSheetVisible, setCallSheetVisible] = useState(false);
+
   const showPrivateCallButtons = !isGroup && !!conversationId && !!receiverId;
-  const showGroupCallButtons = isGroup && !!conversationId;
+  const showGroupCallButton = isGroup && !!conversationId;
   const callDisabled = callStatus !== 'IDLE';
 
   const subtitle = isGroup
@@ -53,20 +58,10 @@ export function ChatHeader({
       ? 'Active now'
       : 'Offline';
 
-  const handleGroupVoiceCall = () => {
-    if (!conversationId) return;
-    setMemberPicker({ visible: true, callType: 'VOICE' });
-  };
-
-  const handleGroupVideoCall = () => {
-    if (!conversationId) return;
-    setMemberPicker({ visible: true, callType: 'VIDEO' });
-  };
-
   const handleStartGroupCall = (selectedMemberIds: string[]) => {
     if (!conversationId) return;
-    setMemberPicker({ visible: false, callType: 'VOICE' });
     initiateGroupCall(conversationId, memberPicker.callType, name, memberCount ?? 0, selectedMemberIds, avatarUrl);
+    setMemberPicker({ visible: false, callType: 'VOICE' });
   };
 
   const handleCloseMemberPicker = () => {
@@ -128,6 +123,13 @@ export function ChatHeader({
           <Ionicons name="search-outline" size={22} color={Colors.cta} />
         </TouchableOpacity>
 
+        {/* Ask AI button (group only) */}
+        {isGroup && !!onAskAi && (
+          <TouchableOpacity onPress={onAskAi} className="mx-1 p-2">
+            <CustomAiIcon size={22} color={Colors.cta} />
+          </TouchableOpacity>
+        )}
+
         {/* Private call buttons */}
         {showPrivateCallButtons && (
           <>
@@ -150,26 +152,23 @@ export function ChatHeader({
           </>
         )}
 
-        {/* Group call buttons */}
-        {showGroupCallButtons && (
-          <>
-            <TouchableOpacity
-              className="mx-1 p-2"
-              disabled={callDisabled}
-              onPress={handleGroupVoiceCall}
-              style={{ opacity: callDisabled ? 0.4 : 1 }}
-            >
-              <Ionicons name="call-outline" size={22} color={Colors.cta} />
-            </TouchableOpacity>
-            <TouchableOpacity
-              className="mx-1 p-2"
-              disabled={callDisabled}
-              onPress={handleGroupVideoCall}
-              style={{ opacity: callDisabled ? 0.4 : 1 }}
-            >
-              <Ionicons name="videocam-outline" size={24} color={Colors.cta} />
-            </TouchableOpacity>
-          </>
+        {/* Group call — single button with chevron indicator */}
+        {showGroupCallButton && (
+          <TouchableOpacity
+            className="mx-1"
+            disabled={callDisabled}
+            onPress={() => setCallSheetVisible(true)}
+            style={{
+              opacity: callDisabled ? 0.4 : 1,
+              flexDirection: 'row',
+              alignItems: 'center',
+              paddingHorizontal: 6,
+              paddingVertical: 8,
+            }}
+          >
+            <Ionicons name="call-outline" size={22} color={Colors.cta} />
+            <Ionicons name="chevron-down" size={12} color={Colors.cta} style={{ marginLeft: 1, marginTop: 2 }} />
+          </TouchableOpacity>
         )}
 
         {onPressInfo && (
@@ -178,6 +177,48 @@ export function ChatHeader({
           </TouchableOpacity>
         )}
       </View>
+
+      {/* Group call type sheet */}
+      <Modal
+        visible={callSheetVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setCallSheetVisible(false)}
+      >
+        <Pressable
+          style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: Colors.overlay }}
+          onPress={() => setCallSheetVisible(false)}
+        >
+          <Pressable
+            style={{ backgroundColor: Colors.white, borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingBottom: 32, paddingTop: 16 }}
+            onPress={(e) => e.stopPropagation()}
+          >
+            <View
+              style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: Colors.borderLight, alignSelf: 'center', marginBottom: 16 }}
+            />
+            <TouchableOpacity
+              style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 24, paddingVertical: 14 }}
+              onPress={() => {
+                setCallSheetVisible(false);
+                setMemberPicker({ visible: true, callType: 'VOICE' });
+              }}
+            >
+              <Ionicons name="call-outline" size={22} color={Colors.cta} style={{ marginRight: 16 }} />
+              <Text style={{ fontSize: 16, color: Colors.text }}>Voice call</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 24, paddingVertical: 14 }}
+              onPress={() => {
+                setCallSheetVisible(false);
+                setMemberPicker({ visible: true, callType: 'VIDEO' });
+              }}
+            >
+              <Ionicons name="videocam-outline" size={22} color={Colors.cta} style={{ marginRight: 16 }} />
+              <Text style={{ fontSize: 16, color: Colors.text }}>Video call</Text>
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
 
       {/* Group call member picker */}
       <GroupCallMemberPicker

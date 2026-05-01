@@ -4,7 +4,6 @@ import {
     Check,
     Clapperboard,
     Grid,
-    Info,
     Link as LinkIcon,
     Loader2,
     MessageCircle,
@@ -39,8 +38,11 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
+import { FollowButton } from "@/components/social/FollowButton";
+import { FollowerStats } from "@/components/social/FollowerStats";
 import { contactService } from "@/services/contact.service";
 import { conversationService } from "@/services/conversation.service";
+import { followService } from "@/services/follow.service";
 import { userService } from "@/services/user.service";
 import { storyService } from "@/services/story.service";
 import { useAuthStore } from "@/store/auth.store";
@@ -61,6 +63,7 @@ export default function UsernameProfilePage() {
     const [profile, setProfile] = useState<UserResponse | null>(null);
     const [contactRecord, setContactRecord] = useState<ContactResponse | null>(null);
     const [targetUserId, setTargetUserId] = useState<string | null>(null);
+    const [initialIsFollowing, setInitialIsFollowing] = useState<boolean | undefined>(undefined);
     const [hasActiveStories, setHasActiveStories] = useState(false);
     const [loading, setLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState(false);
@@ -86,14 +89,21 @@ export default function UsernameProfilePage() {
             setTargetUserId(resolvedId);
 
             // Fetch fully blocked-aware profile and contact records
-            const [profileRes, contactRes, storiesRes] = await Promise.all([
+            const [profileRes, contactRes, statsRes, storiesRes] = await Promise.all([
                 userService.getUserById(resolvedId),
                 contactService.getByUser(resolvedId),
-                storyService.getUserStories(resolvedId)
+                followService.getStats(resolvedId),
+                storyService.getUserStories(resolvedId),
             ]);
             setProfile(profileRes.result);
             setContactRecord(contactRes.result ?? null);
-            setHasActiveStories(storiesRes.result?.length > 0);
+            const followFromMetadata = statsRes.result?.metadata?.isFollowing;
+            if (typeof followFromMetadata === "boolean") {
+                setInitialIsFollowing(followFromMetadata);
+            } else {
+                setInitialIsFollowing(undefined);
+            }
+            setHasActiveStories((storiesRes.result?.length ?? 0) > 0);
         } catch {
             toast.error("Could not load profile");
         } finally {
@@ -278,8 +288,8 @@ export default function UsernameProfilePage() {
                 <section className="flex flex-col md:flex-row items-start md:items-center gap-10 mb-10">
                     {/* Avatar */}
                     <div className={cn(
-                        "flex-shrink-0 rounded-full",
-                        hasActiveStories && "p-1 bg-gradient-to-tr from-brand via-blue-500 to-cyan-400"
+                        "shrink-0 rounded-full",
+                        hasActiveStories && "p-1 bg-linear-to-tr from-brand via-blue-500 to-cyan-400"
                     )}>
                         <div className={cn(
                             "rounded-full",
@@ -287,7 +297,7 @@ export default function UsernameProfilePage() {
                         )}>
                             <Avatar className="w-24 h-24 md:w-36 md:h-36 rounded-full border-4 border-background shadow-lg">
                                 <AvatarImage src={profile.avatarUrl} className="object-cover" />
-                                <AvatarFallback className="text-4xl font-semibold bg-gradient-to-tr from-pink-400 to-indigo-500 text-white">
+                                <AvatarFallback className="text-4xl font-semibold bg-linear-to-tr from-pink-400 to-indigo-500 text-white">
                                     {userInitial}
                                 </AvatarFallback>
                             </Avatar>
@@ -325,6 +335,11 @@ export default function UsernameProfilePage() {
                                     </>
                                 ) : (
                                     <>
+                                        {/* Follow Button - Always visible unless blocked */}
+                                        {!direction && targetUserId && (
+                                            <FollowButton userId={targetUserId} initialIsFollowing={initialIsFollowing} />
+                                        )}
+
                                         {/* Action Buttons for other users */}
                                         {direction === "I_BLOCKED" && (
                                             <Button variant="outline" size="sm" onClick={() => setConfirmDialog("unblock")} disabled={actionLoading}>
@@ -398,8 +413,13 @@ export default function UsernameProfilePage() {
                         </div>
 
                         <div className="flex gap-6 my-3">
-                            <div className="text-base"><span className="font-bold text-foreground">0</span> <span className="text-muted-foreground">Posts</span></div>
-                            <div className="text-base"><span className="font-bold text-foreground">{contactStatus === 'ACCEPTED' ? 1 : 0}</span> <span className="text-muted-foreground">Friends</span></div>
+                            {!isLimited && targetUserId ? (
+                                <FollowerStats userId={targetUserId} />
+                            ) : (
+                                <div className="text-base text-muted-foreground italic">
+                                    Stats hidden due to privacy settings
+                                </div>
+                            )}
                         </div>
 
                         <div className="flex flex-col gap-1 max-w-lg">
@@ -420,19 +440,19 @@ export default function UsernameProfilePage() {
                 {/* Profile Tabs */}
                 <div className="border-t border-border mb-6">
                     <nav className="flex justify-center gap-10">
-                        <button className="flex items-center gap-1 py-4 border-t-[1px] border-foreground text-foreground font-semibold uppercase tracking-widest text-sm">
+                        <button className="flex items-center gap-1 py-4 border-t border-foreground text-foreground font-semibold uppercase tracking-widest text-sm">
                             <Grid className="w-4 h-4" />
                             Posts
                         </button>
-                        <button className="flex items-center gap-1 py-4 border-t-[1px] border-transparent text-muted-foreground hover:text-foreground transition-colors font-semibold uppercase tracking-widest text-sm">
+                        <button className="flex items-center gap-1 py-4 border-t border-transparent text-muted-foreground hover:text-foreground transition-colors font-semibold uppercase tracking-widest text-sm">
                             <Clapperboard className="w-4 h-4" />
                             Reels
                         </button>
-                        <button className="flex items-center gap-1 py-4 border-t-[1px] border-transparent text-muted-foreground hover:text-foreground transition-colors font-semibold uppercase tracking-widest text-sm">
+                        <button className="flex items-center gap-1 py-4 border-t border-transparent text-muted-foreground hover:text-foreground transition-colors font-semibold uppercase tracking-widest text-sm">
                             <Bookmark className="w-4 h-4" />
                             Saved
                         </button>
-                        <button className="flex items-center gap-1 py-4 border-t-[1px] border-transparent text-muted-foreground hover:text-foreground transition-colors font-semibold uppercase tracking-widest text-sm">
+                        <button className="flex items-center gap-1 py-4 border-t border-transparent text-muted-foreground hover:text-foreground transition-colors font-semibold uppercase tracking-widest text-sm">
                             <UserSquare className="w-4 h-4" />
                             Tagged
                         </button>

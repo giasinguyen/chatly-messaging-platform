@@ -5,6 +5,8 @@ import com.chatly.dto.request.DeviceTokenRequest;
 import com.chatly.dto.response.ApiResponse;
 import com.chatly.dto.response.PagedResponse;
 import com.chatly.dto.response.UserResponse;
+import com.chatly.dto.response.UserSocialStatsResponse;
+import com.chatly.service.FollowService;
 import com.chatly.service.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -19,6 +21,7 @@ import java.util.UUID;
 public class UserController {
 
     private final UserService userService;
+    private final FollowService followService;
 
     @GetMapping("/me")
     ApiResponse<UserResponse> getCurrentUser() {
@@ -48,6 +51,13 @@ public class UserController {
     ApiResponse<UserResponse> getById(@PathVariable UUID id) {
         return ApiResponse.<UserResponse>builder()
                 .result(userService.getById(id))
+                .build();
+    }
+
+    @GetMapping("/{id}/stats")
+    ApiResponse<UserSocialStatsResponse> getSocialStats(@PathVariable UUID id) {
+        return ApiResponse.<UserSocialStatsResponse>builder()
+                .result(followService.getUserSocialStats(id.toString()))
                 .build();
     }
 

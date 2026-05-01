@@ -264,7 +264,7 @@ export function ChatbotSessionSidebar({ activeSessionId, onToggleCollapse }: Pro
                                                 <div className="flex items-center gap-1.5 mt-0.5">
                                                     {isGroupContext && (
                                                         <span className="inline-flex items-center rounded-full bg-violet-100 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400 text-[10px] font-medium px-1.5 py-0 leading-4 shrink-0">
-                                                            group
+                                                            Group
                                                         </span>
                                                     )}
                                                     <p className="text-[11px] text-muted-foreground truncate">

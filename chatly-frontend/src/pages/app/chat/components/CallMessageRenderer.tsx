@@ -49,8 +49,10 @@ export function CallMessageRenderer({
 }: CallMessageRendererProps) {
     const callData = parseCallData(msg.content);
     const groupCallRealtimeState = useCallStore((state) => state.groupCallRealtimeState);
-    const isMissed = callData.status === "MISSED" || callData.status === "REJECTED";
-    const isGroupCallActiveStatus = callData.status === "RINGING" || callData.status === "ONGOING";
+    const normalizedStatus = (callData.status ?? "").toUpperCase();
+    const isMissed = normalizedStatus === "MISSED" || normalizedStatus === "REJECTED";
+    const isGroupCallActiveStatus =
+        normalizedStatus === "RINGING" || normalizedStatus === "ONGOING";
     const isVideo = callData.callType === "VIDEO";
     const duration = callData.duration ?? 0;
     const isMe = msg.senderId === currentUserId;
@@ -72,8 +74,8 @@ export function CallMessageRenderer({
         return (
             <div className="flex justify-center my-3 px-4">
                 {isCallEnded ? (
-                    <div className="inline-flex items-center gap-3 rounded-2xl px-5 py-3 border bg-red-50 dark:bg-red-950/40 border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 opacity-70">
-                        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-red-500/20">
+                    <div className="inline-flex items-center gap-3 rounded-2xl px-5 py-3 border border-border/60 bg-muted/40 text-muted-foreground">
+                        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-muted">
                             <PhoneCall size={16} />
                         </div>
                         <div>
@@ -85,9 +87,9 @@ export function CallMessageRenderer({
                     <button
                         type="button"
                         onClick={() => onJoinGroupCall?.(callData.callId!)}
-                        className="inline-flex items-center gap-3 rounded-2xl px-5 py-3 border bg-green-50 dark:bg-green-950/40 border-green-200 dark:border-green-800 text-green-700 dark:text-green-400 transition-colors hover:bg-green-100 dark:hover:bg-green-950/60 cursor-pointer"
+                        className="inline-flex items-center gap-3 rounded-2xl px-5 py-3 border border-brand/30 bg-brand/8 text-brand transition-colors hover:bg-brand/15 cursor-pointer"
                     >
-                        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-green-500/20">
+                        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-brand/15">
                             <PhoneCall size={16} />
                         </div>
                         <div className="text-left">
@@ -108,24 +110,24 @@ export function CallMessageRenderer({
         <div className={cn("flex my-2 px-4", isMe ? "justify-end" : "justify-start")}>
             <div
                 className={cn(
-                    "inline-flex items-start gap-2 rounded-2xl px-4 py-2.5 border flex-col max-w-[240px]",
+                    "inline-flex items-start gap-2 rounded-2xl px-4 py-2.5 border flex-col max-w-60",
                     isMissed
-                        ? "bg-red-50 dark:bg-red-950/40 border-red-200 dark:border-red-800 text-red-600 dark:text-red-400"
-                        : "bg-green-50 dark:bg-green-950/40 border-green-200 dark:border-green-800 text-green-700 dark:text-green-400",
+                        ? "bg-destructive/10 border-destructive/25 text-destructive"
+                        : "bg-muted/50 border-border/60 text-foreground",
                 )}
             >
                 <div className="flex items-center gap-2">
-                    <PhoneCall size={13} />
+                    <PhoneCall size={13} className={cn(!isMissed && "text-brand")} />
                     <span className="text-xs font-medium">{statusLabel}</span>
                 </div>
                 {!isMissed && duration > 0 && (
-                    <span className="text-[11px] opacity-70">{formatDuration(duration)}</span>
+                    <span className="text-[11px] text-muted-foreground">{formatDuration(duration)}</span>
                 )}
                 {isMissed && !isMe && onCallAgain && (
                     <Button
                         size="sm"
                         variant="ghost"
-                        className="self-stretch h-7 text-[11px] px-2 hover:bg-red-200/50 dark:hover:bg-red-800/50 justify-center"
+                        className="self-stretch h-7 text-[11px] px-2 justify-center hover:bg-destructive/15"
                         onClick={() => onCallAgain(calleeId, sender.displayName, sender.avatarUrl)}
                     >
                         <PhoneCall size={12} className="mr-1" />

@@ -21,6 +21,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as Clipboard from 'expo-clipboard';
 
 import { ImageLightbox } from '@/components/ui/ImageLightbox';
+import { CustomAiIcon } from '@/components/ui/CustomAiIcon';
 
 import { groupService } from '@/services/group.service';
 import { conversationService } from '@/services/conversation.service';
@@ -100,6 +101,9 @@ export default function GroupInfoScreen() {
 
   // Require approval
   const [requireApproval, setRequireApproval] = useState(conversation?.requireApproval ?? false);
+
+  // AI proactive
+  const [aiProactiveEnabled, setAiProactiveEnabled] = useState(conversation?.aiProactiveEnabled ?? false);
 
   // Reminders & notes
   const [reminders, setReminders] = useState<GroupReminderResponse[]>([]);
@@ -424,6 +428,17 @@ export default function GroupInfoScreen() {
       await groupService.updateGroup(conversationId, { requireApproval: val });
     } catch {
       setRequireApproval(!val);
+      Alert.alert('Error', 'Could not update settings.');
+    }
+  };
+
+  // ── AI proactive toggle ──
+  const handleToggleAiProactive = async (val: boolean) => {
+    setAiProactiveEnabled(val);
+    try {
+      await groupService.updateGroup(conversationId, { aiProactiveEnabled: val });
+    } catch {
+      setAiProactiveEnabled(!val);
       Alert.alert('Error', 'Could not update settings.');
     }
   };
@@ -837,6 +852,25 @@ export default function GroupInfoScreen() {
                 <Switch
                   value={requireApproval}
                   onValueChange={handleToggleRequireApproval}
+                  trackColor={{ false: Colors.borderLight, true: Colors.cta }}
+                  thumbColor={Colors.white}
+                />
+              </View>
+            )}
+
+            {/* AI proactive toggle (OWNER/ADMIN) */}
+            {canManage && (
+              <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, height: 54, borderBottomWidth: 0.5, borderBottomColor: Colors.borderLight }}>
+                <View style={{ marginRight: 14 }}>
+                  <CustomAiIcon size={22} color={Colors.textMuted} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 15, color: Colors.text }}>AI assistant</Text>
+                  <Text style={{ fontSize: 12, color: Colors.textLight, marginTop: 1 }}>Allow AI to respond proactively in this group</Text>
+                </View>
+                <Switch
+                  value={aiProactiveEnabled}
+                  onValueChange={handleToggleAiProactive}
                   trackColor={{ false: Colors.borderLight, true: Colors.cta }}
                   thumbColor={Colors.white}
                 />

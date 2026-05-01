@@ -1,6 +1,6 @@
 export type ConversationType = 'PRIVATE' | 'GROUP';
 
-export type MessageType = 'TEXT' | 'IMAGE' | 'FILE' | 'VIDEO' | 'AUDIO' | 'GIF' | 'STICKER' | 'SYSTEM' | 'POLL' | 'CALL' | 'VCARD' | 'LOCATION';
+export type MessageType = 'TEXT' | 'IMAGE' | 'FILE' | 'VIDEO' | 'AUDIO' | 'GIF' | 'STICKER' | 'SYSTEM' | 'POLL' | 'CALL' | 'VCARD' | 'LOCATION' | 'AGENT';
 
 
 export interface LastMessage {
@@ -28,4 +28,5 @@ export interface ConversationResponse {
   allowMembersUpdateInfo?: boolean;
   requireApproval?: boolean;
   inviteToken?: string | null;
+  aiProactiveEnabled?: boolean;
 }

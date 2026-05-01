@@ -161,6 +161,48 @@ def test_stream_endpoint_returns_sse_events() -> None:
     assert '"type": "done"' in response.text
 
 
+class ErrorChatService:
+    """Chat service stub that emits a structured error SSE event."""
+
+    async def stream_chat(
+        self,
+        user_id: str,
+        session_id: str,
+        request: ChatRequest,
+    ) -> AsyncIterator[str]:
+        _ = user_id
+        _ = session_id
+        _ = request
+        yield (
+            'data: {"type": "error", "data": {'
+            '"message": "Model request timed out. Please try again.", '
+            '"code": "MODEL_TIMEOUT", "category": "timeout", "retryable": true}}\n\n'
+        )
+
+
+async def _override_error_chat_service() -> ErrorChatService:
+    return ErrorChatService()
+
+
+def test_stream_endpoint_forwards_structured_error_event() -> None:
+    """When the service emits a structured error SSE event the router must
+    forward it as-is with HTTP 200 (errors are embedded in the stream)."""
+    store.messages["s1"] = []
+    app.dependency_overrides[get_request_context] = _override_request_context
+    app.dependency_overrides[get_chat_service] = _override_error_chat_service
+    app.dependency_overrides[get_session_service] = _override_session_service
+    client = TestClient(app)
+
+    response = client.post("/sessions/s1/chat/stream", json={"message": "hello"})
+
+    _clear_overrides()
+    assert response.status_code == 200
+    assert '"type": "error"' in response.text
+    assert '"code": "MODEL_TIMEOUT"' in response.text
+    assert '"category": "timeout"' in response.text
+    assert '"retryable": true' in response.text
+
+
 def test_history_contains_two_messages_after_one_chat_turn() -> None:
     store.messages["s1"] = []
     client = _get_client()

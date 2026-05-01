@@ -1,6 +1,3 @@
-from datetime import datetime
-from typing import Any, Literal
-
 from langchain_core.messages import BaseMessage
 from pydantic import BaseModel, Field
 
@@ -51,16 +48,3 @@ class ChatOutput(BaseModel):
     agent_type: str
 
 
-class ResumeRequest(BaseModel):
-    """Request body for resuming after a HITL interrupt."""
-
-    approved: bool = True
-    form_data: dict[str, Any] | None = None
-
-
-class SessionStatusResponse(BaseModel):
-    """Status of a session — idle or interrupted."""
-
-    status: Literal["idle", "interrupted"]
-    interrupt_data: dict[str, Any] | None = None
-    interrupted_at: datetime | None = None
