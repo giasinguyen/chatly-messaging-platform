@@ -4,6 +4,10 @@ export const SAMPLE_FEED_POSTS: Post[] = [
     {
         id: "sample-post-1",
         authorId: "lucy.park",
+        authorDisplayName: "Lucy Park",
+        authorAvatarUrl:
+            "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=facearea&w=96&h=96&q=80",
+        savedByMe: false,
         content:
             "Morning light, clean desk, and a fresh prototype. Shipping tiny wins feels great.",
         mediaUrls: [
@@ -23,6 +27,10 @@ export const SAMPLE_FEED_POSTS: Post[] = [
     {
         id: "sample-post-2",
         authorId: "devon.lee",
+        authorDisplayName: "Devon Lee",
+        authorAvatarUrl:
+            "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=facearea&w=96&h=96&q=80",
+        savedByMe: false,
         content:
             "Weekend trail run before the sprint planning. Battery fully recharged.",
         mediaUrls: [
