@@ -47,10 +47,16 @@ public class Post {
     private List<PostReaction> reactions = new ArrayList<>();
 
     @Builder.Default
+    private List<PostComment> comments = new ArrayList<>();
+
+    @Builder.Default
     private int commentCount = 0;
 
     @Builder.Default
     private int shareCount = 0;
+
+    @Builder.Default
+    private boolean isDeleted = false;
 
     @CreatedDate
     private Instant createdAt;

@@ -1,8 +1,10 @@
 package com.chatly.service;
 
 import com.chatly.dto.request.CreatePostRequest;
+import com.chatly.dto.request.CreatePostCommentRequest;
 import com.chatly.dto.request.ReactToPostRequest;
 import com.chatly.dto.request.UpdatePostRequest;
+import com.chatly.dto.response.PostCommentResponse;
 import com.chatly.dto.response.PostReactionSummary;
 import com.chatly.dto.response.PostResponse;
 import com.chatly.exception.AppException;
@@ -11,8 +13,13 @@ import com.chatly.mapper.PostMapper;
 import com.chatly.model.enums.PostVisibility;
 import com.chatly.model.enums.ReactionType;
 import com.chatly.model.mongo.Post;
+import com.chatly.model.mongo.PostComment;
 import com.chatly.model.mongo.PostReaction;
+import com.chatly.model.mongo.SavedPost;
+import com.chatly.model.postgres.User;
 import com.chatly.repository.mongo.PostRepository;
+import com.chatly.repository.mongo.SavedPostRepository;
+import com.chatly.repository.postgres.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -34,6 +41,8 @@ public class PostService {
 
     private final PostRepository postRepository;
     private final PostMapper postMapper;
+    private final UserRepository userRepository;
+    private final SavedPostRepository savedPostRepository;
 
     public PostResponse create(String authorId, CreatePostRequest request) {
         List<String> hashtags = extractHashtags(request.getContent());
@@ -95,6 +104,62 @@ public class PostService {
         log.info("Post deleted: id={}, by={}", postId, requesterId);
     }
 
+    public void save(String postId, String requesterId) {
+        findPost(postId);
+
+        if (savedPostRepository.existsByUserIdAndPostId(requesterId, postId)) {
+            return;
+        }
+
+        SavedPost savedPost = SavedPost.builder()
+                .userId(requesterId)
+                .postId(postId)
+                .build();
+        savedPostRepository.save(savedPost);
+    }
+
+    public void unsave(String postId, String requesterId) {
+        savedPostRepository.deleteByUserIdAndPostId(requesterId, postId);
+    }
+
+    public List<PostCommentResponse> getComments(String postId) {
+        Post post = findPost(postId);
+        if (post.getComments().isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        Map<String, User> usersById = loadUsersById(
+                post.getComments().stream().map(PostComment::getUserId).distinct().toList()
+        );
+
+        return post.getComments().stream()
+                .sorted((a, b) -> b.getCreatedAt().compareTo(a.getCreatedAt()))
+                .map(comment -> toCommentResponse(comment, usersById.get(comment.getUserId())))
+                .toList();
+    }
+
+    public PostCommentResponse addComment(String postId, String userId, CreatePostCommentRequest request) {
+        Post post = findPost(postId);
+
+        PostComment comment = PostComment.builder()
+                .id(UUID.randomUUID().toString())
+                .userId(userId)
+                .content(request.getContent().trim())
+                .createdAt(Instant.now())
+                .build();
+
+        List<PostComment> comments = new ArrayList<>(post.getComments());
+        comments.add(comment);
+        post.setComments(comments);
+        post.setCommentCount(comments.size());
+        postRepository.save(post);
+
+        User commenter = safeUuid(userId)
+                .flatMap(userRepository::findById)
+                .orElse(null);
+        return toCommentResponse(comment, commenter);
+    }
+
     public PostResponse react(String postId, String userId, ReactToPostRequest request) {
         Post post = findPost(postId);
 
@@ -144,7 +209,57 @@ public class PostService {
     private PostResponse toResponse(Post post, String requesterId) {
         PostResponse response = postMapper.toResponse(post);
         response.setReactions(buildReactionSummary(post, requesterId));
+        applyAuthor(response, post.getAuthorId());
+        response.setSavedByMe(savedPostRepository.existsByUserIdAndPostId(requesterId, post.getId()));
         return response;
+    }
+
+    private void applyAuthor(PostResponse response, String authorId) {
+        Optional<UUID> authorUuid = safeUuid(authorId);
+        if (authorUuid.isEmpty()) {
+            return;
+        }
+
+        userRepository.findById(authorUuid.get()).ifPresent(user -> {
+            response.setAuthorUsername(user.getUsername());
+            response.setAuthorDisplayName(user.getDisplayName());
+            response.setAuthorAvatarUrl(user.getAvatarUrl());
+        });
+    }
+
+    private Optional<UUID> safeUuid(String value) {
+        try {
+            return Optional.of(UUID.fromString(value));
+        } catch (IllegalArgumentException ex) {
+            return Optional.empty();
+        }
+    }
+
+    private Map<String, User> loadUsersById(List<String> userIds) {
+        List<UUID> uuids = userIds.stream()
+                .map(this::safeUuid)
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .toList();
+
+        if (uuids.isEmpty()) {
+            return Collections.emptyMap();
+        }
+
+        return userRepository.findAllById(uuids).stream()
+                .collect(Collectors.toMap(user -> user.getId().toString(), user -> user));
+    }
+
+    private PostCommentResponse toCommentResponse(PostComment comment, User user) {
+        return PostCommentResponse.builder()
+                .id(comment.getId())
+                .userId(comment.getUserId())
+                .userUsername(user != null ? user.getUsername() : null)
+                .userDisplayName(user != null ? user.getDisplayName() : comment.getUserId())
+                .userAvatarUrl(user != null ? user.getAvatarUrl() : null)
+                .content(comment.getContent())
+                .createdAt(comment.getCreatedAt())
+                .build();
     }
 
     private List<PostReactionSummary> buildReactionSummary(Post post, String requesterId) {

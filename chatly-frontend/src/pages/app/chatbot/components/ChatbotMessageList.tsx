@@ -4,12 +4,11 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
-import type { AgentMessage, InterruptData } from "@/types/agent";
+import type { AgentMessage } from "@/types/agent";
 import { ChatbotThinkingIndicator } from "./ChatbotThinkingIndicator";
 import { ChatbotMessageMenu } from "./ChatbotMessageMenu";
 import { AttachmentPreview } from "./AttachmentPreview";
 import { useChatbotStore } from "@/store/chatbot.store";
-import { InterruptCard } from "./InterruptCard";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeHighlight from "rehype-highlight";
@@ -22,16 +21,13 @@ const MARKDOWN_CLASSES =
 interface Props {
     messages: AgentMessage[];
     sessionId: string;
-    interrupt?: InterruptData | null;
-    onApprove?: () => void;
-    onReject?: () => void;
     onEdit?: (message: AgentMessage) => void;
     onRetry?: (message: AgentMessage) => void;
     onRetryLast?: () => void;
     onForwardToChat?: (message: AgentMessage) => void;
 }
 
-export function ChatbotMessageList({ messages, sessionId, interrupt, onApprove, onReject, onEdit, onRetry, onRetryLast, onForwardToChat }: Props) {
+export function ChatbotMessageList({ messages, sessionId, onEdit, onRetry, onRetryLast, onForwardToChat }: Props) {
     const scrollEndRef = useRef<HTMLDivElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
     const isNearBottomRef = useRef(true);
@@ -215,15 +211,6 @@ export function ChatbotMessageList({ messages, sessionId, interrupt, onApprove, 
 
             {/* Thinking indicator */}
             {isThinking && <ChatbotThinkingIndicator hint={statusHint} />}
-
-            {/* Inline HITL interrupt card */}
-            {interrupt && !isStreaming && onApprove && onReject && (
-                <InterruptCard
-                    interrupt={interrupt}
-                    onApprove={onApprove}
-                    onReject={onReject}
-                />
-            )}
 
             <div ref={scrollEndRef} />
         </div>

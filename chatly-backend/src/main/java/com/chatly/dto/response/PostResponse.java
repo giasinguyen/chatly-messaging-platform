@@ -15,6 +15,10 @@ public class PostResponse {
 
     private String id;
     private String authorId;
+    private String authorUsername;
+    private String authorDisplayName;
+    private String authorAvatarUrl;
+    private boolean savedByMe;
     private String content;
     private List<String> mediaUrls;
     private PostVisibility visibility;

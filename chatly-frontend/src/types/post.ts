@@ -11,6 +11,10 @@ export interface PostReactionSummary {
 export interface Post {
     id: string;
     authorId: string;
+    authorUsername?: string;
+    authorDisplayName?: string;
+    authorAvatarUrl?: string;
+    savedByMe?: boolean;
     content: string;
     mediaUrls: string[];
     visibility: PostVisibility;
@@ -43,4 +47,20 @@ export interface PostPage {
     totalPages: number;
     number: number;
     last: boolean;
+}
+
+export interface FeedResponse {
+    items: Post[];
+    nextCursor: string | null;
+    hasMore: boolean;
+}
+
+export interface PostComment {
+    id: string;
+    userId: string;
+    userUsername?: string;
+    userDisplayName: string;
+    userAvatarUrl?: string;
+    content: string;
+    createdAt: string;
 }

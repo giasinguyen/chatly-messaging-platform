@@ -6,7 +6,6 @@ import type {
     AgentMessageHistory,
     AgentChatRequest,
     AgentChatResponse,
-    SessionStatusResponse,
 } from "@/types/agent";
 
 const BASE = "/api/ai/sessions";
@@ -64,33 +63,6 @@ export const agentService = {
             body: JSON.stringify(payload),
             signal,
         });
-    },
-
-    // ─── Resume after HITL interrupt ────────────────────────
-    chatStreamResume: (
-        sessionId: string,
-        approved: boolean,
-        signal?: AbortSignal,
-    ): Promise<Response> => {
-        const token = localStorage.getItem("access_token");
-        return fetch(
-            `${import.meta.env.VITE_BACKEND_BASE_URL}${BASE}/${sessionId}/chat/stream/resume`,
-            {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-                },
-                body: JSON.stringify({ approved }),
-                signal,
-            },
-        );
-    },
-
-    // ─── Session HITL status ─────────────────────────────────
-    getSessionStatus: async (sessionId: string): Promise<SessionStatusResponse> => {
-        const res = await axiosClient.get(`${BASE}/${sessionId}/chat/status`);
-        return res.data;
     },
 
     // ─── Files ───────────────────────────────────────────────

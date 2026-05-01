@@ -8,9 +8,10 @@ import { Colors } from '@/constants/theme';
 interface AssistantHeaderProps {
   title: string;
   onPressSetting?: () => void;
+  contextConversationName?: string;
 }
 
-export function AssistantHeader({ title, onPressSetting }: AssistantHeaderProps) {
+export function AssistantHeader({ title, onPressSetting, contextConversationName }: AssistantHeaderProps) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
@@ -50,9 +51,20 @@ export function AssistantHeader({ title, onPressSetting }: AssistantHeaderProps)
             >
               {title}
             </Text>
-            <Text className="text-xs" style={{ color: Colors.textMuted }}>
-              AI Assistant
-            </Text>
+            {contextConversationName ? (
+              <View
+                className="self-start rounded-full px-2 py-0.5 mt-0.5"
+                style={{ backgroundColor: '#EEF2FF' }}
+              >
+                <Text className="text-[10px] font-medium" style={{ color: '#4338CA' }}>
+                  Group
+                </Text>
+              </View>
+            ) : (
+              <Text className="text-xs" style={{ color: Colors.textMuted }}>
+                AI Assistant
+              </Text>
+            )}
           </View>
         </View>
 

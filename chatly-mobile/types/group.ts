@@ -22,6 +22,7 @@ export interface GroupUpdateRequest {
     avatar?: string;
     allowMembersUpdateInfo?: boolean;
     requireApproval?: boolean;
+    aiProactiveEnabled?: boolean;
 }
 
 export interface InviteLinkResponse {

@@ -14,26 +14,35 @@ from app.services.system_mcp import SystemMCPService
 from app.agents.chatbot_agent import ChatbotAgent
 from app.agents.mention_agent import MentionAgent
 from app.agents.unified_agent import UnifiedAgent
-from app.models.chat import ChatInput, ChatRequest, ChatResponse, ResumeRequest, SessionStatusResponse
+from app.models.chat import ChatInput, ChatRequest, ChatResponse
 from app.models.stream import (
     done_event,
     error_event,
-    interrupt_event,
     token_event,
     tool_end_event,
     tool_start_event,
 )
 from app.repositories.file_repo import FileRepository
-from app.repositories.interrupt_repository import InterruptRepository
 from app.repositories.message_repo import MessageRepository
 from app.services.session_service import SessionService
 from app.services.tool_service import ToolService
 from app.services.vector_service import VectorService
 from app.tools.image_gen_tool import create_image_gen_tools, image_gen_available
 from app.tools.retriever_tool import create_retriever_tool
-from app.tools.tool_config import is_sensitive
 
 logger = logging.getLogger(__name__)
+
+RATE_LIMIT_PATTERNS = (
+    "rate limit",
+    "too many requests",
+    "quota exceeded",
+    "429",
+)
+TIMEOUT_PATTERNS = (
+    "timeout",
+    "timed out",
+    "deadline exceeded",
+)
 
 
 class ChatService:
@@ -51,7 +60,6 @@ class ChatService:
         minio_client: Minio | None = None,
         bucket_name: str = "uploads",
         checkpointer: Any | None = None,
-        interrupt_repo: InterruptRepository | None = None,
         system_mcp: SystemMCPService | None = None,
     ) -> None:
         self._session_service = session_service
@@ -64,7 +72,6 @@ class ChatService:
         self._minio_client = minio_client
         self._bucket_name = bucket_name
         self._checkpointer = checkpointer
-        self._interrupt_repo = interrupt_repo
         self._system_mcp = system_mcp
 
     async def _resolve_attachments(
@@ -221,6 +228,57 @@ class ChatService:
             generated_attachments=generated_attachments,
         )
 
+    def _classify_stream_error(
+        self,
+        exc: Exception,
+    ) -> tuple[str, str, str, bool]:
+        """Classify agent/runtime exceptions into a stable client error payload."""
+        error_type = type(exc).__name__.lower()
+        message = str(exc).lower()
+        signature = f"{error_type} {message}"
+
+        if any(pattern in signature for pattern in RATE_LIMIT_PATTERNS):
+            return (
+                "Model rate limit reached. Please retry in a moment.",
+                "MODEL_RATE_LIMIT",
+                "rate_limit",
+                True,
+            )
+
+        if isinstance(exc, TimeoutError) or any(
+            pattern in signature for pattern in TIMEOUT_PATTERNS
+        ):
+            return (
+                "Model request timed out. Please try again.",
+                "MODEL_TIMEOUT",
+                "timeout",
+                True,
+            )
+
+        provider_keywords = (
+            "groq",
+            "openai",
+            "anthropic",
+            "provider",
+            "apierror",
+            "service unavailable",
+            "bad gateway",
+        )
+        if any(keyword in signature for keyword in provider_keywords):
+            return (
+                "Model provider is temporarily unavailable. Please retry later.",
+                "MODEL_PROVIDER_ERROR",
+                "provider_error",
+                True,
+            )
+
+        return (
+            "The agent could not generate a response right now. Please try again.",
+            "AGENT_INTERNAL_ERROR",
+            "internal_error",
+            True,
+        )
+
     async def chat(
         self,
         user_id: str,
@@ -275,214 +333,6 @@ class ChatService:
             agent_type=output.agent_type,
         )
 
-    async def _handle_tools_interrupt(
-        self,
-        graph: Any,
-        config: dict[str, Any],
-        session_id: str,
-        user_id: str,
-        request: ChatRequest,
-        accumulated_content: str,
-        generated_attachments: list[dict[str, Any]],
-    ) -> AsyncIterator[str]:
-        """Handle a graph pause at interrupt_before=['tools'].
-
-        Yields SSE strings. Two outcomes:
-        - ALL pending tool calls are safe → auto-resume, continue streaming,
-          persist assistant message, yield done_event at the end.
-        - ANY pending call is sensitive → save interrupt state to DB,
-          yield interrupt_event, stop (no persist, no done_event).
-        """
-        state = await graph.aget_state(config)
-        last_message = state.values["messages"][-1]
-        pending_calls: list[dict[str, Any]] = getattr(last_message, "tool_calls", []) or []
-
-        all_safe = bool(pending_calls) and all(
-            not is_sensitive(tc["name"]) for tc in pending_calls
-        )
-
-        if all_safe:
-            full_content = [accumulated_content]
-            try:
-                async for event in graph.astream_events(None, config, version="v2"):
-                    kind = event["event"]
-                    if kind == "on_chat_model_stream":
-                        chunk = event["data"].get("chunk")
-                        if (
-                            isinstance(chunk, AIMessageChunk)
-                            and chunk.content
-                            and not chunk.tool_call_chunks
-                        ):
-                            token = str(chunk.content)
-                            full_content[0] += token
-                            yield token_event(token)
-                    elif kind == "on_tool_start":
-                        tool_name = event.get("name", "")
-                        raw_input = event["data"].get("input", {})
-                        tool_input = raw_input if isinstance(raw_input, dict) else {"input": str(raw_input)}
-                        yield tool_start_event(tool_name, tool_input)
-                    elif kind == "on_tool_end":
-                        tool_name = event.get("name", "")
-                        raw_output = event["data"].get("output", "")
-                        tool_output = (
-                            str(raw_output.content)
-                            if hasattr(raw_output, "content")
-                            else str(raw_output)
-                        )
-                        yield tool_end_event(tool_name, tool_output)
-            except Exception:
-                logger.exception(
-                    "Streaming error during auto-resume session_id=%s", session_id
-                )
-                yield error_event("An error occurred while generating the response")
-                return
-
-            # Check for another interrupt after auto-resume
-            new_state = await graph.aget_state(config)
-            if new_state.next and "tools" in new_state.next:
-                async for sse in self._handle_tools_interrupt(
-                    graph, config, session_id, user_id, request,
-                    full_content[0], generated_attachments,
-                ):
-                    yield sse
-                return
-
-            # Auto-resume finished — persist and emit done
-            assistant = await self._message_repo.create_message(
-                session_id,
-                "assistant",
-                full_content[0],
-                attachments=generated_attachments or None,
-            )
-            yield done_event("unified", str(assistant["id"]), generated_attachments or None)
-        else:
-            sensitive_calls = [tc for tc in pending_calls if is_sensitive(tc["name"])]
-            target_calls = sensitive_calls if sensitive_calls else pending_calls
-            first = target_calls[0]
-            interrupt_data: dict[str, Any] = {
-                "type": "confirm_tool",
-                "tool_name": first["name"],
-                "tool_input": first["args"],
-                "message": f"Agent wants to run `{first['name']}`. Allow?",
-                "all_pending": [
-                    {"tool": tc["name"], "input": tc["args"]} for tc in target_calls
-                ],
-                "thread_id": session_id,
-            }
-            tool_config = {
-                "mcp_server_ids": request.mcp_server_ids,
-                "use_web_search": request.use_web_search,
-                "file_ids": request.file_ids,
-            }
-            if self._interrupt_repo is not None:
-                await self._interrupt_repo.create(
-                    session_id=session_id,
-                    user_id=user_id,
-                    interrupt_data=interrupt_data,
-                    tool_config=tool_config,
-                )
-            yield interrupt_event(interrupt_data)
-
-    async def _resume_graph(
-        self,
-        graph: Any,
-        config: dict[str, Any],
-        session_id: str,
-        user_id: str,
-        request: ChatRequest,
-        approved: bool,
-        generated_attachments: list[dict[str, Any]] | None = None,
-    ) -> AsyncIterator[str]:
-        """Resume a graph from an interrupt_before=['tools'] pause.
-
-        If approved=True: resume normally (tools run as-is).
-        If approved=False: inject ToolMessage rejections then resume so the LLM
-            can respond without executing the sensitive tools.
-        Yields SSE strings; handles chained interrupts.
-
-        ``generated_attachments`` must be the same list passed to
-        ``_build_image_tools`` so that any files created by image/sticker tools
-        during this resumed turn are captured and included in the done_event.
-        """
-        if not approved:
-            # Inject rejection ToolMessages so the graph skips the tools node
-            state = await graph.aget_state(config)
-            last_message = state.values["messages"][-1]
-            pending_calls: list[dict[str, Any]] = (
-                getattr(last_message, "tool_calls", []) or []
-            )
-            rejection_messages = [
-                ToolMessage(
-                    content=f"User rejected tool call: {tc['name']}",
-                    tool_call_id=tc["id"],
-                )
-                for tc in pending_calls
-            ]
-            await graph.aupdate_state(
-                config,
-                {"messages": rejection_messages},
-                as_node="tools",
-            )
-
-        full_content = [""]
-        if generated_attachments is None:
-            generated_attachments = []
-        try:
-            # Resume from checkpoint by passing None as input
-            async for event in graph.astream_events(None, config, version="v2"):
-                kind = event["event"]
-                if kind == "on_chat_model_stream":
-                    chunk = event["data"].get("chunk")
-                    if (
-                        isinstance(chunk, AIMessageChunk)
-                        and chunk.content
-                        and not chunk.tool_call_chunks
-                    ):
-                        token = str(chunk.content)
-                        full_content[0] += token
-                        yield token_event(token)
-                elif kind == "on_tool_start":
-                    tool_name = event.get("name", "")
-                    raw_input = event["data"].get("input", {})
-                    tool_input = (
-                        raw_input if isinstance(raw_input, dict) else {"input": str(raw_input)}
-                    )
-                    yield tool_start_event(tool_name, tool_input)
-                elif kind == "on_tool_end":
-                    tool_name = event.get("name", "")
-                    raw_output = event["data"].get("output", "")
-                    tool_output = (
-                        str(raw_output.content)
-                        if hasattr(raw_output, "content")
-                        else str(raw_output)
-                    )
-                    yield tool_end_event(tool_name, tool_output)
-        except Exception:
-            logger.exception(
-                "Streaming error during resume session_id=%s", session_id
-            )
-            yield error_event("An error occurred while generating the response")
-            return
-
-        # Check for chained interrupt
-        new_state = await graph.aget_state(config)
-        if new_state.next and "tools" in new_state.next:
-            async for sse in self._handle_tools_interrupt(
-                graph, config, session_id, user_id, request,
-                full_content[0], generated_attachments,
-            ):
-                yield sse
-            return
-
-        if full_content[0]:
-            assistant = await self._message_repo.create_message(
-                session_id,
-                "assistant",
-                full_content[0],
-                attachments=generated_attachments or None,
-            )
-            yield done_event("unified", str(assistant["id"]), generated_attachments or None)
-
     async def stream_chat(
         self,
         user_id: str,
@@ -490,15 +340,6 @@ class ChatService:
         request: ChatRequest,
     ) -> AsyncIterator[str]:
         """Stream chat response in SSE format and persist final assistant text."""
-        # Guard: reject new messages while a HITL confirmation is pending
-        if self._interrupt_repo is not None:
-            existing = await self._interrupt_repo.get_pending(session_id)
-            if existing is not None:
-                yield error_event(
-                    "Session is awaiting confirmation. Please approve or reject before sending a new message."
-                )
-                return
-
         session = await self._session_service.get_session(user_id, session_id)
         conv_id: str | None = session.get("context_conversation_id")
 
@@ -561,23 +402,18 @@ class ChatService:
                         else str(raw_output)
                     )
                     yield tool_end_event(tool_name, tool_output)
-        except Exception:
+        except Exception as exc:
             logger.exception(
                 "Streaming error for user_id=%s session_id=%s", user_id, session_id
             )
-            yield error_event("An error occurred while generating the response")
+            err_message, err_code, err_category, retryable = self._classify_stream_error(exc)
+            yield error_event(
+                message=err_message,
+                code=err_code,
+                category=err_category,
+                retryable=retryable,
+            )
             return
-
-        # Post-loop: detect interrupt_before=["tools"] pause for UnifiedAgent
-        if isinstance(agent, UnifiedAgent) and self._checkpointer is not None:
-            state = await agent._graph.aget_state(config)
-            if state.next and "tools" in state.next:
-                async for sse in self._handle_tools_interrupt(
-                    agent._graph, config, session_id, user_id, request,
-                    full_content[0], generated_attachments,
-                ):
-                    yield sse
-                return
 
         assistant = await self._message_repo.create_message(
             session_id,
@@ -586,77 +422,6 @@ class ChatService:
             attachments=generated_attachments or None,
         )
         yield done_event(agent_type, str(assistant["id"]), generated_attachments or None)
-
-    async def resume_stream(
-        self,
-        user_id: str,
-        session_id: str,
-        body: ResumeRequest,
-    ) -> AsyncIterator[str]:
-        """Resume a HITL-interrupted session and stream the continued response."""
-        await self._session_service.get_session(user_id, session_id)
-
-        if self._interrupt_repo is None:
-            yield error_event("HITL is not enabled in this environment")
-            return
-
-        interrupt_doc = await self._interrupt_repo.get_pending(session_id)
-        if interrupt_doc is None:
-            yield error_event("No pending interrupt found or it has expired (24h TTL)")
-            return
-
-        tool_config = interrupt_doc.tool_config
-        # Rebuild image tools with a fresh attachment list so that any files
-        # created during this resumed turn are captured in the done_event.
-        generated_attachments: list[dict[str, Any]] = []
-        image_tools = self._build_image_tools(user_id, session_id, generated_attachments)
-        # Reconstruct the agent with the exact tool set from the original request
-        agent = await self._select_agent(
-            user_id,
-            session_id,
-            mcp_server_ids=tool_config.get("mcp_server_ids", []),
-            use_web_search=bool(tool_config.get("use_web_search", False)),
-            extra_tools=image_tools,
-        )
-
-        if not isinstance(agent, UnifiedAgent):
-            yield error_event("Interrupt resume is only supported for UnifiedAgent")
-            return
-
-        config = {"configurable": {"thread_id": session_id}}
-        await self._interrupt_repo.resolve(session_id)
-
-        request_placeholder = ChatRequest.model_construct(
-            message="",
-            mcp_server_ids=tool_config.get("mcp_server_ids", []),
-            use_web_search=bool(tool_config.get("use_web_search", False)),
-            file_ids=tool_config.get("file_ids", []),
-        )
-        async for sse in self._resume_graph(
-            agent._graph, config, session_id, user_id, request_placeholder, body.approved,
-            generated_attachments,
-        ):
-            yield sse
-
-    async def get_session_status(
-        self,
-        user_id: str,
-        session_id: str,
-    ) -> SessionStatusResponse:
-        """Return the current HITL status of a session."""
-        await self._session_service.get_session(user_id, session_id)
-
-        if self._interrupt_repo is None:
-            return SessionStatusResponse(status="idle")
-
-        interrupt_doc = await self._interrupt_repo.get_pending(session_id)
-        if interrupt_doc is not None:
-            return SessionStatusResponse(
-                status="interrupted",
-                interrupt_data=interrupt_doc.interrupt_data,
-                interrupted_at=interrupt_doc.created_at,
-            )
-        return SessionStatusResponse(status="idle")
 
     # ── Group @AI Mention ────────────────────────────────────────────
 

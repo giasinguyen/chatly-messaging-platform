@@ -1,0 +1,227 @@
+@startuml Chatly_UseCase_Overview
+!theme plain
+top to bottom direction
+
+skinparam packageStyle rectangle
+skinparam actorStyle awesome
+skinparam nodesep 20
+skinparam ranksep 40
+skinparam usecase {
+  BackgroundColor #F8F9FA
+  BorderColor #495057
+  FontSize 10
+}
+skinparam actor {
+  BackgroundColor #D0E8FF
+  BorderColor #1D6FA4
+  FontSize 10
+}
+skinparam package {
+  BackgroundColor #FAFAFA
+  BorderColor #ADB5BD
+  FontSize 11
+  FontStyle bold
+}
+
+title Chatly -- Use Case Diagram (Full Overview)
+
+' ── ACTORS ──
+actor Guest as G
+actor "Authenticated\nUser" as AU
+actor "Group Owner" as GO
+actor "Group Admin" as GA
+actor "Email\nProvider" as EP          #LightGreen
+actor "Push\nGateway" as PNG           #LightGreen
+actor "Object\nStorage" as OS          #LightGreen
+actor "AI Agent\nService" as AI        #LightSalmon
+actor "MCP\nServers" as MCP            #LightSalmon
+actor "Web Search\n(Tavily)" as WS     #LightSalmon
+
+GO -u-|> AU : extends
+GA -u-|> AU : extends
+
+rectangle "Chatly Messaging Platform" {
+
+  together {
+    package "Authentication" {
+      usecase "Register account" as UC_REG
+      usecase "Login" as UC_LOGIN
+      usecase "Verify email" as UC_VERIFY
+      usecase "Resend verification email" as UC_RESEND
+      usecase "Request forgot password" as UC_FORGOT
+      usecase "Introspect token" as UC_INTRO
+      usecase "Logout" as UC_LOGOUT
+      usecase "Refresh access token" as UC_REFRESH
+      usecase "Change password" as UC_CHGPWD
+      usecase "Manage login sessions" as UC_SESSION
+    }
+
+    package "Profile & Settings" {
+      usecase "View & update profile" as UC_PROFILE
+      usecase "Search users" as UC_SEARCH_USR
+      usecase "Add/remove device token" as UC_DEVTOKEN
+    }
+  }
+
+  together {
+    package "Contact & Social" {
+      usecase "Send friend request" as UC_FREQ
+      usecase "Accept friend request" as UC_FACC
+      usecase "Block / Unblock contact" as UC_BLOCK
+      usecase "View contacts" as UC_VIEWCON
+      usecase "Delete contact" as UC_DELCON
+    }
+
+    package "Conversation" {
+      usecase "Create conversation" as UC_CCONV
+      usecase "List conversations" as UC_LCONV
+      usecase "Search conversations" as UC_SCONV
+      usecase "Delete conversation" as UC_DCONV
+      usecase "Pin / Unpin conversation" as UC_PINCONV
+      usecase "Mute / Unmute conversation" as UC_MUTECONV
+    }
+  }
+
+  together {
+    package "Messaging" {
+      usecase "Send message" as UC_SEND
+      usecase "Forward message" as UC_FWD
+      usecase "Load messages (paged)" as UC_LOADMSG
+      usecase "Mark message as seen" as UC_SEEN
+      usecase "Recall / Edit / Delete message" as UC_EDIT
+      usecase "React to message" as UC_REACT
+      usecase "Search messages" as UC_SMSG
+      usecase "Vote / Close poll" as UC_POLL
+      usecase "Pin message / Tag priority" as UC_PINMSG
+      usecase "Validate user membership" as UC_VMEM
+    }
+
+    package "Notifications" {
+      usecase "List notifications" as UC_NOTIF
+      usecase "Mark notification as read" as UC_NOTIFREAD
+    }
+  }
+
+  together {
+    package "Group Management" {
+      usecase "Add / Remove member" as UC_ADDMEM
+      usecase "Update member role" as UC_ROLE
+      usecase "Update group info" as UC_GRPINFO
+      usecase "List group members" as UC_LISTMEM
+      usecase "Manage invite link" as UC_INVITE
+      usecase "Join group by invite link" as UC_JOIN
+      usecase "Manage pending join requests" as UC_PENDING
+      usecase "Manage reminders" as UC_REMINDER
+      usecase "Manage notes" as UC_NOTES
+      usecase "Validate actor permission" as UC_VPERM
+      usecase "Pending approval flow" as UC_APPROVAL
+    }
+
+    package "Realtime & Calls" {
+      usecase "Send message via STOMP" as UC_STOMP
+      usecase "Broadcast typing status" as UC_TYPING
+      usecase "Initiate / Answer 1-to-1 call" as UC_CALL1
+      usecase "End call" as UC_ENDCALL
+      usecase "Voice to video upgrade" as UC_VID
+      usecase "Initiate / Join group call" as UC_GRPCALL
+      usecase "Leave group call" as UC_LEAVECALL
+      usecase "Ongoing call (active state)" as UC_ONGOING
+    }
+  }
+
+  package "AI Assistant" {
+    usecase "Manage AI sessions" as UC_AISESS
+    usecase "Send AI chat (blocking)" as UC_AICHAT
+    usecase "Send AI chat (streaming)" as UC_AISTREAM
+    usecase "Manage AI files" as UC_AIFILE
+    usecase "Manage MCP servers" as UC_MCPMGR
+    usecase "Validate session ownership" as UC_VSESS
+  }
+
+}
+
+' ── GUEST ──
+G --> UC_REG
+G --> UC_LOGIN
+G --> UC_VERIFY
+G --> UC_RESEND
+G --> UC_FORGOT
+G --> UC_INTRO
+
+' ── AUTH USER ──
+AU --> UC_LOGOUT
+AU --> UC_REFRESH
+AU --> UC_CHGPWD
+AU --> UC_SESSION
+AU --> UC_PROFILE
+AU --> UC_SEARCH_USR
+AU --> UC_DEVTOKEN
+AU --> UC_FREQ
+AU --> UC_FACC
+AU --> UC_BLOCK
+AU --> UC_VIEWCON
+AU --> UC_DELCON
+AU --> UC_CCONV
+AU --> UC_LCONV
+AU --> UC_SCONV
+AU --> UC_DCONV
+AU --> UC_PINCONV
+AU --> UC_MUTECONV
+AU --> UC_SEND
+AU --> UC_FWD
+AU --> UC_LOADMSG
+AU --> UC_SEEN
+AU --> UC_EDIT
+AU --> UC_REACT
+AU --> UC_SMSG
+AU --> UC_POLL
+AU --> UC_PINMSG
+AU --> UC_ADDMEM
+AU --> UC_GRPINFO
+AU --> UC_LISTMEM
+AU --> UC_INVITE
+AU --> UC_JOIN
+AU --> UC_REMINDER
+AU --> UC_NOTES
+AU --> UC_NOTIF
+AU --> UC_NOTIFREAD
+AU --> UC_STOMP
+AU --> UC_TYPING
+AU --> UC_CALL1
+AU --> UC_ENDCALL
+AU --> UC_VID
+AU --> UC_GRPCALL
+AU --> UC_LEAVECALL
+AU --> UC_AISESS
+AU --> UC_AICHAT
+AU --> UC_AISTREAM
+AU --> UC_AIFILE
+AU --> UC_MCPMGR
+
+' ── GROUP OWNER / ADMIN ──
+GO --> UC_ROLE
+GO --> UC_PENDING
+GA --> UC_ADDMEM
+GA --> UC_REMINDER
+GA --> UC_NOTES
+
+' ── INCLUDE / EXTEND ──
+UC_SEND ..> UC_VMEM : <<include>>
+UC_ADDMEM ..> UC_VPERM : <<include>>
+UC_AICHAT ..> UC_VSESS : <<include>>
+UC_AIFILE ..> UC_VSESS : <<include>>
+UC_JOIN ..> UC_APPROVAL : <<extend>>
+UC_VID ..> UC_ONGOING : <<extend>>
+UC_AISTREAM ..> UC_AICHAT : <<extend>>
+
+' ── EXTERNAL ──
+UC_REG ..> EP : <<include>>
+UC_FORGOT ..> EP : <<include>>
+UC_NOTIFREAD ..> PNG : push
+UC_AIFILE ..> OS : store
+UC_AICHAT --> AI : proxy
+UC_AISTREAM --> AI : proxy
+AI --> MCP : tools
+AI --> WS : search
+
+@enduml

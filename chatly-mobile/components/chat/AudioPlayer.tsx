@@ -112,20 +112,20 @@ export function AudioPlayer({ url, name, isMe, durationSeconds }: AudioPlayerPro
 
   const progress = durationMs > 0 ? positionMs / durationMs : 0;
   const accentColor = isMe ? Colors.bubbleSenderText : Colors.cta;
+  const cardBgColor = isMe ? 'rgba(255,255,255,0.16)' : Colors.bgCard;
+  const cardBorderColor = isMe ? 'rgba(255,255,255,0.22)' : Colors.borderLight;
 
   return (
     <View
-      className={[
-        'flex-row items-center rounded-2xl px-4 py-3 mb-1',
-        isMe ? 'bg-black/15' : 'bg-black/5',
-      ].join(' ')}
-      style={{ minWidth: 200 }}
+      className="mb-1 flex-row items-center rounded-2xl px-3 py-2.5"
+      style={{ minWidth: 200, backgroundColor: cardBgColor, borderWidth: 1, borderColor: cardBorderColor }}
     >
       <TouchableOpacity
         onPress={handleTogglePlay}
         activeOpacity={0.7}
         disabled={isLoading}
-        className="h-9 w-9 items-center justify-center"
+        className="h-9 w-9 items-center justify-center rounded-full"
+        style={{ backgroundColor: isMe ? 'rgba(255,255,255,0.18)' : Colors.ctaLight }}
       >
         {isLoading ? (
           <ActivityIndicator size="small" color={accentColor} />
@@ -139,10 +139,16 @@ export function AudioPlayer({ url, name, isMe, durationSeconds }: AudioPlayerPro
       </TouchableOpacity>
 
       <View className="ml-3 flex-1">
-        <View className="h-1.5 w-full overflow-hidden rounded-full bg-black/10">
+        <View
+          className="h-1.5 w-full overflow-hidden rounded-full"
+          style={{ backgroundColor: isMe ? 'rgba(255,255,255,0.3)' : Colors.borderLight }}
+        >
           <View
-            className={['h-full rounded-full', isMe ? 'bg-white/80' : 'bg-blue-500'].join(' ')}
-            style={{ width: `${Math.round(progress * 100)}%` }}
+            className="h-full rounded-full"
+            style={{
+              width: `${Math.round(progress * 100)}%`,
+              backgroundColor: isMe ? 'rgba(255,255,255,0.9)' : Colors.cta,
+            }}
           />
         </View>
 

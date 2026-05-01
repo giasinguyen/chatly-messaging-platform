@@ -8,7 +8,9 @@ Event types:
     token      — LLM is generating text          data: {content: str}
     tool_start — agent is about to call a tool   data: {tool: str, input: dict}
     tool_end   — tool returned a result          data: {tool: str, output: str}
-    error      — an error occurred               data: {message: str}
+    error      — an error occurred               data: {message: str, code?: str,
+                                                      category?: str,
+                                                      retryable?: bool}
     done       — stream is complete              data: {agent_type, message_id}
 """
 import json
@@ -35,14 +37,24 @@ def tool_end_event(tool: str, output: str) -> str:
     return _fmt("tool_end", {"tool": tool, "output": output})
 
 
-def error_event(message: str) -> str:
-    """SSE frame for an unrecoverable streaming error."""
-    return _fmt("error", {"message": message})
+def error_event(
+    message: str,
+    code: str | None = None,
+    category: str | None = None,
+    retryable: bool | None = None,
+) -> str:
+    """SSE frame for an unrecoverable streaming error.
 
-
-def interrupt_event(data: dict[str, Any]) -> str:
-    """SSE frame emitted when the agent pauses for user confirmation (HITL)."""
-    return _fmt("interrupt", data)
+    The `message` field is always present for backward compatibility.
+    """
+    data: dict[str, Any] = {"message": message}
+    if code is not None:
+        data["code"] = code
+    if category is not None:
+        data["category"] = category
+    if retryable is not None:
+        data["retryable"] = retryable
+    return _fmt("error", data)
 
 
 def done_event(

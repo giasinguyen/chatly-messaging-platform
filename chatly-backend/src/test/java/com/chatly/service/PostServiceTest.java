@@ -11,7 +11,10 @@ import com.chatly.model.enums.PostVisibility;
 import com.chatly.model.enums.ReactionType;
 import com.chatly.model.mongo.Post;
 import com.chatly.model.mongo.PostReaction;
+import com.chatly.model.mongo.SavedPost;
 import com.chatly.repository.mongo.PostRepository;
+import com.chatly.repository.mongo.SavedPostRepository;
+import com.chatly.repository.postgres.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -37,11 +40,17 @@ class PostServiceTest {
     @Mock
     private PostMapper postMapper;
 
+    @Mock
+    private UserRepository userRepository;
+
+    @Mock
+    private SavedPostRepository savedPostRepository;
+
     @InjectMocks
     private PostService postService;
 
-    private static final String AUTHOR_ID = "user-001";
-    private static final String OTHER_ID = "user-002";
+    private static final String AUTHOR_ID = "11111111-1111-1111-1111-111111111111";
+    private static final String OTHER_ID = "22222222-2222-2222-2222-222222222222";
     private static final String POST_ID = "post-abc";
 
     private Post samplePost;
@@ -57,6 +66,8 @@ class PostServiceTest {
                 .hashtags(new ArrayList<>())
                 .reactions(new ArrayList<>())
                 .build();
+        when(userRepository.findById(any())).thenReturn(Optional.empty());
+        when(savedPostRepository.existsByUserIdAndPostId(anyString(), anyString())).thenReturn(false);
     }
 
     @Test
@@ -211,5 +222,34 @@ class PostServiceTest {
         verify(postRepository).save(argThat(p ->
                 p.getReactions().stream().noneMatch(r -> r.getUserId().equals(AUTHOR_ID))
         ));
+    }
+
+    @Test
+    void save_whenNotSaved_shouldCreateSavedPost() {
+        when(postRepository.findById(POST_ID)).thenReturn(Optional.of(samplePost));
+        when(savedPostRepository.existsByUserIdAndPostId(AUTHOR_ID, POST_ID)).thenReturn(false);
+
+        postService.save(POST_ID, AUTHOR_ID);
+
+        verify(savedPostRepository).save(argThat(saved ->
+                saved.getUserId().equals(AUTHOR_ID) && saved.getPostId().equals(POST_ID)
+        ));
+    }
+
+    @Test
+    void save_whenAlreadySaved_shouldSkipCreate() {
+        when(postRepository.findById(POST_ID)).thenReturn(Optional.of(samplePost));
+        when(savedPostRepository.existsByUserIdAndPostId(AUTHOR_ID, POST_ID)).thenReturn(true);
+
+        postService.save(POST_ID, AUTHOR_ID);
+
+        verify(savedPostRepository, never()).save(any(SavedPost.class));
+    }
+
+    @Test
+    void unsave_shouldDeleteSavedPost() {
+        postService.unsave(POST_ID, AUTHOR_ID);
+
+        verify(savedPostRepository).deleteByUserIdAndPostId(AUTHOR_ID, POST_ID);
     }
 }

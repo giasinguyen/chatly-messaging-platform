@@ -1,0 +1,45 @@
+@startuml Chatly_Sequence_Search_And_Send_Friend_Request
+title Chatly - Search User + Send Friend Request (Simple)
+
+autonumber
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+
+actor "Authenticated User" as U
+participant "Client" as Client
+participant "UserController\nGET /api/users/search" as UserController
+participant "UserService" as UserService
+participant "ContactController\nPOST /api/contacts" as ContactController
+participant "ContactService" as ContactService
+participant "UserRepository" as UserRepo
+participant "ContactRepository" as ContactRepo
+participant "NotificationService" as NotificationService
+participant "GlobalExceptionHandler" as ExceptionHandler
+
+U -> Client: Search user by keyword
+Client -> UserController: GET /api/users/search?q=...
+UserController -> UserService: search(keyword)
+UserService -> UserRepo: searchByKeyword(...)
+UserRepo --> UserService: users
+UserService --> UserController: PagedResponse<UserResponse>
+UserController --> Client: HTTP 200\nApiResponse{code:1000, result}
+
+U -> Client: Tap "Add friend"
+Client -> ContactController: ContactRequest{contactId}
+ContactController -> ContactService: sendRequest(currentUserId, request)
+
+alt Self/duplicate/not found/invalid body
+  ContactService -> ExceptionHandler: AppException(...)
+  ExceptionHandler --> Client: HTTP 4xx\nApiResponse{error}
+else Success
+  ContactService -> ContactRepo: save(contact request)
+  ContactRepo --> ContactService: saved
+  ContactService -> NotificationService: createAndPush(FRIEND_REQUEST)
+  NotificationService --> ContactService: done
+  ContactService --> ContactController: ContactResponse
+  ContactController --> Client: HTTP 200\nApiResponse{code:1000, result}
+end
+
+Client --> U: Show result
+
+@enduml

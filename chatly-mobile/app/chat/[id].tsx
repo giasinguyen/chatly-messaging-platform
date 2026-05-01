@@ -30,6 +30,7 @@ import { messageService } from '@/services/message.service';
 import { conversationService } from '@/services/conversation.service';
 import { contactService } from '@/services/contact.service';
 import { userService } from '@/services/user.service';
+import { agentService } from '@/services/agent.service';
 import { useMessageStore } from '@/store/message.store';
 import { useAuthStore } from '@/store/auth.store';
 import { useConversationStore } from '@/store/conversation.store';
@@ -48,7 +49,11 @@ import type { ContactResponse } from '@/types/contact';
 const PAGE_SIZE = 20;
 
 export default function ChatScreen() {
-  const { id: conversationId } = useLocalSearchParams<{ id: string }>();
+  const {
+    id: conversationId,
+    prefill,
+    prefill_token,
+  } = useLocalSearchParams<{ id: string; prefill?: string; prefill_token?: string }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const user = useAuthStore((s) => s.user);
@@ -96,7 +101,23 @@ export default function ChatScreen() {
   const [showPinnedList, setShowPinnedList] = useState(false);
   const [currentPollIdx, setCurrentPollIdx] = useState(0);
   const [isPollBannerDismissed, setIsPollBannerDismissed] = useState(false);
+  const [activePrefillToken, setActivePrefillToken] = useState<string | undefined>(prefill_token);
   const sendSeenRef = useRef<(messageId: string) => boolean>(() => false);
+
+  useEffect(() => {
+    if (prefill_token) {
+      setActivePrefillToken(prefill_token);
+    }
+  }, [prefill_token]);
+
+  const decodedPrefillText = useMemo(() => {
+    if (!prefill) return undefined;
+    try {
+      return decodeURIComponent(prefill);
+    } catch {
+      return prefill;
+    }
+  }, [prefill]);
 
   const {
     getBlockDirection,
@@ -456,6 +477,39 @@ export default function ChatScreen() {
     // Clipboard copy - no external dependency needed
     Alert.alert('Copied', selectedMessage.content);
   }, [selectedMessage]);
+
+  const handleAskAi = useCallback(async () => {
+    if (!selectedMessage || !conversationId) return;
+    setActionsVisible(false);
+    try {
+      const res = await agentService.createSession({
+        title: conversation?.name,
+        context_conversation_id: conversationId,
+      });
+      const sessionId = res.id;
+      if (!sessionId) return;
+      const encoded = encodeURIComponent(selectedMessage.content);
+      const token = `ai-${Date.now()}`;
+      router.push(`/assistant/${sessionId}?prefill=${encoded}&prefill_token=${token}`);
+    } catch {
+      Alert.alert('Error', 'Could not start AI session.');
+    }
+  }, [selectedMessage, conversationId, conversation?.name, router]);
+
+  const handleAskAiFromHeader = useCallback(async () => {
+    if (!conversationId) return;
+    try {
+      const res = await agentService.createSession({
+        title: conversation?.name,
+        context_conversation_id: conversationId,
+      });
+      const sessionId = res.id;
+      if (!sessionId) return;
+      router.push(`/assistant/${sessionId}`);
+    } catch {
+      Alert.alert('Error', 'Could not start AI session.');
+    }
+  }, [conversationId, conversation?.name, router]);
 
   const handleEdit = useCallback(async () => {
     if (!selectedMessage || !conversationId) return;
@@ -818,6 +872,7 @@ export default function ChatScreen() {
             router.push(`/chat/${conversationId}/info`);
           }
         }}
+        onAskAi={isGroup ? handleAskAiFromHeader : undefined}
       />
 
       {showSearch && conversationId && (
@@ -874,8 +929,10 @@ export default function ChatScreen() {
                 return <DateSeparator label={item.label} />;
               }
               const msg = item.data;
-              const isMe = msg.senderId === user?.id;
+              const isMe = msg.senderId === user?.id && msg.type !== 'AGENT';
+              const isAgent = msg.type === 'AGENT';
               const sender = participantMap[msg.senderId];
+              const agentSenderName = isAgent && sender ? `${sender.displayName} + AI` : sender?.displayName;
               const isHighlighted = highlightedMessageId === msg.id;
               return (
                 <View
@@ -888,7 +945,7 @@ export default function ChatScreen() {
                     message={msg}
                     isMe={isMe}
                     showAvatar={isGroup}
-                    senderName={sender?.displayName}
+                    senderName={agentSenderName}
                     senderAvatarUrl={isGroup ? sender?.avatarUrl : undefined}
                     currentUserId={user?.id}
                     onLongPress={() => handleLongPress(msg)}
@@ -1020,7 +1077,11 @@ export default function ChatScreen() {
             onTyping={sendTyping}
             replyingTo={replyingTo}
             onCancelReply={() => setReplyingTo(null)}
+            prefilledText={decodedPrefillText}
+            prefilledToken={activePrefillToken}
+            onPrefillApplied={() => setActivePrefillToken(undefined)}
             isGroup={isGroup}
+            showAiMention={isGroup && !!conversation?.aiProactiveEnabled}
             groupMembers={
               isGroup
                 ? Object.values(participantMap)
@@ -1041,7 +1102,7 @@ export default function ChatScreen() {
       <MessageActions
         visible={actionsVisible}
         message={selectedMessage}
-        isMe={selectedMessage?.senderId === user?.id}
+        isMe={selectedMessage?.senderId === user?.id && selectedMessage?.type !== 'AGENT'}
         onClose={() => setActionsVisible(false)}
         onReply={() => {
           if (selectedMessage) setReplyingTo(selectedMessage);
@@ -1066,6 +1127,7 @@ export default function ChatScreen() {
               }
             : undefined
         }
+        onAskAi={isGroup ? handleAskAi : undefined}
       />
 
       <ForwardMessageModal

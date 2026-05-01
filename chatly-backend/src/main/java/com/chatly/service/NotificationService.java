@@ -147,6 +147,8 @@ public class NotificationService {
                             title = "New message";
                         } else if (notification.getType() == NotificationType.MENTION) {
                             title = "You were mentioned";
+                        } else if (notification.getType() == NotificationType.NEW_FOLLOWER) {
+                            title = "New follower";
                         } else if (notification.getType() == NotificationType.FRIEND_REQUEST) {
                             title = "Friend request";
                         } else if (notification.getType() == NotificationType.GROUP_JOIN_REQUEST) {

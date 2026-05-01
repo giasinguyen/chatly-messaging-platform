@@ -1,6 +1,7 @@
 import { useEffect, useCallback, useRef, useState, useMemo } from 'react';
 import {
   View,
+  Text,
   KeyboardAvoidingView,
   TouchableWithoutFeedback,
   Keyboard,
@@ -9,23 +10,29 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { LegendList, type LegendListRef } from '@legendapp/list';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import { Colors } from '@/constants/theme';
 import { agentService } from '@/services/agent.service';
 import { useChatbotStore } from '@/store/chatbot.store';
+import { useAuthStore } from '@/store/auth.store';
 import { useAgentStream } from '@/hooks/useAgentStream';
 import { AssistantHeader } from '@/components/assistant/AssistantHeader';
 import { AssistantMessageBubble } from '@/components/assistant/AssistantMessageBubble';
 import { AssistantComposer } from '@/components/assistant/AssistantComposer';
 import { AssistantListFooter } from '@/components/assistant/AssistantListFooter';
-import { InterruptCard } from '@/components/assistant/InterruptCard';
 import type { AgentMessage } from '@/types/agent';
-// LỖI KHÔNG RENDER ĐƯỢC InterruptCard. TẠM THỜI BỎ CUỘC 
+import { AssistantMessageActions } from '@/components/assistant/AssistantMessageActions';
+import { ForwardToChatModal } from '@/components/assistant/ForwardToChatModal';
+import { AssistantQuickChips } from '@/components/assistant/AssistantQuickChips';
+import { CustomAiIcon } from '@/components/ui/CustomAiIcon';
+import { useConversationStore } from '@/store/conversation.store';
+
 export default function AssistantChatScreen() {
-  const { id: sessionId } = useLocalSearchParams<{ id: string }>();
+  const { id: sessionId, prefill, prefill_token } = useLocalSearchParams<{ id: string; prefill?: string; prefill_token?: string }>();
+  const router = useRouter();
   const insets = useSafeAreaInsets();
   const flatListRef = useRef<LegendListRef>(null);
 
@@ -43,22 +50,29 @@ export default function AssistantChatScreen() {
     setLastUserPrompt,
     lastUserPrompt,
     toolCalls,
+    setDraft,
   } = useChatbotStore();
 
-  // Individual selector — interrupt data for footer/overlay rendering + composer disable
-  const interrupt = useChatbotStore((s) => s.interrupt);
-  const isInterrupted = interrupt !== null;
+  const conversations = useConversationStore((s) => s.conversations);
+  const currentUserId = useAuthStore((s) => s.user?.id ?? '');
 
-  const { startStream, resumeStream, cancelStream } = useAgentStream(sessionId);
+  const { startStream, cancelStream } = useAgentStream(sessionId);
   const messages = useMemo(() => messagesBySession[sessionId ?? ''] ?? [], [messagesBySession, sessionId]);
   const isStreaming = streamingStatus === 'connecting' || streamingStatus === 'streaming';
 
   const [loading, setLoading] = useState(false);
   const [showScrollDown, setShowScrollDown] = useState(false);
   const [mcpConfigVisible, setMcpConfigVisible] = useState(false);
+  const [selectedMessage, setSelectedMessage] = useState<AgentMessage | null>(null);
+  const [messageActionsVisible, setMessageActionsVisible] = useState(false);
+  const [forwardModalVisible, setForwardModalVisible] = useState(false);
 
   const session = sessions.find((s) => s.id === sessionId);
   const title = session?.title ?? 'New Conversation';
+  const contextConversationName =
+    session?.context_conversation_id
+      ? conversations.find((conversation) => conversation.id === session.context_conversation_id)?.name ?? 'this group'
+      : undefined;
 
   // Set active session / load history
   useEffect(() => {
@@ -85,12 +99,25 @@ export default function AssistantChatScreen() {
     };
   }, [sessionId, setActiveSessionId, setMessages, resetStreaming]);
 
+  // Apply prefill from navigation params (e.g. Ask AI from chat)
+  const appliedPrefillTokenRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!sessionId || !prefill || !prefill_token) return;
+    if (appliedPrefillTokenRef.current === prefill_token) return;
+    appliedPrefillTokenRef.current = prefill_token;
+    try {
+      setDraft(sessionId, decodeURIComponent(prefill));
+    } catch {
+      setDraft(sessionId, prefill);
+    }
+  }, [sessionId, prefill, prefill_token, setDraft]);
+
   // Auto-scroll when new messages or streaming content
   useEffect(() => {
     if (!showScrollDown) {
       setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
     }
-  }, [messages.length, streamingContent, isInterrupted, showScrollDown]);
+  }, [messages.length, streamingContent, showScrollDown]);
 
   const handleSend = useCallback(
     async (text: string, fileIds: string[] = []) => {
@@ -153,15 +180,26 @@ export default function AssistantChatScreen() {
     await Clipboard.setStringAsync(content);
   }, []);
 
-  const handleApproveInterrupt = useCallback(() => {
-    if (!sessionId) return;
-    resumeStream(sessionId, true);
-  }, [sessionId, resumeStream]);
+  const handleForwardToChat = useCallback(
+    async (conversationId: string) => {
+      if (!selectedMessage) return;
+      const encoded = encodeURIComponent(selectedMessage.content);
+      const token = Date.now().toString();
+      setForwardModalVisible(false);
+      setSelectedMessage(null);
+      setMessageActionsVisible(false);
+      router.push(`/chat/${conversationId}?prefill=${encoded}&prefill_token=${token}`);
+    },
+    [selectedMessage, router],
+  );
 
-  const handleRejectInterrupt = useCallback(() => {
-    if (!sessionId) return;
-    resumeStream(sessionId, false);
-  }, [sessionId, resumeStream]);
+  const handleChipSelect = useCallback(
+    (query: string) => {
+      if (!sessionId) return;
+      setDraft(sessionId, query);
+    },
+    [sessionId, setDraft],
+  );
 
   const handleScroll = useCallback(
     (event: {
@@ -197,6 +235,10 @@ export default function AssistantChatScreen() {
           isError={isLastAssistant}
           onRetry={isLastAssistant ? handleRetry : undefined}
           onCopy={handleCopy}
+          onLongPress={() => {
+            setSelectedMessage(item);
+            setMessageActionsVisible(true);
+          }}
         />
       );
     },
@@ -207,7 +249,11 @@ export default function AssistantChatScreen() {
 
   return (
     <View className="flex-1" style={{ backgroundColor: Colors.white }}>
-      <AssistantHeader title={title} onPressSetting={() => setMcpConfigVisible(true)} />
+      <AssistantHeader
+        title={title}
+        onPressSetting={() => setMcpConfigVisible(true)}
+        contextConversationName={contextConversationName}
+      />
 
       <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
         <KeyboardAvoidingView
@@ -219,6 +265,25 @@ export default function AssistantChatScreen() {
               <View className="flex-1 items-center justify-center">
                 <ActivityIndicator size="large" color={Colors.cta} />
               </View>
+            ) : messages.length === 0 ? (
+              <View className="flex-1 items-center justify-center px-8">
+                <View
+                  className="h-20 w-20 rounded-2xl items-center justify-center mb-5"
+                  style={{ backgroundColor: Colors.ctaLight }}
+                >
+                  <CustomAiIcon size={34} color={Colors.cta} />
+                </View>
+                <Text className="text-xl font-semibold text-center" style={{ color: Colors.text }}>
+                  Chatly AI Assistant
+                </Text>
+                <Text className="text-sm text-center mt-2.5 leading-5 max-w-xs" style={{ color: Colors.textMuted }}>
+                  Start with a suggested prompt or ask your own question.
+                </Text>
+                <AssistantQuickChips
+                  onChipSelect={handleChipSelect}
+                  contextConversationName={contextConversationName}
+                />
+              </View>
             ) : (
               <LegendList
                 ref={flatListRef}
@@ -226,7 +291,7 @@ export default function AssistantChatScreen() {
                 renderItem={renderItem}
                 keyExtractor={keyExtractor}
                 ListFooterComponent={AssistantListFooter}
-                extraData={`${streamingStatus}-${streamingContent.length}-${toolCalls.length}-${isInterrupted}`}
+                extraData={`${streamingStatus}-${streamingContent.length}-${toolCalls.length}`}
                 onScroll={handleScroll}
                 scrollEventThrottle={100}
                 contentContainerStyle={{
@@ -262,31 +327,12 @@ export default function AssistantChatScreen() {
             )}
           </View>
 
-          {/* Absolute overlay interrupt card — backup rendering outside list */}
-          {interrupt !== null && (
-            <View
-              style={{
-                position: 'absolute',
-                bottom: 80,
-                left: 0,
-                right: 0,
-                zIndex: 100,
-                pointerEvents: 'box-none',
-              }}>
-              <InterruptCard
-                interrupt={interrupt}
-                onApprove={handleApproveInterrupt}
-                onReject={handleRejectInterrupt}
-              />
-            </View>
-          )}
-
           <AssistantComposer
             sessionId={sessionId ?? ''}
             onSend={handleSend}
             isStreaming={isStreaming}
             onCancel={cancelStream}
-            disabled={isStreaming || isInterrupted}
+            disabled={isStreaming}
             mcpConfigVisible={mcpConfigVisible}
             onMcpConfigChange={setMcpConfigVisible}
           />
@@ -295,6 +341,28 @@ export default function AssistantChatScreen() {
           <View style={{ height: insets.bottom, backgroundColor: Colors.white }} />
         </KeyboardAvoidingView>
       </TouchableWithoutFeedback>
+
+          <AssistantMessageActions
+            visible={messageActionsVisible}
+            onClose={() => setMessageActionsVisible(false)}
+            onCopy={() => {
+              if (selectedMessage) {
+                handleCopy(selectedMessage.content);
+              }
+            }}
+            onForwardToChat={() => {
+              if (selectedMessage) {
+                setForwardModalVisible(true);
+              }
+            }}
+          />
+
+          <ForwardToChatModal
+            visible={forwardModalVisible}
+            currentUserId={currentUserId}
+            onClose={() => setForwardModalVisible(false)}
+            onConfirm={handleForwardToChat}
+          />
     </View>
   );
 }

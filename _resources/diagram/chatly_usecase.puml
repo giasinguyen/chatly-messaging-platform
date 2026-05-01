@@ -1,0 +1,556 @@
+@startuml Chatly_UseCase_Overview
+!theme plain
+skinparam packageStyle rectangle
+skinparam actorStyle awesome
+skinparam usecase {
+  BackgroundColor #F8F9FA
+  BorderColor #495057
+  ArrowColor #495057
+  FontSize 12
+}
+skinparam actor {
+  BackgroundColor #D0E8FF
+  BorderColor #1D6FA4
+  FontSize 12
+}
+skinparam package {
+  BackgroundColor #FAFAFA
+  BorderColor #ADB5BD
+  FontSize 13
+  FontStyle bold
+}
+skinparam note {
+  BackgroundColor #FFF9C4
+  BorderColor #F9A825
+}
+
+title Chatly – Use Case Diagram (Full Overview)
+
+' ─────────────────────────────────────────
+' ACTORS
+' ─────────────────────────────────────────
+actor Guest as G
+actor "Authenticated\nUser" as AU
+actor "Group Owner" as GO
+actor "Group Admin" as GA
+
+actor "Email\nProvider" as EP    #LightGreen
+actor "Push Notification\nGateway" as PNG  #LightGreen
+actor "Object Storage\n(S3/MinIO)" as OS   #LightGreen
+actor "AI Agent\nService" as AI             #LightSalmon
+actor "MCP Servers" as MCP                 #LightSalmon
+actor "Web Search\nProvider (Tavily)" as WS #LightSalmon
+
+' Inheritance
+GO -u-|> AU : extends
+GA -u-|> AU : extends
+
+' ─────────────────────────────────────────
+' SYSTEM BOUNDARY
+' ─────────────────────────────────────────
+rectangle "**Chatly Messaging Platform**" {
+
+  ' ── AUTH ──
+  package "Authentication" {
+    usecase "Register account" as UC_REG
+    usecase "Login" as UC_LOGIN
+    usecase "Verify email\nby token link" as UC_VERIFY
+    usecase "Resend verification\nemail" as UC_RESEND
+    usecase "Request forgot\npassword" as UC_FORGOT
+    usecase "Introspect token\nvalidity" as UC_INTRO
+    usecase "Logout" as UC_LOGOUT
+    usecase "Refresh access\ntoken" as UC_REFRESH
+    usecase "Change password" as UC_CHGPWD
+    usecase "Manage login\nsessions" as UC_SESSION
+  }
+
+  ' ── PROFILE ──
+  package "Profile & Settings" {
+    usecase "View & update\nprofile" as UC_PROFILE
+    usecase "Search users" as UC_SEARCH_USR
+    usecase "Add/remove\ndevice token" as UC_DEVTOKEN
+  }
+
+  ' ── CONTACT ──
+  package "Contact & Social" {
+    usecase "Send friend\nrequest" as UC_FREQ
+    usecase "Accept friend\nrequest" as UC_FACC
+    usecase "Block / Unblock\ncontact" as UC_BLOCK
+    usecase "View contacts" as UC_VIEWCON
+    usecase "Delete contact" as UC_DELCON
+  }
+
+  ' ── CONVERSATION ──
+  package "Conversation" {
+    usecase "Create conversation\n(private or group)" as UC_CCONV
+    usecase "View / List\nconversations" as UC_LCONV
+    usecase "Search\nconversations" as UC_SCONV
+    usecase "Delete\nconversation" as UC_DCONV
+    usecase "Pin / Unpin\nconversation" as UC_PINCONV
+    usecase "Mute / Unmute\nconversation" as UC_MUTECONV
+  }
+
+  ' ── MESSAGING ──
+  package "Messaging" {
+    usecase "Send message" as UC_SEND
+    usecase "Forward message" as UC_FWD
+    usecase "Load messages\n(paged)" as UC_LOADMSG
+    usecase "Mark message\nas seen" as UC_SEEN
+    usecase "Recall message" as UC_RECALL
+    usecase "Edit message" as UC_EDIT
+    usecase "Delete message" as UC_DELMSG
+    usecase "React to message" as UC_REACT
+    usecase "Search messages\nin conversation" as UC_SMSG
+    usecase "Vote in poll" as UC_POLL
+    usecase "Close poll" as UC_CLOSEPOLL
+    usecase "Pin / Unpin\nmessage" as UC_PINMSG
+    usecase "Tag priority" as UC_TAG
+    usecase "[include] Validate\nuser membership" as UC_VMEM <<include>>
+  }
+
+  ' ── GROUP ──
+  package "Group Management" {
+    usecase "Add / Remove\nmember" as UC_ADDMEM
+    usecase "Update member\nrole" as UC_ROLE
+    usecase "Update group\ninfo" as UC_GRPINFO
+    usecase "List group\nmembers" as UC_LISTMEM
+    usecase "Create / Get\ninvite link" as UC_INVITE
+    usecase "Join group by\ninvite link" as UC_JOIN
+    usecase "List / Manage pending\njoin requests" as UC_PENDING
+    usecase "Manage reminders" as UC_REMINDER
+    usecase "Manage notes" as UC_NOTES
+    usecase "[include] Validate\nactor permission" as UC_VPERM <<include>>
+    usecase "[extend] Pending approval\n(requireApproval=true)" as UC_APPROVAL <<extend>>
+  }
+
+  ' ── NOTIFICATIONS ──
+  package "Notifications" {
+    usecase "List notifications" as UC_NOTIF
+    usecase "Mark notification\nas read" as UC_NOTIFREAD
+  }
+
+  ' ── REALTIME & CALLS ──
+  package "Realtime & Calls" {
+    usecase "Send message\nvia STOMP" as UC_STOMP
+    usecase "Broadcast typing\nstatus" as UC_TYPING
+    usecase "Initiate / Answer\none-to-one call" as UC_CALL1
+    usecase "End call" as UC_ENDCALL
+    usecase "Request voice→video\nupgrade" as UC_VID
+    usecase "Initiate / Join\ngroup call" as UC_GRPCALL
+    usecase "Leave group call" as UC_LEAVECALL
+    usecase "[extend] Video upgrade\nextends Ongoing call" as UC_VIDEXT <<extend>>
+  }
+
+  ' ── AI ──
+  package "AI Assistant" {
+    usecase "Manage AI sessions\n(create/list/rename/delete)" as UC_AISESS
+    usecase "Send AI chat\n(blocking)" as UC_AICHAT
+    usecase "Send AI chat\n(streaming)" as UC_AISTREAM
+    usecase "Manage AI files\n(upload/list/delete)" as UC_AIFILE
+    usecase "Manage MCP servers\n(register/list/toggle)" as UC_MCPMGR
+    usecase "[include] Validate\nsession ownership" as UC_VSESS <<include>>
+    usecase "[extend] Streaming extends\nBlocking AI chat" as UC_STREAMEXT <<extend>>
+  }
+
+}
+
+' ─────────────────────────────────────────
+' ASSOCIATIONS
+' ─────────────────────────────────────────
+
+' Guest
+G --> UC_REG
+G --> UC_LOGIN
+G --> UC_VERIFY
+G --> UC_RESEND
+G --> UC_FORGOT
+G --> UC_INTRO
+
+' Authenticated User – Auth
+AU --> UC_LOGOUT
+AU --> UC_REFRESH
+AU --> UC_CHGPWD
+AU --> UC_SESSION
+
+' Profile
+AU --> UC_PROFILE
+AU --> UC_SEARCH_USR
+AU --> UC_DEVTOKEN
+
+' Contact
+AU --> UC_FREQ
+AU --> UC_FACC
+AU --> UC_BLOCK
+AU --> UC_VIEWCON
+AU --> UC_DELCON
+
+' Conversation
+AU --> UC_CCONV
+AU --> UC_LCONV
+AU --> UC_SCONV
+AU --> UC_DCONV
+AU --> UC_PINCONV
+AU --> UC_MUTECONV
+
+' Messaging
+AU --> UC_SEND
+AU --> UC_FWD
+AU --> UC_LOADMSG
+AU --> UC_SEEN
+AU --> UC_RECALL
+AU --> UC_EDIT
+AU --> UC_DELMSG
+AU --> UC_REACT
+AU --> UC_SMSG
+AU --> UC_POLL
+AU --> UC_CLOSEPOLL
+AU --> UC_PINMSG
+AU --> UC_TAG
+
+UC_SEND ..> UC_VMEM : <<include>>
+
+' Group
+AU --> UC_ADDMEM
+AU --> UC_GRPINFO
+AU --> UC_LISTMEM
+AU --> UC_INVITE
+AU --> UC_JOIN
+AU --> UC_REMINDER
+AU --> UC_NOTES
+
+UC_ADDMEM ..> UC_VPERM : <<include>>
+UC_JOIN ..> UC_APPROVAL : <<extend>>
+
+' Notifications
+AU --> UC_NOTIF
+AU --> UC_NOTIFREAD
+
+' Realtime
+AU --> UC_STOMP
+AU --> UC_TYPING
+AU --> UC_CALL1
+AU --> UC_ENDCALL
+AU --> UC_VID
+AU --> UC_GRPCALL
+AU --> UC_LEAVECALL
+
+UC_VID ..> UC_VIDEXT : <<extend>>
+
+' AI
+AU --> UC_AISESS
+AU --> UC_AICHAT
+AU --> UC_AISTREAM
+AU --> UC_AIFILE
+AU --> UC_MCPMGR
+
+UC_AICHAT ..> UC_VSESS : <<include>>
+UC_AIFILE ..> UC_VSESS : <<include>>
+UC_AISTREAM ..> UC_STREAMEXT : <<extend>>
+
+' Group Owner
+GO --> UC_ROLE
+GO --> UC_PENDING
+
+' Group Admin
+GA --> UC_ADDMEM
+GA --> UC_REMINDER
+GA --> UC_NOTES
+
+' External actors
+UC_REG ..> EP : sends email
+UC_FORGOT ..> EP : sends email
+UC_NOTIFREAD ..> PNG : push trigger
+UC_AIFILE ..> OS : store file
+UC_AICHAT ..> AI : proxy
+UC_AISTREAM ..> AI : proxy
+AI --> MCP : uses tools
+AI --> WS : web search
+
+@enduml
+
+
+' ════════════════════════════════════════════════════════════════
+' SPLIT DIAGRAMS (recommended for presentation)
+' ════════════════════════════════════════════════════════════════
+
+@startuml Chatly_UseCase_Auth
+!theme plain
+skinparam actorStyle awesome
+skinparam usecase { BackgroundColor #EEF6FF; BorderColor #4A90D9 }
+skinparam package { BackgroundColor #F5F5F5; BorderColor #BDBDBD }
+title Chatly – Use Case: Authentication & Session
+
+actor Guest as G
+actor "Authenticated\nUser" as AU
+actor "Email Provider" as EP #LightGreen
+
+rectangle "Chatly – Auth Module" {
+  usecase "Register account" as UC_REG
+  usecase "Login" as UC_LOGIN
+  usecase "Verify email" as UC_VERIFY
+  usecase "Resend verification email" as UC_RESEND
+  usecase "Request forgot password" as UC_FORGOT
+  usecase "Introspect token validity" as UC_INTRO
+  usecase "Logout" as UC_LOGOUT
+  usecase "Refresh access token" as UC_REFRESH
+  usecase "Change password" as UC_CHGPWD
+  usecase "Manage login sessions\n(list / revoke / purge)" as UC_SESSION
+}
+
+G --> UC_REG
+G --> UC_LOGIN
+G --> UC_VERIFY
+G --> UC_RESEND
+G --> UC_FORGOT
+G --> UC_INTRO
+
+AU --> UC_LOGOUT
+AU --> UC_REFRESH
+AU --> UC_CHGPWD
+AU --> UC_SESSION
+
+UC_REG ..> EP : <<include>> send email
+UC_FORGOT ..> EP : <<include>> send email
+@enduml
+
+
+@startuml Chatly_UseCase_Messaging
+!theme plain
+skinparam actorStyle awesome
+skinparam usecase { BackgroundColor #FFF3E0; BorderColor #FB8C00 }
+skinparam package { BackgroundColor #F5F5F5; BorderColor #BDBDBD }
+title Chatly – Use Case: Conversation & Messaging
+
+actor "Authenticated\nUser" as AU
+
+rectangle "Chatly – Conversation & Messaging" {
+
+  package "Conversation" {
+    usecase "Create conversation\n(private / group)" as UC_CCONV
+    usecase "View / List conversations" as UC_LCONV
+    usecase "Search conversations" as UC_SCONV
+    usecase "Delete conversation" as UC_DCONV
+    usecase "Pin / Unpin conversation" as UC_PINCONV
+    usecase "Mute / Unmute conversation" as UC_MUTECONV
+  }
+
+  package "Messages" {
+    usecase "Send message" as UC_SEND
+    usecase "Forward message" as UC_FWD
+    usecase "Load messages (paged)" as UC_LOAD
+    usecase "Mark message as seen" as UC_SEEN
+    usecase "Recall message" as UC_RECALL
+    usecase "Edit message" as UC_EDIT
+    usecase "Delete message" as UC_DEL
+    usecase "React to message" as UC_REACT
+    usecase "Search messages" as UC_SMSG
+    usecase "Vote in poll" as UC_POLL
+    usecase "Close poll" as UC_CPOLL
+    usecase "Pin / Unpin message" as UC_PINMSG
+    usecase "Tag priority" as UC_TAG
+    usecase "Validate user\nmembership" as UC_VMEM <<include>>
+  }
+}
+
+AU --> UC_CCONV
+AU --> UC_LCONV
+AU --> UC_SCONV
+AU --> UC_DCONV
+AU --> UC_PINCONV
+AU --> UC_MUTECONV
+
+AU --> UC_SEND
+AU --> UC_FWD
+AU --> UC_LOAD
+AU --> UC_SEEN
+AU --> UC_RECALL
+AU --> UC_EDIT
+AU --> UC_DEL
+AU --> UC_REACT
+AU --> UC_SMSG
+AU --> UC_POLL
+AU --> UC_CPOLL
+AU --> UC_PINMSG
+AU --> UC_TAG
+
+UC_SEND ..> UC_VMEM : <<include>>
+@enduml
+
+
+@startuml Chatly_UseCase_Group
+!theme plain
+skinparam actorStyle awesome
+skinparam usecase { BackgroundColor #E8F5E9; BorderColor #43A047 }
+skinparam package { BackgroundColor #F5F5F5; BorderColor #BDBDBD }
+title Chatly – Use Case: Group Management
+
+actor "Authenticated\nUser" as AU
+actor "Group Owner" as GO
+actor "Group Admin" as GA
+
+GO -u-|> AU : extends
+GA -u-|> AU : extends
+
+rectangle "Chatly – Group Management" {
+  usecase "Add / Remove member" as UC_MEM
+  usecase "Update member role" as UC_ROLE
+  usecase "Update group info" as UC_INFO
+  usecase "List group members" as UC_LIST
+  usecase "Create / Get invite link" as UC_INVITE
+  usecase "Reset invite link" as UC_RESET
+  usecase "Join group by invite link" as UC_JOIN
+  usecase "List pending join requests" as UC_PENDING
+  usecase "Approve join request" as UC_APPROVE
+  usecase "Reject join request" as UC_REJECT
+  usecase "Manage reminders\n(list/create/update/delete/toggle)" as UC_REM
+  usecase "Manage notes\n(list/create/update/delete)" as UC_NOTE
+  usecase "Validate actor\npermission" as UC_VPERM <<include>>
+  usecase "Pending approval\n(requireApproval=true)" as UC_APPROV <<extend>>
+}
+
+AU --> UC_MEM
+AU --> UC_INFO
+AU --> UC_LIST
+AU --> UC_INVITE
+AU --> UC_JOIN
+AU --> UC_REM
+AU --> UC_NOTE
+
+GO --> UC_ROLE
+GO --> UC_RESET
+GO --> UC_APPROVE
+GO --> UC_REJECT
+
+GA --> UC_APPROVE
+GA --> UC_REJECT
+
+UC_MEM ..> UC_VPERM : <<include>>
+UC_JOIN ..> UC_APPROV : <<extend>>
+@enduml
+
+
+@startuml Chatly_UseCase_Calls
+!theme plain
+skinparam actorStyle awesome
+skinparam usecase { BackgroundColor #F3E5F5; BorderColor #8E24AA }
+skinparam package { BackgroundColor #F5F5F5; BorderColor #BDBDBD }
+title Chatly – Use Case: Realtime & Calls
+
+actor "Authenticated\nUser" as AU
+
+rectangle "Chatly – Realtime & Calls" {
+  package "STOMP / Presence" {
+    usecase "Send chat message\nvia STOMP" as UC_STOMP
+    usecase "Broadcast typing status" as UC_TYPE
+    usecase "Mark seen via STOMP" as UC_MSEEN
+  }
+  package "1-to-1 Call (WebRTC)" {
+    usecase "Initiate one-to-one call" as UC_INIT
+    usecase "Answer call" as UC_ANS
+    usecase "Send ICE candidate" as UC_ICE
+    usecase "End call" as UC_END
+    usecase "Request voice→video upgrade" as UC_VID
+    usecase "Accept / Reject video upgrade" as UC_ACCVID
+    usecase "Renegotiate call media" as UC_RENEG
+    usecase "Ongoing call\n(active state)" as UC_ONGOING <<extend>>
+  }
+  package "Group Call" {
+    usecase "Initiate group call" as UC_GINIT
+    usecase "Join group call" as UC_GJOIN
+    usecase "Exchange signaling" as UC_GSIG
+    usecase "Leave group call" as UC_GLEAVE
+  }
+}
+
+AU --> UC_STOMP
+AU --> UC_TYPE
+AU --> UC_MSEEN
+AU --> UC_INIT
+AU --> UC_ANS
+AU --> UC_ICE
+AU --> UC_END
+AU --> UC_VID
+AU --> UC_ACCVID
+AU --> UC_RENEG
+AU --> UC_GINIT
+AU --> UC_GJOIN
+AU --> UC_GSIG
+AU --> UC_GLEAVE
+
+UC_VID ..> UC_ONGOING : <<extend>>
+@enduml
+
+
+@startuml Chatly_UseCase_AI
+!theme plain
+skinparam actorStyle awesome
+skinparam usecase { BackgroundColor #FCE4EC; BorderColor #E91E63 }
+skinparam package { BackgroundColor #F5F5F5; BorderColor #BDBDBD }
+title Chatly – Use Case: AI Assistant
+
+actor "Authenticated\nUser" as AU
+actor "AI Agent\nService" as AI  #LightSalmon
+actor "MCP Servers" as MCP       #LightSalmon
+actor "Web Search\n(Tavily)" as WS #LightSalmon
+actor "Object Storage" as OS     #LightGreen
+
+rectangle "Chatly – AI Assistant" {
+  package "Session Management" {
+    usecase "Create AI session" as UC_CREATE
+    usecase "List AI sessions" as UC_LIST
+    usecase "Get session details" as UC_DETAIL
+    usecase "Rename AI session" as UC_RENAME
+    usecase "Delete AI session" as UC_DELETE
+    usecase "Get message history" as UC_HIST
+  }
+  package "Chat" {
+    usecase "Send AI chat (blocking)" as UC_CHAT
+    usecase "Send AI chat (streaming)" as UC_STREAM
+    usecase "Validate session\nownership" as UC_VSESS <<include>>
+    usecase "Streaming extends\nBlocking behavior" as UC_SEXT <<extend>>
+  }
+  package "File Management" {
+    usecase "Upload AI session file" as UC_UPLOAD
+    usecase "List AI session files" as UC_FLIST
+    usecase "Delete AI session file" as UC_FDEL
+    usecase "Download file content" as UC_FDWN
+  }
+  package "MCP Server Management" {
+    usecase "Register MCP server" as UC_MREG
+    usecase "List MCP servers" as UC_MLIST
+    usecase "Get MCP server details" as UC_MDET
+    usecase "Delete MCP server" as UC_MDEL
+    usecase "Toggle MCP active flag" as UC_MTOG
+    usecase "List tools for MCP server" as UC_MTOOLS
+  }
+}
+
+AU --> UC_CREATE
+AU --> UC_LIST
+AU --> UC_DETAIL
+AU --> UC_RENAME
+AU --> UC_DELETE
+AU --> UC_HIST
+AU --> UC_CHAT
+AU --> UC_STREAM
+AU --> UC_UPLOAD
+AU --> UC_FLIST
+AU --> UC_FDEL
+AU --> UC_FDWN
+AU --> UC_MREG
+AU --> UC_MLIST
+AU --> UC_MDET
+AU --> UC_MDEL
+AU --> UC_MTOG
+AU --> UC_MTOOLS
+
+UC_CHAT ..> UC_VSESS : <<include>>
+UC_UPLOAD ..> UC_VSESS : <<include>>
+UC_STREAM ..> UC_SEXT : <<extend>>
+
+UC_CHAT --> AI : proxy request
+UC_STREAM --> AI : proxy request
+AI --> MCP : invoke tools
+AI --> WS : web search
+UC_UPLOAD --> OS : store file
+@enduml

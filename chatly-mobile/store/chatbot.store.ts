@@ -5,7 +5,6 @@ import type {
     StreamingStatus,
     StatusHint,
     ToolCallState,
-    InterruptData,
 } from '@/types/agent';
 
 interface ChatbotState {
@@ -21,7 +20,6 @@ interface ChatbotState {
     streamingContent: string;
     statusHint: StatusHint;
     toolCalls: ToolCallState[];
-    interrupt: InterruptData | null;
 
     // Composer state
     useWebSearch: boolean;
@@ -50,7 +48,6 @@ interface ChatbotState {
     setToolCalls: (calls: ToolCallState[]) => void;
     addToolCall: (call: ToolCallState) => void;
     updateToolCall: (toolName: string, update: Partial<ToolCallState>) => void;
-    setInterrupt: (data: InterruptData | null) => void;
     resetStreaming: () => void;
 
     // Actions — composer
@@ -68,7 +65,6 @@ export const useChatbotStore = create<ChatbotState>((set) => ({
     streamingContent: '',
     statusHint: 'thinking',
     toolCalls: [],
-    interrupt: null,
     useWebSearch: false,
     selectedMcpIds: [],
     draftsBySession: {},
@@ -116,17 +112,12 @@ export const useChatbotStore = create<ChatbotState>((set) => ({
                 tc.tool === toolName && tc.status === 'running' ? { ...tc, ...update } : tc,
             ),
         })),
-    setInterrupt: (data) => {
-        console.log("[STORE] INTERRUPT set data: ", data);
-        set({ interrupt: data })
-    },
     resetStreaming: () =>
         set({
             streamingStatus: 'idle',
             streamingContent: '',
             statusHint: 'thinking',
             toolCalls: [],
-            interrupt: null,
         }),
 
     setUseWebSearch: (value) => set({ useWebSearch: value }),

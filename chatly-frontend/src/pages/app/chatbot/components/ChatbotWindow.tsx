@@ -48,7 +48,7 @@ export function ChatbotWindow({ sessionId, sidebarCollapsed, onToggleSidebar }: 
         setDraft,
     } = useChatbotStore();
 
-    const { startStream, cancelStream, resumeStream, toolCalls, interrupt } = useAgentStream(sessionId);
+    const { startStream, cancelStream, toolCalls } = useAgentStream(sessionId);
     const messages = sessionId ? (messagesBySession[sessionId] ?? []) : [];
     const session = sessions.find((s) => s.id === sessionId);
     const isStreaming =
@@ -264,9 +264,6 @@ export function ChatbotWindow({ sessionId, sidebarCollapsed, onToggleSidebar }: 
                 <ChatbotMessageList
                     messages={messages}
                     sessionId={sessionId}
-                    interrupt={interrupt}
-                    onApprove={() => resumeStream(sessionId, true)}
-                    onReject={() => resumeStream(sessionId, false)}
                     onEdit={handleEdit}
                     onRetry={handleRetry}
                     onRetryLast={handleRetryLast}
@@ -287,7 +284,7 @@ export function ChatbotWindow({ sessionId, sidebarCollapsed, onToggleSidebar }: 
                 isStreaming={isStreaming}
                 onCancel={cancelStream}
                 onSend={handleSend}
-                disabled={isStreaming || interrupt !== null}
+                disabled={isStreaming}
             />
 
             {/* Forward agent message to chat conversation */}
