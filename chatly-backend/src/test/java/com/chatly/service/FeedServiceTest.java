@@ -6,7 +6,9 @@ import com.chatly.mapper.PostMapper;
 import com.chatly.model.enums.PostVisibility;
 import com.chatly.model.mongo.Post;
 import com.chatly.repository.mongo.PostRepository;
+import com.chatly.repository.mongo.SavedPostRepository;
 import com.chatly.repository.postgres.ContactRepository;
+import com.chatly.repository.postgres.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -41,6 +43,12 @@ class FeedServiceTest {
     @Mock
     private PostMapper postMapper;
 
+        @Mock
+        private UserRepository userRepository;
+
+        @Mock
+        private SavedPostRepository savedPostRepository;
+
     @InjectMocks
     private FeedService feedService;
 
@@ -60,6 +68,9 @@ class FeedServiceTest {
                     .createdAt(post.getCreatedAt())
                     .build();
         });
+                when(userRepository.findAllById(any())).thenReturn(Collections.emptyList());
+                when(savedPostRepository.findByUserIdAndPostIdIn(anyString(), anyList()))
+                        .thenReturn(Collections.emptyList());
     }
 
     @Test
@@ -84,16 +95,27 @@ class FeedServiceTest {
     }
 
     @Test
-    void getHomeFeed_emptyFollowing_shouldReturnEmptyFeed() {
+    void getHomeFeed_emptyFollowing_shouldIncludeOwnPosts() {
         when(contactRepository.findFollowingIds(USER_UUID))
                 .thenReturn(Collections.emptyList());
+        when(contactRepository.findBlockedUserIds(USER_UUID))
+                .thenReturn(Collections.emptyList());
+
+        Post selfPost = buildPost("post-self", USER_ID, Instant.parse("2026-04-30T10:05:00Z"));
+        when(postRepository.findFeedPosts(anyList(), anyList(), anyList(), any(Instant.class), eq(3)))
+                .thenReturn(List.of(selfPost));
 
         FeedResponse response = feedService.getHomeFeed(USER_ID, null, 2);
 
-        assertThat(response.getItems()).isEmpty();
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<String>> authorIdsCaptor = ArgumentCaptor.forClass(List.class);
+        verify(postRepository).findFeedPosts(authorIdsCaptor.capture(), anyList(), anyList(), any(Instant.class), eq(3));
+        assertThat(authorIdsCaptor.getValue()).containsExactly(USER_ID);
+
+        assertThat(response.getItems()).extracting(PostResponse::getId)
+                .containsExactly("post-self");
         assertThat(response.getNextCursor()).isNull();
         assertThat(response.isHasMore()).isFalse();
-        verifyNoInteractions(postRepository);
     }
 
     @Test
@@ -157,7 +179,7 @@ class FeedServiceTest {
     }
 
     @Test
-    void getHomeFeed_excludesOwnPosts() {
+    void getHomeFeed_includesOwnPosts() {
         when(contactRepository.findFollowingIds(USER_UUID))
                 .thenReturn(List.of(USER_ID, FOLLOWING_ID));
         when(contactRepository.findBlockedUserIds(USER_UUID))
@@ -171,7 +193,7 @@ class FeedServiceTest {
         ArgumentCaptor<List<String>> authorIdsCaptor = ArgumentCaptor.forClass(List.class);
         verify(postRepository).findFeedPosts(authorIdsCaptor.capture(), anyList(), anyList(), any(Instant.class), eq(3));
 
-        assertThat(authorIdsCaptor.getValue()).containsExactly(FOLLOWING_ID);
+                assertThat(authorIdsCaptor.getValue()).containsExactly(USER_ID, FOLLOWING_ID);
     }
 
     private Post buildPost(String id, String authorId, Instant createdAt) {

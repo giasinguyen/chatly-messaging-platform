@@ -15,7 +15,7 @@ public interface PostRepositoryCustom {
     /**
      * Fetches posts for the home/user feed using cursor-based pagination.
      *
-     * @param authorIds    posts authored by any of these IDs (typically: followingIds minus self)
+    * @param authorIds    posts authored by any of these IDs (typically: followingIds plus self)
      * @param excludeIds   posts authored by any of these IDs are excluded (blocked users + self)
      * @param visibilities only posts with one of these visibility values are included
      * @param before       return only posts created strictly before this instant (the cursor)

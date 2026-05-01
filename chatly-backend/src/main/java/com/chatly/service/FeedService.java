@@ -8,8 +8,12 @@ import com.chatly.model.enums.PostVisibility;
 import com.chatly.model.enums.ReactionType;
 import com.chatly.model.mongo.Post;
 import com.chatly.model.mongo.PostReaction;
+import com.chatly.model.mongo.SavedPost;
+import com.chatly.model.postgres.User;
 import com.chatly.repository.mongo.PostRepository;
+import com.chatly.repository.mongo.SavedPostRepository;
 import com.chatly.repository.postgres.ContactRepository;
+import com.chatly.repository.postgres.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -22,7 +26,9 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Slf4j
 @Service
@@ -36,10 +42,12 @@ public class FeedService {
     private final PostRepository postRepository;
     private final ContactRepository contactRepository;
     private final PostMapper postMapper;
+    private final UserRepository userRepository;
+    private final SavedPostRepository savedPostRepository;
 
     /**
      * Aggregates posts from all users the requester follows, newest first, cursor-based.
-     * Excludes the requester's own posts, posts from blocked users, and deleted posts.
+     * Includes the requester's own posts, excludes blocked users and deleted posts.
      * FOLLOWERS_ONLY posts are included because the requester is a follower by definition.
      */
     @Transactional(readOnly = true)
@@ -47,17 +55,12 @@ public class FeedService {
         UUID userUuid = UUID.fromString(userId);
 
         List<String> followingIds = contactRepository.findFollowingIds(userUuid);
-        if (followingIds.isEmpty()) {
-            log.debug("Home feed empty — user={} has no following", userId);
-            return emptyFeed();
-        }
-
         List<String> blockedIds = contactRepository.findBlockedUserIds(userUuid);
 
-        // Exclude self and blocked authors from the author whitelist
-        List<String> authorIds = followingIds.stream()
-                .filter(id -> !id.equals(userId) && !blockedIds.contains(id))
-                .toList();
+        List<String> authorIds = Stream.concat(followingIds.stream(), Stream.of(userId))
+            .distinct()
+            .filter(id -> !blockedIds.contains(id))
+            .toList();
         if (authorIds.isEmpty()) {
             return emptyFeed();
         }
@@ -140,8 +143,12 @@ public class FeedService {
         boolean hasMore = raw.size() > size;
         List<Post> page = hasMore ? raw.subList(0, size) : raw;
 
+        Map<String, User> authors = loadAuthors(page);
+        List<String> postIds = page.stream().map(Post::getId).toList();
+        List<String> savedPostIds = loadSavedPostIds(requesterId, postIds);
+
         List<PostResponse> items = page.stream()
-                .map(post -> toResponse(post, requesterId))
+            .map(post -> toResponse(post, requesterId, authors, savedPostIds))
                 .toList();
 
         String nextCursor = hasMore ? page.get(page.size() - 1).getCreatedAt().toString() : null;
@@ -154,9 +161,61 @@ public class FeedService {
     }
 
     private PostResponse toResponse(Post post, String requesterId) {
+        return toResponse(post, requesterId, Collections.emptyMap(), Collections.emptyList());
+    }
+
+    private PostResponse toResponse(
+            Post post,
+            String requesterId,
+            Map<String, User> authors,
+            List<String> savedPostIds
+    ) {
         PostResponse response = postMapper.toResponse(post);
         response.setReactions(buildReactionSummary(post, requesterId));
+        response.setSavedByMe(savedPostIds.contains(post.getId()));
+
+        User author = authors.get(post.getAuthorId());
+        if (author != null) {
+            response.setAuthorUsername(author.getUsername());
+            response.setAuthorDisplayName(author.getDisplayName());
+            response.setAuthorAvatarUrl(author.getAvatarUrl());
+        }
+
         return response;
+    }
+
+    private List<String> loadSavedPostIds(String userId, List<String> postIds) {
+        if (postIds.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        return savedPostRepository.findByUserIdAndPostIdIn(userId, postIds).stream()
+                .map(SavedPost::getPostId)
+                .toList();
+    }
+
+    private Map<String, User> loadAuthors(List<Post> posts) {
+        List<UUID> authorIds = posts.stream()
+                .map(Post::getAuthorId)
+                .distinct()
+                .map(this::safeUuid)
+                .filter(id -> id != null)
+                .toList();
+
+        if (authorIds.isEmpty()) {
+            return Collections.emptyMap();
+        }
+
+        return userRepository.findAllById(authorIds).stream()
+                .collect(Collectors.toMap(user -> user.getId().toString(), Function.identity()));
+    }
+
+    private UUID safeUuid(String value) {
+        try {
+            return UUID.fromString(value);
+        } catch (IllegalArgumentException ex) {
+            return null;
+        }
     }
 
     private List<PostReactionSummary> buildReactionSummary(Post post, String requesterId) {

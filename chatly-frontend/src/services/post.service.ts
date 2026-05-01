@@ -3,6 +3,7 @@ import { HOME_FEED_PAGE_SIZE } from "@/constants/feed";
 import type { ApiResponse } from "@/types/auth";
 import type {
     Post,
+    PostComment,
     PostPage,
     FeedResponse,
     CreatePostRequest,
@@ -38,6 +39,22 @@ export const postService = {
         return response.data;
     },
 
+    getUserFeed: async (
+        userId: string,
+        cursor: string | null,
+        size: number = HOME_FEED_PAGE_SIZE,
+    ): Promise<ApiResponse<FeedResponse>> => {
+        const params: Record<string, string | number> = { size };
+        if (cursor) {
+            params.cursor = cursor;
+        }
+        const response = await axiosClient.get<ApiResponse<FeedResponse>>(
+            `/api/feed/user/${userId}`,
+            { params },
+        );
+        return response.data;
+    },
+
     getByAuthor: async (
         authorId: string,
         page = 0,
@@ -65,6 +82,32 @@ export const postService = {
 
     delete: async (postId: string): Promise<void> => {
         await axiosClient.delete(`/api/posts/${postId}`);
+    },
+
+    savePost: async (postId: string): Promise<void> => {
+        await axiosClient.put(`/api/posts/${postId}/save`);
+    },
+
+    unsavePost: async (postId: string): Promise<void> => {
+        await axiosClient.delete(`/api/posts/${postId}/save`);
+    },
+
+    getComments: async (postId: string): Promise<ApiResponse<PostComment[]>> => {
+        const response = await axiosClient.get<ApiResponse<PostComment[]>>(
+            `/api/posts/${postId}/comments`,
+        );
+        return response.data;
+    },
+
+    addComment: async (
+        postId: string,
+        content: string,
+    ): Promise<ApiResponse<PostComment>> => {
+        const response = await axiosClient.post<ApiResponse<PostComment>>(
+            `/api/posts/${postId}/comments`,
+            { content },
+        );
+        return response.data;
     },
 
     react: async (postId: string, payload: ReactToPostRequest): Promise<ApiResponse<Post>> => {

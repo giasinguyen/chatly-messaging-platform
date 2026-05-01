@@ -45,12 +45,16 @@ import { conversationService } from "@/services/conversation.service";
 import { followService } from "@/services/follow.service";
 import { userService } from "@/services/user.service";
 import { storyService } from "@/services/story.service";
+import { postService } from "@/services/post.service";
 import { useAuthStore } from "@/store/auth.store";
 import { useContactStore } from "@/store/contact.store";
 import type { UserResponse } from "@/types/auth";
 import type { ContactResponse } from "@/types/contact";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { PostCard } from "@/features/social/components/PostCard";
+import type { Post } from "@/types/post";
+import { HOME_FEED_PAGE_SIZE } from "@/constants/feed";
 
 type ConfirmDialogType = "block" | "unblock" | "remove";
 
@@ -65,6 +69,10 @@ export default function UsernameProfilePage() {
     const [targetUserId, setTargetUserId] = useState<string | null>(null);
     const [initialIsFollowing, setInitialIsFollowing] = useState<boolean | undefined>(undefined);
     const [hasActiveStories, setHasActiveStories] = useState(false);
+    const [posts, setPosts] = useState<Post[]>([]);
+    const [postCursor, setPostCursor] = useState<string | null>(null);
+    const [hasMorePosts, setHasMorePosts] = useState(false);
+    const [loadingPosts, setLoadingPosts] = useState(false);
     const [loading, setLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState(false);
     const [confirmDialog, setConfirmDialog] = useState<ConfirmDialogType | null>(null);
@@ -115,6 +123,33 @@ export default function UsernameProfilePage() {
         loadData();
     }, [loadData]);
 
+    const loadPosts = useCallback(
+        async (cursor: string | null = null) => {
+            if (!targetUserId) return;
+            if (loadingPosts) return;
+            setLoadingPosts(true);
+            try {
+                const res = await postService.getUserFeed(targetUserId, cursor, HOME_FEED_PAGE_SIZE);
+                if (res.code !== 1000 || !res.result) return;
+
+                const incoming = res.result.items;
+                setPosts((prev) => {
+                    if (!cursor) {
+                        return incoming;
+                    }
+                    const ids = new Set(prev.map((post) => post.id));
+                    const unique = incoming.filter((post) => !ids.has(post.id));
+                    return [...prev, ...unique];
+                });
+                setPostCursor(res.result.nextCursor);
+                setHasMorePosts(res.result.hasMore);
+            } finally {
+                setLoadingPosts(false);
+            }
+        },
+        [targetUserId, loadingPosts],
+    );
+
     const isOwnProfile = currentUser?.id === targetUserId;
 
     // ── Derived state ────────────────────────────────────────────────────────
@@ -132,6 +167,16 @@ export default function UsernameProfilePage() {
         contactStatus === "PENDING" && contactRecord?.user.id === currentUser?.id;
     const theySentRequest =
         contactStatus === "PENDING" && contactRecord?.contact.id === currentUser?.id;
+
+    useEffect(() => {
+        if (!targetUserId || isLimited) {
+            setPosts([]);
+            setPostCursor(null);
+            setHasMorePosts(false);
+            return;
+        }
+        void loadPosts(null);
+    }, [targetUserId, isLimited, loadPosts]);
 
     // ── Action handlers ───────────────────────────────────────────────────────
     const handleSendFriendRequest = async () => {
@@ -459,11 +504,38 @@ export default function UsernameProfilePage() {
                     </nav>
                 </div>
 
-                {/* Placeholder Bento Grid Content (Posts) */}
-                <div className="grid grid-cols-3 gap-2 md:gap-3 opacity-50">
-                     <div className="col-span-3 py-10 text-center text-muted-foreground">
-                         No posts to display yet.
-                     </div>
+                {/* Posts */}
+                <div className="flex flex-col gap-4">
+                    {isLimited ? (
+                        <div className="py-10 text-center text-muted-foreground">
+                            Posts are hidden due to privacy settings.
+                        </div>
+                    ) : posts.length === 0 && !loadingPosts ? (
+                        <div className="py-10 text-center text-muted-foreground">
+                            No posts to display yet.
+                        </div>
+                    ) : (
+                        posts.map((post) => <PostCard key={post.id} post={post} />)
+                    )}
+
+                    {loadingPosts && (
+                        <div className="flex justify-center py-4">
+                            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                        </div>
+                    )}
+
+                    {!isLimited && hasMorePosts && !loadingPosts && postCursor && (
+                        <div className="flex justify-center py-2">
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => void loadPosts(postCursor)}
+                            >
+                                Load more posts
+                            </Button>
+                        </div>
+                    )}
                 </div>
             </div>
 

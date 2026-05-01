@@ -1,9 +1,11 @@
 package com.chatly.controller;
 
 import com.chatly.dto.request.CreatePostRequest;
+import com.chatly.dto.request.CreatePostCommentRequest;
 import com.chatly.dto.request.ReactToPostRequest;
 import com.chatly.dto.request.UpdatePostRequest;
 import com.chatly.dto.response.ApiResponse;
+import com.chatly.dto.response.PostCommentResponse;
 import com.chatly.dto.response.PostResponse;
 import com.chatly.service.PostService;
 import jakarta.validation.Valid;
@@ -12,6 +14,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/posts")
@@ -61,6 +65,34 @@ public class PostController {
     ApiResponse<Void> delete(@PathVariable String postId) {
         postService.delete(postId, getAuthenticatedUserId());
         return ApiResponse.<Void>builder().build();
+    }
+
+    @PutMapping("/{postId}/save")
+    ApiResponse<Void> save(@PathVariable String postId) {
+        postService.save(postId, getAuthenticatedUserId());
+        return ApiResponse.<Void>builder().build();
+    }
+
+    @DeleteMapping("/{postId}/save")
+    ApiResponse<Void> unsave(@PathVariable String postId) {
+        postService.unsave(postId, getAuthenticatedUserId());
+        return ApiResponse.<Void>builder().build();
+    }
+
+    @GetMapping("/{postId}/comments")
+    ApiResponse<List<PostCommentResponse>> getComments(@PathVariable String postId) {
+        return ApiResponse.<List<PostCommentResponse>>builder()
+                .result(postService.getComments(postId))
+                .build();
+    }
+
+    @PostMapping("/{postId}/comments")
+    ApiResponse<PostCommentResponse> addComment(
+            @PathVariable String postId,
+            @RequestBody @Valid CreatePostCommentRequest request) {
+        return ApiResponse.<PostCommentResponse>builder()
+                .result(postService.addComment(postId, getAuthenticatedUserId(), request))
+                .build();
     }
 
     @PutMapping("/{postId}/reactions")

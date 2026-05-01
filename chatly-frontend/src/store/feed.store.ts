@@ -16,6 +16,7 @@ interface FeedState {
     loadMore: (cursor?: string | null) => Promise<void>;
     flushPendingPosts: () => void;
     addPendingPost: (post: Post) => void;
+    addNewPost: (post: Post) => void;
     updatePost: (postId: string, updates: Partial<Post>) => void;
     removePost: (postId: string) => void;
 }
@@ -126,6 +127,18 @@ export const useFeedStore = create<FeedState>((set, get) => ({
                 return state;
             }
             return { pendingNewPosts: [post, ...state.pendingNewPosts] };
+        });
+    },
+
+    addNewPost: (post) => {
+        set((state) => {
+            if (state.posts.some((p) => p.id === post.id)) {
+                return state;
+            }
+            return {
+                posts: [post, ...state.posts],
+                pendingNewPosts: state.pendingNewPosts.filter((p) => p.id !== post.id),
+            };
         });
     },
 
