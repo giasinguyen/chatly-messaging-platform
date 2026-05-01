@@ -6,7 +6,6 @@ import { Globe, Users, Lock, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
 import {
     Select,
     SelectContent,
@@ -37,9 +36,15 @@ const schema = z.object({
 
 type FormValues = z.infer<typeof schema>;
 
+const isPostVisibility = (value: string): value is PostVisibility =>
+    value === "PUBLIC" ||
+    value === "FOLLOWERS_ONLY" ||
+    value === "FRIENDS_ONLY" ||
+    value === "ONLY_ME";
+
 export default function CreatePage() {
     const user = useAuthStore((s) => s.user);
-    const addPendingPost = useFeedStore((s) => s.addPendingPost);
+    const addNewPost = useFeedStore((s) => s.addNewPost);
     const navigate = useNavigate();
     const [mediaUrls, setMediaUrls] = useState<string[]>([]);
 
@@ -57,6 +62,12 @@ export default function CreatePage() {
 
     const visibility = watch("visibility");
 
+    const handleVisibilityChange = (value: string) => {
+        if (isPostVisibility(value)) {
+            setValue("visibility", value);
+        }
+    };
+
     const handleCancel = () => {
         if (isSubmitting) return;
         reset();
@@ -73,7 +84,7 @@ export default function CreatePage() {
             });
 
             if (response.code === 1000 && response.result) {
-                addPendingPost(response.result);
+                addNewPost(response.result);
                 toast.success("Post created.");
                 reset();
                 setMediaUrls([]);
@@ -130,12 +141,12 @@ export default function CreatePage() {
                         className="mt-6 flex flex-col gap-4"
                     >
                         <div>
-                            <Textarea
+                            <textarea
                                 {...register("content")}
                                 placeholder="What is happening?"
                                 rows={5}
                                 disabled={isSubmitting}
-                                className="resize-none rounded-2xl bg-muted/40"
+                                className="w-full resize-none rounded-2xl bg-muted/40 border border-input px-3 py-2 text-base placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                             />
                             {errors.content && (
                                 <p className="mt-1 text-xs text-red-500">
@@ -153,9 +164,7 @@ export default function CreatePage() {
                         <div className="flex flex-wrap items-center justify-between gap-3">
                             <Select
                                 value={visibility}
-                                onValueChange={(value) =>
-                                    setValue("visibility", value as PostVisibility)
-                                }
+                                onValueChange={handleVisibilityChange}
                                 disabled={isSubmitting}
                             >
                                 <SelectTrigger className="h-9 w-44 rounded-xl text-xs">
