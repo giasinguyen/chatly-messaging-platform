@@ -36,15 +36,26 @@ export function PinnedMessagesBanner({
         flexDirection: 'row',
         alignItems: 'center',
         paddingHorizontal: 12,
-        paddingVertical: 8,
-        backgroundColor: '#FFF8E1',
-        borderBottomWidth: 0.5,
+        paddingVertical: 9,
+        backgroundColor: Colors.ctaLight,
+        borderBottomWidth: 1,
         borderBottomColor: Colors.borderLight,
         gap: 8,
       }}
     >
-      <TouchableOpacity onPress={onViewAll} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-        <Ionicons name="pin" size={14} color="#F59E0B" />
+      <TouchableOpacity
+        onPress={onViewAll}
+        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        style={{
+          width: 20,
+          height: 20,
+          borderRadius: 10,
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: 'rgba(0,113,227,0.12)',
+        }}
+      >
+        <Ionicons name="pin" size={12} color={Colors.cta} />
       </TouchableOpacity>
 
       <TouchableOpacity
@@ -52,16 +63,28 @@ export function PinnedMessagesBanner({
         onPress={() => onPress(current.id)}
         activeOpacity={0.7}
       >
-        <Text style={{ fontSize: 12, color: '#D97706', fontWeight: '600' }} numberOfLines={1}>
+        <Text style={{ fontSize: 11, color: Colors.cta, fontWeight: '700' }} numberOfLines={1}>
           Pinned {pinnedMessages.length > 1 ? `(${pinnedMessages.length})` : ''}
         </Text>
-        <Text style={{ fontSize: 12, color: Colors.text }} numberOfLines={1}>
+        <Text style={{ fontSize: 12, color: Colors.textMuted }} numberOfLines={1}>
           {preview}
         </Text>
       </TouchableOpacity>
 
       {pinnedMessages.length > 1 && (
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 3,
+            borderWidth: 1,
+            borderColor: Colors.borderLight,
+            borderRadius: 999,
+            backgroundColor: Colors.bgCard,
+            paddingHorizontal: 4,
+            paddingVertical: 1,
+          }}
+        >
           <TouchableOpacity onPress={onPrev} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
             <Ionicons name="chevron-back" size={16} color={Colors.textMuted} />
           </TouchableOpacity>
@@ -77,9 +100,16 @@ export function PinnedMessagesBanner({
       <TouchableOpacity
         onPress={onViewAll}
         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-        style={{ paddingHorizontal: 4 }}
+        style={{
+          paddingHorizontal: 6,
+          paddingVertical: 2,
+          borderRadius: 999,
+          borderWidth: 1,
+          borderColor: Colors.borderLight,
+          backgroundColor: Colors.bgCard,
+        }}
       >
-        <Ionicons name="list-outline" size={16} color="#D97706" />
+        <Ionicons name="list-outline" size={14} color={Colors.cta} />
       </TouchableOpacity>
 
       <TouchableOpacity

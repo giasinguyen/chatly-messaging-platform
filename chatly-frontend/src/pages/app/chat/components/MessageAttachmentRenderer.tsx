@@ -162,22 +162,20 @@ export function MessageAttachmentRenderer({
                 const isVideo = att.type?.startsWith("video/");
                 if (isVideo) {
                     return (
-                        <div key={i} className="max-w-xs">
+                        <div
+                            key={i}
+                            className={cn(
+                                "max-w-xs rounded-xl border p-1.5",
+                                isMe
+                                    ? "border-white/20 bg-black/10"
+                                    : "border-border/60 bg-background/80",
+                            )}
+                        >
                             <video
                                 src={att.url}
                                 controls
                                 className="rounded-xl max-w-full max-h-60 block"
                             />
-                            {att.name && (
-                                <p
-                                    className={cn(
-                                        "text-[11px] mt-1 truncate",
-                                        isMe ? "text-white/70" : "text-muted-foreground",
-                                    )}
-                                >
-                                    {att.name}
-                                </p>
-                            )}
                         </div>
                     );
                 }
@@ -187,10 +185,10 @@ export function MessageAttachmentRenderer({
                         href={att.url}
                         download={att.name}
                         className={cn(
-                            "flex items-center gap-2 rounded-xl px-3 py-2 text-xs no-underline",
+                            "flex items-center gap-2 rounded-xl px-3 py-2 text-xs no-underline border transition-colors",
                             isMe
-                                ? "bg-white/20 text-white hover:bg-white/30"
-                                : "bg-muted/60 text-foreground hover:bg-muted border border-border/50",
+                                ? "border-white/20 bg-black/15 text-white hover:bg-black/25"
+                                : "border-border/60 bg-background/80 text-foreground hover:bg-muted/70",
                         )}
                     >
                         {getFileIcon(att.type, att.name)}

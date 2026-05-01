@@ -2,13 +2,14 @@ import { useState, useEffect, useCallback } from 'react';
 import { View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { VideoView, useVideoPlayer } from 'expo-video';
 import { Ionicons } from '@expo/vector-icons';
+import { Colors } from '@/constants/theme';
 
 interface VideoPlayerProps {
   url: string;
   name?: string;
 }
 
-export function VideoPlayer({ url, name }: VideoPlayerProps) {
+export function VideoPlayer({ url }: VideoPlayerProps) {
   const player = useVideoPlayer({ uri: url }, (videoPlayer) => {
     videoPlayer.loop = false;
   });
@@ -58,7 +59,17 @@ export function VideoPlayer({ url, name }: VideoPlayerProps) {
   }, [error, hasStarted, isLoading, isPlaying, player, url]);
 
   return (
-    <View className="overflow-hidden rounded-2xl bg-black" style={{ width: 260, height: 180, marginBottom: 8 }}>
+    <View
+      className="overflow-hidden rounded-2xl"
+      style={{
+        width: 260,
+        height: 180,
+        marginBottom: 8,
+        borderWidth: 1,
+        borderColor: Colors.borderLight,
+        backgroundColor: Colors.bgCard,
+      }}
+    >
       <VideoView
         player={player}
         contentFit="contain"
@@ -71,29 +82,20 @@ export function VideoPlayer({ url, name }: VideoPlayerProps) {
         <TouchableOpacity
           onPress={handleTogglePlay}
           activeOpacity={0.9}
-          className="absolute inset-0 items-center justify-center bg-black/20"
+          className="absolute inset-0 items-center justify-center"
+          style={{ backgroundColor: Colors.overlay }}
         >
-          <View className="h-16 w-16 items-center justify-center rounded-full bg-white/20 blur-md" style={{ backgroundColor: 'rgba(255,255,255,0.2)' }}>
-            <View className="h-12 w-12 items-center justify-center rounded-full bg-white">
-              <Ionicons name="play" size={24} color="black" style={{ marginLeft: 3 }} />
+          <View className="h-16 w-16 items-center justify-center rounded-full" style={{ backgroundColor: 'rgba(255,255,255,0.24)' }}>
+            <View className="h-12 w-12 items-center justify-center rounded-full" style={{ backgroundColor: Colors.cta }}>
+              <Ionicons name="play" size={22} color="#fff" style={{ marginLeft: 3 }} />
             </View>
           </View>
-          {name ? (
-            <View className="absolute bottom-3 left-3 right-3 bg-black/40 px-3 py-1.5 rounded-lg">
-              <Text
-                className="text-center text-[10px] font-medium text-white"
-                numberOfLines={1}
-              >
-                {name}
-              </Text>
-            </View>
-          ) : null}
         </TouchableOpacity>
       )}
 
       {isLoading && (
-        <View className="absolute inset-0 items-center justify-center bg-black/10">
-          <ActivityIndicator color="white" />
+        <View className="absolute inset-0 items-center justify-center" style={{ backgroundColor: 'rgba(255,255,255,0.2)' }}>
+          <ActivityIndicator color={Colors.cta} />
         </View>
       )}
 
