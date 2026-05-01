@@ -1,0 +1,37 @@
+@startuml Chatly_Sequence_Login
+title Chatly - Login (Simple)
+
+autonumber
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+
+actor Guest as G
+participant "Client" as Client
+participant "AuthController\nPOST /api/auth/login" as AuthController
+participant "AuthService" as AuthService
+participant "UserRepository" as UserRepo
+participant "UserSessionService" as SessionService
+participant "JwtProvider" as JwtProvider
+participant "GlobalExceptionHandler" as ExceptionHandler
+
+G -> Client: Enter identifier + password
+Client -> AuthController: LoginRequest
+AuthController -> AuthService: login(request, httpRequest)
+
+alt Invalid credentials or email not verified
+  AuthService -> ExceptionHandler: AppException(...)
+  ExceptionHandler --> Client: HTTP 4xx\nApiResponse{error}
+else Success
+  AuthService -> UserRepo: find user
+  UserRepo --> AuthService: user
+  AuthService -> SessionService: startNewLoginSession(...)
+  SessionService --> AuthService: sessionId
+  AuthService -> JwtProvider: generate access + refresh token
+  JwtProvider --> AuthService: tokens
+  AuthService --> AuthController: AuthResponse
+  AuthController --> Client: HTTP 200\nApiResponse{code:1000, result}
+end
+
+Client --> G: Show login result
+
+@enduml

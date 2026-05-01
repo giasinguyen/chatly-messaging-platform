@@ -1,0 +1,43 @@
+@startuml Chatly_Sequence_Logout
+title Chatly - Logout (Simple)
+
+autonumber
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+
+actor "Authenticated User" as U
+participant "Client" as Client
+participant "AuthController\nPOST /api/auth/logout" as AuthController
+participant "AuthService" as AuthService
+participant "JwtProvider" as JwtProvider
+participant "UserSessionService" as SessionService
+participant "TokenBlacklistService" as BlacklistService
+participant "GlobalExceptionHandler" as ExceptionHandler
+
+U -> Client: Click logout
+Client -> AuthController: LogoutRequest{token, refreshToken?}
+
+alt Invalid request body
+  AuthController -> ExceptionHandler: MethodArgumentNotValidException
+  ExceptionHandler --> Client: HTTP 400\nApiResponse{error}
+else Valid request
+  AuthController -> AuthService: logout(request)
+  AuthService -> JwtProvider: validate access token
+  JwtProvider --> AuthService: valid?
+
+  opt Access token is valid
+    AuthService -> SessionService: revokeSession(...)
+    AuthService -> BlacklistService: blacklist access token
+  end
+
+  opt Refresh token provided and valid
+    AuthService -> BlacklistService: blacklist refresh token
+  end
+
+  AuthService --> AuthController: done
+  AuthController --> Client: HTTP 200\nApiResponse{code:1000, message:"Logout successful"}
+end
+
+Client --> U: Redirect to login
+
+@enduml

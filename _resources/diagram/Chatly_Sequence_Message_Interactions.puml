@@ -1,0 +1,33 @@
+@startuml Chatly_Sequence_Message_Interactions
+title Chatly - Message Interactions (Simple)
+
+autonumber
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+
+actor "Authenticated User" as U
+participant "Client" as Client
+participant "MessageController\n/api/messages/*" as MessageController
+participant "MessageService" as MessageService
+participant "MessageRepository" as MessageRepo
+participant "MongoTemplate" as MongoTemplate
+participant "Topic /topic/conversation.{id}" as TopicConversation
+participant "GlobalExceptionHandler" as ExceptionHandler
+
+U -> Client: Choose action (react/edit/recall)
+Client -> MessageController: request(messageId, action)
+MessageController -> MessageService: applyAction(messageId, userId, action)
+MessageService -> MessageRepo: findById(messageId)
+
+alt Invalid action, permission, or time rule
+  MessageService -> ExceptionHandler: AppException(...)
+  ExceptionHandler --> Client: HTTP 4xx\nApiResponse{error}
+else Success
+  MessageService -> MongoTemplate: update message state
+  MongoTemplate --> MessageService: updated
+  MessageService -> TopicConversation: ChatEvent{EDIT/REACT/RECALL}
+  MessageService --> MessageController: MessageResponse
+  MessageController --> Client: HTTP 200\nApiResponse{code:1000, result}
+end
+
+@enduml

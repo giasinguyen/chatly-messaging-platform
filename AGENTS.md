@@ -419,6 +419,7 @@ The agent is an internal service. Authentication is via `X-Internal-API-Key` hea
 | `/app/chat.seen` | client → server | backend | Mark message as seen |
 | `/topic/conversation/{id}` | server → client | backend | Incoming messages for a conversation |
 | `/topic/presence` | server → client | backend | Online/offline broadcast |
+| `/topic/feed/{userId}` | server → client | backend | New posts for the user's home feed |
 | `/queue/errors` | server → client | backend | Private error delivery |
 
 ---

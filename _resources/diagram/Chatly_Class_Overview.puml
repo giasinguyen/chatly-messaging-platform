@@ -1,0 +1,101 @@
+@startuml Chatly_Class_Overview
+!theme plain
+top to bottom direction
+
+skinparam package {
+  BackgroundColor #FAFAFA
+  BorderColor #ADB5BD
+  FontSize 13
+  FontStyle bold
+}
+skinparam class {
+  BackgroundColor #F8F9FA
+  BorderColor #6c757d
+  FontSize 11
+  HeaderBackgroundColor #DEE2E6
+}
+skinparam arrow {
+  Color #495057
+  FontSize 10
+}
+skinparam linetype ortho
+
+title Chatly -- Class Diagram: Cross-Module Overview
+
+package "chatly-frontend\n(React)" #EEF6FF {
+  class FE_Services   <<Services>>
+  class FE_Hooks      <<Hooks/Context>>
+  class FE_Stores     <<Zustand Stores>>
+  FE_Services ..> FE_Hooks
+  FE_Services ..> FE_Stores
+}
+
+package "chatly-mobile\n(Expo React Native)" #FFF3E0 {
+  class MB_Services   <<Services>>
+  class MB_Hooks      <<Hooks/Context>>
+  class MB_Stores     <<Stores>>
+  MB_Services ..> MB_Hooks
+  MB_Services ..> MB_Stores
+}
+
+package "chatly-backend\n(Spring Boot)" #E8F5E9 {
+  class BE_Controllers   <<Controllers>>
+  class BE_Services      <<Services>>
+  class BE_Repositories  <<Repositories>>
+  class BE_Security      <<Security/WebSocket>>
+  class AgentProxyClient <<Client>>
+
+  BE_Controllers ..> BE_Services
+  BE_Controllers ..> AgentProxyClient
+  BE_Services    ..> BE_Repositories
+  BE_Security    ..> BE_Services
+}
+
+package "chatly-agent\n(FastAPI)" #FCE4EC {
+  class AG_Routers     <<Routers>>
+  class AG_Services    <<Services>>
+  class AG_Agents      <<LangGraph Agents>>
+  class AG_Repositories <<Repositories>>
+
+  AG_Routers   ..> AG_Services
+  AG_Services  ..> AG_Agents
+  AG_Services  ..> AG_Repositories
+}
+
+package "Databases & Storage" #FFF9C4 {
+  class PostgreSQL  <<SQL DB>>
+  class MongoDB_BE  <<NoSQL DB\n(backend)>>
+  class MongoDB_AG  <<NoSQL DB\n(agent)>>
+  class Redis       <<Cache>>
+  class Qdrant      <<Vector DB>>
+  class MinIO       <<Object Storage>>
+}
+
+package "External Services" #F3E5F5 {
+  class EmailProvider  <<SMTP>>
+  class ExpoPush       <<Push Gateway>>
+  class Tavily         <<Web Search>>
+  class MCPServers     <<MCP over SSE>>
+}
+
+' ── Cross-module connections ──
+FE_Services  ..> BE_Controllers : REST + STOMP/WS
+MB_Services  ..> BE_Controllers : REST + STOMP/WS
+
+AgentProxyClient ..> AG_Routers : internal REST
+
+BE_Repositories ..> PostgreSQL
+BE_Repositories ..> MongoDB_BE
+BE_Security     ..> Redis
+BE_Services     ..> EmailProvider
+BE_Services     ..> ExpoPush
+
+AG_Repositories ..> MongoDB_AG
+AG_Repositories ..> Qdrant
+AG_Services     ..> MinIO
+AG_Services     ..> Tavily
+AG_Services     ..> MCPServers
+
+BE_Repositories ..> MinIO : file storage
+
+@enduml

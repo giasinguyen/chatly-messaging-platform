@@ -1,5 +1,6 @@
 import { useState, useRef } from "react";
-import { motion } from "framer-motion";
+import { domToPng } from "modern-screenshot";
+import { toast } from "sonner";
 
 import {
     Play,
@@ -17,7 +18,8 @@ import {
     Plus,
     Music,
     RotateCw,
-    Minus
+    Minus,
+    Video
 } from "lucide-react";
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -31,7 +33,10 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
 import { musicService } from "@/services/music.service";
+import { storyService } from "@/services/story.service";
+import { fileService } from "@/services/file.service";
 import type { MusicTrack } from "@/types/music";
+import { StoryType } from "@/types/story";
 
 
 interface CreateStoryModalProps {
@@ -39,7 +44,7 @@ interface CreateStoryModalProps {
     onClose: () => void;
 }
 
-type StoryStep = "choose" | "text" | "photo";
+type StoryStep = "choose" | "text" | "photo" | "video";
 type StoryPrivacy = "public" | "friends" | "custom";
 
 const BACKGROUNDS = [
@@ -82,6 +87,9 @@ export function CreateStoryModal({ isOpen, onClose }: CreateStoryModalProps) {
     // Text Story State
     const [textValue, setTextValue] = useState("");
     const [bgIndex, setBgIndex] = useState(0);
+    const [textPosition, setTextPosition] = useState({ x: 0, y: 0 });
+    const isDragging = useRef(false);
+    const dragStart = useRef({ x: 0, y: 0 });
     const [imageScale, setImageScale] = useState(1);
     const [imageRotation, setImageRotation] = useState(0);
     const [fontSize, setFontSize] = useState(30);
@@ -92,7 +100,17 @@ export function CreateStoryModal({ isOpen, onClose }: CreateStoryModalProps) {
 
     // Photo Story State
     const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+    const [imagePosition, setImagePosition] = useState({ x: 0, y: 0 });
+    const isImageDragging = useRef(false);
+    const imageDragStart = useRef({ x: 0, y: 0 });
+
+    // Video Story State
+    const [videoUrl, setVideoUrl] = useState<string | null>(null);
+    const videoInputRef = useRef<HTMLInputElement>(null);
+
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const [storyFile, setStoryFile] = useState<File | null>(null);
+    const [isSharing, setIsSharing] = useState(false);
 
     // Music State
     const [isMusicModalOpen, setIsMusicModalOpen] = useState(false);
@@ -105,6 +123,111 @@ export function CreateStoryModal({ isOpen, onClose }: CreateStoryModalProps) {
     const [showMusicSticker, setShowMusicSticker] = useState(true);
 
     const previewContainerRef = useRef<HTMLDivElement>(null);
+    const storyRef = useRef<HTMLDivElement>(null);
+
+    const onPointerDown = (e: React.PointerEvent) => {
+        isDragging.current = true;
+        dragStart.current = {
+            x: e.clientX - textPosition.x,
+            y: e.clientY - textPosition.y
+        };
+        e.currentTarget.setPointerCapture(e.pointerId);
+    };
+
+    const onPointerMove = (e: React.PointerEvent) => {
+        if (!isDragging.current) return;
+        let newX = e.clientX - dragStart.current.x;
+        let newY = e.clientY - dragStart.current.y;
+        setTextPosition({ x: newX, y: newY });
+    };
+
+    const onPointerUp = (e: React.PointerEvent) => {
+        isDragging.current = false;
+        e.currentTarget.releasePointerCapture(e.pointerId);
+    };
+
+    const onImagePointerDown = (e: React.PointerEvent) => {
+        isImageDragging.current = true;
+        imageDragStart.current = {
+            x: e.clientX - imagePosition.x,
+            y: e.clientY - imagePosition.y
+        };
+        e.currentTarget.setPointerCapture(e.pointerId);
+    };
+
+    const onImagePointerMove = (e: React.PointerEvent) => {
+        if (!isImageDragging.current) return;
+        let newX = e.clientX - imageDragStart.current.x;
+        let newY = e.clientY - imageDragStart.current.y;
+        setImagePosition({ x: newX, y: newY });
+    };
+
+    const onImagePointerUp = (e: React.PointerEvent) => {
+        isImageDragging.current = false;
+        e.currentTarget.releasePointerCapture(e.pointerId);
+    };
+
+    const handleShare = async () => {
+        setIsSharing(true);
+        try {
+            let mediaUrl = "";
+            if (storyFile) {
+                const uploadRes = await fileService.upload(storyFile);
+                mediaUrl = uploadRes.url;
+            }
+
+            const payload = {
+                type: step === "text" ? StoryType.TEXT : (step === "photo" ? StoryType.PHOTO : StoryType.VIDEO),
+                content: textValue,
+                mediaUrl: mediaUrl,
+                musicUrl: selectedTrack?.audioUrl,
+                musicName: selectedTrack?.name,
+                bgIndex: bgIndex,
+                fontSize: fontSize,
+                privacy: privacy
+            };
+
+            const response = await storyService.create(payload);
+            if (response.code === 1000) {
+                toast.success("Story shared successfully!");
+                handleClose();
+            } else {
+                toast.error(response.message || "Failed to share story");
+            }
+        } catch (error: unknown) {
+            console.error("Failed to share story", error);
+            toast.error("An error occurred while sharing your story");
+        } finally {
+            setIsSharing(false);
+        }
+    };
+
+    const handleExport = async () => {
+        if (step === "video" && videoUrl) {
+            const link = document.createElement("a");
+            link.download = "story-video.mp4";
+            link.href = videoUrl;
+            link.click();
+            return;
+        }
+
+        if (!storyRef.current) return;
+        try {
+            const dataUrl = await domToPng(storyRef.current, {
+                scale: 2, // Higher quality
+                features: {
+                    // Disable features that might cause issues if necessary
+                }
+            });
+            const link = document.createElement("a");
+            link.download = "story.png";
+            link.href = dataUrl;
+            link.click();
+        } catch (err: any) {
+            console.error("Failed to export image", err);
+            alert("Export failed: " + (err?.message || String(err)));
+        }
+    };
 
     const fetchMusic = async (genre: string) => {
         setIsLoadingMusic(true);
@@ -153,7 +276,11 @@ export function CreateStoryModal({ isOpen, onClose }: CreateStoryModalProps) {
     const handleClose = () => {
         setStep("choose");
         setTextValue("");
+        setTextPosition({ x: 0, y: 0 });
         setPhotoUrl(null);
+        setVideoUrl(null);
+        setStoryFile(null);
+        setImagePosition({ x: 0, y: 0 });
         setBgIndex(0);
         setFontSize(30);
         setPrivacy("public");
@@ -164,11 +291,31 @@ export function CreateStoryModal({ isOpen, onClose }: CreateStoryModalProps) {
     };
 
     const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files && e.target.files[0]) {
-            const url = URL.createObjectURL(e.target.files[0]);
+        const file = e.target.files?.[0];
+        if (file) {
+            setStoryFile(file);
+            const url = URL.createObjectURL(file);
             setPhotoUrl(url);
             setStep("photo");
         }
+    };
+
+    const handleVideoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            if (file.size > 5 * 1024 * 1024) {
+                toast.error("Video size must be less than 5MB");
+                return;
+            }
+            setStoryFile(file);
+            const url = URL.createObjectURL(file);
+            setVideoUrl(url);
+            setStep("video");
+        }
+    };
+
+    const triggerVideoInput = () => {
+        videoInputRef.current?.click();
     };
 
     const triggerFileInput = () => {
@@ -195,6 +342,17 @@ export function CreateStoryModal({ isOpen, onClose }: CreateStoryModalProps) {
                                     <ImageIcon className="w-6 h-6" />
                                 </div>
                                 <span className="text-white font-bold text-center px-4">Create a photo story</span>
+                                <div className="absolute inset-0 bg-black/10 opacity-0 group-hover:opacity-100 transition-opacity" />
+                            </button>
+
+                            <button
+                                onClick={triggerVideoInput}
+                                className="w-48 h-72 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-400 flex flex-col items-center justify-center gap-4 hover:scale-105 transition-transform shadow-lg relative overflow-hidden group"
+                            >
+                                <div className="w-14 h-14 bg-white rounded-full flex items-center justify-center text-emerald-500 shadow-md">
+                                    <Video className="w-6 h-6" />
+                                </div>
+                                <span className="text-white font-bold text-center px-4">Create a video story</span>
                                 <div className="absolute inset-0 bg-black/10 opacity-0 group-hover:opacity-100 transition-opacity" />
                             </button>
 
@@ -379,36 +537,6 @@ export function CreateStoryModal({ isOpen, onClose }: CreateStoryModalProps) {
                                     </>
                                 )}
 
-                                {/* Common Text Style Controls (Visible when textValue exists) */}
-                                {textValue && (
-                                    <div className="flex flex-col gap-4 p-4 bg-muted/10 rounded-2xl border border-border/50">
-                                        <div className="flex flex-col gap-2">
-                                            <div className="flex items-center justify-between">
-                                                <label className="text-sm font-semibold text-muted-foreground">Font Size</label>
-                                                <span className="text-xs font-medium bg-muted px-2 py-0.5 rounded-md">{fontSize}px</span>
-                                            </div>
-                                            <Slider
-                                                value={[fontSize]}
-                                                min={12}
-                                                max={100}
-                                                step={1}
-                                                onValueChange={(v) => setFontSize(v[0])}
-                                            />
-                                        </div>
-
-                                        <div className="flex flex-col gap-2">
-                                            <label className="text-sm font-semibold text-muted-foreground">Font Family</label>
-                                            <select
-                                                className="w-full bg-background border border-border rounded-lg p-2 text-sm focus:outline-none"
-                                                value={font}
-                                                onChange={(e) => setFont(e.target.value)}
-                                            >
-                                                {FONTS.map(f => <option key={f} value={f}>{f}</option>)}
-                                            </select>
-                                        </div>
-                                    </div>
-                                )}
-
                                 {/* Music Controls */}
                                 <div className="flex flex-col gap-2">
                                     <div className="flex items-center justify-between">
@@ -424,21 +552,20 @@ export function CreateStoryModal({ isOpen, onClose }: CreateStoryModalProps) {
                                             </Button>
                                         )}
                                     </div>
-                                    <Button
-                                        variant="outline"
+                                    <div
                                         className={cn(
-                                            "w-full justify-start gap-3 h-12 rounded-xl border-border transition-all relative overflow-hidden",
+                                            "w-full flex items-center gap-3 h-12 rounded-xl border border-border px-4 transition-all relative overflow-hidden cursor-pointer hover:bg-muted/50",
                                             selectedTrack && "border-brand bg-brand/5 text-brand"
                                         )}
                                         onClick={handleOpenMusic}
                                     >
-                                        <Music className="w-5 h-5" />
+                                        <Music className="w-5 h-5 flex-shrink-0" />
                                         {selectedTrack ? (
                                             <div className="flex-1 flex items-center justify-between overflow-hidden">
-                                                <span className="truncate font-bold">{selectedTrack.name}</span>
+                                                <span className="truncate font-bold text-sm">{selectedTrack.name}</span>
                                                 <div className="flex items-center gap-1">
                                                     <div
-                                                        className="p-1 hover:bg-brand/10 rounded-md transition-colors"
+                                                        className="p-1.5 hover:bg-brand/10 rounded-md transition-colors"
                                                         onClick={(e) => {
                                                             e.stopPropagation();
                                                             togglePlay(selectedTrack);
@@ -446,25 +573,34 @@ export function CreateStoryModal({ isOpen, onClose }: CreateStoryModalProps) {
                                                     >
                                                         {playingTrackId === selectedTrack.id ? <Pause className="w-4 h-4 fill-current" /> : <Play className="w-4 h-4 fill-current" />}
                                                     </div>
-                                                    <X
-                                                        className="w-4 h-4 hover:text-red-500 cursor-pointer"
+                                                    <div
+                                                        className="p-1.5 hover:bg-red-100 hover:text-red-500 rounded-md transition-colors"
                                                         onClick={(e) => {
                                                             e.stopPropagation();
                                                             setSelectedTrack(null);
                                                             setPlayingTrackId(null);
                                                             if (audioRef.current) audioRef.current.pause();
                                                         }}
-                                                    />
+                                                    >
+                                                        <X className="w-4 h-4" />
+                                                    </div>
                                                 </div>
                                             </div>
-                                        ) : "Add music"}
-                                    </Button>
+                                        ) : <span className="text-sm font-medium">Add music</span>}
+                                    </div>
                                 </div>
                             </div>
 
                             <div className="p-4 border-t border-border flex gap-3">
                                 <Button variant="secondary" className="flex-1" onClick={handleClose}>Discard</Button>
-                                <Button className="flex-1">Share to story</Button>
+                                <Button variant="outline" className="flex-1" onClick={handleExport}>Export</Button>
+                                <Button 
+                                    className="flex-1 rounded-xl h-12 font-bold bg-brand hover:bg-brand/90"
+                                    onClick={handleShare}
+                                    disabled={isSharing}
+                                >
+                                    {isSharing ? <Loader2 className="w-4 h-4 animate-spin" /> : "Share"}
+                                </Button>
                             </div>
                         </div>
 
@@ -475,30 +611,25 @@ export function CreateStoryModal({ isOpen, onClose }: CreateStoryModalProps) {
                         >
                             <h3 className="absolute top-6 left-6 font-semibold text-muted-foreground">Preview</h3>
 
-                            <div className={cn(
-                                "h-[90%] max-h-[800px] aspect-[9/16] rounded-2xl shadow-2xl overflow-hidden relative flex items-center justify-center text-center break-words whitespace-pre-wrap transition-colors duration-500",
-                                step === "text" ? (BACKGROUNDS[bgIndex] + " p-8") : (bgIndex === -1 ? "bg-black" : BACKGROUNDS[bgIndex])
-                            )}>
+                            <div
+                                ref={storyRef}
+                                className={cn(
+                                    "h-[90%] max-h-[800px] aspect-[9/16] rounded-2xl shadow-2xl overflow-hidden relative flex items-center justify-center text-center break-words whitespace-pre-wrap transition-colors duration-500",
+                                    step === "text" ? (BACKGROUNDS[bgIndex] + " p-8") : (bgIndex === -1 ? "bg-black" : BACKGROUNDS[bgIndex])
+                                )}>
                                 {step === "text" && (
-                                    <motion.div
-                                        drag
-                                        dragConstraints={previewContainerRef}
-                                        dragMomentum={false}
-                                        className="cursor-move z-10"
-                                    >
+                                    <div className="flex items-center justify-center w-full h-full z-10">
                                         <span
-                                            className={cn(
-                                                "text-white font-bold block",
-                                                font === "Clean" ? "font-sans" :
-                                                    font === "Headline" ? "font-serif uppercase tracking-wider" :
-                                                        font === "Casual" ? "font-mono" :
-                                                            "font-sans italic"
-                                            )}
-                                            style={{ fontSize: `${fontSize}px`, lineHeight: 1.2 }}
+                                            className="text-white font-bold block text-center font-sans cursor-move touch-none"
+                                            style={{ fontSize: "30px", lineHeight: 1.2, transform: `translate(${textPosition.x}px, ${textPosition.y}px)` }}
+                                            onPointerDown={onPointerDown}
+                                            onPointerMove={onPointerMove}
+                                            onPointerUp={onPointerUp}
+                                            onPointerCancel={onPointerUp}
                                         >
                                             {textValue || "YOUR FEELING ?"}
                                         </span>
-                                    </motion.div>
+                                    </div>
                                 )}
 
                                 {step === "photo" && photoUrl && (
@@ -506,51 +637,53 @@ export function CreateStoryModal({ isOpen, onClose }: CreateStoryModalProps) {
                                         "w-full h-full relative overflow-hidden flex items-center justify-center transition-colors duration-500",
                                         bgIndex === -1 ? "bg-black" : BACKGROUNDS[bgIndex]
                                     )}>
-                                        <motion.img
+                                        <img
                                             src={photoUrl}
                                             alt="Story preview"
-                                            className="w-full h-full object-cover select-none cursor-move origin-center"
+                                            className="w-full h-full object-cover select-none origin-center cursor-move touch-none relative z-10"
                                             style={{
-                                                scale: imageScale,
-                                                rotate: imageRotation,
+                                                transform: `translate(${imagePosition.x}px, ${imagePosition.y}px) scale(${imageScale}) rotate(${imageRotation}deg)`,
                                             }}
-                                            drag
-                                            dragConstraints={{ left: -500, right: 500, top: -500, bottom: 500 }}
-                                            dragMomentum={false}
+                                            onPointerDown={onImagePointerDown}
+                                            onPointerMove={onImagePointerMove}
+                                            onPointerUp={onImagePointerUp}
+                                            onPointerCancel={onImagePointerUp}
                                         />
 
                                         {/* Overlays on photo */}
                                         {textValue && (
-                                            <motion.div
-                                                drag
-                                                dragConstraints={previewContainerRef}
-                                                dragMomentum={false}
-                                                className="absolute z-30 cursor-move"
-                                            >
+                                            <div className="absolute inset-0 flex items-center justify-center z-30 pointer-events-none">
                                                 <span
-                                                    className={cn(
-                                                        "text-white font-bold block drop-shadow-lg select-none",
-                                                        font === "Clean" ? "font-sans" :
-                                                            font === "Headline" ? "font-serif uppercase tracking-wider" :
-                                                                font === "Casual" ? "font-mono" :
-                                                                    "font-sans italic"
-                                                    )}
-                                                    style={{ fontSize: `${fontSize}px`, lineHeight: 1.2 }}
+                                                    className="text-white font-bold block drop-shadow-lg select-none text-center font-sans cursor-move touch-none pointer-events-auto"
+                                                    style={{ fontSize: "30px", lineHeight: 1.2, transform: `translate(${textPosition.x}px, ${textPosition.y}px)` }}
+                                                    onPointerDown={onPointerDown}
+                                                    onPointerMove={onPointerMove}
+                                                    onPointerUp={onPointerUp}
+                                                    onPointerCancel={onPointerUp}
                                                 >
                                                     {textValue}
                                                 </span>
-                                            </motion.div>
+                                            </div>
                                         )}
+                                    </div>
+                                )}
+
+                                {step === "video" && videoUrl && (
+                                    <div className="w-full h-full bg-black flex items-center justify-center transition-colors duration-500">
+                                        <video
+                                            src={videoUrl}
+                                            controls
+                                            autoPlay
+                                            loop
+                                            className="w-full h-full object-contain"
+                                        />
                                     </div>
                                 )}
 
                                 {/* Music Sticker */}
                                 {selectedTrack && showMusicSticker && (
-                                    <motion.div
-                                        drag
-                                        dragConstraints={previewContainerRef}
-                                        dragMomentum={false}
-                                        className="absolute bottom-10 left-1/2 -translate-x-1/2 bg-white/90 backdrop-blur-md rounded-2xl p-3 flex items-center gap-3 shadow-xl border border-white/50 w-[80%] max-w-[280px] animate-in fade-in zoom-in slide-in-from-bottom-4 duration-300 cursor-move z-20"
+                                    <div
+                                        className="absolute bottom-10 left-1/2 -translate-x-1/2 bg-white/90 backdrop-blur-md rounded-2xl p-3 flex items-center gap-3 shadow-xl border border-white/50 w-[80%] max-w-[280px] animate-in fade-in zoom-in slide-in-from-bottom-4 duration-300 z-20"
                                     >
                                         <img src={selectedTrack.albumImage} className="w-12 h-12 rounded-lg shadow-sm pointer-events-none select-none" alt="Album" />
                                         <div className="flex-1 text-left overflow-hidden pointer-events-none select-none">
@@ -566,7 +699,7 @@ export function CreateStoryModal({ isOpen, onClose }: CreateStoryModalProps) {
                                         >
                                             {playingTrackId === selectedTrack.id ? <Pause className="w-4 h-4 fill-current" /> : <Play className="w-4 h-4 fill-current" />}
                                         </button>
-                                    </motion.div>
+                                    </div>
                                 )}
                             </div>
                         </div>
@@ -674,6 +807,15 @@ export function CreateStoryModal({ isOpen, onClose }: CreateStoryModalProps) {
             </Dialog>
 
             <audio ref={audioRef} className="hidden" onEnded={() => setPlayingTrackId(null)} />
+
+            {/* Hidden video input */}
+            <input
+                type="file"
+                ref={videoInputRef}
+                accept="video/*"
+                className="hidden"
+                onChange={handleVideoSelect}
+            />
 
             {/* Hidden file input */}
             <input

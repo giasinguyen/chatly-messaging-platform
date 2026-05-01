@@ -1,0 +1,192 @@
+@startuml Chatly_Deployment
+!theme plain
+top to bottom direction
+
+skinparam node {
+  BackgroundColor #F8F9FA
+  BorderColor #495057
+  FontSize 12
+  FontStyle bold
+}
+skinparam artifact {
+  BackgroundColor #DEE2E6
+  BorderColor #6C757D
+  FontSize 11
+}
+skinparam component {
+  BackgroundColor #F8F9FA
+  BorderColor #6C757D
+  FontSize 11
+}
+skinparam interface {
+  BackgroundColor #FFFFFF
+  BorderColor #6C757D
+  FontSize 10
+}
+skinparam package {
+  FontSize 13
+  FontStyle bold
+}
+skinparam arrow {
+  FontSize 10
+  Color #495057
+}
+skinparam database {
+  BackgroundColor #FFF9C4
+  BorderColor #F9A825
+  FontSize 11
+}
+skinparam linetype ortho
+
+title Chatly -- Deployment Diagram
+
+' ═══════════════════════════════════════════════════
+' ZONE 1: CLIENT
+' ═══════════════════════════════════════════════════
+package "Client Zone" #EEF6FF {
+
+  node "End User Device\n(Browser)" as BrowserDevice {
+    artifact "Web SPA Bundle\n(chatly-frontend)" as WebSPA
+  }
+
+  node "End User Device\n(iOS / Android)" as MobileDevice {
+    artifact "Mobile App Binary\n(chatly-mobile)" as MobileApp
+  }
+}
+
+' ═══════════════════════════════════════════════════
+' ZONE 2: EDGE
+' ═══════════════════════════════════════════════════
+package "Edge Zone" #E8F5E9 {
+
+  node "Reverse Proxy / API Gateway\n(Nginx / Caddy / AWS ALB)" as ReverseProxy {
+    component "TLS Termination" as TLS
+    component "Route /api, /ws\n→ Backend" as RouteBackend
+    component "Serve Static Assets\n→ Frontend" as ServeStatic
+  }
+}
+
+' ═══════════════════════════════════════════════════
+' ZONE 3: APPLICATION
+' ═══════════════════════════════════════════════════
+package "Application Zone" #FFF3E0 {
+
+  node "chatly-backend\n(Spring Boot)" as BackendNode {
+    artifact "chatly-backend.jar" as BackendJar
+
+    interface "REST API\n:8080 /api/**" as IBackendREST
+    interface "STOMP / SockJS\n:8080 /ws" as IBackendSTOMP
+    interface "WebSocket Raw\n:8080 /ws-raw" as IBackendWS
+    interface "MCP SSE\n:8080 /api/ai/mcp/sse" as IBackendMCP
+  }
+
+  node "chatly-agent\n(FastAPI)" as AgentNode {
+    artifact "agent-server\ncontainer image" as AgentImage
+
+    interface "Internal HTTP API\n:8000" as IAgentHTTP
+  }
+}
+
+' ═══════════════════════════════════════════════════
+' ZONE 4: DATA & STORAGE
+' ═══════════════════════════════════════════════════
+package "Data & Storage Zone" #F3E5F5 {
+
+  database "PostgreSQL\n:5432" as PG {
+    component "auth & contacts\n(relational)" as PGData
+  }
+
+  database "MongoDB (Backend)\n:27017" as MongoBE {
+    component "conversations, messages\nnotifications, calls..." as MongoBeData
+  }
+
+  database "Redis\n:6379" as Redis {
+    component "token blacklist\nfast cache" as RedisData
+  }
+
+  database "MongoDB (Agent)\n:27018 (local)\n:27017 (prod)" as MongoAgent {
+    component "sessions, messages\nfiles, chunks, mcp_servers" as MongoAgentData
+  }
+
+  database "Qdrant\n:6333" as Qdrant {
+    component "vector index\n(RAG chunks)" as QdrantData
+  }
+
+  node "Object Storage\nMinIO (local)\nAWS S3 (prod)" as ObjStorage {
+    component "file blobs\n(chat + AI files)" as ObjData
+  }
+}
+
+' ═══════════════════════════════════════════════════
+' ZONE 5: EXTERNAL INTEGRATIONS
+' ═══════════════════════════════════════════════════
+package "External Integration Zone" #FCE4EC {
+
+  node "SMTP Provider" as SMTP {
+    component "email verification\npassword reset" as SMTPData
+  }
+
+  node "Expo Push Service" as ExpoPush {
+    component "mobile push\nnotifications" as PushData
+  }
+
+  node "Groq API" as Groq {
+    component "LLM inference" as GroqData
+  }
+
+  node "Tavily API" as Tavily {
+    component "web search tool" as TavilyData
+  }
+
+  node "User-owned\nMCP Servers\n(optional)" as MCPServers {
+    component "custom AI tools\n(MCP over SSE)" as MCPData
+  }
+}
+
+' ═══════════════════════════════════════════════════
+' COMMUNICATION LINKS
+' ═══════════════════════════════════════════════════
+
+' Client -> Edge
+WebSPA    --> ReverseProxy : HTTPS
+MobileApp --> ReverseProxy : HTTPS
+
+' Edge -> Backend
+ReverseProxy --> IBackendREST  : HTTP route /api
+ReverseProxy --> IBackendSTOMP : WS upgrade /ws
+ReverseProxy --> IBackendWS    : WS upgrade /ws-raw
+ReverseProxy ..> ServeStatic   : static assets
+
+' Client STOMP / WS (via proxy)
+WebSPA    ..> IBackendSTOMP : WSS STOMP
+MobileApp ..> IBackendWS    : WSS raw
+
+' Backend -> Datastores
+BackendJar --> PG        : JDBC / TCP 5432
+BackendJar --> MongoBE   : Mongo wire / TCP 27017
+BackendJar --> Redis     : RESP / TCP 6379
+
+' Backend -> Agent (internal)
+BackendJar --> IAgentHTTP : internal HTTP\nX-Internal-API-Key
+
+' Backend -> External
+BackendJar --> SMTP     : SMTP STARTTLS
+BackendJar --> ExpoPush : HTTPS
+
+' Agent -> Datastores
+AgentImage --> MongoAgent  : Mongo wire / TCP 27017
+AgentImage --> Qdrant      : HTTP API / TCP 6333
+AgentImage --> ObjStorage  : S3-compatible API
+
+' Agent -> External
+AgentImage --> Groq    : outbound HTTPS
+AgentImage --> Tavily  : outbound HTTPS
+AgentImage --> MCPServers : outbound HTTP SSE
+
+' Agent -> Backend MCP SSE
+AgentImage --> IBackendMCP : HTTP SSE\nX-Internal-API-Key\nX-User-Id
+
+' Backend file storage
+BackendJar --> ObjStorage : S3-compatible API
+
+@enduml

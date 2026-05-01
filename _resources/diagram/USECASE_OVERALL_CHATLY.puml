@@ -1,0 +1,219 @@
+@startuml
+left to right direction
+skinparam packageStyle rectangle
+skinparam linetype ortho
+skinparam nodesep 60
+skinparam ranksep 70
+
+actor Guest
+actor "Authenticated User" as User
+actor "Group Admin" as GroupAdmin
+actor "Group Owner" as GroupOwner
+actor "Email Provider" as EmailProvider
+actor "AI Agent Service" as AgentService
+actor "Push Gateway" as PushGateway
+actor "External MCP Servers" as ExternalMCP
+
+GroupAdmin -|> User
+GroupOwner -|> GroupAdmin
+
+rectangle "Chatly Messaging Platform" {
+  package "Authentication" as PKG_AUTH {
+    usecase "Authenticate Account" as UC_AUTH
+    usecase "Register Account" as UC_REGISTER
+    usecase "Login" as UC_LOGIN
+    usecase "Refresh Token" as UC_REFRESH
+    usecase "Logout" as UC_LOGOUT
+    usecase "Verify Email" as UC_VERIFY
+    usecase "Resend Verification" as UC_RESEND_VERIFY
+    usecase "Forgot Password" as UC_FORGOT_PW
+    usecase "Introspect Token" as UC_INTROSPECT
+  }
+
+  package "User and Contacts" as PKG_USER {
+    usecase "Manage Profile and Sessions" as UC_PROFILE
+    usecase "View or Update Profile" as UC_PROFILE_EDIT
+    usecase "Change Password" as UC_CHANGE_PW
+    usecase "Manage Login Sessions" as UC_SESSIONS
+    usecase "Manage Device Token" as UC_DEVICE_TOKEN
+    usecase "Search Users" as UC_USER_SEARCH
+
+    usecase "Manage Contacts" as UC_CONTACT
+    usecase "Send or Accept Friend Request" as UC_FRIEND_REQ
+    usecase "Block or Unblock User" as UC_BLOCK
+    usecase "Check Block Status" as UC_BLOCK_STATUS
+    usecase "View Contacts" as UC_VIEW_CONTACTS
+    usecase "Delete Contact" as UC_DELETE_CONTACT
+  }
+
+  package "Conversations and Messages" as PKG_MSG {
+    usecase "Manage Conversations" as UC_CONV
+    usecase "Create or Delete Conversation" as UC_CONV_CRUD
+    usecase "List or Search Conversations" as UC_CONV_QUERY
+    usecase "Pin or Mute Conversation" as UC_CONV_PREF
+
+    usecase "Exchange Messages" as UC_MSG
+    usecase "Send Message" as UC_SEND_MSG
+    usecase "Forward or Reply Message" as UC_FORWARD_REPLY
+    usecase "React, Edit, Recall, Delete Message" as UC_MUTATE_MSG
+    usecase "Search and Pin Messages" as UC_QUERY_MSG
+    usecase "Poll and Priority Actions" as UC_POLL_PRIORITY
+    usecase "Mark Message Seen" as UC_MARK_SEEN
+  }
+
+  package "Group Workspace" as PKG_GROUP {
+    usecase "Manage Group Workspace" as UC_GROUP
+    usecase "Update Group Information" as UC_GROUP_INFO
+    usecase "Manage Group Notes" as UC_GROUP_NOTES
+    usecase "Manage Group Reminders" as UC_GROUP_REMINDERS
+    usecase "Join Group by Invite Link" as UC_INVITE
+    usecase "Approval Required Flow" as UC_APPROVE
+
+    usecase "Govern Group Membership" as UC_MEMBER
+    usecase "Add or Remove Member" as UC_MEMBER_CRUD
+    usecase "Update Member Role" as UC_MEMBER_ROLE
+    usecase "Review Pending Join Requests" as UC_MEMBER_PENDING
+  }
+
+  package "Realtime and Calls" as PKG_CALL {
+    usecase "Join and Control Calls" as UC_CALL
+    usecase "View Call History and Detail" as UC_CALL_HISTORY
+    usecase "Start or Answer 1-1 Call" as UC_CALL_1_1
+    usecase "Initiate or Join Group Call" as UC_CALL_GROUP
+    usecase "Leave or End Call" as UC_CALL_END
+    usecase "Exchange Signaling and ICE" as UC_CALL_SIGNALING
+    usecase "Voice to Video Upgrade" as UC_UPGRADE
+    usecase "Renegotiate Media" as UC_RENEGOTIATE
+    usecase "Broadcast Typing or Seen Event" as UC_RT_EVENTS
+  }
+
+  package "Notifications" as PKG_NOTI {
+    usecase "Receive and Manage Notifications" as UC_NOTI
+    usecase "List Notifications" as UC_NOTI_LIST
+    usecase "Get Unread Count" as UC_NOTI_COUNT
+    usecase "Mark Notification Read" as UC_NOTI_READ_ONE
+    usecase "Mark All Notifications Read" as UC_NOTI_READ_ALL
+  }
+
+  package "AI Assistant and Tools" as PKG_AI {
+    usecase "Use AI Assistant" as UC_AI
+    usecase "Manage AI Session" as UC_AI_SESSION
+    usecase "Send AI Prompt" as UC_AI_PROMPT
+    usecase "Fetch AI Message History" as UC_AI_HISTORY
+    usecase "Streaming AI Response" as UC_AI_STREAM
+
+    usecase "Manage AI Session Files" as UC_AIFILE
+    usecase "Upload AI File" as UC_AIFILE_UPLOAD
+    usecase "List or Delete AI File" as UC_AIFILE_LIST_DELETE
+    usecase "Download AI File" as UC_AIFILE_DOWNLOAD
+
+    usecase "Manage MCP Tool Servers" as UC_MCP
+    usecase "Register MCP Server" as UC_MCP_REGISTER
+    usecase "Activate or Deactivate MCP Server" as UC_MCP_TOGGLE
+    usecase "List MCP Servers" as UC_MCP_LIST
+    usecase "List MCP Tools" as UC_MCP_TOOLS
+  }
+}
+
+PKG_AUTH -[hidden]right-> PKG_USER
+PKG_USER -[hidden]right-> PKG_MSG
+PKG_MSG -[hidden]right-> PKG_GROUP
+PKG_GROUP -[hidden]right-> PKG_CALL
+PKG_CALL -[hidden]right-> PKG_NOTI
+PKG_NOTI -[hidden]right-> PKG_AI
+
+Guest --> UC_AUTH
+
+User --> UC_PROFILE
+User --> UC_CONTACT
+User --> UC_CONV
+User --> UC_MSG
+User --> UC_GROUP
+User --> UC_CALL
+User --> UC_NOTI
+User --> UC_AI
+User --> UC_AIFILE
+User --> UC_MCP
+
+GroupAdmin --> UC_GROUP
+GroupOwner --> UC_MEMBER
+
+UC_VERIFY --> EmailProvider
+UC_RESEND_VERIFY --> EmailProvider
+UC_FORGOT_PW --> EmailProvider
+UC_AI --> AgentService
+UC_NOTI --> PushGateway
+UC_MCP --> ExternalMCP
+
+UC_AUTH ..> UC_REGISTER : <<include>>
+UC_AUTH ..> UC_LOGIN : <<include>>
+UC_AUTH ..> UC_REFRESH : <<include>>
+UC_AUTH ..> UC_LOGOUT : <<include>>
+UC_AUTH ..> UC_VERIFY : <<include>>
+UC_AUTH ..> UC_RESEND_VERIFY : <<include>>
+UC_AUTH ..> UC_FORGOT_PW : <<include>>
+UC_AUTH ..> UC_INTROSPECT : <<include>>
+
+UC_PROFILE ..> UC_PROFILE_EDIT : <<include>>
+UC_PROFILE ..> UC_CHANGE_PW : <<include>>
+UC_PROFILE ..> UC_SESSIONS : <<include>>
+UC_PROFILE ..> UC_DEVICE_TOKEN : <<include>>
+UC_PROFILE ..> UC_USER_SEARCH : <<include>>
+
+UC_CONTACT ..> UC_FRIEND_REQ : <<include>>
+UC_CONTACT ..> UC_BLOCK : <<include>>
+UC_CONTACT ..> UC_BLOCK_STATUS : <<include>>
+UC_CONTACT ..> UC_VIEW_CONTACTS : <<include>>
+UC_CONTACT ..> UC_DELETE_CONTACT : <<include>>
+
+UC_CONV ..> UC_CONV_CRUD : <<include>>
+UC_CONV ..> UC_CONV_QUERY : <<include>>
+UC_CONV ..> UC_CONV_PREF : <<include>>
+
+UC_MSG ..> UC_SEND_MSG : <<include>>
+UC_MSG ..> UC_FORWARD_REPLY : <<include>>
+UC_MSG ..> UC_MUTATE_MSG : <<include>>
+UC_MSG ..> UC_QUERY_MSG : <<include>>
+UC_MSG ..> UC_POLL_PRIORITY : <<include>>
+UC_MSG ..> UC_MARK_SEEN : <<include>>
+
+UC_GROUP ..> UC_GROUP_INFO : <<include>>
+UC_GROUP ..> UC_GROUP_NOTES : <<include>>
+UC_GROUP ..> UC_GROUP_REMINDERS : <<include>>
+
+UC_MEMBER ..> UC_MEMBER_CRUD : <<include>>
+UC_MEMBER ..> UC_MEMBER_ROLE : <<include>>
+UC_MEMBER ..> UC_MEMBER_PENDING : <<include>>
+
+UC_CALL ..> UC_CALL_HISTORY : <<include>>
+UC_CALL ..> UC_CALL_1_1 : <<include>>
+UC_CALL ..> UC_CALL_GROUP : <<include>>
+UC_CALL ..> UC_CALL_END : <<include>>
+UC_CALL ..> UC_CALL_SIGNALING : <<include>>
+UC_CALL ..> UC_RT_EVENTS : <<include>>
+
+UC_NOTI ..> UC_NOTI_LIST : <<include>>
+UC_NOTI ..> UC_NOTI_COUNT : <<include>>
+UC_NOTI ..> UC_NOTI_READ_ONE : <<include>>
+UC_NOTI ..> UC_NOTI_READ_ALL : <<include>>
+
+UC_AI ..> UC_AI_PROMPT : <<include>>
+UC_AI ..> UC_AI_SESSION : <<include>>
+UC_AI ..> UC_AI_HISTORY : <<include>>
+
+UC_AIFILE ..> UC_AIFILE_UPLOAD : <<include>>
+UC_AIFILE ..> UC_AIFILE_LIST_DELETE : <<include>>
+UC_AIFILE ..> UC_AIFILE_DOWNLOAD : <<include>>
+
+UC_MCP ..> UC_MCP_REGISTER : <<include>>
+UC_MCP ..> UC_MCP_TOGGLE : <<include>>
+UC_MCP ..> UC_MCP_LIST : <<include>>
+UC_MCP ..> UC_MCP_TOOLS : <<include>>
+
+UC_AI_STREAM ..> UC_AI_PROMPT : <<extend>>
+
+UC_INVITE ..> UC_GROUP : <<extend>>
+UC_APPROVE ..> UC_INVITE : <<extend>>
+UC_UPGRADE ..> UC_CALL : <<extend>>
+UC_RENEGOTIATE ..> UC_UPGRADE : <<extend>>
+@enduml
