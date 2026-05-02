@@ -141,7 +141,7 @@ export default function HomePage() {
     return (
         <div className="w-full h-full flex justify-center overflow-y-auto bg-background relative hide-scrollbar">
             {/* Central Feed Area */}
-            <div className="w-full max-w-2xl px-4 py-8 flex flex-col gap-8 pb-32">
+            <div className="w-full max-w-2xl px-4 py-8 flex flex-col gap-3 pb-32">
                 {/* Stories Carousel */}
                 <div className="w-full relative">
                     <div className="flex gap-4 overflow-x-auto hide-scrollbar pb-3 pt-1 snap-x">
@@ -195,7 +195,7 @@ export default function HomePage() {
             </div>
 
             {/* Right Sidebar (Suggested & Profile) */}
-            <aside className="w-[340px] flex-shrink-0 pt-8 pr-8 pl-6 hidden xl:block sticky top-0 h-screen overflow-y-auto hide-scrollbar">
+            <aside className="w-[400px] flex-shrink-0 pt-8 pr-8 pl-6 hidden xl:block sticky top-0 h-screen overflow-y-auto hide-scrollbar">
                 {/* Current User Snippet */}
                 <div className="flex items-center justify-between mb-8 bg-card p-3 rounded-xl shadow-sm border border-border">
                     <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigate(`/${user?.username}`)}>

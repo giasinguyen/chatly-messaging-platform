@@ -9,5 +9,8 @@ public enum NotificationType {
     GROUP_JOIN_REQUEST,
     MEMBER_JOINED,
     CALL_MISSED,
+    POST_LIKED,
+    POST_COMMENTED,
+    COMMENT_REPLIED,
     SYSTEM
 }

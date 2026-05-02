@@ -1,4 +1,4 @@
-export type NotificationType = "NEW_MESSAGE" | "FRIEND_REQUEST" | "GROUP_INVITE" | "GROUP_JOIN_REQUEST" | "MEMBER_JOINED" | "MENTION" | "CALL_MISSED" | "SYSTEM";
+export type NotificationType = "NEW_MESSAGE" | "FRIEND_REQUEST" | "GROUP_INVITE" | "GROUP_JOIN_REQUEST" | "MEMBER_JOINED" | "MENTION" | "CALL_MISSED" | "POST_LIKED" | "POST_COMMENTED" | "COMMENT_REPLIED" | "SYSTEM";
 
 export interface Notification {
     id: string;
