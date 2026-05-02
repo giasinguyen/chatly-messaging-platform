@@ -11,6 +11,10 @@ export interface PostReactionSummary {
 export interface Post {
     id: string;
     authorId: string;
+    authorUsername?: string;
+    authorDisplayName?: string;
+    authorAvatarUrl?: string;
+    savedByMe?: boolean;
     content: string;
     mediaUrls: string[];
     visibility: PostVisibility;
@@ -35,6 +39,30 @@ export interface UpdatePostRequest {
 
 export interface ReactToPostRequest {
     type: ReactionType;
+}
+
+export interface PostComment {
+    id: string;
+    userId: string;
+    userUsername?: string;
+    userDisplayName?: string;
+    userAvatarUrl?: string;
+    content: string;
+    mediaUrls: string[];
+    reactions: PostReactionSummary[];
+    parentCommentId?: string;
+    createdAt: string;
+    updatedAt: string;
+}
+
+export interface CreateCommentRequest {
+    content: string;
+    mediaUrls?: string[];
+    parentCommentId?: string;
+}
+
+export interface UpdateCommentRequest {
+    content?: string;
 }
 
 export interface PostPage {
