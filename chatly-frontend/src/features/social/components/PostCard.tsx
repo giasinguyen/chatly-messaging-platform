@@ -128,6 +128,7 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
     const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
     const [currentMediaIndex, setCurrentMediaIndex] = useState(0);
     const [dialogMediaIndex, setDialogMediaIndex] = useState(0);
+    const [deleteCommentId, setDeleteCommentId] = useState<string | null>(null);
     const mediaClickTimerRef = useRef<ReturnType<typeof window.setTimeout> | null>(null);
     const actionsMenuRef = useRef<HTMLDivElement>(null);
     const commentEmojiPickerRef = useRef<HTMLDivElement>(null);
@@ -317,7 +318,7 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
                                         size="sm"
                                         variant="ghost"
                                         className="gap-1 text-[11px] font-normal h-auto py-1 px-1.5 text-red-600 hover:text-red-700 whitespace-nowrap"
-                                        onClick={() => void handleDeleteComment(comment.id)}
+                                        onClick={() => handleDeleteComment(comment.id)}
                                     >
                                         <Trash2 className="h-3 w-3" />
                                         Delete
@@ -553,16 +554,24 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
         }
     };
 
-    const handleDeleteComment = async (commentId: string) => {
+    const handleDeleteComment = (commentId: string) => {
+        setDeleteCommentId(commentId);
+    };
+
+    const confirmDeleteComment = async () => {
+        if (!deleteCommentId) return;
+
         try {
-            const res = await postService.deleteComment(post.id, commentId);
+            const res = await postService.deleteComment(post.id, deleteCommentId);
             if (res.code === 1000) {
-                setComments((prev) => prev.filter((c) => c.id !== commentId));
+                setComments((prev) => prev.filter((c) => c.id !== deleteCommentId));
                 updatePost(post.id, { commentCount: post.commentCount - 1 });
                 toast.success("Comment deleted.");
             }
         } catch {
             toast.error("Could not delete comment.");
+        } finally {
+            setDeleteCommentId(null);
         }
     };
 
@@ -1263,6 +1272,31 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
                     onIndexChange={setLightboxIndex}
                 />
             )}
+
+            <Dialog open={deleteCommentId !== null} onOpenChange={(open) => !open && setDeleteCommentId(null)}>
+                <DialogContent className="max-w-sm">
+                    <DialogHeader>
+                        <DialogTitle>Delete Comment</DialogTitle>
+                        <DialogDescription>
+                            Are you sure you want to delete this comment? This action cannot be undone.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter>
+                        <Button
+                            variant="outline"
+                            onClick={() => setDeleteCommentId(null)}
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            variant="destructive"
+                            onClick={() => void confirmDeleteComment()}
+                        >
+                            Delete
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </>
     );
 }

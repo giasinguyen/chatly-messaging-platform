@@ -10,6 +10,7 @@ import com.chatly.dto.response.PostResponse;
 import com.chatly.exception.AppException;
 import com.chatly.exception.ErrorCode;
 import com.chatly.mapper.PostMapper;
+import com.chatly.model.enums.NotificationType;
 import com.chatly.model.enums.PostVisibility;
 import com.chatly.model.enums.ReactionType;
 import com.chatly.model.mongo.Post;
@@ -43,6 +44,7 @@ public class PostService {
     private final PostMapper postMapper;
     private final UserRepository userRepository;
     private final SavedPostRepository savedPostRepository;
+    private final NotificationService notificationService;
 
     public PostResponse create(String authorId, CreatePostRequest request) {
         List<String> hashtags = extractHashtags(request.getContent());
@@ -180,6 +182,40 @@ public class PostService {
         User commenter = safeUuid(userId)
                 .flatMap(userRepository::findById)
                 .orElse(null);
+
+        // Send notification
+        if (!userId.equals(post.getAuthorId())) {
+            User commenterUser = commenter;
+            String commenterName = commenterUser != null ? commenterUser.getDisplayName() : "Someone";
+
+            if (parentCommentId != null) {
+                // Reply to a comment - notify the parent comment author
+                PostComment parentComment = post.getComments().stream()
+                        .filter(c -> c.getId().equals(parentCommentId))
+                        .findFirst()
+                        .orElse(null);
+
+                if (parentComment != null && !parentComment.getUserId().equals(userId)) {
+                    notificationService.createAndPush(
+                            NotificationType.COMMENT_REPLIED,
+                            userId,
+                            parentComment.getUserId(),
+                            commenterName + " replied to your comment",
+                            postId + "_" + parentCommentId
+                    );
+                }
+            } else {
+                // New comment on post - notify the post author
+                notificationService.createAndPush(
+                        NotificationType.POST_COMMENTED,
+                        userId,
+                        post.getAuthorId(),
+                        commenterName + " commented on your post",
+                        postId
+                );
+            }
+        }
+
         return toCommentResponse(comment, commenter, userId);
     }
 
@@ -197,6 +233,22 @@ public class PostService {
 
         post.setReactions(reactions);
         post = postRepository.save(post);
+
+        // Send notification to post author
+        if (!userId.equals(post.getAuthorId())) {
+            User liker = safeUuid(userId)
+                    .flatMap(userRepository::findById)
+                    .orElse(null);
+            String likerName = liker != null ? liker.getDisplayName() : "Someone";
+            notificationService.createAndPush(
+                    NotificationType.POST_LIKED,
+                    userId,
+                    post.getAuthorId(),
+                    likerName + " liked your post",
+                    postId
+            );
+        }
+
         return toResponse(post, userId);
     }
 
@@ -420,6 +472,21 @@ public class PostService {
                 .build());
         comment.setReactions(reactions);
         postRepository.save(post);
+
+        // Send notification to comment author
+        if (!userId.equals(comment.getUserId())) {
+            User liker = safeUuid(userId)
+                    .flatMap(userRepository::findById)
+                    .orElse(null);
+            String likerName = liker != null ? liker.getDisplayName() : "Someone";
+            notificationService.createAndPush(
+                    NotificationType.POST_LIKED,
+                    userId,
+                    comment.getUserId(),
+                    likerName + " liked your comment",
+                    postId + "_" + commentId
+            );
+        }
 
         User commenter = safeUuid(comment.getUserId())
                 .flatMap(userRepository::findById)

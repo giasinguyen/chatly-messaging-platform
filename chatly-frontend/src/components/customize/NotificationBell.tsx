@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { Bell, Check, CheckCheck, MessageCircle, UserPlus, Users, X } from "lucide-react";
+import { Bell, Check, CheckCheck, MessageCircle, UserPlus, Users, X, Heart, Reply } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { notificationService } from "@/services/notification.service";
 import { useNotificationSocket } from "@/hooks/useNotificationSocket";
@@ -116,6 +116,10 @@ export function NotificationBell() {
             navigate("/contact?tab=requests");
         } else if (notif.type === "GROUP_INVITE" && notif.referenceId) {
             navigate(`/chat/${notif.referenceId}`);
+        } else if ((notif.type === "POST_LIKED" || notif.type === "POST_COMMENTED" || notif.type === "COMMENT_REPLIED") && notif.referenceId) {
+            // Navigate to post - extract post ID (format: postId or postId_commentId)
+            const postId = notif.referenceId.split("_")[0];
+            navigate(`/post/${postId}`);
         }
     }, [handleMarkRead, navigate]);
 
@@ -124,6 +128,9 @@ export function NotificationBell() {
             case "NEW_MESSAGE": return <MessageCircle size={14} className="text-brand" />;
             case "FRIEND_REQUEST": return <UserPlus size={14} className="text-green-500" />;
             case "GROUP_INVITE": return <Users size={14} className="text-purple-500" />;
+            case "POST_LIKED": return <Heart size={14} className="text-red-500" />;
+            case "POST_COMMENTED": return <MessageCircle size={14} className="text-blue-500" />;
+            case "COMMENT_REPLIED": return <Reply size={14} className="text-purple-500" />;
             default: return <Bell size={14} className="text-muted-foreground" />;
         }
     };
@@ -133,6 +140,9 @@ export function NotificationBell() {
             case "NEW_MESSAGE": return "New message";
             case "FRIEND_REQUEST": return "Friend request";
             case "GROUP_INVITE": return "Added to group";
+            case "POST_LIKED": return "Post liked";
+            case "POST_COMMENTED": return "Comment on your post";
+            case "COMMENT_REPLIED": return "Reply to your comment";
             default: return "Notifications";
         }
     };
