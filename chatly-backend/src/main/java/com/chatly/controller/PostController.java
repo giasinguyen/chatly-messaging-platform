@@ -79,10 +79,17 @@ public class PostController {
         return ApiResponse.<Void>builder().build();
     }
 
+    @PostMapping("/{postId}/share")
+    ApiResponse<PostResponse> share(@PathVariable String postId) {
+        return ApiResponse.<PostResponse>builder()
+                .result(postService.share(postId, getAuthenticatedUserId()))
+                .build();
+    }
+
     @GetMapping("/{postId}/comments")
     ApiResponse<List<PostCommentResponse>> getComments(@PathVariable String postId) {
         return ApiResponse.<List<PostCommentResponse>>builder()
-                .result(postService.getComments(postId))
+                .result(postService.getComments(postId, getAuthenticatedUserId()))
                 .build();
     }
 
@@ -108,6 +115,43 @@ public class PostController {
     ApiResponse<PostResponse> removeReaction(@PathVariable String postId) {
         return ApiResponse.<PostResponse>builder()
                 .result(postService.removeReaction(postId, getAuthenticatedUserId()))
+                .build();
+    }
+
+    @PatchMapping("/{postId}/comments/{commentId}")
+    ApiResponse<PostCommentResponse> editComment(
+            @PathVariable String postId,
+            @PathVariable String commentId,
+            @RequestBody @Valid CreatePostCommentRequest request) {
+        return ApiResponse.<PostCommentResponse>builder()
+                .result(postService.editComment(postId, commentId, getAuthenticatedUserId(), request))
+                .build();
+    }
+
+    @DeleteMapping("/{postId}/comments/{commentId}")
+    ApiResponse<Void> deleteComment(
+            @PathVariable String postId,
+            @PathVariable String commentId) {
+        postService.deleteComment(postId, commentId, getAuthenticatedUserId());
+        return ApiResponse.<Void>builder().build();
+    }
+
+    @PutMapping("/{postId}/comments/{commentId}/reactions")
+    ApiResponse<PostCommentResponse> reactToComment(
+            @PathVariable String postId,
+            @PathVariable String commentId,
+            @RequestBody @Valid ReactToPostRequest request) {
+        return ApiResponse.<PostCommentResponse>builder()
+                .result(postService.reactToComment(postId, commentId, getAuthenticatedUserId(), request))
+                .build();
+    }
+
+    @DeleteMapping("/{postId}/comments/{commentId}/reactions")
+    ApiResponse<PostCommentResponse> removeCommentReaction(
+            @PathVariable String postId,
+            @PathVariable String commentId) {
+        return ApiResponse.<PostCommentResponse>builder()
+                .result(postService.removeCommentReaction(postId, commentId, getAuthenticatedUserId()))
                 .build();
     }
 

@@ -7,6 +7,8 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 
 @Getter
 @Setter
@@ -28,4 +30,14 @@ public class PostCommentResponse {
     private String content;
 
     private Instant createdAt;
+
+    private Instant updatedAt;
+
+    private String parentCommentId;
+
+    @Builder.Default
+    private List<String> mediaUrls = new ArrayList<>();
+
+    @Builder.Default
+    private List<PostReactionSummary> reactions = new ArrayList<>();
 }
