@@ -8,6 +8,7 @@ import { CustomAiIcon } from '@/components/ui/CustomAiIcon';
 import { Colors } from '@/constants/theme';
 import { useCallContext } from '@/contexts/CallContext';
 import { useCallStore } from '@/store/call.store';
+import { IS_CALL_ENABLED } from '@/constants/runtime';
 import { GroupCallMemberPicker } from '@/components/call/GroupCallMemberPicker';
 import type { CallType } from '@/types/call';
 
@@ -51,6 +52,13 @@ export function ChatHeader({
   const showPrivateCallButtons = !isGroup && !!conversationId && !!receiverId;
   const showGroupCallButton = isGroup && !!conversationId;
   const callDisabled = callStatus !== 'IDLE';
+
+  const showCallUnavailableAlert = () => {
+    Alert.alert(
+      'Call unavailable in Expo Go',
+      'Calling is only available in a development build. Please build the app to use voice/video calls.',
+    );
+  };
 
   const subtitle = isGroup
     ? `${memberCount ?? 0} members`
@@ -136,7 +144,13 @@ export function ChatHeader({
             <TouchableOpacity
               className="mx-1 p-2"
               disabled={callDisabled}
-              onPress={() => initiateCall(receiverId!, conversationId!, 'VOICE', name, avatarUrl ?? null)}
+              onPress={() => {
+                if (!IS_CALL_ENABLED) {
+                  showCallUnavailableAlert();
+                  return;
+                }
+                initiateCall(receiverId!, conversationId!, 'VOICE', name, avatarUrl ?? null);
+              }}
               style={{ opacity: callDisabled ? 0.4 : 1 }}
             >
               <Ionicons name="call-outline" size={22} color={Colors.cta} />
@@ -144,7 +158,13 @@ export function ChatHeader({
             <TouchableOpacity
               className="mx-1 p-2"
               disabled={callDisabled}
-              onPress={() => initiateCall(receiverId!, conversationId!, 'VIDEO', name, avatarUrl ?? null)}
+              onPress={() => {
+                if (!IS_CALL_ENABLED) {
+                  showCallUnavailableAlert();
+                  return;
+                }
+                initiateCall(receiverId!, conversationId!, 'VIDEO', name, avatarUrl ?? null);
+              }}
               style={{ opacity: callDisabled ? 0.4 : 1 }}
             >
               <Ionicons name="videocam-outline" size={24} color={Colors.cta} />
@@ -157,7 +177,13 @@ export function ChatHeader({
           <TouchableOpacity
             className="mx-1"
             disabled={callDisabled}
-            onPress={() => setCallSheetVisible(true)}
+            onPress={() => {
+              if (!IS_CALL_ENABLED) {
+                showCallUnavailableAlert();
+                return;
+              }
+              setCallSheetVisible(true);
+            }}
             style={{
               opacity: callDisabled ? 0.4 : 1,
               flexDirection: 'row',
