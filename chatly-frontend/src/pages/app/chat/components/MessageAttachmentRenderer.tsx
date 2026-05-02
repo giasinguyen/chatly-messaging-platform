@@ -1,4 +1,5 @@
-import { Download } from "lucide-react";
+import { Download, ExternalLink, MessageSquareShare } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import {
     FilePdf,
     MicrosoftWordLogo,
@@ -136,11 +137,79 @@ export function MessageAttachmentRenderer({
     isMe,
     onOpenImage,
 }: MessageAttachmentRendererProps) {
+    const navigate = useNavigate();
+
     if (!attachments || attachments.length === 0) return null;
 
     return (
         <div className={cn("flex flex-col gap-2", hasContent ? "mt-2" : "")}>
             {attachments.map((att, i) => {
+                const isPostPreview = att.kind === "POST_PREVIEW" || att.type === "application/x-chatly-post-preview";
+                if (isPostPreview) {
+                    const targetUrl = att.targetUrl ?? (att.postId ? `/post/${att.postId}` : att.url);
+                    const previewTitle = att.postTitle ?? att.name ?? "Shared post";
+                    const previewText = att.postExcerpt ?? "Open this post to see the full content.";
+                    return (
+                        <button
+                            type="button"
+                            key={i}
+                            onClick={() => navigate(targetUrl)}
+                            className={cn(
+                                "w-full max-w-sm rounded-2xl border p-3 text-left transition-all hover:-translate-y-0.5 hover:shadow-md",
+                                isMe
+                                    ? "border-white/20 bg-white/10 text-white"
+                                    : "border-border/60 bg-background/90 text-foreground",
+                            )}
+                        >
+                            <div className="flex items-start gap-3">
+                                {att.postImageUrl ? (
+                                    <img
+                                        src={att.postImageUrl}
+                                        alt={previewTitle}
+                                        className="h-20 w-20 rounded-xl object-cover shrink-0"
+                                    />
+                                ) : (
+                                    <div className={cn(
+                                        "flex h-20 w-20 items-center justify-center rounded-xl shrink-0",
+                                        isMe ? "bg-white/10" : "bg-muted",
+                                    )}>
+                                        <MessageSquareShare className="h-5 w-5 opacity-70" />
+                                    </div>
+                                )}
+
+                                <div className="min-w-0 flex-1">
+                                    <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-muted-foreground">
+                                        <span>Shared post</span>
+                                        <ExternalLink className="h-3 w-3" />
+                                    </div>
+                                    <p className="mt-1 line-clamp-2 text-sm font-semibold">
+                                        {previewTitle}
+                                    </p>
+                                    <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
+                                        {previewText}
+                                    </p>
+                                    <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
+                                        {att.postAuthorAvatarUrl ? (
+                                            <img
+                                                src={att.postAuthorAvatarUrl}
+                                                alt={att.postAuthorName ?? "Author"}
+                                                className="h-5 w-5 rounded-full object-cover"
+                                            />
+                                        ) : (
+                                            <div className="flex h-5 w-5 items-center justify-center rounded-full bg-muted text-[10px] font-semibold">
+                                                {(att.postAuthorName ?? "A").charAt(0).toUpperCase()}
+                                            </div>
+                                        )}
+                                        <span className="truncate">
+                                            {att.postAuthorName ?? "Unknown author"}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        </button>
+                    );
+                }
+
                 const isImage = att.type?.startsWith("image/");
                 if (isImage) {
                     const id = `${messageId}-${i}`;
