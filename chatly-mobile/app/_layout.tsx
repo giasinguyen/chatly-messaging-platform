@@ -14,17 +14,29 @@ import { useNotificationSocket } from '@/hooks/useNotificationSocket';
 import { useExpoPush } from '@/hooks/useExpoPush';
 import { CallSocketProvider, useCallContext } from '@/contexts/CallContext';
 import { useCallStore } from '@/store/call.store';
-import { CallScreen } from '@/components/call/CallScreen';
-import { OutgoingCallScreen } from '@/components/call/OutgoingCallScreen';
-import { ActiveCallOverlay } from '@/components/call/ActiveCallOverlay';
-import { GroupCallScreen } from '@/components/call/GroupCallScreen';
-import { GroupCallOverlay } from '@/components/call/GroupCallOverlay';
 import { NotificationBanner } from '@/components/ui/NotificationBanner';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { View, ActivityIndicator } from 'react-native';
 import { Colors } from '@/constants/theme';
+import { IS_CALL_ENABLED } from '@/constants/runtime';
 import { notificationService } from '@/services/notification.service';
 import { useNotificationStore } from '@/store/notification.store';
+
+const CallScreenComponent = IS_CALL_ENABLED
+  ? require('@/components/call/CallScreen').CallScreen
+  : null;
+const GroupCallScreenComponent = IS_CALL_ENABLED
+  ? require('@/components/call/GroupCallScreen').GroupCallScreen
+  : null;
+const OutgoingCallScreenComponent = IS_CALL_ENABLED
+  ? require('@/components/call/OutgoingCallScreen').OutgoingCallScreen
+  : null;
+const ActiveCallOverlayComponent = IS_CALL_ENABLED
+  ? require('@/components/call/ActiveCallOverlay').ActiveCallOverlay
+  : null;
+const GroupCallOverlayComponent = IS_CALL_ENABLED
+  ? require('@/components/call/GroupCallOverlay').GroupCallOverlay
+  : null;
 
 void SplashScreen.preventAutoHideAsync();
 
@@ -114,8 +126,8 @@ function AuthGateInner({ children }: { children: React.ReactNode }) {
       {children}
 
       {/* Incoming 1-1 call screen */}
-      {incomingCall && callStatus === 'RINGING' && !incomingGroupCall && (
-        <CallScreen
+      {IS_CALL_ENABLED && CallScreenComponent && incomingCall && callStatus === 'RINGING' && !incomingGroupCall && (
+        <CallScreenComponent
           visible
           incomingCall={incomingCall}
           onAccept={() => answerCallAction(true)}
@@ -124,8 +136,8 @@ function AuthGateInner({ children }: { children: React.ReactNode }) {
       )}
 
       {/* Incoming group call screen (receiver side) */}
-      {incomingGroupCall && callStatus === 'RINGING' && (
-        <GroupCallScreen
+      {IS_CALL_ENABLED && GroupCallScreenComponent && incomingGroupCall && callStatus === 'RINGING' && (
+        <GroupCallScreenComponent
           visible
           incomingGroupCall={incomingGroupCall}
           onJoin={() => joinGroupCall(true)}
@@ -134,13 +146,13 @@ function AuthGateInner({ children }: { children: React.ReactNode }) {
       )}
 
       {/* Outgoing 1-1 call screen (caller side only) */}
-      <OutgoingCallScreen />
+      {IS_CALL_ENABLED && OutgoingCallScreenComponent ? <OutgoingCallScreenComponent /> : null}
 
       {/* Active group call overlay — also covers initiator RINGING state */}
-      {isGroupCall && !incomingGroupCall && (callStatus === 'ONGOING' || callStatus === 'RINGING') && <GroupCallOverlay />}
+      {IS_CALL_ENABLED && GroupCallOverlayComponent && isGroupCall && !incomingGroupCall && (callStatus === 'ONGOING' || callStatus === 'RINGING') && <GroupCallOverlayComponent />}
 
       {/* Active 1-1 call overlay */}
-      {callStatus === 'ONGOING' && !isGroupCall && <ActiveCallOverlay />}
+      {IS_CALL_ENABLED && ActiveCallOverlayComponent && callStatus === 'ONGOING' && !isGroupCall && <ActiveCallOverlayComponent />}
     </>
   );
 }
