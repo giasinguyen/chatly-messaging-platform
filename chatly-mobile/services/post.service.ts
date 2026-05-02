@@ -6,6 +6,8 @@ import type {
     CreatePostRequest,
     UpdatePostRequest,
     ReactToPostRequest,
+    PostComment,
+    CreateCommentRequest,
 } from "@/types/post";
 
 export const postService = {
@@ -58,6 +60,52 @@ export const postService = {
     removeReaction: async (postId: string): Promise<ApiResponse<Post>> => {
         const response = await axiosClient.delete<ApiResponse<Post>>(
             `/api/posts/${postId}/reactions`,
+        );
+        return response.data;
+    },
+
+    // Comments
+    getComments: async (postId: string, page = 0, size = 20): Promise<ApiResponse<PostComment[]>> => {
+        const response = await axiosClient.get<ApiResponse<PostComment[]>>(
+            `/api/posts/${postId}/comments`,
+        );
+        return response.data;
+    },
+
+    addComment: async (postId: string, payload: CreateCommentRequest): Promise<ApiResponse<PostComment>> => {
+        const response = await axiosClient.post<ApiResponse<PostComment>>(
+            `/api/posts/${postId}/comments`,
+            payload,
+        );
+        return response.data;
+    },
+
+    updateComment: async (postId: string, commentId: string, payload: Partial<CreateCommentRequest>): Promise<ApiResponse<PostComment>> => {
+        const response = await axiosClient.patch<ApiResponse<PostComment>>(
+            `/api/posts/${postId}/comments/${commentId}`,
+            payload,
+        );
+        return response.data;
+    },
+
+    deleteComment: async (postId: string, commentId: string): Promise<ApiResponse<void>> => {
+        const response = await axiosClient.delete<ApiResponse<void>>(
+            `/api/posts/${postId}/comments/${commentId}`,
+        );
+        return response.data;
+    },
+
+    reactToComment: async (postId: string, commentId: string, reactionType: string): Promise<ApiResponse<PostComment>> => {
+        const response = await axiosClient.put<ApiResponse<PostComment>>(
+            `/api/posts/${postId}/comments/${commentId}/reactions`,
+            { type: reactionType },
+        );
+        return response.data;
+    },
+
+    removeCommentReaction: async (postId: string, commentId: string): Promise<ApiResponse<PostComment>> => {
+        const response = await axiosClient.delete<ApiResponse<PostComment>>(
+            `/api/posts/${postId}/comments/${commentId}/reactions`,
         );
         return response.data;
     },

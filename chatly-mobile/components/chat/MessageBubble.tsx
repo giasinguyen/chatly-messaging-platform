@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { View, Text, TouchableOpacity, Image, Linking, Modal, Pressable, FlatList, Dimensions } from 'react-native';
+import { useState, useRef } from 'react';
+import { View, Text, TouchableOpacity, Image, Linking, Modal, Pressable, FlatList, Dimensions, PanResponder, Animated } from 'react-native';
 import { Image as ExpoImage } from 'expo-image';
 import RenderHtml from 'react-native-render-html';
 import { Ionicons } from '@expo/vector-icons';
@@ -55,6 +55,7 @@ interface MessageBubbleProps {
   vcardFriendStatus?: (userId: string) => 'ACCEPTED' | 'PENDING' | null;
   onClosePoll?: (messageId: string) => void;
   onScrollToMessage?: (messageId: string) => void;
+  onSwipeReply?: (message: Message) => void;
 }
 
 export function MessageBubble({
@@ -81,6 +82,7 @@ export function MessageBubble({
   vcardFriendStatus,
   onClosePoll,
   onScrollToMessage,
+  onSwipeReply,
 }: MessageBubbleProps) {
   const { content, type, recalled, edited, createdAt, readBy, attachments } = message;
   const normalizedTextContent = richTextToPlainText(content);
@@ -92,6 +94,22 @@ export function MessageBubble({
 
   const [lightboxVisible, setLightboxVisible] = useState(false);
   const [voterModal, setVoterModal] = useState<{ title: string; voterIds: string[] } | null>(null);
+  const pan = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => false,
+      onMoveShouldSetPanResponder: (_, gestureState) => Math.abs(gestureState.dx) > 8 && Math.abs(gestureState.dy) < 12,
+      onPanResponderMove: Animated.event([null, { dx: pan.x }], { useNativeDriver: false }),
+      onPanResponderRelease: (_, gestureState) => {
+        // right swipe to reply
+        if (gestureState.dx > 60 && Math.abs(gestureState.vx) > 0.2) {
+          onSwipeReply?.(message);
+        }
+        Animated.spring(pan, { toValue: { x: 0, y: 0 }, useNativeDriver: false }).start();
+      },
+    })
+  ).current;
 
   // Recalled message
   if (recalled) {
@@ -925,7 +943,7 @@ export function MessageBubble({
   // GIF & Sticker messages — no bubble background
   if (type === 'GIF' || type === 'STICKER') {
     return (
-      <View className={`my-0.5 px-4 ${isMe ? 'items-end' : 'items-start'}`}>
+      <Animated.View {...panResponder.panHandlers} style={{ transform: [{ translateX: pan.x }] }} className={`my-0.5 px-4 ${isMe ? 'items-end' : 'items-start'}`}>
         {!isMe && showAvatar && senderName && (
           <Text className="mb-0.5 ml-1 text-xs" style={{ color: Colors.textMuted }}>
             {senderName}
@@ -982,12 +1000,12 @@ export function MessageBubble({
             ))}
           </View>
         )}
-      </View>
+      </Animated.View>
     );
   }
 
   return (
-    <View className={`my-0.5 px-4 ${isMe ? 'items-end' : 'items-start'}`}>
+    <Animated.View {...panResponder.panHandlers} style={{ transform: [{ translateX: pan.x }] }} className={`my-0.5 px-4 ${isMe ? 'items-end' : 'items-start'}`}>
       {/* Sender name for group chats */}
       {!isMe && showAvatar && senderName && (
         <Text className="mb-0.5 text-xs" style={{ color: Colors.textMuted, marginLeft: 38 }}>
@@ -1245,6 +1263,6 @@ export function MessageBubble({
           </Pressable>
         </Modal>
       )}
-    </View>
+      </Animated.View>
   );
 }
