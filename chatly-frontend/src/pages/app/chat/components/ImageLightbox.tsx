@@ -13,6 +13,8 @@ export function ImageLightbox({ images, index, onIndexChange }: ImageLightboxPro
     if (!current) return null;
 
     const handleKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+        e.stopPropagation();
+
         if (e.key === "Escape") onIndexChange(null);
         if (e.key === "ArrowLeft" && index > 0) onIndexChange(index - 1);
         if (e.key === "ArrowRight" && index < images.length - 1)
@@ -24,6 +26,12 @@ export function ImageLightbox({ images, index, onIndexChange }: ImageLightboxPro
             className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-md flex items-center justify-center pointer-events-auto outline-none animate-in fade-in duration-200"
             tabIndex={-1}
             onKeyDown={handleKeyDown}
+            onClick={(e) => {
+                e.stopPropagation();
+                if (e.target === e.currentTarget) {
+                    onIndexChange(null);
+                }
+            }}
             autoFocus
         >
             <div className="absolute top-0 inset-x-0 p-4 flex items-center justify-between text-white/70">
@@ -36,13 +44,17 @@ export function ImageLightbox({ images, index, onIndexChange }: ImageLightboxPro
                         download={current.name}
                         target="_blank"
                         rel="noreferrer"
-                        className="hover:text-white transition-colors"
+                        className="hover:text-white transition-colors cursor-pointer"
                         title="Download"
+                        onClick={(e) => e.stopPropagation()}
                     >
                         <Download size={20} />
                     </a>
                     <button
-                        onClick={() => onIndexChange(null)}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onIndexChange(null);
+                        }}
                         className="hover:text-white transition-colors"
                     >
                         <X size={24} />
@@ -53,7 +65,10 @@ export function ImageLightbox({ images, index, onIndexChange }: ImageLightboxPro
             {index > 0 && (
                 <button
                     className="absolute left-4 p-2 text-white/50 hover:text-white bg-black/20 hover:bg-black/50 rounded-full transition-all"
-                    onClick={() => onIndexChange(index - 1)}
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        onIndexChange(index - 1);
+                    }}
                 >
                     <ChevronLeft size={36} />
                 </button>
@@ -61,7 +76,10 @@ export function ImageLightbox({ images, index, onIndexChange }: ImageLightboxPro
             {index < images.length - 1 && (
                 <button
                     className="absolute right-4 p-2 text-white/50 hover:text-white bg-black/20 hover:bg-black/50 rounded-full transition-all"
-                    onClick={() => onIndexChange(index + 1)}
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        onIndexChange(index + 1);
+                    }}
                 >
                     <ChevronRight size={36} />
                 </button>

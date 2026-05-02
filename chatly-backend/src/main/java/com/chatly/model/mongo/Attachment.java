@@ -12,6 +12,8 @@ public class Attachment {
 
     private String fileId;
 
+    private String kind;
+
     @Field("fileName")
     private String name;
 
@@ -26,4 +28,25 @@ public class Attachment {
 
     @Field("durationSeconds")
     private Integer durationSeconds;
+
+    @Field("postId")
+    private String postId;
+
+    @Field("postTitle")
+    private String postTitle;
+
+    @Field("postExcerpt")
+    private String postExcerpt;
+
+    @Field("postImageUrl")
+    private String postImageUrl;
+
+    @Field("postAuthorName")
+    private String postAuthorName;
+
+    @Field("postAuthorAvatarUrl")
+    private String postAuthorAvatarUrl;
+
+    @Field("targetUrl")
+    private String targetUrl;
 }

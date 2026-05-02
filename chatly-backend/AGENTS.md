@@ -77,6 +77,7 @@ All identifiers, comments, and Javadoc **must be in English**.
 - Validation via `@Valid` on request bodies + Bean Validation annotations on DTOs.
 - Error responses use the global `@ControllerAdvice` in `exception/` — never construct error responses inline.
 - Pagination: use Spring's `Pageable` for any list endpoint that may grow unbounded.
+- Shared post actions live under `/api/posts/{postId}/share` and only mutate engagement counters; sharing content itself remains in the chat service.
 
 ---
 

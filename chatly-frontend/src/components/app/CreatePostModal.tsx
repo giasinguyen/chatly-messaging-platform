@@ -47,6 +47,8 @@ const isPostVisibility = (value: string): value is PostVisibility =>
     value === "FRIENDS_ONLY" ||
     value === "ONLY_ME";
 
+const hasImageMedia = (urls: string[]) => urls.some((url) => !/\.(mp4|webm)$/i.test(url));
+
 interface CreatePostModalProps {
     isOpen: boolean;
     onClose: () => void;
@@ -85,6 +87,11 @@ export function CreatePostModal({ isOpen, onClose, user }: CreatePostModalProps)
     };
 
     const onSubmit = async (values: FormValues) => {
+        if (!hasImageMedia(mediaUrls)) {
+            toast.error("Please add at least one image.");
+            return;
+        }
+
         try {
             const response = await postService.create({
                 content: values.content,

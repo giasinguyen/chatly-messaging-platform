@@ -62,5 +62,15 @@ export interface PostComment {
     userDisplayName: string;
     userAvatarUrl?: string;
     content: string;
+    parentCommentId?: string | null;
+    mediaUrls: string[];
     createdAt: string;
+    updatedAt?: string;
+    reactions: PostReactionSummary[];
+}
+
+export interface CreatePostCommentRequest {
+    content?: string;
+    mediaUrls?: string[];
+    parentCommentId?: string | null;
 }

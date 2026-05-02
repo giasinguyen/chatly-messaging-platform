@@ -9,11 +9,19 @@ export interface ReadReceipt {
 
 export interface Attachment {
     fileId?: string;
+    kind?: "POST_PREVIEW";
     url: string;
     name?: string;
     type?: string;
     size?: number;
     durationSeconds?: number;
+    postId?: string;
+    postTitle?: string;
+    postExcerpt?: string;
+    postImageUrl?: string;
+    postAuthorName?: string;
+    postAuthorAvatarUrl?: string;
+    targetUrl?: string;
 }
 
 export interface EditHistoryEntry {
