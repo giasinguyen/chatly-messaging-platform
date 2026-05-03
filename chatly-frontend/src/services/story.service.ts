@@ -1,5 +1,6 @@
 import axiosClient from "@/lib/axiosClient";
 import type { ApiResponse } from "@/types/auth";
+import type { UserResponse } from "@/types/auth";
 import type { Story, StoryCreationRequest } from "@/types/story";
 
 export const storyService = {
@@ -20,6 +21,21 @@ export const storyService = {
 
     getUserStories: async (userId: string): Promise<ApiResponse<Story[]>> => {
         const response = await axiosClient.get<ApiResponse<Story[]>>(`/api/stories/users/${userId}`);
+        return response.data;
+    },
+
+    recordView: async (storyId: string): Promise<ApiResponse<void>> => {
+        const response = await axiosClient.post<ApiResponse<void>>(`/api/stories/${storyId}/view`);
+        return response.data;
+    },
+
+    getViewers: async (storyId: string): Promise<ApiResponse<UserResponse[]>> => {
+        const response = await axiosClient.get<ApiResponse<UserResponse[]>>(`/api/stories/${storyId}/viewers`);
+        return response.data;
+    },
+
+    deleteStory: async (storyId: string): Promise<ApiResponse<void>> => {
+        const response = await axiosClient.delete<ApiResponse<void>>(`/api/stories/${storyId}`);
         return response.data;
     },
 };

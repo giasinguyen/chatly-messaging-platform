@@ -22,6 +22,8 @@ export interface Story {
     bgIndex?: number;
     fontSize?: number;
     privacy: string;
+    viewCount?: number;
+    viewedByMe?: boolean;
     createdAt: string;
     user?: StoryUser;
 }

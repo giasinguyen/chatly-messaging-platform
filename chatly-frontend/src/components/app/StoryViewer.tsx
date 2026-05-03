@@ -1,7 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ChevronLeft, ChevronRight, Pause, Play, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Eye, Pause, Play, Trash2, X } from "lucide-react";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { useAuthStore } from "@/store/auth.store";
+import { storyService } from "@/services/story.service";
 import type { Story } from "@/types/story";
+import type { UserResponse } from "@/types/auth";
 
 const STORY_BG_GRADIENTS = [
     "from-purple-600 via-pink-500 to-orange-400",
@@ -30,6 +34,7 @@ interface StoryViewerProps {
     groups: StoryGroup[];
     initialGroupIndex: number;
     onClose: () => void;
+    onStoryDeleted?: (storyId: string) => void;
 }
 
 function formatStoryTime(createdAt: string): string {
@@ -42,17 +47,21 @@ function formatStoryTime(createdAt: string): string {
     return `${Math.floor(diffH / 24)}d ago`;
 }
 
-export function StoryViewer({ groups, initialGroupIndex, onClose }: StoryViewerProps) {
+export function StoryViewer({ groups, initialGroupIndex, onClose, onStoryDeleted }: StoryViewerProps) {
+    const currentUser = useAuthStore((s) => s.user);
     const [groupIndex, setGroupIndex] = useState(initialGroupIndex);
     const [storyIndex, setStoryIndex] = useState(0);
     const [isPaused, setIsPaused] = useState(false);
     const [progress, setProgress] = useState(0);
+    const [viewers, setViewers] = useState<UserResponse[]>([]);
+    const [isViewersOpen, setIsViewersOpen] = useState(false);
     const timerRef = useRef<ReturnType<typeof window.setInterval> | null>(null);
     const containerRef = useRef<HTMLDivElement>(null);
 
     const currentGroup = groups[groupIndex];
     const currentStory = currentGroup?.stories[storyIndex];
     const totalStories = currentGroup?.stories.length ?? 0;
+    const isOwnStory = !!currentUser && currentStory?.userId === currentUser.id;
 
     const bgGradient = useMemo(() => {
         const idx = currentStory?.bgIndex ?? 0;
@@ -128,6 +137,41 @@ export function StoryViewer({ groups, initialGroupIndex, onClose }: StoryViewerP
         return () => window.removeEventListener("keydown", handleKeyDown);
     }, [onClose, goNext, goPrev]);
 
+    // Record view + reset viewers panel when story changes
+    useEffect(() => {
+        if (!currentStory?.id) return;
+        storyService.recordView(currentStory.id).catch(() => {});
+        setViewers([]);
+        setIsViewersOpen(false);
+    }, [currentStory?.id]);
+
+    const handleOpenViewers = useCallback(async () => {
+        if (!currentStory?.id) return;
+        setIsPaused(true);
+        setIsViewersOpen(true);
+        if (viewers.length === 0) {
+            try {
+                const res = await storyService.getViewers(currentStory.id);
+                setViewers(res.result ?? []);
+            } catch {
+                toast.error("Failed to load viewers");
+            }
+        }
+    }, [currentStory?.id, viewers.length]);
+
+    const handleDelete = useCallback(async () => {
+        if (!currentStory?.id) return;
+        if (!window.confirm("Delete this story? This cannot be undone.")) return;
+        try {
+            await storyService.deleteStory(currentStory.id);
+            toast.success("Story deleted");
+            onStoryDeleted?.(currentStory.id);
+            onClose();
+        } catch {
+            toast.error("Failed to delete story");
+        }
+    }, [currentStory?.id, onStoryDeleted, onClose]);
+
     if (!currentGroup || !currentStory) return null;
 
     const user = currentGroup.user;
@@ -136,7 +180,7 @@ export function StoryViewer({ groups, initialGroupIndex, onClose }: StoryViewerP
     return (
         <div
             ref={containerRef}
-            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-sm animate-in fade-in duration-200"
+            className="fixed inset-0 z-100 flex items-center justify-center bg-black/90 backdrop-blur-sm animate-in fade-in duration-200"
             onClick={onClose}
         >
             {/* Close button */}
@@ -178,7 +222,7 @@ export function StoryViewer({ groups, initialGroupIndex, onClose }: StoryViewerP
 
             {/* Story Card */}
             <div
-                className="relative w-full max-w-[420px] h-[85vh] max-h-[760px] rounded-2xl overflow-hidden shadow-2xl"
+                className="relative w-full max-w-105 h-[85vh] max-h-190 rounded-2xl overflow-hidden shadow-2xl"
                 onClick={(e) => e.stopPropagation()}
             >
                 {/* Story Content */}
@@ -203,7 +247,7 @@ export function StoryViewer({ groups, initialGroupIndex, onClose }: StoryViewerP
                 ) : (
                     <div
                         className={cn(
-                            "absolute inset-0 flex items-center justify-center bg-gradient-to-br p-8",
+                            "absolute inset-0 flex items-center justify-center bg-linear-to-br p-8",
                             bgGradient,
                         )}
                     >
@@ -217,14 +261,14 @@ export function StoryViewer({ groups, initialGroupIndex, onClose }: StoryViewerP
                 )}
 
                 {/* Overlay gradient */}
-                <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-transparent to-black/30 pointer-events-none" />
+                <div className="absolute inset-0 bg-linear-to-b from-black/50 via-transparent to-black/30 pointer-events-none" />
 
                 {/* Progress bars */}
                 <div className="absolute top-0 left-0 right-0 flex gap-1 px-3 pt-3 z-20">
                     {currentGroup.stories.map((_, idx) => (
                         <div
                             key={`progress-${idx}`}
-                            className="flex-1 h-[3px] rounded-full bg-white/30 overflow-hidden"
+                            className="flex-1 h-0.75 rounded-full bg-white/30 overflow-hidden"
                         >
                             <div
                                 className="h-full bg-white rounded-full transition-all duration-75 ease-linear"
@@ -267,17 +311,29 @@ export function StoryViewer({ groups, initialGroupIndex, onClose }: StoryViewerP
                         </div>
                     </div>
 
-                    <button
-                        type="button"
-                        onClick={() => setIsPaused((prev) => !prev)}
-                        className="p-1.5 rounded-full hover:bg-white/20 transition-colors"
-                    >
-                        {isPaused ? (
-                            <Play className="h-4 w-4 text-white" />
-                        ) : (
-                            <Pause className="h-4 w-4 text-white" />
+                    <div className="flex items-center gap-1">
+                        {isOwnStory && (
+                            <button
+                                type="button"
+                                onClick={handleDelete}
+                                className="p-1.5 rounded-full hover:bg-red-500/30 transition-colors"
+                                title="Delete story"
+                            >
+                                <Trash2 className="h-4 w-4 text-white" />
+                            </button>
                         )}
-                    </button>
+                        <button
+                            type="button"
+                            onClick={() => setIsPaused((prev) => !prev)}
+                            className="p-1.5 rounded-full hover:bg-white/20 transition-colors"
+                        >
+                            {isPaused ? (
+                                <Play className="h-4 w-4 text-white" />
+                            ) : (
+                                <Pause className="h-4 w-4 text-white" />
+                            )}
+                        </button>
+                    </div>
                 </div>
 
                 {/* Tap zones for prev/next */}
@@ -305,13 +361,77 @@ export function StoryViewer({ groups, initialGroupIndex, onClose }: StoryViewerP
                     />
                 </div>
 
-                {/* Music indicator */}
-                {currentStory.musicName && (
-                    <div className="absolute bottom-6 left-4 right-4 z-20 flex items-center gap-2 bg-black/40 backdrop-blur-sm rounded-full px-3 py-2">
+                {/* Music indicator — hidden when viewers panel is open */}
+                {currentStory.musicName && !isViewersOpen && (
+                    <div className="absolute bottom-16 left-4 right-4 z-20 flex items-center gap-2 bg-black/40 backdrop-blur-sm rounded-full px-3 py-2">
                         <span className="text-white text-xs animate-pulse">♫</span>
                         <span className="text-white/80 text-xs truncate">
                             {currentStory.musicName}
                         </span>
+                    </div>
+                )}
+
+                {/* View count bar — own stories only, hidden when viewers panel is open */}
+                {isOwnStory && !isViewersOpen && (
+                    <button
+                        type="button"
+                        onClick={handleOpenViewers}
+                        className="absolute bottom-4 left-4 right-4 z-20 flex items-center gap-2 bg-black/50 backdrop-blur-sm rounded-full px-4 py-2.5 hover:bg-black/70 transition-colors"
+                    >
+                        <Eye className="h-4 w-4 text-white shrink-0" />
+                        <span className="text-white text-sm font-medium">
+                            {currentStory.viewCount ?? 0}{" "}
+                            {currentStory.viewCount === 1 ? "view" : "views"}
+                        </span>
+                        <span className="text-white/50 text-xs ml-auto">Tap to see viewers</span>
+                    </button>
+                )}
+
+                {/* Viewers panel — slides up from bottom */}
+                {isOwnStory && isViewersOpen && (
+                    <div className="absolute bottom-0 left-0 right-0 z-30 bg-black/80 backdrop-blur-md rounded-b-2xl max-h-64 flex flex-col">
+                        <div className="flex items-center justify-between px-4 pt-3 pb-2 border-b border-white/10 shrink-0">
+                            <span className="text-white text-sm font-semibold flex items-center gap-2">
+                                <Eye className="h-4 w-4" />
+                                {viewers.length} {viewers.length === 1 ? "viewer" : "viewers"}
+                            </span>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setIsViewersOpen(false);
+                                    setIsPaused(false);
+                                }}
+                                className="p-1 rounded-full hover:bg-white/10 transition-colors"
+                            >
+                                <X className="h-4 w-4 text-white/60" />
+                            </button>
+                        </div>
+                        <div className="overflow-y-auto flex-1 py-2">
+                            {viewers.length === 0 ? (
+                                <p className="text-center text-white/40 text-sm py-4">No viewers yet</p>
+                            ) : (
+                                viewers.map((viewer) => (
+                                    <div key={viewer.id} className="flex items-center gap-3 px-4 py-2">
+                                        <div className="h-8 w-8 rounded-full overflow-hidden bg-white/20 shrink-0">
+                                            {viewer.avatarUrl ? (
+                                                <img
+                                                    src={viewer.avatarUrl}
+                                                    alt={viewer.displayName}
+                                                    className="h-full w-full object-cover"
+                                                />
+                                            ) : (
+                                                <div className="h-full w-full flex items-center justify-center text-xs font-bold text-white">
+                                                    {viewer.displayName?.charAt(0)?.toUpperCase() ?? "U"}
+                                                </div>
+                                            )}
+                                        </div>
+                                        <span className="text-white text-sm">
+                                            {viewer.displayName ?? viewer.username}
+                                        </span>
+                                    </div>
+                                ))
+                            )}
+                        </div>
                     </div>
                 )}
             </div>
