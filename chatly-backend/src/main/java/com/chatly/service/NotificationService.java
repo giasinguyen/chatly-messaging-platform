@@ -157,6 +157,22 @@ public class NotificationService {
                             title = "New member joined";
                         } else if (notification.getType() == NotificationType.CALL_MISSED) {
                             title = "Missed call";
+                        } else if (notification.getType() == NotificationType.POST_LIKED) {
+                            title = "Someone liked your post";
+                        } else if (notification.getType() == NotificationType.POST_COMMENTED) {
+                            title = "New comment on your post";
+                        } else if (notification.getType() == NotificationType.POST_SHARED) {
+                            title = "Someone shared your post";
+                        } else if (notification.getType() == NotificationType.POST_MENTION) {
+                            title = "You were mentioned in a post";
+                        } else if (notification.getType() == NotificationType.COMMENT_REPLIED) {
+                            title = "New reply to your comment";
+                        } else if (notification.getType() == NotificationType.STORY_VIEWED) {
+                            title = "Someone viewed your story";
+                        } else if (notification.getType() == NotificationType.STORY_REACTED) {
+                            title = "Someone reacted to your story";
+                        } else if (notification.getType() == NotificationType.STORY_REPLIED) {
+                            title = "Someone replied to your story";
                         }
                         
                         Map<String, Object> data = Map.of(

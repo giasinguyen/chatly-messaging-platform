@@ -71,6 +71,12 @@ public class PostService {
                 .map(post -> toResponse(post, requesterId));
     }
 
+    public Page<PostResponse> searchPosts(String keyword, String hashtag, String requesterId, Pageable pageable) {
+        return postRepository
+                .searchPublicPosts(keyword, hashtag, pageable)
+                .map(post -> toResponse(post, requesterId));
+    }
+
     public Page<PostResponse> getByAuthor(String authorId, String requesterId, Pageable pageable) {
         return postRepository
                 .findByAuthorIdOrderByCreatedAtDesc(authorId, pageable)
@@ -128,6 +134,17 @@ public class PostService {
         Post post = findPost(postId);
         post.setShareCount(post.getShareCount() + 1);
         post = postRepository.save(post);
+
+        if (!post.getAuthorId().equals(requesterId)) {
+            notificationService.createAndPush(
+                    NotificationType.POST_SHARED,
+                    requesterId,
+                    post.getAuthorId(),
+                    "Someone shared your post",
+                    postId
+            );
+        }
+
         return toResponse(post, requesterId);
     }
 

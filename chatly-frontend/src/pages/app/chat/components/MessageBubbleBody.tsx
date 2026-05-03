@@ -262,6 +262,15 @@ export function MessageBubbleBody(props: MessageBubbleBodyProps) {
                     isMe={isMe}
                 />
             )}
+            {msg.attachments?.some((a) => a.kind === "STORY_REPLY") && (
+                <MessageAttachmentRenderer
+                    messageId={msg.id}
+                    attachments={msg.attachments}
+                    hasContent={false}
+                    isMe={isMe}
+                    onOpenImage={onOpenImage}
+                />
+            )}
             <TextMessageBody
                 content={msg.content}
                 isMe={isMe}
@@ -269,13 +278,15 @@ export function MessageBubbleBody(props: MessageBubbleBodyProps) {
                 highlightKeyword={highlightKeyword}
                 onOpenSenderProfile={onOpenSenderProfile}
             />
-            <MessageAttachmentRenderer
-                messageId={msg.id}
-                attachments={msg.attachments}
-                hasContent={!!msg.content}
-                isMe={isMe}
-                onOpenImage={onOpenImage}
-            />
+            {!msg.attachments?.some((a) => a.kind === "STORY_REPLY") && (
+                <MessageAttachmentRenderer
+                    messageId={msg.id}
+                    attachments={msg.attachments}
+                    hasContent={!!msg.content}
+                    isMe={isMe}
+                    onOpenImage={onOpenImage}
+                />
+            )}
             {msg.edited && (
                 <Tooltip>
                     <TooltipTrigger asChild>

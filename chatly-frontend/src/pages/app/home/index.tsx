@@ -141,6 +141,12 @@ export default function HomePage() {
         return stories.some(s => s.userId === user?.id);
     }, [stories, user?.id]);
 
+    const handleStoryViewed = useCallback((storyId: string) => {
+        setStories((prev) =>
+            prev.map((s) => (s.id === storyId ? { ...s, viewedByMe: true } : s)),
+        );
+    }, []);
+
     return (
         <div className="w-full h-full flex justify-center overflow-y-auto bg-background relative hide-scrollbar">
             {/* Central Feed Area */}
@@ -163,14 +169,21 @@ export default function HomePage() {
                         </div>
 
                         {/* Real Stories */}
-                        {groupedStories.map((group, groupIdx) => (
+                        {groupedStories.map((group, groupIdx) => {
+                            const allViewed = group.stories.every((s) => s.viewedByMe);
+                            return (
                             <div
                                 key={group.user?.id}
                                 className="flex flex-col items-center gap-1 snap-start cursor-pointer group"
                                 onClick={() => setStoryViewerIndex(groupIdx)}
                             >
-                                <div className="p-[2.5px] rounded-full bg-gradient-to-tr from-brand via-blue-500 to-cyan-400 group-hover:scale-105 transition-transform shadow-sm">
-                                    <div className="bg-background p-[2px] rounded-full">
+                                <div className={cn(
+                                    "p-[2.5px] rounded-full group-hover:scale-105 transition-transform shadow-sm",
+                                    allViewed
+                                        ? "bg-muted"
+                                        : "bg-linear-to-tr from-brand via-blue-500 to-cyan-400",
+                                )}>
+                                    <div className="bg-background p-0.5 rounded-full">
                                         <img
                                             alt={group.user?.displayName}
                                             className="w-14 h-14 rounded-full object-cover"
@@ -178,11 +191,15 @@ export default function HomePage() {
                                         />
                                     </div>
                                 </div>
-                                <span className="text-sm text-muted-foreground truncate w-16 text-center">
+                                <span className={cn(
+                                    "text-sm truncate w-16 text-center",
+                                    allViewed ? "text-muted-foreground/50" : "text-muted-foreground",
+                                )}>
                                     {group.user?.id === user?.id ? "Your story" : group.user?.displayName}
                                 </span>
                             </div>
-                        ))}
+                            );
+                        })}
                     </div>
                 </div>
 
@@ -303,6 +320,7 @@ export default function HomePage() {
                     groups={groupedStories}
                     initialGroupIndex={storyViewerIndex}
                     onClose={() => setStoryViewerIndex(null)}
+                    onStoryViewed={handleStoryViewed}
                 />
             )}
         </div>

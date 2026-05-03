@@ -9,12 +9,13 @@ export interface ReadReceipt {
 
 export interface Attachment {
     fileId?: string;
-    kind?: "POST_PREVIEW";
+    kind?: "POST_PREVIEW" | "STORY_REPLY";
     url: string;
     name?: string;
     type?: string;
     size?: number;
     durationSeconds?: number;
+    // POST_PREVIEW fields
     postId?: string;
     postTitle?: string;
     postExcerpt?: string;
@@ -22,6 +23,13 @@ export interface Attachment {
     postAuthorName?: string;
     postAuthorAvatarUrl?: string;
     targetUrl?: string;
+    // STORY_REPLY fields
+    storyId?: string;
+    storyType?: string;
+    storyMediaUrl?: string;
+    storyContent?: string;
+    storyOwnerName?: string;
+    storyOwnerAvatarUrl?: string;
 }
 
 export interface EditHistoryEntry {

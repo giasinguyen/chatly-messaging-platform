@@ -1,17 +1,15 @@
-export enum StoryType {
-    TEXT = "TEXT",
-    PHOTO = "PHOTO",
-    VIDEO = "VIDEO"
-}
+export type StoryPrivacy = "EVERYONE" | "FOLLOWERS_ONLY" | "CLOSE_FRIENDS" | "ONLY_ME";
+
+export type StoryType = "IMAGE" | "VIDEO" | "TEXT";
 
 export interface StoryUser {
     id: string;
+    username: string;
     displayName?: string;
     avatarUrl?: string;
-    username?: string;
 }
 
-export interface Story {
+export interface StoryResponse {
     id: string;
     userId: string;
     type: StoryType;
@@ -21,22 +19,11 @@ export interface Story {
     musicName?: string;
     bgIndex?: number;
     fontSize?: number;
-    privacy: string;
-    viewCount?: number;
-    viewedByMe?: boolean;
+    privacy: StoryPrivacy;
+    viewCount: number;
+    viewedByMe: boolean;
     createdAt: string;
     user?: StoryUser;
-}
-
-export interface StoryCreationRequest {
-    type: StoryType;
-    content?: string;
-    mediaUrl?: string;
-    musicUrl?: string;
-    musicName?: string;
-    bgIndex?: number;
-    fontSize?: number;
-    privacy: string;
 }
 
 export interface StoryReactionResponse {
@@ -55,4 +42,9 @@ export interface StoryReplyResponse {
     content: string;
     createdAt: string;
     user?: StoryUser;
+}
+
+export interface StoryGroup {
+    user: StoryUser;
+    stories: StoryResponse[];
 }

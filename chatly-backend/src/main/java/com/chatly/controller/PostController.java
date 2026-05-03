@@ -31,6 +31,16 @@ public class PostController {
                 .build();
     }
 
+    @GetMapping("/search")
+    ApiResponse<Page<PostResponse>> searchPosts(
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false) String hashtag,
+            Pageable pageable) {
+        return ApiResponse.<Page<PostResponse>>builder()
+                .result(postService.searchPosts(q, hashtag, getAuthenticatedUserId(), pageable))
+                .build();
+    }
+
     @GetMapping("/feed")
     ApiResponse<Page<PostResponse>> getFeed(Pageable pageable) {
         return ApiResponse.<Page<PostResponse>>builder()

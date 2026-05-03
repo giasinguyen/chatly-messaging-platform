@@ -3,6 +3,9 @@ package com.chatly.repository.mongo;
 import com.chatly.model.enums.PostVisibility;
 import com.chatly.model.mongo.Post;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.aggregation.*;
@@ -11,13 +14,17 @@ import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.stereotype.Repository;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Pattern;
 
 @Repository
 @RequiredArgsConstructor
 public class PostRepositoryCustomImpl implements PostRepositoryCustom {
 
     private static final String FIELD_AUTHOR_ID   = "authorId";
+    private static final String FIELD_CONTENT     = "content";
+    private static final String FIELD_HASHTAGS    = "hashtags";
     private static final String FIELD_CREATED_AT  = "createdAt";
     private static final String FIELD_VISIBILITY  = "visibility";
     private static final String FIELD_IS_DELETED  = "isDeleted";
@@ -79,5 +86,29 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
 
         Aggregation aggregation = Aggregation.newAggregation(match, addScore, sort, limitOp);
         return mongoTemplate.aggregate(aggregation, "posts", Post.class).getMappedResults();
+    }
+
+    @Override
+    public Page<Post> searchPublicPosts(String keyword, String hashtag, Pageable pageable) {
+        List<Criteria> filters = new ArrayList<>();
+        filters.add(Criteria.where(FIELD_VISIBILITY).is(PostVisibility.PUBLIC));
+        filters.add(Criteria.where(FIELD_IS_DELETED).is(false));
+
+        if (keyword != null && !keyword.isBlank()) {
+            filters.add(Criteria.where(FIELD_CONTENT)
+                    .regex(Pattern.compile(Pattern.quote(keyword.trim()), Pattern.CASE_INSENSITIVE)));
+        }
+
+        if (hashtag != null && !hashtag.isBlank()) {
+            filters.add(Criteria.where(FIELD_HASHTAGS).is(hashtag.trim().toLowerCase()));
+        }
+
+        Criteria combined = new Criteria().andOperator(filters.toArray(new Criteria[0]));
+        Query query = new Query(combined).with(pageable);
+
+        List<Post> posts = mongoTemplate.find(query, Post.class);
+        long total = mongoTemplate.count(new Query(combined), Post.class);
+
+        return new PageImpl<>(posts, pageable, total);
     }
 }

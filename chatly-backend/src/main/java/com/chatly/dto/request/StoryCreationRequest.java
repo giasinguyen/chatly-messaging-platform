@@ -1,5 +1,6 @@
 package com.chatly.dto.request;
 
+import com.chatly.model.enums.StoryPrivacy;
 import com.chatly.model.enums.StoryType;
 import lombok.*;
 
@@ -15,5 +16,5 @@ public class StoryCreationRequest {
     private String musicName;
     private Integer bgIndex;
     private Integer fontSize;
-    private String privacy;
+    private StoryPrivacy privacy;
 }

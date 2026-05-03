@@ -1,5 +1,6 @@
 package com.chatly.dto.response;
 
+import com.chatly.model.enums.StoryPrivacy;
 import com.chatly.model.enums.StoryType;
 import lombok.*;
 
@@ -19,7 +20,9 @@ public class StoryResponse {
     private String musicName;
     private Integer bgIndex;
     private Integer fontSize;
-    private String privacy;
+    private StoryPrivacy privacy;
+    private int viewCount;
+    private boolean viewedByMe;
     private Instant createdAt;
     private UserResponse user;
 }

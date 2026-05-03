@@ -11,6 +11,11 @@ public enum NotificationType {
     CALL_MISSED,
     POST_LIKED,
     POST_COMMENTED,
+    POST_SHARED,
+    POST_MENTION,
     COMMENT_REPLIED,
+    STORY_VIEWED,
+    STORY_REACTED,
+    STORY_REPLIED,
     SYSTEM
 }
