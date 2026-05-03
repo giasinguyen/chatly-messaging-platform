@@ -6,20 +6,37 @@ import { Ionicons } from '@expo/vector-icons';
 interface PostImageCarouselProps {
   images: string[];
   aspectRatio?: number;
+  onDoubleTap?: () => void;
 }
 
 const { width: screenWidth } = Dimensions.get('window');
 
-export function PostImageCarousel({ images, aspectRatio = 1 }: PostImageCarouselProps) {
+export function PostImageCarousel({ images, aspectRatio = 1, onDoubleTap }: PostImageCarouselProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const currentIndexRef = useRef(0);
+  const lastTapRef = useRef(0);
   const scrollX = useRef(new Animated.Value(0)).current;
   const panResponder = useRef(
     PanResponder.create({
-      onStartShouldSetPanResponder: () => images.length > 1,
-      onMoveShouldSetPanResponder: (_, gestureState) => Math.abs(gestureState.dx) > 8 && Math.abs(gestureState.dy) < 12 && images.length > 1,
+      onStartShouldSetPanResponder: () => images.length > 1 || Boolean(onDoubleTap),
+      onMoveShouldSetPanResponder: (_, gestureState) =>
+        Math.abs(gestureState.dx) > 8 && Math.abs(gestureState.dy) < 12 && images.length > 1,
       onPanResponderRelease: (evt, { vx }) => {
         const idx = currentIndexRef.current;
+        const now = Date.now();
+        const tapGapMs = 280;
+
+        if (Math.abs(vx) < 0.2) {
+          if (now - lastTapRef.current <= tapGapMs) {
+            lastTapRef.current = 0;
+            onDoubleTap?.();
+            return;
+          }
+
+          lastTapRef.current = now;
+          return;
+        }
+
         // vx is velocity in x direction
         if (vx > 0.5 && idx > 0) {
           // Swipe right - show previous image
@@ -59,12 +76,14 @@ export function PostImageCarousel({ images, aspectRatio = 1 }: PostImageCarousel
   // Single image - just display
   if (images.length === 1) {
     return (
-      <Image
-        source={{ uri: images[0] }}
-        contentFit="cover"
-        transition={120}
-        style={{ width: '100%', aspectRatio }}
-      />
+      <View {...panResponder.panHandlers} style={{ width: '100%', aspectRatio }}>
+        <Image
+          source={{ uri: images[0] }}
+          contentFit="cover"
+          transition={120}
+          style={{ width: '100%', aspectRatio }}
+        />
+      </View>
     );
   }
 

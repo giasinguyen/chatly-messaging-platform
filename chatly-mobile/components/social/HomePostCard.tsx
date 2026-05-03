@@ -10,14 +10,14 @@ import type { Post, PostComment } from '@/types/post';
 interface HomePostCardProps {
   post: Post;
   comments?: PostComment[];
-  onLikePost?: (postId: string) => void;
-  onUnlikePost?: (postId: string) => void;
+  onToggleLikePost?: (postId: string) => void;
   onSavePost?: (postId: string) => void;
   onUnsavePost?: (postId: string) => void;
   onDeletePost?: (postId: string) => void;
   onEditPost?: (postId: string) => void;
   onAddComment?: (postId: string, content: string, mediaUrls?: string[], parentCommentId?: string) => void;
   onLikeComment?: (commentId: string, reactionType: string) => void;
+  onUnlikeComment?: (commentId: string) => void;
   onDeleteComment?: (commentId: string) => void;
   onOpenComments?: (postId: string) => void;
 }
@@ -46,34 +46,33 @@ function formatRelativeTime(createdAt: string): string {
 export function HomePostCard({
   post,
   comments = [],
-  onLikePost,
-  onUnlikePost,
+  onToggleLikePost,
   onSavePost,
   onUnsavePost,
   onDeletePost,
   onEditPost,
   onAddComment,
   onLikeComment,
+  onUnlikeComment,
   onDeleteComment,
   onOpenComments,
 }: HomePostCardProps) {
   const [showMenu, setShowMenu] = useState(false);
   const [showComments, setShowComments] = useState(false);
-  const [isLiked, setIsLiked] = useState(post.reactions?.some((r) => r.reactedByMe) ?? false);
   const [isSaved, setIsSaved] = useState(post.savedByMe ?? false);
 
   const authorName = post.authorDisplayName ?? post.authorUsername ?? 'Unknown user';
   const avatarUrl = post.authorAvatarUrl ?? FALLBACK_AVATAR;
-  const totalLikes = post.reactions?.reduce((sum, reaction) => sum + reaction.count, 0) ?? 0;
+  const likeSummary = post.reactions?.find((reaction) => reaction.type === 'LIKE');
+  const isLiked = likeSummary?.reactedByMe ?? false;
+  const totalLikes = likeSummary?.count ?? 0;
 
   const handleLike = () => {
-    if (isLiked) {
-      onUnlikePost?.(post.id);
-      setIsLiked(false);
-    } else {
-      onLikePost?.(post.id);
-      setIsLiked(true);
-    }
+    onToggleLikePost?.(post.id);
+  };
+
+  const handleDoubleTapLike = () => {
+    onToggleLikePost?.(post.id);
   };
 
   const handleSave = () => {
@@ -169,6 +168,7 @@ export function HomePostCard({
         <PostImageCarousel
           images={post.mediaUrls && post.mediaUrls.length > 0 ? post.mediaUrls : [FALLBACK_MEDIA]}
           aspectRatio={1}
+          onDoubleTap={handleDoubleTapLike}
         />
 
         {/* Post Actions & Caption */}
@@ -242,6 +242,7 @@ export function HomePostCard({
         onOpen={onOpenComments}
         onAddComment={onAddComment}
         onLikeComment={(commentId, reactionType) => onLikeComment?.(commentId, reactionType)}
+        onUnlikeComment={(commentId) => onUnlikeComment?.(commentId)}
         onDeleteComment={(commentId) => onDeleteComment?.(commentId)}
       />
     </>
