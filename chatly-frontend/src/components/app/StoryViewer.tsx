@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ChevronLeft, ChevronRight, Eye, Pause, Play, Trash2, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Eye, Pause, Play, Send, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/store/auth.store";
 import { storyService } from "@/services/story.service";
-import type { Story } from "@/types/story";
+import type { Story, StoryReactionResponse, StoryReplyResponse } from "@/types/story";
 import type { UserResponse } from "@/types/auth";
 
 const STORY_BG_GRADIENTS = [
@@ -17,6 +17,8 @@ const STORY_BG_GRADIENTS = [
 ];
 
 const STORY_DURATION_MS = 5000;
+
+const QUICK_EMOJIS = ["❤️", "😂", "😮", "😢", "😡", "👏"];
 
 interface StoryUser {
     id: string;
@@ -55,7 +57,13 @@ export function StoryViewer({ groups, initialGroupIndex, onClose, onStoryDeleted
     const [isPaused, setIsPaused] = useState(false);
     const [progress, setProgress] = useState(0);
     const [viewers, setViewers] = useState<UserResponse[]>([]);
-    const [isViewersOpen, setIsViewersOpen] = useState(false);
+    const [reactions, setReactions] = useState<StoryReactionResponse[]>([]);
+    const [replies, setReplies] = useState<StoryReplyResponse[]>([]);
+    const [ownerPanelTab, setOwnerPanelTab] = useState<"viewers" | "reactions" | "replies">("viewers");
+    const [isOwnerPanelOpen, setIsOwnerPanelOpen] = useState(false);
+    const [myReaction, setMyReaction] = useState<string | null>(null);
+    const [replyText, setReplyText] = useState("");
+    const [isSendingReply, setIsSendingReply] = useState(false);
     const timerRef = useRef<ReturnType<typeof window.setInterval> | null>(null);
     const containerRef = useRef<HTMLDivElement>(null);
 
@@ -138,29 +146,90 @@ export function StoryViewer({ groups, initialGroupIndex, onClose, onStoryDeleted
         return () => window.removeEventListener("keydown", handleKeyDown);
     }, [onClose, goNext, goPrev]);
 
-    // Record view + reset viewers panel when story changes
+    // Record view + reset panels when story changes
     useEffect(() => {
         if (!currentStory?.id) return;
         storyService.recordView(currentStory.id).then(() => {
             onStoryViewed?.(currentStory.id);
         }).catch(() => {});
         setViewers([]);
-        setIsViewersOpen(false);
+        setReactions([]);
+        setReplies([]);
+        setIsOwnerPanelOpen(false);
+        setMyReaction(null);
+        setReplyText("");
     }, [currentStory?.id]);
 
-    const handleOpenViewers = useCallback(async () => {
+    const handleOpenOwnerPanel = useCallback(async (tab: "viewers" | "reactions" | "replies") => {
         if (!currentStory?.id) return;
         setIsPaused(true);
-        setIsViewersOpen(true);
-        if (viewers.length === 0) {
-            try {
+        setOwnerPanelTab(tab);
+        setIsOwnerPanelOpen(true);
+
+        try {
+            if (tab === "viewers" && viewers.length === 0) {
                 const res = await storyService.getViewers(currentStory.id);
                 setViewers(res.result ?? []);
-            } catch {
-                toast.error("Failed to load viewers");
+            } else if (tab === "reactions" && reactions.length === 0) {
+                const res = await storyService.getReactions(currentStory.id);
+                setReactions(res.result ?? []);
+            } else if (tab === "replies" && replies.length === 0) {
+                const res = await storyService.getReplies(currentStory.id);
+                setReplies(res.result ?? []);
             }
+        } catch {
+            toast.error("Failed to load data");
         }
-    }, [currentStory?.id, viewers.length]);
+    }, [currentStory?.id, viewers.length, reactions.length, replies.length]);
+
+    const handleOwnerPanelTabChange = useCallback(async (tab: "viewers" | "reactions" | "replies") => {
+        setOwnerPanelTab(tab);
+        if (!currentStory?.id) return;
+        try {
+            if (tab === "viewers" && viewers.length === 0) {
+                const res = await storyService.getViewers(currentStory.id);
+                setViewers(res.result ?? []);
+            } else if (tab === "reactions" && reactions.length === 0) {
+                const res = await storyService.getReactions(currentStory.id);
+                setReactions(res.result ?? []);
+            } else if (tab === "replies" && replies.length === 0) {
+                const res = await storyService.getReplies(currentStory.id);
+                setReplies(res.result ?? []);
+            }
+        } catch {
+            toast.error("Failed to load data");
+        }
+    }, [currentStory?.id, viewers.length, reactions.length, replies.length]);
+
+    const handleReact = useCallback(async (emoji: string) => {
+        if (!currentStory?.id) return;
+        try {
+            if (myReaction === emoji) {
+                await storyService.removeReaction(currentStory.id);
+                setMyReaction(null);
+            } else {
+                await storyService.reactToStory(currentStory.id, emoji);
+                setMyReaction(emoji);
+                toast.success("Reacted " + emoji);
+            }
+        } catch {
+            toast.error("Failed to react");
+        }
+    }, [currentStory?.id, myReaction]);
+
+    const handleSendReply = useCallback(async () => {
+        if (!currentStory?.id || !replyText.trim()) return;
+        setIsSendingReply(true);
+        try {
+            await storyService.replyToStory(currentStory.id, replyText.trim());
+            setReplyText("");
+            toast.success("Reply sent");
+        } catch {
+            toast.error("Failed to send reply");
+        } finally {
+            setIsSendingReply(false);
+        }
+    }, [currentStory?.id, replyText]);
 
     const handleDelete = useCallback(async () => {
         if (!currentStory?.id) return;
@@ -364,8 +433,8 @@ export function StoryViewer({ groups, initialGroupIndex, onClose, onStoryDeleted
                     />
                 </div>
 
-                {/* Music indicator — hidden when viewers panel is open */}
-                {currentStory.musicName && !isViewersOpen && (
+                {/* Music indicator — hidden when owner panel is open */}
+                {currentStory.musicName && !isOwnerPanelOpen && (
                     <div className="absolute bottom-16 left-4 right-4 z-20 flex items-center gap-2 bg-black/40 backdrop-blur-sm rounded-full px-3 py-2">
                         <span className="text-white text-xs animate-pulse">♫</span>
                         <span className="text-white/80 text-xs truncate">
@@ -374,34 +443,102 @@ export function StoryViewer({ groups, initialGroupIndex, onClose, onStoryDeleted
                     </div>
                 )}
 
-                {/* View count bar — own stories only, hidden when viewers panel is open */}
-                {isOwnStory && !isViewersOpen && (
-                    <button
-                        type="button"
-                        onClick={handleOpenViewers}
-                        className="absolute bottom-4 left-4 right-4 z-20 flex items-center gap-2 bg-black/50 backdrop-blur-sm rounded-full px-4 py-2.5 hover:bg-black/70 transition-colors"
-                    >
-                        <Eye className="h-4 w-4 text-white shrink-0" />
-                        <span className="text-white text-sm font-medium">
-                            {currentStory.viewCount ?? 0}{" "}
-                            {currentStory.viewCount === 1 ? "view" : "views"}
-                        </span>
-                        <span className="text-white/50 text-xs ml-auto">Tap to see viewers</span>
-                    </button>
+                {/* Bottom bar — own story: view count + owner panel button */}
+                {isOwnStory && !isOwnerPanelOpen && (
+                    <div className="absolute bottom-4 left-4 right-4 z-20 flex items-center gap-2">
+                        <button
+                            type="button"
+                            onClick={() => handleOpenOwnerPanel("viewers")}
+                            className="flex-1 flex items-center gap-2 bg-black/50 backdrop-blur-sm rounded-full px-4 py-2.5 hover:bg-black/70 transition-colors"
+                        >
+                            <Eye className="h-4 w-4 text-white shrink-0" />
+                            <span className="text-white text-sm font-medium">
+                                {currentStory.viewCount ?? 0}{" "}
+                                {currentStory.viewCount === 1 ? "view" : "views"}
+                            </span>
+                            <span className="text-white/50 text-xs ml-auto">Tap to see</span>
+                        </button>
+                    </div>
                 )}
 
-                {/* Viewers panel — slides up from bottom */}
-                {isOwnStory && isViewersOpen && (
-                    <div className="absolute bottom-0 left-0 right-0 z-30 bg-black/80 backdrop-blur-md rounded-b-2xl max-h-64 flex flex-col">
-                        <div className="flex items-center justify-between px-4 pt-3 pb-2 border-b border-white/10 shrink-0">
-                            <span className="text-white text-sm font-semibold flex items-center gap-2">
-                                <Eye className="h-4 w-4" />
-                                {viewers.length} {viewers.length === 1 ? "viewer" : "viewers"}
-                            </span>
+                {/* Bottom bar — others' story: emoji reactions + reply input */}
+                {!isOwnStory && (
+                    <div className="absolute bottom-4 left-4 right-4 z-20 flex flex-col gap-2">
+                        {/* Quick emoji reactions */}
+                        <div className="flex items-center justify-center gap-2">
+                            {QUICK_EMOJIS.map((emoji) => (
+                                <button
+                                    key={emoji}
+                                    type="button"
+                                    onClick={() => handleReact(emoji)}
+                                    className={cn(
+                                        "text-xl p-1.5 rounded-full transition-all hover:scale-125",
+                                        myReaction === emoji
+                                            ? "bg-white/30 scale-125"
+                                            : "bg-black/30 hover:bg-black/50",
+                                    )}
+                                    title={`React ${emoji}`}
+                                >
+                                    {emoji}
+                                </button>
+                            ))}
+                        </div>
+                        {/* Reply input */}
+                        <div className="flex items-center gap-2 bg-black/50 backdrop-blur-sm rounded-full px-4 py-2">
+                            <input
+                                type="text"
+                                value={replyText}
+                                onChange={(e) => setReplyText(e.target.value)}
+                                onFocus={() => setIsPaused(true)}
+                                onBlur={() => setIsPaused(false)}
+                                onKeyDown={(e) => {
+                                    if (e.key === "Enter" && !e.shiftKey) {
+                                        e.preventDefault();
+                                        void handleSendReply();
+                                    }
+                                }}
+                                placeholder="Reply to story..."
+                                className="flex-1 bg-transparent text-white text-sm placeholder:text-white/50 outline-none"
+                                maxLength={500}
+                            />
+                            <button
+                                type="button"
+                                onClick={() => void handleSendReply()}
+                                disabled={!replyText.trim() || isSendingReply}
+                                className="p-1 rounded-full hover:bg-white/20 transition-colors disabled:opacity-40"
+                            >
+                                <Send className="h-4 w-4 text-white" />
+                            </button>
+                        </div>
+                    </div>
+                )}
+
+                {/* Owner panel — slides up from bottom with tabs: Viewers / Reactions / Replies */}
+                {isOwnStory && isOwnerPanelOpen && (
+                    <div className="absolute bottom-0 left-0 right-0 z-30 bg-black/80 backdrop-blur-md rounded-b-2xl max-h-72 flex flex-col">
+                        {/* Header with tabs */}
+                        <div className="flex items-center justify-between px-4 pt-3 pb-0 shrink-0">
+                            <div className="flex gap-3">
+                                {(["viewers", "reactions", "replies"] as const).map((tab) => (
+                                    <button
+                                        key={tab}
+                                        type="button"
+                                        onClick={() => void handleOwnerPanelTabChange(tab)}
+                                        className={cn(
+                                            "text-sm font-semibold pb-2 border-b-2 transition-colors capitalize",
+                                            ownerPanelTab === tab
+                                                ? "text-white border-white"
+                                                : "text-white/40 border-transparent hover:text-white/60",
+                                        )}
+                                    >
+                                        {tab}
+                                    </button>
+                                ))}
+                            </div>
                             <button
                                 type="button"
                                 onClick={() => {
-                                    setIsViewersOpen(false);
+                                    setIsOwnerPanelOpen(false);
                                     setIsPaused(false);
                                 }}
                                 className="p-1 rounded-full hover:bg-white/10 transition-colors"
@@ -409,30 +546,75 @@ export function StoryViewer({ groups, initialGroupIndex, onClose, onStoryDeleted
                                 <X className="h-4 w-4 text-white/60" />
                             </button>
                         </div>
+                        <div className="border-b border-white/10 mx-4" />
+
+                        {/* Tab content */}
                         <div className="overflow-y-auto flex-1 py-2">
-                            {viewers.length === 0 ? (
-                                <p className="text-center text-white/40 text-sm py-4">No viewers yet</p>
-                            ) : (
-                                viewers.map((viewer) => (
-                                    <div key={viewer.id} className="flex items-center gap-3 px-4 py-2">
-                                        <div className="h-8 w-8 rounded-full overflow-hidden bg-white/20 shrink-0">
-                                            {viewer.avatarUrl ? (
-                                                <img
-                                                    src={viewer.avatarUrl}
-                                                    alt={viewer.displayName}
-                                                    className="h-full w-full object-cover"
-                                                />
-                                            ) : (
-                                                <div className="h-full w-full flex items-center justify-center text-xs font-bold text-white">
-                                                    {viewer.displayName?.charAt(0)?.toUpperCase() ?? "U"}
-                                                </div>
-                                            )}
+                            {ownerPanelTab === "viewers" && (
+                                viewers.length === 0 ? (
+                                    <p className="text-center text-white/40 text-sm py-4">No viewers yet</p>
+                                ) : (
+                                    viewers.map((viewer) => (
+                                        <div key={viewer.id} className="flex items-center gap-3 px-4 py-2">
+                                            <div className="h-8 w-8 rounded-full overflow-hidden bg-white/20 shrink-0">
+                                                {viewer.avatarUrl ? (
+                                                    <img src={viewer.avatarUrl} alt={viewer.displayName} className="h-full w-full object-cover" />
+                                                ) : (
+                                                    <div className="h-full w-full flex items-center justify-center text-xs font-bold text-white">
+                                                        {viewer.displayName?.charAt(0)?.toUpperCase() ?? "U"}
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <span className="text-white text-sm">{viewer.displayName ?? viewer.username}</span>
                                         </div>
-                                        <span className="text-white text-sm">
-                                            {viewer.displayName ?? viewer.username}
-                                        </span>
-                                    </div>
-                                ))
+                                    ))
+                                )
+                            )}
+
+                            {ownerPanelTab === "reactions" && (
+                                reactions.length === 0 ? (
+                                    <p className="text-center text-white/40 text-sm py-4">No reactions yet</p>
+                                ) : (
+                                    reactions.map((r) => (
+                                        <div key={r.id} className="flex items-center gap-3 px-4 py-2">
+                                            <div className="h-8 w-8 rounded-full overflow-hidden bg-white/20 shrink-0">
+                                                {r.user?.avatarUrl ? (
+                                                    <img src={r.user.avatarUrl} alt={r.user.displayName} className="h-full w-full object-cover" />
+                                                ) : (
+                                                    <div className="h-full w-full flex items-center justify-center text-xs font-bold text-white">
+                                                        {r.user?.displayName?.charAt(0)?.toUpperCase() ?? "U"}
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <span className="text-white text-sm flex-1">{r.user?.displayName ?? r.user?.username}</span>
+                                            <span className="text-xl">{r.emoji}</span>
+                                        </div>
+                                    ))
+                                )
+                            )}
+
+                            {ownerPanelTab === "replies" && (
+                                replies.length === 0 ? (
+                                    <p className="text-center text-white/40 text-sm py-4">No replies yet</p>
+                                ) : (
+                                    replies.map((r) => (
+                                        <div key={r.id} className="flex items-start gap-3 px-4 py-2">
+                                            <div className="h-8 w-8 rounded-full overflow-hidden bg-white/20 shrink-0 mt-0.5">
+                                                {r.user?.avatarUrl ? (
+                                                    <img src={r.user.avatarUrl} alt={r.user.displayName} className="h-full w-full object-cover" />
+                                                ) : (
+                                                    <div className="h-full w-full flex items-center justify-center text-xs font-bold text-white">
+                                                        {r.user?.displayName?.charAt(0)?.toUpperCase() ?? "U"}
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <div className="flex flex-col">
+                                                <span className="text-white/70 text-xs">{r.user?.displayName ?? r.user?.username}</span>
+                                                <span className="text-white text-sm">{r.content}</span>
+                                            </div>
+                                        </div>
+                                    ))
+                                )
                             )}
                         </div>
                     </div>

@@ -38,3 +38,21 @@ export interface StoryCreationRequest {
     fontSize?: number;
     privacy: string;
 }
+
+export interface StoryReactionResponse {
+    id: string;
+    storyId: string;
+    userId: string;
+    emoji: string;
+    createdAt: string;
+    user?: StoryUser;
+}
+
+export interface StoryReplyResponse {
+    id: string;
+    storyId: string;
+    userId: string;
+    content: string;
+    createdAt: string;
+    user?: StoryUser;
+}
