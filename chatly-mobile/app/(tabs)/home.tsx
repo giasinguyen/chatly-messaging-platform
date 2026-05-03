@@ -6,45 +6,46 @@ import { HomePostCard } from '@/components/social/HomePostCard';
 import { HomeStoryCarousel, type HomeStoryItem } from '@/components/social/HomeStoryCarousel';
 import { CreatePostModal } from '@/components/social/CreatePostModal';
 import { postService } from '@/services/post.service';
+import { storyService } from '@/services/story.service';
 import type { Post, PostComment, PostReactionSummary } from '@/types/post';
+import type { StoryResponse } from '@/types/story';
 import { Colors } from '@/constants/theme';
-
-const STORY_ITEMS: HomeStoryItem[] = [
-  {
-    id: 's1',
-    name: 'hust.lee',
-    avatarUrl: 'https://i.pravatar.cc/140?img=32',
-  },
-  {
-    id: 's2',
-    name: 'enzofernandez',
-    avatarUrl: 'https://i.pravatar.cc/140?img=45',
-  },
-  {
-    id: 's3',
-    name: 'leomessi',
-    avatarUrl: 'https://i.pravatar.cc/140?img=12',
-  },
-  {
-    id: 's4',
-    name: 'maria.do',
-    avatarUrl: 'https://i.pravatar.cc/140?img=5',
-  },
-  {
-    id: 's5',
-    name: 'duy.ng',
-    avatarUrl: 'https://i.pravatar.cc/140?img=20',
-  },
-];
 
 export default function HomeTabScreen() {
   const insets = useSafeAreaInsets();
   const [posts, setPosts] = useState<Post[]>([]);
+  const [storyItems, setStoryItems] = useState<HomeStoryItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isCreatePostOpen, setIsCreatePostOpen] = useState(false);
   const [commentsByPostId, setCommentsByPostId] = useState<Record<string, PostComment[]>>({});
   const [loadingCommentsPostId, setLoadingCommentsPostId] = useState<string | null>(null);
+
+  const mapStoriesToCarouselItems = (stories: StoryResponse[]): HomeStoryItem[] => {
+    const seen = new Set<string>();
+    return stories
+      .filter((s) => {
+        if (seen.has(s.userId)) return false;
+        seen.add(s.userId);
+        return true;
+      })
+      .map((s) => ({
+        id: s.id,
+        name: s.user?.username ?? s.userId,
+        avatarUrl: s.user?.avatarUrl ?? '',
+      }));
+  };
+
+  const loadStories = useCallback(async () => {
+    try {
+      const res = await storyService.getFeed();
+      if (res.code === 1000 && res.result) {
+        setStoryItems(mapStoriesToCarouselItems(res.result));
+      }
+    } catch {
+      // Non-critical: story feed failure does not block posts
+    }
+  }, []);
 
   const loadPosts = useCallback(async (refresh = false) => {
     if (refresh) {
@@ -67,9 +68,10 @@ export default function HomeTabScreen() {
   }, []);
 
   useEffect(() => {
-    // Load posts on first mount
+    // Load posts and stories on first mount
     void loadPosts();
-  }, [loadPosts]);
+    void loadStories();
+  }, [loadPosts, loadStories]);
 
   const loadComments = useCallback(async (postId: string) => {
     // Check if comments already loaded
@@ -282,7 +284,7 @@ export default function HomeTabScreen() {
           </View>
         </View>
 
-        <HomeStoryCarousel stories={STORY_ITEMS} />
+        <HomeStoryCarousel stories={storyItems} />
       </View>
     ),
     [insets.top],
