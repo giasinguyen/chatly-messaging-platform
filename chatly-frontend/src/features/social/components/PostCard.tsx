@@ -148,7 +148,7 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
     const authorInitial = authorLabel.slice(0, 1).toUpperCase();
     const authorProfilePath = useMemo(() => {
         if (authorUsername) {
-            return `/${authorUsername}`;
+            return `/u/${authorUsername}`;
         }
         return null;
     }, [authorUsername]);
@@ -180,7 +180,7 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
                     className="h-8 w-8 rounded-full overflow-hidden bg-muted shrink-0"
                     onClick={() => {
                         if (comment.userUsername) {
-                            navigate(`/${comment.userUsername}`);
+                            navigate(`/u/${comment.userUsername}`);
                         }
                     }}
                 >
@@ -235,7 +235,7 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
                                     className="text-sm font-medium text-foreground hover:underline"
                                     onClick={() => {
                                         if (comment.userUsername) {
-                                            navigate(`/${comment.userUsername}`);
+                                            navigate(`/u/${comment.userUsername}`);
                                         }
                                     }}
                                 >

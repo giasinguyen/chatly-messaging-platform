@@ -39,10 +39,10 @@ export const appRoutes: RouteObject[] = [
             { path: "create", element: <CreatePage /> },
             { path: "explore", element: <ExplorePage /> },
             { path: "post/:postId", element: <PostDetailPage /> },
-            { path: ":username/edit", element: <ProfilePage /> },
+            { path: "u/:username/edit", element: <ProfilePage /> },
 
             { path: "settings", element: <SettingsPage /> },
-            { path: ":username", element: <UsernamePage /> },
+            { path: "u/:username", element: <UsernamePage /> },
         ],
     },
 ];

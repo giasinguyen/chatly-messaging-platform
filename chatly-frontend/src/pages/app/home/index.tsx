@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { CreatePostModal } from "@/components/app/CreatePostModal";
 import { CreateOptionsModal } from "@/components/app/CreateOptionsModal";
 import { CreateStoryModal } from "@/components/app/CreateStoryModal";
+import { StoryViewer } from "@/components/app/StoryViewer";
 import { HOME_FEED_ROOT_MARGIN } from "@/constants/feed";
 import { FeedList } from "@/pages/app/feed/components/FeedList";
 import { NewPostBanner } from "@/pages/app/feed/components/NewPostBanner";
@@ -22,6 +23,7 @@ export default function HomePage() {
     const [showOptionsModal, setShowOptionsModal] = useState(false);
     const [showPostModal, setShowPostModal] = useState(false);
     const [showStoryModal, setShowStoryModal] = useState(false);
+    const [storyViewerIndex, setStoryViewerIndex] = useState<number | null>(null);
     const [stories, setStories] = useState<Story[]>([]);
     const [isLoadingStories, setIsLoadingStories] = useState(true);
 
@@ -119,8 +121,9 @@ export default function HomePage() {
     }, [user?.id, addPendingPost]);
 
     const groupedStories = useMemo(() => {
-        const groups: Record<string, { user: any; stories: Story[] }> = {};
+        const groups: Record<string, { user: NonNullable<Story["user"]>; stories: Story[] }> = {};
         stories.forEach((s) => {
+            if (!s.user) return;
             if (!groups[s.userId]) {
                 groups[s.userId] = { user: s.user, stories: [] };
             }
@@ -160,8 +163,12 @@ export default function HomePage() {
                         </div>
 
                         {/* Real Stories */}
-                        {groupedStories.map((group) => (
-                            <div key={group.user?.id} className="flex flex-col items-center gap-1 snap-start cursor-pointer group">
+                        {groupedStories.map((group, groupIdx) => (
+                            <div
+                                key={group.user?.id}
+                                className="flex flex-col items-center gap-1 snap-start cursor-pointer group"
+                                onClick={() => setStoryViewerIndex(groupIdx)}
+                            >
                                 <div className="p-[2.5px] rounded-full bg-gradient-to-tr from-brand via-blue-500 to-cyan-400 group-hover:scale-105 transition-transform shadow-sm">
                                     <div className="bg-background p-[2px] rounded-full">
                                         <img
@@ -198,7 +205,7 @@ export default function HomePage() {
             <aside className="w-[400px] flex-shrink-0 pt-8 pr-8 pl-6 hidden xl:block sticky top-0 h-screen overflow-y-auto hide-scrollbar">
                 {/* Current User Snippet */}
                 <div className="flex items-center justify-between mb-8 bg-card p-3 rounded-xl shadow-sm border border-border">
-                    <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigate(`/${user?.username}`)}>
+                    <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigate(`/u/${user?.username}`)}>
                         <div className={cn(
                             "p-[2px] rounded-full",
                             hasMyStories ? "bg-gradient-to-tr from-brand via-blue-500 to-cyan-400" : "bg-transparent"
@@ -290,6 +297,14 @@ export default function HomePage() {
                 isOpen={showStoryModal}
                 onClose={() => setShowStoryModal(false)}
             />
+
+            {storyViewerIndex !== null && groupedStories.length > 0 && (
+                <StoryViewer
+                    groups={groupedStories}
+                    initialGroupIndex={storyViewerIndex}
+                    onClose={() => setStoryViewerIndex(null)}
+                />
+            )}
         </div>
     );
 }
