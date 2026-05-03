@@ -35,6 +35,7 @@ interface StoryViewerProps {
     initialGroupIndex: number;
     onClose: () => void;
     onStoryDeleted?: (storyId: string) => void;
+    onStoryViewed?: (storyId: string) => void;
 }
 
 function formatStoryTime(createdAt: string): string {
@@ -47,7 +48,7 @@ function formatStoryTime(createdAt: string): string {
     return `${Math.floor(diffH / 24)}d ago`;
 }
 
-export function StoryViewer({ groups, initialGroupIndex, onClose, onStoryDeleted }: StoryViewerProps) {
+export function StoryViewer({ groups, initialGroupIndex, onClose, onStoryDeleted, onStoryViewed }: StoryViewerProps) {
     const currentUser = useAuthStore((s) => s.user);
     const [groupIndex, setGroupIndex] = useState(initialGroupIndex);
     const [storyIndex, setStoryIndex] = useState(0);
@@ -140,7 +141,9 @@ export function StoryViewer({ groups, initialGroupIndex, onClose, onStoryDeleted
     // Record view + reset viewers panel when story changes
     useEffect(() => {
         if (!currentStory?.id) return;
-        storyService.recordView(currentStory.id).catch(() => {});
+        storyService.recordView(currentStory.id).then(() => {
+            onStoryViewed?.(currentStory.id);
+        }).catch(() => {});
         setViewers([]);
         setIsViewersOpen(false);
     }, [currentStory?.id]);
