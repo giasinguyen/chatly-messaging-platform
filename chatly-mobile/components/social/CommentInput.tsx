@@ -1,8 +1,12 @@
-import { useState } from 'react';
-import { View, TextInput, TouchableOpacity, Text } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Alert, View, TextInput, TouchableOpacity, Text } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
+import * as ImagePicker from 'expo-image-picker';
+import EmojiPicker from 'rn-emoji-keyboard';
+import type { EmojiType } from 'rn-emoji-keyboard';
 import { Colors } from '@/constants/theme';
+import { fileService } from '@/services/file.service';
 
 interface CommentInputProps {
   onSubmit: (content: string, mediaUrls?: string[]) => void;
@@ -25,6 +29,59 @@ export function CommentInput({
 }: CommentInputProps) {
   const [content, setContent] = useState(replyToUsername ? `@${replyToUsername} ` : '');
   const [selectedImages, setSelectedImages] = useState<string[]>([]);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [isPickingImage, setIsPickingImage] = useState(false);
+
+  useEffect(() => {
+    if (isReply && replyToUsername) {
+      setContent(`@${replyToUsername} `);
+      return;
+    }
+
+    if (!isReply) {
+      setContent('');
+    }
+  }, [isReply, replyToUsername]);
+
+  const handlePickImage = async () => {
+    try {
+      setIsPickingImage(true);
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission denied', 'Please allow photo access to attach an image.');
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsMultipleSelection: true,
+        quality: 0.8,
+      });
+
+      if (result.canceled || !result.assets.length) {
+        return;
+      }
+
+      const uploadedUrls: string[] = [];
+      for (const asset of result.assets) {
+        const fileName = asset.fileName ?? asset.uri.split('/').pop() ?? 'comment-image.jpg';
+        const mimeType = asset.mimeType ?? 'image/jpeg';
+        const uploaded = await fileService.upload(asset.uri, fileName, mimeType);
+        uploadedUrls.push(uploaded.url);
+      }
+
+      setSelectedImages((prev) => [...prev, ...uploadedUrls]);
+    } catch (error: unknown) {
+      console.error('Failed to pick comment image', error);
+      Alert.alert('Error', 'Failed to attach the selected image.');
+    } finally {
+      setIsPickingImage(false);
+    }
+  };
+
+  const handleEmojiPick = (emoji: EmojiType) => {
+    setContent((prev) => `${prev}${emoji.emoji}`);
+  };
 
   const handleSubmit = () => {
     if (content.trim()) {
@@ -82,24 +139,17 @@ export function CommentInput({
 
           {/* Image Picker Icon */}
           <TouchableOpacity
-            onPress={() => {
-              // TODO: Implement image picker
-              // For now, show a toast or placeholder
-              console.log('Image picker not yet implemented');
-            }}
+            onPress={handlePickImage}
             className="ml-1 p-1"
             activeOpacity={0.7}
-            disabled={isLoading}
+            disabled={isLoading || isPickingImage}
           >
             <Ionicons name="image-outline" size={18} color={Colors.textMuted} />
           </TouchableOpacity>
 
           {/* Emoji Icon */}
           <TouchableOpacity
-            onPress={() => {
-              // TODO: Implement emoji picker
-              console.log('Emoji picker not yet implemented');
-            }}
+            onPress={() => setShowEmojiPicker(true)}
             className="ml-1 p-1"
             activeOpacity={0.7}
             disabled={isLoading}
@@ -133,6 +183,14 @@ export function CommentInput({
           </TouchableOpacity>
         )}
       </View>
+
+      <EmojiPicker
+        open={showEmojiPicker}
+        onClose={() => setShowEmojiPicker(false)}
+        onEmojiSelected={handleEmojiPick}
+        enableSearchBar
+        enableRecentlyUsed
+      />
     </View>
   );
 }

@@ -112,21 +112,39 @@ export function CommentItem({
             <View style={{ flex: 1 }}>
               <Text numberOfLines={1} style={{ fontSize: 13, fontWeight: '700', color: '#1D1D1F' }}>{authorName}</Text>
             </View>
-            <View style={{ marginLeft: 8, marginRight: 6 }}>
+
+            <View className="flex-row items-center gap-1">
               <Text style={{ fontSize: 11, color: '#6E6E73' }}>{formatRelativeTime(comment.createdAt)}</Text>
+
+              <TouchableOpacity
+                onPress={() => setShowMenu(!showMenu)}
+                className="p-1"
+                activeOpacity={0.7}
+              >
+                <Ionicons name="ellipsis-horizontal" size={16} color={Colors.textMuted} />
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          <View className="flex-row items-start justify-between gap-3">
+            <View className="flex-1">
+              {renderContentWithMentions(comment.content)}
             </View>
 
             <TouchableOpacity
-              onPress={() => setShowMenu(!showMenu)}
-              className="p-1"
+              onPress={() => {
+                if (userReaction) {
+                  onUnlike?.(comment.id);
+                } else {
+                  onLike?.(comment.id, 'LIKE');
+                }
+              }}
+              className="flex-row items-center gap-1"
               activeOpacity={0.7}
             >
-              <Ionicons name="ellipsis-horizontal" size={16} color={Colors.textMuted} />
+              <Ionicons name={userReaction ? 'heart' : 'heart-outline'} size={17} color="#FF3B30" />
             </TouchableOpacity>
           </View>
-
-          {/* Comment Content */}
-          {renderContentWithMentions(comment.content)}
 
           {/* Media Preview */}
           {comment.mediaUrls && comment.mediaUrls.length > 0 && (
@@ -145,25 +163,8 @@ export function CommentItem({
             </ScrollView>
           )}
 
-          {/* Actions: Like, Reply */}
+          {/* Actions: Reply */}
           <View className="mt-2 flex-row items-center gap-4">
-            <TouchableOpacity
-              onPress={() => {
-                if (userReaction) {
-                  onUnlike?.(comment.id);
-                } else {
-                  onLike?.(comment.id, 'LIKE');
-                }
-              }}
-              className="flex-row items-center gap-1"
-              activeOpacity={0.7}
-            >
-              <Ionicons name={userReaction ? 'heart' : 'heart-outline'} size={13} color="#FF3B30" />
-              {totalReactions > 0 && (
-                <Text style={{ fontSize: 11, color: '#6E6E73' }}>{formatCount(totalReactions)}</Text>
-              )}
-            </TouchableOpacity>
-
             <TouchableOpacity
               onPress={() => onReply?.(comment.id, comment.userUsername)}
               className="flex-row items-center gap-1"

@@ -6,7 +6,7 @@ import { HomePostCard } from '@/components/social/HomePostCard';
 import { HomeStoryCarousel, type HomeStoryItem } from '@/components/social/HomeStoryCarousel';
 import { CreatePostModal } from '@/components/social/CreatePostModal';
 import { postService } from '@/services/post.service';
-import type { Post, PostComment } from '@/types/post';
+import type { Post, PostComment, PostReactionSummary } from '@/types/post';
 import { Colors } from '@/constants/theme';
 
 const STORY_ITEMS: HomeStoryItem[] = [
@@ -124,46 +124,52 @@ export default function HomeTabScreen() {
     }
   }, []);
 
-  const handleLikePost = useCallback(async (postId: string) => {
-    try {
-      await postService.react(postId, { type: 'LIKE' });
-      // Update posts list
-      setPosts((prev) =>
-        prev.map((post) =>
-          post.id === postId
-            ? {
-                ...post,
-                reactions: post.reactions.map((r) =>
-                  r.type === 'LIKE' ? { ...r, reactedByMe: true } : r,
-                ),
-              }
-            : post,
-        ),
-      );
-    } catch (error: unknown) {
-      console.error('Failed to like post', error);
-    }
+  const togglePostLikeInState = useCallback((postId: string) => {
+    let nextShouldLike = false;
+
+    setPosts((prev) =>
+      prev.map((post) => {
+        if (post.id !== postId) return post;
+
+        const reactions = post.reactions ?? [];
+        const likeSummary = reactions.find((reaction) => reaction.type === 'LIKE');
+        const wasLiked = likeSummary?.reactedByMe ?? false;
+        nextShouldLike = !wasLiked;
+
+        const nextLikeSummary: PostReactionSummary = {
+          type: 'LIKE',
+          count: Math.max(0, (likeSummary?.count ?? 0) + (nextShouldLike ? 1 : -1)),
+          reactedByMe: nextShouldLike,
+        };
+
+        const nextReactions = likeSummary
+          ? reactions.map((reaction) => (reaction.type === 'LIKE' ? nextLikeSummary : reaction))
+          : [nextLikeSummary, ...reactions];
+
+        return {
+          ...post,
+          reactions: nextReactions,
+        };
+      }),
+    );
+
+    return nextShouldLike;
   }, []);
 
-  const handleUnlikePost = useCallback(async (postId: string) => {
+  const handleTogglePostLike = useCallback(async (postId: string) => {
+    const shouldLike = togglePostLikeInState(postId);
+
     try {
-      await postService.removeReaction(postId);
-      setPosts((prev) =>
-        prev.map((post) =>
-          post.id === postId
-            ? {
-                ...post,
-                reactions: post.reactions.map((r) =>
-                  r.type === 'LIKE' ? { ...r, reactedByMe: false } : r,
-                ),
-              }
-            : post,
-        ),
-      );
+      if (shouldLike) {
+        await postService.react(postId, { type: 'LIKE' });
+      } else {
+        await postService.removeReaction(postId);
+      }
     } catch (error: unknown) {
-      console.error('Failed to unlike post', error);
+      togglePostLikeInState(postId);
+      console.error('Failed to toggle post like', error);
     }
-  }, []);
+  }, [togglePostLikeInState]);
 
   const handleSavePost = useCallback(async (postId: string) => {
     try {
@@ -297,14 +303,14 @@ export default function HomeTabScreen() {
             <HomePostCard
               post={item}
               comments={commentsByPostId[item.id] || []}
-              onLikePost={handleLikePost}
-              onUnlikePost={handleUnlikePost}
+              onToggleLikePost={handleTogglePostLike}
               onSavePost={handleSavePost}
               onUnsavePost={handleUnsavePost}
               onDeletePost={handleDeletePost}
               onEditPost={handleEditPost}
               onAddComment={handleAddComment}
               onLikeComment={(commentId, reactionType) => void handleLikeComment(item.id, commentId, reactionType)}
+              onUnlikeComment={(commentId) => void handleUnlikeComment(item.id, commentId)}
               onDeleteComment={(commentId) => void handleDeleteComment(item.id, commentId)}
               onOpenComments={(postId) => void loadComments(postId)}
             />
