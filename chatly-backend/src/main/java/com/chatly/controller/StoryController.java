@@ -1,7 +1,11 @@
 package com.chatly.controller;
 
+import com.chatly.dto.request.ReactRequest;
 import com.chatly.dto.request.StoryCreationRequest;
+import com.chatly.dto.request.StoryReplyRequest;
 import com.chatly.dto.response.ApiResponse;
+import com.chatly.dto.response.StoryReactionResponse;
+import com.chatly.dto.response.StoryReplyResponse;
 import com.chatly.dto.response.StoryResponse;
 import com.chatly.dto.response.UserResponse;
 import com.chatly.service.StoryService;
@@ -66,9 +70,46 @@ public class StoryController {
         return ApiResponse.<Void>builder().build();
     }
 
+    @PostMapping("/{storyId}/react")
+    ApiResponse<StoryReactionResponse> react(
+            @PathVariable String storyId,
+            @RequestBody @Valid ReactRequest request) {
+        return ApiResponse.<StoryReactionResponse>builder()
+                .result(storyService.reactToStory(storyId, getAuthenticatedUserId(), request))
+                .build();
+    }
+
+    @DeleteMapping("/{storyId}/react")
+    ApiResponse<Void> removeReaction(@PathVariable String storyId) {
+        storyService.removeReaction(storyId, getAuthenticatedUserId());
+        return ApiResponse.<Void>builder().build();
+    }
+
+    @GetMapping("/{storyId}/reactions")
+    ApiResponse<List<StoryReactionResponse>> getReactions(@PathVariable String storyId) {
+        return ApiResponse.<List<StoryReactionResponse>>builder()
+                .result(storyService.getReactions(storyId, getAuthenticatedUserId()))
+                .build();
+    }
+
+    @PostMapping("/{storyId}/reply")
+    ApiResponse<StoryReplyResponse> reply(
+            @PathVariable String storyId,
+            @RequestBody @Valid StoryReplyRequest request) {
+        return ApiResponse.<StoryReplyResponse>builder()
+                .result(storyService.replyToStory(storyId, getAuthenticatedUserId(), request))
+                .build();
+    }
+
+    @GetMapping("/{storyId}/replies")
+    ApiResponse<List<StoryReplyResponse>> getReplies(@PathVariable String storyId) {
+        return ApiResponse.<List<StoryReplyResponse>>builder()
+                .result(storyService.getReplies(storyId, getAuthenticatedUserId()))
+                .build();
+    }
+
     private String getAuthenticatedUserId() {
         return SecurityContextHolder.getContext()
                 .getAuthentication().getPrincipal().toString();
     }
 }
-
