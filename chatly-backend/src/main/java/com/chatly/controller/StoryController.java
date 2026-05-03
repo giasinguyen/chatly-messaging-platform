@@ -3,6 +3,7 @@ package com.chatly.controller;
 import com.chatly.dto.request.StoryCreationRequest;
 import com.chatly.dto.response.ApiResponse;
 import com.chatly.dto.response.StoryResponse;
+import com.chatly.dto.response.UserResponse;
 import com.chatly.service.StoryService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -46,8 +47,28 @@ public class StoryController {
                 .build();
     }
 
+    @PostMapping("/{storyId}/view")
+    ApiResponse<Void> recordView(@PathVariable String storyId) {
+        storyService.recordView(storyId, getAuthenticatedUserId());
+        return ApiResponse.<Void>builder().build();
+    }
+
+    @GetMapping("/{storyId}/viewers")
+    ApiResponse<List<UserResponse>> getViewers(@PathVariable String storyId) {
+        return ApiResponse.<List<UserResponse>>builder()
+                .result(storyService.getViewers(storyId, getAuthenticatedUserId()))
+                .build();
+    }
+
+    @DeleteMapping("/{storyId}")
+    ApiResponse<Void> deleteStory(@PathVariable String storyId) {
+        storyService.deleteStory(storyId, getAuthenticatedUserId());
+        return ApiResponse.<Void>builder().build();
+    }
+
     private String getAuthenticatedUserId() {
         return SecurityContextHolder.getContext()
                 .getAuthentication().getPrincipal().toString();
     }
 }
+

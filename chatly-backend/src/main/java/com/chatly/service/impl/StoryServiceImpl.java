@@ -2,6 +2,9 @@ package com.chatly.service.impl;
 
 import com.chatly.dto.request.StoryCreationRequest;
 import com.chatly.dto.response.StoryResponse;
+import com.chatly.dto.response.UserResponse;
+import com.chatly.exception.AppException;
+import com.chatly.exception.ErrorCode;
 import com.chatly.mapper.StoryMapper;
 import com.chatly.model.mongo.Story;
 import com.chatly.repository.mongo.StoryRepository;
@@ -44,22 +47,22 @@ public class StoryServiceImpl implements StoryService {
                 .privacy(request.getPrivacy())
                 .build();
 
-        return storyMapper.toResponse(storyRepository.save(story));
+        return toResponse(storyRepository.save(story), userId);
     }
 
     @Override
     public List<StoryResponse> getUserStories(String userId) {
         return storyRepository.findAllByUserIdOrderByCreatedAtDesc(userId).stream()
-                .map(storyMapper::toResponse)
+                .map(story -> toResponse(story, userId))
                 .collect(Collectors.toList());
     }
 
     @Override
     public List<StoryResponse> getActiveStoriesForUser(String userId) {
-        Instant twentyFourHoursAgo = Instant.now().minus(24, ChronoUnit.HOURS);
+        Instant cutoff = Instant.now().minus(24, ChronoUnit.HOURS);
         return storyRepository.findAllByUserIdOrderByCreatedAtDesc(userId).stream()
-                .filter(s -> s.getCreatedAt().isAfter(twentyFourHoursAgo))
-                .map(this::mapToResponseWithUser)
+                .filter(s -> s.getCreatedAt().isAfter(cutoff))
+                .map(story -> toResponseWithUser(story, userId))
                 .collect(Collectors.toList());
     }
 
@@ -78,23 +81,81 @@ public class StoryServiceImpl implements StoryService {
 
         friendIds.add(userId);
 
-        Instant twentyFourHoursAgo = Instant.now().minus(24, ChronoUnit.HOURS);
+        Instant cutoff = Instant.now().minus(24, ChronoUnit.HOURS);
         return storyRepository.findAllByUserIdInOrderByCreatedAtDesc(friendIds).stream()
-                .filter(s -> s.getCreatedAt().isAfter(twentyFourHoursAgo))
-                .map(this::mapToResponseWithUser)
+                .filter(s -> s.getCreatedAt().isAfter(cutoff))
+                .map(story -> toResponseWithUser(story, userId))
                 .collect(Collectors.toList());
     }
 
-    private StoryResponse mapToResponseWithUser(Story story) {
+    @Override
+    public void recordView(String storyId, String viewerId) {
+        Story story = storyRepository.findById(storyId)
+                .orElseThrow(() -> new AppException(ErrorCode.STORY_NOT_FOUND));
+
+        if (story.getUserId().equals(viewerId)) {
+            return;
+        }
+
+        if (!story.getViewerIds().contains(viewerId)) {
+            story.getViewerIds().add(viewerId);
+            story.setViewCount(story.getViewerIds().size());
+            storyRepository.save(story);
+            log.info("Story {} viewed by user {}", storyId, viewerId);
+        }
+    }
+
+    @Override
+    public List<UserResponse> getViewers(String storyId, String requesterId) {
+        Story story = storyRepository.findById(storyId)
+                .orElseThrow(() -> new AppException(ErrorCode.STORY_NOT_FOUND));
+
+        if (!story.getUserId().equals(requesterId)) {
+            throw new AppException(ErrorCode.STORY_FORBIDDEN);
+        }
+
+        return story.getViewerIds().stream()
+                .map(viewerId -> userRepository.findById(UUID.fromString(viewerId))
+                        .map(user -> UserResponse.builder()
+                                .id(user.getId().toString())
+                                .username(user.getUsername())
+                                .displayName(user.getDisplayName())
+                                .avatarUrl(user.getAvatarUrl())
+                                .build())
+                        .orElse(null))
+                .filter(r -> r != null)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public void deleteStory(String storyId, String userId) {
+        Story story = storyRepository.findById(storyId)
+                .orElseThrow(() -> new AppException(ErrorCode.STORY_NOT_FOUND));
+
+        if (!story.getUserId().equals(userId)) {
+            throw new AppException(ErrorCode.STORY_FORBIDDEN);
+        }
+
+        storyRepository.delete(story);
+        log.info("Story {} deleted by user {}", storyId, userId);
+    }
+
+    private StoryResponse toResponse(Story story, String requesterId) {
         StoryResponse response = storyMapper.toResponse(story);
-        userRepository.findById(UUID.fromString(story.getUserId())).ifPresent(user -> {
-            response.setUser(com.chatly.dto.response.UserResponse.builder()
-                    .id(user.getId().toString())
-                    .username(user.getUsername())
-                    .displayName(user.getDisplayName())
-                    .avatarUrl(user.getAvatarUrl())
-                    .build());
-        });
+        response.setViewedByMe(story.getViewerIds().contains(requesterId));
+        return response;
+    }
+
+    private StoryResponse toResponseWithUser(Story story, String requesterId) {
+        StoryResponse response = toResponse(story, requesterId);
+        userRepository.findById(UUID.fromString(story.getUserId())).ifPresent(user ->
+                response.setUser(UserResponse.builder()
+                        .id(user.getId().toString())
+                        .username(user.getUsername())
+                        .displayName(user.getDisplayName())
+                        .avatarUrl(user.getAvatarUrl())
+                        .build())
+        );
         return response;
     }
 }
