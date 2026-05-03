@@ -4,6 +4,13 @@ export enum StoryType {
     VIDEO = "VIDEO"
 }
 
+export interface StoryUser {
+    id: string;
+    displayName?: string;
+    avatarUrl?: string;
+    username?: string;
+}
+
 export interface Story {
     id: string;
     userId: string;
@@ -16,6 +23,7 @@ export interface Story {
     fontSize?: number;
     privacy: string;
     createdAt: string;
+    user?: StoryUser;
 }
 
 export interface StoryCreationRequest {

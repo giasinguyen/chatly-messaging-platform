@@ -197,7 +197,7 @@ export const ChatPrivateProfileContent = memo(function ChatPrivateProfileContent
                         className="w-full sm:w-auto ml-auto"
                         onClick={() => {
                             onClose();
-                            navigate(`/${profileUser.username}`);
+                            navigate(`/u/${profileUser.username}`);
                         }}
                     >
                         View full profile

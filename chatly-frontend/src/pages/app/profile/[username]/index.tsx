@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { StoryViewer } from "@/components/app/StoryViewer";
 import {
     AlertDialog,
     AlertDialogAction,
@@ -54,6 +55,7 @@ import type { ContactResponse } from "@/types/contact";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import type { Post } from "@/types/post";
+import type { Story } from "@/types/story";
 import { HOME_FEED_PAGE_SIZE } from "@/constants/feed";
 
 type ConfirmDialogType = "block" | "unblock" | "remove";
@@ -85,6 +87,8 @@ export default function UsernameProfilePage() {
     const [targetUserId, setTargetUserId] = useState<string | null>(null);
     const [initialIsFollowing, setInitialIsFollowing] = useState<boolean | undefined>(undefined);
     const [hasActiveStories, setHasActiveStories] = useState(false);
+    const [userStories, setUserStories] = useState<Story[]>([]);
+    const [showStoryViewer, setShowStoryViewer] = useState(false);
     const [posts, setPosts] = useState<Post[]>([]);
     const [postCursor, setPostCursor] = useState<string | null>(null);
     const [hasMorePosts, setHasMorePosts] = useState(false);
@@ -128,6 +132,7 @@ export default function UsernameProfilePage() {
                 setInitialIsFollowing(undefined);
             }
             setHasActiveStories((storiesRes.result?.length ?? 0) > 0);
+            setUserStories(storiesRes.result ?? []);
         } catch {
             toast.error("Could not load profile");
         } finally {
@@ -349,9 +354,11 @@ export default function UsernameProfilePage() {
                 <section className="flex flex-col md:flex-row items-start md:items-center gap-10 mb-10">
                     {/* Avatar */}
                     <div className={cn(
-                        "shrink-0 rounded-full",
-                        hasActiveStories && "p-1 bg-linear-to-tr from-brand via-blue-500 to-cyan-400"
-                    )}>
+                        "shrink-0 rounded-full relative",
+                        hasActiveStories && "p-1 bg-linear-to-tr from-brand via-blue-500 to-cyan-400 cursor-pointer"
+                    )}
+                        onClick={hasActiveStories ? () => setShowStoryViewer(true) : undefined}
+                    >
                         <div className={cn(
                             "rounded-full",
                             hasActiveStories && "p-1 bg-background"
@@ -388,7 +395,7 @@ export default function UsernameProfilePage() {
                                 {isOwnProfile ? (
                                     <>
                                         <button
-                                            onClick={() => navigate(`/${displayUsername}/edit`)}
+                                            onClick={() => navigate(`/u/${displayUsername}/edit`)}
                                             className="bg-muted text-foreground py-2 px-4 rounded-lg font-semibold hover:bg-muted/80 transition-colors"
                                         >
                                             Edit Profile
@@ -656,6 +663,22 @@ export default function UsernameProfilePage() {
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
+
+            {showStoryViewer && userStories.length > 0 && profile && (
+                <StoryViewer
+                    groups={[{
+                        user: {
+                            id: profile.id,
+                            displayName: profile.displayName,
+                            avatarUrl: profile.avatarUrl,
+                            username: profile.username,
+                        },
+                        stories: userStories,
+                    }]}
+                    initialGroupIndex={0}
+                    onClose={() => setShowStoryViewer(false)}
+                />
+            )}
         </div>
     );
 }

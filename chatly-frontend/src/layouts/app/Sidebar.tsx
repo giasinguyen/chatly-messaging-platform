@@ -84,7 +84,7 @@ export function Sidebar({ user }: SidebarProps) {
             <div className="flex flex-col items-center gap-6 w-full">
                 {/* User Avatar */}
                 <NavLink
-                    to={`/${user?.username || 'profile'}`}
+                    to={`/u/${user?.username || 'profile'}`}
                     className="relative mb-2 transition-transform hover:scale-105"
                     title="Profile"
                 >

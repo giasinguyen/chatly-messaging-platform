@@ -143,7 +143,7 @@ export function AddFriendDialog({ open, onOpenChange }: AddFriendDialogProps) {
                                         className="flex items-center gap-3 flex-1 min-w-0 text-left hover:opacity-80 transition-opacity"
                                         onClick={() => {
                                             onOpenChange(false);
-                                            navigate(`/${u.username}`);
+                                            navigate(`/u/${u.username}`);
                                         }}
                                     >
                                         <Avatar>
