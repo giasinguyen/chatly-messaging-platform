@@ -14,6 +14,7 @@ import com.chatly.service.StoryService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -51,6 +52,7 @@ public class StoryServiceImpl implements StoryService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<StoryResponse> getUserStories(String userId) {
         return storyRepository.findAllByUserIdOrderByCreatedAtDesc(userId).stream()
                 .map(story -> toResponse(story, userId))
@@ -58,6 +60,7 @@ public class StoryServiceImpl implements StoryService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<StoryResponse> getActiveStoriesForUser(String userId) {
         Instant cutoff = Instant.now().minus(24, ChronoUnit.HOURS);
         return storyRepository.findAllByUserIdOrderByCreatedAtDesc(userId).stream()
@@ -67,6 +70,7 @@ public class StoryServiceImpl implements StoryService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<StoryResponse> getStoriesFeed(String userId) {
         UUID userUuid = UUID.fromString(userId);
         List<String> friendIds = contactRepository.findFriendsAndBlocked(userUuid).stream()
@@ -106,6 +110,7 @@ public class StoryServiceImpl implements StoryService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<UserResponse> getViewers(String storyId, String requesterId) {
         Story story = storyRepository.findById(storyId)
                 .orElseThrow(() -> new AppException(ErrorCode.STORY_NOT_FOUND));
