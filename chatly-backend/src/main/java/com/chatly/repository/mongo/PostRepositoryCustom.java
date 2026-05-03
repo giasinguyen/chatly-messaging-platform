@@ -2,6 +2,8 @@ package com.chatly.repository.mongo;
 
 import com.chatly.model.enums.PostVisibility;
 import com.chatly.model.mongo.Post;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 import java.time.Instant;
 import java.util.List;
@@ -40,4 +42,14 @@ public interface PostRepositoryCustom {
      * @return list ordered by engagementScore descending, then createdAt descending
      */
     List<Post> findExplorePosts(Instant since, Instant before, int limit);
+
+    /**
+     * Full-text search across public posts by keyword and/or hashtag.
+     *
+     * @param keyword  substring to match against post content (null = no content filter)
+     * @param hashtag  exact hashtag to filter by, without the '#' prefix (null = no hashtag filter)
+     * @param pageable pagination and sort
+     * @return page of matching PUBLIC, non-deleted posts
+     */
+    Page<Post> searchPublicPosts(String keyword, String hashtag, Pageable pageable);
 }
