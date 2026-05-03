@@ -1,4 +1,4 @@
-import { Download, ExternalLink, MessageSquareShare } from "lucide-react";
+import { Camera, Download, ExternalLink, MessageSquareShare } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import {
     FilePdf,
@@ -145,6 +145,75 @@ export function MessageAttachmentRenderer({
         <div className={cn("flex flex-col gap-2", hasContent ? "mt-2" : "")}>
             {attachments.map((att, i) => {
                 const isPostPreview = att.kind === "POST_PREVIEW" || att.type === "application/x-chatly-post-preview";
+                const isStoryReply = att.kind === "STORY_REPLY";
+
+                if (isStoryReply) {
+                    const isPhoto = att.storyType === "PHOTO" || att.storyType === "VIDEO";
+                    return (
+                        <div
+                            key={i}
+                            className={cn(
+                                "w-full max-w-xs rounded-2xl overflow-hidden border",
+                                isMe
+                                    ? "border-white/20 bg-white/10 text-white"
+                                    : "border-border/60 bg-background/90 text-foreground",
+                            )}
+                        >
+                            {/* Story preview area */}
+                            {isPhoto && att.storyMediaUrl ? (
+                                <div className="relative w-full h-36 bg-black">
+                                    <img
+                                        src={att.storyMediaUrl}
+                                        alt="Story"
+                                        className="w-full h-full object-cover opacity-80"
+                                    />
+                                    <div className="absolute inset-0 bg-linear-to-b from-transparent to-black/40" />
+                                </div>
+                            ) : (
+                                <div className="w-full h-28 flex items-center justify-center bg-linear-to-br from-purple-500 to-pink-500 px-4">
+                                    {att.storyContent ? (
+                                        <p className="text-white text-sm font-medium text-center line-clamp-3">
+                                            {att.storyContent}
+                                        </p>
+                                    ) : (
+                                        <Camera className="h-8 w-8 text-white/70" />
+                                    )}
+                                </div>
+                            )}
+                            {/* Story label row */}
+                            <div className={cn(
+                                "flex items-center gap-2 px-3 py-2",
+                                isMe ? "bg-white/10" : "bg-muted/60",
+                            )}>
+                                {att.storyOwnerAvatarUrl ? (
+                                    <img
+                                        src={att.storyOwnerAvatarUrl}
+                                        alt={att.storyOwnerName ?? "Story"}
+                                        className="h-5 w-5 rounded-full object-cover shrink-0"
+                                    />
+                                ) : (
+                                    <div className="flex h-5 w-5 items-center justify-center rounded-full bg-linear-to-br from-purple-400 to-pink-400 shrink-0">
+                                        <Camera className="h-3 w-3 text-white" />
+                                    </div>
+                                )}
+                                <div className="min-w-0 flex-1">
+                                    <p className={cn(
+                                        "text-[11px] truncate",
+                                        isMe ? "text-white/80" : "text-muted-foreground",
+                                    )}>
+                                        {att.storyOwnerName ?? "Story"}
+                                    </p>
+                                </div>
+                                <span className={cn(
+                                    "text-[10px] uppercase tracking-wide shrink-0",
+                                    isMe ? "text-white/50" : "text-muted-foreground",
+                                )}>
+                                    Story
+                                </span>
+                            </div>
+                        </div>
+                    );
+                }
                 if (isPostPreview) {
                     const targetUrl = att.targetUrl ?? (att.postId ? `/post/${att.postId}` : att.url);
                     const previewTitle = att.postTitle ?? att.name ?? "Shared post";

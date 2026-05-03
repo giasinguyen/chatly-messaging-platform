@@ -1,9 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { ChevronLeft, ChevronRight, Eye, Pause, Play, Send, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/store/auth.store";
 import { storyService } from "@/services/story.service";
+import { conversationService } from "@/services/conversation.service";
+import { messageService } from "@/services/message.service";
 import type { Story, StoryReactionResponse, StoryReplyResponse } from "@/types/story";
 import type { UserResponse } from "@/types/auth";
 
@@ -64,8 +67,11 @@ export function StoryViewer({ groups, initialGroupIndex, onClose, onStoryDeleted
     const [myReaction, setMyReaction] = useState<string | null>(null);
     const [replyText, setReplyText] = useState("");
     const [isSendingReply, setIsSendingReply] = useState(false);
+    const [floatingEmoji, setFloatingEmoji] = useState<string | null>(null);
     const timerRef = useRef<ReturnType<typeof window.setInterval> | null>(null);
+    const floatingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const containerRef = useRef<HTMLDivElement>(null);
+    const navigate = useNavigate();
 
     const currentGroup = groups[groupIndex];
     const currentStory = currentGroup?.stories[storyIndex];
@@ -130,6 +136,13 @@ export function StoryViewer({ groups, initialGroupIndex, onClose, onStoryDeleted
 
         return clearTimer;
     }, [isPaused, currentStory, clearTimer, goNext]);
+
+    // Cleanup floating emoji timer on unmount
+    useEffect(() => {
+        return () => {
+            if (floatingTimerRef.current) clearTimeout(floatingTimerRef.current);
+        };
+    }, []);
 
     // Keyboard navigation
     useEffect(() => {
@@ -210,7 +223,9 @@ export function StoryViewer({ groups, initialGroupIndex, onClose, onStoryDeleted
             } else {
                 await storyService.reactToStory(currentStory.id, emoji);
                 setMyReaction(emoji);
-                toast.success("Reacted " + emoji);
+                setFloatingEmoji(emoji);
+                if (floatingTimerRef.current) clearTimeout(floatingTimerRef.current);
+                floatingTimerRef.current = setTimeout(() => setFloatingEmoji(null), 1400);
             }
         } catch {
             toast.error("Failed to react");
@@ -218,18 +233,47 @@ export function StoryViewer({ groups, initialGroupIndex, onClose, onStoryDeleted
     }, [currentStory?.id, myReaction]);
 
     const handleSendReply = useCallback(async () => {
-        if (!currentStory?.id || !replyText.trim()) return;
+        if (!currentStory?.id || !replyText.trim() || !currentUser) return;
+        const storyOwnerId = currentStory.userId;
         setIsSendingReply(true);
         try {
-            await storyService.replyToStory(currentStory.id, replyText.trim());
+            const convsRes = await conversationService.getMyConversations();
+            const conversations = convsRes.result ?? [];
+            const existing = conversations.find(
+                (c) =>
+                    c.type === "PRIVATE" &&
+                    c.participantIds.includes(storyOwnerId) &&
+                    c.participantIds.includes(currentUser.id),
+            );
+            const conversation =
+                existing ??
+                (await conversationService.create({ type: "PRIVATE", participantIds: [storyOwnerId] })).result;
+            if (!conversation) throw new Error("Could not open conversation");
+            await messageService.send({
+                conversationId: conversation.id,
+                content: replyText.trim(),
+                attachments: [
+                    {
+                        url: currentStory.mediaUrl ?? "",
+                        kind: "STORY_REPLY",
+                        storyId: currentStory.id,
+                        storyType: currentStory.type,
+                        storyMediaUrl: currentStory.mediaUrl,
+                        storyContent: currentStory.content,
+                        storyOwnerName: currentStory.user?.displayName ?? currentStory.user?.username,
+                        storyOwnerAvatarUrl: currentStory.user?.avatarUrl,
+                    },
+                ],
+            });
             setReplyText("");
-            toast.success("Reply sent");
+            onClose();
+            navigate(`/chat/${conversation.id}`);
         } catch {
             toast.error("Failed to send reply");
         } finally {
             setIsSendingReply(false);
         }
-    }, [currentStory?.id, replyText]);
+    }, [currentStory, replyText, currentUser, navigate, onClose]);
 
     const handleDelete = useCallback(async () => {
         if (!currentStory?.id) return;
@@ -432,6 +476,16 @@ export function StoryViewer({ groups, initialGroupIndex, onClose, onStoryDeleted
                         }}
                     />
                 </div>
+
+                {/* Floating emoji reaction animation */}
+                {floatingEmoji && (
+                    <div
+                        className="absolute bottom-28 left-1/2 z-40 text-6xl pointer-events-none select-none"
+                        style={{ animation: "storyEmojiFloat 1.4s ease-out forwards" }}
+                    >
+                        {floatingEmoji}
+                    </div>
+                )}
 
                 {/* Music indicator — hidden when owner panel is open */}
                 {currentStory.musicName && !isOwnerPanelOpen && (

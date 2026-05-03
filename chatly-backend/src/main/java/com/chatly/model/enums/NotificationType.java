@@ -15,5 +15,7 @@ public enum NotificationType {
     POST_MENTION,
     COMMENT_REPLIED,
     STORY_VIEWED,
+    STORY_REACTED,
+    STORY_REPLIED,
     SYSTEM
 }

@@ -169,6 +169,10 @@ public class NotificationService {
                             title = "New reply to your comment";
                         } else if (notification.getType() == NotificationType.STORY_VIEWED) {
                             title = "Someone viewed your story";
+                        } else if (notification.getType() == NotificationType.STORY_REACTED) {
+                            title = "Someone reacted to your story";
+                        } else if (notification.getType() == NotificationType.STORY_REPLIED) {
+                            title = "Someone replied to your story";
                         }
                         
                         Map<String, Object> data = Map.of(
