@@ -25,3 +25,26 @@ export interface StoryResponse {
     createdAt: string;
     user?: StoryUser;
 }
+
+export interface StoryReactionResponse {
+    id: string;
+    storyId: string;
+    userId: string;
+    emoji: string;
+    createdAt: string;
+    user?: StoryUser;
+}
+
+export interface StoryReplyResponse {
+    id: string;
+    storyId: string;
+    userId: string;
+    content: string;
+    createdAt: string;
+    user?: StoryUser;
+}
+
+export interface StoryGroup {
+    user: StoryUser;
+    stories: StoryResponse[];
+}

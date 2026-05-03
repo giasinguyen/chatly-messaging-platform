@@ -4,47 +4,62 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { HomePostCard } from '@/components/social/HomePostCard';
 import { HomeStoryCarousel, type HomeStoryItem } from '@/components/social/HomeStoryCarousel';
+import { StoryViewerModal } from '@/components/social/StoryViewerModal';
 import { CreatePostModal } from '@/components/social/CreatePostModal';
 import { postService } from '@/services/post.service';
 import { storyService } from '@/services/story.service';
 import type { Post, PostComment, PostReactionSummary } from '@/types/post';
-import type { StoryResponse } from '@/types/story';
+import type { StoryGroup, StoryResponse } from '@/types/story';
 import { Colors } from '@/constants/theme';
 
 export default function HomeTabScreen() {
   const insets = useSafeAreaInsets();
   const [posts, setPosts] = useState<Post[]>([]);
   const [storyItems, setStoryItems] = useState<HomeStoryItem[]>([]);
+  const [storyGroups, setStoryGroups] = useState<StoryGroup[]>([]);
+  const [viewerVisible, setViewerVisible] = useState(false);
+  const [viewerGroupIndex, setViewerGroupIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isCreatePostOpen, setIsCreatePostOpen] = useState(false);
   const [commentsByPostId, setCommentsByPostId] = useState<Record<string, PostComment[]>>({});
   const [loadingCommentsPostId, setLoadingCommentsPostId] = useState<string | null>(null);
 
-  const mapStoriesToCarouselItems = (stories: StoryResponse[]): HomeStoryItem[] => {
-    const seen = new Set<string>();
-    return stories
-      .filter((s) => {
-        if (seen.has(s.userId)) return false;
-        seen.add(s.userId);
-        return true;
-      })
-      .map((s) => ({
-        id: s.id,
-        name: s.user?.username ?? s.userId,
-        avatarUrl: s.user?.avatarUrl ?? '',
-      }));
+  const groupStories = (stories: StoryResponse[]): StoryGroup[] => {
+    const map = new Map<string, StoryGroup>();
+    for (const story of stories) {
+      const existing = map.get(story.userId);
+      if (existing) {
+        existing.stories.push(story);
+      } else {
+        map.set(story.userId, {
+          user: {
+            id: story.userId,
+            username: story.user?.username ?? story.userId,
+            displayName: story.user?.displayName,
+            avatarUrl: story.user?.avatarUrl,
+          },
+          stories: [story],
+        });
+      }
+    }
+    return Array.from(map.values());
   };
 
   const loadStories = useCallback(async () => {
     try {
       const res = await storyService.getFeed();
       if (res.code === 1000 && res.result) {
-        setStoryItems(mapStoriesToCarouselItems(res.result));
+        setStoryGroups(groupStories(res.result));
       }
     } catch {
       // Non-critical: story feed failure does not block posts
     }
+  }, []);
+
+  const handlePressStoryGroup = useCallback((group: StoryGroup, idx: number) => {
+    setViewerGroupIndex(idx);
+    setViewerVisible(true);
   }, []);
 
   const loadPosts = useCallback(async (refresh = false) => {
@@ -284,7 +299,11 @@ export default function HomeTabScreen() {
           </View>
         </View>
 
-        <HomeStoryCarousel stories={storyItems} />
+        <HomeStoryCarousel
+          stories={storyItems}
+          storyGroups={storyGroups}
+          onPressStoryGroup={handlePressStoryGroup}
+        />
       </View>
     ),
     [insets.top],
@@ -336,6 +355,21 @@ export default function HomeTabScreen() {
       <CreatePostModal
         visible={isCreatePostOpen}
         onClose={() => setIsCreatePostOpen(false)}
+      />
+
+      <StoryViewerModal
+        groups={storyGroups}
+        initialGroupIndex={viewerGroupIndex}
+        visible={viewerVisible}
+        onClose={() => setViewerVisible(false)}
+        onStoryViewed={(storyId) => {
+          setStoryGroups((prev) =>
+            prev.map((g) => ({
+              ...g,
+              stories: g.stories.map((s) => (s.id === storyId ? { ...s, viewedByMe: true } : s)),
+            })),
+          );
+        }}
       />
     </View>
   );
