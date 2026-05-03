@@ -10,7 +10,7 @@ const CATEGORIES = [
     "Photography",
     "Digital Art",
     "Travel",
-    "Architecture"
+    "Architecture",
 ];
 
 const EXPLORE_ITEMS = [
@@ -18,40 +18,40 @@ const EXPLORE_ITEMS = [
         id: 1,
         type: "image",
         url: "https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&q=80&w=2070",
-        size: "aspect-square"
+        size: "aspect-square",
     },
     {
         id: 2,
         type: "image",
         url: "https://images.unsplash.com/photo-1470770841072-f978cf4d019e?auto=format&fit=crop&q=80&w=2070",
-        size: "aspect-square"
+        size: "aspect-square",
     },
     {
         id: 3,
         type: "image",
         url: "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?auto=format&fit=crop&q=80&w=2080",
         size: "aspect-[2/3]",
-        isAlbum: true
+        isAlbum: true,
     },
     {
         id: 4,
         type: "image",
         url: "https://images.unsplash.com/photo-1516214104703-d870798883c5?auto=format&fit=crop&q=80&w=2070",
-        size: "aspect-[3/4]"
+        size: "aspect-[3/4]",
     },
     {
         id: 5,
         type: "video",
         url: "https://images.unsplash.com/photo-1513364776144-60967b0f800f?auto=format&fit=crop&q=80&w=2071",
         size: "aspect-square",
-        isVideo: true
+        isVideo: true,
     },
     {
         id: 6,
         type: "image",
         url: "https://images.unsplash.com/photo-1496181133206-80ce9b88a853?auto=format&fit=crop&q=80&w=2071",
-        size: "aspect-square"
-    }
+        size: "aspect-square",
+    },
 ];
 
 export default function ExplorePage() {
@@ -64,12 +64,15 @@ export default function ExplorePage() {
                 <div className="relative flex-1">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                     <Input
-                        value={"Lấy các bài viết ở chế độ Public & Filter theo chủ đề có số tương tác cao để mọi người trên thế giới tìm :v"}
                         placeholder="Search explore..."
                         className="pl-10 h-12 bg-muted/50 border-none rounded-2xl text-base focus-visible:ring-1 focus-visible:ring-brand"
                     />
                 </div>
-                <Button variant="outline" size="icon" className="h-12 w-12 rounded-2xl border-none bg-muted/50">
+                <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-12 w-12 rounded-2xl border-none bg-muted/50"
+                >
                     <Filter className="w-5 h-5 text-muted-foreground" />
                 </Button>
             </div>
@@ -79,12 +82,14 @@ export default function ExplorePage() {
                 {CATEGORIES.map((cat) => (
                     <Badge
                         key={cat}
-                        variant={selectedCategory === cat ? "default" : "secondary"}
+                        variant={
+                            selectedCategory === cat ? "default" : "secondary"
+                        }
                         className={cn(
                             "px-5 py-2 rounded-xl cursor-pointer text-sm font-medium transition-all",
                             selectedCategory === cat
                                 ? "bg-brand text-white shadow-md shadow-brand/20"
-                                : "bg-muted/50 text-muted-foreground hover:bg-muted"
+                                : "bg-muted/50 text-muted-foreground hover:bg-muted",
                         )}
                         onClick={() => setSelectedCategory(cat)}
                     >
@@ -100,7 +105,7 @@ export default function ExplorePage() {
                         key={item.id}
                         className={cn(
                             "relative rounded-3xl overflow-hidden group cursor-pointer shadow-sm hover:shadow-xl transition-all duration-300",
-                            item.size
+                            item.size,
                         )}
                     >
                         <img
