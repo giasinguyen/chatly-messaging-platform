@@ -128,6 +128,17 @@ public class PostService {
         Post post = findPost(postId);
         post.setShareCount(post.getShareCount() + 1);
         post = postRepository.save(post);
+
+        if (!post.getAuthorId().equals(requesterId)) {
+            notificationService.createAndPush(
+                    NotificationType.POST_SHARED,
+                    requesterId,
+                    post.getAuthorId(),
+                    "Someone shared your post",
+                    postId
+            );
+        }
+
         return toResponse(post, requesterId);
     }
 
