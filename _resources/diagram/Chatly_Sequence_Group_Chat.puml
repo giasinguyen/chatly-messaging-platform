@@ -1,36 +1,44 @@
 @startuml Chatly_Sequence_Group_Chat
-title Chatly - Group Chat (Simple)
+title Chatly - Group Chat (ECB)
 
 autonumber
 skinparam sequenceMessageAlign center
 skinparam responseMessageBelowArrow true
 
 actor "Group Member" as Member
-participant "Client" as Client
-participant "ChatMessageController\nSTOMP /app/chat.send" as ChatWsController
-participant "MessageService" as MessageService
-participant "ConversationRepository" as ConversationRepo
-participant "MessageRepository" as MessageRepo
-participant "NotificationService" as NotificationService
-participant "AgentProxyClient" as AgentProxy
-participant "Topic /topic/conversation.{id}" as TopicConversation
-participant "User Queue /queue/errors" as QueueErrors
+boundary "Web/Mobile Client" as Client
+control "ChatMessageController\nSTOMP /app/chat.send" as ChatWsController
+control "MessageService" as MessageService
+entity "Conversation" as ConversationEntity
+entity "Message" as MessageEntity
+control "ConversationRepository" as ConversationRepo
+control "MessageRepository" as MessageRepo
+control "NotificationService" as NotificationService
+boundary "AgentProxyClient" as AgentProxy
+boundary "Topic /topic/conversation.{id}" as TopicConversation
+boundary "User Queue /queue/errors" as QueueErrors
 
 Member -> Client: Send group message
-Client -> ChatWsController: chat.send{conversationId, content}
+Client -> ChatWsController: chat.send{conversationId,\ncontent, mentionIds?,\nattachments?}
 ChatWsController -> MessageService: send(senderId, request)
+
 MessageService -> ConversationRepo: findById(conversationId)
+ConversationRepo --> MessageService: conversation?
 
 alt Not participant or invalid conversation
   MessageService --> ChatWsController: AppException(...)
   ChatWsController --> QueueErrors: {code, message}
   QueueErrors --> Client: Error event
-else Success
+else Allowed
+  MessageService -> ConversationEntity: check status\n(not muted/locked)
+  ConversationEntity --> MessageService: ok
+  MessageService -> MessageEntity: build message
+  MessageEntity --> MessageService: message
   MessageService -> MessageRepo: save(message)
   MessageRepo --> MessageService: saved
   MessageService -> NotificationService: createAndPush(NEW_MESSAGE)
   NotificationService --> MessageService: done
-  MessageService -> TopicConversation: ChatEvent{SEND}
+  MessageService -> TopicConversation: ChatEvent{SEND, messageId}
   TopicConversation --> Client: Broadcast to members
 
   opt Mention or @AI feature

@@ -36,7 +36,7 @@ import { musicService } from "@/services/music.service";
 import { storyService } from "@/services/story.service";
 import { fileService } from "@/services/file.service";
 import type { MusicTrack } from "@/types/music";
-import { StoryType } from "@/types/story";
+import { StoryPrivacy, StoryType } from "@/types/story";
 
 
 interface CreateStoryModalProps {
@@ -45,7 +45,6 @@ interface CreateStoryModalProps {
 }
 
 type StoryStep = "choose" | "text" | "photo" | "video";
-type StoryPrivacy = "public" | "friends" | "custom";
 
 const BACKGROUNDS = [
     "bg-gradient-to-br from-blue-500 to-cyan-400",
@@ -96,7 +95,7 @@ export function CreateStoryModal({ isOpen, onClose }: CreateStoryModalProps) {
     const [font, setFont] = useState("Clean");
 
     // Global Story State
-    const [privacy, setPrivacy] = useState<StoryPrivacy>("public");
+    const [privacy, setPrivacy] = useState<StoryPrivacy>(StoryPrivacy.EVERYONE);
 
     // Photo Story State
     const [photoUrl, setPhotoUrl] = useState<string | null>(null);
@@ -283,7 +282,7 @@ export function CreateStoryModal({ isOpen, onClose }: CreateStoryModalProps) {
         setImagePosition({ x: 0, y: 0 });
         setBgIndex(0);
         setFontSize(30);
-        setPrivacy("public");
+        setPrivacy(StoryPrivacy.EVERYONE);
         setSelectedTrack(null);
         setPlayingTrackId(null);
         if (audioRef.current) audioRef.current.pause();
@@ -395,44 +394,56 @@ export function CreateStoryModal({ isOpen, onClose }: CreateStoryModalProps) {
                                         <div className="p-4">
                                             <RadioGroup
                                                 value={privacy}
-                                                onValueChange={(v) => setPrivacy(v as StoryPrivacy)}
+                                                onValueChange={(value) => setPrivacy(value as StoryPrivacy)}
                                                 className="gap-4"
                                             >
-                                                <div className="flex items-center justify-between group cursor-pointer" onClick={() => setPrivacy("public")}>
+                                                <div className="flex items-center justify-between group cursor-pointer" onClick={() => setPrivacy(StoryPrivacy.EVERYONE)}>
                                                     <div className="flex items-center gap-3">
                                                         <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center">
                                                             <Globe className="w-5 h-5" />
                                                         </div>
                                                         <div>
-                                                            <Label className="font-bold cursor-pointer">Public</Label>
-                                                            <p className="text-xs text-muted-foreground">Anyone on ChatLy</p>
+                                                            <Label className="font-bold cursor-pointer">Everyone</Label>
+                                                            <p className="text-xs text-muted-foreground">Anyone on Chatly</p>
                                                         </div>
                                                     </div>
-                                                    <RadioGroupItem value="public" />
+                                                    <RadioGroupItem value={StoryPrivacy.EVERYONE} />
                                                 </div>
-                                                <div className="flex items-center justify-between group cursor-pointer" onClick={() => setPrivacy("friends")}>
+                                                <div className="flex items-center justify-between group cursor-pointer" onClick={() => setPrivacy(StoryPrivacy.FOLLOWERS_ONLY)}>
                                                     <div className="flex items-center gap-3">
                                                         <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center">
                                                             <Users className="w-5 h-5" />
                                                         </div>
                                                         <div>
-                                                            <Label className="font-bold cursor-pointer">Friends</Label>
-                                                            <p className="text-xs text-muted-foreground">Only your friends</p>
+                                                            <Label className="font-bold cursor-pointer">Followers only</Label>
+                                                            <p className="text-xs text-muted-foreground">People who follow you</p>
                                                         </div>
                                                     </div>
-                                                    <RadioGroupItem value="friends" />
+                                                    <RadioGroupItem value={StoryPrivacy.FOLLOWERS_ONLY} />
                                                 </div>
-                                                <div className="flex items-center justify-between group cursor-pointer" onClick={() => setPrivacy("custom")}>
+                                                <div className="flex items-center justify-between group cursor-pointer" onClick={() => setPrivacy(StoryPrivacy.CLOSE_FRIENDS)}>
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center">
+                                                            <Bookmark className="w-5 h-5" />
+                                                        </div>
+                                                        <div>
+                                                            <Label className="font-bold cursor-pointer">Close friends</Label>
+                                                            <p className="text-xs text-muted-foreground">A selected list</p>
+                                                        </div>
+                                                    </div>
+                                                    <RadioGroupItem value={StoryPrivacy.CLOSE_FRIENDS} />
+                                                </div>
+                                                <div className="flex items-center justify-between group cursor-pointer" onClick={() => setPrivacy(StoryPrivacy.ONLY_ME)}>
                                                     <div className="flex items-center gap-3">
                                                         <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center">
                                                             <Lock className="w-5 h-5" />
                                                         </div>
                                                         <div>
-                                                            <Label className="font-bold cursor-pointer">Custom</Label>
-                                                            <p className="text-xs text-muted-foreground">Choose people</p>
+                                                            <Label className="font-bold cursor-pointer">Only me</Label>
+                                                            <p className="text-xs text-muted-foreground">Visible only to you</p>
                                                         </div>
                                                     </div>
-                                                    <RadioGroupItem value="custom" />
+                                                    <RadioGroupItem value={StoryPrivacy.ONLY_ME} />
                                                 </div>
                                             </RadioGroup>
                                         </div>
