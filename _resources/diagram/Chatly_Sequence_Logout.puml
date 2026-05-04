@@ -1,21 +1,22 @@
 @startuml Chatly_Sequence_Logout
-title Chatly - Logout (Simple)
+title Chatly - Logout (ECB)
 
 autonumber
 skinparam sequenceMessageAlign center
 skinparam responseMessageBelowArrow true
 
-actor "Authenticated User" as U
-participant "Client" as Client
-participant "AuthController\nPOST /api/auth/logout" as AuthController
-participant "AuthService" as AuthService
-participant "JwtProvider" as JwtProvider
-participant "UserSessionService" as SessionService
-participant "TokenBlacklistService" as BlacklistService
-participant "GlobalExceptionHandler" as ExceptionHandler
+actor "Authenticated User" as User
+boundary "Web/Mobile Client" as Client
+control "AuthController\nPOST /api/auth/logout" as AuthController
+control "AuthService" as AuthService
+entity "Token" as TokenEntity
+control "JwtProvider" as JwtProvider
+control "UserSessionService" as SessionService
+control "TokenBlacklistService" as BlacklistService
+control "GlobalExceptionHandler" as ExceptionHandler
 
-U -> Client: Click logout
-Client -> AuthController: LogoutRequest{token, refreshToken?}
+User -> Client: Click logout
+Client -> AuthController: LogoutRequest{accessToken,\nrefreshToken?, deviceId?}
 
 alt Invalid request body
   AuthController -> ExceptionHandler: MethodArgumentNotValidException
@@ -23,21 +24,27 @@ alt Invalid request body
 else Valid request
   AuthController -> AuthService: logout(request)
   AuthService -> JwtProvider: validate access token
-  JwtProvider --> AuthService: valid?
-
-  opt Access token is valid
-    AuthService -> SessionService: revokeSession(...)
+  JwtProvider --> AuthService: claims?
+  alt Token invalid/expired
+    AuthService -> ExceptionHandler: AppException(INVALID_TOKEN)
+    ExceptionHandler --> Client: HTTP 401\nApiResponse{error}
+  else Token valid
+    AuthService -> TokenEntity: mark revoked
+    TokenEntity --> AuthService: revoked
+    AuthService -> SessionService: revokeSession(userId, deviceId)
     AuthService -> BlacklistService: blacklist access token
+    opt Refresh token provided
+      AuthService -> JwtProvider: validate refresh token
+      JwtProvider --> AuthService: refresh valid?
+      opt Refresh token valid
+        AuthService -> BlacklistService: blacklist refresh token
+      end
+    end
+    AuthService --> AuthController: done
+    AuthController --> Client: HTTP 200\nApiResponse{code:1000, message:"Logout successful"}
   end
-
-  opt Refresh token provided and valid
-    AuthService -> BlacklistService: blacklist refresh token
-  end
-
-  AuthService --> AuthController: done
-  AuthController --> Client: HTTP 200\nApiResponse{code:1000, message:"Logout successful"}
 end
 
-Client --> U: Redirect to login
+Client --> User: Redirect to login
 
 @enduml

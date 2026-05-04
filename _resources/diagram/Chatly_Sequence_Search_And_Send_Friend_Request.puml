@@ -1,45 +1,58 @@
 @startuml Chatly_Sequence_Search_And_Send_Friend_Request
-title Chatly - Search User + Send Friend Request (Simple)
+title Chatly - Search User + Send Friend Request (ECB)
 
 autonumber
 skinparam sequenceMessageAlign center
 skinparam responseMessageBelowArrow true
 
-actor "Authenticated User" as U
-participant "Client" as Client
-participant "UserController\nGET /api/users/search" as UserController
-participant "UserService" as UserService
-participant "ContactController\nPOST /api/contacts" as ContactController
-participant "ContactService" as ContactService
-participant "UserRepository" as UserRepo
-participant "ContactRepository" as ContactRepo
-participant "NotificationService" as NotificationService
-participant "GlobalExceptionHandler" as ExceptionHandler
+actor "Authenticated User" as User
+boundary "Web/Mobile Client" as Client
+control "UserController\nGET /api/users/search" as UserController
+control "UserService" as UserService
+control "ContactController\nPOST /api/contacts" as ContactController
+control "ContactService" as ContactService
+entity "User" as UserEntity
+entity "Contact" as ContactEntity
+control "UserRepository" as UserRepo
+control "ContactRepository" as ContactRepo
+control "NotificationService" as NotificationService
+control "GlobalExceptionHandler" as ExceptionHandler
 
-U -> Client: Search user by keyword
-Client -> UserController: GET /api/users/search?q=...
-UserController -> UserService: search(keyword)
+User -> Client: Search user by keyword
+Client -> UserController: GET /api/users/search?q=...&page=...&size=...
+UserController -> UserService: search(keyword, page, size)
 UserService -> UserRepo: searchByKeyword(...)
-UserRepo --> UserService: users
+UserRepo --> UserService: users[]
 UserService --> UserController: PagedResponse<UserResponse>
 UserController --> Client: HTTP 200\nApiResponse{code:1000, result}
 
-U -> Client: Tap "Add friend"
-Client -> ContactController: ContactRequest{contactId}
+User -> Client: Tap "Add friend"
+Client -> ContactController: ContactRequest{contactId,\nmessage?}
 ContactController -> ContactService: sendRequest(currentUserId, request)
 
-alt Self/duplicate/not found/invalid body
+ContactService -> UserRepo: findById(contactId)
+UserRepo --> ContactService: user?
+
+alt Self / not found / invalid body
   ContactService -> ExceptionHandler: AppException(...)
   ExceptionHandler --> Client: HTTP 4xx\nApiResponse{error}
-else Success
-  ContactService -> ContactRepo: save(contact request)
-  ContactRepo --> ContactService: saved
-  ContactService -> NotificationService: createAndPush(FRIEND_REQUEST)
-  NotificationService --> ContactService: done
-  ContactService --> ContactController: ContactResponse
-  ContactController --> Client: HTTP 200\nApiResponse{code:1000, result}
+else Valid target
+  ContactService -> ContactRepo: existsBetweenUsers(...)
+  alt Already requested or friends
+    ContactService -> ExceptionHandler: AppException(DUPLICATE)
+    ExceptionHandler --> Client: HTTP 409\nApiResponse{error}
+  else Create request
+    ContactService -> ContactEntity: build{fromUserId, toUserId,\nstatus:PENDING}
+    ContactEntity --> ContactService: contact
+    ContactService -> ContactRepo: save(contact)
+    ContactRepo --> ContactService: saved
+    ContactService -> NotificationService: createAndPush(FRIEND_REQUEST)
+    NotificationService --> ContactService: done
+    ContactService --> ContactController: ContactResponse
+    ContactController --> Client: HTTP 200\nApiResponse{code:1000, result}
+  end
 end
 
-Client --> U: Show result
+Client --> User: Show result
 
 @enduml

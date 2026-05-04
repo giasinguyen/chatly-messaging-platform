@@ -4,6 +4,13 @@ export enum StoryType {
     VIDEO = "VIDEO"
 }
 
+export enum StoryPrivacy {
+    EVERYONE = "EVERYONE",
+    FOLLOWERS_ONLY = "FOLLOWERS_ONLY",
+    CLOSE_FRIENDS = "CLOSE_FRIENDS",
+    ONLY_ME = "ONLY_ME"
+}
+
 export interface StoryUser {
     id: string;
     displayName?: string;
@@ -21,7 +28,7 @@ export interface Story {
     musicName?: string;
     bgIndex?: number;
     fontSize?: number;
-    privacy: string;
+    privacy: StoryPrivacy;
     viewCount?: number;
     viewedByMe?: boolean;
     createdAt: string;
@@ -36,7 +43,7 @@ export interface StoryCreationRequest {
     musicName?: string;
     bgIndex?: number;
     fontSize?: number;
-    privacy: string;
+    privacy: StoryPrivacy;
 }
 
 export interface StoryReactionResponse {
