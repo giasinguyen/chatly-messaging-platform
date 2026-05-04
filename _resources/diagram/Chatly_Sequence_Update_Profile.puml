@@ -1,32 +1,43 @@
 @startuml Chatly_Sequence_Update_Profile
-title Chatly - Update Profile (Simple)
+title Chatly - Update Profile (ECB)
 
 autonumber
 skinparam sequenceMessageAlign center
 skinparam responseMessageBelowArrow true
 
-actor "Authenticated User" as U
-participant "Client" as Client
-participant "UserController\nPUT /api/users/{id}" as UserController
-participant "UserService" as UserService
-participant "UserRepository" as UserRepo
-participant "GlobalExceptionHandler" as ExceptionHandler
+actor "Authenticated User" as User
+boundary "Web/Mobile Client" as Client
+control "UserController\nPUT /api/users/{id}" as UserController
+control "UserService" as UserService
+entity "User" as UserEntity
+control "UserRepository" as UserRepo
+control "GlobalExceptionHandler" as ExceptionHandler
 
-U -> Client: Update profile
-Client -> UserController: UserUpdateRequest
+User -> Client: Edit profile fields
+Client -> UserController: UserUpdateRequest{displayName,\navatarUrl?, bio?,\nphone?, location?}
 UserController -> UserService: update(userId, request)
-UserService -> UserRepo: findById + validate uniqueness
 
-alt Validation failed / user not found / duplicate field
-  UserService -> ExceptionHandler: AppException(...)
-  ExceptionHandler --> Client: HTTP 4xx\nApiResponse{error}
-else Success
-  UserService -> UserRepo: save(updated user)
-  UserRepo --> UserService: saved user
-  UserService --> UserController: UserResponse
-  UserController --> Client: HTTP 200\nApiResponse{code:1000, result}
+UserService -> UserRepo: findById(userId)
+UserRepo --> UserService: user?
+
+alt User not found
+  UserService -> ExceptionHandler: AppException(USER_NOT_FOUND)
+  ExceptionHandler --> Client: HTTP 404\nApiResponse{error}
+else User found
+  UserService -> UserRepo: check unique\nusername/email/phone
+  alt Duplicate field
+    UserService -> ExceptionHandler: AppException(DUPLICATE)
+    ExceptionHandler --> Client: HTTP 409\nApiResponse{error}
+  else Valid data
+    UserService -> UserEntity: apply changes\nand normalize
+    UserEntity --> UserService: updated user
+    UserService -> UserRepo: save(updated user)
+    UserRepo --> UserService: saved user
+    UserService --> UserController: UserResponse\n{id, displayName, avatarUrl}
+    UserController --> Client: HTTP 200\nApiResponse{code:1000, result}
+  end
 end
 
-Client --> U: Show updated profile
+Client --> User: Show updated profile
 
 @enduml
