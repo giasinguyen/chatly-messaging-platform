@@ -42,6 +42,8 @@ const isPostVisibility = (value: string): value is PostVisibility =>
     value === "FRIENDS_ONLY" ||
     value === "ONLY_ME";
 
+const hasImageMedia = (urls: string[]) => urls.some((url) => !/\.(mp4|webm)$/i.test(url));
+
 export default function CreatePage() {
     const user = useAuthStore((s) => s.user);
     const addNewPost = useFeedStore((s) => s.addNewPost);
@@ -76,6 +78,11 @@ export default function CreatePage() {
     };
 
     const onSubmit = async (values: FormValues) => {
+        if (!hasImageMedia(mediaUrls)) {
+            toast.error("Please add at least one image.");
+            return;
+        }
+
         try {
             const response = await postService.create({
                 content: values.content,

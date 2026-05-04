@@ -10,6 +10,7 @@ import com.chatly.dto.response.PostResponse;
 import com.chatly.exception.AppException;
 import com.chatly.exception.ErrorCode;
 import com.chatly.mapper.PostMapper;
+import com.chatly.model.enums.NotificationType;
 import com.chatly.model.enums.PostVisibility;
 import com.chatly.model.enums.ReactionType;
 import com.chatly.model.mongo.Post;
@@ -43,6 +44,7 @@ public class PostService {
     private final PostMapper postMapper;
     private final UserRepository userRepository;
     private final SavedPostRepository savedPostRepository;
+    private final NotificationService notificationService;
 
     public PostResponse create(String authorId, CreatePostRequest request) {
         List<String> hashtags = extractHashtags(request.getContent());
@@ -66,6 +68,12 @@ public class PostService {
     public Page<PostResponse> getFeed(String requesterId, Pageable pageable) {
         return postRepository
                 .findByVisibilityOrderByCreatedAtDesc(PostVisibility.PUBLIC, pageable)
+                .map(post -> toResponse(post, requesterId));
+    }
+
+    public Page<PostResponse> searchPosts(String keyword, String hashtag, String requesterId, Pageable pageable) {
+        return postRepository
+                .searchPublicPosts(keyword, hashtag, pageable)
                 .map(post -> toResponse(post, requesterId));
     }
 
@@ -122,7 +130,25 @@ public class PostService {
         savedPostRepository.deleteByUserIdAndPostId(requesterId, postId);
     }
 
-    public List<PostCommentResponse> getComments(String postId) {
+    public PostResponse share(String postId, String requesterId) {
+        Post post = findPost(postId);
+        post.setShareCount(post.getShareCount() + 1);
+        post = postRepository.save(post);
+
+        if (!post.getAuthorId().equals(requesterId)) {
+            notificationService.createAndPush(
+                    NotificationType.POST_SHARED,
+                    requesterId,
+                    post.getAuthorId(),
+                    "Someone shared your post",
+                    postId
+            );
+        }
+
+        return toResponse(post, requesterId);
+    }
+
+    public List<PostCommentResponse> getComments(String postId, String requesterId) {
         Post post = findPost(postId);
         if (post.getComments().isEmpty()) {
             return Collections.emptyList();
@@ -134,18 +160,34 @@ public class PostService {
 
         return post.getComments().stream()
                 .sorted((a, b) -> b.getCreatedAt().compareTo(a.getCreatedAt()))
-                .map(comment -> toCommentResponse(comment, usersById.get(comment.getUserId())))
+                .map(comment -> toCommentResponse(comment, usersById.get(comment.getUserId()), requesterId))
                 .toList();
     }
 
     public PostCommentResponse addComment(String postId, String userId, CreatePostCommentRequest request) {
         Post post = findPost(postId);
 
+        String content = request.getContent() != null ? request.getContent().trim() : "";
+        List<String> mediaUrls = request.getMediaUrls() != null ? new ArrayList<>(request.getMediaUrls()) : new ArrayList<>();
+        String parentCommentId = request.getParentCommentId() != null && !request.getParentCommentId().isBlank()
+                ? request.getParentCommentId().trim()
+                : null;
+
+        if (content.isBlank() && mediaUrls.isEmpty()) {
+            throw new AppException(ErrorCode.INVALID_KEY);
+        }
+
+        if (parentCommentId != null && post.getComments().stream().noneMatch(comment -> comment.getId().equals(parentCommentId))) {
+            throw new AppException(ErrorCode.INVALID_KEY);
+        }
+
         PostComment comment = PostComment.builder()
                 .id(UUID.randomUUID().toString())
                 .userId(userId)
-                .content(request.getContent().trim())
+                .content(content)
                 .createdAt(Instant.now())
+                .parentCommentId(parentCommentId)
+                .mediaUrls(mediaUrls)
                 .build();
 
         List<PostComment> comments = new ArrayList<>(post.getComments());
@@ -157,7 +199,41 @@ public class PostService {
         User commenter = safeUuid(userId)
                 .flatMap(userRepository::findById)
                 .orElse(null);
-        return toCommentResponse(comment, commenter);
+
+        // Send notification
+        if (!userId.equals(post.getAuthorId())) {
+            User commenterUser = commenter;
+            String commenterName = commenterUser != null ? commenterUser.getDisplayName() : "Someone";
+
+            if (parentCommentId != null) {
+                // Reply to a comment - notify the parent comment author
+                PostComment parentComment = post.getComments().stream()
+                        .filter(c -> c.getId().equals(parentCommentId))
+                        .findFirst()
+                        .orElse(null);
+
+                if (parentComment != null && !parentComment.getUserId().equals(userId)) {
+                    notificationService.createAndPush(
+                            NotificationType.COMMENT_REPLIED,
+                            userId,
+                            parentComment.getUserId(),
+                            commenterName + " replied to your comment",
+                            postId + "_" + parentCommentId
+                    );
+                }
+            } else {
+                // New comment on post - notify the post author
+                notificationService.createAndPush(
+                        NotificationType.POST_COMMENTED,
+                        userId,
+                        post.getAuthorId(),
+                        commenterName + " commented on your post",
+                        postId
+                );
+            }
+        }
+
+        return toCommentResponse(comment, commenter, userId);
     }
 
     public PostResponse react(String postId, String userId, ReactToPostRequest request) {
@@ -174,6 +250,22 @@ public class PostService {
 
         post.setReactions(reactions);
         post = postRepository.save(post);
+
+        // Send notification to post author
+        if (!userId.equals(post.getAuthorId())) {
+            User liker = safeUuid(userId)
+                    .flatMap(userRepository::findById)
+                    .orElse(null);
+            String likerName = liker != null ? liker.getDisplayName() : "Someone";
+            notificationService.createAndPush(
+                    NotificationType.POST_LIKED,
+                    userId,
+                    post.getAuthorId(),
+                    likerName + " liked your post",
+                    postId
+            );
+        }
+
         return toResponse(post, userId);
     }
 
@@ -259,7 +351,51 @@ public class PostService {
                 .userAvatarUrl(user != null ? user.getAvatarUrl() : null)
                 .content(comment.getContent())
                 .createdAt(comment.getCreatedAt())
+                .updatedAt(comment.getUpdatedAt())
+                .parentCommentId(comment.getParentCommentId())
+                .mediaUrls(comment.getMediaUrls() != null ? comment.getMediaUrls() : List.of())
+                .reactions(buildCommentReactionSummary(comment, null))
                 .build();
+    }
+
+    private PostCommentResponse toCommentResponse(PostComment comment, User user, String requesterId) {
+        return PostCommentResponse.builder()
+                .id(comment.getId())
+                .userId(comment.getUserId())
+                .userUsername(user != null ? user.getUsername() : null)
+                .userDisplayName(user != null ? user.getDisplayName() : comment.getUserId())
+                .userAvatarUrl(user != null ? user.getAvatarUrl() : null)
+                .content(comment.getContent())
+                .createdAt(comment.getCreatedAt())
+                .updatedAt(comment.getUpdatedAt())
+                .parentCommentId(comment.getParentCommentId())
+                .mediaUrls(comment.getMediaUrls() != null ? comment.getMediaUrls() : List.of())
+                .reactions(buildCommentReactionSummary(comment, requesterId))
+                .build();
+    }
+
+    private List<PostReactionSummary> buildCommentReactionSummary(PostComment comment, String requesterId) {
+        if (comment.getReactions() == null || comment.getReactions().isEmpty()) {
+            return List.of();
+        }
+
+        Map<ReactionType, Long> counts = comment.getReactions().stream()
+                .collect(Collectors.groupingBy(PostReaction::getType, Collectors.counting()));
+
+        ReactionType myType = requesterId != null ? comment.getReactions().stream()
+                .filter(r -> r.getUserId().equals(requesterId))
+                .map(PostReaction::getType)
+                .findFirst()
+                .orElse(null) : null;
+
+        return Arrays.stream(ReactionType.values())
+                .filter(counts::containsKey)
+                .map(type -> PostReactionSummary.builder()
+                        .type(type)
+                        .count(counts.get(type))
+                        .reactedByMe(type == myType)
+                        .build())
+                .collect(Collectors.toList());
     }
 
     private List<PostReactionSummary> buildReactionSummary(Post post, String requesterId) {
@@ -280,5 +416,116 @@ public class PostService {
                         .reactedByMe(type == myType)
                         .build())
                 .collect(Collectors.toList());
+    }
+
+    public PostCommentResponse editComment(String postId, String commentId, String userId, CreatePostCommentRequest request) {
+        Post post = findPost(postId);
+        PostComment comment = post.getComments().stream()
+                .filter(c -> c.getId().equals(commentId))
+                .findFirst()
+                .orElseThrow(() -> new RuntimeException("Comment not found"));
+
+        if (!comment.getUserId().equals(userId)) {
+            throw new RuntimeException("Unauthorized to edit this comment");
+        }
+
+        comment.setContent(request.getContent().trim());
+        comment.setUpdatedAt(Instant.now());
+        postRepository.save(post);
+
+        User commenter = safeUuid(userId)
+                .flatMap(userRepository::findById)
+                .orElse(null);
+        return toCommentResponse(comment, commenter);
+    }
+
+    public void deleteComment(String postId, String commentId, String userId) {
+        Post post = findPost(postId);
+        PostComment comment = post.getComments().stream()
+                .filter(c -> c.getId().equals(commentId))
+                .findFirst()
+                .orElseThrow(() -> new RuntimeException("Comment not found"));
+
+        if (!comment.getUserId().equals(userId)) {
+            throw new RuntimeException("Unauthorized to delete this comment");
+        }
+
+        Set<String> commentIdsToRemove = new HashSet<>();
+        commentIdsToRemove.add(commentId);
+        boolean changed;
+        do {
+            changed = false;
+            for (PostComment current : post.getComments()) {
+                if (current.getParentCommentId() != null
+                        && commentIdsToRemove.contains(current.getParentCommentId())
+                        && commentIdsToRemove.add(current.getId())) {
+                    changed = true;
+                }
+            }
+        } while (changed);
+
+        List<PostComment> comments = post.getComments().stream()
+                .filter(current -> !commentIdsToRemove.contains(current.getId()))
+                .collect(Collectors.toCollection(ArrayList::new));
+        post.setComments(comments);
+        post.setCommentCount(comments.size());
+        postRepository.save(post);
+    }
+
+    public PostCommentResponse reactToComment(String postId, String commentId, String userId, ReactToPostRequest request) {
+        Post post = findPost(postId);
+        PostComment comment = post.getComments().stream()
+                .filter(c -> c.getId().equals(commentId))
+                .findFirst()
+                .orElseThrow(() -> new RuntimeException("Comment not found"));
+
+        // Replace any existing reaction from this user
+        List<PostReaction> reactions = new ArrayList<>(comment.getReactions());
+        reactions.removeIf(r -> r.getUserId().equals(userId));
+        reactions.add(PostReaction.builder()
+                .userId(userId)
+                .type(request.getType())
+                .createdAt(Instant.now())
+                .build());
+        comment.setReactions(reactions);
+        postRepository.save(post);
+
+        // Send notification to comment author
+        if (!userId.equals(comment.getUserId())) {
+            User liker = safeUuid(userId)
+                    .flatMap(userRepository::findById)
+                    .orElse(null);
+            String likerName = liker != null ? liker.getDisplayName() : "Someone";
+            notificationService.createAndPush(
+                    NotificationType.POST_LIKED,
+                    userId,
+                    comment.getUserId(),
+                    likerName + " liked your comment",
+                    postId + "_" + commentId
+            );
+        }
+
+        User commenter = safeUuid(comment.getUserId())
+                .flatMap(userRepository::findById)
+                .orElse(null);
+        return toCommentResponse(comment, commenter, userId);
+    }
+
+    public PostCommentResponse removeCommentReaction(String postId, String commentId, String userId) {
+        Post post = findPost(postId);
+        PostComment comment = post.getComments().stream()
+                .filter(c -> c.getId().equals(commentId))
+                .findFirst()
+                .orElseThrow(() -> new RuntimeException("Comment not found"));
+
+        List<PostReaction> reactions = new ArrayList<>(comment.getReactions());
+        reactions.removeIf(r -> r.getUserId().equals(userId));
+        comment.setReactions(reactions);
+        postRepository.save(post);
+
+        User commenter = safeUuid(comment.getUserId())
+                .flatMap(userRepository::findById)
+                .orElse(null);
+        return toCommentResponse(comment, commenter, userId);
     }
 }

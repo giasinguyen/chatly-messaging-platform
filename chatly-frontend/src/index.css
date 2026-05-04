@@ -196,6 +196,11 @@
         60%  { background-color: rgba(234, 179, 8, 0.15); }
         100% { background-color: transparent; }
     }
+    @keyframes storyEmojiFloat {
+        0%   { opacity: 1; transform: translateX(-50%) translateY(0)     scale(1); }
+        40%  { opacity: 1; transform: translateX(-50%) translateY(-50px)  scale(1.4); }
+        100% { opacity: 0; transform: translateX(-50%) translateY(-110px) scale(0.8); }
+    }
     .card {
         @apply p-10 border border-[#222222]/10 dark:border-white/10 rounded-3xl shadow-[0_7px_14px_#EAEAEA] dark:shadow-none w-full max-w-xs dark:bg-[#1a1c23]/50;
     }

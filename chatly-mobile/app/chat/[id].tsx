@@ -973,6 +973,7 @@ export default function ChatScreen() {
                     onAddFriend={handleAddFriend}
                     vcardFriendStatus={getVcardFriendStatus}
                     onScrollToMessage={handleNavigateToMessage}
+                    onSwipeReply={(m) => setReplyingTo(m)}
                   />
                 </View>
               );

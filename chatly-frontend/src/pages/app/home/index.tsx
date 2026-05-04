@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { CreatePostModal } from "@/components/app/CreatePostModal";
 import { CreateOptionsModal } from "@/components/app/CreateOptionsModal";
 import { CreateStoryModal } from "@/components/app/CreateStoryModal";
+import { StoryViewer } from "@/components/app/StoryViewer";
 import { HOME_FEED_ROOT_MARGIN } from "@/constants/feed";
 import { FeedList } from "@/pages/app/feed/components/FeedList";
 import { NewPostBanner } from "@/pages/app/feed/components/NewPostBanner";
@@ -22,6 +23,7 @@ export default function HomePage() {
     const [showOptionsModal, setShowOptionsModal] = useState(false);
     const [showPostModal, setShowPostModal] = useState(false);
     const [showStoryModal, setShowStoryModal] = useState(false);
+    const [storyViewerIndex, setStoryViewerIndex] = useState<number | null>(null);
     const [stories, setStories] = useState<Story[]>([]);
     const [isLoadingStories, setIsLoadingStories] = useState(true);
 
@@ -119,8 +121,9 @@ export default function HomePage() {
     }, [user?.id, addPendingPost]);
 
     const groupedStories = useMemo(() => {
-        const groups: Record<string, { user: any; stories: Story[] }> = {};
+        const groups: Record<string, { user: NonNullable<Story["user"]>; stories: Story[] }> = {};
         stories.forEach((s) => {
+            if (!s.user) return;
             if (!groups[s.userId]) {
                 groups[s.userId] = { user: s.user, stories: [] };
             }
@@ -138,10 +141,16 @@ export default function HomePage() {
         return stories.some(s => s.userId === user?.id);
     }, [stories, user?.id]);
 
+    const handleStoryViewed = useCallback((storyId: string) => {
+        setStories((prev) =>
+            prev.map((s) => (s.id === storyId ? { ...s, viewedByMe: true } : s)),
+        );
+    }, []);
+
     return (
         <div className="w-full h-full flex justify-center overflow-y-auto bg-background relative hide-scrollbar">
             {/* Central Feed Area */}
-            <div className="w-full max-w-2xl px-4 py-8 flex flex-col gap-8 pb-32">
+            <div className="w-full max-w-2xl px-4 py-8 flex flex-col gap-3 pb-32">
                 {/* Stories Carousel */}
                 <div className="w-full relative">
                     <div className="flex gap-4 overflow-x-auto hide-scrollbar pb-3 pt-1 snap-x">
@@ -160,10 +169,21 @@ export default function HomePage() {
                         </div>
 
                         {/* Real Stories */}
-                        {groupedStories.map((group) => (
-                            <div key={group.user?.id} className="flex flex-col items-center gap-1 snap-start cursor-pointer group">
-                                <div className="p-[2.5px] rounded-full bg-gradient-to-tr from-brand via-blue-500 to-cyan-400 group-hover:scale-105 transition-transform shadow-sm">
-                                    <div className="bg-background p-[2px] rounded-full">
+                        {groupedStories.map((group, groupIdx) => {
+                            const allViewed = group.stories.every((s) => s.viewedByMe);
+                            return (
+                            <div
+                                key={group.user?.id}
+                                className="flex flex-col items-center gap-1 snap-start cursor-pointer group"
+                                onClick={() => setStoryViewerIndex(groupIdx)}
+                            >
+                                <div className={cn(
+                                    "p-[2.5px] rounded-full group-hover:scale-105 transition-transform shadow-sm",
+                                    allViewed
+                                        ? "bg-muted"
+                                        : "bg-linear-to-tr from-brand via-blue-500 to-cyan-400",
+                                )}>
+                                    <div className="bg-background p-0.5 rounded-full">
                                         <img
                                             alt={group.user?.displayName}
                                             className="w-14 h-14 rounded-full object-cover"
@@ -171,11 +191,15 @@ export default function HomePage() {
                                         />
                                     </div>
                                 </div>
-                                <span className="text-sm text-muted-foreground truncate w-16 text-center">
+                                <span className={cn(
+                                    "text-sm truncate w-16 text-center",
+                                    allViewed ? "text-muted-foreground/50" : "text-muted-foreground",
+                                )}>
                                     {group.user?.id === user?.id ? "Your story" : group.user?.displayName}
                                 </span>
                             </div>
-                        ))}
+                            );
+                        })}
                     </div>
                 </div>
 
@@ -195,10 +219,10 @@ export default function HomePage() {
             </div>
 
             {/* Right Sidebar (Suggested & Profile) */}
-            <aside className="w-[340px] flex-shrink-0 pt-8 pr-8 pl-6 hidden xl:block sticky top-0 h-screen overflow-y-auto hide-scrollbar">
+            <aside className="w-[400px] flex-shrink-0 pt-8 pr-8 pl-6 hidden xl:block sticky top-0 h-screen overflow-y-auto hide-scrollbar">
                 {/* Current User Snippet */}
                 <div className="flex items-center justify-between mb-8 bg-card p-3 rounded-xl shadow-sm border border-border">
-                    <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigate(`/${user?.username}`)}>
+                    <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigate(`/u/${user?.username}`)}>
                         <div className={cn(
                             "p-[2px] rounded-full",
                             hasMyStories ? "bg-gradient-to-tr from-brand via-blue-500 to-cyan-400" : "bg-transparent"
@@ -290,6 +314,15 @@ export default function HomePage() {
                 isOpen={showStoryModal}
                 onClose={() => setShowStoryModal(false)}
             />
+
+            {storyViewerIndex !== null && groupedStories.length > 0 && (
+                <StoryViewer
+                    groups={groupedStories}
+                    initialGroupIndex={storyViewerIndex}
+                    onClose={() => setStoryViewerIndex(null)}
+                    onStoryViewed={handleStoryViewed}
+                />
+            )}
         </div>
     );
 }

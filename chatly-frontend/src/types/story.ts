@@ -4,6 +4,13 @@ export enum StoryType {
     VIDEO = "VIDEO"
 }
 
+export interface StoryUser {
+    id: string;
+    displayName?: string;
+    avatarUrl?: string;
+    username?: string;
+}
+
 export interface Story {
     id: string;
     userId: string;
@@ -15,7 +22,10 @@ export interface Story {
     bgIndex?: number;
     fontSize?: number;
     privacy: string;
+    viewCount?: number;
+    viewedByMe?: boolean;
     createdAt: string;
+    user?: StoryUser;
 }
 
 export interface StoryCreationRequest {
@@ -27,4 +37,22 @@ export interface StoryCreationRequest {
     bgIndex?: number;
     fontSize?: number;
     privacy: string;
+}
+
+export interface StoryReactionResponse {
+    id: string;
+    storyId: string;
+    userId: string;
+    emoji: string;
+    createdAt: string;
+    user?: StoryUser;
+}
+
+export interface StoryReplyResponse {
+    id: string;
+    storyId: string;
+    userId: string;
+    content: string;
+    createdAt: string;
+    user?: StoryUser;
 }

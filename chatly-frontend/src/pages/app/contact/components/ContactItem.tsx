@@ -81,7 +81,7 @@ export function ContactItem({
         return (
             <FriendActions
                 onMessage={() => onMessage(otherUser.id)}
-                onPreviewProfile={() => navigate(`/${otherUser.username}`)}
+                onPreviewProfile={() => navigate(`/u/${otherUser.username}`)}
                 onBlock={() => onBlock(contact.id, otherUser.displayName)}
                 onRemove={() => onRemove(contact.id, otherUser.displayName)}
             />
@@ -107,7 +107,7 @@ export function ContactItem({
             <button
                 type="button"
                 className="flex items-center gap-4 flex-1 min-w-0 text-left"
-                onClick={() => navigate(`/${otherUser.username}`)}
+                onClick={() => navigate(`/u/${otherUser.username}`)}
             >
                 <div className="relative shrink-0">
                     <Avatar className="h-10 w-10">

@@ -45,7 +45,6 @@ public class Follow {
     private User followee;
 
     @CreationTimestamp
-    @Column(name = "created_at", nullable = false, updatable = false,
-            columnDefinition = "TIMESTAMP NOT NULL DEFAULT now()")
+    @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 }

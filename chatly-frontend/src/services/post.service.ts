@@ -9,6 +9,7 @@ import type {
     CreatePostRequest,
     UpdatePostRequest,
     ReactToPostRequest,
+    CreatePostCommentRequest,
 } from "@/types/post";
 
 export const postService = {
@@ -92,6 +93,13 @@ export const postService = {
         await axiosClient.delete(`/api/posts/${postId}/save`);
     },
 
+    sharePost: async (postId: string): Promise<ApiResponse<Post>> => {
+        const response = await axiosClient.post<ApiResponse<Post>>(
+            `/api/posts/${postId}/share`,
+        );
+        return response.data;
+    },
+
     getComments: async (postId: string): Promise<ApiResponse<PostComment[]>> => {
         const response = await axiosClient.get<ApiResponse<PostComment[]>>(
             `/api/posts/${postId}/comments`,
@@ -101,11 +109,11 @@ export const postService = {
 
     addComment: async (
         postId: string,
-        content: string,
+        payload: CreatePostCommentRequest,
     ): Promise<ApiResponse<PostComment>> => {
         const response = await axiosClient.post<ApiResponse<PostComment>>(
             `/api/posts/${postId}/comments`,
-            { content },
+            payload,
         );
         return response.data;
     },
@@ -121,6 +129,78 @@ export const postService = {
     removeReaction: async (postId: string): Promise<ApiResponse<Post>> => {
         const response = await axiosClient.delete<ApiResponse<Post>>(
             `/api/posts/${postId}/reactions`,
+        );
+        return response.data;
+    },
+
+    editComment: async (
+        postId: string,
+        commentId: string,
+        content: string,
+    ): Promise<ApiResponse<PostComment>> => {
+        const response = await axiosClient.patch<ApiResponse<PostComment>>(
+            `/api/posts/${postId}/comments/${commentId}`,
+            { content },
+        );
+        return response.data;
+    },
+
+    deleteComment: async (postId: string, commentId: string): Promise<ApiResponse<void>> => {
+        const response = await axiosClient.delete<ApiResponse<void>>(
+            `/api/posts/${postId}/comments/${commentId}`,
+        );
+        return response.data;
+    },
+
+    reactToComment: async (
+        postId: string,
+        commentId: string,
+        type: ReactionType,
+    ): Promise<ApiResponse<PostComment>> => {
+        const response = await axiosClient.put<ApiResponse<PostComment>>(
+            `/api/posts/${postId}/comments/${commentId}/reactions`,
+            { type },
+        );
+        return response.data;
+    },
+
+    removeCommentReaction: async (
+        postId: string,
+        commentId: string,
+    ): Promise<ApiResponse<PostComment>> => {
+        const response = await axiosClient.delete<ApiResponse<PostComment>>(
+            `/api/posts/${postId}/comments/${commentId}/reactions`,
+        );
+        return response.data;
+    },
+
+    getExploreFeed: async (
+        cursor: string | null,
+        size: number = HOME_FEED_PAGE_SIZE,
+    ): Promise<ApiResponse<FeedResponse>> => {
+        const params: Record<string, string | number> = { size };
+        if (cursor) {
+            params.cursor = cursor;
+        }
+        const response = await axiosClient.get<ApiResponse<FeedResponse>>(
+            "/api/feed/explore",
+            { params },
+        );
+        return response.data;
+    },
+
+    searchPosts: async (
+        q: string | null,
+        hashtag: string | null,
+        page = 0,
+        size = 12,
+    ): Promise<ApiResponse<PostPage>> => {
+        const params: Record<string, string | number> = { page, size, sort: "createdAt,desc" };
+        if (q) params.q = q;
+        if (hashtag) params.hashtag = hashtag;
+        const response = await axiosClient.get<ApiResponse<PostPage>>(
+            "/api/posts/search",
+            { params },
         );
         return response.data;
     },

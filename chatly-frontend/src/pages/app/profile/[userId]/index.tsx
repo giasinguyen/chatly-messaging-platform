@@ -89,7 +89,7 @@ export default function UserProfilePage() {
     // Redirect to own profile if viewing self
     useEffect(() => {
         if (targetUserId && currentUser?.id && targetUserId === currentUser.id) {
-            navigate(`/${currentUser.username || 'profile'}`, { replace: true });
+            navigate(`/u/${currentUser.username || 'profile'}`, { replace: true });
         }
     }, [targetUserId, currentUser?.id, currentUser?.username, navigate]);
 
