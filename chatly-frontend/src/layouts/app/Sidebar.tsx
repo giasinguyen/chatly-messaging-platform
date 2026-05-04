@@ -1,4 +1,12 @@
-import { MessageCircle, Users, Settings, Cloud, LogOut, Home, Compass } from "lucide-react";
+import {
+    MessageCircle,
+    Users,
+    Settings,
+    Cloud,
+    LogOut,
+    Home,
+    Compass,
+} from "lucide-react";
 import { CustomAiIcon } from "@/components/customize/CustomAiIcon";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { NavLink, useNavigate } from "react-router-dom";
@@ -23,7 +31,6 @@ import {
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
-
 interface SidebarProps {
     user: UserResponse | null;
 }
@@ -32,11 +39,13 @@ export function Sidebar({ user }: SidebarProps) {
     const clearAuth = useAuthStore((s) => s.clearAuth);
     const navigate = useNavigate();
     const msgUnreadCount = useNotificationStore(
-        (s) => s.notifications.filter((n) => n.type === "NEW_MESSAGE" && !n.read).length,
+        (s) =>
+            s.notifications.filter((n) => n.type === "NEW_MESSAGE" && !n.read)
+                .length,
     );
     const [showLogoutDialog, setShowLogoutDialog] = useState(false);
     const [hasActiveStories, setHasActiveStories] = useState(false);
-    
+
     useEffect(() => {
         const checkStories = async () => {
             try {
@@ -44,8 +53,10 @@ export function Sidebar({ user }: SidebarProps) {
                 if (res.code === 1000) {
                     // Check if any story was created in the last 24h
                     const now = new Date().getTime();
-                    const dayAgo = now - (24 * 60 * 60 * 1000);
-                    const hasRecent = res.result.some(s => new Date(s.createdAt).getTime() > dayAgo);
+                    const dayAgo = now - 24 * 60 * 60 * 1000;
+                    const hasRecent = res.result.some(
+                        (s) => new Date(s.createdAt).getTime() > dayAgo,
+                    );
                     setHasActiveStories(hasRecent);
                 }
             } catch (error) {
@@ -73,9 +84,20 @@ export function Sidebar({ user }: SidebarProps) {
     const navItems = [
         { to: "/home", icon: Home, label: "Home", badge: 0 },
         { to: "/explore", icon: Compass, label: "Explore", badge: 0 },
-        { to: "/chat", icon: MessageCircle, label: "Chat", badge: msgUnreadCount },
+        {
+            to: "/chat",
+            icon: MessageCircle,
+            label: "Chat",
+            badge: msgUnreadCount,
+        },
         { to: "/contact", icon: Users, label: "Contacts", badge: 0 },
-        { to: "/chatbot", icon: CustomAiIcon, label: "AI Chat", badge: 0, highlight: true },
+        {
+            to: "/chatbot",
+            icon: CustomAiIcon,
+            label: "AI Chat",
+            badge: 0,
+            highlight: true,
+        },
         { to: "/cloud", icon: Cloud, label: "Cloud", badge: 0 },
     ];
 
@@ -84,25 +106,34 @@ export function Sidebar({ user }: SidebarProps) {
             <div className="flex flex-col items-center gap-6 w-full">
                 {/* User Avatar */}
                 <NavLink
-                    to={`/u/${user?.username || 'profile'}`}
+                    to={`/u/${user?.username || "profile"}`}
                     className="relative mb-2 transition-transform hover:scale-105"
                     title="Profile"
                 >
-                    <div className={cn(
-                        "p-[2px] rounded-full",
-                        hasActiveStories ? "bg-gradient-to-tr from-brand via-blue-500 to-cyan-400 shadow-[0_0_8px_rgba(59,130,246,0.5)]" : "bg-transparent"
-                    )}>
+                    <div
+                        className={cn(
+                            "p-[2px] rounded-full",
+                            hasActiveStories
+                                ? "bg-gradient-to-tr from-brand via-blue-500 to-cyan-400 shadow-[0_0_8px_rgba(59,130,246,0.5)]"
+                                : "bg-transparent",
+                        )}
+                    >
                         <div className="bg-brand p-[2px] rounded-full">
-                            <Avatar className={cn(
-                                "h-11 w-11",
-                                !hasActiveStories && "border-2 border-blue-400/30"
-                            )}>
+                            <Avatar
+                                className={cn(
+                                    "h-11 w-11",
+                                    !hasActiveStories &&
+                                        "border-2 border-blue-400/30",
+                                )}
+                            >
                                 <AvatarImage
                                     src={user?.avatarUrl}
                                     className="object-cover"
                                 />
                                 <AvatarFallback className="bg-muted text-lg text-muted-foreground font-medium">
-                                    {user?.displayName?.charAt(0)?.toUpperCase() || "U"}
+                                    {user?.displayName
+                                        ?.charAt(0)
+                                        ?.toUpperCase() || "U"}
                                 </AvatarFallback>
                             </Avatar>
                         </div>
@@ -125,25 +156,31 @@ export function Sidebar({ user }: SidebarProps) {
                                             ? "bg-linear-to-r from-blue-500/30 to-cyan-400/20"
                                             : "hover:bg-linear-to-r hover:from-blue-500/20 hover:to-cyan-400/10 text-white/70"
                                         : isActive
-                                            ? "bg-black/20"
-                                            : "hover:bg-black/10 text-white/70",
+                                          ? "bg-black/20"
+                                          : "hover:bg-black/10 text-white/70",
                                 )
                             }
                         >
                             {({ isActive }) => (
                                 <>
                                     {isActive && (
-                                        <div className={cn(
-                                            "absolute left-0 top-0 bottom-0 w-1 rounded-r-full",
-                                            item.highlight
-                                                ? "bg-linear-to-b from-blue-400 to-cyan-300"
-                                                : "bg-white",
-                                        )} />
+                                        <div
+                                            className={cn(
+                                                "absolute left-0 top-0 bottom-0 w-1 rounded-r-full",
+                                                item.highlight
+                                                    ? "bg-linear-to-b from-blue-400 to-cyan-300"
+                                                    : "bg-white",
+                                            )}
+                                        />
                                     )}
-                                    <div className={cn(
-                                        "relative",
-                                        item.highlight && !isActive && "animate-pulse-subtle",
-                                    )}>
+                                    <div
+                                        className={cn(
+                                            "relative",
+                                            item.highlight &&
+                                                !isActive &&
+                                                "animate-pulse-subtle",
+                                        )}
+                                    >
                                         <item.icon
                                             className={cn(
                                                 "h-6 w-6 transition-colors",
@@ -152,8 +189,8 @@ export function Sidebar({ user }: SidebarProps) {
                                                         ? "text-cyan-200 drop-shadow-[0_0_6px_rgba(34,211,238,0.4)]"
                                                         : "text-cyan-300/80"
                                                     : isActive
-                                                        ? "text-white"
-                                                        : "text-white/70",
+                                                      ? "text-white"
+                                                      : "text-white/70",
                                             )}
                                         />
                                         {item.highlight && (
@@ -162,7 +199,9 @@ export function Sidebar({ user }: SidebarProps) {
                                     </div>
                                     {item.badge > 0 && (
                                         <span className="absolute top-2 right-2 min-w-4.5 h-4.5 flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-bold px-1 leading-none">
-                                            {item.badge > 99 ? "99+" : item.badge}
+                                            {item.badge > 99
+                                                ? "99+"
+                                                : item.badge}
                                         </span>
                                     )}
                                 </>
@@ -213,15 +252,21 @@ export function Sidebar({ user }: SidebarProps) {
             </div>
 
             {/* Logout Confirm Dialog */}
-            <AlertDialog open={showLogoutDialog} onOpenChange={setShowLogoutDialog}>
+            <AlertDialog
+                open={showLogoutDialog}
+                onOpenChange={setShowLogoutDialog}
+            >
                 <AlertDialogContent className="max-w-sm rounded-2xl">
                     <AlertDialogHeader className="items-center text-center">
                         <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-red-100 dark:bg-red-950">
                             <LogOut className="h-6 w-6 text-red-500" />
                         </div>
-                        <AlertDialogTitle className="text-lg">Logout?</AlertDialogTitle>
+                        <AlertDialogTitle className="text-lg">
+                            Logout?
+                        </AlertDialogTitle>
                         <AlertDialogDescription className="text-sm text-muted-foreground">
-                            You will need to log in again to use Chatly. Proceed to log out?
+                            You will need to log in again to use Chatly. Proceed
+                            to log out?
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter className="flex-row justify-center gap-3 sm:justify-center">
@@ -237,9 +282,6 @@ export function Sidebar({ user }: SidebarProps) {
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
-
-
         </nav>
     );
 }
-

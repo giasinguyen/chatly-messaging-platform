@@ -71,6 +71,7 @@ export function StoryViewer({ groups, initialGroupIndex, onClose, onStoryDeleted
     const timerRef = useRef<ReturnType<typeof window.setInterval> | null>(null);
     const floatingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const containerRef = useRef<HTMLDivElement>(null);
+    const audioRef = useRef<HTMLAudioElement>(null);
     const navigate = useNavigate();
 
     const currentGroup = groups[groupIndex];
@@ -158,6 +159,17 @@ export function StoryViewer({ groups, initialGroupIndex, onClose, onStoryDeleted
         window.addEventListener("keydown", handleKeyDown);
         return () => window.removeEventListener("keydown", handleKeyDown);
     }, [onClose, goNext, goPrev]);
+
+    // Play/pause music based on isPaused
+    useEffect(() => {
+        if (audioRef.current) {
+            if (isPaused) {
+                audioRef.current.pause();
+            } else {
+                audioRef.current.play().catch(() => {});
+            }
+        }
+    }, [isPaused, currentStory?.id]);
 
     // Record view + reset panels when story changes
     useEffect(() => {
@@ -374,6 +386,17 @@ export function StoryViewer({ groups, initialGroupIndex, onClose, onStoryDeleted
                             {currentStory.content}
                         </p>
                     </div>
+                )}
+
+                {/* Audio for Music */}
+                {currentStory.musicUrl && (
+                    <audio
+                        ref={audioRef}
+                        src={currentStory.musicUrl}
+                        autoPlay={!isPaused}
+                        loop
+                        className="hidden"
+                    />
                 )}
 
                 {/* Overlay gradient */}
