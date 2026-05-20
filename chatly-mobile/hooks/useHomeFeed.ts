@@ -14,6 +14,12 @@ function mergeUniquePosts(existing: Post[], incoming: Post[]): Post[] {
   return [...existing, ...incoming.filter((post) => !existingIds.has(post.id))];
 }
 
+function prependUniquePosts(existing: Post[], incoming: Post[]): Post[] {
+  const existingIds = new Set(existing.map((post) => post.id));
+  const uniqueIncoming = incoming.filter((post) => !existingIds.has(post.id));
+  return [...uniqueIncoming, ...existing];
+}
+
 function groupStories(stories: StoryResponse[]): StoryGroup[] {
   const map = new Map<string, StoryGroup>();
   for (const story of stories) {
@@ -37,6 +43,7 @@ function groupStories(stories: StoryResponse[]): StoryGroup[] {
 
 export function useHomeFeed() {
   const [posts, setPosts] = useState<Post[]>([]);
+  const [pendingNewPosts, setPendingNewPosts] = useState<Post[]>([]);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [hasMorePosts, setHasMorePosts] = useState(true);
   const [storyGroups, setStoryGroups] = useState<StoryGroup[]>([]);
@@ -47,6 +54,7 @@ export function useHomeFeed() {
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [feedError, setFeedError] = useState<string | null>(null);
   const [isCreatePostOpen, setIsCreatePostOpen] = useState(false);
+  const [isCreateStoryOpen, setIsCreateStoryOpen] = useState(false);
   const [editingPost, setEditingPost] = useState<Post | null>(null);
   const [commentsByPostId, setCommentsByPostId] = useState<Record<string, PostComment[]>>({});
 
@@ -92,6 +100,9 @@ export function useHomeFeed() {
       setPosts((prev) =>
         mode === 'append' ? mergeUniquePosts(prev, response.result.items) : response.result.items
       );
+      if (mode !== 'append') {
+        setPendingNewPosts([]);
+      }
       setNextCursor(response.result.nextCursor);
       setHasMorePosts(response.result.hasMore);
     } catch (error: unknown) {
@@ -122,6 +133,27 @@ export function useHomeFeed() {
     }
     void loadPosts(nextCursor, 'append');
   }, [hasMorePosts, isLoading, isLoadingMore, isRefreshing, loadPosts, nextCursor]);
+
+  const addPendingPost = useCallback(
+    (post: Post) => {
+      if (posts.some((item) => item.id === post.id)) {
+        return;
+      }
+
+      setPendingNewPosts((prev) => {
+        if (prev.some((item) => item.id === post.id)) {
+          return prev;
+        }
+        return [post, ...prev];
+      });
+    },
+    [posts]
+  );
+
+  const flushPendingPosts = useCallback(() => {
+    setPosts((prev) => prependUniquePosts(prev, pendingNewPosts));
+    setPendingNewPosts([]);
+  }, [pendingNewPosts]);
 
   const loadComments = useCallback(
     async (postId: string) => {
@@ -355,6 +387,7 @@ export function useHomeFeed() {
 
   const handlePostCreated = useCallback((post: Post) => {
     setPosts((prev) => [post, ...prev]);
+    setPendingNewPosts((prev) => prev.filter((item) => item.id !== post.id));
     setIsCreatePostOpen(false);
   }, []);
 
@@ -367,8 +400,14 @@ export function useHomeFeed() {
     [replacePost]
   );
 
+  const handleStoryCreated = useCallback(async () => {
+    setIsCreateStoryOpen(false);
+    await loadStories();
+  }, [loadStories]);
+
   return {
     posts,
+    pendingNewPosts,
     storyGroups,
     viewerVisible,
     viewerGroupIndex,
@@ -378,6 +417,7 @@ export function useHomeFeed() {
     hasMorePosts,
     feedError,
     isCreatePostOpen,
+    isCreateStoryOpen,
     editingPost,
     commentsByPostId,
     setViewerVisible,
@@ -385,8 +425,11 @@ export function useHomeFeed() {
     setStoryGroups,
     setEditingPost,
     setIsCreatePostOpen,
+    setIsCreateStoryOpen,
     handleRefresh,
     handleLoadMore,
+    addPendingPost,
+    flushPendingPosts,
     handleTogglePostLike,
     handleDoubleTapPostLike,
     handleSavePost,
@@ -399,6 +442,7 @@ export function useHomeFeed() {
     handleEditPost,
     handlePostCreated,
     handlePostUpdated,
+    handleStoryCreated,
     loadComments,
   };
 }

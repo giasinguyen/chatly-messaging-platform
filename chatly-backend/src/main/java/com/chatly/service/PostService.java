@@ -20,11 +20,14 @@ import com.chatly.model.mongo.SavedPost;
 import com.chatly.model.postgres.User;
 import com.chatly.repository.mongo.PostRepository;
 import com.chatly.repository.mongo.SavedPostRepository;
+import com.chatly.repository.postgres.ContactRepository;
+import com.chatly.repository.postgres.FollowRepository;
 import com.chatly.repository.postgres.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
@@ -39,12 +42,16 @@ import java.util.stream.Collectors;
 public class PostService {
 
     private static final Pattern HASHTAG_PATTERN = Pattern.compile("#(\\w+)");
+    private static final String FEED_TOPIC_PREFIX = "/topic/feed/";
 
     private final PostRepository postRepository;
     private final PostMapper postMapper;
     private final UserRepository userRepository;
     private final SavedPostRepository savedPostRepository;
+    private final ContactRepository contactRepository;
+    private final FollowRepository followRepository;
     private final NotificationService notificationService;
+    private final SimpMessagingTemplate messagingTemplate;
 
     public PostResponse create(String authorId, CreatePostRequest request) {
         List<String> mediaUrls = request.getMediaUrls() != null ? request.getMediaUrls() : new ArrayList<>();
@@ -67,6 +74,7 @@ public class PostService {
 
         post = postRepository.save(post);
         log.info("Post created: id={}, authorId={}", post.getId(), authorId);
+        broadcastNewPost(post);
         return toResponse(post, authorId);
     }
 
@@ -305,6 +313,45 @@ public class PostService {
         if (!post.getAuthorId().equals(userId)) {
             throw new AppException(ErrorCode.POST_FORBIDDEN);
         }
+    }
+
+    private void broadcastNewPost(Post post) {
+        if (!shouldBroadcast(post.getVisibility())) {
+            return;
+        }
+
+        Set<String> recipientIds = findRealtimeFeedRecipientIds(post.getAuthorId());
+        recipientIds.forEach(recipientId -> sendFeedUpdate(post, recipientId));
+
+        if (!recipientIds.isEmpty()) {
+            log.info("Post broadcast: id={}, recipients={}", post.getId(), recipientIds.size());
+        }
+    }
+
+    private void sendFeedUpdate(Post post, String recipientId) {
+        try {
+            messagingTemplate.convertAndSend(FEED_TOPIC_PREFIX + recipientId, toResponse(post, recipientId));
+        } catch (RuntimeException ex) {
+            log.warn("Post broadcast failed: id={}, recipientId={}", post.getId(), recipientId, ex);
+        }
+    }
+
+    private boolean shouldBroadcast(PostVisibility visibility) {
+        return visibility == PostVisibility.PUBLIC || visibility == PostVisibility.FOLLOWERS_ONLY;
+    }
+
+    private Set<String> findRealtimeFeedRecipientIds(String authorId) {
+        Optional<UUID> authorUuid = safeUuid(authorId);
+        if (authorUuid.isEmpty()) {
+            return Collections.emptySet();
+        }
+
+        Set<String> recipientIds = new LinkedHashSet<>();
+        followRepository.findFollowerIdsByFolloweeId(authorUuid.get(), Pageable.unpaged())
+                .forEach(followerId -> recipientIds.add(followerId.toString()));
+        recipientIds.addAll(contactRepository.findFollowingIds(authorUuid.get()));
+        recipientIds.remove(authorId);
+        return recipientIds;
     }
 
     private List<String> extractHashtags(String content) {

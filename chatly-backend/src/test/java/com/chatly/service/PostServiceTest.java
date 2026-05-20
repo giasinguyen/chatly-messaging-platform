@@ -14,10 +14,16 @@ import com.chatly.model.mongo.PostReaction;
 import com.chatly.model.mongo.SavedPost;
 import com.chatly.repository.mongo.PostRepository;
 import com.chatly.repository.mongo.SavedPostRepository;
+import com.chatly.repository.postgres.ContactRepository;
+import com.chatly.repository.postgres.FollowRepository;
 import com.chatly.repository.postgres.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -25,6 +31,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -46,6 +53,15 @@ class PostServiceTest {
     @Mock
     private SavedPostRepository savedPostRepository;
 
+    @Mock
+    private ContactRepository contactRepository;
+
+    @Mock
+    private FollowRepository followRepository;
+
+    @Mock
+    private SimpMessagingTemplate messagingTemplate;
+
     @InjectMocks
     private PostService postService;
 
@@ -62,12 +78,15 @@ class PostServiceTest {
                 .authorId(AUTHOR_ID)
                 .content("Hello #world")
                 .visibility(PostVisibility.PUBLIC)
-                .mediaUrls(new ArrayList<>())
+                .mediaUrls(new ArrayList<>(List.of("https://cdn.example.com/photo.jpg")))
                 .hashtags(new ArrayList<>())
                 .reactions(new ArrayList<>())
                 .build();
-        when(userRepository.findById(any())).thenReturn(Optional.empty());
-        when(savedPostRepository.existsByUserIdAndPostId(anyString(), anyString())).thenReturn(false);
+        lenient().when(userRepository.findById(any())).thenReturn(Optional.empty());
+        lenient().when(savedPostRepository.existsByUserIdAndPostId(anyString(), anyString())).thenReturn(false);
+        lenient().when(followRepository.findFollowerIdsByFolloweeId(any(), any(Pageable.class)))
+                .thenReturn(Page.empty());
+        lenient().when(contactRepository.findFollowingIds(any())).thenReturn(List.of());
     }
 
     @Test
@@ -75,6 +94,7 @@ class PostServiceTest {
         CreatePostRequest request = new CreatePostRequest();
         request.setContent("Hello #world");
         request.setVisibility(PostVisibility.PUBLIC);
+        request.setMediaUrls(List.of("https://cdn.example.com/photo.jpg"));
 
         when(postRepository.save(any(Post.class))).thenReturn(samplePost);
         PostResponse mockResponse = new PostResponse();
@@ -91,12 +111,13 @@ class PostServiceTest {
     void create_shouldExtractHashtagsFromContent() {
         CreatePostRequest request = new CreatePostRequest();
         request.setContent("Check #spring and #java");
+        request.setMediaUrls(List.of("https://cdn.example.com/photo.jpg"));
 
         Post saved = Post.builder()
                 .id(POST_ID).authorId(AUTHOR_ID)
                 .content("Check #spring and #java")
                 .hashtags(List.of("spring", "java"))
-                .reactions(new ArrayList<>()).mediaUrls(new ArrayList<>())
+                .reactions(new ArrayList<>()).mediaUrls(new ArrayList<>(List.of("https://cdn.example.com/photo.jpg")))
                 .build();
 
         when(postRepository.save(any())).thenReturn(saved);
@@ -114,6 +135,7 @@ class PostServiceTest {
         CreatePostRequest request = new CreatePostRequest();
         request.setContent("Visible to all");
         request.setVisibility(null);
+        request.setMediaUrls(List.of("https://cdn.example.com/photo.jpg"));
 
         when(postRepository.save(any())).thenReturn(samplePost);
         when(postMapper.toResponse(any())).thenReturn(new PostResponse());
@@ -121,6 +143,40 @@ class PostServiceTest {
         postService.create(AUTHOR_ID, request);
 
         verify(postRepository).save(argThat(p -> p.getVisibility() == PostVisibility.PUBLIC));
+    }
+
+    @Test
+    void create_publicPost_shouldBroadcastToFollowers() {
+        CreatePostRequest request = new CreatePostRequest();
+        request.setContent("Hello #world");
+        request.setVisibility(PostVisibility.PUBLIC);
+        request.setMediaUrls(List.of("https://cdn.example.com/photo.jpg"));
+
+        when(postRepository.save(any(Post.class))).thenReturn(samplePost);
+        when(postMapper.toResponse(any())).thenReturn(new PostResponse());
+        when(followRepository.findFollowerIdsByFolloweeId(eq(UUID.fromString(AUTHOR_ID)), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(UUID.fromString(OTHER_ID))));
+        when(contactRepository.findFollowingIds(UUID.fromString(AUTHOR_ID))).thenReturn(List.of(OTHER_ID));
+
+        postService.create(AUTHOR_ID, request);
+
+        verify(messagingTemplate).convertAndSend(eq("/topic/feed/" + OTHER_ID), any(PostResponse.class));
+    }
+
+    @Test
+    void create_onlyMePost_shouldNotBroadcast() {
+        CreatePostRequest request = new CreatePostRequest();
+        request.setContent("Private #world");
+        request.setVisibility(PostVisibility.ONLY_ME);
+        request.setMediaUrls(List.of("https://cdn.example.com/photo.jpg"));
+        samplePost.setVisibility(PostVisibility.ONLY_ME);
+
+        when(postRepository.save(any(Post.class))).thenReturn(samplePost);
+        when(postMapper.toResponse(any())).thenReturn(new PostResponse());
+
+        postService.create(AUTHOR_ID, request);
+
+        verifyNoInteractions(messagingTemplate);
     }
 
     @Test

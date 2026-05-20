@@ -14,7 +14,7 @@ export function useInfiniteScroll(
 ) {
     const { hasMore, isLoading, rootMargin = "0px", threshold = 0 } = options;
 
-    const sentinelRef = useRef<HTMLDivElement | null>(null);
+    const sentinelRef = useRef<HTMLDivElement>(null);
     const fetcherRef = useRef(fetcher);
     const cursorRef = useRef(cursor);
     const hasMoreRef = useRef(hasMore);

@@ -8,6 +8,7 @@ import type { StoryGroup } from '@/types/story';
 interface HomeFeedHeaderProps {
   storyGroups: StoryGroup[];
   onCreatePost: () => void;
+  onCreateStory: () => void;
   onOpenExplore: () => void;
   onPressStoryGroup: (group: StoryGroup, groupIndex: number) => void;
 }
@@ -15,6 +16,7 @@ interface HomeFeedHeaderProps {
 export function HomeFeedHeader({
   storyGroups,
   onCreatePost,
+  onCreateStory,
   onOpenExplore,
   onPressStoryGroup,
 }: HomeFeedHeaderProps) {
@@ -43,6 +45,7 @@ export function HomeFeedHeader({
       <HomeStoryCarousel
         stories={[]}
         storyGroups={storyGroups}
+        onPressCreateStory={onCreateStory}
         onPressStoryGroup={onPressStoryGroup}
       />
     </View>

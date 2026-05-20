@@ -1,13 +1,23 @@
-import { useCallback, useMemo } from 'react';
-import { ActivityIndicator, FlatList, Text, View, type ListRenderItemInfo } from 'react-native';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
+import {
+  ActivityIndicator,
+  FlatList,
+  Pressable,
+  Text,
+  View,
+  type ListRenderItemInfo,
+} from 'react-native';
 import { useRouter } from 'expo-router';
 import { HomeFeedHeader } from '@/components/social/HomeFeedHeader';
 import { HomePostCard } from '@/components/social/HomePostCard';
 import { StoryViewerModal } from '@/components/social/StoryViewerModal';
 import { CreatePostModal } from '@/components/social/CreatePostModal';
+import { CreateStoryModal } from '@/components/social/CreateStoryModal';
 import { useHomeFeed } from '@/hooks/useHomeFeed';
 import { HOME_FEED_END_REACHED_THRESHOLD } from '@/constants/feed';
 import { Colors } from '@/constants/theme';
+import { socketService } from '@/services/socket.service';
+import { useAuthStore } from '@/store/auth.store';
 import type { Post } from '@/types/post';
 import type { StoryGroup } from '@/types/story';
 
@@ -50,10 +60,29 @@ function HomeFeedEmptyState({ message }: { message: string | null }) {
   );
 }
 
+function HomeNewPostsBanner({ count, onPress }: { count: number; onPress: () => void }) {
+  if (count === 0) {
+    return null;
+  }
+
+  return (
+    <Pressable
+      className="mx-4 mt-3 items-center rounded-full bg-[#0A7AFF] px-4 py-2 active:opacity-80"
+      onPress={onPress}>
+      <Text className="text-sm font-semibold text-white">
+        {count === 1 ? 'New post available' : `${count} new posts available`}
+      </Text>
+    </Pressable>
+  );
+}
+
 export default function HomeTabScreen() {
   const router = useRouter();
+  const listRef = useRef<FlatList<Post>>(null);
+  const userId = useAuthStore((state) => state.user?.id);
   const {
     posts,
+    pendingNewPosts,
     storyGroups,
     viewerVisible,
     viewerGroupIndex,
@@ -63,6 +92,7 @@ export default function HomeTabScreen() {
     hasMorePosts,
     feedError,
     isCreatePostOpen,
+    isCreateStoryOpen,
     editingPost,
     commentsByPostId,
     setViewerVisible,
@@ -70,8 +100,11 @@ export default function HomeTabScreen() {
     setStoryGroups,
     setEditingPost,
     setIsCreatePostOpen,
+    setIsCreateStoryOpen,
     handleRefresh,
     handleLoadMore,
+    addPendingPost,
+    flushPendingPosts,
     handleTogglePostLike,
     handleDoubleTapPostLike,
     handleSavePost,
@@ -84,13 +117,23 @@ export default function HomeTabScreen() {
     handleEditPost,
     handlePostCreated,
     handlePostUpdated,
+    handleStoryCreated,
     loadComments,
   } = useHomeFeed();
+
+  useEffect(() => {
+    if (!userId) return undefined;
+    return socketService.subscribeToFeed(userId, addPendingPost);
+  }, [addPendingPost, userId]);
 
   const handleCreatePostPress = useCallback(() => {
     setEditingPost(null);
     setIsCreatePostOpen(true);
   }, [setEditingPost, setIsCreatePostOpen]);
+
+  const handleCreateStoryPress = useCallback(() => {
+    setIsCreateStoryOpen(true);
+  }, [setIsCreateStoryOpen]);
 
   const handleOpenExplore = useCallback(() => {
     router.push('/explore');
@@ -117,6 +160,14 @@ export default function HomeTabScreen() {
     },
     [setStoryGroups]
   );
+
+  const handleFlushPendingPosts = useCallback(() => {
+    if (pendingNewPosts.length === 0) {
+      return;
+    }
+    flushPendingPosts();
+    listRef.current?.scrollToOffset({ offset: 0, animated: true });
+  }, [flushPendingPosts, pendingNewPosts.length]);
 
   const renderPost = useCallback(
     ({ item }: ListRenderItemInfo<Post>) => (
@@ -156,14 +207,26 @@ export default function HomeTabScreen() {
 
   const listHeader = useMemo(
     () => (
-      <HomeFeedHeader
-        storyGroups={storyGroups}
-        onCreatePost={handleCreatePostPress}
-        onOpenExplore={handleOpenExplore}
-        onPressStoryGroup={handlePressStoryGroup}
-      />
+      <View>
+        <HomeFeedHeader
+          storyGroups={storyGroups}
+          onCreatePost={handleCreatePostPress}
+          onCreateStory={handleCreateStoryPress}
+          onOpenExplore={handleOpenExplore}
+          onPressStoryGroup={handlePressStoryGroup}
+        />
+        <HomeNewPostsBanner count={pendingNewPosts.length} onPress={handleFlushPendingPosts} />
+      </View>
     ),
-    [handleCreatePostPress, handleOpenExplore, handlePressStoryGroup, storyGroups]
+    [
+      handleCreatePostPress,
+      handleCreateStoryPress,
+      handleFlushPendingPosts,
+      handleOpenExplore,
+      handlePressStoryGroup,
+      pendingNewPosts.length,
+      storyGroups,
+    ]
   );
 
   const listFooter = useMemo(
@@ -186,6 +249,7 @@ export default function HomeTabScreen() {
         </View>
       ) : (
         <FlatList
+          ref={listRef}
           data={posts}
           keyExtractor={(item) => item.id}
           renderItem={renderPost}
@@ -209,6 +273,12 @@ export default function HomeTabScreen() {
         onCreated={handlePostCreated}
         editingPost={editingPost}
         onUpdated={handlePostUpdated}
+      />
+
+      <CreateStoryModal
+        visible={isCreateStoryOpen}
+        onClose={() => setIsCreateStoryOpen(false)}
+        onCreated={() => void handleStoryCreated()}
       />
 
       <StoryViewerModal
