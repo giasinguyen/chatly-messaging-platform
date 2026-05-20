@@ -34,6 +34,7 @@ export interface CreatePostRequest {
 
 export interface UpdatePostRequest {
     content?: string;
+    mediaUrls?: string[];
     visibility?: PostVisibility;
 }
 

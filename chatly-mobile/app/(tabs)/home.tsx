@@ -22,6 +22,7 @@ export default function HomeTabScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isCreatePostOpen, setIsCreatePostOpen] = useState(false);
+  const [editingPost, setEditingPost] = useState<Post | null>(null);
   const [commentsByPostId, setCommentsByPostId] = useState<Record<string, PostComment[]>>({});
   const [loadingCommentsPostId, setLoadingCommentsPostId] = useState<string | null>(null);
 
@@ -188,6 +189,37 @@ export default function HomeTabScreen() {
     }
   }, [togglePostLikeInState]);
 
+  const isPostLiked = useCallback(
+    (postId: string) => {
+      const post = posts.find((item) => item.id === postId);
+      return post?.reactions?.some((reaction) => reaction.type === 'LIKE' && reaction.reactedByMe) ?? false;
+    },
+    [posts],
+  );
+
+  const handleDoubleTapPostLike = useCallback(async (postId: string) => {
+    if (isPostLiked(postId)) return;
+
+    togglePostLikeInState(postId);
+    try {
+      await postService.react(postId, { type: 'LIKE' });
+    } catch (error: unknown) {
+      togglePostLikeInState(postId);
+      console.error('Failed to like post from double tap', error);
+    }
+  }, [isPostLiked, togglePostLikeInState]);
+
+  const handlePostCreated = useCallback((post: Post) => {
+    setPosts((prev) => [post, ...prev]);
+    setIsCreatePostOpen(false);
+  }, []);
+
+  const handlePostUpdated = useCallback((updatedPost: Post) => {
+    setPosts((prev) => prev.map((post) => (post.id === updatedPost.id ? updatedPost : post)));
+    setEditingPost(null);
+    setIsCreatePostOpen(false);
+  }, []);
+
   const handleSavePost = useCallback(async (postId: string) => {
     try {
       // TODO: Implement save post API call
@@ -273,9 +305,11 @@ export default function HomeTabScreen() {
   }, []);
 
   const handleEditPost = useCallback((postId: string) => {
-    // TODO: Implement edit post modal
-    console.log('Edit post:', postId);
-  }, []);
+    const post = posts.find((item) => item.id === postId);
+    if (!post) return;
+    setEditingPost(post);
+    setIsCreatePostOpen(true);
+  }, [posts]);
 
   const listHeader = useMemo(
     () => (
@@ -286,7 +320,10 @@ export default function HomeTabScreen() {
         >
           <View className="relative h-10 flex-row items-center justify-center">
             <TouchableOpacity
-              onPress={() => setIsCreatePostOpen(true)}
+              onPress={() => {
+                setEditingPost(null);
+                setIsCreatePostOpen(true);
+              }}
               className="absolute left-0 rounded-full p-1.5"
               activeOpacity={0.75}
             >
@@ -325,6 +362,7 @@ export default function HomeTabScreen() {
               post={item}
               comments={commentsByPostId[item.id] || []}
               onToggleLikePost={handleTogglePostLike}
+              onDoubleTapLikePost={handleDoubleTapPostLike}
               onSavePost={handleSavePost}
               onUnsavePost={handleUnsavePost}
               onDeletePost={handleDeletePost}
@@ -354,7 +392,13 @@ export default function HomeTabScreen() {
 
       <CreatePostModal
         visible={isCreatePostOpen}
-        onClose={() => setIsCreatePostOpen(false)}
+        onClose={() => {
+          setIsCreatePostOpen(false);
+          setEditingPost(null);
+        }}
+        onCreated={handlePostCreated}
+        editingPost={editingPost}
+        onUpdated={handlePostUpdated}
       />
 
       <StoryViewerModal

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { View, Dimensions, Animated, PanResponder, Text } from 'react-native';
+import { View, Animated, PanResponder, Text } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -9,13 +9,35 @@ interface PostImageCarouselProps {
   onDoubleTap?: () => void;
 }
 
-const { width: screenWidth } = Dimensions.get('window');
-
 export function PostImageCarousel({ images, aspectRatio = 1, onDoubleTap }: PostImageCarouselProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const currentIndexRef = useRef(0);
   const lastTapRef = useRef(0);
-  const scrollX = useRef(new Animated.Value(0)).current;
+  const heartScale = useRef(new Animated.Value(0)).current;
+  const heartOpacity = useRef(new Animated.Value(0)).current;
+
+  const triggerDoubleTap = () => {
+    heartScale.setValue(0.45);
+    heartOpacity.setValue(1);
+    Animated.parallel([
+      Animated.spring(heartScale, {
+        toValue: 1,
+        friction: 4,
+        tension: 110,
+        useNativeDriver: true,
+      }),
+      Animated.sequence([
+        Animated.delay(420),
+        Animated.timing(heartOpacity, {
+          toValue: 0,
+          duration: 220,
+          useNativeDriver: true,
+        }),
+      ]),
+    ]).start();
+    onDoubleTap?.();
+  };
+
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => images.length > 1 || Boolean(onDoubleTap),
@@ -29,7 +51,7 @@ export function PostImageCarousel({ images, aspectRatio = 1, onDoubleTap }: Post
         if (Math.abs(vx) < 0.2) {
           if (now - lastTapRef.current <= tapGapMs) {
             lastTapRef.current = 0;
-            onDoubleTap?.();
+            triggerDoubleTap();
             return;
           }
 
@@ -48,14 +70,6 @@ export function PostImageCarousel({ images, aspectRatio = 1, onDoubleTap }: Post
       },
     }),
   ).current;
-
-  const handlePrevious = () => {
-    setCurrentIndex((i) => Math.max(0, i - 1));
-  };
-
-  const handleNext = () => {
-    setCurrentIndex((i) => Math.min(images.length - 1, i + 1));
-  };
 
   useEffect(() => {
     currentIndexRef.current = currentIndex;
@@ -83,6 +97,22 @@ export function PostImageCarousel({ images, aspectRatio = 1, onDoubleTap }: Post
           transition={120}
           style={{ width: '100%', aspectRatio }}
         />
+        <Animated.View
+          pointerEvents="none"
+          style={{
+            position: 'absolute',
+            left: 0,
+            right: 0,
+            top: 0,
+            bottom: 0,
+            alignItems: 'center',
+            justifyContent: 'center',
+            opacity: heartOpacity,
+            transform: [{ scale: heartScale }],
+          }}
+        >
+          <Ionicons name="heart" size={96} color="rgba(255,255,255,0.95)" />
+        </Animated.View>
       </View>
     );
   }
@@ -107,6 +137,24 @@ export function PostImageCarousel({ images, aspectRatio = 1, onDoubleTap }: Post
         transition={200}
         style={{ width: '100%', aspectRatio }}
       />
+
+      <Animated.View
+        pointerEvents="none"
+        style={{
+          position: 'absolute',
+          left: 0,
+          right: 0,
+          top: 0,
+          bottom: 0,
+          alignItems: 'center',
+          justifyContent: 'center',
+          opacity: heartOpacity,
+          transform: [{ scale: heartScale }],
+          zIndex: 20,
+        }}
+      >
+        <Ionicons name="heart" size={96} color="rgba(255,255,255,0.95)" />
+      </Animated.View>
 
       {/* Previous Button */}
       {currentIndex > 0 && (
@@ -196,7 +244,6 @@ export function PostImageCarousel({ images, aspectRatio = 1, onDoubleTap }: Post
                 height: 6,
                 borderRadius: 3,
                 backgroundColor: idx === currentIndex ? 'rgba(255, 255, 255, 1)' : 'rgba(255, 255, 255, 0.5)',
-                transition: 'all 0.3s ease',
               }}
             />
           ))}
