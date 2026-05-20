@@ -305,13 +305,26 @@ export default function SettingsScreen() {
       {/* Devices & sessions (same API as web) */}
       <View className="mx-4 mt-3 rounded-2xl" style={{ backgroundColor: Colors.white }}>
         <TouchableOpacity
-          className="flex-row items-center px-4 py-3.5"
+          className="flex-row items-center px-4 py-3.5 border-b"
+          style={{ borderBottomColor: Colors.borderLight }}
           onPress={() => router.push('/sessions')}
           activeOpacity={0.7}
         >
           <Ionicons name="phone-portrait-outline" size={22} color={Colors.text} />
           <Text className="ml-3 flex-1 text-[15px]" style={{ color: Colors.text }}>
             Devices & sessions
+          </Text>
+          <Ionicons name="chevron-forward" size={18} color={Colors.textLight} />
+        </TouchableOpacity>
+        
+        <TouchableOpacity
+          className="flex-row items-center px-4 py-3.5"
+          onPress={() => router.push('/qr-scan')}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="qr-code-outline" size={22} color={Colors.text} />
+          <Text className="ml-3 flex-1 text-[15px]" style={{ color: Colors.text }}>
+            Scan QR to Login
           </Text>
           <Ionicons name="chevron-forward" size={18} color={Colors.textLight} />
         </TouchableOpacity>

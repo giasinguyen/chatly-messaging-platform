@@ -69,4 +69,11 @@ export const authService = {
     );
     return response.data;
   },
+
+  confirmQrLogin: async (token: string): Promise<ApiResponse<null>> => {
+    const response = await axiosClient.post<ApiResponse<null>>('/api/auth/qr/confirm', {
+      token,
+    });
+    return response.data;
+  },
 };

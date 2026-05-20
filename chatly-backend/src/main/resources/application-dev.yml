@@ -89,7 +89,7 @@ app:
     mail:
         from: ${APP_MAIL_FROM:${SPRING_MAIL_USERNAME:}}
     geoip:
-        enabled: true
+        enabled: false
     mcp:
         internal-api-key: ${APP_MCP_INTERNAL_API_KEY:${AGENT_API_KEY:change-me-use-a-long-random-string-min-32-chars}}
     music:

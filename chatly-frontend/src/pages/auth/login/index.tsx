@@ -1,11 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Mail, Lock, Eye, EyeOff } from "lucide-react";
+import { Mail, Lock, Eye, EyeOff, RefreshCw } from "lucide-react";
+import { QRCodeSVG } from "qrcode.react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";
 
-import qrCode from "@/mocks/images/QR-fake.png";
 import { ForgotPasswordDialog } from "./components/ForgotPasswordDialog";
 import {
     loginSchema,
@@ -33,6 +33,10 @@ export default function LoginPage() {
     const [loginMethod, setLoginMethod] = useState<"password" | "sms">(
         "password",
     );
+    
+    const [qrToken, setQrToken] = useState<string | null>(null);
+    const [qrStatus, setQrStatus] = useState<"PENDING" | "EXPIRED" | "LOADING">("LOADING");
+    const pollingRef = useRef<NodeJS.Timeout | null>(null);
 
     const form = useForm<LoginFormValues>({
         resolver: zodResolver(
@@ -48,6 +52,51 @@ export default function LoginPage() {
     const setGlobalLoading = useAuthStore((s) => s.setLoading);
     const isGlobalLoading = useAuthStore((s) => s.loading);
     const navigate = useNavigate();
+
+    const fetchQrToken = async () => {
+        try {
+            setQrStatus("LOADING");
+            const response = await authService.generateQrLogin();
+            if (response.code === 1000 && response.result) {
+                setQrToken(response.result.token);
+                setQrStatus("PENDING");
+                startPolling(response.result.token);
+            }
+        } catch (error) {
+            console.error("Failed to generate QR token", error);
+            setQrStatus("EXPIRED");
+        }
+    };
+
+    const startPolling = (token: string) => {
+        if (pollingRef.current) clearInterval(pollingRef.current);
+        
+        pollingRef.current = setInterval(async () => {
+            try {
+                const response = await authService.checkQrLoginStatus(token);
+                if (response.code === 1000 && response.result) {
+                    if (response.result.status === "SUCCESS" && response.result.result) {
+                        if (pollingRef.current) clearInterval(pollingRef.current);
+                        setAuth(response.result.result);
+                        toast.success("Login successful via QR!");
+                        navigate("/");
+                    } else if (response.result.status === "EXPIRED") {
+                        if (pollingRef.current) clearInterval(pollingRef.current);
+                        setQrStatus("EXPIRED");
+                    }
+                }
+            } catch (error) {
+                console.error("Failed to check QR status", error);
+            }
+        }, 2000);
+    };
+
+    useEffect(() => {
+        fetchQrToken();
+        return () => {
+            if (pollingRef.current) clearInterval(pollingRef.current);
+        };
+    }, []);
 
     const onSubmit = async (data: LoginFormValues) => {
         if (loginMethod === "sms") {
@@ -365,12 +414,33 @@ export default function LoginPage() {
 
                 {/* Right — QR Code */}
                 <div className="hidden w-[240px] flex-col items-center justify-center border-l border-gray-200 p-9 px-7 text-center dark:border-white/6 md:flex">
-                    <div className="mb-5 h-[160px] w-[160px] rounded-[20px] bg-white p-2 shadow-[0_4px_20px_rgba(0,0,0,0.08)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.4)]">
-                        <img
-                            src={qrCode}
-                            alt="QR Code"
-                            className="h-full w-full rounded-md object-contain"
-                        />
+                    <div className="relative mb-5 flex h-[160px] w-[160px] items-center justify-center overflow-hidden rounded-[20px] bg-white p-2 shadow-[0_4px_20px_rgba(0,0,0,0.08)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.4)]">
+                        {qrStatus === "LOADING" ? (
+                            <div className="flex h-full w-full items-center justify-center">
+                                <div className="h-6 w-6 animate-spin rounded-full border-2 border-brand/30 border-t-brand" />
+                            </div>
+                        ) : qrStatus === "EXPIRED" || !qrToken ? (
+                            <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-50/80 backdrop-blur-sm dark:bg-black/40 z-10">
+                                <p className="mb-2 text-xs font-medium text-gray-600 dark:text-gray-300">QR Expired</p>
+                                <button
+                                    type="button"
+                                    onClick={fetchQrToken}
+                                    className="flex cursor-pointer items-center justify-center gap-1.5 rounded-full bg-brand px-3 py-1.5 text-xs font-medium text-white transition-all hover:bg-brand-hover"
+                                >
+                                    <RefreshCw size={14} /> Refresh
+                                </button>
+                            </div>
+                        ) : null}
+                        
+                        {qrToken && (
+                            <QRCodeSVG
+                                value={qrToken}
+                                size={144}
+                                level="H"
+                                includeMargin={false}
+                                className={`h-full w-full rounded-md object-contain transition-opacity duration-300 ${qrStatus === "EXPIRED" ? "opacity-30" : "opacity-100"}`}
+                            />
+                        )}
                     </div>
                     <h3 className="mb-2 text-base font-bold tracking-tight text-gray-900 dark:text-white">
                         Log in with QR Code

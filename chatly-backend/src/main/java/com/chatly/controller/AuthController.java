@@ -12,11 +12,17 @@ import com.chatly.dto.response.ApiResponse;
 import com.chatly.dto.response.AuthResponse;
 import com.chatly.dto.response.IntrospectResponse;
 import com.chatly.dto.response.RegisterResponse;
+import com.chatly.dto.request.QrLoginConfirmRequest;
+import com.chatly.dto.response.QrLoginGenerateResponse;
+import com.chatly.dto.response.QrLoginStatusResponse;
 import com.chatly.service.AuthService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -87,6 +93,28 @@ public class AuthController {
     ApiResponse<IntrospectResponse> introspect(@RequestBody @Valid IntrospectRequest request) {
         return ApiResponse.<IntrospectResponse>builder()
             .result(authService.introspect(request))
+            .build();
+    }
+
+    @PostMapping("/qr/generate")
+    ApiResponse<QrLoginGenerateResponse> generateQrLogin(HttpServletRequest httpRequest) {
+        return ApiResponse.<QrLoginGenerateResponse>builder()
+            .result(authService.generateQrLogin(httpRequest))
+            .build();
+    }
+
+    @GetMapping("/qr/status/{token}")
+    ApiResponse<QrLoginStatusResponse> getQrLoginStatus(@PathVariable String token) {
+        return ApiResponse.<QrLoginStatusResponse>builder()
+            .result(authService.getQrLoginStatus(token))
+            .build();
+    }
+
+    @PostMapping("/qr/confirm")
+    ApiResponse<Void> confirmQrLogin(@RequestBody @Valid QrLoginConfirmRequest request) {
+        authService.confirmQrLogin(request);
+        return ApiResponse.<Void>builder()
+            .message("QR Login confirmed successfully")
             .build();
     }
 }

@@ -47,6 +47,8 @@ public class WebSecurityConfig {
             "/api/auth/resend-verification",
             "/api/auth/introspect",
             "/api/auth/verify-email",
+            "/api/auth/qr/generate",
+            "/api/auth/qr/status/**",
             "/ws/**",
             "/ws-raw/**",
             "/ws-test.html",
