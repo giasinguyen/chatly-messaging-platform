@@ -16,7 +16,12 @@ interface HomePostCardProps {
   onUnsavePost?: (postId: string) => void;
   onDeletePost?: (postId: string) => void;
   onEditPost?: (postId: string) => void;
-  onAddComment?: (postId: string, content: string, mediaUrls?: string[], parentCommentId?: string) => void;
+  onAddComment?: (
+    postId: string,
+    content: string,
+    mediaUrls?: string[],
+    parentCommentId?: string
+  ) => void;
   onLikeComment?: (commentId: string, reactionType: string) => void;
   onUnlikeComment?: (commentId: string) => void;
   onDeleteComment?: (commentId: string) => void;
@@ -61,12 +66,12 @@ export function HomePostCard({
 }: HomePostCardProps) {
   const [showMenu, setShowMenu] = useState(false);
   const [showComments, setShowComments] = useState(false);
-  const [isSaved, setIsSaved] = useState(post.savedByMe ?? false);
 
   const authorName = post.authorDisplayName ?? post.authorUsername ?? 'Unknown user';
   const avatarUrl = post.authorAvatarUrl ?? FALLBACK_AVATAR;
   const likeSummary = post.reactions?.find((reaction) => reaction.type === 'LIKE');
   const isLiked = likeSummary?.reactedByMe ?? false;
+  const isSaved = post.savedByMe ?? false;
   const totalLikes = likeSummary?.count ?? 0;
 
   const handleLike = () => {
@@ -80,10 +85,8 @@ export function HomePostCard({
   const handleSave = () => {
     if (isSaved) {
       onUnsavePost?.(post.id);
-      setIsSaved(false);
     } else {
       onSavePost?.(post.id);
-      setIsSaved(true);
     }
   };
 
@@ -109,8 +112,7 @@ export function HomePostCard({
             <TouchableOpacity
               onPress={() => setShowMenu(!showMenu)}
               className="p-1.5"
-              activeOpacity={0.7}
-            >
+              activeOpacity={0.7}>
               <Ionicons name="ellipsis-horizontal" size={18} color={Colors.textMuted} />
             </TouchableOpacity>
 
@@ -122,9 +124,8 @@ export function HomePostCard({
                     onEditPost?.(post.id);
                     setShowMenu(false);
                   }}
-                  className="border-b border-gray-100 px-3 py-2.5 flex-row items-center gap-2"
-                  activeOpacity={0.7}
-                >
+                  className="flex-row items-center gap-2 border-b border-gray-100 px-3 py-2.5"
+                  activeOpacity={0.7}>
                   <Ionicons name="pencil-outline" size={16} color={Colors.text} />
                   <Text className="text-sm font-medium text-[#1D1D1F]">Edit</Text>
                 </TouchableOpacity>
@@ -134,9 +135,8 @@ export function HomePostCard({
                     onDeletePost?.(post.id);
                     setShowMenu(false);
                   }}
-                  className="border-b border-gray-100 px-3 py-2.5 flex-row items-center gap-2"
-                  activeOpacity={0.7}
-                >
+                  className="flex-row items-center gap-2 border-b border-gray-100 px-3 py-2.5"
+                  activeOpacity={0.7}>
                   <Ionicons name="trash-outline" size={16} color="#FF3B30" />
                   <Text className="text-sm font-medium text-[#FF3B30]">Delete</Text>
                 </TouchableOpacity>
@@ -146,9 +146,8 @@ export function HomePostCard({
                     handleSave();
                     setShowMenu(false);
                   }}
-                  className="px-3 py-2.5 flex-row items-center gap-2"
-                  activeOpacity={0.7}
-                >
+                  className="flex-row items-center gap-2 px-3 py-2.5"
+                  activeOpacity={0.7}>
                   <Ionicons
                     name={isSaved ? 'bookmark' : 'bookmark-outline'}
                     size={16}
@@ -156,8 +155,7 @@ export function HomePostCard({
                   />
                   <Text
                     className="text-sm font-medium"
-                    style={{ color: isSaved ? '#0071E3' : Colors.text }}
-                  >
+                    style={{ color: isSaved ? '#0071E3' : Colors.text }}>
                     {isSaved ? 'Saved' : 'Save post'}
                   </Text>
                 </TouchableOpacity>
@@ -186,13 +184,9 @@ export function HomePostCard({
                 />
               </TouchableOpacity>
               <TouchableOpacity
-                onPress={() => {
-                  console.log(`Opening comments for post ${post.id}`);
-                  setShowComments(true);
-                }}
+                onPress={() => setShowComments(true)}
                 className="p-1"
-                activeOpacity={0.7}
-              >
+                activeOpacity={0.7}>
                 <Ionicons name="chatbubble-outline" size={22} color={Colors.text} />
               </TouchableOpacity>
               <TouchableOpacity className="p-1" activeOpacity={0.7}>
@@ -222,10 +216,7 @@ export function HomePostCard({
 
           {/* Comments Count */}
           {post.commentCount > 0 && (
-            <TouchableOpacity
-              onPress={() => setShowComments(true)}
-              activeOpacity={0.7}
-            >
+            <TouchableOpacity onPress={() => setShowComments(true)} activeOpacity={0.7}>
               <Text className="mt-1 text-sm text-[#6E6E73]">
                 View all {formatCount(post.commentCount)} comments
               </Text>

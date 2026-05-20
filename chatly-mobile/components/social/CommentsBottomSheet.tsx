@@ -24,7 +24,12 @@ interface CommentsBottomSheetProps {
   commentCount: number;
   onClose: () => void;
   onOpen?: (postId: string) => void;
-  onAddComment?: (postId: string, content: string, mediaUrls?: string[], parentCommentId?: string) => void;
+  onAddComment?: (
+    postId: string,
+    content: string,
+    mediaUrls?: string[],
+    parentCommentId?: string
+  ) => void;
   onLikeComment?: (commentId: string, reactionType: string) => void;
   onUnlikeComment?: (commentId: string) => void;
   onDeleteComment?: (commentId: string) => void;
@@ -69,27 +74,21 @@ export function CommentsBottomSheet({
           Animated.spring(pan, { toValue: { x: 0, y: 0 }, useNativeDriver: false }).start();
         }
       },
-    }),
+    })
   ).current;
 
   useEffect(() => {
     if (visible) {
-      console.log(`CommentsBottomSheet opened for post ${postId}`);
       onOpen?.(postId);
     } else {
       pan.y.setValue(0);
     }
-  }, [visible, postId, onOpen]);
+  }, [visible, postId, onOpen, pan.y]);
 
   if (!visible) return null;
 
   return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="fade"
-      onRequestClose={onClose}
-    >
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       {/* Backdrop */}
       <TouchableOpacity
         activeOpacity={1}
@@ -104,15 +103,14 @@ export function CommentsBottomSheet({
           height: SHEET_HEIGHT,
           transform: [{ translateY: pan.y }],
         }}
-        className="bg-white"
-      >
+        className="bg-white">
         {/* Handle Bar */}
         <View className="items-center py-3">
           <View className="h-1 w-12 rounded-full bg-gray-300" />
         </View>
 
         {/* Header */}
-        <View className="border-b border-gray-200 px-4 py-3 flex-row items-center justify-between">
+        <View className="flex-row items-center justify-between border-b border-gray-200 px-4 py-3">
           <Text className="text-lg font-semibold text-[#1D1D1F]">Comments</Text>
           <TouchableOpacity onPress={onClose} className="p-1" activeOpacity={0.7}>
             <Ionicons name="close" size={24} color={Colors.text} />
@@ -122,8 +120,7 @@ export function CommentsBottomSheet({
         {/* Comments List */}
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={{ flex: 1 }}
-        >
+          style={{ flex: 1 }}>
           <ScrollView
             ref={scrollViewRef}
             scrollEventThrottle={16}
@@ -132,8 +129,7 @@ export function CommentsBottomSheet({
               setScrollPosition(offsetY);
             }}
             className="flex-1"
-            showsVerticalScrollIndicator={true}
-          >
+            showsVerticalScrollIndicator={true}>
             <View className="px-3 py-3">
               {comments.length > 0 ? (
                 <CommentList
@@ -142,7 +138,9 @@ export function CommentsBottomSheet({
                     setReplyToId(parentId ?? null);
                     setReplyToUsername(username ?? null);
                   }}
-                  onLikeComment={(commentId, reactionType) => onLikeComment?.(commentId, reactionType)}
+                  onLikeComment={(commentId, reactionType) =>
+                    onLikeComment?.(commentId, reactionType)
+                  }
                   onUnlikeComment={onUnlikeComment}
                   onDeleteComment={onDeleteComment}
                   maxVisibleCount={999} // Show all comments in bottom sheet
