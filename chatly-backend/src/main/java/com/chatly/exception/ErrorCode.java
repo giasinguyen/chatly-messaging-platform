@@ -73,6 +73,7 @@ public enum ErrorCode {
 
     POST_NOT_FOUND(1900, "Post not found", HttpStatus.NOT_FOUND),
     POST_FORBIDDEN(1901, "You are not authorized to modify this post", HttpStatus.FORBIDDEN),
+    POST_IMAGE_REQUIRED(1902, "Post must include at least one image", HttpStatus.BAD_REQUEST),
     STORY_NOT_FOUND(1910, "Story not found", HttpStatus.NOT_FOUND),
     STORY_FORBIDDEN(1911, "You are not authorized to perform this action on this story", HttpStatus.FORBIDDEN),
 
