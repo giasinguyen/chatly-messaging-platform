@@ -47,6 +47,11 @@ public class PostService {
     private final NotificationService notificationService;
 
     public PostResponse create(String authorId, CreatePostRequest request) {
+        List<String> mediaUrls = request.getMediaUrls() != null ? request.getMediaUrls() : new ArrayList<>();
+        if (!hasImageMedia(mediaUrls)) {
+            throw new AppException(ErrorCode.POST_IMAGE_REQUIRED);
+        }
+
         List<String> hashtags = extractHashtags(request.getContent());
         PostVisibility visibility = request.getVisibility() != null
                 ? request.getVisibility()
@@ -55,7 +60,7 @@ public class PostService {
         Post post = Post.builder()
                 .authorId(authorId)
                 .content(request.getContent())
-                .mediaUrls(request.getMediaUrls() != null ? request.getMediaUrls() : new ArrayList<>())
+                .mediaUrls(mediaUrls)
                 .visibility(visibility)
                 .hashtags(hashtags)
                 .build();
@@ -96,6 +101,12 @@ public class PostService {
             post.setContent(request.getContent());
             post.setHashtags(extractHashtags(request.getContent()));
         }
+        if (request.getMediaUrls() != null) {
+            if (!hasImageMedia(request.getMediaUrls())) {
+                throw new AppException(ErrorCode.POST_IMAGE_REQUIRED);
+            }
+            post.setMediaUrls(new ArrayList<>(request.getMediaUrls()));
+        }
         if (request.getVisibility() != null) {
             post.setVisibility(request.getVisibility());
         }
@@ -103,6 +114,13 @@ public class PostService {
         post = postRepository.save(post);
         log.info("Post updated: id={}", postId);
         return toResponse(post, requesterId);
+    }
+
+    private static boolean hasImageMedia(List<String> mediaUrls) {
+        return mediaUrls.stream()
+                .filter(Objects::nonNull)
+                .map(String::toLowerCase)
+                .anyMatch(url -> !(url.endsWith(".mp4") || url.endsWith(".webm")));
     }
 
     public void delete(String postId, String requesterId) {

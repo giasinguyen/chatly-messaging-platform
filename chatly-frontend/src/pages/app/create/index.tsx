@@ -63,6 +63,7 @@ export default function CreatePage() {
     });
 
     const visibility = watch("visibility");
+    const canSubmit = hasImageMedia(mediaUrls);
 
     const handleVisibilityChange = (value: string) => {
         if (isPostVisibility(value)) {
@@ -202,7 +203,7 @@ export default function CreatePage() {
                                 <Button
                                     type="submit"
                                     size="sm"
-                                    disabled={isSubmitting}
+                                    disabled={isSubmitting || !canSubmit}
                                     className="bg-indigo-600 text-white hover:bg-indigo-700"
                                 >
                                     {isSubmitting && (

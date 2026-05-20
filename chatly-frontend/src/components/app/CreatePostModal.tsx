@@ -72,6 +72,7 @@ export function CreatePostModal({ isOpen, onClose, user }: CreatePostModalProps)
     });
 
     const visibility = watch("visibility");
+    const canSubmit = hasImageMedia(mediaUrls);
 
     const handleVisibilityChange = (value: string) => {
         if (isPostVisibility(value)) {
@@ -190,7 +191,7 @@ export function CreatePostModal({ isOpen, onClose, user }: CreatePostModalProps)
                         <Button
                             type="submit"
                             size="sm"
-                            disabled={isSubmitting}
+                            disabled={isSubmitting || !canSubmit}
                             className="bg-brand text-white hover:bg-brand/90"
                         >
                             {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

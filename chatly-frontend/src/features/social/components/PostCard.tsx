@@ -1,5 +1,5 @@
 import { memo, useEffect, useMemo, useRef, useState } from "react";
-import { MoreHorizontal, Heart, MessageCircle, Share2, Bookmark, PenLine, Trash2, ChevronLeft, ChevronRight, Smile, CornerUpLeft, Image as ImageIcon, X } from "lucide-react";
+import { MoreHorizontal, Heart, MessageCircle, Share2, Bookmark, PenLine, Trash2, ChevronLeft, ChevronRight, Smile, CornerUpLeft, Image as ImageIcon, X, Globe, Users, Lock } from "lucide-react";
 import { toast } from "sonner";
 import Picker from "@emoji-mart/react";
 import data from "@emoji-mart/data";
@@ -28,6 +28,7 @@ import { useAuthStore } from "@/store/auth.store";
 import type { Post, PostComment, PostVisibility, ReactionType } from "@/types/post";
 import { cn } from "@/lib/utils";
 import { SharePostDialog } from "./SharePostDialog";
+import { MediaUploadZone } from "./MediaUploadZone";
 import { ImageLightbox } from "@/pages/app/chat/components/ImageLightbox";
 import type { LightboxImage } from "@/pages/app/chat/components/messageList.utils";
 
@@ -50,7 +51,12 @@ interface CommentNode extends PostComment {
     children: CommentNode[];
 }
 
-const VISIBILITY_OPTIONS: PostVisibility[] = ["PUBLIC", "FOLLOWERS_ONLY", "FRIENDS_ONLY", "ONLY_ME"];
+const VISIBILITY_OPTIONS: { value: PostVisibility; label: string; icon: typeof Globe }[] = [
+    { value: "PUBLIC", label: "Everyone", icon: Globe },
+    { value: "FOLLOWERS_ONLY", label: "Followers", icon: Users },
+    { value: "FRIENDS_ONLY", label: "Friends", icon: Users },
+    { value: "ONLY_ME", label: "Only me", icon: Lock },
+];
 
 const isPostVisibility = (value: string): value is PostVisibility =>
     value === "PUBLIC" ||
@@ -107,6 +113,7 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
     const [isEditing, setIsEditing] = useState(false);
     const [editContent, setEditContent] = useState(post.content);
     const [editVisibility, setEditVisibility] = useState<PostVisibility>(post.visibility);
+    const [editMediaUrls, setEditMediaUrls] = useState<string[]>(post.mediaUrls);
     const [isSubmittingEdit, setIsSubmittingEdit] = useState(false);
     const [isSavingPost, setIsSavingPost] = useState(false);
     const [isCommentOpen, setIsCommentOpen] = useState(false);
@@ -403,6 +410,7 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
         setIsActionsOpen(false);
         setEditContent(post.content);
         setEditVisibility(post.visibility);
+        setEditMediaUrls(post.mediaUrls);
         setIsEditing(true);
     };
 
@@ -687,17 +695,23 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
             toast.error("Post content cannot be empty.");
             return;
         }
+        if (!editMediaUrls.some((url) => !/\.(mp4|webm)$/i.test(url))) {
+            toast.error("Please keep at least one image.");
+            return;
+        }
 
         setIsSubmittingEdit(true);
         try {
             const res = await postService.update(post.id, {
                 content,
+                mediaUrls: editMediaUrls,
                 visibility: editVisibility,
             });
 
             if (res.code === 1000 && res.result) {
                 updatePost(post.id, {
                     content: res.result.content,
+                    mediaUrls: res.result.mediaUrls,
                     visibility: res.result.visibility,
                     hashtags: res.result.hashtags,
                     updatedAt: res.result.updatedAt,
@@ -995,13 +1009,21 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                                {VISIBILITY_OPTIONS.map((option) => (
-                                    <SelectItem key={option} value={option}>
-                                        {option}
+                                {VISIBILITY_OPTIONS.map(({ value, label, icon: Icon }) => (
+                                    <SelectItem key={value} value={value}>
+                                        <span className="flex items-center gap-2">
+                                            <Icon className="h-3.5 w-3.5 text-indigo-500" />
+                                            {label}
+                                        </span>
                                     </SelectItem>
                                 ))}
                             </SelectContent>
                         </Select>
+                        <MediaUploadZone
+                            value={editMediaUrls}
+                            onChange={setEditMediaUrls}
+                            disabled={isSubmittingEdit}
+                        />
                     </div>
 
                     <DialogFooter>
@@ -1013,7 +1035,14 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
                         >
                             Cancel
                         </Button>
-                        <Button type="button" onClick={handleSubmitEdit} disabled={isSubmittingEdit}>
+                        <Button
+                            type="button"
+                            onClick={handleSubmitEdit}
+                            disabled={
+                                isSubmittingEdit ||
+                                !editMediaUrls.some((url) => !/\.(mp4|webm)$/i.test(url))
+                            }
+                        >
                             {isSubmittingEdit ? "Saving..." : "Save changes"}
                         </Button>
                     </DialogFooter>

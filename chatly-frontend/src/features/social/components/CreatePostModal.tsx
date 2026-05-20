@@ -41,6 +41,8 @@ const schema = z.object({
 
 type FormValues = z.infer<typeof schema>;
 
+const hasImageMedia = (urls: string[]) => urls.some((url) => !/\.(mp4|webm)$/i.test(url));
+
 interface CreatePostModalProps {
     open: boolean;
     onClose: () => void;
@@ -63,6 +65,7 @@ export function CreatePostModal({ open, onClose }: CreatePostModalProps) {
     });
 
     const visibility = watch("visibility");
+    const canSubmit = hasImageMedia(mediaUrls);
 
     const handleClose = () => {
         if (isSubmitting) return;
@@ -72,6 +75,11 @@ export function CreatePostModal({ open, onClose }: CreatePostModalProps) {
     };
 
     const onSubmit = async (values: FormValues) => {
+        if (!canSubmit) {
+            toast.error("Please add at least one image.");
+            return;
+        }
+
         try {
             const response = await postService.create({
                 content: values.content,
@@ -156,7 +164,7 @@ export function CreatePostModal({ open, onClose }: CreatePostModalProps) {
                             <Button
                                 type="submit"
                                 size="sm"
-                                disabled={isSubmitting}
+                                disabled={isSubmitting || !canSubmit}
                                 className="rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white px-5"
                             >
                                 {isSubmitting && <Loader2 className="mr-1.5 size-3.5 animate-spin" />}

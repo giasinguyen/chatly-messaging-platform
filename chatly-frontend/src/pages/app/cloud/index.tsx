@@ -191,7 +191,7 @@ export default function CloudPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [lightboxIndex, lightboxList]);
 
-    useEffect(() => {
+    const loadCloudData = useCallback(() => {
         let cancelled = false;
         setLoading(true);
         Promise.all([
@@ -210,6 +210,27 @@ export default function CloudPage() {
             .catch(() => toast.error("Failed to load storage data"))
             .finally(() => { if (!cancelled) setLoading(false); });
         return () => { cancelled = true; };
+    }, []);
+
+    useEffect(() => {
+        return loadCloudData();
+    }, [loadCloudData]);
+
+    useEffect(() => {
+        const handleFocus = () => {
+            loadCloudData();
+        };
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === "visible") {
+                loadCloudData();
+            }
+        };
+        window.addEventListener("focus", handleFocus);
+        document.addEventListener("visibilitychange", handleVisibilityChange);
+        return () => {
+            window.removeEventListener("focus", handleFocus);
+            document.removeEventListener("visibilitychange", handleVisibilityChange);
+        };
     }, []);
 
     const mediaFiles = useMemo(() => allFiles.filter((f) => isMedia(f.fileType)), [allFiles]);

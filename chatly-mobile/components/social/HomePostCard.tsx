@@ -11,6 +11,7 @@ interface HomePostCardProps {
   post: Post;
   comments?: PostComment[];
   onToggleLikePost?: (postId: string) => void;
+  onDoubleTapLikePost?: (postId: string) => void;
   onSavePost?: (postId: string) => void;
   onUnsavePost?: (postId: string) => void;
   onDeletePost?: (postId: string) => void;
@@ -47,6 +48,7 @@ export function HomePostCard({
   post,
   comments = [],
   onToggleLikePost,
+  onDoubleTapLikePost,
   onSavePost,
   onUnsavePost,
   onDeletePost,
@@ -72,7 +74,7 @@ export function HomePostCard({
   };
 
   const handleDoubleTapLike = () => {
-    onToggleLikePost?.(post.id);
+    onDoubleTapLikePost?.(post.id);
   };
 
   const handleSave = () => {
