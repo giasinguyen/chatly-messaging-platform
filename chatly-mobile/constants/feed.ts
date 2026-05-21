@@ -1,4 +1,5 @@
 export const HOME_FEED_PAGE_SIZE = 15;
+export const SAVED_POSTS_PAGE_SIZE = 15;
 export const HOME_FEED_END_REACHED_THRESHOLD = 0.45;
 export const EXPLORE_FEED_PAGE_SIZE = 18;
 export const EXPLORE_SEARCH_PAGE_SIZE = 18;

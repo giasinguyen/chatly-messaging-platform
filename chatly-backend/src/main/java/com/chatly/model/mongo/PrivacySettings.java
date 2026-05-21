@@ -20,4 +20,7 @@ public class PrivacySettings {
 
     @Builder.Default
     private Boolean allowFriendRequests = true;
+
+    @Builder.Default
+    private Boolean showFriendList = true;
 }

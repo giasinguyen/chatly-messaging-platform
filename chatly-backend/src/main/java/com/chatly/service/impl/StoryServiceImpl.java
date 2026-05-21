@@ -276,7 +276,7 @@ public class StoryServiceImpl implements StoryService {
         StoryPrivacy privacy = story.getPrivacy() != null ? story.getPrivacy() : StoryPrivacy.EVERYONE;
         return switch (privacy) {
             case EVERYONE -> true;
-            case FOLLOWERS_ONLY -> followedUserIds.contains(story.getUserId());
+            case FRIENDS_ONLY -> followedUserIds.contains(story.getUserId());
             case CLOSE_FRIENDS -> closeFriendRepository.existsByOwnerIdAndFriendId(story.getUserId(), requesterId);
             case ONLY_ME -> false;
         };

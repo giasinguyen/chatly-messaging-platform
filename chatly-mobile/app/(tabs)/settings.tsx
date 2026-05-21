@@ -154,6 +154,11 @@ export default function SettingsScreen() {
 
   const settingsItems = [
     {
+      icon: 'bookmark-outline' as const,
+      label: 'Saved posts',
+      onPress: () => router.push('/saved'),
+    },
+    {
       icon: 'notifications-outline' as const,
       label: 'Notifications',
       onPress: () => Alert.alert('Notifications', 'Feature coming soon'),

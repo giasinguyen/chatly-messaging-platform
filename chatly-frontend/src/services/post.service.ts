@@ -10,6 +10,9 @@ import type {
     UpdatePostRequest,
     ReactToPostRequest,
     CreatePostCommentRequest,
+    ReportPostRequest,
+    ReportResponse,
+    ReactionType,
 } from "@/types/post";
 
 export const postService = {
@@ -22,6 +25,14 @@ export const postService = {
         const response = await axiosClient.get<ApiResponse<PostPage>>("/api/posts/feed", {
             params: { page, size, sort: "createdAt,desc" },
         });
+        return response.data;
+    },
+
+    getSavedPosts: async (page = 0, size = 10): Promise<ApiResponse<PostPage>> => {
+        const response = await axiosClient.get<ApiResponse<PostPage>>(
+            "/api/posts/saved",
+            { params: { page, size, sort: "createdAt,desc" } },
+        );
         return response.data;
     },
 
@@ -96,6 +107,17 @@ export const postService = {
     sharePost: async (postId: string): Promise<ApiResponse<Post>> => {
         const response = await axiosClient.post<ApiResponse<Post>>(
             `/api/posts/${postId}/share`,
+        );
+        return response.data;
+    },
+
+    reportPost: async (
+        postId: string,
+        payload: ReportPostRequest,
+    ): Promise<ApiResponse<ReportResponse>> => {
+        const response = await axiosClient.post<ApiResponse<ReportResponse>>(
+            "/api/reports",
+            { postId, ...payload },
         );
         return response.data;
     },

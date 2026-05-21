@@ -31,9 +31,9 @@ export const STORY_PRIVACY_OPTIONS: {
     icon: 'earth-outline',
   },
   {
-    value: 'FOLLOWERS_ONLY',
-    label: 'Followers',
-    description: 'People who follow you',
+    value: 'FRIENDS_ONLY',
+    label: 'Friends',
+    description: 'People you are friends with',
     icon: 'people-outline',
   },
   {

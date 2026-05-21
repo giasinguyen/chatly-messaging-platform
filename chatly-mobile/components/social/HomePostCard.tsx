@@ -5,7 +5,8 @@ import { Image } from 'expo-image';
 import { Colors } from '@/constants/theme';
 import { CommentsBottomSheet } from './CommentsBottomSheet';
 import { PostImageCarousel } from './PostImageCarousel';
-import type { Post, PostComment } from '@/types/post';
+import { ReportPostModal } from './ReportPostModal';
+import type { Post, PostComment, ReportPostRequest } from '@/types/post';
 
 interface HomePostCardProps {
   post: Post;
@@ -16,6 +17,7 @@ interface HomePostCardProps {
   onUnsavePost?: (postId: string) => void;
   onDeletePost?: (postId: string) => void;
   onEditPost?: (postId: string) => void;
+  onReportPost?: (postId: string, payload: ReportPostRequest) => Promise<void> | void;
   onAddComment?: (
     postId: string,
     content: string,
@@ -58,6 +60,7 @@ export function HomePostCard({
   onUnsavePost,
   onDeletePost,
   onEditPost,
+  onReportPost,
   onAddComment,
   onLikeComment,
   onUnlikeComment,
@@ -66,6 +69,8 @@ export function HomePostCard({
 }: HomePostCardProps) {
   const [showMenu, setShowMenu] = useState(false);
   const [showComments, setShowComments] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [isSubmittingReport, setIsSubmittingReport] = useState(false);
 
   const authorName = post.authorDisplayName ?? post.authorUsername ?? 'Unknown user';
   const avatarUrl = post.authorAvatarUrl ?? FALLBACK_AVATAR;
@@ -87,6 +92,17 @@ export function HomePostCard({
       onUnsavePost?.(post.id);
     } else {
       onSavePost?.(post.id);
+    }
+  };
+
+  const handleSubmitReport = async (payload: ReportPostRequest) => {
+    if (isSubmittingReport) return;
+    setIsSubmittingReport(true);
+    try {
+      await onReportPost?.(post.id, payload);
+      setShowReportModal(false);
+    } finally {
+      setIsSubmittingReport(false);
     }
   };
 
@@ -146,7 +162,7 @@ export function HomePostCard({
                     handleSave();
                     setShowMenu(false);
                   }}
-                  className="flex-row items-center gap-2 px-3 py-2.5"
+                  className="flex-row items-center gap-2 border-b border-gray-100 px-3 py-2.5"
                   activeOpacity={0.7}>
                   <Ionicons
                     name={isSaved ? 'bookmark' : 'bookmark-outline'}
@@ -158,6 +174,17 @@ export function HomePostCard({
                     style={{ color: isSaved ? '#0071E3' : Colors.text }}>
                     {isSaved ? 'Saved' : 'Save post'}
                   </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={() => {
+                    setShowMenu(false);
+                    setShowReportModal(true);
+                  }}
+                  className="flex-row items-center gap-2 px-3 py-2.5"
+                  activeOpacity={0.7}>
+                  <Ionicons name="flag-outline" size={16} color={Colors.text} />
+                  <Text className="text-sm font-medium text-[#1D1D1F]">Report</Text>
                 </TouchableOpacity>
               </View>
             )}
@@ -236,6 +263,13 @@ export function HomePostCard({
         onLikeComment={(commentId, reactionType) => onLikeComment?.(commentId, reactionType)}
         onUnlikeComment={(commentId) => onUnlikeComment?.(commentId)}
         onDeleteComment={(commentId) => onDeleteComment?.(commentId)}
+      />
+
+      <ReportPostModal
+        visible={showReportModal}
+        isSubmitting={isSubmittingReport}
+        onClose={() => setShowReportModal(false)}
+        onSubmit={handleSubmitReport}
       />
     </>
   );

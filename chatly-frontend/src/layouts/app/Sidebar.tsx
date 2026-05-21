@@ -6,6 +6,7 @@ import {
     LogOut,
     Home,
     Compass,
+    Bookmark,
 } from "lucide-react";
 import { CustomAiIcon } from "@/components/customize/CustomAiIcon";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -84,6 +85,7 @@ export function Sidebar({ user }: SidebarProps) {
     const navItems = [
         { to: "/home", icon: Home, label: "Home", badge: 0 },
         { to: "/explore", icon: Compass, label: "Explore", badge: 0 },
+        { to: "/saved", icon: Bookmark, label: "Saved", badge: 0 },
         {
             to: "/chat",
             icon: MessageCircle,

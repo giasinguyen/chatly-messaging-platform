@@ -9,6 +9,8 @@ import type {
   ReactToPostRequest,
   PostComment,
   CreateCommentRequest,
+  ReportPostRequest,
+  ReportResponse,
 } from '@/types/post';
 import { HOME_FEED_PAGE_SIZE } from '@/constants/feed';
 
@@ -20,6 +22,13 @@ export const postService = {
 
   getFeed: async (page = 0, size = 10): Promise<ApiResponse<PostPage>> => {
     const response = await axiosClient.get<ApiResponse<PostPage>>('/api/posts/feed', {
+      params: { page, size, sort: 'createdAt,desc' },
+    });
+    return response.data;
+  },
+
+  getSavedPosts: async (page = 0, size = 10): Promise<ApiResponse<PostPage>> => {
+    const response = await axiosClient.get<ApiResponse<PostPage>>('/api/posts/saved', {
       params: { page, size, sort: 'createdAt,desc' },
     });
     return response.data;
@@ -101,6 +110,17 @@ export const postService = {
 
   unsavePost: async (postId: string): Promise<ApiResponse<void>> => {
     const response = await axiosClient.delete<ApiResponse<void>>(`/api/posts/${postId}/save`);
+    return response.data;
+  },
+
+  reportPost: async (
+    postId: string,
+    payload: ReportPostRequest
+  ): Promise<ApiResponse<ReportResponse>> => {
+    const response = await axiosClient.post<ApiResponse<ReportResponse>>('/api/reports', {
+      postId,
+      ...payload,
+    });
     return response.data;
   },
 

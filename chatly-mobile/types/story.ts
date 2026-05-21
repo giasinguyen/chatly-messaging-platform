@@ -1,4 +1,4 @@
-export type StoryPrivacy = 'EVERYONE' | 'FOLLOWERS_ONLY' | 'CLOSE_FRIENDS' | 'ONLY_ME';
+export type StoryPrivacy = 'EVERYONE' | 'FRIENDS_ONLY' | 'CLOSE_FRIENDS' | 'ONLY_ME';
 
 export type StoryType = 'TEXT' | 'PHOTO' | 'VIDEO';
 

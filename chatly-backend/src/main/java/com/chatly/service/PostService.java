@@ -26,6 +26,7 @@ import com.chatly.repository.postgres.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
@@ -79,21 +80,52 @@ public class PostService {
     }
 
     public Page<PostResponse> getFeed(String requesterId, Pageable pageable) {
-        return postRepository
-                .findByVisibilityOrderByCreatedAtDesc(PostVisibility.PUBLIC, pageable)
-                .map(post -> toResponse(post, requesterId));
+        Page<Post> page = postRepository
+                .findByVisibilityAndIsDeletedFalseOrderByCreatedAtDesc(PostVisibility.PUBLIC, pageable);
+        return toBatchedResponsePage(page, requesterId);
     }
 
     public Page<PostResponse> searchPosts(String keyword, String hashtag, String requesterId, Pageable pageable) {
-        return postRepository
-                .searchPublicPosts(keyword, hashtag, pageable)
-                .map(post -> toResponse(post, requesterId));
+        Page<Post> page = postRepository.searchPublicPosts(keyword, hashtag, pageable);
+        return toBatchedResponsePage(page, requesterId);
     }
 
     public Page<PostResponse> getByAuthor(String authorId, String requesterId, Pageable pageable) {
-        return postRepository
-                .findByAuthorIdOrderByCreatedAtDesc(authorId, pageable)
-                .map(post -> toResponse(post, requesterId));
+        Page<Post> page = postRepository
+                .findByAuthorIdAndIsDeletedFalseOrderByCreatedAtDesc(authorId, pageable);
+        return toBatchedResponsePage(page, requesterId);
+    }
+
+    public Page<PostResponse> getSaved(String requesterId, Pageable pageable) {
+        List<SavedPost> savedPosts = savedPostRepository.findByUserIdOrderByCreatedAtDesc(requesterId);
+        List<String> postIds = savedPosts.stream()
+                .map(SavedPost::getPostId)
+                .toList();
+
+        if (postIds.isEmpty()) {
+            return Page.empty(pageable);
+        }
+
+        Map<String, Post> postsById = new HashMap<>();
+        postRepository.findAllById(postIds).forEach(post -> postsById.put(post.getId(), post));
+
+        List<PostResponse> validResponses = new ArrayList<>();
+        for (SavedPost savedPost : savedPosts) {
+            Post post = postsById.get(savedPost.getPostId());
+            if (post == null || post.isDeleted()) {
+                savedPostRepository.deleteByUserIdAndPostId(requesterId, savedPost.getPostId());
+                continue;
+            }
+            validResponses.add(toResponse(post, requesterId));
+        }
+
+        if (pageable.isUnpaged()) {
+            return new PageImpl<>(validResponses);
+        }
+
+        int start = Math.toIntExact(Math.min(pageable.getOffset(), validResponses.size()));
+        int end = Math.min(start + pageable.getPageSize(), validResponses.size());
+        return new PageImpl<>(validResponses.subList(start, end), pageable, validResponses.size());
     }
 
     public PostResponse getById(String postId, String requesterId) {
@@ -337,7 +369,7 @@ public class PostService {
     }
 
     private boolean shouldBroadcast(PostVisibility visibility) {
-        return visibility == PostVisibility.PUBLIC || visibility == PostVisibility.FOLLOWERS_ONLY;
+        return visibility == PostVisibility.PUBLIC || visibility == PostVisibility.FRIENDS_ONLY;
     }
 
     private Set<String> findRealtimeFeedRecipientIds(String authorId) {
@@ -369,6 +401,48 @@ public class PostService {
         applyAuthor(response, post.getAuthorId());
         response.setSavedByMe(savedPostRepository.existsByUserIdAndPostId(requesterId, post.getId()));
         return response;
+    }
+
+    private Page<PostResponse> toBatchedResponsePage(Page<Post> page, String requesterId) {
+        List<Post> posts = page.getContent();
+        Map<String, User> authors = loadUsersForPosts(posts);
+        List<String> savedIds = loadSavedPostIds(requesterId, posts);
+
+        List<PostResponse> responses = posts.stream().map(post -> {
+            PostResponse response = postMapper.toResponse(post);
+            response.setReactions(buildReactionSummary(post, requesterId));
+            response.setSavedByMe(savedIds.contains(post.getId()));
+            User author = authors.get(post.getAuthorId());
+            if (author != null) {
+                response.setAuthorUsername(author.getUsername());
+                response.setAuthorDisplayName(author.getDisplayName());
+                response.setAuthorAvatarUrl(author.getAvatarUrl());
+            }
+            return response;
+        }).toList();
+
+        return new PageImpl<>(responses, page.getPageable(), page.getTotalElements());
+    }
+
+    private Map<String, User> loadUsersForPosts(List<Post> posts) {
+        List<UUID> authorUuids = posts.stream()
+                .map(Post::getAuthorId)
+                .distinct()
+                .map(this::safeUuid)
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .toList();
+        if (authorUuids.isEmpty()) return Collections.emptyMap();
+        return userRepository.findAllById(authorUuids).stream()
+                .collect(Collectors.toMap(u -> u.getId().toString(), u -> u));
+    }
+
+    private List<String> loadSavedPostIds(String userId, List<Post> posts) {
+        List<String> postIds = posts.stream().map(Post::getId).toList();
+        if (postIds.isEmpty()) return Collections.emptyList();
+        return savedPostRepository.findByUserIdAndPostIdIn(userId, postIds).stream()
+                .map(SavedPost::getPostId)
+                .toList();
     }
 
     private void applyAuthor(PostResponse response, String authorId) {
@@ -488,10 +562,10 @@ public class PostService {
         PostComment comment = post.getComments().stream()
                 .filter(c -> c.getId().equals(commentId))
                 .findFirst()
-                .orElseThrow(() -> new RuntimeException("Comment not found"));
+                .orElseThrow(() -> new AppException(ErrorCode.COMMENT_NOT_FOUND));
 
         if (!comment.getUserId().equals(userId)) {
-            throw new RuntimeException("Unauthorized to edit this comment");
+            throw new AppException(ErrorCode.COMMENT_FORBIDDEN);
         }
 
         comment.setContent(request.getContent().trim());
@@ -509,10 +583,10 @@ public class PostService {
         PostComment comment = post.getComments().stream()
                 .filter(c -> c.getId().equals(commentId))
                 .findFirst()
-                .orElseThrow(() -> new RuntimeException("Comment not found"));
+                .orElseThrow(() -> new AppException(ErrorCode.COMMENT_NOT_FOUND));
 
         if (!comment.getUserId().equals(userId)) {
-            throw new RuntimeException("Unauthorized to delete this comment");
+            throw new AppException(ErrorCode.COMMENT_FORBIDDEN);
         }
 
         Set<String> commentIdsToRemove = new HashSet<>();
@@ -542,7 +616,7 @@ public class PostService {
         PostComment comment = post.getComments().stream()
                 .filter(c -> c.getId().equals(commentId))
                 .findFirst()
-                .orElseThrow(() -> new RuntimeException("Comment not found"));
+                .orElseThrow(() -> new AppException(ErrorCode.COMMENT_NOT_FOUND));
 
         // Replace any existing reaction from this user
         List<PostReaction> reactions = new ArrayList<>(comment.getReactions());
@@ -581,7 +655,7 @@ public class PostService {
         PostComment comment = post.getComments().stream()
                 .filter(c -> c.getId().equals(commentId))
                 .findFirst()
-                .orElseThrow(() -> new RuntimeException("Comment not found"));
+                .orElseThrow(() -> new AppException(ErrorCode.COMMENT_NOT_FOUND));
 
         List<PostReaction> reactions = new ArrayList<>(comment.getReactions());
         reactions.removeIf(r -> r.getUserId().equals(userId));

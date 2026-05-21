@@ -26,7 +26,6 @@ import type { PostVisibility } from "@/types/post";
 
 const VISIBILITY_OPTIONS: { value: PostVisibility; label: string; icon: typeof Globe }[] = [
     { value: "PUBLIC", label: "Everyone", icon: Globe },
-    { value: "FOLLOWERS_ONLY", label: "Followers", icon: Users },
     { value: "FRIENDS_ONLY", label: "Friends", icon: Users },
     { value: "ONLY_ME", label: "Only me", icon: Lock },
 ];
@@ -36,7 +35,7 @@ const schema = z.object({
         .string()
         .min(1, "Post content cannot be empty")
         .max(2000, "Content must not exceed 2000 characters"),
-    visibility: z.enum(["PUBLIC", "FOLLOWERS_ONLY", "FRIENDS_ONLY", "ONLY_ME"]),
+    visibility: z.enum(["PUBLIC", "FRIENDS_ONLY", "ONLY_ME"]),
 });
 
 type FormValues = z.infer<typeof schema>;

@@ -90,4 +90,11 @@ export const contactService = {
         );
         return response.data;
     },
+
+    getFriendsForUser: async (userId: string): Promise<ApiResponse<ContactResponse[]>> => {
+        const response = await axiosClient.get<ApiResponse<ContactResponse[]>>(
+            `/api/contacts/users/${userId}`,
+        );
+        return response.data;
+    },
 };
