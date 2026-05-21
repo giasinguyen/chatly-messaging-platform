@@ -14,9 +14,10 @@ import {
     UserMinus,
     UserPlus,
     UserSquare,
+    Users,
     X,
 } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { StoryViewer } from "@/components/app/StoryViewer";
 import {
@@ -32,6 +33,12 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -56,6 +63,7 @@ import type { Story } from "@/types/story";
 import { HOME_FEED_PAGE_SIZE } from "@/constants/feed";
 
 type ConfirmDialogType = "block" | "unblock" | "remove";
+type ProfileTab = "posts" | "reels" | "saved" | "tagged";
 
 const GRID_PREVIEW_LIMIT = 80;
 
@@ -71,6 +79,60 @@ function formatGridCaption(post: Post): string {
 
 function getGridMediaUrl(post: Post): string | null {
     return post.mediaUrls[0] ?? null;
+}
+
+interface PostGridProps {
+    posts: Post[];
+    onNavigate: (id: string) => void;
+}
+
+function PostGrid({ posts, onNavigate }: PostGridProps) {
+    return (
+        <div className="grid grid-cols-3 gap-1 md:gap-2">
+            {posts.map((post) => {
+                const mediaUrl = getGridMediaUrl(post);
+                const caption = formatGridCaption(post);
+                const isImage = mediaUrl && !/\.(mp4|webm)$/i.test(mediaUrl);
+                return (
+                    <button
+                        key={post.id}
+                        type="button"
+                        onClick={() => onNavigate(post.id)}
+                        className="group relative aspect-square overflow-hidden rounded-none bg-muted"
+                        title={caption || "Open post"}
+                    >
+                        {mediaUrl ? (
+                            isImage ? (
+                                <img src={mediaUrl} alt={caption || "Post"} className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105" />
+                            ) : (
+                                <video src={mediaUrl} className="h-full w-full object-cover" muted playsInline />
+                            )
+                        ) : (
+                            <div className="flex h-full w-full items-center justify-center bg-linear-to-br from-pink-100 via-white to-indigo-100 text-center text-xs font-medium text-foreground/70 dark:from-zinc-800 dark:via-zinc-900 dark:to-zinc-800">
+                                <span className="line-clamp-3 px-3">{caption || "Open post"}</span>
+                            </div>
+                        )}
+                        <div className="absolute inset-0 bg-black/0 transition-colors duration-200 group-hover:bg-black/25" />
+                        <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-2 bg-linear-to-t from-black/65 via-black/20 to-transparent px-2 py-2 text-white opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+                            <div className="flex items-center gap-3 text-xs font-semibold">
+                                <span className="flex items-center gap-1">
+                                    <Heart className="h-3.5 w-3.5 fill-white" />
+                                    {post.reactions.reduce((acc, r) => acc + r.count, 0)}
+                                </span>
+                                <span className="flex items-center gap-1">
+                                    <MessageCircle className="h-3.5 w-3.5" />
+                                    {post.commentCount}
+                                </span>
+                            </div>
+                            {post.mediaUrls.length > 1 && (
+                                <span className="rounded-full bg-black/35 px-2 py-0.5 text-[10px] font-semibold">+{post.mediaUrls.length - 1}</span>
+                            )}
+                        </div>
+                    </button>
+                );
+            })}
+        </div>
+    );
 }
 
 export default function UsernameProfilePage() {
@@ -91,9 +153,15 @@ export default function UsernameProfilePage() {
     const [postCursor, setPostCursor] = useState<string | null>(null);
     const [hasMorePosts, setHasMorePosts] = useState(false);
     const [loadingPosts, setLoadingPosts] = useState(false);
+    const [savedPosts, setSavedPosts] = useState<Post[]>([]);
+    const [loadingSaved, setLoadingSaved] = useState(false);
     const [loading, setLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState(false);
     const [confirmDialog, setConfirmDialog] = useState<ConfirmDialogType | null>(null);
+    const [activeTab, setActiveTab] = useState<ProfileTab>("posts");
+    const [showFriendsModal, setShowFriendsModal] = useState(false);
+    const [friends, setFriends] = useState<ContactResponse[]>([]);
+    const [loadingFriends, setLoadingFriends] = useState(false);
 
     // Redirect to own profile if viewing self by id initially? No, we view by username.
     // If the username is the current user's ID, we might want to redirect, but here it's fine.
@@ -139,10 +207,13 @@ export default function UsernameProfilePage() {
         loadData();
     }, [loadData]);
 
+    const loadingPostsRef = useRef(false);
+
     const loadPosts = useCallback(
         async (cursor: string | null = null) => {
             if (!targetUserId) return;
-            if (loadingPosts) return;
+            if (loadingPostsRef.current) return;
+            loadingPostsRef.current = true;
             setLoadingPosts(true);
             try {
                 const res = await postService.getUserFeed(targetUserId, cursor, HOME_FEED_PAGE_SIZE);
@@ -160,10 +231,11 @@ export default function UsernameProfilePage() {
                 setPostCursor(res.result.nextCursor);
                 setHasMorePosts(res.result.hasMore);
             } finally {
+                loadingPostsRef.current = false;
                 setLoadingPosts(false);
             }
         },
-        [targetUserId, loadingPosts],
+        [targetUserId],
     );
 
     const isOwnProfile = currentUser?.id === targetUserId;
@@ -311,8 +383,43 @@ export default function UsernameProfilePage() {
     };
 
     const handleCopyLink = () => {
-        navigator.clipboard.writeText(`${window.location.origin}/${username}`);
+        navigator.clipboard.writeText(`${window.location.origin}/u/${username}`);
         toast.success("Profile link copied!");
+    };
+
+    const handleOpenFriends = useCallback(async () => {
+        if (!targetUserId) return;
+        setShowFriendsModal(true);
+        if (friends.length > 0) return;
+        setLoadingFriends(true);
+        try {
+            const res = await contactService.getFriendsForUser(targetUserId);
+            setFriends(res.result ?? []);
+        } catch {
+            toast.error("Could not load friends list");
+        } finally {
+            setLoadingFriends(false);
+        }
+    }, [targetUserId, friends.length]);
+
+    const handleLoadSaved = useCallback(async () => {
+        if (savedPosts.length > 0) return;
+        setLoadingSaved(true);
+        try {
+            const res = await postService.getSavedPosts(0, 30);
+            setSavedPosts(res.result?.items ?? []);
+        } catch {
+            toast.error("Could not load saved posts");
+        } finally {
+            setLoadingSaved(false);
+        }
+    }, [savedPosts.length]);
+
+    const handleTabChange = (tab: ProfileTab) => {
+        setActiveTab(tab);
+        if (tab === "saved" && isOwnProfile) {
+            void handleLoadSaved();
+        }
     };
 
     if (loading) {
@@ -434,9 +541,14 @@ export default function UsernameProfilePage() {
                                                     </>
                                                 )}
                                                 {contactStatus === "ACCEPTED" && (
-                                                    <Button size="sm" onClick={handleMessage} disabled={actionLoading}>
-                                                        <MessageCircle size={15} className="mr-2" /> Message
-                                                    </Button>
+                                                    <>
+                                                        <Button size="sm" onClick={handleMessage} disabled={actionLoading}>
+                                                            <MessageCircle size={15} className="mr-2" /> Message
+                                                        </Button>
+                                                        <Button size="sm" variant="outline" onClick={() => setConfirmDialog("remove")} disabled={actionLoading}>
+                                                            <UserMinus size={15} className="mr-2" /> Remove Friend
+                                                        </Button>
+                                                    </>
                                                 )}
                                             </>
                                         )}
@@ -448,10 +560,15 @@ export default function UsernameProfilePage() {
                                                     <MoreHorizontal size={16} />
                                                 </Button>
                                             </DropdownMenuTrigger>
-                                            <DropdownMenuContent align="end" className="w-48">
+                                            <DropdownMenuContent align="end" className="w-52">
                                                 <DropdownMenuItem onClick={handleCopyLink}>
-                                                    <LinkIcon size={14} className="mr-2" /> Copy link
+                                                    <LinkIcon size={14} className="mr-2" /> Copy profile link
                                                 </DropdownMenuItem>
+                                                {contactStatus === "ACCEPTED" && !direction && (
+                                                    <DropdownMenuItem onClick={handleMessage}>
+                                                        <MessageCircle size={14} className="mr-2" /> Send message
+                                                    </DropdownMenuItem>
+                                                )}
                                                 {contactStatus === "ACCEPTED" && !direction && (
                                                     <>
                                                         <DropdownMenuSeparator />
@@ -468,6 +585,14 @@ export default function UsernameProfilePage() {
                                                         </DropdownMenuItem>
                                                     </>
                                                 )}
+                                                {direction === "I_BLOCKED" && (
+                                                    <>
+                                                        <DropdownMenuSeparator />
+                                                        <DropdownMenuItem onClick={() => setConfirmDialog("unblock")}>
+                                                            <Unlock size={14} className="mr-2" /> Unblock user
+                                                        </DropdownMenuItem>
+                                                    </>
+                                                )}
                                             </DropdownMenuContent>
                                         </DropdownMenu>
                                     </>
@@ -480,10 +605,13 @@ export default function UsernameProfilePage() {
                                 <div className="text-base font-semibold text-foreground">{postCount}</div>
                                 <div className="text-xs text-muted-foreground">Posts</div>
                             </div>
-                            <div>
+                            <button
+                                className="text-left hover:opacity-70 transition-opacity"
+                                onClick={handleOpenFriends}
+                            >
                                 <div className="text-base font-semibold text-foreground">{friendCount}</div>
                                 <div className="text-xs text-muted-foreground">Friends</div>
-                            </div>
+                            </button>
                         </div>
 
                         <div className="flex flex-col gap-1 max-w-lg">
@@ -504,112 +632,65 @@ export default function UsernameProfilePage() {
                 {/* Profile Tabs */}
                 <div className="border-t border-border mb-6">
                     <nav className="flex justify-center gap-10">
-                        <button className="flex items-center gap-1 py-4 border-t border-foreground text-foreground font-semibold uppercase tracking-widest text-sm">
-                            <Grid className="w-4 h-4" />
-                            Posts
-                        </button>
-                        <button className="flex items-center gap-1 py-4 border-t border-transparent text-muted-foreground hover:text-foreground transition-colors font-semibold uppercase tracking-widest text-sm">
-                            <Clapperboard className="w-4 h-4" />
-                            Reels
-                        </button>
-                        <button className="flex items-center gap-1 py-4 border-t border-transparent text-muted-foreground hover:text-foreground transition-colors font-semibold uppercase tracking-widest text-sm">
-                            <Bookmark className="w-4 h-4" />
-                            Saved
-                        </button>
-                        <button className="flex items-center gap-1 py-4 border-t border-transparent text-muted-foreground hover:text-foreground transition-colors font-semibold uppercase tracking-widest text-sm">
-                            <UserSquare className="w-4 h-4" />
-                            Tagged
-                        </button>
+                        {([
+                            { id: "posts", label: "Posts", icon: <Grid className="w-4 h-4" /> },
+                            { id: "reels", label: "Reels", icon: <Clapperboard className="w-4 h-4" /> },
+                            ...(isOwnProfile ? [{ id: "saved", label: "Saved", icon: <Bookmark className="w-4 h-4" /> }] : []),
+                            { id: "tagged", label: "Tagged", icon: <UserSquare className="w-4 h-4" /> },
+                        ] as { id: ProfileTab; label: string; icon: React.ReactNode }[]).map((tab) => (
+                            <button
+                                key={tab.id}
+                                onClick={() => handleTabChange(tab.id)}
+                                className={cn(
+                                    "flex items-center gap-1 py-4 border-t font-semibold uppercase tracking-widest text-sm transition-colors",
+                                    activeTab === tab.id
+                                        ? "border-foreground text-foreground"
+                                        : "border-transparent text-muted-foreground hover:text-foreground",
+                                )}
+                            >
+                                {tab.icon}
+                                {tab.label}
+                            </button>
+                        ))}
                     </nav>
                 </div>
 
-                {/* Posts */}
+                {/* Tab Content */}
                 <div className="flex flex-col gap-4">
-                    {isLimited ? (
-                        <div className="py-10 text-center text-muted-foreground">
-                            Posts are hidden due to privacy settings.
-                        </div>
-                    ) : posts.length === 0 && !loadingPosts ? (
-                        <div className="py-10 text-center text-muted-foreground">
-                            No posts to display yet.
-                        </div>
-                    ) : (
-                        <div className="grid grid-cols-3 gap-1 md:gap-2">
-                            {posts.map((post) => {
-                                const mediaUrl = getGridMediaUrl(post);
-                                const previewCaption = formatGridCaption(post);
-                                const previewImage = mediaUrl && !/\.(mp4|webm)$/i.test(mediaUrl);
-
-                                return (
-                                    <button
-                                        key={post.id}
-                                        type="button"
-                                        onClick={() => navigate(`/post/${post.id}`)}
-                                        className="group relative aspect-square overflow-hidden rounded-none bg-muted"
-                                        title={previewCaption || "Open post"}
-                                    >
-                                        {mediaUrl ? (
-                                            previewImage ? (
-                                                <img
-                                                    src={mediaUrl}
-                                                    alt={previewCaption || "Post preview"}
-                                                    className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-                                                />
-                                            ) : (
-                                                <video
-                                                    src={mediaUrl}
-                                                    className="h-full w-full object-cover"
-                                                    muted
-                                                    playsInline
-                                                />
-                                            )
-                                        ) : (
-                                            <div className="flex h-full w-full items-center justify-center bg-linear-to-br from-pink-100 via-white to-indigo-100 text-center text-xs font-medium text-foreground/70 dark:from-zinc-800 dark:via-zinc-900 dark:to-zinc-800">
-                                                <span className="line-clamp-3 px-3">{previewCaption || "Open post"}</span>
-                                            </div>
-                                        )}
-
-                                        <div className="absolute inset-0 bg-black/0 transition-colors duration-200 group-hover:bg-black/25" />
-                                        <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-2 bg-linear-to-t from-black/65 via-black/20 to-transparent px-2 py-2 text-white opacity-0 transition-opacity duration-200 group-hover:opacity-100">
-                                            <div className="flex items-center gap-3 text-xs font-semibold">
-                                                <span className="flex items-center gap-1">
-                                                    <Heart className="h-3.5 w-3.5 fill-white" />
-                                                    {post.reactions.reduce((acc, reaction) => acc + reaction.count, 0)}
-                                                </span>
-                                                <span className="flex items-center gap-1">
-                                                    <MessageCircle className="h-3.5 w-3.5" />
-                                                    {post.commentCount}
-                                                </span>
-                                            </div>
-                                            {post.mediaUrls.length > 1 && (
-                                                <span className="rounded-full bg-black/35 px-2 py-0.5 text-[10px] font-semibold">
-                                                    +{post.mediaUrls.length - 1}
-                                                </span>
-                                            )}
-                                        </div>
-                                    </button>
-                                );
-                            })}
-                        </div>
+                    {activeTab === "posts" && (
+                        isLimited ? (
+                            <div className="py-10 text-center text-muted-foreground">Posts are hidden due to privacy settings.</div>
+                        ) : posts.length === 0 && !loadingPosts ? (
+                            <div className="py-10 text-center text-muted-foreground">No posts to display yet.</div>
+                        ) : (
+                            <PostGrid posts={posts} onNavigate={(id) => navigate(`/post/${id}`)} />
+                        )
                     )}
-
-                    {loadingPosts && (
-                        <div className="flex justify-center py-4">
-                            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-                        </div>
+                    {activeTab === "posts" && loadingPosts && (
+                        <div className="flex justify-center py-4"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
                     )}
-
-                    {!isLimited && hasMorePosts && !loadingPosts && postCursor && (
+                    {activeTab === "posts" && !isLimited && hasMorePosts && !loadingPosts && postCursor && (
                         <div className="flex justify-center py-2">
-                            <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                onClick={() => void loadPosts(postCursor)}
-                            >
-                                Load more posts
-                            </Button>
+                            <Button type="button" variant="outline" size="sm" onClick={() => void loadPosts(postCursor)}>Load more</Button>
                         </div>
+                    )}
+
+                    {activeTab === "reels" && (
+                        <div className="py-10 text-center text-muted-foreground">Reels coming soon.</div>
+                    )}
+
+                    {activeTab === "saved" && isOwnProfile && (
+                        loadingSaved ? (
+                            <div className="flex justify-center py-4"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
+                        ) : savedPosts.length === 0 ? (
+                            <div className="py-10 text-center text-muted-foreground">No saved posts yet.</div>
+                        ) : (
+                            <PostGrid posts={savedPosts} onNavigate={(id) => navigate(`/post/${id}`)} />
+                        )
+                    )}
+
+                    {activeTab === "tagged" && (
+                        <div className="py-10 text-center text-muted-foreground">Tagged posts coming soon.</div>
                     )}
                 </div>
             </div>
@@ -675,6 +756,46 @@ export default function UsernameProfilePage() {
                     onClose={() => setShowStoryViewer(false)}
                 />
             )}
+
+            {/* Friends Modal */}
+            <Dialog open={showFriendsModal} onOpenChange={setShowFriendsModal}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                            <Users size={18} /> Friends ({friendCount})
+                        </DialogTitle>
+                    </DialogHeader>
+                    <div className="flex flex-col gap-3 max-h-96 overflow-y-auto">
+                        {loadingFriends ? (
+                            <div className="flex justify-center py-6"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+                        ) : friends.length === 0 ? (
+                            <p className="text-center text-sm text-muted-foreground py-6">No friends to display.</p>
+                        ) : (
+                            friends.map((c) => {
+                                const friend = c.user.id === targetUserId ? c.contact : c.user;
+                                return (
+                                    <button
+                                        key={c.id}
+                                        className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted transition-colors text-left"
+                                        onClick={() => { setShowFriendsModal(false); navigate(`/u/${friend.username}`); }}
+                                    >
+                                        <Avatar className="w-10 h-10">
+                                            <AvatarImage src={friend.avatarUrl} className="object-cover" />
+                                            <AvatarFallback className="bg-linear-to-tr from-pink-400 to-indigo-500 text-white text-sm font-semibold">
+                                                {friend.displayName?.charAt(0)?.toUpperCase() ?? "U"}
+                                            </AvatarFallback>
+                                        </Avatar>
+                                        <div>
+                                            <p className="font-semibold text-sm">{friend.displayName}</p>
+                                            <p className="text-xs text-muted-foreground">@{friend.username}</p>
+                                        </div>
+                                    </button>
+                                );
+                            })
+                        )}
+                    </div>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

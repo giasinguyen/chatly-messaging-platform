@@ -21,6 +21,7 @@ import {
 import { MediaUploadZone } from "@/features/social/components/MediaUploadZone";
 import { postService } from "@/services/post.service";
 import { useFeedStore } from "@/store/feed.store";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import type { UserResponse } from "@/types/auth";
 import type { PostVisibility } from "@/types/post";
 
@@ -121,16 +122,16 @@ export function CreatePostModal({ isOpen, onClose, user }: CreatePostModalProps)
 
                 <form onSubmit={handleSubmit(onSubmit)} className="p-6 flex flex-col gap-6">
                     <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 rounded-full overflow-hidden bg-muted shadow-sm">
-                            <img
-                                alt="User Avatar"
-                                className="w-full h-full object-cover"
-                                src={
-                                    user?.avatarUrl ||
-                                    "https://lh3.googleusercontent.com/aida-public/AB6AXuBkBUiR9tUTXPHbOqc7Ivznf7tEN__jgWpMUMP4JxSGRgJRlWssTxrQOj5pXnHsHSjKAsDLGKQBV1TJEw-xlGbZxtHLZS4LV-Ege3ySxwFia10uI3eWy0QfWiAISnb0DuJ2kzUd_rYM9A9wD0CgKl8afcZKfoKevvRk0bppdi7cSyveNZcMxWxRipmAheBfSHtJ8jTtPZxXIxYtU_IT-RTZRBDkywn6efP_WB9jwJewHGTDyx7TELeOeuqNC8AZKVWJGrkRD7hsuHw"
-                                }
+                        <Avatar className="w-12 h-12">
+                            <AvatarImage
+                                src={user?.avatarUrl}
+                                alt={user?.displayName || "User Avatar"}
+                                className="object-cover"
                             />
-                        </div>
+                            <AvatarFallback className="bg-linear-to-tr from-pink-400 to-indigo-500 text-white text-sm font-semibold">
+                                {user?.displayName?.charAt(0)?.toUpperCase() ?? "U"}
+                            </AvatarFallback>
+                        </Avatar>
                         <div className="flex flex-col items-start">
                             <span className="font-bold text-foreground">
                                 {user?.displayName || "Your profile"}

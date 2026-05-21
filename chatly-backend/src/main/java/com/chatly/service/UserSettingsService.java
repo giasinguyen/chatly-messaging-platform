@@ -71,6 +71,9 @@ public class UserSettingsService {
         if (data.containsKey("allowFriendRequests")) {
             privacy.setAllowFriendRequests((Boolean) data.get("allowFriendRequests"));
         }
+        if (data.containsKey("showFriendList")) {
+            privacy.setShowFriendList((Boolean) data.get("showFriendList"));
+        }
     }
 
     private void applyNotifications(NotificationSettings notifications, Map<String, Object> data) {

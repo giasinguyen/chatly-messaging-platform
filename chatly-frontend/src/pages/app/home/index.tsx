@@ -3,6 +3,7 @@ import { useAuthStore } from "@/store/auth.store";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { CreatePostModal } from "@/components/app/CreatePostModal";
 import { CreateOptionsModal } from "@/components/app/CreateOptionsModal";
 import { CreateStoryModal } from "@/components/app/CreateStoryModal";
@@ -184,14 +185,16 @@ export default function HomePage() {
                                         )}
                                     >
                                         <div className="bg-background p-0.5 rounded-full">
-                                            <img
-                                                alt={group.user?.displayName}
-                                                className="w-14 h-14 rounded-full object-cover"
-                                                src={
-                                                    group.user?.avatarUrl ||
-                                                    "https://lh3.googleusercontent.com/aida-public/AB6AXuDiWCK8eU36XEfrbqiJZBRgtZo4ia0h9UnSXoPZ6TmLd4c4bnTZxeOvu2ljozhYxj1cqN-Bqe6tSMDXNN1cPILsBFaTHYMRgbCV8EtOGgUw__L2SKT-4GmCmoVeLhJKUY5liFTwxe43Uh2O-4ldLr1mADZ06-fj83LbDdgrW8_4LTYCsQ2VgEKOKWAUe52M1waBRbx4qnQ9wdWhwC7nkVKwJemA4vh0ZQqk6HaLqWGMi0r9mE0PNFXfQoBfYJqvLYY8UmWwrNcSfMY"
-                                                }
-                                            />
+                                            <Avatar className="w-14 h-14 border-2 border-background">
+                                                <AvatarImage
+                                                    src={group.user?.avatarUrl}
+                                                    alt={group.user?.displayName}
+                                                    className="object-cover"
+                                                />
+                                                <AvatarFallback className="bg-linear-to-tr from-pink-400 to-indigo-500 text-white text-base font-semibold">
+                                                    {group.user?.displayName?.charAt(0)?.toUpperCase() ?? "U"}
+                                                </AvatarFallback>
+                                            </Avatar>
                                         </div>
                                     </div>
                                     <span
@@ -248,14 +251,16 @@ export default function HomePage() {
                             )}
                         >
                             <div className="bg-background p-[2px] rounded-full">
-                                <img
-                                    alt="Your Profile"
-                                    className="w-12 h-12 rounded-full object-cover"
-                                    src={
-                                        user?.avatarUrl ||
-                                        "https://lh3.googleusercontent.com/aida-public/AB6AXuA6GOYxKIO701rlif0eWimmBX2cov4Sz8bRW3su9fX6rJ0e5HYGbclNYHKzX5vPO5YO5_Wu3dKmSy3449c1CgC2kwjLcNDacsfbPddRBdjVpbD8512XIVJjgm2hpLUFryte8vP9uSsZX8XCiy9hKrMM9smEJ6Dl8RKg2VqQw-1kOFgtQARcci75AJG4iHsCf9jntmetpFMfJLSJGY_aUucGrhfd9oBtz1qTd_HkxqYbUbytZrW1QkuPCL7BqWT2828-TlIOIA_lDo4"
-                                    }
-                                />
+                                <Avatar className="w-12 h-12">
+                                    <AvatarImage
+                                        src={user?.avatarUrl}
+                                        alt={user?.displayName || "Your Profile"}
+                                        className="object-cover"
+                                    />
+                                    <AvatarFallback className="bg-linear-to-tr from-pink-400 to-indigo-500 text-white text-sm font-semibold">
+                                        {user?.displayName?.charAt(0)?.toUpperCase() ?? "U"}
+                                    </AvatarFallback>
+                                </Avatar>
                             </div>
                         </div>
                         <div>

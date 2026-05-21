@@ -12,6 +12,8 @@ import com.chatly.model.postgres.Contact;
 import com.chatly.model.postgres.User;
 import com.chatly.repository.postgres.ContactRepository;
 import com.chatly.repository.postgres.UserRepository;
+import com.chatly.model.mongo.UserSettings;
+import com.chatly.repository.mongo.UserSettingsRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,6 +30,7 @@ public class ContactService {
     private final UserRepository userRepository;
     private final ContactMapper contactMapper;
     private final NotificationService notificationService;
+    private final UserSettingsRepository userSettingsRepository;
 
     @Transactional
     public ContactResponse sendRequest(UUID userId, ContactRequest request) {
@@ -237,5 +240,20 @@ public class ContactService {
             throw new AppException(ErrorCode.CONTACT_NOT_FOUND);
         }
         contactRepository.deleteById(contactRecordId);
+    }
+
+    @Transactional(readOnly = true)
+    public List<ContactResponse> getFriendsForUser(UUID targetUserId, UUID currentUserId) {
+        if (!targetUserId.equals(currentUserId)) {
+            UserSettings settings = userSettingsRepository.findByUserId(targetUserId.toString())
+                    .orElse(null);
+            if (settings != null && settings.getPrivacy() != null 
+                    && Boolean.FALSE.equals(settings.getPrivacy().getShowFriendList())) {
+                throw new AppException(ErrorCode.FRIEND_LIST_HIDDEN);
+            }
+        }
+        return contactRepository.findByParticipantIdAndStatus(targetUserId, ContactStatus.ACCEPTED).stream()
+                .map(contactMapper::toResponse)
+                .toList();
     }
 }
