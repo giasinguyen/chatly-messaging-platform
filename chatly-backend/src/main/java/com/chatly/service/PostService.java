@@ -18,6 +18,7 @@ import com.chatly.model.mongo.PostComment;
 import com.chatly.model.mongo.PostReaction;
 import com.chatly.model.mongo.SavedPost;
 import com.chatly.model.postgres.User;
+import com.chatly.proxy.AgentProxyClient;
 import com.chatly.repository.mongo.PostRepository;
 import com.chatly.repository.mongo.SavedPostRepository;
 import com.chatly.repository.postgres.ContactRepository;
@@ -25,6 +26,7 @@ import com.chatly.repository.postgres.FollowRepository;
 import com.chatly.repository.postgres.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
@@ -43,10 +45,13 @@ import java.util.stream.Collectors;
 public class PostService {
 
     private static final Pattern HASHTAG_PATTERN = Pattern.compile("#(\\w+)");
+    private static final Pattern AI_MENTION_PATTERN = Pattern.compile("(?i)@ai\\b");
     private static final String FEED_TOPIC_PREFIX = "/topic/feed/";
     private static final int DEFAULT_TRENDING_HASHTAG_LIMIT = 10;
     private static final int MIN_TRENDING_HASHTAG_LIMIT = 1;
     private static final int MAX_TRENDING_HASHTAG_LIMIT = 50;
+    private static final int POST_AI_CONTEXT_COMMENT_LIMIT = 5;
+    private static final int POST_CONTENT_SNIPPET_MAX_LENGTH = 300;
 
     private final PostRepository postRepository;
     private final PostMapper postMapper;
@@ -56,6 +61,14 @@ public class PostService {
     private final FollowRepository followRepository;
     private final NotificationService notificationService;
     private final SimpMessagingTemplate messagingTemplate;
+    private final AgentProxyClient agentProxyClient;
+    private final SocialAiRateLimiter socialAiRateLimiter;
+
+    @Value("${app.social-ai.enabled:true}")
+    private boolean socialAiEnabled;
+
+    @Value("${app.social-ai.bot-user-id:00000000-0000-0000-0000-000000000001}")
+    private String aiBotUserId;
 
     public PostResponse create(String authorId, CreatePostRequest request) {
         List<String> mediaUrls = request.getMediaUrls() != null ? request.getMediaUrls() : new ArrayList<>();
@@ -300,7 +313,65 @@ public class PostService {
             }
         }
 
+        if (socialAiEnabled && containsAiMention(content)) {
+            if (socialAiRateLimiter.tryConsume(userId)) {
+                String postContext = buildPostContextForAi(post);
+                String threadContext = parentCommentId != null ? buildThreadContext(post, parentCommentId) : "";
+                agentProxyClient.triggerSocialMentionCommentAsync(
+                        post.getId(), comment.getId(), userId, content, postContext, threadContext);
+            } else {
+                log.warn("Social AI rate limit exceeded for userId={} on postId={}", userId, postId);
+            }
+        }
+
         return toCommentResponse(comment, commenter, userId);
+    }
+
+    public PostCommentResponse addAiComment(String postId, String content, String parentCommentId, String triggerType) {
+        Post post = findPost(postId);
+
+        if (content == null || content.isBlank()) {
+            throw new AppException(ErrorCode.INVALID_KEY);
+        }
+        if (parentCommentId != null && post.getComments().stream().noneMatch(c -> c.getId().equals(parentCommentId))) {
+            throw new AppException(ErrorCode.INVALID_KEY);
+        }
+
+        PostComment comment = PostComment.builder()
+                .id(UUID.randomUUID().toString())
+                .userId(aiBotUserId)
+                .content(content)
+                .createdAt(Instant.now())
+                .parentCommentId(parentCommentId)
+                .isAiGenerated(true)
+                .triggerType(triggerType)
+                .build();
+
+        List<PostComment> comments = new ArrayList<>(post.getComments());
+        comments.add(comment);
+        post.setComments(comments);
+        post.setCommentCount(comments.size());
+        postRepository.save(post);
+
+        log.info("AI comment added: postId={} commentId={} triggerType={}", postId, comment.getId(), triggerType);
+        return toCommentResponse(comment, null, aiBotUserId);
+    }
+
+    public String buildPostContextForAi(String postId) {
+        return buildPostContextForAi(findPost(postId));
+    }
+
+    public String buildPostCommentsContextForAi(String postId) {
+        Post post = findPost(postId);
+        if (post.getComments().isEmpty()) {
+            return "No comments yet.";
+        }
+        StringBuilder sb = new StringBuilder();
+        post.getComments().stream()
+                .sorted(Comparator.comparing(PostComment::getCreatedAt).reversed())
+                .limit(POST_AI_CONTEXT_COMMENT_LIMIT)
+                .forEach(c -> sb.append("[user:").append(c.getUserId()).append("] ").append(c.getContent()).append("\n"));
+        return sb.toString().trim();
     }
 
     public PostResponse react(String postId, String userId, ReactToPostRequest request) {
@@ -491,11 +562,12 @@ public class PostService {
     }
 
     private PostCommentResponse toCommentResponse(PostComment comment, User user) {
+        String displayName = comment.isAiGenerated() ? "Chatly AI" : (user != null ? user.getDisplayName() : comment.getUserId());
         return PostCommentResponse.builder()
                 .id(comment.getId())
                 .userId(comment.getUserId())
                 .userUsername(user != null ? user.getUsername() : null)
-                .userDisplayName(user != null ? user.getDisplayName() : comment.getUserId())
+                .userDisplayName(displayName)
                 .userAvatarUrl(user != null ? user.getAvatarUrl() : null)
                 .content(comment.getContent())
                 .createdAt(comment.getCreatedAt())
@@ -503,15 +575,18 @@ public class PostService {
                 .parentCommentId(comment.getParentCommentId())
                 .mediaUrls(comment.getMediaUrls() != null ? comment.getMediaUrls() : List.of())
                 .reactions(buildCommentReactionSummary(comment, null))
+                .isAiGenerated(comment.isAiGenerated() ? Boolean.TRUE : null)
+                .triggerType(comment.getTriggerType())
                 .build();
     }
 
     private PostCommentResponse toCommentResponse(PostComment comment, User user, String requesterId) {
+        String displayName = comment.isAiGenerated() ? "Chatly AI" : (user != null ? user.getDisplayName() : comment.getUserId());
         return PostCommentResponse.builder()
                 .id(comment.getId())
                 .userId(comment.getUserId())
                 .userUsername(user != null ? user.getUsername() : null)
-                .userDisplayName(user != null ? user.getDisplayName() : comment.getUserId())
+                .userDisplayName(displayName)
                 .userAvatarUrl(user != null ? user.getAvatarUrl() : null)
                 .content(comment.getContent())
                 .createdAt(comment.getCreatedAt())
@@ -519,7 +594,37 @@ public class PostService {
                 .parentCommentId(comment.getParentCommentId())
                 .mediaUrls(comment.getMediaUrls() != null ? comment.getMediaUrls() : List.of())
                 .reactions(buildCommentReactionSummary(comment, requesterId))
+                .isAiGenerated(comment.isAiGenerated() ? Boolean.TRUE : null)
+                .triggerType(comment.getTriggerType())
                 .build();
+    }
+
+    private String buildPostContextForAi(Post post) {
+        StringBuilder sb = new StringBuilder();
+        if (post.getContent() != null && !post.getContent().isBlank()) {
+            String snippet = post.getContent().length() > POST_CONTENT_SNIPPET_MAX_LENGTH
+                    ? post.getContent().substring(0, POST_CONTENT_SNIPPET_MAX_LENGTH) + "..."
+                    : post.getContent();
+            sb.append(snippet);
+        }
+        if (!post.getHashtags().isEmpty()) {
+            sb.append(" ").append(post.getHashtags().stream()
+                    .map(t -> "#" + t).collect(Collectors.joining(" ")));
+        }
+        return sb.toString().trim();
+    }
+
+    private boolean containsAiMention(String content) {
+        if (content == null || content.isBlank()) return false;
+        return AI_MENTION_PATTERN.matcher(content).find();
+    }
+
+    private String buildThreadContext(Post post, String parentCommentId) {
+        return post.getComments().stream()
+                .filter(c -> c.getId().equals(parentCommentId))
+                .findFirst()
+                .map(PostComment::getContent)
+                .orElse("");
     }
 
     private List<PostReactionSummary> buildCommentReactionSummary(PostComment comment, String requesterId) {

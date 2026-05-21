@@ -6,7 +6,9 @@ import type {
     AgentMessageHistory,
     AgentChatRequest,
     AgentChatResponse,
+    StartChatFromPostResponse,
 } from "@/types/agent";
+import type { ApiResponse } from "@/types/auth";
 
 const BASE = "/api/ai/sessions";
 
@@ -71,6 +73,12 @@ export const agentService = {
             `${BASE}/${sessionId}/files/${fileId}/content`,
             { responseType: "blob" },
         );
+        return res.data;
+    },
+
+    // ─── Social AI ───────────────────────────────────────────
+    startChatFromPost: async (postId: string): Promise<ApiResponse<StartChatFromPostResponse>> => {
+        const res = await axiosClient.post("/api/ai/social/start-from-post", { postId });
         return res.data;
     },
 };

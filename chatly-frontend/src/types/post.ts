@@ -89,6 +89,8 @@ export interface PostComment {
     createdAt: string;
     updatedAt?: string;
     reactions: PostReactionSummary[];
+    isAiGenerated?: boolean;
+    triggerType?: string | null;
 }
 
 export interface CreatePostCommentRequest {

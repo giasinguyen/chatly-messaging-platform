@@ -1,9 +1,10 @@
-import { memo, useEffect, useMemo, useRef, useState } from "react";
-import { MoreHorizontal, Heart, MessageCircle, Share2, Bookmark, PenLine, Trash2, ChevronLeft, ChevronRight, Smile, CornerUpLeft, Image as ImageIcon, X, Globe, Users, Lock, Flag } from "lucide-react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { MoreHorizontal, Heart, MessageCircle, Share2, Bookmark, PenLine, Trash2, ChevronLeft, ChevronRight, Smile, CornerUpLeft, Image as ImageIcon, X, Globe, Users, Lock, Flag, Bot } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import Picker from "@emoji-mart/react";
 import data from "@emoji-mart/data";
-import { useNavigate } from "react-router-dom";
+import { agentService } from "@/services/agent.service";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -249,6 +250,12 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
                                 >
                                     {comment.userDisplayName}
                                 </button>
+                                    {comment.isAiGenerated && (
+                                        <span className="ml-1.5 inline-flex items-center gap-0.5 rounded-full bg-indigo-100 dark:bg-indigo-900/30 px-1.5 py-0.5 text-[10px] font-medium text-indigo-600 dark:text-indigo-400">
+                                            <Bot className="h-2.5 w-2.5" />
+                                            AI
+                                        </span>
+                                    )}
                                 {comment.content && (
                                     <p className="mt-1 text-sm text-foreground whitespace-pre-wrap">
                                         {comment.content}
@@ -439,7 +446,7 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
         navigate(authorProfilePath);
     };
 
-    const loadComments = async () => {
+    const loadComments = useCallback(async () => {
         setIsLoadingComments(true);
         try {
             const res = await postService.getComments(post.id);
@@ -451,10 +458,23 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
         } finally {
             setIsLoadingComments(false);
         }
-    };
+    }, [post.id]);
 
     const handleOpenComments = () => {
         setIsCommentOpen(true);
+    };
+
+    const handleStartAiChat = async () => {
+        try {
+            const res = await agentService.startChatFromPost(post.id);
+            if (res.code === 1000 && res.result) {
+                navigate(`/chatbot/${res.result.sessionId}`);
+            } else {
+                toast.error(res.message ?? "Could not start AI chat.");
+            }
+        } catch {
+            toast.error("Could not start AI chat. Please try again.");
+        }
     };
 
 
@@ -776,7 +796,7 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
             return;
         }
         void loadComments();
-    }, [isCommentOpen]);
+    }, [isCommentOpen, loadComments]);
 
 
 
@@ -1016,7 +1036,17 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
                     <Share2 className="size-4" />
                     {post.shareCount > 0 && post.shareCount}
                 </Button>
-            </div>
+
+                    <Button
+                        size="sm"
+                        variant="ghost"
+                        className="gap-1.5 rounded-xl text-xs font-normal text-muted-foreground"
+                        onClick={() => void handleStartAiChat()}
+                    >
+                        <Bot className="size-4" />
+                        AI
+                    </Button>
+                </div>
             </article>
 
             <Dialog open={isEditing} onOpenChange={setIsEditing}>
