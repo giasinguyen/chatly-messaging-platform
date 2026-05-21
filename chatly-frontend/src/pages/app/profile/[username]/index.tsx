@@ -40,11 +40,8 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
-import { FollowButton } from "@/components/social/FollowButton";
-import { FollowerStats } from "@/components/social/FollowerStats";
 import { contactService } from "@/services/contact.service";
 import { conversationService } from "@/services/conversation.service";
-import { followService } from "@/services/follow.service";
 import { userService } from "@/services/user.service";
 import { storyService } from "@/services/story.service";
 import { postService } from "@/services/post.service";
@@ -85,7 +82,8 @@ export default function UsernameProfilePage() {
     const [profile, setProfile] = useState<UserResponse | null>(null);
     const [contactRecord, setContactRecord] = useState<ContactResponse | null>(null);
     const [targetUserId, setTargetUserId] = useState<string | null>(null);
-    const [initialIsFollowing, setInitialIsFollowing] = useState<boolean | undefined>(undefined);
+    const [friendCount, setFriendCount] = useState(0);
+    const [postCount, setPostCount] = useState(0);
     const [hasActiveStories, setHasActiveStories] = useState(false);
     const [userStories, setUserStories] = useState<Story[]>([]);
     const [showStoryViewer, setShowStoryViewer] = useState(false);
@@ -117,20 +115,17 @@ export default function UsernameProfilePage() {
             setTargetUserId(resolvedId);
 
             // Fetch fully blocked-aware profile and contact records
-            const [profileRes, contactRes, statsRes, storiesRes] = await Promise.all([
+            const [profileRes, contactRes, storiesRes, friendCountRes, postCountRes] = await Promise.all([
                 userService.getUserById(resolvedId),
                 contactService.getByUser(resolvedId),
-                followService.getStats(resolvedId),
                 storyService.getUserStories(resolvedId),
+                contactService.getFriendCount(resolvedId),
+                postService.getByAuthor(resolvedId, 0, 1),
             ]);
             setProfile(profileRes.result);
             setContactRecord(contactRes.result ?? null);
-            const followFromMetadata = statsRes.result?.metadata?.isFollowing;
-            if (typeof followFromMetadata === "boolean") {
-                setInitialIsFollowing(followFromMetadata);
-            } else {
-                setInitialIsFollowing(undefined);
-            }
+            setFriendCount(friendCountRes.result ?? 0);
+            setPostCount(postCountRes.result?.totalElements ?? 0);
             setHasActiveStories((storiesRes.result?.length ?? 0) > 0);
             setUserStories(storiesRes.result ?? []);
         } catch {
@@ -388,6 +383,11 @@ export default function UsernameProfilePage() {
                                             <ShieldOff size={12} /> Limited
                                         </Badge>
                                     )}
+                                    {contactStatus === "ACCEPTED" && !direction && (
+                                        <Badge variant="secondary" className="gap-1 px-1.5 py-0">
+                                            <Check size={12} /> Friends
+                                        </Badge>
+                                    )}
                                 </h1>
                             </div>
 
@@ -403,11 +403,6 @@ export default function UsernameProfilePage() {
                                     </>
                                 ) : (
                                     <>
-                                        {/* Follow Button - Always visible unless blocked */}
-                                        {!direction && targetUserId && (
-                                            <FollowButton userId={targetUserId} initialIsFollowing={initialIsFollowing} />
-                                        )}
-
                                         {/* Action Buttons for other users */}
                                         {direction === "I_BLOCKED" && (
                                             <Button variant="outline" size="sm" onClick={() => setConfirmDialog("unblock")} disabled={actionLoading}>
@@ -480,14 +475,15 @@ export default function UsernameProfilePage() {
                             </div>
                         </div>
 
-                        <div className="flex gap-6 my-3">
-                            {!isLimited && targetUserId ? (
-                                <FollowerStats userId={targetUserId} />
-                            ) : (
-                                <div className="text-base text-muted-foreground italic">
-                                    Stats hidden due to privacy settings
-                                </div>
-                            )}
+                        <div className="flex items-center gap-6 my-3">
+                            <div>
+                                <div className="text-base font-semibold text-foreground">{postCount}</div>
+                                <div className="text-xs text-muted-foreground">Posts</div>
+                            </div>
+                            <div>
+                                <div className="text-base font-semibold text-foreground">{friendCount}</div>
+                                <div className="text-xs text-muted-foreground">Friends</div>
+                            </div>
                         </div>
 
                         <div className="flex flex-col gap-1 max-w-lg">

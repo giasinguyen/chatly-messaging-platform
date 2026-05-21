@@ -16,6 +16,10 @@ public interface ContactRepository extends JpaRepository<Contact, UUID> {
 
     List<Contact> findByUserIdOrContactId(UUID userId, UUID contactId);
 
+    @Query("SELECT COUNT(c) FROM Contact c WHERE (c.user.id = :userId OR c.contact.id = :userId) AND c.status = :status")
+    long countByParticipantIdAndStatus(
+            @Param("userId") UUID userId, @Param("status") ContactStatus status);
+
     Optional<Contact> findByUserIdAndContactId(UUID userId, UUID contactId);
 
     boolean existsByUserIdAndContactId(UUID userId, UUID contactId);

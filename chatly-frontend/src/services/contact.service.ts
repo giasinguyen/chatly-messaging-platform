@@ -83,4 +83,11 @@ export const contactService = {
         );
         return response.data;
     },
+
+    getFriendCount: async (userId: string): Promise<ApiResponse<number>> => {
+        const response = await axiosClient.get<ApiResponse<number>>(
+            `/api/contacts/users/${userId}/friend-count`,
+        );
+        return response.data;
+    },
 };

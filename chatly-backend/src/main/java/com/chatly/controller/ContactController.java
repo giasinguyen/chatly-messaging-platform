@@ -59,6 +59,13 @@ public class ContactController {
                 .build();
     }
 
+    @GetMapping("/users/{userId}/friend-count")
+    ApiResponse<Long> getFriendCount(@PathVariable UUID userId) {
+        return ApiResponse.<Long>builder()
+                .result(contactService.getFriendCount(userId))
+                .build();
+    }
+
     // Lọc theo trạng thái
     @GetMapping("/status/{status}")
     ApiResponse<List<ContactResponse>> getByStatus(@PathVariable ContactStatus status) {
