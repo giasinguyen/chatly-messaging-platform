@@ -33,8 +33,12 @@ export function CallSocketProvider({ children }: { children: React.ReactNode }) 
     return <CallContext.Provider value={disabledCallContextValue}>{children}</CallContext.Provider>;
   }
 
-  const callSocket = useCallSocket();
+  return <EnabledCallSocketProvider>{children}</EnabledCallSocketProvider>;
+}
+
+function EnabledCallSocketProvider({ children }: { children: React.ReactNode }) {
   const groupCallSocket = useGroupCallSocket();
+  const callSocket = useCallSocket(groupCallSocket.handleGroupSignal);
 
   const value: CallContextValue = { ...callSocket, ...groupCallSocket };
 

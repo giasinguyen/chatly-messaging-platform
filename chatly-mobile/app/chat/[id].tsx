@@ -47,6 +47,21 @@ import type { UserResponse } from '@/types/auth';
 import type { ContactResponse } from '@/types/contact';
 
 const PAGE_SIZE = 20;
+const ENDED_CALL_STATUSES = new Set(['ENDED', 'MISSED', 'REJECTED']);
+
+interface CallMessagePayload {
+  callId?: string;
+  status?: string;
+  callType?: string;
+}
+
+function parseCallMessagePayload(rawContent: string): CallMessagePayload | null {
+  try {
+    return JSON.parse(rawContent) as CallMessagePayload;
+  } catch {
+    return null;
+  }
+}
 
 export default function ChatScreen() {
   const {
@@ -127,7 +142,25 @@ export default function ChatScreen() {
     invalidate: invalidateContacts,
   } = useContactStore();
 
-  const messages = messagesByConversation[conversationId ?? ''] ?? [];
+  const messages = useMemo(
+    () => messagesByConversation[conversationId ?? ''] ?? [],
+    [conversationId, messagesByConversation],
+  );
+  const endedGroupCallIds = useMemo(() => {
+    const endedCallIds = new Set<string>();
+
+    messages.forEach((message) => {
+      if (message.type !== 'CALL') return;
+
+      const payload = parseCallMessagePayload(message.content);
+      const status = (payload?.status ?? '').toUpperCase();
+      if (payload?.callId && ENDED_CALL_STATUSES.has(status)) {
+        endedCallIds.add(payload.callId);
+      }
+    });
+
+    return endedCallIds;
+  }, [messages]);
   const currentPage = page[conversationId ?? ''] ?? 0;
   const canLoadMore = hasMore[conversationId ?? ''] ?? true;
 
@@ -695,17 +728,14 @@ export default function ChatScreen() {
         return;
       }
 
-      const parseCallPayload = (rawContent: string): { callId?: string; status?: string; callType?: string } | null => {
-        try {
-          return JSON.parse(rawContent) as { callId?: string; status?: string; callType?: string };
-        } catch {
-          return null;
-        }
-      };
+      if (endedGroupCallIds.has(callId)) {
+        Alert.alert('Call ended', 'This call has already ended.');
+        return;
+      }
 
       const activeCallMessage = messages.find((message) => {
         if (message.type !== 'CALL') return false;
-        const payload = parseCallPayload(message.content);
+        const payload = parseCallMessagePayload(message.content);
         if (!payload || payload.callId !== callId) return false;
 
         const status = (payload.status ?? '').toUpperCase();
@@ -715,7 +745,7 @@ export default function ChatScreen() {
       const fallbackCallMessage = activeCallMessage
         ?? messages.find((message) => {
           if (message.type !== 'CALL') return false;
-          const payload = parseCallPayload(message.content);
+          const payload = parseCallMessagePayload(message.content);
           return payload?.callId === callId;
         });
 
@@ -723,7 +753,7 @@ export default function ChatScreen() {
       let initiatorId = '';
 
       if (fallbackCallMessage) {
-        const payload = parseCallPayload(fallbackCallMessage.content);
+        const payload = parseCallMessagePayload(fallbackCallMessage.content);
         callType = payload?.callType === 'VIDEO' ? 'VIDEO' : 'VOICE';
         initiatorId = fallbackCallMessage.senderId;
       }
@@ -745,7 +775,7 @@ export default function ChatScreen() {
       useCallStore.getState().setCallStatus('RINGING');
       joinGroupCall(true);
     },
-    [messages, participantMap, conversationId, conversation, joinGroupCall]
+    [messages, endedGroupCallIds, participantMap, conversationId, conversation, joinGroupCall]
   );
 
   const handleMentionPress = useCallback(
@@ -975,6 +1005,7 @@ export default function ChatScreen() {
                     replyToMessage={msg.replyToId ? (messageById[msg.replyToId] ?? null) : null}
                     onCallAgain={handleCallAgain}
                     onJoinGroupCall={handleJoinGroupCall}
+                    endedGroupCallIds={endedGroupCallIds}
                     isGroupConversation={isGroup}
                     calleeInfo={
                       isMe
