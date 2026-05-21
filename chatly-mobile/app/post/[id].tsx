@@ -1,35 +1,28 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import { postService } from '@/services/post.service';
+import { CommentsBottomSheet } from '@/components/social/CommentsBottomSheet';
 import { Colors } from '@/constants/theme';
-import type { Post } from '@/types/post';
+import type { Post, PostComment, ReactionType } from '@/types/post';
 import { getApiErrorMessage } from '@/utils/errorHandler';
+import { PostMediaGallery } from '@/app/post/components/PostMediaGallery';
+import { PostCommentsSection } from '@/app/post/components/PostCommentsSection';
 
-function PostMedia({ mediaUrls }: { mediaUrls: string[] }) {
-  if (mediaUrls.length === 0) {
-    return null;
-  }
+const FALLBACK_AVATAR = 'https://i.pravatar.cc/140?img=30';
 
-  return (
-    <ScrollView
-      horizontal
-      pagingEnabled
-      showsHorizontalScrollIndicator={false}
-      className="mt-3"
-    >
-      {mediaUrls.map((url, index) => (
-        <Image
-          key={`${url}-${index}`}
-          source={{ uri: url }}
-          contentFit="cover"
-          className="mr-2 h-80 w-[300px] rounded-2xl bg-[#E5E5EA]"
-        />
-      ))}
-    </ScrollView>
-  );
+function formatRelativeTime(createdAt: string): string {
+  const diffMinutes = Math.floor((Date.now() - new Date(createdAt).getTime()) / 60000);
+  if (diffMinutes < 1) return 'just now';
+  if (diffMinutes < 60) return `${diffMinutes}m ago`;
+
+  const diffHours = Math.floor(diffMinutes / 60);
+  if (diffHours < 24) return `${diffHours}h ago`;
+
+  const diffDays = Math.floor(diffHours / 24);
+  return `${diffDays}d ago`;
 }
 
 export default function PostDetailScreen() {
@@ -37,8 +30,13 @@ export default function PostDetailScreen() {
   const router = useRouter();
 
   const [post, setPost] = useState<Post | null>(null);
+  const [comments, setComments] = useState<PostComment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isCommentsLoading, setIsCommentsLoading] = useState(false);
+  const [isSubmittingComment, setIsSubmittingComment] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [commentsError, setCommentsError] = useState<string | null>(null);
+  const [isCommentsSheetVisible, setIsCommentsSheetVisible] = useState(false);
 
   const loadPost = useCallback(async () => {
     if (!id) {
@@ -62,9 +60,143 @@ export default function PostDetailScreen() {
     }
   }, [id]);
 
+  const loadComments = useCallback(async () => {
+    if (!id) {
+      return;
+    }
+
+    setIsCommentsLoading(true);
+    try {
+      setCommentsError(null);
+      const response = await postService.getComments(id);
+      if (response.code !== 1000) {
+        throw new Error(response.message ?? 'Could not load comments.');
+      }
+      setComments(response.result ?? []);
+    } catch (error: unknown) {
+      setCommentsError(getApiErrorMessage(error, 'Could not load comments.'));
+    } finally {
+      setIsCommentsLoading(false);
+    }
+  }, [id]);
+
+  const handleSubmitComment = useCallback(
+    async (
+      postId: string,
+      content: string,
+      mediaUrls?: string[],
+      parentCommentId?: string
+    ): Promise<void> => {
+      if (!id || isSubmittingComment) {
+        return;
+      }
+
+      setIsSubmittingComment(true);
+      try {
+        const response = await postService.addComment(postId, {
+          content,
+          mediaUrls,
+          parentCommentId,
+        });
+        if (response.code !== 1000 || !response.result) {
+          throw new Error(response.message ?? 'Could not send comment.');
+        }
+
+        setComments((prev) => [response.result, ...prev]);
+        setPost((current) =>
+          current
+            ? {
+                ...current,
+                commentCount: current.commentCount + 1,
+              }
+            : current
+        );
+        setCommentsError(null);
+      } catch (error: unknown) {
+        setCommentsError(getApiErrorMessage(error, 'Could not send comment.'));
+        throw error;
+      } finally {
+        setIsSubmittingComment(false);
+      }
+    },
+    [id, isSubmittingComment]
+  );
+
+  const handleLikeComment = useCallback(
+    async (commentId: string, reactionType: ReactionType) => {
+      if (!id) {
+        return;
+      }
+
+      try {
+        const response = await postService.reactToComment(id, commentId, reactionType);
+        if (response.code === 1000 && response.result) {
+          setComments((prev) =>
+            prev.map((comment) => (comment.id === commentId ? response.result : comment))
+          );
+        }
+      } catch (error: unknown) {
+        setCommentsError(getApiErrorMessage(error, 'Could not react to comment.'));
+      }
+    },
+    [id]
+  );
+
+  const handleUnlikeComment = useCallback(
+    async (commentId: string) => {
+      if (!id) {
+        return;
+      }
+
+      try {
+        const response = await postService.removeCommentReaction(id, commentId);
+        if (response.code === 1000 && response.result) {
+          setComments((prev) =>
+            prev.map((comment) => (comment.id === commentId ? response.result : comment))
+          );
+        }
+      } catch (error: unknown) {
+        setCommentsError(getApiErrorMessage(error, 'Could not remove comment reaction.'));
+      }
+    },
+    [id]
+  );
+
+  const handleDeleteComment = useCallback(
+    async (commentId: string) => {
+      if (!id) {
+        return;
+      }
+
+      try {
+        const response = await postService.deleteComment(id, commentId);
+        if (response.code !== 1000) {
+          throw new Error(response.message ?? 'Could not delete comment.');
+        }
+
+        setComments((prev) => prev.filter((comment) => comment.id !== commentId));
+        setPost((current) =>
+          current
+            ? {
+                ...current,
+                commentCount: Math.max(0, current.commentCount - 1),
+              }
+            : current
+        );
+      } catch (error: unknown) {
+        setCommentsError(getApiErrorMessage(error, 'Could not delete comment.'));
+      }
+    },
+    [id]
+  );
+
   useEffect(() => {
     void loadPost();
   }, [loadPost]);
+
+  useEffect(() => {
+    void loadComments();
+  }, [loadComments]);
 
   return (
     <View className="flex-1 bg-[#F5F5F7]">
@@ -94,16 +226,26 @@ export default function PostDetailScreen() {
         </View>
       ) : post ? (
         <ScrollView className="flex-1 px-4 py-4" showsVerticalScrollIndicator={false}>
-          <Text className="text-lg font-semibold text-[#1D1D1F]">
-            {post.authorDisplayName ?? post.authorUsername ?? 'Unknown user'}
-          </Text>
-          <Text className="mt-1 text-sm text-[#6E6E73]">{new Date(post.createdAt).toLocaleString()}</Text>
+          <View className="flex-row items-center">
+            <Image
+              source={{ uri: post.authorAvatarUrl ?? FALLBACK_AVATAR }}
+              contentFit="cover"
+              transition={120}
+              style={{ width: 40, height: 40, borderRadius: 999 }}
+            />
+            <View className="ml-2.5">
+              <Text className="text-sm font-semibold text-[#1D1D1F]">
+                {post.authorDisplayName ?? post.authorUsername ?? 'Unknown user'}
+              </Text>
+              <Text className="text-xs text-[#6E6E73]">{formatRelativeTime(post.createdAt)}</Text>
+            </View>
+          </View>
 
           {post.content?.trim() ? (
             <Text className="mt-3 text-base leading-6 text-[#1D1D1F]">{post.content}</Text>
           ) : null}
 
-          <PostMedia mediaUrls={post.mediaUrls} />
+          <PostMediaGallery mediaUrls={post.mediaUrls} />
 
           {post.hashtags.length > 0 && (
             <View className="mt-4 flex-row flex-wrap">
@@ -114,11 +256,39 @@ export default function PostDetailScreen() {
               ))}
             </View>
           )}
+
+          <PostCommentsSection
+            commentCount={post.commentCount}
+            comments={comments}
+            isCommentsLoading={isCommentsLoading}
+            commentsError={commentsError}
+            onRetry={() => void loadComments()}
+            onOpenComments={() => setIsCommentsSheetVisible(true)}
+            onLikeComment={handleLikeComment}
+            onUnlikeComment={handleUnlikeComment}
+            onDeleteComment={handleDeleteComment}
+          />
         </ScrollView>
       ) : (
         <View className="flex-1 items-center justify-center px-8">
           <Text className="text-base font-semibold text-[#1D1D1F]">Post not found</Text>
         </View>
+      )}
+
+      {post && (
+        <CommentsBottomSheet
+          visible={isCommentsSheetVisible}
+          postId={post.id}
+          comments={comments}
+          commentCount={post.commentCount}
+          onClose={() => setIsCommentsSheetVisible(false)}
+          onOpen={() => void loadComments()}
+          onAddComment={handleSubmitComment}
+          onLikeComment={handleLikeComment}
+          onUnlikeComment={handleUnlikeComment}
+          onDeleteComment={handleDeleteComment}
+          isSubmittingComment={isSubmittingComment}
+        />
       )}
     </View>
   );

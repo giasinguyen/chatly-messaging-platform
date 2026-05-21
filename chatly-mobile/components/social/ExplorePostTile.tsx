@@ -1,10 +1,11 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import type { Post } from '@/types/post';
 import { Colors } from '@/constants/theme';
+import { normalizeMediaUrl } from '@/utils/mediaUrl';
 
 interface ExplorePostTileProps {
   post: Post;
@@ -15,8 +16,7 @@ export function ExplorePostTile({ post }: ExplorePostTileProps) {
   const [hasImageError, setHasImageError] = useState(false);
 
   const primaryMediaUrl = useMemo(() => {
-    const candidate = post.mediaUrls?.[0]?.trim();
-    return candidate && candidate.length > 0 ? candidate : null;
+    return normalizeMediaUrl(post.mediaUrls?.[0]);
   }, [post.mediaUrls]);
 
   const hasMedia = !!primaryMediaUrl && !hasImageError;
@@ -29,6 +29,10 @@ export function ExplorePostTile({ post }: ExplorePostTileProps) {
     router.push(`/post/${post.id}`);
   };
 
+  useEffect(() => {
+    setHasImageError(false);
+  }, [primaryMediaUrl]);
+
   return (
     <View className="w-1/3 p-0.5">
       <TouchableOpacity
@@ -40,7 +44,8 @@ export function ExplorePostTile({ post }: ExplorePostTileProps) {
           <Image
             source={{ uri: primaryMediaUrl }}
             contentFit="cover"
-            className="h-full w-full"
+            style={{ width: '100%', height: '100%' }}
+            transition={120}
             onError={() => setHasImageError(true)}
           />
         ) : (

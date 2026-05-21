@@ -29,10 +29,11 @@ interface CommentsBottomSheetProps {
     content: string,
     mediaUrls?: string[],
     parentCommentId?: string
-  ) => void;
+  ) => void | Promise<void>;
   onLikeComment?: (commentId: string, reactionType: string) => void;
   onUnlikeComment?: (commentId: string) => void;
   onDeleteComment?: (commentId: string) => void;
+  isSubmittingComment?: boolean;
 }
 
 const { height: screenHeight } = Dimensions.get('window');
@@ -50,6 +51,7 @@ export function CommentsBottomSheet({
   onLikeComment,
   onUnlikeComment,
   onDeleteComment,
+  isSubmittingComment = false,
 }: CommentsBottomSheetProps) {
   const [scrollPosition, setScrollPosition] = useState(0);
   const [replyToId, setReplyToId] = useState<string | null>(null);
@@ -161,13 +163,13 @@ export function CommentsBottomSheet({
           <CommentInput
             isReply={Boolean(replyToId)}
             replyToUsername={replyToUsername}
+            isLoading={isSubmittingComment}
             onCancel={() => {
               setReplyToId(null);
               setReplyToUsername(null);
             }}
-            onSubmit={(content, mediaUrls) => {
-              onAddComment?.(postId, content, mediaUrls, replyToId ?? undefined);
-              // reset reply state after submit
+            onSubmit={async (content, mediaUrls) => {
+              await onAddComment?.(postId, content, mediaUrls, replyToId ?? undefined);
               setReplyToId(null);
               setReplyToUsername(null);
             }}
