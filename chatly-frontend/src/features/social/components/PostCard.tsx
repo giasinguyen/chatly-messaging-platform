@@ -54,14 +54,12 @@ interface CommentNode extends PostComment {
 
 const VISIBILITY_OPTIONS: { value: PostVisibility; label: string; icon: typeof Globe }[] = [
     { value: "PUBLIC", label: "Everyone", icon: Globe },
-    { value: "FOLLOWERS_ONLY", label: "Followers", icon: Users },
     { value: "FRIENDS_ONLY", label: "Friends", icon: Users },
     { value: "ONLY_ME", label: "Only me", icon: Lock },
 ];
 
 const isPostVisibility = (value: string): value is PostVisibility =>
     value === "PUBLIC" ||
-    value === "FOLLOWERS_ONLY" ||
     value === "FRIENDS_ONLY" ||
     value === "ONLY_ME";
 

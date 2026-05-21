@@ -74,9 +74,9 @@ const PRIVACY_OPTIONS: {
         icon: Globe,
     },
     {
-        value: StoryPrivacy.FOLLOWERS_ONLY,
-        label: "Followers",
-        description: "People who follow you",
+        value: StoryPrivacy.FRIENDS_ONLY,
+        label: "Friends",
+        description: "People you are friends with",
         icon: Users,
     },
     {

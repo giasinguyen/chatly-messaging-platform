@@ -1,4 +1,4 @@
-export type PostVisibility = "PUBLIC" | "FOLLOWERS_ONLY" | "FRIENDS_ONLY" | "ONLY_ME";
+export type PostVisibility = "PUBLIC" | "FRIENDS_ONLY" | "ONLY_ME";
 
 export type ReactionType = "LIKE" | "LOVE" | "HAHA" | "WOW" | "SAD" | "ANGRY";
 

@@ -6,7 +6,7 @@ export enum StoryType {
 
 export enum StoryPrivacy {
     EVERYONE = "EVERYONE",
-    FOLLOWERS_ONLY = "FOLLOWERS_ONLY",
+    FRIENDS_ONLY = "FRIENDS_ONLY",
     CLOSE_FRIENDS = "CLOSE_FRIENDS",
     ONLY_ME = "ONLY_ME"
 }

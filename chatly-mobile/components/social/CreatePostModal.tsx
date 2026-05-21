@@ -37,7 +37,6 @@ const DEFAULT_IMAGE_MIME_TYPE = 'image/jpeg';
 
 const VISIBILITY_OPTIONS: { label: string; value: PostVisibility; icon: keyof typeof Ionicons.glyphMap }[] = [
   { label: 'Everyone', value: 'PUBLIC', icon: 'earth-outline' },
-  { label: 'Followers', value: 'FOLLOWERS_ONLY', icon: 'people-outline' },
   { label: 'Friends', value: 'FRIENDS_ONLY', icon: 'person-add-outline' },
   { label: 'Only me', value: 'ONLY_ME', icon: 'lock-closed-outline' },
 ];
