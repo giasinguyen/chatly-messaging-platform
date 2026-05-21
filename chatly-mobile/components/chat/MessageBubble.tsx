@@ -44,6 +44,7 @@ interface MessageBubbleProps {
   replyToMessage?: Message | null;
   onCallAgain?: (calleeId: string, calleeName: string, calleeAvatar?: string) => void;
   onJoinGroupCall?: (callId: string) => void;
+  endedGroupCallIds?: ReadonlySet<string>;
   isGroupConversation?: boolean;
   calleeInfo?: { id: string; name: string; avatar?: string } | null;
   highlightKeyword?: string | null;
@@ -71,6 +72,7 @@ export function MessageBubble({
   replyToMessage,
   onCallAgain,
   onJoinGroupCall,
+  endedGroupCallIds,
   isGroupConversation = false,
   calleeInfo,
   highlightKeyword,
@@ -673,13 +675,16 @@ export function MessageBubble({
         const isVideo = callData.callType === 'VIDEO';
         const duration = callData.duration ?? 0;
         const realtimeState = callData.callId ? groupCallRealtimeState[callData.callId] : undefined;
-        const isCallEndedRealtime = Boolean(realtimeState?.ended);
+        const isCallEnded = Boolean(
+          realtimeState?.ended
+          || (callData.callId && endedGroupCallIds?.has(callData.callId)),
+        );
         const formatDur = (s: number) =>
           `${Math.floor(s / 60).toString().padStart(2, '0')}:${(s % 60).toString().padStart(2, '0')}`;
         const typeLabel = isVideo ? 'video' : 'audio';
 
         if (isGroupCallActiveStatus && isGroupConversation && callData.callId) {
-          if (isCallEndedRealtime || !onJoinGroupCall) {
+          if (isCallEnded || !onJoinGroupCall) {
             return (
               <View style={{ marginVertical: 6, paddingHorizontal: 16, alignItems: 'center' }}>
                 <View
