@@ -1,5 +1,4 @@
-import { useEffect, useCallback, useRef } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useCallback, useRef } from 'react';
 import { socketService } from '@/services/socket.service';
 import { useAuthStore } from '@/store/auth.store';
 import { useCallStore } from '@/store/call.store';
@@ -89,37 +88,6 @@ export function useGroupCallSocket() {
   }, []);
 
   const handleSignalRef = useRef<((signal: CallSignal) => void) | null>(null);
-
-  useEffect(() => {
-    if (!user) return;
-
-    const doSubscribe = () =>
-      socketService.subscribe('/user/queue/calls', (message) => {
-        const signal = JSON.parse(message.body) as CallSignal;
-        if (signal.type.startsWith('GROUP_') || isGroupIceCandidate(signal)) {
-          handleSignalRef.current?.(signal);
-        }
-      });
-
-    if (socketService.isConnected()) {
-      const sub = doSubscribe();
-      return () => { sub?.unsubscribe(); };
-    }
-
-    let sub: ReturnType<typeof socketService.subscribe> = null;
-    let cancelled = false;
-    AsyncStorage.getItem('access_token').then((token) => {
-      if (!token || cancelled) return;
-      socketService.connect(token).then(() => {
-        if (!cancelled) sub = doSubscribe();
-      }).catch(console.error);
-    });
-
-    return () => {
-      cancelled = true;
-      sub?.unsubscribe();
-    };
-  }, [user]);
 
   const handleSignal = useCallback(
     (signal: CallSignal) => {
@@ -567,15 +535,12 @@ export function useGroupCallSocket() {
     joinGroupCall,
     leaveGroupCall,
     upgradeGroupCallToVideo,
+    handleGroupSignal: handleSignalRef,
     groupLocalStream: groupWebRTC.localStream,
     groupRemoteStreams: groupWebRTC.remoteStreams,
     groupToggleMute: groupWebRTC.toggleMute,
     groupToggleCamera: groupWebRTC.toggleCamera,
   };
-}
-
-function isGroupIceCandidate(signal: CallSignal): boolean {
-  return signal.type === 'ICE_CANDIDATE' && useCallStore.getState().isGroupCall;
 }
 
 function generateCallId(): string {

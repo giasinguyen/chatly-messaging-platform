@@ -47,6 +47,21 @@ import type { UserResponse } from '@/types/auth';
 import type { ContactResponse } from '@/types/contact';
 
 const PAGE_SIZE = 20;
+const ENDED_CALL_STATUSES = new Set(['ENDED', 'MISSED', 'REJECTED']);
+
+interface CallMessagePayload {
+  callId?: string;
+  status?: string;
+  callType?: string;
+}
+
+function parseCallMessagePayload(rawContent: string): CallMessagePayload | null {
+  try {
+    return JSON.parse(rawContent) as CallMessagePayload;
+  } catch {
+    return null;
+  }
+}
 
 export default function ChatScreen() {
   const {
@@ -60,6 +75,7 @@ export default function ChatScreen() {
   const flatListRef = useRef<FlatList>(null);
   // Guard: don't trigger loadMore until the initial page has fully loaded
   const initialLoadDoneRef = useRef(false);
+  const shouldScrollToLatestRef = useRef(false);
 
   const {
     messagesByConversation,
@@ -126,17 +142,47 @@ export default function ChatScreen() {
     invalidate: invalidateContacts,
   } = useContactStore();
 
-  const messages = messagesByConversation[conversationId ?? ''] ?? [];
+  const messages = useMemo(
+    () => messagesByConversation[conversationId ?? ''] ?? [],
+    [conversationId, messagesByConversation],
+  );
+  const endedGroupCallIds = useMemo(() => {
+    const endedCallIds = new Set<string>();
+
+    messages.forEach((message) => {
+      if (message.type !== 'CALL') return;
+
+      const payload = parseCallMessagePayload(message.content);
+      const status = (payload?.status ?? '').toUpperCase();
+      if (payload?.callId && ENDED_CALL_STATUSES.has(status)) {
+        endedCallIds.add(payload.callId);
+      }
+    });
+
+    return endedCallIds;
+  }, [messages]);
   const currentPage = page[conversationId ?? ''] ?? 0;
   const canLoadMore = hasMore[conversationId ?? ''] ?? true;
 
   const { updateConversation } = useConversationStore();
+
+  const scrollToLatestMessage = useCallback((animated: boolean) => {
+    flatListRef.current?.scrollToOffset({ offset: 0, animated });
+    shouldScrollToLatestRef.current = false;
+  }, []);
+
+  const handleMessagesContentSizeChange = useCallback(() => {
+    if (shouldScrollToLatestRef.current) {
+      scrollToLatestMessage(true);
+    }
+  }, [scrollToLatestMessage]);
 
   const handleChatEvent = useCallback(
     (event: ChatEvent) => {
       if (!conversationId) return;
       switch (event.action) {
         case 'SEND':
+          shouldScrollToLatestRef.current = true;
           addMessage(conversationId, event.message);
 
           // Mark as seen if not from current user
@@ -154,8 +200,6 @@ export default function ChatScreen() {
             },
           });
 
-          // offset 0 = visual bottom in inverted FlatList (newest messages)
-          flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
           break;
         case 'EDIT':
         case 'RECALL':
@@ -432,7 +476,7 @@ export default function ChatScreen() {
       if (sent) {
         updateConversation(conversationId, { lastMessage: optimisticLastMsg });
         setReplyingTo(null);
-        flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
+        scrollToLatestMessage(true);
         return;
       }
 
@@ -448,6 +492,7 @@ export default function ChatScreen() {
           poll,
           location,
         });
+        shouldScrollToLatestRef.current = true;
         addMessage(conversationId, res.result);
         updateConversation(conversationId, {
           lastMessage: {
@@ -458,12 +503,19 @@ export default function ChatScreen() {
           },
         });
         setReplyingTo(null);
-        flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
       } catch (error) {
         Alert.alert('Error', 'Could not send message. Please try again.');
       }
     },
-    [conversationId, user, replyingTo, wsSendMessage, addMessage, updateConversation]
+    [
+      conversationId,
+      user,
+      replyingTo,
+      wsSendMessage,
+      addMessage,
+      updateConversation,
+      scrollToLatestMessage,
+    ]
   );
 
   // Message actions
@@ -676,17 +728,14 @@ export default function ChatScreen() {
         return;
       }
 
-      const parseCallPayload = (rawContent: string): { callId?: string; status?: string; callType?: string } | null => {
-        try {
-          return JSON.parse(rawContent) as { callId?: string; status?: string; callType?: string };
-        } catch {
-          return null;
-        }
-      };
+      if (endedGroupCallIds.has(callId)) {
+        Alert.alert('Call ended', 'This call has already ended.');
+        return;
+      }
 
       const activeCallMessage = messages.find((message) => {
         if (message.type !== 'CALL') return false;
-        const payload = parseCallPayload(message.content);
+        const payload = parseCallMessagePayload(message.content);
         if (!payload || payload.callId !== callId) return false;
 
         const status = (payload.status ?? '').toUpperCase();
@@ -696,7 +745,7 @@ export default function ChatScreen() {
       const fallbackCallMessage = activeCallMessage
         ?? messages.find((message) => {
           if (message.type !== 'CALL') return false;
-          const payload = parseCallPayload(message.content);
+          const payload = parseCallMessagePayload(message.content);
           return payload?.callId === callId;
         });
 
@@ -704,7 +753,7 @@ export default function ChatScreen() {
       let initiatorId = '';
 
       if (fallbackCallMessage) {
-        const payload = parseCallPayload(fallbackCallMessage.content);
+        const payload = parseCallMessagePayload(fallbackCallMessage.content);
         callType = payload?.callType === 'VIDEO' ? 'VIDEO' : 'VOICE';
         initiatorId = fallbackCallMessage.senderId;
       }
@@ -726,7 +775,7 @@ export default function ChatScreen() {
       useCallStore.getState().setCallStatus('RINGING');
       joinGroupCall(true);
     },
-    [messages, participantMap, conversationId, conversation, joinGroupCall]
+    [messages, endedGroupCallIds, participantMap, conversationId, conversation, joinGroupCall]
   );
 
   const handleMentionPress = useCallback(
@@ -956,6 +1005,7 @@ export default function ChatScreen() {
                     replyToMessage={msg.replyToId ? (messageById[msg.replyToId] ?? null) : null}
                     onCallAgain={handleCallAgain}
                     onJoinGroupCall={handleJoinGroupCall}
+                    endedGroupCallIds={endedGroupCallIds}
                     isGroupConversation={isGroup}
                     calleeInfo={
                       isMe
@@ -980,6 +1030,7 @@ export default function ChatScreen() {
             }}
             onEndReached={loadMore}
             onEndReachedThreshold={0.5}
+            onContentSizeChange={handleMessagesContentSizeChange}
             inverted
             // Prevent scroll position from jumping when older messages are appended
             maintainVisibleContentPosition={{ minIndexForVisible: 0 }}
