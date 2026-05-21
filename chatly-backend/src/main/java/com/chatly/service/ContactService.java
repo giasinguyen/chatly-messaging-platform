@@ -169,6 +169,11 @@ public class ContactService {
                 .toList();
     }
 
+    @Transactional(readOnly = true)
+    public long getFriendCount(UUID userId) {
+        return contactRepository.countByParticipantIdAndStatus(userId, ContactStatus.ACCEPTED);
+    }
+
     /**
      * Block a user by their userId. Finds (or creates) the contact record and marks it BLOCKED.
      * Idempotent: returns the existing record if already blocked by this user.
