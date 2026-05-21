@@ -5,23 +5,12 @@ import { Ionicons } from '@expo/vector-icons';
 
 interface PostImageCarouselProps {
   images: string[];
+  aspectRatio?: number;
   onDoubleTap?: () => void;
 }
 
-const FALLBACK_ASPECT_RATIO = 1;
-
-function getFrameAspectRatio(imageSizes: Record<string, number>): number {
-  const aspectRatios = Object.values(imageSizes);
-  if (aspectRatios.length === 0) {
-    return FALLBACK_ASPECT_RATIO;
-  }
-
-  return Math.min(...aspectRatios);
-}
-
-export function PostImageCarousel({ images, onDoubleTap }: PostImageCarouselProps) {
+export function PostImageCarousel({ images, aspectRatio = 1, onDoubleTap }: PostImageCarouselProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [imageAspectRatios, setImageAspectRatios] = useState<Record<string, number>>({});
   const currentIndexRef = useRef(0);
   const lastTapRef = useRef(0);
   const heartScale = useRef(new Animated.Value(0)).current;
@@ -86,47 +75,12 @@ export function PostImageCarousel({ images, onDoubleTap }: PostImageCarouselProp
     currentIndexRef.current = currentIndex;
   }, [currentIndex]);
 
-  useEffect(() => {
-    let isMounted = true;
-
-    setImageAspectRatios({});
-    if (images.length !== 1) {
-      return undefined;
-    }
-
-    Promise.all(
-      images.map(async (uri) => {
-        try {
-          const imageRef = await Image.loadAsync(uri);
-          return [uri, imageRef.width / imageRef.height] as const;
-        } catch {
-          return null;
-        }
-      })
-    )
-      .then((ratios) => {
-        if (!isMounted) {
-          return;
-        }
-
-        const measuredRatios = ratios.filter((ratio) => ratio !== null);
-        setImageAspectRatios(Object.fromEntries(measuredRatios));
-      });
-
-    return () => {
-      isMounted = false;
-    };
-  }, [images]);
-
-  const frameAspectRatio =
-    images.length === 1 ? getFrameAspectRatio(imageAspectRatios) : FALLBACK_ASPECT_RATIO;
-
   if (!images || images.length === 0) {
     return (
       <View
         style={{
           width: '100%',
-          aspectRatio: FALLBACK_ASPECT_RATIO,
+          aspectRatio,
           backgroundColor: '#F5F5F7',
         }}
       />
@@ -136,15 +90,12 @@ export function PostImageCarousel({ images, onDoubleTap }: PostImageCarouselProp
   // Single image - just display
   if (images.length === 1) {
     return (
-      <View
-        {...panResponder.panHandlers}
-        style={{ width: '100%', aspectRatio: frameAspectRatio, backgroundColor: '#F5F5F7' }}
-      >
+      <View {...panResponder.panHandlers} style={{ width: '100%', aspectRatio }}>
         <Image
           source={{ uri: images[0] }}
-          contentFit="contain"
+          contentFit="cover"
           transition={120}
-          style={{ width: '100%', height: '100%' }}
+          style={{ width: '100%', aspectRatio }}
         />
         <Animated.View
           pointerEvents="none"
@@ -174,7 +125,7 @@ export function PostImageCarousel({ images, onDoubleTap }: PostImageCarouselProp
       {...panResponder.panHandlers}
       style={{
         width: '100%',
-        aspectRatio: frameAspectRatio,
+        aspectRatio,
         position: 'relative',
         backgroundColor: '#F5F5F7',
       }}
@@ -182,9 +133,9 @@ export function PostImageCarousel({ images, onDoubleTap }: PostImageCarouselProp
       {/* Main Image */}
       <Image
         source={{ uri: currentImage }}
-        contentFit="contain"
+        contentFit="cover"
         transition={200}
-        style={{ width: '100%', height: '100%' }}
+        style={{ width: '100%', aspectRatio }}
       />
 
       <Animated.View

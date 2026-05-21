@@ -167,6 +167,7 @@ export function HomePostCard({
         {/* Post Image Carousel */}
         <PostImageCarousel
           images={post.mediaUrls && post.mediaUrls.length > 0 ? post.mediaUrls : [FALLBACK_MEDIA]}
+          aspectRatio={1}
           onDoubleTap={handleDoubleTapLike}
         />
 

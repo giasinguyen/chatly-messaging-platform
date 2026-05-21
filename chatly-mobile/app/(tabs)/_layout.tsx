@@ -5,7 +5,7 @@ import { useNotificationStore } from '@/store/notification.store';
 import { CustomAiIcon } from '@/components/ui/CustomAiIcon';
 
 export default function TabLayout() {
-  const chatUnreadCount = useNotificationStore((s) => s.chatUnreadCount);
+  const unreadCount = useNotificationStore((s) => s.unreadCount);
 
   return (
     <Tabs
@@ -42,7 +42,7 @@ export default function TabLayout() {
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="chatbubbles-outline" size={size} color={color} />
           ),
-          tabBarBadge: chatUnreadCount > 0 ? chatUnreadCount : undefined,
+          tabBarBadge: unreadCount > 0 ? unreadCount : undefined,
           tabBarBadgeStyle: {
             backgroundColor: Colors.error,
           },

@@ -4,7 +4,6 @@ import com.chatly.dto.response.NotificationResponse;
 import com.chatly.exception.AppException;
 import com.chatly.exception.ErrorCode;
 import com.chatly.mapper.NotificationMapper;
-import com.chatly.model.enums.NotificationScope;
 import com.chatly.model.enums.NotificationType;
 import com.chatly.model.mongo.Notification;
 import com.chatly.model.postgres.User;
@@ -74,22 +73,16 @@ public class NotificationService {
         pushToUser(receiverId, response, totalUnreadCount);
     }
 
-    public List<NotificationResponse> getNotifications(
-            String userId, int page, int size, NotificationScope scope) {
-        PageRequest pageRequest = PageRequest.of(page, size);
-        Page<Notification> result = scope == NotificationScope.ALL
-                ? notificationRepository.findByReceiverIdOrderByCreatedAtDesc(userId, pageRequest)
-                : notificationRepository.findByReceiverIdAndTypeInOrderByCreatedAtDesc(
-                        userId, scope.getTypes(), pageRequest);
+    public List<NotificationResponse> getNotifications(String userId, int page, int size) {
+        Page<Notification> result = notificationRepository
+                .findByReceiverIdOrderByCreatedAtDesc(userId, PageRequest.of(page, size));
         return result.getContent().stream()
                 .map(this::toResponse)
                 .toList();
     }
 
-    public long getUnreadCount(String userId, NotificationScope scope) {
-        return scope == NotificationScope.ALL
-                ? notificationRepository.countByReceiverIdAndReadFalse(userId)
-                : notificationRepository.countByReceiverIdAndTypeInAndReadFalse(userId, scope.getTypes());
+    public long getUnreadCount(String userId) {
+        return notificationRepository.countByReceiverIdAndReadFalse(userId);
     }
 
     public NotificationResponse markAsRead(String notificationId, String userId) {
@@ -108,14 +101,9 @@ public class NotificationService {
         return toResponse(notification);
     }
 
-    public void markAllAsRead(String userId, NotificationScope scope) {
-        Criteria criteria = Criteria.where("receiverId").is(userId).and("read").is(false);
-        if (scope != NotificationScope.ALL) {
-            criteria.and("type").in(scope.getTypes());
-        }
-
+    public void markAllAsRead(String userId) {
         mongoTemplate.updateMulti(
-                Query.query(criteria),
+                Query.query(Criteria.where("receiverId").is(userId).and("read").is(false)),
                 new Update().set("read", true),
                 Notification.class
         );

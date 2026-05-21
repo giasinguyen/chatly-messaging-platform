@@ -10,9 +10,7 @@ interface HomeFeedHeaderProps {
   onCreatePost: () => void;
   onCreateStory: () => void;
   onOpenExplore: () => void;
-  onOpenNotifications: () => void;
   onPressStoryGroup: (group: StoryGroup, groupIndex: number) => void;
-  hasUnreadNotifications: boolean;
 }
 
 export function HomeFeedHeader({
@@ -20,9 +18,7 @@ export function HomeFeedHeader({
   onCreatePost,
   onCreateStory,
   onOpenExplore,
-  onOpenNotifications,
   onPressStoryGroup,
-  hasUnreadNotifications,
 }: HomeFeedHeaderProps) {
   return (
     <View>
@@ -37,24 +33,12 @@ export function HomeFeedHeader({
 
           <Text className="text-3xl font-bold text-[#1D1D1F]">Chatly</Text>
 
-          <View className="absolute right-0 flex-row items-center">
-            <TouchableOpacity
-              onPress={onOpenNotifications}
-              className="relative rounded-full p-1.5"
-              activeOpacity={0.75}>
-              <Ionicons name="notifications-outline" size={25} color={Colors.text} />
-              {hasUnreadNotifications ? (
-                <View className="absolute right-1 top-1 h-2.5 w-2.5 rounded-full border-2 border-white bg-[#FF3B30]" />
-              ) : null}
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              onPress={onOpenExplore}
-              className="rounded-full p-1.5"
-              activeOpacity={0.75}>
-              <Ionicons name="compass-outline" size={26} color={Colors.text} />
-            </TouchableOpacity>
-          </View>
+          <TouchableOpacity
+            onPress={onOpenExplore}
+            className="absolute right-0 rounded-full p-1.5"
+            activeOpacity={0.75}>
+            <Ionicons name="compass-outline" size={26} color={Colors.text} />
+          </TouchableOpacity>
         </View>
       </SafeAreaView>
 

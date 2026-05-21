@@ -2,7 +2,6 @@ package com.chatly.controller;
 
 import com.chatly.dto.response.ApiResponse;
 import com.chatly.dto.response.NotificationResponse;
-import com.chatly.model.enums.NotificationScope;
 import com.chatly.service.NotificationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
@@ -21,18 +20,17 @@ public class NotificationController {
     @GetMapping
     ApiResponse<List<NotificationResponse>> getNotifications(
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size,
-            @RequestParam(defaultValue = "ALL") NotificationScope scope) {
+            @RequestParam(defaultValue = "20") int size) {
         return ApiResponse.<List<NotificationResponse>>builder()
-                .result(notificationService.getNotifications(getAuthenticatedUserId(), page, size, scope))
+                .result(notificationService.getNotifications(getAuthenticatedUserId(), page, size))
                 .build();
     }
 
     @GetMapping("/unread-count")
-    ApiResponse<Long> getUnreadCount(@RequestParam(defaultValue = "ALL") NotificationScope scope) {
+    ApiResponse<Long> getUnreadCount() {
         String userId = getAuthenticatedUserId();
         return ApiResponse.<Long>builder()
-                .result(notificationService.getUnreadCount(userId, scope))
+                .result(notificationService.getUnreadCount(userId))
                 .build();
     }
 
@@ -44,8 +42,8 @@ public class NotificationController {
     }
 
     @PutMapping("/read-all")
-    ApiResponse<Void> markAllAsRead(@RequestParam(defaultValue = "ALL") NotificationScope scope) {
-        notificationService.markAllAsRead(getAuthenticatedUserId(), scope);
+    ApiResponse<Void> markAllAsRead() {
+        notificationService.markAllAsRead(getAuthenticatedUserId());
         return ApiResponse.<Void>builder().message("All notifications marked as read").build();
     }
 

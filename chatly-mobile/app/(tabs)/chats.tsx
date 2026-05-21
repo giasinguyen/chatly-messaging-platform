@@ -93,7 +93,7 @@ export default function ChatsScreen() {
     setRefreshing(false);
   }, [fetchConversations, loadParticipants]);
 
-  const chatUnreadCount = useNotificationStore((s) => s.chatUnreadCount);
+  const unreadCount = useNotificationStore((s) => s.unreadCount);
   const { prefs, hydrate } = useConversationPrefsStore();
 
   useEffect(() => { hydrate(); }, []);
@@ -170,11 +170,11 @@ export default function ChatsScreen() {
           </Text>
           <View className="flex-row items-center">
             <TouchableOpacity 
-              onPress={() => router.push({ pathname: '/notifications', params: { scope: 'chat' } })}
+              onPress={() => router.push('/notifications')}
               className="mr-2 p-2 relative"
             >
               <Ionicons name="notifications-outline" size={24} color={Colors.text} />
-              {chatUnreadCount > 0 && (
+              {unreadCount > 0 && (
                 <View 
                   className="absolute top-1.5 right-1.5 w-2.5 h-2.5 rounded-full border-2 border-white"
                   style={{ backgroundColor: Colors.error }}

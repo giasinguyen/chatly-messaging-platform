@@ -18,7 +18,6 @@ import { HOME_FEED_END_REACHED_THRESHOLD } from '@/constants/feed';
 import { Colors } from '@/constants/theme';
 import { socketService } from '@/services/socket.service';
 import { useAuthStore } from '@/store/auth.store';
-import { useNotificationStore } from '@/store/notification.store';
 import type { Post } from '@/types/post';
 import type { StoryGroup } from '@/types/story';
 
@@ -81,7 +80,6 @@ export default function HomeTabScreen() {
   const router = useRouter();
   const listRef = useRef<FlatList<Post>>(null);
   const userId = useAuthStore((state) => state.user?.id);
-  const socialUnreadCount = useNotificationStore((state) => state.socialUnreadCount);
   const {
     posts,
     pendingNewPosts,
@@ -139,10 +137,6 @@ export default function HomeTabScreen() {
 
   const handleOpenExplore = useCallback(() => {
     router.push('/explore');
-  }, [router]);
-
-  const handleOpenNotifications = useCallback(() => {
-    router.push({ pathname: '/notifications', params: { scope: 'social' } });
   }, [router]);
 
   const handlePressStoryGroup = useCallback(
@@ -219,9 +213,7 @@ export default function HomeTabScreen() {
           onCreatePost={handleCreatePostPress}
           onCreateStory={handleCreateStoryPress}
           onOpenExplore={handleOpenExplore}
-          onOpenNotifications={handleOpenNotifications}
           onPressStoryGroup={handlePressStoryGroup}
-          hasUnreadNotifications={socialUnreadCount > 0}
         />
         <HomeNewPostsBanner count={pendingNewPosts.length} onPress={handleFlushPendingPosts} />
       </View>
@@ -231,10 +223,8 @@ export default function HomeTabScreen() {
       handleCreateStoryPress,
       handleFlushPendingPosts,
       handleOpenExplore,
-      handleOpenNotifications,
       handlePressStoryGroup,
       pendingNewPosts.length,
-      socialUnreadCount,
       storyGroups,
     ]
   );

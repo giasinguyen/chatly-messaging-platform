@@ -44,7 +44,7 @@ function AuthGateInner({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, hydrated, hydrate, setAuth, clearAuth } = useAuthStore();
   const segments = useSegments();
   const router = useRouter();
-  const setScopedUnreadCount = useNotificationStore((s) => s.setScopedUnreadCount);
+  const setUnreadCount = useNotificationStore((s) => s.setUnreadCount);
 
   // Hydrate auth state from AsyncStorage on mount
   useEffect(() => {
@@ -89,22 +89,14 @@ function AuthGateInner({ children }: { children: React.ReactNode }) {
   const callStatus = useCallStore((s) => s.callStatus);
   const isGroupCall = useCallStore((s) => s.isGroupCall);
 
-  // Fetch initial unread counts for each notification entry point.
+  // Fetch initial unread count
   useEffect(() => {
     if (isAuthenticated && hydrated) {
-      Promise.all([
-        notificationService.getUnreadCount('all'),
-        notificationService.getUnreadCount('chat'),
-        notificationService.getUnreadCount('social'),
-      ])
-        .then(([all, chat, social]) => {
-          setScopedUnreadCount('all', all.result);
-          setScopedUnreadCount('chat', chat.result);
-          setScopedUnreadCount('social', social.result);
-        })
+      notificationService.getUnreadCount()
+        .then(res => setUnreadCount(res.result))
         .catch(err => console.error('Failed to fetch unread count', err));
     }
-  }, [isAuthenticated, hydrated, setScopedUnreadCount]);
+  }, [isAuthenticated, hydrated, setUnreadCount]);
 
   // Handle navigation based on auth state
   useEffect(() => {
