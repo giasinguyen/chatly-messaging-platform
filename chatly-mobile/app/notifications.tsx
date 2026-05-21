@@ -124,12 +124,26 @@ export default function NotificationsScreen() {
         ? 'Chat notifications'
         : 'Notifications';
 
+  const handleBack = () => {
+    if (scope === 'social') {
+      router.replace('/(tabs)/home');
+      return;
+    }
+
+    if (scope === 'chat') {
+      router.replace('/(tabs)/chats');
+      return;
+    }
+
+    router.back();
+  };
+
   return (
     <View className="flex-1" style={{ backgroundColor: Colors.bg }}>
       {/* Header */}
       <View style={{ paddingTop: insets.top, backgroundColor: Colors.white, borderBottomWidth: 0.5, borderBottomColor: Colors.borderLight }}>
         <View className="flex-row items-center px-4 py-3">
-          <TouchableOpacity onPress={() => router.back()} className="p-1">
+          <TouchableOpacity onPress={handleBack} className="p-1">
             <Ionicons name="chevron-back" size={26} color={Colors.text} />
           </TouchableOpacity>
           <Text className="flex-1 text-center text-lg font-bold" style={{ color: Colors.text }}>{title}</Text>
