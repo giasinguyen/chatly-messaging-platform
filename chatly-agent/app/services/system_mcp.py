@@ -82,6 +82,14 @@ class SystemMCPService:
             try:
                 raw_tools = await client.list_tools()
                 logger.info(
+                    "Connected to system MCP '%s' at %s on attempt %d/%d for user_id=%s",
+                    _BACKEND_SERVER_NAME,
+                    settings.chatly_backend_mcp_url,
+                    attempt,
+                    _MAX_RETRIES,
+                    user_id,
+                )
+                logger.info(
                     "System MCP '%s' returned %d tool(s) for user_id=%s",
                     _BACKEND_SERVER_NAME,
                     len(raw_tools),

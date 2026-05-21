@@ -1,6 +1,6 @@
 """Unit tests for MCPClient and MCPService — all HTTP calls mocked via respx."""
 from datetime import UTC, datetime
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
 import pytest
@@ -91,6 +91,37 @@ async def test_call_tool_raises_on_jsonrpc_error(mcp_client: MCPClient) -> None:
         await mcp_client.call_tool("search", {"query": "python"})
 
 
+@respx.mock
+@pytest.mark.asyncio
+async def test_call_tool_retries_and_succeeds(mcp_client: MCPClient) -> None:
+    route = respx.post(MCP_URL).mock(
+        side_effect=[
+            httpx.ConnectError("temporary network issue"),
+            httpx.Response(200, json=CALL_TOOL_RESPONSE),
+        ]
+    )
+
+    with patch("app.services.mcp_service.asyncio.sleep", new_callable=AsyncMock) as mocked_sleep:
+        result = await mcp_client.call_tool("search", {"query": "python"})
+
+    assert result == "result text"
+    assert route.call_count == 2
+    mocked_sleep.assert_awaited_once()
+
+
+@respx.mock
+@pytest.mark.asyncio
+async def test_call_tool_raises_after_retry_exhausted(mcp_client: MCPClient) -> None:
+    route = respx.post(MCP_URL).mock(side_effect=httpx.ConnectError("mcp down"))
+
+    with patch("app.services.mcp_service.asyncio.sleep", new_callable=AsyncMock) as mocked_sleep:
+        with pytest.raises(MCPConnectionError, match=r"failed after 3 attempt\(s\)"):
+            await mcp_client.call_tool("search", {"query": "python"})
+
+    assert route.call_count == 3
+    assert mocked_sleep.await_count == 2
+
+
 # ---------------------------------------------------------------------------
 # MCPService tests
 # ---------------------------------------------------------------------------
@@ -103,6 +134,7 @@ def _make_repo(servers: list[dict]) -> AsyncMock:
     repo.find_by_user_and_id = AsyncMock(
         return_value=servers[0] if servers else None
     )
+    repo.delete = AsyncMock()
     repo.delete_by_id = AsyncMock()
     repo.update_active = AsyncMock(
         return_value={**servers[0], "is_active": False} if servers else None
@@ -191,7 +223,7 @@ async def test_delete_server_calls_repo_delete_on_success() -> None:
 
     await service.delete_server(user_id="user-a", server_id="server-id-1")
 
-    repo.delete_by_id.assert_called_once_with("server-id-1")
+    repo.delete.assert_called_once_with("server-id-1")
 
 
 @respx.mock
