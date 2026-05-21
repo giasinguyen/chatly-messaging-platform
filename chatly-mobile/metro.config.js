@@ -13,10 +13,4 @@ config.transformer = {
   unstable_allowRequireContext: true,
 };
 
-// Ensure node_modules with import.meta are transformed (not excluded)
-config.resolver = {
-  ...config.resolver,
-  unstable_enableSymlinks: true,
-};
-
 module.exports = withNativeWind(config, { input: './global.css' });
