@@ -13,6 +13,7 @@ from app.services.system_mcp import SystemMCPService
 
 from app.agents.chatbot_agent import ChatbotAgent
 from app.agents.mention_agent import MentionAgent
+from app.agents.social_agent import SocialAgent
 from app.agents.unified_agent import UnifiedAgent
 from app.models.chat import ChatInput, ChatRequest, ChatResponse
 from app.models.stream import (
@@ -463,6 +464,92 @@ class ChatService:
         response_text = await agent.run(
             message=content,
             user_id=user_id,
+            session_context=session_context,
+            history=history,
+        )
+        await self._message_repo.create_message(session_id, "assistant", response_text)
+
+    async def run_social_mention_assist(
+        self,
+        *,
+        user_id: str,
+        session_id: str,
+        post_id: str,
+        comment_id: str,
+        content: str,
+        mention_command: str,
+        post_context: str,
+        thread_context: str,
+    ) -> None:
+        """Handle social mention-in-comment flow and publish AI reply."""
+        rows = await self._message_repo.find_by_session(session_id)
+        history = self._to_langchain_history(rows)
+
+        session_context = (
+            "\n\n## Active Social Context\n"
+            f"You are assisting on post ID: `{post_id}`.\n"
+            f"Mentioned comment ID: `{comment_id}`.\n"
+        )
+
+        tools: list[BaseTool] = []
+        if self._tool_service:
+            tools = await self._tool_service.assemble_tools(user_id, [], False)
+
+        if self._llm is None:
+            raise ValueError("LLM is required for SocialAgent")
+
+        agent = SocialAgent(llm=self._llm, tools=tools)
+
+        await self._message_repo.create_message(session_id, "user", content)
+        response_text = await agent.run_mention_in_comment(
+            message=content,
+            user_id=user_id,
+            post_id=post_id,
+            comment_id=comment_id,
+            mention_command=mention_command,
+            post_context=post_context,
+            thread_context=thread_context,
+            session_context=session_context,
+            history=history,
+        )
+        await self._message_repo.create_message(session_id, "assistant", response_text)
+
+    async def run_social_post_command_assist(
+        self,
+        *,
+        user_id: str,
+        session_id: str,
+        post_id: str,
+        command_content: str,
+        post_context: str,
+        thread_context: str,
+    ) -> None:
+        """Handle social post-command flow and publish AI reply."""
+        rows = await self._message_repo.find_by_session(session_id)
+        history = self._to_langchain_history(rows)
+
+        session_context = (
+            "\n\n## Active Social Context\n"
+            f"You are assisting on post ID: `{post_id}`.\n"
+            "The user intentionally posted an AI command.\n"
+        )
+
+        tools: list[BaseTool] = []
+        if self._tool_service:
+            tools = await self._tool_service.assemble_tools(user_id, [], False)
+
+        if self._llm is None:
+            raise ValueError("LLM is required for SocialAgent")
+
+        agent = SocialAgent(llm=self._llm, tools=tools)
+
+        await self._message_repo.create_message(session_id, "user", command_content)
+        response_text = await agent.run_post_command(
+            message=command_content,
+            user_id=user_id,
+            post_id=post_id,
+            post_context=post_context,
+            thread_context=thread_context,
             session_context=session_context,
             history=history,
         )
