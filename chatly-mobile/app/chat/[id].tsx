@@ -60,6 +60,7 @@ export default function ChatScreen() {
   const flatListRef = useRef<FlatList>(null);
   // Guard: don't trigger loadMore until the initial page has fully loaded
   const initialLoadDoneRef = useRef(false);
+  const shouldScrollToLatestRef = useRef(false);
 
   const {
     messagesByConversation,
@@ -132,11 +133,23 @@ export default function ChatScreen() {
 
   const { updateConversation } = useConversationStore();
 
+  const scrollToLatestMessage = useCallback((animated: boolean) => {
+    flatListRef.current?.scrollToOffset({ offset: 0, animated });
+    shouldScrollToLatestRef.current = false;
+  }, []);
+
+  const handleMessagesContentSizeChange = useCallback(() => {
+    if (shouldScrollToLatestRef.current) {
+      scrollToLatestMessage(true);
+    }
+  }, [scrollToLatestMessage]);
+
   const handleChatEvent = useCallback(
     (event: ChatEvent) => {
       if (!conversationId) return;
       switch (event.action) {
         case 'SEND':
+          shouldScrollToLatestRef.current = true;
           addMessage(conversationId, event.message);
 
           // Mark as seen if not from current user
@@ -154,8 +167,6 @@ export default function ChatScreen() {
             },
           });
 
-          // offset 0 = visual bottom in inverted FlatList (newest messages)
-          flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
           break;
         case 'EDIT':
         case 'RECALL':
@@ -432,7 +443,7 @@ export default function ChatScreen() {
       if (sent) {
         updateConversation(conversationId, { lastMessage: optimisticLastMsg });
         setReplyingTo(null);
-        flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
+        scrollToLatestMessage(true);
         return;
       }
 
@@ -448,6 +459,7 @@ export default function ChatScreen() {
           poll,
           location,
         });
+        shouldScrollToLatestRef.current = true;
         addMessage(conversationId, res.result);
         updateConversation(conversationId, {
           lastMessage: {
@@ -458,12 +470,19 @@ export default function ChatScreen() {
           },
         });
         setReplyingTo(null);
-        flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
       } catch (error) {
         Alert.alert('Error', 'Could not send message. Please try again.');
       }
     },
-    [conversationId, user, replyingTo, wsSendMessage, addMessage, updateConversation]
+    [
+      conversationId,
+      user,
+      replyingTo,
+      wsSendMessage,
+      addMessage,
+      updateConversation,
+      scrollToLatestMessage,
+    ]
   );
 
   // Message actions
@@ -980,6 +999,7 @@ export default function ChatScreen() {
             }}
             onEndReached={loadMore}
             onEndReachedThreshold={0.5}
+            onContentSizeChange={handleMessagesContentSizeChange}
             inverted
             // Prevent scroll position from jumping when older messages are appended
             maintainVisibleContentPosition={{ minIndexForVisible: 0 }}

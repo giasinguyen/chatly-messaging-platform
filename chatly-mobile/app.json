@@ -3,6 +3,7 @@
     "name": "chatly-mobile",
     "slug": "chatly-mobile",
     "version": "1.0.0",
+    "newArchEnabled": true,
     "scheme": "chatly-mobile",
     "platforms": [
       "ios",
@@ -28,7 +29,9 @@
           }
         }
       ],
-      "expo-font"
+      "expo-font",
+      "expo-asset",
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true,
