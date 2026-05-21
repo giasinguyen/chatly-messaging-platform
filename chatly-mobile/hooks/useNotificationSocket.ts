@@ -37,12 +37,6 @@ export function useNotificationSocket() {
         if (__DEV__) console.log('Event type:', event.notification?.type);
         if (__DEV__) console.log('Reference ID (Conv ID):', event.notification?.referenceId);
         
-        // Update unread count in store
-        if (typeof event.unreadCount === 'number') {
-          if (__DEV__) console.log('Updating global unread count to:', event.unreadCount);
-          setUnreadCount(event.unreadCount);
-        }
-
         if (event.notification) {
           if (__DEV__) console.log('Adding notification to store:', event.notification.id);
           addNotification(event.notification);
@@ -76,6 +70,11 @@ export function useNotificationSocket() {
           } else {
             if (__DEV__) console.log('User is in this chat, skipping banner');
           }
+        }
+
+        if (typeof event.unreadCount === 'number') {
+          if (__DEV__) console.log('Updating global unread count to:', event.unreadCount);
+          setUnreadCount(event.unreadCount);
         }
       });
 

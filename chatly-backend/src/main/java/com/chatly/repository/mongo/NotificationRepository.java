@@ -6,13 +6,19 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.mongodb.repository.MongoRepository;
 
+import java.util.Collection;
 import java.util.Optional;
 
 public interface NotificationRepository extends MongoRepository<Notification, String> {
 
     Page<Notification> findByReceiverIdOrderByCreatedAtDesc(String receiverId, Pageable pageable);
 
+    Page<Notification> findByReceiverIdAndTypeInOrderByCreatedAtDesc(
+            String receiverId, Collection<NotificationType> types, Pageable pageable);
+
     long countByReceiverIdAndReadFalse(String receiverId);
+
+    long countByReceiverIdAndTypeInAndReadFalse(String receiverId, Collection<NotificationType> types);
 
     long countByReceiverIdAndTypeAndReferenceIdAndReadFalse(
             String receiverId, NotificationType type, String referenceId);
