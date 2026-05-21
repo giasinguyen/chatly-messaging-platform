@@ -36,6 +36,7 @@ export function useUsernameProfilePage() {
     const [savedPosts, setSavedPosts] = useState<Post[]>([]);
     const [loadingSaved, setLoadingSaved] = useState(false);
     const [loading, setLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
     const [actionLoading, setActionLoading] = useState(false);
     const [confirmDialog, setConfirmDialog] = useState<ConfirmDialogType | null>(null);
     const [activeTab, setActiveTab] = useState<ProfileTab>("posts");
@@ -49,6 +50,7 @@ export function useUsernameProfilePage() {
         if (!username) return;
 
         setLoading(true);
+        setLoadError(null);
         try {
             const searchRes = await userService.search(username, 0, 10);
             const foundUser = searchRes.result?.items.find(
@@ -84,6 +86,7 @@ export function useUsernameProfilePage() {
             setHasActiveStories((storiesRes.result?.length ?? 0) > 0);
             setUserStories(storiesRes.result ?? []);
         } catch {
+            setLoadError("Could not load profile information.");
             toast.error("Could not load profile");
         } finally {
             setLoading(false);
@@ -343,6 +346,7 @@ export function useUsernameProfilePage() {
         loadingPosts,
         savedPosts,
         loadingSaved,
+        loadError,
         loading,
         actionLoading,
         confirmDialog,
@@ -363,6 +367,7 @@ export function useUsernameProfilePage() {
         setConfirmDialog,
         setShowFriendsModal,
         loadPosts,
+        loadData,
         handleTabChange,
         handleOpenFriends,
         handleSendFriendRequest,

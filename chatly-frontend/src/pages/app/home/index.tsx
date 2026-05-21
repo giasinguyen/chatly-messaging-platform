@@ -16,6 +16,8 @@ import { socketService } from "@/services/socket.service";
 import { useFeedStore } from "@/store/feed.store";
 import { storyService } from "@/services/story.service";
 import type { Story } from "@/types/story";
+import { SocialErrorBoundary } from "@/features/social/components/SocialErrorBoundary";
+import { HomeRightSidebar } from "@/pages/app/home/components/HomeRightSidebar";
 
 export default function HomePage() {
     const { user } = useAuthStore();
@@ -141,7 +143,11 @@ export default function HomePage() {
     }, []);
 
     return (
-        <div className="w-full h-full flex justify-center overflow-y-auto bg-background relative hide-scrollbar">
+        <SocialErrorBoundary
+            title="Home feed is unavailable"
+            message="This social feed failed to render. Try again."
+        >
+            <div className="w-full h-full flex justify-center overflow-y-auto bg-background relative hide-scrollbar">
             {/* Central Feed Area */}
             <div className="w-full max-w-2xl px-4 py-8 flex flex-col gap-3 pb-32">
                 {/* Stories Carousel */}
@@ -234,132 +240,11 @@ export default function HomePage() {
                 </div>
             </div>
 
-            {/* Right Sidebar (Suggested & Profile) */}
-            <aside className="w-[400px] flex-shrink-0 pt-8 pr-8 pl-6 hidden xl:block sticky top-0 h-screen overflow-y-auto hide-scrollbar">
-                {/* Current User Snippet */}
-                <div className="flex items-center justify-between mb-8 bg-card p-3 rounded-xl shadow-sm border border-border">
-                    <div
-                        className="flex items-center gap-3 cursor-pointer"
-                        onClick={() => navigate(`/u/${user?.username}`)}
-                    >
-                        <div
-                            className={cn(
-                                "p-[2px] rounded-full",
-                                hasMyStories
-                                    ? "bg-gradient-to-tr from-brand via-blue-500 to-cyan-400"
-                                    : "bg-transparent",
-                            )}
-                        >
-                            <div className="bg-background p-[2px] rounded-full">
-                                <Avatar className="w-12 h-12">
-                                    <AvatarImage
-                                        src={user?.avatarUrl}
-                                        alt={user?.displayName || "Your Profile"}
-                                        className="object-cover"
-                                    />
-                                    <AvatarFallback className="bg-linear-to-tr from-pink-400 to-indigo-500 text-white text-sm font-semibold">
-                                        {user?.displayName?.charAt(0)?.toUpperCase() ?? "U"}
-                                    </AvatarFallback>
-                                </Avatar>
-                            </div>
-                        </div>
-                        <div>
-                            <h4 className="font-semibold text-foreground">
-                                {user?.displayName || "current_user"}
-                            </h4>
-                            <p className="text-[13px] text-muted-foreground">
-                                {user?.email || "user@example.com"}
-                            </p>
-                        </div>
-                    </div>
-                    <button className="text-brand font-semibold text-[12px] hover:text-brand-dark transition-colors bg-transparent border-none">
-                        Switch
-                    </button>
-                </div>
-
-                {/* Suggestions Header */}
-                <div className="flex items-center justify-between mb-4">
-                    <h3 className="font-semibold text-muted-foreground">
-                        Suggested for you
-                    </h3>
-                    <button className="text-foreground hover:text-brand font-semibold text-[12px] transition-colors">
-                        See All
-                    </button>
-                </div>
-
-                {/* Suggestions List */}
-                <div className="flex flex-col gap-4">
-                    {/* Suggestion Item */}
-                    <div className="flex items-center justify-between group">
-                        <div className="flex items-center gap-3 cursor-pointer">
-                            <img
-                                alt="Suggestion"
-                                className="w-10 h-10 rounded-full object-cover group-hover:scale-105 transition-transform"
-                                src="https://lh3.googleusercontent.com/aida-public/AB6AXuCtQbmCncraFATDL2rxq57BOBFRSyd3MM8ggKQ3XyiZGjSA_rQAnnvxPVB6HrHTQzuTMv1k8275EYSSs6hbO79oyWmM6r_Lu2hkiNf7Ls50D0A8a_Pjnok0z2jyuLVeGd7HBdT43zHFPYChfO08rlcS5ZHYcEcYN2Mws9LzVSvITUKouS3ZOb6HkvIxcnWCj2mxpcbZW5YMEB1AWQlOjsvjUHledXgfndVs8w9QU28RsbMTFDZht_nOpeowT1XFHS-slxGTHcFTDKU"
-                            />
-                            <div>
-                                <h4 className="font-semibold text-foreground">
-                                    lisa.style
-                                </h4>
-                                <p className="text-[12px] text-muted-foreground truncate w-32">
-                                    Followed by sarah.j + 2 more
-                                </p>
-                            </div>
-                        </div>
-                        <button className="text-brand font-semibold text-[12px] hover:text-brand-dark transition-colors">
-                            Follow
-                        </button>
-                    </div>
-
-                    {/* Suggestion Item */}
-                    <div className="flex items-center justify-between group">
-                        <div className="flex items-center gap-3 cursor-pointer">
-                            <img
-                                alt="Suggestion"
-                                className="w-10 h-10 rounded-full object-cover group-hover:scale-105 transition-transform"
-                                src="https://lh3.googleusercontent.com/aida-public/AB6AXuCr8ocsQzubPBaF5JcApmNLdblgg5aNPduaOqmWc9OgoTL1JURALgMri90c1BR2h6DDIXodl0dhfiKonU-t7HF2l3T8X5VQTygdJv75Qe3hzyb1nbo6SqdCQS7B9AdXg1ENvJNf_KPpRy0XfEfyX-JHKpOty-AHyaU9n1i-cGTqXs_HpeKjhgft83bZMqt9e4UI93aVaZb3VEuzV4N8nzgBk5cBdZ3tkwQo4rzcuSho2OWhm_TPMsJQBF6adK05CuBS-8Hjg7HlQLI"
-                            />
-                            <div>
-                                <h4 className="font-semibold text-foreground">
-                                    dave_travels
-                                </h4>
-                                <p className="text-[12px] text-muted-foreground truncate w-32">
-                                    New to ChatLy
-                                </p>
-                            </div>
-                        </div>
-                        <button className="text-brand font-semibold text-[12px] hover:text-brand-dark transition-colors">
-                            Follow
-                        </button>
-                    </div>
-
-                    {/* Suggestion Item */}
-                    <div className="flex items-center justify-between group">
-                        <div className="flex items-center gap-3 cursor-pointer">
-                            <img
-                                alt="Suggestion"
-                                className="w-10 h-10 rounded-full object-cover group-hover:scale-105 transition-transform"
-                                src="https://lh3.googleusercontent.com/aida-public/AB6AXuDWXD73dDQiY-5BdmjbK7M8JU_533AFMvS0dCbSUPWVMvl1pJsj8-qbKgIzBv9QdirT7Y2QSaJi5tUVLL4dKlWVwtR1xt2HTDFeSVeVw19w84VuDS47Rf659j2IUh_ART6HTcFYl4CYkBvi35EDT7pxYck-sA5hcknUgjfd5ZmREd_iozO5q1T5d2TgwA5Pbn4bY90b7xgaqov2W2mFd2qnPkOquRY1qpG6ikAefVc2Qsr-IAKWi9KNx6CJHMuKvAH1G0DrREttu_w"
-                            />
-                            <div>
-                                <h4 className="font-semibold text-foreground">
-                                    photo_art
-                                </h4>
-                                <p className="text-[12px] text-muted-foreground truncate w-32">
-                                    Suggested for you
-                                </p>
-                            </div>
-                        </div>
-                        <button className="text-brand font-semibold text-[12px] hover:text-brand-dark transition-colors">
-                            Follow
-                        </button>
-                    </div>
-                </div>
-
-                <p className="mt-4 text-[11px] text-muted-foreground text-center">
-                    © 2027 ChatLy - The Challenger Team
-                </p>
-            </aside>
+            <HomeRightSidebar
+                user={user}
+                hasMyStories={hasMyStories}
+                onOpenProfile={() => navigate(`/u/${user?.username}`)}
+            />
 
             <CreateOptionsModal
                 isOpen={showOptionsModal}
@@ -385,7 +270,7 @@ export default function HomePage() {
                 onClose={() => setShowStoryModal(false)}
             />
 
-            {storyViewerIndex !== null && groupedStories.length > 0 && (
+                {storyViewerIndex !== null && groupedStories.length > 0 && (
                 <StoryViewer
                     groups={groupedStories}
                     initialGroupIndex={storyViewerIndex}
@@ -393,6 +278,7 @@ export default function HomePage() {
                     onStoryViewed={handleStoryViewed}
                 />
             )}
-        </div>
+            </div>
+        </SocialErrorBoundary>
     );
 }

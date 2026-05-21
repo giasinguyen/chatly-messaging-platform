@@ -7,6 +7,7 @@ import { ProfileHeader } from "./components/ProfileHeader";
 import { ProfilePostGrid } from "./components/ProfilePostGrid";
 import { ProfileTabs } from "./components/ProfileTabs";
 import { useUsernameProfilePage } from "./hooks/useUsernameProfilePage";
+import { SocialErrorBoundary } from "@/features/social/components/SocialErrorBoundary";
 
 export default function UsernameProfilePage() {
     const {
@@ -24,6 +25,7 @@ export default function UsernameProfilePage() {
         loadingPosts,
         savedPosts,
         loadingSaved,
+        loadError,
         loading,
         actionLoading,
         confirmDialog,
@@ -44,6 +46,7 @@ export default function UsernameProfilePage() {
         setConfirmDialog,
         setShowFriendsModal,
         loadPosts,
+        loadData,
         handleTabChange,
         handleOpenFriends,
         handleSendFriendRequest,
@@ -64,6 +67,22 @@ export default function UsernameProfilePage() {
         );
     }
 
+    if (loadError && !profile) {
+        return (
+            <div className="flex h-full w-full items-center justify-center bg-background px-6">
+                <div className="w-full max-w-md rounded-2xl border border-dashed border-border bg-card/70 p-6 text-center">
+                    <p className="text-sm font-semibold text-foreground">
+                        Could not load profile
+                    </p>
+                    <p className="mt-1 text-sm text-muted-foreground">{loadError}</p>
+                    <Button className="mt-4" variant="outline" onClick={() => void loadData()}>
+                        Try again
+                    </Button>
+                </div>
+            </div>
+        );
+    }
+
     if (!profile) {
         return (
             <div className="flex h-full w-full items-center justify-center bg-background">
@@ -75,7 +94,11 @@ export default function UsernameProfilePage() {
     }
 
     return (
-        <div className="h-full w-full overflow-y-auto bg-background hide-scrollbar">
+        <SocialErrorBoundary
+            title="Profile is unavailable"
+            message="This profile section failed to render. Try again."
+        >
+            <div className="h-full w-full overflow-y-auto bg-background hide-scrollbar">
             <header className="sticky top-0 z-40 flex w-full items-center justify-between border-b border-border bg-background/80 px-6 py-3 font-inter text-foreground shadow-sm backdrop-blur-md antialiased md:hidden">
                 <div className="text-2xl font-black tracking-tight text-foreground">
                     {displayUsername}
@@ -219,6 +242,7 @@ export default function UsernameProfilePage() {
                 friends={friends}
                 targetUserId={targetUserId}
             />
-        </div>
+            </div>
+        </SocialErrorBoundary>
     );
 }
