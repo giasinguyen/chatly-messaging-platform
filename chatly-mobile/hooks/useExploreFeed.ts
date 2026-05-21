@@ -19,6 +19,8 @@ function mergeUniquePosts(existing: Post[], incoming: Post[]): Post[] {
 export function useExploreFeed() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [selectedCategory, setSelectedCategory] = useState(EXPLORE_CATEGORIES[0].label);
+  const [selectedHashtag, setSelectedHashtag] = useState<string | null>(null);
+  const [trendingHashtags, setTrendingHashtags] = useState<string[]>([]);
   const [searchInput, setSearchInput] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
   const [exploreCursor, setExploreCursor] = useState<string | null>(null);
@@ -37,7 +39,20 @@ export function useExploreFeed() {
   );
   const trimmedQuery = debouncedQuery.trim();
   const isSearchActive = trimmedQuery.length > 0;
-  const isHashtagActive = !isSearchActive && activeHashtag !== null;
+  const normalizeHashtag = (value: string | null): string | null => {
+    if (!value) {
+      return null;
+    }
+    const normalized = value.trim().replace(/^#/, '').toLowerCase();
+    return normalized.length > 0 ? normalized : null;
+  };
+  const normalizedSelectedHashtag = normalizeHashtag(selectedHashtag);
+  const categoryHashtag =
+    activeHashtag === 'trending'
+      ? normalizeHashtag(trendingHashtags[0] ?? null)
+      : normalizeHashtag(activeHashtag);
+  const effectiveHashtag = normalizedSelectedHashtag ?? categoryHashtag;
+  const isHashtagActive = !isSearchActive && effectiveHashtag !== null;
   const hasMore = isSearchActive || isHashtagActive ? hasMoreSearch : hasMoreExplore;
 
   const setLoadingForMode = (mode: ExploreLoadMode, value: boolean) => {
@@ -110,13 +125,13 @@ export function useExploreFeed() {
       if (isSearchActive) {
         await loadSearchResults(trimmedQuery, null, 0, mode);
       } else if (isHashtagActive) {
-        await loadSearchResults(null, activeHashtag, 0, mode);
+        await loadSearchResults(null, effectiveHashtag, 0, mode);
       } else {
         await loadExploreFeed(null, mode);
       }
     },
     [
-      activeHashtag,
+      effectiveHashtag,
       isHashtagActive,
       isSearchActive,
       loadExploreFeed,
@@ -134,6 +149,30 @@ export function useExploreFeed() {
     void loadFirstPage('initial');
   }, [loadFirstPage]);
 
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadTrendingHashtags = async () => {
+      try {
+        const response = await postService.getTrendingHashtags(10);
+        if (!isMounted || response.code !== 1000 || !response.result) {
+          return;
+        }
+        setTrendingHashtags(response.result);
+      } catch {
+        if (isMounted) {
+          setTrendingHashtags([]);
+        }
+      }
+    };
+
+    void loadTrendingHashtags();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   const handleRefresh = useCallback(async () => {
     await loadFirstPage('refresh');
   }, [loadFirstPage]);
@@ -149,7 +188,7 @@ export function useExploreFeed() {
     }
 
     if (isHashtagActive) {
-      void loadSearchResults(null, activeHashtag, searchPage + 1, 'append');
+      void loadSearchResults(null, effectiveHashtag, searchPage + 1, 'append');
       return;
     }
 
@@ -157,7 +196,7 @@ export function useExploreFeed() {
       void loadExploreFeed(exploreCursor, 'append');
     }
   }, [
-    activeHashtag,
+    effectiveHashtag,
     exploreCursor,
     hasMore,
     isHashtagActive,
@@ -175,18 +214,33 @@ export function useExploreFeed() {
     setSearchInput('');
   }, []);
 
+  const handleSelectCategory = useCallback((label: string) => {
+    setSelectedCategory(label);
+    setSelectedHashtag(null);
+  }, []);
+
+  const handleSelectTrendingHashtag = useCallback((hashtag: string) => {
+    setSelectedCategory(EXPLORE_CATEGORIES[0].label);
+    setSelectedHashtag(hashtag);
+    setSearchInput('');
+  }, []);
+
   return {
     posts,
     selectedCategory,
+    selectedHashtag,
+    trendingHashtags,
     searchInput,
     isLoading,
     isRefreshing,
     isLoadingMore,
     hasMore,
     errorMessage,
-    setSelectedCategory,
+    setSelectedCategory: handleSelectCategory,
     setSearchInput,
+    setSelectedHashtag,
     handleClearSearch,
+    handleSelectTrendingHashtag,
     handleRefresh,
     handleLoadMore,
   };

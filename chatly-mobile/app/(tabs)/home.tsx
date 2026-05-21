@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef } from 'react';
 import {
   ActivityIndicator,
   FlatList,
-  Pressable,
   Text,
   View,
   type ListRenderItemInfo,
@@ -13,6 +12,11 @@ import { HomePostCard } from '@/components/social/HomePostCard';
 import { StoryViewerModal } from '@/components/social/StoryViewerModal';
 import { CreatePostModal } from '@/components/social/CreatePostModal';
 import { CreateStoryModal } from '@/components/social/CreateStoryModal';
+import {
+  HomeFeedEmptyState,
+  HomeFeedFooter,
+  HomeNewPostsBanner,
+} from '@/app/(tabs)/components/HomeFeedStates';
 import { useHomeFeed } from '@/hooks/useHomeFeed';
 import { HOME_FEED_END_REACHED_THRESHOLD } from '@/constants/feed';
 import { Colors } from '@/constants/theme';
@@ -21,61 +25,6 @@ import { useAuthStore } from '@/store/auth.store';
 import { useNotificationStore } from '@/store/notification.store';
 import type { Post } from '@/types/post';
 import type { StoryGroup } from '@/types/story';
-
-interface HomeFeedFooterProps {
-  isLoadingMore: boolean;
-  hasMorePosts: boolean;
-  postCount: number;
-}
-
-function HomeFeedFooter({ isLoadingMore, hasMorePosts, postCount }: HomeFeedFooterProps) {
-  if (isLoadingMore) {
-    return (
-      <View className="items-center pb-24 pt-4">
-        <ActivityIndicator size="small" color={Colors.cta} />
-      </View>
-    );
-  }
-
-  if (postCount > 0 && !hasMorePosts) {
-    return (
-      <View className="items-center pb-24 pt-4">
-        <Text className="text-sm text-[#6E6E73]">You are all caught up.</Text>
-      </View>
-    );
-  }
-
-  return <View className="h-24" />;
-}
-
-function HomeFeedEmptyState({ message }: { message: string | null }) {
-  return (
-    <View className="items-center px-8 py-16">
-      <Text className="text-base font-semibold text-[#1D1D1F]">
-        {message ? 'Could not load feed' : 'No posts yet'}
-      </Text>
-      <Text className="mt-1 text-center text-sm text-[#6E6E73]">
-        {message ?? 'Pull to refresh or create your first post from the plus button.'}
-      </Text>
-    </View>
-  );
-}
-
-function HomeNewPostsBanner({ count, onPress }: { count: number; onPress: () => void }) {
-  if (count === 0) {
-    return null;
-  }
-
-  return (
-    <Pressable
-      className="mx-4 mt-3 items-center rounded-full bg-[#0A7AFF] px-4 py-2 active:opacity-80"
-      onPress={onPress}>
-      <Text className="text-sm font-semibold text-white">
-        {count === 1 ? 'New post available' : `${count} new posts available`}
-      </Text>
-    </Pressable>
-  );
-}
 
 export default function HomeTabScreen() {
   const router = useRouter();
@@ -273,7 +222,9 @@ export default function HomeTabScreen() {
           onRefresh={handleRefresh}
           onEndReached={handleLoadMore}
           onEndReachedThreshold={HOME_FEED_END_REACHED_THRESHOLD}
-          ListEmptyComponent={<HomeFeedEmptyState message={feedError} />}
+          ListEmptyComponent={
+            <HomeFeedEmptyState message={feedError} onRetry={() => void handleRefresh()} />
+          }
         />
       )}
 
