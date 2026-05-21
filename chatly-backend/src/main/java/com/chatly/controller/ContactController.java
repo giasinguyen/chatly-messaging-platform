@@ -66,6 +66,13 @@ public class ContactController {
                 .build();
     }
 
+    @GetMapping("/users/{userId}")
+    ApiResponse<List<ContactResponse>> getFriendsForUser(@PathVariable UUID userId) {
+        return ApiResponse.<List<ContactResponse>>builder()
+                .result(contactService.getFriendsForUser(userId, getAuthenticatedUserId()))
+                .build();
+    }
+
     // Lọc theo trạng thái
     @GetMapping("/status/{status}")
     ApiResponse<List<ContactResponse>> getByStatus(@PathVariable ContactStatus status) {

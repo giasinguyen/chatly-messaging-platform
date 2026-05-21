@@ -12,6 +12,8 @@ import com.chatly.repository.mongo.PostReportRepository;
 import com.chatly.repository.mongo.PostRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -29,6 +31,10 @@ public class ReportService {
         Post post = postRepository.findById(request.getPostId())
                 .orElseThrow(() -> new AppException(ErrorCode.POST_NOT_FOUND));
 
+        if (postReportRepository.existsByReporterIdAndPostId(reporterId, request.getPostId())) {
+            throw new AppException(ErrorCode.REPORT_ALREADY_EXISTS);
+        }
+
         PostReport report = postReportMapper.toEntity(request);
         report.setReporterId(reporterId);
         report.setReportedUserId(post.getAuthorId());
@@ -38,5 +44,14 @@ public class ReportService {
         log.info("Post report created: id={}, postId={}, reporterId={}", saved.getId(), saved.getPostId(), reporterId);
 
         return postReportMapper.toResponse(saved);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<ReportResponse> listReports(ReportStatus status, Pageable pageable) {
+        Page<PostReport> reports = (status != null)
+                ? postReportRepository.findByStatusOrderByCreatedAtDesc(status, pageable)
+                : postReportRepository.findAllByOrderByCreatedAtDesc(pageable);
+
+        return reports.map(postReportMapper::toResponse);
     }
 }

@@ -74,7 +74,7 @@ class StoryServiceImplTest {
         when(storyRepository.findAllByUserIdInOrderByCreatedAtDesc(any()))
                 .thenReturn(List.of(
                         story("public", FOLLOWED_ID, StoryPrivacy.EVERYONE),
-                        story("followers", FOLLOWED_ID, StoryPrivacy.FOLLOWERS_ONLY),
+                        story("friends", FOLLOWED_ID, StoryPrivacy.FRIENDS_ONLY),
                         story("close", FOLLOWED_ID, StoryPrivacy.CLOSE_FRIENDS),
                         story("only-me", FOLLOWED_ID, StoryPrivacy.ONLY_ME),
                         story("own-only-me", REQUESTER_ID, StoryPrivacy.ONLY_ME)
@@ -84,7 +84,7 @@ class StoryServiceImplTest {
 
         assertThat(result)
                 .extracting(StoryResponse::getId)
-                .containsExactly("public", "followers", "close", "own-only-me");
+                .containsExactly("public", "friends", "close", "own-only-me");
     }
 
     @Test
