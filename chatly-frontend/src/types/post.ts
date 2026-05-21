@@ -2,6 +2,8 @@ export type PostVisibility = "PUBLIC" | "FOLLOWERS_ONLY" | "FRIENDS_ONLY" | "ONL
 
 export type ReactionType = "LIKE" | "LOVE" | "HAHA" | "WOW" | "SAD" | "ANGRY";
 
+export type ReportReason = "SPAM" | "HARASSMENT" | "INAPPROPRIATE" | "OTHER";
+
 export interface PostReactionSummary {
     type: ReactionType;
     count: number;
@@ -40,6 +42,25 @@ export interface UpdatePostRequest {
 
 export interface ReactToPostRequest {
     type: ReactionType;
+}
+
+export interface ReportPostRequest {
+    reason: ReportReason;
+    description?: string;
+}
+
+export type ReportStatus = "PENDING" | "REVIEWED" | "DISMISSED" | "RESOLVED";
+
+export interface ReportResponse {
+    id: string;
+    postId: string;
+    reporterId: string;
+    reportedUserId: string;
+    reason: ReportReason;
+    description?: string;
+    status: ReportStatus;
+    createdAt: string;
+    updatedAt?: string;
 }
 
 export interface PostPage {

@@ -1,5 +1,5 @@
 import { memo, useEffect, useMemo, useRef, useState } from "react";
-import { MoreHorizontal, Heart, MessageCircle, Share2, Bookmark, PenLine, Trash2, ChevronLeft, ChevronRight, Smile, CornerUpLeft, Image as ImageIcon, X, Globe, Users, Lock } from "lucide-react";
+import { MoreHorizontal, Heart, MessageCircle, Share2, Bookmark, PenLine, Trash2, ChevronLeft, ChevronRight, Smile, CornerUpLeft, Image as ImageIcon, X, Globe, Users, Lock, Flag } from "lucide-react";
 import { toast } from "sonner";
 import Picker from "@emoji-mart/react";
 import data from "@emoji-mart/data";
@@ -25,9 +25,10 @@ import { postService } from "@/services/post.service";
 import { fileService } from "@/services/file.service";
 import { usePostStore } from "@/store/post.store";
 import { useAuthStore } from "@/store/auth.store";
-import type { Post, PostComment, PostVisibility, ReactionType } from "@/types/post";
+import type { Post, PostComment, PostVisibility, ReactionType, ReportPostRequest } from "@/types/post";
 import { cn } from "@/lib/utils";
 import { SharePostDialog } from "./SharePostDialog";
+import { ReportPostDialog } from "./ReportPostDialog";
 import { MediaUploadZone } from "./MediaUploadZone";
 import { ImageLightbox } from "@/pages/app/chat/components/ImageLightbox";
 import type { LightboxImage } from "@/pages/app/chat/components/messageList.utils";
@@ -131,6 +132,8 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
     const [showHeartBurst, setShowHeartBurst] = useState(false);
     const [isActionsOpen, setIsActionsOpen] = useState(false);
     const [isShareOpen, setIsShareOpen] = useState(false);
+    const [isReportOpen, setIsReportOpen] = useState(false);
+    const [isSubmittingReport, setIsSubmittingReport] = useState(false);
     const [showReplyBar, setShowReplyBar] = useState(true);
     const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
     const [currentMediaIndex, setCurrentMediaIndex] = useState(0);
@@ -404,6 +407,23 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
 
     const handleShareUpdated = (updatedPost: Post) => {
         updatePost(post.id, { shareCount: updatedPost.shareCount });
+    };
+
+    const handleSubmitReport = async (payload: ReportPostRequest) => {
+        if (isSubmittingReport) return;
+        setIsSubmittingReport(true);
+        try {
+            const res = await postService.reportPost(post.id, payload);
+            if (res.code !== 1000) {
+                throw new Error(res.message ?? "Could not submit report.");
+            }
+            setIsReportOpen(false);
+            toast.success("Report submitted. Thanks for helping keep Chatly safe.");
+        } catch {
+            toast.error("Could not submit report.");
+        } finally {
+            setIsSubmittingReport(false);
+        }
     };
 
     const handleEdit = () => {
@@ -824,6 +844,17 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
                             >
                                 <Bookmark className="h-4 w-4" />
                                 {post.savedByMe ? "Unsave" : "Save"}
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setIsActionsOpen(false);
+                                    setIsReportOpen(true);
+                                }}
+                                className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm text-foreground hover:bg-muted"
+                            >
+                                <Flag className="h-4 w-4" />
+                                Report
                             </button>
                             {currentUserId === post.authorId && (
                                 <button
@@ -1292,6 +1323,13 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
                 open={isShareOpen}
                 onOpenChange={setIsShareOpen}
                 onShared={handleShareUpdated}
+            />
+
+            <ReportPostDialog
+                open={isReportOpen}
+                isSubmitting={isSubmittingReport}
+                onOpenChange={setIsReportOpen}
+                onSubmit={handleSubmitReport}
             />
 
             {lightboxIndex !== null && lightboxImages[lightboxIndex] && (

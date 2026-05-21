@@ -10,6 +10,9 @@ import type {
     UpdatePostRequest,
     ReactToPostRequest,
     CreatePostCommentRequest,
+    ReportPostRequest,
+    ReportResponse,
+    ReactionType,
 } from "@/types/post";
 
 export const postService = {
@@ -96,6 +99,17 @@ export const postService = {
     sharePost: async (postId: string): Promise<ApiResponse<Post>> => {
         const response = await axiosClient.post<ApiResponse<Post>>(
             `/api/posts/${postId}/share`,
+        );
+        return response.data;
+    },
+
+    reportPost: async (
+        postId: string,
+        payload: ReportPostRequest,
+    ): Promise<ApiResponse<ReportResponse>> => {
+        const response = await axiosClient.post<ApiResponse<ReportResponse>>(
+            "/api/reports",
+            { postId, ...payload },
         );
         return response.data;
     },

@@ -3,7 +3,7 @@ import { Alert } from 'react-native';
 import { HOME_FEED_PAGE_SIZE } from '@/constants/feed';
 import { postService } from '@/services/post.service';
 import { storyService } from '@/services/story.service';
-import type { Post, PostComment, PostReactionSummary } from '@/types/post';
+import type { Post, PostComment, PostReactionSummary, ReportPostRequest } from '@/types/post';
 import type { StoryGroup, StoryResponse } from '@/types/story';
 import { getApiErrorMessage } from '@/utils/errorHandler';
 
@@ -289,6 +289,22 @@ export function useHomeFeed() {
     [showError]
   );
 
+  const handleReportPost = useCallback(
+    async (postId: string, payload: ReportPostRequest) => {
+      try {
+        const response = await postService.reportPost(postId, payload);
+        if (response.code !== 1000) {
+          throw new Error(response.message ?? 'Could not submit report.');
+        }
+        Alert.alert('Report submitted', 'Thanks for helping keep Chatly safe.');
+      } catch (error: unknown) {
+        showError(error, 'Could not submit report.');
+        throw error;
+      }
+    },
+    [showError]
+  );
+
   const handleAddComment = useCallback(
     async (postId: string, content: string, mediaUrls?: string[], parentCommentId?: string) => {
       try {
@@ -435,6 +451,7 @@ export function useHomeFeed() {
     handleSavePost,
     handleUnsavePost,
     handleDeletePost,
+    handleReportPost,
     handleAddComment,
     handleLikeComment,
     handleUnlikeComment,

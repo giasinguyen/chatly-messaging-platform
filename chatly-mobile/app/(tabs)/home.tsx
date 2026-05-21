@@ -112,6 +112,7 @@ export default function HomeTabScreen() {
     handleSavePost,
     handleUnsavePost,
     handleDeletePost,
+    handleReportPost,
     handleAddComment,
     handleLikeComment,
     handleUnlikeComment,
@@ -186,6 +187,7 @@ export default function HomeTabScreen() {
         onUnsavePost={handleUnsavePost}
         onDeletePost={handleDeletePost}
         onEditPost={handleEditPost}
+        onReportPost={handleReportPost}
         onAddComment={handleAddComment}
         onLikeComment={(commentId, reactionType) =>
           void handleLikeComment(item.id, commentId, reactionType)
@@ -203,6 +205,7 @@ export default function HomeTabScreen() {
       handleDoubleTapPostLike,
       handleEditPost,
       handleLikeComment,
+      handleReportPost,
       handleSavePost,
       handleTogglePostLike,
       handleUnlikeComment,

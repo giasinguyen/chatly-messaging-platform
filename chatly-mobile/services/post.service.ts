@@ -9,6 +9,8 @@ import type {
   ReactToPostRequest,
   PostComment,
   CreateCommentRequest,
+  ReportPostRequest,
+  ReportResponse,
 } from '@/types/post';
 import { HOME_FEED_PAGE_SIZE } from '@/constants/feed';
 
@@ -101,6 +103,17 @@ export const postService = {
 
   unsavePost: async (postId: string): Promise<ApiResponse<void>> => {
     const response = await axiosClient.delete<ApiResponse<void>>(`/api/posts/${postId}/save`);
+    return response.data;
+  },
+
+  reportPost: async (
+    postId: string,
+    payload: ReportPostRequest
+  ): Promise<ApiResponse<ReportResponse>> => {
+    const response = await axiosClient.post<ApiResponse<ReportResponse>>('/api/reports', {
+      postId,
+      ...payload,
+    });
     return response.data;
   },
 
