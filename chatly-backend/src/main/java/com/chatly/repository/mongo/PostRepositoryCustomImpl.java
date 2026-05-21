@@ -12,6 +12,7 @@ import org.springframework.data.mongodb.core.aggregation.*;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.stereotype.Repository;
+import org.bson.Document;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -110,5 +111,45 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
         long total = mongoTemplate.count(new Query(combined), Post.class);
 
         return new PageImpl<>(posts, pageable, total);
+    }
+
+    @Override
+    public List<String> findTrendingHashtags(int limit) {
+        MatchOperation match = Aggregation.match(
+                Criteria.where(FIELD_VISIBILITY).is(PostVisibility.PUBLIC)
+                        .and(FIELD_IS_DELETED).is(false)
+                        .and(FIELD_HASHTAGS).exists(true).ne(List.of())
+        );
+
+        UnwindOperation unwindHashtags = Aggregation.unwind(FIELD_HASHTAGS);
+
+        GroupOperation groupByHashtag = Aggregation.group(FIELD_HASHTAGS)
+                .count().as("usageCount");
+
+        SortOperation sortByUsage = Aggregation.sort(
+                Sort.by(Sort.Direction.DESC, "usageCount")
+                        .and(Sort.by(Sort.Direction.ASC, "_id"))
+        );
+
+        LimitOperation limitOperation = Aggregation.limit(limit);
+
+        Aggregation aggregation = Aggregation.newAggregation(
+                match,
+                unwindHashtags,
+                groupByHashtag,
+                sortByUsage,
+                limitOperation
+        );
+
+        AggregationResults<Document> results = mongoTemplate.aggregate(
+                aggregation,
+                "posts",
+                Document.class
+        );
+
+        return results.getMappedResults().stream()
+                .map(document -> document.getString("_id"))
+                .filter(hashtag -> hashtag != null && !hashtag.isBlank())
+                .toList();
     }
 }

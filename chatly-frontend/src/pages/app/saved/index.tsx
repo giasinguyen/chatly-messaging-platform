@@ -7,6 +7,7 @@ import { PostCardSkeleton } from "@/pages/app/feed/components/PostCardSkeleton";
 import { SAVED_POSTS_PAGE_SIZE } from "@/constants/feed";
 import { postService } from "@/services/post.service";
 import type { Post } from "@/types/post";
+import { SocialErrorBoundary } from "@/features/social/components/SocialErrorBoundary";
 
 const INITIAL_PAGE = 0;
 
@@ -83,8 +84,16 @@ export default function SavedPage() {
         void loadSavedPosts(page + 1);
     };
 
+    const handleRetryInitialLoad = () => {
+        void loadSavedPosts(INITIAL_PAGE);
+    };
+
     return (
-        <div className="h-full w-full overflow-y-auto bg-background">
+        <SocialErrorBoundary
+            title="Saved posts are unavailable"
+            message="This section failed to render. Try again."
+        >
+            <div className="h-full w-full overflow-y-auto bg-background">
             <main className="mx-auto flex w-full max-w-2xl flex-col gap-4 px-4 py-8 pb-32">
                 <header className="flex items-center gap-3">
                     <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-brand/10 text-brand">
@@ -114,6 +123,15 @@ export default function SavedPage() {
                         <p className="mt-1 text-sm text-muted-foreground">
                             {error ?? "Save posts from your feed to find them here later."}
                         </p>
+                        {error && (
+                            <Button
+                                variant="outline"
+                                className="mt-4"
+                                onClick={handleRetryInitialLoad}
+                            >
+                                Try again
+                            </Button>
+                        )}
                     </div>
                 ) : (
                     <div className="flex flex-col gap-4">
@@ -141,6 +159,7 @@ export default function SavedPage() {
                     </div>
                 )}
             </main>
-        </div>
+            </div>
+        </SocialErrorBoundary>
     );
 }

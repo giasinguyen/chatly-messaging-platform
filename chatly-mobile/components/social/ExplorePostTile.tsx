@@ -1,28 +1,57 @@
+import { useEffect, useMemo, useState } from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
+import { useRouter } from 'expo-router';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import type { Post } from '@/types/post';
 import { Colors } from '@/constants/theme';
+import { normalizeMediaUrl } from '@/utils/mediaUrl';
 
 interface ExplorePostTileProps {
   post: Post;
 }
 
 export function ExplorePostTile({ post }: ExplorePostTileProps) {
-  const hasMedia = post.mediaUrls.length > 0;
+  const router = useRouter();
+  const [hasImageError, setHasImageError] = useState(false);
+
+  const primaryMediaUrl = useMemo(() => {
+    return normalizeMediaUrl(post.mediaUrls?.[0]);
+  }, [post.mediaUrls]);
+
+  const hasMedia = !!primaryMediaUrl && !hasImageError;
   const isAlbum = post.mediaUrls.length > 1;
+  const fallbackText =
+    post.content?.trim() ||
+    (post.hashtags.length > 0 ? `#${post.hashtags[0]}` : 'Open post');
+
+  const handleOpenPost = () => {
+    router.push(`/post/${post.id}`);
+  };
+
+  useEffect(() => {
+    setHasImageError(false);
+  }, [primaryMediaUrl]);
 
   return (
     <View className="w-1/3 p-0.5">
       <TouchableOpacity
         className="aspect-square overflow-hidden rounded-lg bg-[#E5E5EA]"
-        activeOpacity={0.85}>
+        activeOpacity={0.85}
+        onPress={handleOpenPost}
+      >
         {hasMedia ? (
-          <Image source={{ uri: post.mediaUrls[0] }} contentFit="cover" className="h-full w-full" />
+          <Image
+            source={{ uri: primaryMediaUrl }}
+            contentFit="cover"
+            style={{ width: '100%', height: '100%' }}
+            transition={120}
+            onError={() => setHasImageError(true)}
+          />
         ) : (
           <View className="h-full w-full items-center justify-center px-2">
             <Text numberOfLines={5} className="text-center text-xs text-[#6E6E73]">
-              {post.content}
+              {fallbackText}
             </Text>
           </View>
         )}

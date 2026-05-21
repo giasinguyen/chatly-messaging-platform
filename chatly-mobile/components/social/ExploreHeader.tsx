@@ -14,20 +14,26 @@ import { Colors } from '@/constants/theme';
 
 interface ExploreHeaderProps {
   selectedCategory: string;
+  selectedHashtag: string | null;
+  trendingHashtags: string[];
   searchInput: string;
   onBack: () => void;
   onChangeSearch: (value: string) => void;
   onClearSearch: () => void;
   onSelectCategory: (label: string) => void;
+  onSelectTrendingHashtag: (hashtag: string) => void;
 }
 
 export function ExploreHeader({
   selectedCategory,
+  selectedHashtag,
+  trendingHashtags,
   searchInput,
   onBack,
   onChangeSearch,
   onClearSearch,
   onSelectCategory,
+  onSelectTrendingHashtag,
 }: ExploreHeaderProps) {
   const renderCategory = useCallback(
     ({ item }: ListRenderItemInfo<ExploreCategory>) => {
@@ -95,6 +101,45 @@ export function ExploreHeader({
           showsHorizontalScrollIndicator={false}
         />
       </View>
+
+      {trendingHashtags.length > 0 && (
+        <View className="border-b border-[#E5E5EA] bg-white py-3 pl-4">
+          <View className="mb-2 flex-row items-center">
+            <Ionicons name="trending-up-outline" size={16} color={Colors.cta} />
+            <Text className="ml-1 text-sm font-semibold text-[#1D1D1F]">Trending hashtags</Text>
+          </View>
+          <FlatList
+            data={trendingHashtags}
+            keyExtractor={(item) => item}
+            renderItem={({ item }) => {
+              const isSelected = selectedHashtag === item;
+              return (
+                <TouchableOpacity
+                  onPress={() => onSelectTrendingHashtag(item)}
+                  className={
+                    isSelected
+                      ? 'mr-2 rounded-full bg-[#0A7AFF] px-3 py-1.5'
+                      : 'mr-2 rounded-full bg-[#F0F0F5] px-3 py-1.5'
+                  }
+                  activeOpacity={0.75}
+                >
+                  <Text
+                    className={
+                      isSelected
+                        ? 'text-xs font-semibold text-white'
+                        : 'text-xs font-semibold text-[#6E6E73]'
+                    }
+                  >
+                    #{item}
+                  </Text>
+                </TouchableOpacity>
+              );
+            }}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+          />
+        </View>
+      )}
     </SafeAreaView>
   );
 }

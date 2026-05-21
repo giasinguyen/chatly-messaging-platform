@@ -341,4 +341,28 @@ class PostServiceTest {
 
         verify(savedPostRepository).deleteByUserIdAndPostId(AUTHOR_ID, POST_ID);
     }
+
+    @Test
+    void getTrendingHashtags_shouldReturnRepositoryResult() {
+        when(postRepository.findTrendingHashtags(10)).thenReturn(List.of("java", "spring"));
+
+        List<String> result = postService.getTrendingHashtags(10);
+
+        assertThat(result).containsExactly("java", "spring");
+        verify(postRepository).findTrendingHashtags(10);
+    }
+
+    @Test
+    void getTrendingHashtags_shouldClampLimits() {
+        when(postRepository.findTrendingHashtags(1)).thenReturn(List.of("a"));
+        when(postRepository.findTrendingHashtags(50)).thenReturn(List.of("b"));
+
+        List<String> lowLimitResult = postService.getTrendingHashtags(0);
+        List<String> highLimitResult = postService.getTrendingHashtags(999);
+
+        assertThat(lowLimitResult).containsExactly("a");
+        assertThat(highLimitResult).containsExactly("b");
+        verify(postRepository).findTrendingHashtags(1);
+        verify(postRepository).findTrendingHashtags(50);
+    }
 }

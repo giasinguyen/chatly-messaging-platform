@@ -791,7 +791,7 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
                     className="flex items-center gap-2.5 min-w-0 text-left"
                     disabled={!authorProfilePath}
                 >
-                    <div className="size-9 rounded-full bg-muted flex items-center justify-center text-sm font-semibold text-muted-foreground flex-shrink-0 overflow-hidden">
+                    <div className="size-9 rounded-full bg-muted flex items-center justify-center text-sm font-semibold text-muted-foreground shrink-0 overflow-hidden">
                         {authorAvatarUrl ? (
                             <img
                                 src={authorAvatarUrl}
@@ -881,9 +881,14 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
             {post.hashtags.length > 0 && (
                 <div className="flex flex-wrap gap-1 px-5 pb-2">
                     {post.hashtags.map((tag) => (
-                        <span key={tag} className="text-xs text-indigo-500 hover:underline cursor-pointer">
+                        <button
+                            key={tag}
+                            type="button"
+                            onClick={() => navigate(`/explore?hashtag=${encodeURIComponent(tag)}`)}
+                            className="cursor-pointer text-xs text-indigo-500 hover:underline"
+                        >
                             #{tag}
-                        </span>
+                        </button>
                     ))}
                 </div>
             )}
@@ -1185,7 +1190,7 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
                                             type="button"
                                             variant="ghost"
                                             size="sm"
-                                            className="h-6 px-2 text-xs flex-shrink-0"
+                                            className="h-6 px-2 text-xs shrink-0"
                                             onClick={() => setShowReplyBar(false)}
                                         >
                                             Hide
@@ -1194,7 +1199,7 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
                                             type="button"
                                             variant="ghost"
                                             size="sm"
-                                            className="h-6 px-2 text-xs text-red-500 hover:text-red-600 flex-shrink-0"
+                                            className="h-6 px-2 text-xs text-red-500 hover:text-red-600 shrink-0"
                                             onClick={() => setReplyToComment(null)}
                                         >
                                             Cancel
@@ -1211,7 +1216,7 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
                                             type="button"
                                             variant="ghost"
                                             size="sm"
-                                            className="h-6 px-2 text-xs flex-shrink-0"
+                                            className="h-6 px-2 text-xs shrink-0"
                                             onClick={() => setShowReplyBar(true)}
                                         >
                                             Show

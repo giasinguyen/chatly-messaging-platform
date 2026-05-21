@@ -41,6 +41,14 @@ public class PostController {
                 .build();
     }
 
+        @GetMapping("/hashtags/trending")
+        ApiResponse<List<String>> getTrendingHashtags(
+            @RequestParam(defaultValue = "10") int limit) {
+        return ApiResponse.<List<String>>builder()
+            .result(postService.getTrendingHashtags(limit))
+            .build();
+        }
+
     @GetMapping("/feed")
     ApiResponse<Page<PostResponse>> getFeed(Pageable pageable) {
         return ApiResponse.<Page<PostResponse>>builder()

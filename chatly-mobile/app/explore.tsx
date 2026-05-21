@@ -1,5 +1,12 @@
 import { useCallback, useMemo } from 'react';
-import { ActivityIndicator, FlatList, Text, View, type ListRenderItemInfo } from 'react-native';
+import {
+  ActivityIndicator,
+  FlatList,
+  Text,
+  TouchableOpacity,
+  View,
+  type ListRenderItemInfo,
+} from 'react-native';
 import { useRouter } from 'expo-router';
 import { ExploreHeader } from '@/components/social/ExploreHeader';
 import { ExplorePostTile } from '@/components/social/ExplorePostTile';
@@ -59,11 +66,34 @@ function ExploreEmptyState({ isLoading, message }: { isLoading: boolean; message
   );
 }
 
+function ExploreErrorState({
+  message,
+  onRetry,
+}: {
+  message: string;
+  onRetry: () => void;
+}) {
+  return (
+    <View className="items-center px-8 py-16">
+      <Text className="text-base font-semibold text-[#1D1D1F]">Could not load explore</Text>
+      <Text className="mt-1 text-center text-sm text-[#6E6E73]">{message}</Text>
+      <TouchableOpacity
+        className="mt-4 rounded-full bg-[#0A7AFF] px-4 py-2 active:opacity-85"
+        onPress={onRetry}
+      >
+        <Text className="text-sm font-semibold text-white">Try again</Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
+
 export default function ExploreScreen() {
   const router = useRouter();
   const {
     posts,
     selectedCategory,
+    selectedHashtag,
+    trendingHashtags,
     searchInput,
     isLoading,
     isRefreshing,
@@ -72,6 +102,7 @@ export default function ExploreScreen() {
     errorMessage,
     setSelectedCategory,
     setSearchInput,
+    handleSelectTrendingHashtag,
     handleClearSearch,
     handleRefresh,
     handleLoadMore,
@@ -94,20 +125,26 @@ export default function ExploreScreen() {
     () => (
       <ExploreHeader
         selectedCategory={selectedCategory}
+        selectedHashtag={selectedHashtag}
+        trendingHashtags={trendingHashtags}
         searchInput={searchInput}
         onBack={handleBack}
         onChangeSearch={setSearchInput}
         onClearSearch={handleClearSearch}
         onSelectCategory={setSelectedCategory}
+        onSelectTrendingHashtag={handleSelectTrendingHashtag}
       />
     ),
     [
       handleBack,
       handleClearSearch,
+      handleSelectTrendingHashtag,
       searchInput,
       selectedCategory,
+      selectedHashtag,
       setSearchInput,
       setSelectedCategory,
+      trendingHashtags,
     ]
   );
 
@@ -127,7 +164,13 @@ export default function ExploreScreen() {
         numColumns={3}
         ListHeaderComponent={listHeader}
         ListFooterComponent={listFooter}
-        ListEmptyComponent={<ExploreEmptyState isLoading={isLoading} message={errorMessage} />}
+        ListEmptyComponent={
+          errorMessage && posts.length === 0 ? (
+            <ExploreErrorState message={errorMessage} onRetry={() => void handleRefresh()} />
+          ) : (
+            <ExploreEmptyState isLoading={isLoading} message={errorMessage} />
+          )
+        }
         refreshing={isRefreshing}
         onRefresh={handleRefresh}
         onEndReached={handleLoadMore}

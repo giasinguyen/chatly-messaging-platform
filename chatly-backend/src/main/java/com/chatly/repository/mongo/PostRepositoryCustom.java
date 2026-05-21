@@ -52,4 +52,12 @@ public interface PostRepositoryCustom {
      * @return page of matching PUBLIC, non-deleted posts
      */
     Page<Post> searchPublicPosts(String keyword, String hashtag, Pageable pageable);
+
+    /**
+     * Returns top hashtags sorted by usage frequency in PUBLIC non-deleted posts.
+     *
+     * @param limit maximum number of hashtags to return
+     * @return ordered hashtag list without the '#' prefix
+     */
+    List<String> findTrendingHashtags(int limit);
 }

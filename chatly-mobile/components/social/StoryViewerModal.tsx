@@ -123,18 +123,20 @@ export function StoryViewerModal({
     if (isPaused || !storyId || isOwnerPanelOpen) return;
 
     timerRef.current = setInterval(() => {
-      setProgress((prev) => {
-        const next = prev + STEP;
-        if (next >= 100) {
-          goNext();
-          return 0;
-        }
-        return next;
-      });
+      setProgress((prev) => Math.min(prev + STEP, 100));
     }, TICK_MS);
 
     return clearTimer;
   }, [isPaused, currentStory?.id, isOwnerPanelOpen, clearTimer, goNext]);
+
+  useEffect(() => {
+    if (!visible || progress < 100) {
+      return;
+    }
+
+    goNext();
+    setProgress(0);
+  }, [visible, progress, goNext]);
 
   // Record view + reset state when story changes
   useEffect(() => {

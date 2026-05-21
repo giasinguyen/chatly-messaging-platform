@@ -44,6 +44,9 @@ public class PostService {
 
     private static final Pattern HASHTAG_PATTERN = Pattern.compile("#(\\w+)");
     private static final String FEED_TOPIC_PREFIX = "/topic/feed/";
+    private static final int DEFAULT_TRENDING_HASHTAG_LIMIT = 10;
+    private static final int MIN_TRENDING_HASHTAG_LIMIT = 1;
+    private static final int MAX_TRENDING_HASHTAG_LIMIT = 50;
 
     private final PostRepository postRepository;
     private final PostMapper postMapper;
@@ -88,6 +91,12 @@ public class PostService {
     public Page<PostResponse> searchPosts(String keyword, String hashtag, String requesterId, Pageable pageable) {
         Page<Post> page = postRepository.searchPublicPosts(keyword, hashtag, pageable);
         return toBatchedResponsePage(page, requesterId);
+    }
+
+    public List<String> getTrendingHashtags(Integer limit) {
+        int requested = limit == null ? DEFAULT_TRENDING_HASHTAG_LIMIT : limit;
+        int safeLimit = Math.max(MIN_TRENDING_HASHTAG_LIMIT, Math.min(requested, MAX_TRENDING_HASHTAG_LIMIT));
+        return postRepository.findTrendingHashtags(safeLimit);
     }
 
     public Page<PostResponse> getByAuthor(String authorId, String requesterId, Pageable pageable) {

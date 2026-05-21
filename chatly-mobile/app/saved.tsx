@@ -2,6 +2,7 @@ import { useCallback, useMemo, useRef } from 'react';
 import {
   ActivityIndicator,
   FlatList,
+  Pressable,
   Text,
   View,
   type ListRenderItemInfo,
@@ -15,7 +16,13 @@ import { HOME_FEED_END_REACHED_THRESHOLD } from '@/constants/feed';
 import { Colors } from '@/constants/theme';
 import type { Post } from '@/types/post';
 
-function SavedPostsEmptyState({ message }: { message: string | null }) {
+function SavedPostsEmptyState({
+  message,
+  onRetry,
+}: {
+  message: string | null;
+  onRetry: () => void;
+}) {
   return (
     <View className="items-center px-8 py-16">
       <Ionicons
@@ -29,6 +36,14 @@ function SavedPostsEmptyState({ message }: { message: string | null }) {
       <Text className="mt-1 text-center text-sm text-[#6E6E73]">
         {message ?? 'Posts you save from the feed will show up here.'}
       </Text>
+      {message && (
+        <Pressable
+          className="mt-4 rounded-full bg-[#0A7AFF] px-4 py-2 active:opacity-85"
+          onPress={onRetry}
+        >
+          <Text className="text-sm font-semibold text-white">Try again</Text>
+        </Pressable>
+      )}
     </View>
   );
 }
@@ -153,7 +168,9 @@ export default function SavedPostsScreen() {
           renderItem={renderPost}
           ListHeaderComponent={listHeader}
           ListFooterComponent={listFooter}
-          ListEmptyComponent={<SavedPostsEmptyState message={errorMessage} />}
+          ListEmptyComponent={
+            <SavedPostsEmptyState message={errorMessage} onRetry={() => void handleRefresh()} />
+          }
           showsVerticalScrollIndicator={false}
           refreshing={isRefreshing}
           onRefresh={handleRefresh}

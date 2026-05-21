@@ -226,4 +226,12 @@ export const postService = {
         );
         return response.data;
     },
+
+    getTrendingHashtags: async (limit = 10): Promise<ApiResponse<string[]>> => {
+        const response = await axiosClient.get<ApiResponse<string[]>>(
+            "/api/posts/hashtags/trending",
+            { params: { limit } },
+        );
+        return response.data;
+    },
 };
