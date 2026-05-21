@@ -26,6 +26,7 @@ import com.chatly.repository.postgres.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
@@ -94,6 +95,38 @@ public class PostService {
         return postRepository
                 .findByAuthorIdOrderByCreatedAtDesc(authorId, pageable)
                 .map(post -> toResponse(post, requesterId));
+    }
+
+    public Page<PostResponse> getSaved(String requesterId, Pageable pageable) {
+        List<SavedPost> savedPosts = savedPostRepository.findByUserIdOrderByCreatedAtDesc(requesterId);
+        List<String> postIds = savedPosts.stream()
+                .map(SavedPost::getPostId)
+                .toList();
+
+        if (postIds.isEmpty()) {
+            return Page.empty(pageable);
+        }
+
+        Map<String, Post> postsById = new HashMap<>();
+        postRepository.findAllById(postIds).forEach(post -> postsById.put(post.getId(), post));
+
+        List<PostResponse> validResponses = new ArrayList<>();
+        for (SavedPost savedPost : savedPosts) {
+            Post post = postsById.get(savedPost.getPostId());
+            if (post == null || post.isDeleted()) {
+                savedPostRepository.deleteByUserIdAndPostId(requesterId, savedPost.getPostId());
+                continue;
+            }
+            validResponses.add(toResponse(post, requesterId));
+        }
+
+        if (pageable.isUnpaged()) {
+            return new PageImpl<>(validResponses);
+        }
+
+        int start = Math.toIntExact(Math.min(pageable.getOffset(), validResponses.size()));
+        int end = Math.min(start + pageable.getPageSize(), validResponses.size());
+        return new PageImpl<>(validResponses.subList(start, end), pageable, validResponses.size());
     }
 
     public PostResponse getById(String postId, String requesterId) {

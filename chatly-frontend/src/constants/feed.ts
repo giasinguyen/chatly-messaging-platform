@@ -1,4 +1,5 @@
 export const HOME_FEED_PAGE_SIZE = 10;
+export const SAVED_POSTS_PAGE_SIZE = 10;
 export const HOME_FEED_PREFETCH_DISTANCE_PX = 800;
 export const HOME_FEED_ROOT_MARGIN = `0px 0px ${HOME_FEED_PREFETCH_DISTANCE_PX}px 0px`;
 export const HOME_FEED_INITIAL_SKELETONS = 3;

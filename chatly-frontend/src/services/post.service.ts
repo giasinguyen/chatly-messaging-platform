@@ -28,6 +28,14 @@ export const postService = {
         return response.data;
     },
 
+    getSavedPosts: async (page = 0, size = 10): Promise<ApiResponse<PostPage>> => {
+        const response = await axiosClient.get<ApiResponse<PostPage>>(
+            "/api/posts/saved",
+            { params: { page, size, sort: "createdAt,desc" } },
+        );
+        return response.data;
+    },
+
     getHomeFeed: async (
         cursor: string | null,
         size: number = HOME_FEED_PAGE_SIZE,

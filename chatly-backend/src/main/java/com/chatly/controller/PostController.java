@@ -48,6 +48,13 @@ public class PostController {
                 .build();
     }
 
+    @GetMapping("/saved")
+    ApiResponse<Page<PostResponse>> getSaved(Pageable pageable) {
+        return ApiResponse.<Page<PostResponse>>builder()
+                .result(postService.getSaved(getAuthenticatedUserId(), pageable))
+                .build();
+    }
+
     @GetMapping("/users/{authorId}")
     ApiResponse<Page<PostResponse>> getByAuthor(@PathVariable String authorId, Pageable pageable) {
         return ApiResponse.<Page<PostResponse>>builder()

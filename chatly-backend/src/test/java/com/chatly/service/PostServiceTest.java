@@ -200,6 +200,39 @@ class PostServiceTest {
     }
 
     @Test
+    void getSaved_shouldReturnExistingSavedPosts() {
+        SavedPost savedPost = SavedPost.builder()
+                .userId(AUTHOR_ID)
+                .postId(POST_ID)
+                .build();
+
+        when(savedPostRepository.findByUserIdOrderByCreatedAtDesc(AUTHOR_ID)).thenReturn(List.of(savedPost));
+        when(postRepository.findAllById(List.of(POST_ID))).thenReturn(List.of(samplePost));
+        when(postMapper.toResponse(samplePost)).thenReturn(new PostResponse());
+        when(savedPostRepository.existsByUserIdAndPostId(AUTHOR_ID, POST_ID)).thenReturn(true);
+
+        Page<PostResponse> result = postService.getSaved(AUTHOR_ID, Pageable.unpaged());
+
+        assertThat(result.getContent()).hasSize(1);
+    }
+
+    @Test
+    void getSaved_shouldCleanupMissingSavedPosts() {
+        SavedPost savedPost = SavedPost.builder()
+                .userId(AUTHOR_ID)
+                .postId(POST_ID)
+                .build();
+
+        when(savedPostRepository.findByUserIdOrderByCreatedAtDesc(AUTHOR_ID)).thenReturn(List.of(savedPost));
+        when(postRepository.findAllById(List.of(POST_ID))).thenReturn(List.of());
+
+        Page<PostResponse> result = postService.getSaved(AUTHOR_ID, Pageable.unpaged());
+
+        assertThat(result.getContent()).isEmpty();
+        verify(savedPostRepository).deleteByUserIdAndPostId(AUTHOR_ID, POST_ID);
+    }
+
+    @Test
     void update_asOwner_shouldPersistChanges() {
         UpdatePostRequest request = new UpdatePostRequest();
         request.setContent("Updated #content");
