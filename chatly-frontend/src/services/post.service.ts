@@ -14,7 +14,14 @@ import type {
     ReportResponse,
     ReactionType,
     TrendingHashtag,
+    PostSearchSort,
 } from "@/types/post";
+
+const POST_SEARCH_SORT_PARAMS: Record<PostSearchSort, string> = {
+    newest: "createdAt,desc",
+    oldest: "createdAt,asc",
+    interactions: "engagementScore,desc",
+};
 
 export const postService = {
     create: async (payload: CreatePostRequest): Promise<ApiResponse<Post>> => {
@@ -217,8 +224,13 @@ export const postService = {
         hashtag: string | null,
         page = 0,
         size = 12,
+        sort: PostSearchSort = "newest",
     ): Promise<ApiResponse<PostPage>> => {
-        const params: Record<string, string | number> = { page, size, sort: "createdAt,desc" };
+        const params: Record<string, string | number> = {
+            page,
+            size,
+            sort: POST_SEARCH_SORT_PARAMS[sort],
+        };
         if (q) params.q = q;
         if (hashtag) params.hashtag = hashtag;
         const response = await axiosClient.get<ApiResponse<PostPage>>(

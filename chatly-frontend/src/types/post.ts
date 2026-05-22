@@ -78,6 +78,8 @@ export interface TrendingHashtag {
     postCount: number;
 }
 
+export type PostSearchSort = "newest" | "oldest" | "interactions";
+
 export interface FeedResponse {
     items: Post[];
     nextCursor: string | null;

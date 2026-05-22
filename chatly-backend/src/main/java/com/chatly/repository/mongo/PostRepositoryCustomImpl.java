@@ -31,6 +31,9 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
     private static final String FIELD_VISIBILITY  = "visibility";
     private static final String FIELD_IS_DELETED  = "isDeleted";
     private static final String COMPUTED_SCORE    = "engagementScore";
+    private static final String FIELD_REACTIONS   = "reactions";
+    private static final String FIELD_COMMENT_COUNT = "commentCount";
+    private static final String FIELD_SHARE_COUNT = "shareCount";
 
     private final MongoTemplate mongoTemplate;
 
@@ -92,6 +95,19 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
 
     @Override
     public Page<Post> searchPublicPosts(String keyword, String hashtag, Pageable pageable) {
+        Criteria combined = buildSearchCriteria(keyword, hashtag);
+        if (isEngagementScoreSort(pageable.getSort())) {
+            return searchPublicPostsByEngagement(combined, pageable);
+        }
+
+        Query query = new Query(combined).with(pageable);
+        List<Post> posts = mongoTemplate.find(query, Post.class);
+        long total = mongoTemplate.count(new Query(combined), Post.class);
+
+        return new PageImpl<>(posts, pageable, total);
+    }
+
+    private Criteria buildSearchCriteria(String keyword, String hashtag) {
         List<Criteria> filters = new ArrayList<>();
         filters.add(Criteria.where(FIELD_VISIBILITY).is(PostVisibility.PUBLIC));
         filters.add(Criteria.where(FIELD_IS_DELETED).is(false));
@@ -105,13 +121,50 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
             filters.add(Criteria.where(FIELD_HASHTAGS).is(hashtag.trim().toLowerCase()));
         }
 
-        Criteria combined = new Criteria().andOperator(filters.toArray(new Criteria[0]));
-        Query query = new Query(combined).with(pageable);
+        return new Criteria().andOperator(filters.toArray(new Criteria[0]));
+    }
 
-        List<Post> posts = mongoTemplate.find(query, Post.class);
-        long total = mongoTemplate.count(new Query(combined), Post.class);
-
+    private Page<Post> searchPublicPostsByEngagement(Criteria criteria, Pageable pageable) {
+        MatchOperation match = Aggregation.match(criteria);
+        AddFieldsOperation addScore = addEngagementScore();
+        SortOperation sort = Aggregation.sort(
+                Sort.by(Sort.Direction.DESC, COMPUTED_SCORE)
+                        .and(Sort.by(Sort.Direction.DESC, FIELD_CREATED_AT))
+        );
+        SkipOperation skip = Aggregation.skip(pageable.getOffset());
+        LimitOperation limit = Aggregation.limit(pageable.getPageSize());
+        Aggregation aggregation = Aggregation.newAggregation(
+                match,
+                addScore,
+                sort,
+                skip,
+                limit
+        );
+        List<Post> posts = mongoTemplate.aggregate(aggregation, "posts", Post.class)
+                .getMappedResults();
+        long total = mongoTemplate.count(new Query(criteria), Post.class);
         return new PageImpl<>(posts, pageable, total);
+    }
+
+    private AddFieldsOperation addEngagementScore() {
+        return Aggregation.addFields()
+                .addFieldWithValue(
+                        COMPUTED_SCORE,
+                        ArithmeticOperators.Add.valueOf(
+                                ArrayOperators.Size.lengthOfArray(FIELD_REACTIONS)
+                        ).add(
+                                ArithmeticOperators.Multiply.valueOf(FIELD_COMMENT_COUNT)
+                                        .multiplyBy(2)
+                        ).add(
+                                ArithmeticOperators.Multiply.valueOf(FIELD_SHARE_COUNT)
+                                        .multiplyBy(3)
+                        )
+                ).build();
+    }
+
+    private boolean isEngagementScoreSort(Sort sort) {
+        Sort.Order order = sort.getOrderFor(COMPUTED_SCORE);
+        return order != null && order.isDescending();
     }
 
     @Override
