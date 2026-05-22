@@ -1,5 +1,6 @@
 package com.chatly.repository.mongo;
 
+import com.chatly.dto.response.TrendingHashtagResponse;
 import com.chatly.model.enums.PostVisibility;
 import com.chatly.model.mongo.Post;
 import lombok.RequiredArgsConstructor;
@@ -114,10 +115,11 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
     }
 
     @Override
-    public List<String> findTrendingHashtags(int limit) {
+    public List<TrendingHashtagResponse> findTrendingHashtags(Instant since, int limit) {
         MatchOperation match = Aggregation.match(
                 Criteria.where(FIELD_VISIBILITY).is(PostVisibility.PUBLIC)
                         .and(FIELD_IS_DELETED).is(false)
+                        .and(FIELD_CREATED_AT).gte(since)
                         .and(FIELD_HASHTAGS).exists(true).ne(List.of())
         );
 
@@ -148,8 +150,14 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
         );
 
         return results.getMappedResults().stream()
-                .map(document -> document.getString("_id"))
-                .filter(hashtag -> hashtag != null && !hashtag.isBlank())
+                .filter(document -> {
+                    String hashtag = document.getString("_id");
+                    return hashtag != null && !hashtag.isBlank();
+                })
+                .map(document -> TrendingHashtagResponse.builder()
+                        .hashtag(document.getString("_id"))
+                        .postCount(document.get("usageCount", Number.class).longValue())
+                        .build())
                 .toList();
     }
 }

@@ -7,6 +7,7 @@ import com.chatly.dto.request.UpdatePostRequest;
 import com.chatly.dto.response.PostCommentResponse;
 import com.chatly.dto.response.PostReactionSummary;
 import com.chatly.dto.response.PostResponse;
+import com.chatly.dto.response.TrendingHashtagResponse;
 import com.chatly.exception.AppException;
 import com.chatly.exception.ErrorCode;
 import com.chatly.mapper.PostMapper;
@@ -34,6 +35,7 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -52,6 +54,7 @@ public class PostService {
     private static final int DEFAULT_TRENDING_HASHTAG_LIMIT = 10;
     private static final int MIN_TRENDING_HASHTAG_LIMIT = 1;
     private static final int MAX_TRENDING_HASHTAG_LIMIT = 50;
+    private static final long TRENDING_HASHTAG_WINDOW_HOURS = 24;
     private static final int POST_AI_CONTEXT_COMMENT_LIMIT = 5;
     private static final int POST_CONTENT_SNIPPET_MAX_LENGTH = 300;
 
@@ -120,10 +123,11 @@ public class PostService {
         return toBatchedResponsePage(page, requesterId);
     }
 
-    public List<String> getTrendingHashtags(Integer limit) {
+    public List<TrendingHashtagResponse> getTrendingHashtags(Integer limit) {
         int requested = limit == null ? DEFAULT_TRENDING_HASHTAG_LIMIT : limit;
         int safeLimit = Math.max(MIN_TRENDING_HASHTAG_LIMIT, Math.min(requested, MAX_TRENDING_HASHTAG_LIMIT));
-        return postRepository.findTrendingHashtags(safeLimit);
+        Instant since = Instant.now().minus(TRENDING_HASHTAG_WINDOW_HOURS, ChronoUnit.HOURS);
+        return postRepository.findTrendingHashtags(since, safeLimit);
     }
 
     public Page<PostResponse> getByAuthor(String authorId, String requesterId, Pageable pageable) {

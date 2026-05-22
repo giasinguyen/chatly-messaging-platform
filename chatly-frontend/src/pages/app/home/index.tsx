@@ -18,6 +18,7 @@ import { useFeedStore } from "@/store/feed.store";
 import { storyService } from "@/services/story.service";
 import type { Story } from "@/types/story";
 import { SocialErrorBoundary } from "@/features/social/components/SocialErrorBoundary";
+import { HomeLeftSidebar } from "@/pages/app/home/components/HomeLeftSidebar";
 import { HomeRightSidebar } from "@/pages/app/home/components/HomeRightSidebar";
 
 export default function HomePage() {
@@ -151,10 +152,7 @@ export default function HomePage() {
         >
             <div className="w-full h-full overflow-y-auto bg-background relative hide-scrollbar">
                 <div className="flex w-full justify-center">
-                    <div
-                        className="hidden w-100 shrink-0 xl:block"
-                        aria-hidden="true"
-                    />
+                    <HomeLeftSidebar />
                     {/* Central Feed Area */}
                     <div className="w-full max-w-2xl px-4 py-8 flex flex-col gap-3 pb-32">
                         {/* Stories Carousel */}

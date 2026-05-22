@@ -130,7 +130,7 @@ export default function ExplorePage() {
                 setTrendingHashtags([]);
                 return;
             }
-            setTrendingHashtags(response.result);
+            setTrendingHashtags(response.result.map((trend) => trend.hashtag));
         } catch {
             setTrendingHashtags([]);
         } finally {

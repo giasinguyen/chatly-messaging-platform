@@ -1,5 +1,7 @@
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
+import { HOME_PEOPLE_SUGGESTIONS } from "@/constants/homeSidebar";
 import type { UserResponse } from "@/types/auth";
 
 interface HomeRightSidebarProps {
@@ -56,19 +58,48 @@ export function HomeRightSidebar({
             </div>
 
             <div className="mb-4 flex items-center justify-between">
-                <h3 className="font-semibold text-muted-foreground">Suggested for you</h3>
+                <h3 className="font-semibold text-muted-foreground">
+                    People you may know
+                </h3>
                 <button className="text-[12px] font-semibold text-foreground transition-colors hover:text-brand">
                     See All
                 </button>
             </div>
 
-            <div className="rounded-xl border border-dashed border-border bg-card/70 p-4">
-                <p className="text-sm font-medium text-foreground">
-                    Suggestions will appear soon
-                </p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                    Follow more users and interact with posts to improve recommendations.
-                </p>
+            <div className="space-y-2 rounded-2xl border border-border bg-card/70 p-3">
+                {HOME_PEOPLE_SUGGESTIONS.map((suggestion) => (
+                    <div
+                        key={suggestion.id}
+                        className="flex items-center gap-3 rounded-xl p-2 transition-colors hover:bg-muted/70"
+                    >
+                        <Avatar className="size-10 shrink-0">
+                            <AvatarImage
+                                src={suggestion.avatarUrl}
+                                alt={suggestion.displayName}
+                                className="object-cover"
+                            />
+                            <AvatarFallback className="bg-muted text-sm font-semibold text-muted-foreground">
+                                {suggestion.displayName.charAt(0).toUpperCase()}
+                            </AvatarFallback>
+                        </Avatar>
+                        <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-semibold text-foreground">
+                                {suggestion.displayName}
+                            </p>
+                            <p className="truncate text-xs text-muted-foreground">
+                                @{suggestion.username} - {suggestion.mutualFriends} mutual friends
+                            </p>
+                        </div>
+                        <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            className="h-8 rounded-xl px-3 text-xs"
+                        >
+                            Add
+                        </Button>
+                    </div>
+                ))}
             </div>
 
             <p className="mt-4 text-center text-[11px] text-muted-foreground">

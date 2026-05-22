@@ -13,6 +13,7 @@ import type {
     ReportPostRequest,
     ReportResponse,
     ReactionType,
+    TrendingHashtag,
 } from "@/types/post";
 
 export const postService = {
@@ -227,8 +228,8 @@ export const postService = {
         return response.data;
     },
 
-    getTrendingHashtags: async (limit = 10): Promise<ApiResponse<string[]>> => {
-        const response = await axiosClient.get<ApiResponse<string[]>>(
+    getTrendingHashtags: async (limit = 10): Promise<ApiResponse<TrendingHashtag[]>> => {
+        const response = await axiosClient.get<ApiResponse<TrendingHashtag[]>>(
             "/api/posts/hashtags/trending",
             { params: { limit } },
         );
