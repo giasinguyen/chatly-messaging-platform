@@ -22,6 +22,8 @@ import { ImageLightbox } from '@/components/ui/ImageLightbox';
 import { VideoPlayer } from '@/components/chat/VideoPlayer';
 import { AudioPlayer } from '@/components/chat/AudioPlayer';
 import { CoAuthorAvatar } from '@/components/ui/CoAuthorAvatar';
+import { Avatar } from '@/components/ui/Avatar';
+import { UserQuickProfileDialog } from '@/components/profile/UserQuickProfileDialog';
 import { useCallStore } from '@/store/call.store';
 import type { Message } from '@/types/message';
 
@@ -96,7 +98,47 @@ export function MessageBubble({
 
   const [lightboxVisible, setLightboxVisible] = useState(false);
   const [voterModal, setVoterModal] = useState<{ title: string; voterIds: string[] } | null>(null);
+  const [quickProfileVisible, setQuickProfileVisible] = useState(false);
   const pan = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
+
+  const canOpenQuickProfile = !isMe && showAvatar && Boolean(message.senderId);
+  const quickProfileDialog = canOpenQuickProfile ? (
+    <UserQuickProfileDialog
+      visible={quickProfileVisible}
+      userId={message.senderId}
+      fallbackDisplayName={senderName}
+      fallbackAvatarUrl={senderAvatarUrl}
+      onClose={() => setQuickProfileVisible(false)}
+    />
+  ) : null;
+
+  const renderSenderAvatar = () => {
+    if (!canOpenQuickProfile) {
+      return null;
+    }
+
+    if (type === 'AGENT') {
+      return (
+        <TouchableOpacity onPress={() => setQuickProfileVisible(true)} activeOpacity={0.75}>
+          <View style={{ marginRight: 6, alignSelf: 'flex-end' }}>
+            <CoAuthorAvatar
+              userAvatarUrl={senderAvatarUrl}
+              userDisplayName={senderName ?? '?'}
+              size={28}
+            />
+          </View>
+        </TouchableOpacity>
+      );
+    }
+
+    return (
+      <TouchableOpacity onPress={() => setQuickProfileVisible(true)} activeOpacity={0.75}>
+        <View style={{ marginRight: 6 }}>
+          <Avatar uri={senderAvatarUrl} name={senderName ?? '?'} size={28} />
+        </View>
+      </TouchableOpacity>
+    );
+  };
 
   const panResponder = useRef(
     PanResponder.create({
@@ -853,17 +895,7 @@ export function MessageBubble({
           </Text>
         )}
         <View style={{ flexDirection: 'row', alignItems: 'flex-end' }}>
-          {!isMe && showAvatar && (
-            <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: Colors.cta, alignItems: 'center', justifyContent: 'center', marginRight: 6, overflow: 'hidden' }}>
-              {senderAvatarUrl ? (
-                <Image source={{ uri: senderAvatarUrl }} style={{ width: 28, height: 28, borderRadius: 14 }} />
-              ) : (
-                <Text style={{ fontSize: 11, fontWeight: 'bold', color: 'white' }}>
-                  {(senderName ?? '?').charAt(0).toUpperCase()}
-                </Text>
-              )}
-            </View>
-          )}
+            {renderSenderAvatar()}
           <TouchableOpacity activeOpacity={1} onLongPress={onLongPress} delayLongPress={300}>
             {renderPollContent()}
           </TouchableOpacity>
@@ -1028,39 +1060,8 @@ export function MessageBubble({
       )}
 
       <View style={{ flexDirection: 'row', alignItems: 'flex-end' }}>
-      {/* Avatar for group received messages */}
-        {!isMe && showAvatar && (
-          type === 'AGENT' ? (
-            <View style={{ marginRight: 6, alignSelf: 'flex-end' }}>
-              <CoAuthorAvatar
-                userAvatarUrl={senderAvatarUrl}
-                userDisplayName={senderName ?? '?'}
-                size={28}
-              />
-            </View>
-          ) : (
-            <View
-              style={{
-                width: 28,
-                height: 28,
-                borderRadius: 14,
-                backgroundColor: Colors.cta,
-                alignItems: 'center',
-                justifyContent: 'center',
-                marginRight: 6,
-                overflow: 'hidden',
-              }}
-            >
-              {senderAvatarUrl ? (
-                <Image source={{ uri: senderAvatarUrl }} style={{ width: 28, height: 28, borderRadius: 14 }} />
-              ) : (
-                <Text style={{ fontSize: 11, fontWeight: 'bold', color: 'white' }}>
-                  {(senderName ?? '?').charAt(0).toUpperCase()}
-                </Text>
-              )}
-            </View>
-          )
-        )}
+        {/* Avatar for group received messages */}
+        {renderSenderAvatar()}
 
         <TouchableOpacity
           activeOpacity={0.8}
@@ -1270,6 +1271,7 @@ export function MessageBubble({
         </Modal>
       )}
       </Animated.View>
+      {quickProfileDialog}
     </>
   );
 }
