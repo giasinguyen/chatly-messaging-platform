@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
+import { useRouter } from 'expo-router';
 import { Colors } from '@/constants/theme';
 import { CommentsBottomSheet } from './CommentsBottomSheet';
 import { PostImageCarousel } from './PostImageCarousel';
@@ -67,6 +68,7 @@ export function HomePostCard({
   onDeleteComment,
   onOpenComments,
 }: HomePostCardProps) {
+  const router = useRouter();
   const [showMenu, setShowMenu] = useState(false);
   const [showComments, setShowComments] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
@@ -85,6 +87,10 @@ export function HomePostCard({
 
   const handleDoubleTapLike = () => {
     onDoubleTapLikePost?.(post.id);
+  };
+
+  const handleOpenAuthorProfile = () => {
+    router.push(`/profile/${post.authorId}`);
   };
 
   const handleSave = () => {
@@ -111,7 +117,10 @@ export function HomePostCard({
       <View className="mb-4 bg-white">
         {/* Header: Author Info + Menu */}
         <View className="flex-row items-center justify-between px-3 py-2.5">
-          <View className="flex-row items-center">
+          <TouchableOpacity
+            onPress={handleOpenAuthorProfile}
+            className="flex-row items-center"
+            activeOpacity={0.75}>
             <Image
               source={{ uri: avatarUrl }}
               contentFit="cover"
@@ -122,7 +131,7 @@ export function HomePostCard({
               <Text className="text-sm font-semibold text-[#1D1D1F]">{authorName}</Text>
               <Text className="text-xs text-[#6E6E73]">{formatRelativeTime(post.createdAt)}</Text>
             </View>
-          </View>
+          </TouchableOpacity>
 
           <View className="relative">
             <TouchableOpacity
@@ -236,7 +245,9 @@ export function HomePostCard({
 
           {/* Caption */}
           <Text className="mt-1 text-sm leading-5 text-[#1D1D1F]">
-            <Text className="font-semibold">{authorName} </Text>
+            <Text className="font-semibold" onPress={handleOpenAuthorProfile}>
+              {authorName}{' '}
+            </Text>
             {post.content || 'No caption'}
           </Text>
 
