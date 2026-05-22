@@ -74,6 +74,7 @@ public class PostService {
         List<String> mediaUrls = request.getMediaUrls() != null ? request.getMediaUrls() : new ArrayList<>();
 
         List<String> hashtags = extractHashtags(request.getContent());
+
         PostVisibility visibility = request.getVisibility() != null
                 ? request.getVisibility()
                 : PostVisibility.PUBLIC;
@@ -88,6 +89,19 @@ public class PostService {
 
         post = postRepository.save(post);
         log.info("Post created: id={}, authorId={}", post.getId(), authorId);
+
+        User author = safeUuid(authorId)
+            .flatMap(userRepository::findById)
+            .orElse(null);
+        String authorName = author != null ? author.getDisplayName() : "Someone";
+        notifyMentionedUsers(
+            NotificationType.POST_MENTION,
+            authorId,
+            request.getMentionIds(),
+            authorName + " mentioned you in a post",
+            post.getId()
+        );
+
         broadcastNewPost(post);
         triggerSocialPostCommandIfNeeded(post, authorId, null);
         return toResponse(post, authorId);
@@ -314,6 +328,15 @@ public class PostService {
             }
         }
 
+            String commenterName = commenter != null ? commenter.getDisplayName() : "Someone";
+            notifyMentionedUsers(
+                NotificationType.POST_MENTION,
+                userId,
+                request.getMentionIds(),
+                commenterName + " mentioned you in a comment",
+                postId + "_" + comment.getId()
+            );
+
         return toCommentResponse(comment, commenter, userId);
     }
 
@@ -534,6 +557,35 @@ public class PostService {
         } catch (IllegalArgumentException ex) {
             return Optional.empty();
         }
+    }
+
+    private void notifyMentionedUsers(
+            NotificationType notificationType,
+            String actorId,
+            List<String> mentionIds,
+            String message,
+            String referenceId
+    ) {
+        if (mentionIds == null || mentionIds.isEmpty()) {
+            return;
+        }
+
+        LinkedHashSet<String> targetUserIds = mentionIds.stream()
+                .filter(Objects::nonNull)
+                .map(String::trim)
+                .filter(value -> !value.isBlank())
+                .filter(value -> !value.equals(actorId))
+                .filter(value -> !value.equals(aiBotUserId))
+                .filter(value -> safeUuid(value).isPresent())
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+
+        targetUserIds.forEach(targetUserId -> notificationService.createAndPush(
+                notificationType,
+                actorId,
+                targetUserId,
+                message,
+                referenceId
+        ));
     }
 
     private Map<String, User> loadUsersById(List<String> userIds) {

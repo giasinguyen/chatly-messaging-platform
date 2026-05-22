@@ -1,4 +1,12 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+    memo,
+    useCallback,
+    useEffect,
+    useMemo,
+    useRef,
+    useState,
+    type KeyboardEvent as ReactKeyboardEvent,
+} from "react";
 import {
     MoreHorizontal,
     Heart,
@@ -24,7 +32,9 @@ import { toast } from "sonner";
 import Picker from "@emoji-mart/react";
 import data from "@emoji-mart/data";
 import { agentService } from "@/services/agent.service";
+import { contactService } from "@/services/contact.service";
 import { CustomAiIcon } from "@/components/customize/CustomAiIcon";
+import { MentionSuggestionsDropdown } from "@/components/mention/MentionSuggestionsDropdown";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -54,6 +64,14 @@ import type {
     ReportPostRequest,
 } from "@/types/post";
 import { cn } from "@/lib/utils";
+import {
+    buildMentionSuggestions,
+    detectMentionQuery,
+    extractMentionTargets,
+    insertMentionAtCursor,
+    type MentionCandidate,
+    type MentionSuggestion,
+} from "@/utils/mention";
 import { SharePostDialog } from "./SharePostDialog";
 import { ReportPostDialog } from "./ReportPostDialog";
 import { MediaUploadZone } from "./MediaUploadZone";
@@ -104,6 +122,25 @@ function formatRelativeTime(value: string): string {
 
     const diffDays = Math.floor(diffHours / 24);
     return `${diffDays}d ago`;
+}
+
+function renderMentionText(text: string) {
+    const tokens = text.split(/(@AI|@[A-Za-z0-9_.-]+)/g);
+    return tokens.map((token, index) => {
+        const isMention = /^(@AI|@[A-Za-z0-9_.-]+)$/.test(token);
+        if (!isMention) {
+            return <span key={`${token}-${index}`}>{token}</span>;
+        }
+
+        return (
+            <span
+                key={`${token}-${index}`}
+                className="font-medium text-indigo-600 dark:text-indigo-400"
+            >
+                {token}
+            </span>
+        );
+    });
 }
 
 function buildCommentTree(comments: PostComment[]): CommentNode[] {
@@ -158,6 +195,13 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
     const [isCommentOpen, setIsCommentOpen] = useState(false);
     const [commentDraft, setCommentDraft] = useState("");
     const [commentMediaUrls, setCommentMediaUrls] = useState<string[]>([]);
+    const [friendMentionCandidates, setFriendMentionCandidates] = useState<
+        MentionCandidate[]
+    >([]);
+    const [commentMentionQuery, setCommentMentionQuery] = useState<string | null>(
+        null,
+    );
+    const [commentMentionIndex, setCommentMentionIndex] = useState(0);
     const [showCommentEmojiPicker, setShowCommentEmojiPicker] = useState(false);
     const [replyToComment, setReplyToComment] = useState<PostComment | null>(
         null,
@@ -190,6 +234,7 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
     const actionsMenuRef = useRef<HTMLDivElement>(null);
     const commentEmojiPickerRef = useRef<HTMLDivElement>(null);
     const commentMediaInputRef = useRef<HTMLInputElement>(null);
+    const commentInputRef = useRef<HTMLTextAreaElement | null>(null);
 
     const authorLabel =
         post.authorDisplayName ??
@@ -223,6 +268,16 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
     );
 
     const commentTree = useMemo(() => buildCommentTree(comments), [comments]);
+    const commentMentionSuggestions = useMemo(
+        () =>
+            buildMentionSuggestions(commentMentionQuery, friendMentionCandidates, {
+                includeAi: true,
+                includeAll: false,
+                currentUserId,
+                maxUsers: 8,
+            }),
+        [commentMentionQuery, friendMentionCandidates, currentUserId],
+    );
 
     const renderCommentNode = (comment: CommentNode, depth = 0) => {
         const commentInitial = comment.userDisplayName
@@ -318,7 +373,7 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
                                 )}
                                 {comment.content && (
                                     <p className="mt-1 text-sm text-foreground whitespace-pre-wrap">
-                                        {comment.content}
+                                        {renderMentionText(comment.content)}
                                     </p>
                                 )}
                                 {comment.mediaUrls.length > 0 && (
@@ -548,6 +603,37 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
         }
     }, [post.id]);
 
+    const loadFriendMentionCandidates = useCallback(async () => {
+        if (!currentUserId) {
+            setFriendMentionCandidates([]);
+            return;
+        }
+
+        try {
+            const response = await contactService.getByStatus("ACCEPTED");
+            if (response.code !== 1000 || !response.result) {
+                setFriendMentionCandidates([]);
+                return;
+            }
+
+            const candidates = response.result
+                .map((item) => {
+                    const peer = item.user.id === currentUserId ? item.contact : item.user;
+                    return {
+                        id: peer.id,
+                        displayName: peer.displayName,
+                        username: peer.username,
+                        avatarUrl: peer.avatarUrl,
+                    } satisfies MentionCandidate;
+                })
+                .filter((item) => item.id !== currentUserId);
+
+            setFriendMentionCandidates(candidates);
+        } catch {
+            setFriendMentionCandidates([]);
+        }
+    }, [currentUserId]);
+
     const handleOpenComments = () => {
         setIsCommentOpen(true);
     };
@@ -574,6 +660,70 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
     const handleCommentEmojiSelect = (emoji: { native: string }) => {
         setCommentDraft((current) => current + emoji.native);
         setShowCommentEmojiPicker(false);
+    };
+
+    const handleCommentDraftChange = (
+        nextValue: string,
+        cursorFromEvent?: number | null,
+    ) => {
+        setCommentDraft(nextValue);
+        const cursorPos =
+            cursorFromEvent ??
+            commentInputRef.current?.selectionStart ??
+            nextValue.length;
+        const nextMentionQuery = detectMentionQuery(nextValue, cursorPos);
+        if (nextMentionQuery !== null) {
+            setCommentMentionQuery(nextMentionQuery);
+            setCommentMentionIndex(0);
+            return;
+        }
+        setCommentMentionQuery(null);
+    };
+
+    const handleSelectCommentMention = (suggestion: MentionSuggestion) => {
+        const cursorPos = commentInputRef.current?.selectionStart ?? commentDraft.length;
+        const nextDraft = insertMentionAtCursor(commentDraft, cursorPos, suggestion, {
+            userMentionField: "username",
+        });
+        setCommentDraft(nextDraft);
+        setCommentMentionQuery(null);
+        requestAnimationFrame(() => {
+            commentInputRef.current?.focus();
+        });
+    };
+
+    const handleCommentInputKeyDown = (
+        event: ReactKeyboardEvent<HTMLTextAreaElement>,
+    ) => {
+        if (commentMentionQuery === null || !commentMentionSuggestions.length) {
+            return;
+        }
+
+        if (event.key === "ArrowDown") {
+            event.preventDefault();
+            setCommentMentionIndex(
+                (prev) => (prev + 1) % commentMentionSuggestions.length,
+            );
+            return;
+        }
+        if (event.key === "ArrowUp") {
+            event.preventDefault();
+            setCommentMentionIndex(
+                (prev) =>
+                    (prev - 1 + commentMentionSuggestions.length) %
+                    commentMentionSuggestions.length,
+            );
+            return;
+        }
+        if (event.key === "Enter" || event.key === "Tab") {
+            event.preventDefault();
+            handleSelectCommentMention(commentMentionSuggestions[commentMentionIndex]);
+            return;
+        }
+        if (event.key === "Escape") {
+            event.preventDefault();
+            setCommentMentionQuery(null);
+        }
     };
 
     const handleCommentMediaSelect = async (
@@ -637,12 +787,18 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
             return;
         }
 
+        const mentionIds = extractMentionTargets(content, friendMentionCandidates, {
+            includeAi: false,
+            includeAll: false,
+        });
+
         setIsSubmittingComment(true);
         try {
             const res = await postService.addComment(post.id, {
                 content,
                 mediaUrls: commentMediaUrls,
                 parentCommentId: replyToComment?.id ?? null,
+                mentionIds,
             });
             if (res.code === 1000 && res.result) {
                 setComments((prev) => [res.result, ...prev]);
@@ -668,9 +824,9 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
         setReplyToComment(comment);
         setShowReplyBar(true);
         setCommentDraft((current) =>
-            current.startsWith(`@${comment.userDisplayName} `)
+            current.startsWith(`@${comment.userUsername ?? comment.userDisplayName} `)
                 ? current
-                : `@${comment.userDisplayName} ${current}`,
+                : `@${comment.userUsername ?? comment.userDisplayName} ${current}`,
         );
     };
 
@@ -917,7 +1073,8 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
             return;
         }
         void loadComments();
-    }, [isCommentOpen, loadComments]);
+        void loadFriendMentionCandidates();
+    }, [isCommentOpen, loadComments, loadFriendMentionCandidates]);
 
     return (
         <>
@@ -1031,7 +1188,7 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
 
                 {/* Content */}
                 <p className="px-5 py-2 text-sm text-foreground whitespace-pre-wrap leading-relaxed">
-                    {post.content}
+                    {renderMentionText(post.content)}
                 </p>
 
                 {/* Hashtags */}
@@ -1287,6 +1444,8 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
                         setReplyToComment(null);
                         setCommentDraft("");
                         setCommentMediaUrls([]);
+                        setCommentMentionQuery(null);
+                        setCommentMentionIndex(0);
                         setShowCommentEmojiPicker(false);
                         setShowReplyBar(true);
                         setExpandedCommentIds(new Set());
@@ -1489,15 +1648,30 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
                                     </div>
                                 )}
 
-                                <Textarea
-                                    value={commentDraft}
-                                    onChange={(event) =>
-                                        setCommentDraft(event.target.value)
-                                    }
-                                    rows={2}
-                                    placeholder="Add a comment..."
-                                    className="resize-none"
-                                />
+                                <div className="relative">
+                                    <Textarea
+                                        ref={commentInputRef}
+                                        value={commentDraft}
+                                        onChange={(event) =>
+                                            handleCommentDraftChange(
+                                                event.target.value,
+                                                event.target.selectionStart,
+                                            )
+                                        }
+                                        onKeyDown={handleCommentInputKeyDown}
+                                        rows={2}
+                                        placeholder="Add a comment..."
+                                        className="resize-none"
+                                    />
+                                    {commentMentionQuery !== null &&
+                                        commentMentionSuggestions.length > 0 && (
+                                            <MentionSuggestionsDropdown
+                                                suggestions={commentMentionSuggestions}
+                                                activeIndex={commentMentionIndex}
+                                                onSelect={handleSelectCommentMention}
+                                            />
+                                        )}
+                                </div>
 
                                 <div className="flex items-center justify-between">
                                     <div className="flex items-center gap-2">
