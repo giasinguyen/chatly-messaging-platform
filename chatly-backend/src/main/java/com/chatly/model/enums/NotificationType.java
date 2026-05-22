@@ -5,6 +5,7 @@ public enum NotificationType {
     MENTION,
     NEW_FOLLOWER,
     FRIEND_REQUEST,
+    FRIEND_ACCEPTED,
     GROUP_INVITE,
     GROUP_JOIN_REQUEST,
     MEMBER_JOINED,
