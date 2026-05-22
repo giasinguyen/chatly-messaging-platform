@@ -11,6 +11,18 @@ import java.util.Optional;
 
 public interface NotificationRepository extends MongoRepository<Notification, String> {
 
+    Page<Notification> findAllByOrderByCreatedAtDesc(Pageable pageable);
+
+    Page<Notification> findByTypeInOrderByCreatedAtDesc(
+            Collection<NotificationType> types, Pageable pageable);
+
+    Page<Notification> findByReadOrderByCreatedAtDesc(boolean read, Pageable pageable);
+
+    Page<Notification> findByTypeInAndReadOrderByCreatedAtDesc(
+            Collection<NotificationType> types, boolean read, Pageable pageable);
+
+    long countByReadFalse();
+
     Page<Notification> findByReceiverIdOrderByCreatedAtDesc(String receiverId, Pageable pageable);
 
     Page<Notification> findByReceiverIdAndTypeInOrderByCreatedAtDesc(
