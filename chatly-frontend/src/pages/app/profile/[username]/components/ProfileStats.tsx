@@ -10,18 +10,16 @@ export function ProfileStats({
     onOpenFriends,
 }: ProfileStatsProps) {
     return (
-        <div className="my-3 flex items-center gap-6">
-            <div>
-                <div className="text-base font-semibold text-foreground">{postCount}</div>
-                <div className="text-xs text-muted-foreground">Posts</div>
-            </div>
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-foreground md:gap-x-8">
+            <p>
+                <span className="font-semibold">{postCount}</span> posts
+            </p>
             <button
                 type="button"
-                className="text-left transition-opacity hover:opacity-70"
+                className="transition-opacity hover:opacity-70"
                 onClick={onOpenFriends}
             >
-                <div className="text-base font-semibold text-foreground">{friendCount}</div>
-                <div className="text-xs text-muted-foreground">Friends</div>
+                <span className="font-semibold">{friendCount}</span> friends
             </button>
         </div>
     );

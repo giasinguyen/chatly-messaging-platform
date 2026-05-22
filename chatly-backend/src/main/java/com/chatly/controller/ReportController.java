@@ -1,6 +1,7 @@
 package com.chatly.controller;
 
 import com.chatly.dto.request.CreateReportRequest;
+import com.chatly.dto.request.CreateUserReportRequest;
 import com.chatly.dto.response.ApiResponse;
 import com.chatly.dto.response.ReportResponse;
 import com.chatly.model.enums.ReportStatus;
@@ -32,6 +33,13 @@ public class ReportController {
     ApiResponse<ReportResponse> create(@RequestBody @Valid CreateReportRequest request) {
         return ApiResponse.<ReportResponse>builder()
                 .result(reportService.createPostReport(getAuthenticatedUserId(), request))
+                .build();
+    }
+
+    @PostMapping("/users")
+    ApiResponse<ReportResponse> createUserReport(@RequestBody @Valid CreateUserReportRequest request) {
+        return ApiResponse.<ReportResponse>builder()
+                .result(reportService.createUserReport(getAuthenticatedUserId(), request))
                 .build();
     }
 
