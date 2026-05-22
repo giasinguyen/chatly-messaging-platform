@@ -311,12 +311,13 @@ export function useHomeFeed() {
   }, [replacePost]);
 
   const handleAddComment = useCallback(
-    async (postId: string, content: string, mediaUrls?: string[], parentCommentId?: string) => {
+    async (postId: string, content: string, mediaUrls?: string[], parentCommentId?: string, mentionIds?: string[]) => {
       try {
         const response = await postService.addComment(postId, {
           content,
           mediaUrls,
           parentCommentId,
+          mentionIds,
         });
         if (response.code === 1000 && response.result) {
           setCommentsByPostId((prev) => ({
@@ -398,9 +399,9 @@ export function useHomeFeed() {
   );
 
   const handleEditComment = useCallback(
-    async (postId: string, commentId: string, content: string) => {
+    async (postId: string, commentId: string, content: string, mentionIds?: string[]) => {
       try {
-        const response = await postService.updateComment(postId, commentId, { content });
+        const response = await postService.updateComment(postId, commentId, { content, mentionIds });
         if (response.code !== 1000 || !response.result) {
           throw new Error(response.message ?? 'Could not update comment.');
         }

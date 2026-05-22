@@ -4,6 +4,7 @@ import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { postService } from '@/services/post.service';
 import { CommentsBottomSheet } from '@/components/social/CommentsBottomSheet';
+import { MentionText } from '@/components/mention/MentionText';
 import { Avatar } from '@/components/ui/Avatar';
 import { UserQuickProfileDialog } from '@/components/profile/UserQuickProfileDialog';
 import { Colors } from '@/constants/theme';
@@ -86,7 +87,8 @@ export default function PostDetailScreen() {
       postId: string,
       content: string,
       mediaUrls?: string[],
-      parentCommentId?: string
+      parentCommentId?: string,
+      mentionIds?: string[]
     ): Promise<void> => {
       if (!id || isSubmittingComment) {
         return;
@@ -98,6 +100,7 @@ export default function PostDetailScreen() {
           content,
           mediaUrls,
           parentCommentId,
+          mentionIds,
         });
         if (response.code !== 1000 || !response.result) {
           throw new Error(response.message ?? 'Could not send comment.');
@@ -194,13 +197,13 @@ export default function PostDetailScreen() {
   );
 
   const handleEditComment = useCallback(
-    async (_postId: string, commentId: string, content: string) => {
+    async (_postId: string, commentId: string, content: string, mentionIds?: string[]) => {
       if (!id) {
         return;
       }
 
       try {
-        const response = await postService.updateComment(id, commentId, { content });
+        const response = await postService.updateComment(id, commentId, { content, mentionIds });
         if (response.code !== 1000 || !response.result) {
           throw new Error(response.message ?? 'Could not update comment.');
         }
@@ -273,7 +276,7 @@ export default function PostDetailScreen() {
           </TouchableOpacity>
 
           {post.content?.trim() ? (
-            <Text className="mt-3 text-base leading-6 text-[#1D1D1F]">{post.content}</Text>
+            <MentionText content={post.content} style={{ marginTop: 12, fontSize: 16, lineHeight: 24, color: '#1D1D1F' }} />
           ) : null}
 
           <PostMediaGallery mediaUrls={post.mediaUrls} />

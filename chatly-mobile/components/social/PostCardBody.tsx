@@ -11,6 +11,7 @@ import { PostCardMenu } from './PostCardMenu';
 import { PostImageCarousel } from './PostImageCarousel';
 import { ReportPostModal } from './ReportPostModal';
 import { SharePostDialog } from './SharePostDialog';
+import { MentionText } from '@/components/mention/MentionText';
 import { Colors } from '@/constants/theme';
 import type { Post, PostComment, ReportPostRequest } from '@/types/post';
 
@@ -35,12 +36,13 @@ interface PostCardBodyProps {
     postId: string,
     content: string,
     mediaUrls?: string[],
-    parentCommentId?: string
+    parentCommentId?: string,
+    mentionIds?: string[]
   ) => void;
   onLikeComment?: (commentId: string, reactionType: string) => void;
   onUnlikeComment?: (commentId: string) => void;
   onDeleteComment?: (commentId: string) => void;
-  onEditComment?: (commentId: string, content: string) => void;
+  onEditComment?: (commentId: string, content: string, mentionIds?: string[]) => void;
   onOpenComments?: (postId: string) => void;
   onSharePost?: (updatedPost: Post) => void;
 }
@@ -225,7 +227,7 @@ export function PostCardBody({
             <Text className="font-semibold" onPress={handleOpenAuthorProfile}>
               {authorName}{' '}
             </Text>
-            {post.content || 'No caption'}
+            <MentionText content={post.content || 'No caption'} />
           </Text>
 
           {hasLongCaption && (
@@ -259,7 +261,7 @@ export function PostCardBody({
         onLikeComment={(commentId, reactionType) => onLikeComment?.(commentId, reactionType)}
         onUnlikeComment={(commentId) => onUnlikeComment?.(commentId)}
         onDeleteComment={(commentId) => onDeleteComment?.(commentId)}
-        onEditComment={async (_postId, commentId, content) => onEditComment?.(commentId, content)}
+        onEditComment={async (_postId, commentId, content, mentionIds) => onEditComment?.(commentId, content, mentionIds)}
       />
 
       <ReportPostModal

@@ -28,12 +28,13 @@ interface CommentsBottomSheetProps {
     postId: string,
     content: string,
     mediaUrls?: string[],
-    parentCommentId?: string
+    parentCommentId?: string,
+    mentionIds?: string[]
   ) => void | Promise<void>;
   onLikeComment?: (commentId: string, reactionType: ReactionType) => void;
   onUnlikeComment?: (commentId: string) => void;
   onDeleteComment?: (commentId: string) => void;
-  onEditComment?: (postId: string, commentId: string, content: string) => void | Promise<void>;
+  onEditComment?: (postId: string, commentId: string, content: string, mentionIds?: string[]) => void | Promise<void>;
   isSubmittingComment?: boolean;
 }
 
@@ -194,15 +195,15 @@ export function CommentsBottomSheet({
               setEditingCommentId(null);
               setEditingContent('');
             }}
-            onSubmit={async (content, mediaUrls) => {
+            onSubmit={async (content, mediaUrls, mentionIds) => {
               if (editingCommentId) {
-                await onEditComment?.(postId, editingCommentId, content);
+                await onEditComment?.(postId, editingCommentId, content, mentionIds);
                 setEditingCommentId(null);
                 setEditingContent('');
                 return;
               }
 
-              await onAddComment?.(postId, content, mediaUrls, replyToId ?? undefined);
+              await onAddComment?.(postId, content, mediaUrls, replyToId ?? undefined, mentionIds);
               setReplyToId(null);
               setReplyToUsername(null);
             }}

@@ -15,12 +15,13 @@ interface HomePostCardProps {
     postId: string,
     content: string,
     mediaUrls?: string[],
-    parentCommentId?: string
+    parentCommentId?: string,
+    mentionIds?: string[]
   ) => void;
   onLikeComment?: (commentId: string, reactionType: string) => void;
   onUnlikeComment?: (commentId: string) => void;
   onDeleteComment?: (commentId: string) => void;
-  onEditComment?: (commentId: string, content: string) => void;
+  onEditComment?: (commentId: string, content: string, mentionIds?: string[]) => void;
   onOpenComments?: (postId: string) => void;
   onSharePost?: (updatedPost: Post) => void;
 }

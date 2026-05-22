@@ -1,15 +1,18 @@
-import { useEffect, useState } from 'react';
-import { Alert, View, TextInput, TouchableOpacity, Text } from 'react-native';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Alert, View, TextInput, TouchableOpacity, type NativeSyntheticEvent, type TextInputSelectionChangeEventData } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import EmojiPicker from 'rn-emoji-keyboard';
 import type { EmojiType } from 'rn-emoji-keyboard';
+import { MentionSuggestionsDropdown } from '@/components/mention/MentionSuggestionsDropdown';
 import { Colors } from '@/constants/theme';
+import { useMentionCandidates } from '@/hooks/useMentionCandidates';
 import { fileService } from '@/services/file.service';
+import { buildMentionSuggestions, detectMentionQuery, extractMentionTargets, insertMentionAtCursor } from '@/utils/mention';
 
 interface CommentInputProps {
-  onSubmit: (content: string, mediaUrls?: string[]) => void;
+  onSubmit: (content: string, mediaUrls?: string[], mentionIds?: string[]) => void;
   onCancel?: () => void;
   isLoading?: boolean;
   placeholder?: string;
@@ -33,25 +36,47 @@ export function CommentInput({
   const [selectedImages, setSelectedImages] = useState<string[]>([]);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [isPickingImage, setIsPickingImage] = useState(false);
+  const [mentionQuery, setMentionQuery] = useState<string | null>(null);
+  const [selection, setSelection] = useState({ start: 0, end: 0 });
+  const inputRef = useRef<TextInput | null>(null);
+  const { candidates, currentUserId } = useMentionCandidates(true);
+
+  const mentionSuggestions = useMemo(
+    () => buildMentionSuggestions(mentionQuery, candidates, {
+      includeAi: true,
+      includeAll: false,
+      currentUserId,
+      maxUsers: 8,
+    }),
+    [candidates, currentUserId, mentionQuery],
+  );
 
   useEffect(() => {
     if (isEditing) {
       setContent(initialContent ?? '');
       setSelectedImages([]);
+      setMentionQuery(null);
       return;
     }
 
     if (isReply && replyToUsername) {
       setContent(`@${replyToUsername} `);
       setSelectedImages([]);
+      setMentionQuery(null);
       return;
     }
 
     if (!isReply) {
       setContent('');
       setSelectedImages([]);
+      setMentionQuery(null);
     }
   }, [initialContent, isEditing, isReply, replyToUsername]);
+
+  const updateMentionQuery = (nextContent: string, cursorPos: number) => {
+    const nextMentionQuery = detectMentionQuery(nextContent, cursorPos);
+    setMentionQuery(nextMentionQuery);
+  };
 
   const handlePickImage = async () => {
     try {
@@ -90,7 +115,43 @@ export function CommentInput({
   };
 
   const handleEmojiPick = (emoji: EmojiType) => {
-    setContent((prev) => `${prev}${emoji.emoji}`);
+    setContent((prev) => {
+      const nextContent = `${prev}${emoji.emoji}`;
+      updateMentionQuery(nextContent, nextContent.length);
+      return nextContent;
+    });
+  };
+
+  const handleSelectionChange = (
+    event: NativeSyntheticEvent<TextInputSelectionChangeEventData>,
+  ) => {
+    const nextSelection = event.nativeEvent.selection;
+    setSelection(nextSelection);
+    updateMentionQuery(content, nextSelection.start);
+  };
+
+  const handleChangeText = (nextContent: string) => {
+    setContent(nextContent);
+    updateMentionQuery(nextContent, selection.start > nextContent.length ? nextContent.length : selection.start);
+  };
+
+  const handleSelectMention = (suggestion: ReturnType<typeof buildMentionSuggestions>[number]) => {
+    const cursorPos = selection.start;
+    const nextContent = insertMentionAtCursor(content, cursorPos, suggestion, {
+      userMentionField: 'username',
+    });
+    const nextCursor = nextContent.slice(0, cursorPos).lastIndexOf('@');
+    const insertedLength = nextContent.length - content.length;
+
+    setContent(nextContent);
+    setMentionQuery(null);
+    setSelection({
+      start: Math.max(0, nextCursor + insertedLength + 1),
+      end: Math.max(0, nextCursor + insertedLength + 1),
+    });
+    requestAnimationFrame(() => {
+      inputRef.current?.focus();
+    });
   };
 
   const handleSubmit = () => {
@@ -100,9 +161,14 @@ export function CommentInput({
       return;
     }
 
-    onSubmit(trimmedContent, hasImages ? selectedImages : undefined);
+    const mentionIds = extractMentionTargets(trimmedContent, candidates, {
+      includeAi: false,
+      includeAll: false,
+    });
+    onSubmit(trimmedContent, hasImages ? selectedImages : undefined, mentionIds);
     setContent('');
     setSelectedImages([]);
+    setMentionQuery(null);
   };
 
   const canSubmit = (content.trim().length > 0 || selectedImages.length > 0) && !isLoading;
@@ -133,11 +199,23 @@ export function CommentInput({
       )}
 
       {/* Input Area */}
+      <View className="relative">
+        {mentionSuggestions.length > 0 ? (
+          <MentionSuggestionsDropdown
+            suggestions={mentionSuggestions}
+            onSelect={handleSelectMention}
+            placement="top"
+          />
+        ) : null}
+
       <View className="flex-row items-center gap-2">
         <View className="flex-1 flex-row items-center rounded-full border border-gray-300 bg-gray-50 px-3 py-2">
           <TextInput
+            ref={inputRef}
             value={content}
-            onChangeText={setContent}
+            onChangeText={handleChangeText}
+            onSelectionChange={handleSelectionChange}
+            selection={selection}
             placeholder={placeholder}
             placeholderTextColor={Colors.textLight}
             multiline
@@ -198,6 +276,7 @@ export function CommentInput({
             <Ionicons name="close" size={16} color="white" />
           </TouchableOpacity>
         )}
+      </View>
       </View>
 
       <EmojiPicker

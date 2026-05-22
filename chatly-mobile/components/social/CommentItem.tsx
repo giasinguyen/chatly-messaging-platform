@@ -6,6 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import * as Clipboard from 'expo-clipboard';
 import { UserQuickProfileDialog } from '@/components/profile/UserQuickProfileDialog';
+import { MentionText } from '@/components/mention/MentionText';
 import { Avatar } from '@/components/ui/Avatar';
 import { Colors } from '@/constants/theme';
 import type { PostComment, ReactionType } from '@/types/post';
@@ -31,48 +32,6 @@ function formatRelativeTime(createdAt: string): string {
   if (diffHours < 24) return `${diffHours}h`;
   const diffDays = Math.floor(diffHours / 24);
   return `${diffDays}d`;
-}
-
-// Parse mentions (@username) in text and return components with bold mentions
-function renderContentWithMentions(content: string) {
-  const mentionRegex = /@([\w._]+)/g;
-  const parts: { type: 'text' | 'mention'; value: string }[] = [];
-  let lastIndex = 0;
-  let match;
-
-  while ((match = mentionRegex.exec(content)) !== null) {
-    if (match.index > lastIndex) {
-      parts.push({ type: 'text', value: content.slice(lastIndex, match.index) });
-    }
-    parts.push({ type: 'mention', value: match[0] });
-    lastIndex = match.index + match[0].length;
-  }
-
-  if (lastIndex < content.length) {
-    parts.push({ type: 'text', value: content.slice(lastIndex) });
-  }
-
-  if (parts.length === 0) {
-    return (
-      <Text style={{ marginTop: 0, fontSize: 13, lineHeight: 20, color: '#1D1D1F' }}>
-        {content}
-      </Text>
-    );
-  }
-
-  return (
-    <Text style={{ marginTop: 0, fontSize: 13, lineHeight: 20, color: '#1D1D1F' }}>
-      {parts.map((part, idx) =>
-        part.type === 'mention' ? (
-          <Text key={idx} style={{ fontWeight: '700', color: '#1D1D1F' }}>
-            {part.value}
-          </Text>
-        ) : (
-          <Text key={idx}>{part.value}</Text>
-        )
-      )}
-    </Text>
-  );
 }
 
 export function CommentItem({
@@ -151,7 +110,9 @@ export function CommentItem({
           </View>
 
           <View className="flex-row items-start justify-between gap-3">
-            <View className="flex-1">{renderContentWithMentions(comment.content)}</View>
+            <View className="flex-1">
+              <MentionText content={comment.content} style={{ marginTop: 0, fontSize: 13, lineHeight: 20, color: '#1D1D1F' }} />
+            </View>
 
             <TouchableOpacity
               onPress={() => {
