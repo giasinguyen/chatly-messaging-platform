@@ -91,6 +91,7 @@ export default function SavedPostsScreen() {
     handleUnsavePost,
     handleTogglePostLike,
     handleDoubleTapPostLike,
+    handleSharePost,
     handleReportPost,
     loadComments,
   } = useSavedPosts();
@@ -104,6 +105,7 @@ export default function SavedPostsScreen() {
         onDoubleTapLikePost={handleDoubleTapPostLike}
         onSavePost={handleSavePost}
         onUnsavePost={handleUnsavePost}
+        onSharePost={handleSharePost}
         onReportPost={handleReportPost}
         onOpenComments={(postId) => void loadComments(postId)}
       />
@@ -113,6 +115,7 @@ export default function SavedPostsScreen() {
       handleDoubleTapPostLike,
       handleReportPost,
       handleSavePost,
+      handleSharePost,
       handleTogglePostLike,
       handleUnsavePost,
       loadComments,

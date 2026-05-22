@@ -14,7 +14,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { CommentList } from './CommentList';
 import { CommentInput } from './CommentInput';
-import type { PostComment } from '@/types/post';
+import type { PostComment, ReactionType } from '@/types/post';
 import { Colors } from '@/constants/theme';
 
 interface CommentsBottomSheetProps {
@@ -28,11 +28,13 @@ interface CommentsBottomSheetProps {
     postId: string,
     content: string,
     mediaUrls?: string[],
-    parentCommentId?: string
+    parentCommentId?: string,
+    mentionIds?: string[]
   ) => void | Promise<void>;
-  onLikeComment?: (commentId: string, reactionType: string) => void;
+  onLikeComment?: (commentId: string, reactionType: ReactionType) => void;
   onUnlikeComment?: (commentId: string) => void;
   onDeleteComment?: (commentId: string) => void;
+  onEditComment?: (postId: string, commentId: string, content: string, mentionIds?: string[]) => void | Promise<void>;
   isSubmittingComment?: boolean;
 }
 
@@ -51,24 +53,31 @@ export function CommentsBottomSheet({
   onLikeComment,
   onUnlikeComment,
   onDeleteComment,
+  onEditComment,
   isSubmittingComment = false,
 }: CommentsBottomSheetProps) {
   const [scrollPosition, setScrollPosition] = useState(0);
   const [replyToId, setReplyToId] = useState<string | null>(null);
   const [replyToUsername, setReplyToUsername] = useState<string | null>(null);
+  const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
+  const [editingContent, setEditingContent] = useState('');
   const pan = useRef(new Animated.ValueXY()).current;
   const scrollViewRef = useRef<ScrollView>(null);
 
   const panResponder = useRef(
     PanResponder.create({
-      onStartShouldSetPanResponder: () => scrollPosition === 0,
-      onMoveShouldSetPanResponder: () => scrollPosition === 0,
-      onPanResponderMove: (evt, { dy }) => {
+      onStartShouldSetPanResponder: () => false,
+      onMoveShouldSetPanResponder: (_, { dx, dy }) => {
+        if (scrollPosition > 0) return false;
+        const isVerticalDrag = Math.abs(dy) > Math.abs(dx);
+        return isVerticalDrag && dy > 6;
+      },
+      onPanResponderMove: (_, { dy }) => {
         if (dy > 0 && scrollPosition === 0) {
           pan.y.setValue(dy);
         }
       },
-      onPanResponderRelease: (evt, { dy }) => {
+      onPanResponderRelease: (_, { dy }) => {
         if (dy > DRAG_THRESHOLD) {
           onClose();
           pan.y.setValue(0);
@@ -84,6 +93,10 @@ export function CommentsBottomSheet({
       onOpen?.(postId);
     } else {
       pan.y.setValue(0);
+      setReplyToId(null);
+      setReplyToUsername(null);
+      setEditingCommentId(null);
+      setEditingContent('');
     }
   }, [visible, postId, onOpen, pan.y]);
 
@@ -100,14 +113,13 @@ export function CommentsBottomSheet({
 
       {/* Bottom Sheet */}
       <Animated.View
-        {...panResponder.panHandlers}
         style={{
           height: SHEET_HEIGHT,
           transform: [{ translateY: pan.y }],
         }}
         className="bg-white">
         {/* Handle Bar */}
-        <View className="items-center py-3">
+        <View className="items-center py-3" {...panResponder.panHandlers}>
           <View className="h-1 w-12 rounded-full bg-gray-300" />
         </View>
 
@@ -122,9 +134,12 @@ export function CommentsBottomSheet({
         {/* Comments List */}
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 20 : 0}
           style={{ flex: 1 }}>
           <ScrollView
             ref={scrollViewRef}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="interactive"
             scrollEventThrottle={16}
             onScroll={(evt) => {
               const offsetY = evt.nativeEvent.contentOffset.y;
@@ -137,8 +152,16 @@ export function CommentsBottomSheet({
                 <CommentList
                   comments={comments}
                   onAddComment={(parentId?: string, username?: string) => {
+                    setEditingCommentId(null);
+                    setEditingContent('');
                     setReplyToId(parentId ?? null);
                     setReplyToUsername(username ?? null);
+                  }}
+                  onEditComment={(commentId, content) => {
+                    setReplyToId(null);
+                    setReplyToUsername(null);
+                    setEditingCommentId(commentId);
+                    setEditingContent(content);
                   }}
                   onLikeComment={(commentId, reactionType) =>
                     onLikeComment?.(commentId, reactionType)
@@ -162,18 +185,29 @@ export function CommentsBottomSheet({
           {/* Comment Input - Sticky at bottom */}
           <CommentInput
             isReply={Boolean(replyToId)}
+            isEditing={Boolean(editingCommentId)}
             replyToUsername={replyToUsername}
+            initialContent={editingContent}
             isLoading={isSubmittingComment}
             onCancel={() => {
               setReplyToId(null);
               setReplyToUsername(null);
+              setEditingCommentId(null);
+              setEditingContent('');
             }}
-            onSubmit={async (content, mediaUrls) => {
-              await onAddComment?.(postId, content, mediaUrls, replyToId ?? undefined);
+            onSubmit={async (content, mediaUrls, mentionIds) => {
+              if (editingCommentId) {
+                await onEditComment?.(postId, editingCommentId, content, mentionIds);
+                setEditingCommentId(null);
+                setEditingContent('');
+                return;
+              }
+
+              await onAddComment?.(postId, content, mediaUrls, replyToId ?? undefined, mentionIds);
               setReplyToId(null);
               setReplyToUsername(null);
             }}
-            placeholder={replyToId ? 'Reply...' : 'Add a comment...'}
+            placeholder={editingCommentId ? 'Edit comment...' : replyToId ? 'Reply...' : 'Add a comment...'}
           />
         </KeyboardAvoidingView>
       </Animated.View>

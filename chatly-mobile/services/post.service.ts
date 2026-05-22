@@ -11,6 +11,7 @@ import type {
   CreateCommentRequest,
   ReportPostRequest,
   ReportResponse,
+  UpdateCommentRequest,
 } from '@/types/post';
 import { HOME_FEED_PAGE_SIZE } from '@/constants/feed';
 
@@ -105,6 +106,11 @@ export const postService = {
     return response.data;
   },
 
+  sharePost: async (postId: string): Promise<ApiResponse<Post>> => {
+    const response = await axiosClient.post<ApiResponse<Post>>(`/api/posts/${postId}/share`);
+    return response.data;
+  },
+
   delete: async (postId: string): Promise<ApiResponse<void>> => {
     const response = await axiosClient.delete<ApiResponse<void>>(`/api/posts/${postId}`);
     return response.data;
@@ -166,7 +172,7 @@ export const postService = {
   updateComment: async (
     postId: string,
     commentId: string,
-    payload: Partial<CreateCommentRequest>
+    payload: UpdateCommentRequest
   ): Promise<ApiResponse<PostComment>> => {
     const response = await axiosClient.patch<ApiResponse<PostComment>>(
       `/api/posts/${postId}/comments/${commentId}`,

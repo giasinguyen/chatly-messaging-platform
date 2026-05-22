@@ -22,7 +22,9 @@ import { formatMessageTime, isRichTextHtml, richTextToPlainText } from '@/utils/
 import { ImageLightbox } from '@/components/ui/ImageLightbox';
 import { VideoPlayer } from '@/components/chat/VideoPlayer';
 import { AudioPlayer } from '@/components/chat/AudioPlayer';
+import { Avatar } from '@/components/ui/Avatar';
 import { CoAuthorAvatar } from '@/components/ui/CoAuthorAvatar';
+import { UserQuickProfileDialog } from '@/components/profile/UserQuickProfileDialog';
 import { useCallStore } from '@/store/call.store';
 import type { Message } from '@/types/message';
 
@@ -97,6 +99,7 @@ export function MessageBubble({
 
   const [lightboxVisible, setLightboxVisible] = useState(false);
   const [voterModal, setVoterModal] = useState<{ title: string; voterIds: string[] } | null>(null);
+  const [quickProfileVisible, setQuickProfileVisible] = useState(false);
   const pan = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
 
   const panResponder = useRef(
@@ -139,9 +142,9 @@ export function MessageBubble({
 
   // Image message — show ALL images, not just the first
   const renderImageContent = () => {
-    const images = (attachments ?? []).filter((a) => !!a.url);
+    const images = (attachments ?? []).filter((attachment) => !!attachment.url);
     if (images.length === 0) return null;
-    const imageUrls = images.map((a) => a.url);
+    const imageUrls = images.map((attachment) => attachment.url);
     return (
       <>
         <ImageLightbox
@@ -166,6 +169,47 @@ export function MessageBubble({
           ))}
         </View>
       </>
+    );
+  };
+
+  const canOpenQuickProfile = !isMe && showAvatar && Boolean(message.senderId);
+  const quickProfileDialog = canOpenQuickProfile ? (
+    <UserQuickProfileDialog
+      visible={quickProfileVisible}
+      userId={message.senderId}
+      fallbackDisplayName={senderName}
+      fallbackAvatarUrl={senderAvatarUrl}
+      onClose={() => setQuickProfileVisible(false)}
+    />
+  ) : null;
+
+  const renderSenderAvatar = () => {
+    if (!showAvatar || isMe) {
+      return null;
+    }
+
+    const avatarContent = type === 'AGENT' ? (
+      <View style={{ marginRight: 6, alignSelf: 'flex-end' }}>
+        <CoAuthorAvatar
+          userAvatarUrl={senderAvatarUrl}
+          userDisplayName={senderName ?? '?'}
+          size={28}
+        />
+      </View>
+    ) : (
+      <View style={{ marginRight: 6 }}>
+        <Avatar uri={senderAvatarUrl} name={senderName ?? '?'} size={28} />
+      </View>
+    );
+
+    if (!canOpenQuickProfile) {
+      return avatarContent;
+    }
+
+    return (
+      <TouchableOpacity onPress={() => setQuickProfileVisible(true)} activeOpacity={0.75}>
+        {avatarContent}
+      </TouchableOpacity>
     );
   };
 
@@ -1047,17 +1091,7 @@ export function MessageBubble({
           </Text>
         )}
         <View style={{ flexDirection: 'row', alignItems: 'flex-end' }}>
-          {!isMe && showAvatar && (
-            <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: Colors.cta, alignItems: 'center', justifyContent: 'center', marginRight: 6, overflow: 'hidden' }}>
-              {senderAvatarUrl ? (
-                <Image source={{ uri: senderAvatarUrl }} style={{ width: 28, height: 28, borderRadius: 14 }} />
-              ) : (
-                <Text style={{ fontSize: 11, fontWeight: 'bold', color: 'white' }}>
-                  {(senderName ?? '?').charAt(0).toUpperCase()}
-                </Text>
-              )}
-            </View>
-          )}
+          {renderSenderAvatar()}
           <TouchableOpacity activeOpacity={1} onLongPress={onLongPress} delayLongPress={300}>
             {renderPollContent()}
           </TouchableOpacity>
@@ -1142,6 +1176,7 @@ export function MessageBubble({
   // GIF & Sticker messages — no bubble background
   if (type === 'GIF' || type === 'STICKER') {
     return (
+      <>
       <Animated.View {...panResponder.panHandlers} style={{ transform: [{ translateX: pan.x }] }} className={`my-0.5 px-4 ${isMe ? 'items-end' : 'items-start'}`}>
         {!isMe && showAvatar && senderName && (
           <Text className="mb-0.5 ml-1 text-xs" style={{ color: Colors.textMuted }}>
@@ -1200,10 +1235,12 @@ export function MessageBubble({
           </View>
         )}
       </Animated.View>
+      </>
     );
   }
 
   return (
+    <>
     <Animated.View {...panResponder.panHandlers} style={{ transform: [{ translateX: pan.x }] }} className={`my-0.5 px-4 ${isMe ? 'items-end' : 'items-start'}`}>
       {/* Sender name for group chats */}
       {!isMe && showAvatar && senderName && (
@@ -1221,39 +1258,8 @@ export function MessageBubble({
       )}
 
       <View style={{ flexDirection: 'row', alignItems: 'flex-end' }}>
-      {/* Avatar for group received messages */}
-        {!isMe && showAvatar && (
-          type === 'AGENT' ? (
-            <View style={{ marginRight: 6, alignSelf: 'flex-end' }}>
-              <CoAuthorAvatar
-                userAvatarUrl={senderAvatarUrl}
-                userDisplayName={senderName ?? '?'}
-                size={28}
-              />
-            </View>
-          ) : (
-            <View
-              style={{
-                width: 28,
-                height: 28,
-                borderRadius: 14,
-                backgroundColor: Colors.cta,
-                alignItems: 'center',
-                justifyContent: 'center',
-                marginRight: 6,
-                overflow: 'hidden',
-              }}
-            >
-              {senderAvatarUrl ? (
-                <Image source={{ uri: senderAvatarUrl }} style={{ width: 28, height: 28, borderRadius: 14 }} />
-              ) : (
-                <Text style={{ fontSize: 11, fontWeight: 'bold', color: 'white' }}>
-                  {(senderName ?? '?').charAt(0).toUpperCase()}
-                </Text>
-              )}
-            </View>
-          )
-        )}
+        {/* Avatar for group received messages */}
+        {renderSenderAvatar()}
 
         <TouchableOpacity
           activeOpacity={0.8}
@@ -1463,5 +1469,7 @@ export function MessageBubble({
         </Modal>
       )}
       </Animated.View>
+      {quickProfileDialog}
+    </>
   );
 }

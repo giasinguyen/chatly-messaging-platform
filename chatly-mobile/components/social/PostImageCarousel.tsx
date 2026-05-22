@@ -1,127 +1,33 @@
-import { useState, useRef, useEffect } from 'react';
-import { View, Animated, PanResponder, Text } from 'react-native';
+import { Animated, Text, View } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
+import { usePostImageCarousel, FALLBACK_ASPECT_RATIO } from '@/hooks/usePostImageCarousel';
 
 interface PostImageCarouselProps {
   images: string[];
   onDoubleTap?: () => void;
+  onPressImage?: (index: number) => void;
 }
 
-const FALLBACK_ASPECT_RATIO = 1;
+const FALLBACK_MEDIA_SOURCE = require('@/assets/fallback-image.png');
 
-function getFrameAspectRatio(imageSizes: Record<string, number>): number {
-  const aspectRatios = Object.values(imageSizes);
-  if (aspectRatios.length === 0) {
-    return FALLBACK_ASPECT_RATIO;
+export function PostImageCarousel({ images, onDoubleTap, onPressImage }: PostImageCarouselProps) {
+  const {
+    currentIndex,
+    failedImages,
+    frameAspectRatio,
+    heartOpacity,
+    heartScale,
+    normalizedImages,
+    panHandlers,
+    handleImageError,
+  } = usePostImageCarousel({ images, onDoubleTap, onPressImage });
+
+  if (images.length === 0) {
+    return null;
   }
 
-  return Math.min(...aspectRatios);
-}
-
-export function PostImageCarousel({ images, onDoubleTap }: PostImageCarouselProps) {
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [imageAspectRatios, setImageAspectRatios] = useState<Record<string, number>>({});
-  const currentIndexRef = useRef(0);
-  const lastTapRef = useRef(0);
-  const heartScale = useRef(new Animated.Value(0)).current;
-  const heartOpacity = useRef(new Animated.Value(0)).current;
-
-  const triggerDoubleTap = () => {
-    heartScale.setValue(0.45);
-    heartOpacity.setValue(1);
-    Animated.parallel([
-      Animated.spring(heartScale, {
-        toValue: 1,
-        friction: 4,
-        tension: 110,
-        useNativeDriver: true,
-      }),
-      Animated.sequence([
-        Animated.delay(420),
-        Animated.timing(heartOpacity, {
-          toValue: 0,
-          duration: 220,
-          useNativeDriver: true,
-        }),
-      ]),
-    ]).start();
-    onDoubleTap?.();
-  };
-
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => images.length > 1 || Boolean(onDoubleTap),
-      onMoveShouldSetPanResponder: (_, gestureState) =>
-        Math.abs(gestureState.dx) > 8 && Math.abs(gestureState.dy) < 12 && images.length > 1,
-      onPanResponderRelease: (evt, { vx }) => {
-        const idx = currentIndexRef.current;
-        const now = Date.now();
-        const tapGapMs = 280;
-
-        if (Math.abs(vx) < 0.2) {
-          if (now - lastTapRef.current <= tapGapMs) {
-            lastTapRef.current = 0;
-            triggerDoubleTap();
-            return;
-          }
-
-          lastTapRef.current = now;
-          return;
-        }
-
-        // vx is velocity in x direction
-        if (vx > 0.5 && idx > 0) {
-          // Swipe right - show previous image
-          setCurrentIndex((i) => Math.max(0, i - 1));
-        } else if (vx < -0.5 && idx < images.length - 1) {
-          // Swipe left - show next image
-          setCurrentIndex((i) => Math.min(images.length - 1, i + 1));
-        }
-      },
-    }),
-  ).current;
-
-  useEffect(() => {
-    currentIndexRef.current = currentIndex;
-  }, [currentIndex]);
-
-  useEffect(() => {
-    let isMounted = true;
-
-    setImageAspectRatios({});
-    if (images.length !== 1) {
-      return undefined;
-    }
-
-    Promise.all(
-      images.map(async (uri) => {
-        try {
-          const imageRef = await Image.loadAsync(uri);
-          return [uri, imageRef.width / imageRef.height] as const;
-        } catch {
-          return null;
-        }
-      })
-    )
-      .then((ratios) => {
-        if (!isMounted) {
-          return;
-        }
-
-        const measuredRatios = ratios.filter((ratio) => ratio !== null);
-        setImageAspectRatios(Object.fromEntries(measuredRatios));
-      });
-
-    return () => {
-      isMounted = false;
-    };
-  }, [images]);
-
-  const frameAspectRatio =
-    images.length === 1 ? getFrameAspectRatio(imageAspectRatios) : FALLBACK_ASPECT_RATIO;
-
-  if (!images || images.length === 0) {
+  if (normalizedImages.length === 0) {
     return (
       <View
         style={{
@@ -129,22 +35,32 @@ export function PostImageCarousel({ images, onDoubleTap }: PostImageCarouselProp
           aspectRatio: FALLBACK_ASPECT_RATIO,
           backgroundColor: '#F5F5F7',
         }}
-      />
+      >
+        <Image
+          source={FALLBACK_MEDIA_SOURCE}
+          contentFit="cover"
+          style={{ width: '100%', height: '100%' }}
+        />
+      </View>
     );
   }
 
   // Single image - just display
-  if (images.length === 1) {
+  if (normalizedImages.length === 1) {
+    const imageUrl = normalizedImages[0];
+    const imageSource = failedImages[imageUrl] ? FALLBACK_MEDIA_SOURCE : { uri: imageUrl };
+
     return (
       <View
-        {...panResponder.panHandlers}
+        {...panHandlers}
         style={{ width: '100%', aspectRatio: frameAspectRatio, backgroundColor: '#F5F5F7' }}
       >
         <Image
-          source={{ uri: images[0] }}
-          contentFit="contain"
+          source={imageSource}
+          contentFit={failedImages[imageUrl] ? 'cover' : 'contain'}
           transition={120}
           style={{ width: '100%', height: '100%' }}
+          onError={failedImages[imageUrl] ? undefined : () => handleImageError(imageUrl)}
         />
         <Animated.View
           pointerEvents="none"
@@ -167,11 +83,14 @@ export function PostImageCarousel({ images, onDoubleTap }: PostImageCarouselProp
   }
 
   // Multiple images - show carousel
-  const currentImage = images[currentIndex];
+  const currentImage = normalizedImages[currentIndex];
+  const currentImageSource = failedImages[currentImage]
+    ? FALLBACK_MEDIA_SOURCE
+    : { uri: currentImage };
 
   return (
     <View
-      {...panResponder.panHandlers}
+      {...panHandlers}
       style={{
         width: '100%',
         aspectRatio: frameAspectRatio,
@@ -181,10 +100,11 @@ export function PostImageCarousel({ images, onDoubleTap }: PostImageCarouselProp
     >
       {/* Main Image */}
       <Image
-        source={{ uri: currentImage }}
-        contentFit="contain"
+        source={currentImageSource}
+        contentFit={failedImages[currentImage] ? 'cover' : 'contain'}
         transition={200}
         style={{ width: '100%', height: '100%' }}
+        onError={failedImages[currentImage] ? undefined : () => handleImageError(currentImage)}
       />
 
       <Animated.View
@@ -229,7 +149,7 @@ export function PostImageCarousel({ images, onDoubleTap }: PostImageCarouselProp
       )}
 
       {/* Next Button */}
-      {currentIndex < images.length - 1 && (
+      {currentIndex < normalizedImages.length - 1 && (
         <View
           style={{
             position: 'absolute',
@@ -252,7 +172,7 @@ export function PostImageCarousel({ images, onDoubleTap }: PostImageCarouselProp
       )}
 
       {/* Image Counter */}
-      {images.length > 1 && (
+      {normalizedImages.length > 1 && (
         <View
           style={{
             position: 'absolute',
@@ -266,13 +186,13 @@ export function PostImageCarousel({ images, onDoubleTap }: PostImageCarouselProp
           }}
         >
           <Text style={{ color: 'white', fontSize: 12, fontWeight: '500' }}>
-            {currentIndex + 1} / {images.length}
+            {currentIndex + 1} / {normalizedImages.length}
           </Text>
         </View>
       )}
 
       {/* Dots Indicator */}
-      {images.length > 1 && (
+      {normalizedImages.length > 1 && (
         <View
           style={{
             position: 'absolute',
@@ -285,7 +205,7 @@ export function PostImageCarousel({ images, onDoubleTap }: PostImageCarouselProp
             zIndex: 10,
           }}
         >
-          {images.map((_, idx) => (
+          {normalizedImages.map((_, idx) => (
             <View
               key={`dot-${idx}`}
               style={{

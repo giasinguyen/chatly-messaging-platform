@@ -22,6 +22,7 @@ import * as Clipboard from 'expo-clipboard';
 
 import { ImageLightbox } from '@/components/ui/ImageLightbox';
 import { CustomAiIcon } from '@/components/ui/CustomAiIcon';
+import { UserQuickProfileDialog } from '@/components/profile/UserQuickProfileDialog';
 
 import { groupService } from '@/services/group.service';
 import { conversationService } from '@/services/conversation.service';
@@ -68,6 +69,7 @@ export default function GroupInfoScreen() {
   const [members, setMembers] = useState<GroupMemberResponse[]>([]);
   const [loading, setLoading] = useState(false);
   const [addingMember, setAddingMember] = useState(false);
+  const [quickProfileMember, setQuickProfileMember] = useState<GroupMemberResponse | null>(null);
 
   // For 1-1 chats: the other participant
   const [otherUser, setOtherUser] = useState<UserResponse | null>(null);
@@ -224,6 +226,31 @@ export default function GroupInfoScreen() {
       Alert.alert('Error', 'Error changing avatar.');
     }
   };
+
+  const handleOpenMemberConversation = useCallback(
+    async (targetUserId: string) => {
+      if (!user) return;
+
+      const existingConversation = conversations.find(
+        (item) =>
+          item.type === 'PRIVATE' &&
+          item.participantIds.includes(targetUserId) &&
+          item.participantIds.includes(user.id),
+      );
+
+      if (existingConversation) {
+        router.push(`/chat/${existingConversation.id}`);
+        return;
+      }
+
+      const response = await conversationService.create({
+        type: 'PRIVATE',
+        participantIds: [targetUserId],
+      });
+      router.push(`/chat/${response.result.id}`);
+    },
+    [conversations, router, user],
+  );
 
   const handleMemberAction = (member: GroupMemberResponse) => {
     if (member.userId === user?.id) return;
@@ -808,7 +835,15 @@ export default function GroupInfoScreen() {
                 disabled={item.userId === user?.id}
                 style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10, borderTopWidth: 0.5, borderTopColor: Colors.borderLight }}
               >
-                <Avatar uri={item.avatar} name={item.displayName} size={40} />
+                <TouchableOpacity
+                  onPress={(event) => {
+                    event.stopPropagation();
+                    setQuickProfileMember(item);
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <Avatar uri={item.avatar} name={item.displayName} size={40} />
+                </TouchableOpacity>
                 <View style={{ flex: 1, marginLeft: 12 }}>
                   <Text numberOfLines={1} style={{ fontWeight: '500', color: Colors.text }}>
                     {item.userId === user?.id ? 'You' : item.displayName}
@@ -1261,6 +1296,15 @@ export default function GroupInfoScreen() {
           />
         </View>
       </Modal>
+
+      <UserQuickProfileDialog
+        visible={Boolean(quickProfileMember)}
+        userId={quickProfileMember?.userId ?? null}
+        fallbackDisplayName={quickProfileMember?.displayName}
+        fallbackAvatarUrl={quickProfileMember?.avatar ?? undefined}
+        onClose={() => setQuickProfileMember(null)}
+        onMessage={handleOpenMemberConversation}
+      />
     </View>
   );
 }

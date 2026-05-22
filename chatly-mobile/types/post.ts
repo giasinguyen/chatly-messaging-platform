@@ -32,12 +32,14 @@ export interface CreatePostRequest {
   content: string;
   mediaUrls?: string[];
   visibility?: PostVisibility;
+  mentionIds?: string[];
 }
 
 export interface UpdatePostRequest {
   content?: string;
   mediaUrls?: string[];
   visibility?: PostVisibility;
+  mentionIds?: string[];
 }
 
 export interface ReactToPostRequest {
@@ -81,10 +83,12 @@ export interface CreateCommentRequest {
   content: string;
   mediaUrls?: string[];
   parentCommentId?: string;
+  mentionIds?: string[];
 }
 
 export interface UpdateCommentRequest {
   content?: string;
+  mentionIds?: string[];
 }
 
 export interface PostPage {

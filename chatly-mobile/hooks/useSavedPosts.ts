@@ -206,6 +206,10 @@ export function useSavedPosts() {
     [showError]
   );
 
+  const handleSharePost = useCallback((updatedPost: Post) => {
+    replacePost(updatedPost);
+  }, [replacePost]);
+
   const loadComments = useCallback(
     async (postId: string) => {
       if (postId in commentsByPostId) return;
@@ -235,6 +239,7 @@ export function useSavedPosts() {
     handleUnsavePost,
     handleTogglePostLike,
     handleDoubleTapPostLike,
+    handleSharePost,
     handleReportPost,
     loadComments,
   };
