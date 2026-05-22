@@ -1,8 +1,14 @@
+import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { HOME_PEOPLE_SUGGESTIONS } from "@/constants/homeSidebar";
+import { contactService } from "@/services/contact.service";
 import type { UserResponse } from "@/types/auth";
+import type { ContactSuggestionResponse } from "@/types/contact";
+import { HomeFriendsPanel } from "./HomeFriendsPanel";
+
+const HOME_CONTACT_SUGGESTION_LIMIT = 5;
 
 interface HomeRightSidebarProps {
     user: UserResponse | null;
@@ -15,6 +21,98 @@ export function HomeRightSidebar({
     hasMyStories,
     onOpenProfile,
 }: HomeRightSidebarProps) {
+    const [suggestions, setSuggestions] = useState<ContactSuggestionResponse[]>(
+        [],
+    );
+    const [pendingSuggestionIds, setPendingSuggestionIds] = useState<Set<string>>(
+        new Set(),
+    );
+    const [requestIdsBySuggestionId, setRequestIdsBySuggestionId] = useState<
+        Record<string, string>
+    >({});
+
+    useEffect(() => {
+        const loadSuggestions = async () => {
+            try {
+                const response = await contactService.getSuggestions(
+                    HOME_CONTACT_SUGGESTION_LIMIT,
+                );
+                if (response.code !== 1000 || !response.result) {
+                    setSuggestions([]);
+                    return;
+                }
+                setSuggestions(response.result);
+            } catch {
+                setSuggestions([]);
+            }
+        };
+
+        void loadSuggestions();
+    }, []);
+
+    const handleAddFriend = async (suggestion: ContactSuggestionResponse) => {
+        const userId = suggestion.id;
+        setPendingSuggestionIds((current) => new Set(current).add(userId));
+        try {
+            const response = await contactService.sendRequest({
+                contactId: userId,
+            });
+            if (response.code !== 1000) {
+                throw new Error(response.message ?? "Could not send friend request.");
+            }
+            setRequestIdsBySuggestionId((current) => ({
+                ...current,
+                [userId]: response.result.id,
+            }));
+            toast.success("Friend request sent.");
+        } catch (error: unknown) {
+            const message =
+                error instanceof Error
+                    ? error.message
+                    : "Could not send friend request.";
+            toast.error(message);
+        } finally {
+            setPendingSuggestionIds((current) => {
+                const next = new Set(current);
+                next.delete(userId);
+                return next;
+            });
+        }
+    };
+
+    const handleCancelRequest = async (suggestion: ContactSuggestionResponse) => {
+        const contactId = requestIdsBySuggestionId[suggestion.id];
+        if (!contactId) {
+            return;
+        }
+
+        setPendingSuggestionIds((current) => new Set(current).add(suggestion.id));
+        try {
+            const response = await contactService.delete(contactId);
+            if (response.code !== 1000) {
+                throw new Error(response.message ?? "Could not cancel friend request.");
+            }
+            setRequestIdsBySuggestionId((current) => {
+                const next = { ...current };
+                delete next[suggestion.id];
+                return next;
+            });
+            toast.success("Friend request canceled.");
+        } catch (error: unknown) {
+            const message =
+                error instanceof Error
+                    ? error.message
+                    : "Could not cancel friend request.";
+            toast.error(message);
+        } finally {
+            setPendingSuggestionIds((current) => {
+                const next = new Set(current);
+                next.delete(suggestion.id);
+                return next;
+            });
+        }
+    };
+
     return (
         <aside className="sticky top-0 hidden h-screen w-100 shrink-0 overflow-y-auto pt-8 pr-8 pl-6 xl:block hide-scrollbar">
             <div className="mb-8 flex items-center justify-between rounded-xl border border-border bg-card p-3 shadow-sm">
@@ -57,50 +155,74 @@ export function HomeRightSidebar({
                 </button>
             </div>
 
-            <div className="mb-4 flex items-center justify-between">
-                <h3 className="font-semibold text-muted-foreground">
-                    People you may know
-                </h3>
-                <button className="text-[12px] font-semibold text-foreground transition-colors hover:text-brand">
-                    See All
-                </button>
-            </div>
-
-            <div className="space-y-2 rounded-2xl border border-border bg-card/70 p-3">
-                {HOME_PEOPLE_SUGGESTIONS.map((suggestion) => (
-                    <div
-                        key={suggestion.id}
-                        className="flex items-center gap-3 rounded-xl p-2 transition-colors hover:bg-muted/70"
-                    >
-                        <Avatar className="size-10 shrink-0">
-                            <AvatarImage
-                                src={suggestion.avatarUrl}
-                                alt={suggestion.displayName}
-                                className="object-cover"
-                            />
-                            <AvatarFallback className="bg-muted text-sm font-semibold text-muted-foreground">
-                                {suggestion.displayName.charAt(0).toUpperCase()}
-                            </AvatarFallback>
-                        </Avatar>
-                        <div className="min-w-0 flex-1">
-                            <p className="truncate text-sm font-semibold text-foreground">
-                                {suggestion.displayName}
-                            </p>
-                            <p className="truncate text-xs text-muted-foreground">
-                                @{suggestion.username} - {suggestion.mutualFriends} mutual friends
-                            </p>
-                        </div>
-                        <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            className="h-8 rounded-xl px-3 text-xs"
-                        >
-                            Add
-                        </Button>
+            {suggestions.length > 0 && (
+                <>
+                    <div className="mb-4">
+                        <h3 className="font-semibold text-muted-foreground">
+                            People you may know
+                        </h3>
                     </div>
-                ))}
-            </div>
+
+                    <div className="space-y-2 rounded-2xl border border-border bg-card/70 p-3">
+                        {suggestions.map((suggestion) => (
+                            <div
+                                key={suggestion.id}
+                                className="flex items-center gap-3 rounded-xl p-2 transition-colors hover:bg-muted/70"
+                            >
+                                <Avatar className="size-10 shrink-0">
+                                    <AvatarImage
+                                        src={suggestion.avatarUrl}
+                                        alt={suggestion.displayName}
+                                        className="object-cover"
+                                    />
+                                    <AvatarFallback className="bg-muted text-sm font-semibold text-muted-foreground">
+                                        {suggestion.displayName
+                                            .charAt(0)
+                                            .toUpperCase()}
+                                    </AvatarFallback>
+                                </Avatar>
+                                <div className="min-w-0 flex-1">
+                                    <p className="truncate text-sm font-semibold text-foreground">
+                                        {suggestion.displayName}
+                                    </p>
+                                    <p className="truncate text-xs text-muted-foreground">
+                                        @{suggestion.username} -{" "}
+                                        {suggestion.mutualFriendCount} mutual friends
+                                    </p>
+                                </div>
+                                <Button
+                                    type="button"
+                                    size="sm"
+                                    variant={
+                                        requestIdsBySuggestionId[suggestion.id]
+                                            ? "ghost"
+                                            : "outline"
+                                    }
+                                    disabled={pendingSuggestionIds.has(
+                                        suggestion.id,
+                                    )}
+                                    onClick={() =>
+                                        requestIdsBySuggestionId[suggestion.id]
+                                            ? void handleCancelRequest(suggestion)
+                                            : void handleAddFriend(suggestion)
+                                    }
+                                    className={cn(
+                                        "h-8 rounded-xl px-3 text-xs",
+                                        requestIdsBySuggestionId[suggestion.id] &&
+                                            "text-red-600 hover:bg-red-50 hover:text-red-700 dark:hover:bg-red-500/10",
+                                    )}
+                                >
+                                    {requestIdsBySuggestionId[suggestion.id]
+                                        ? "Cancel"
+                                        : "Add"}
+                                </Button>
+                            </div>
+                        ))}
+                    </div>
+                </>
+            )}
+
+            <HomeFriendsPanel user={user} />
 
             <p className="mt-4 text-center text-[11px] text-muted-foreground">
                 © 2027 ChatLy - The Challenger Team

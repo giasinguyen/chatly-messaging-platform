@@ -41,6 +41,7 @@ export function useNotificationSocket({ onEvent }: UseNotificationSocketProps) {
                         switch (event.notification.type) {
                             case "NEW_MESSAGE": title = "New message"; break;
                             case "FRIEND_REQUEST": title = "Friend request"; break;
+                            case "FRIEND_ACCEPTED": title = "Friend request accepted"; break;
                             case "GROUP_INVITE": title = "Group invitation"; break;
                             case "GROUP_JOIN_REQUEST": title = "New join request"; break;
                             case "MEMBER_JOINED": title = "New member joined"; break;
@@ -54,6 +55,8 @@ export function useNotificationSocket({ onEvent }: UseNotificationSocketProps) {
                             window.focus();
                             if (event.notification.type === "FRIEND_REQUEST") {
                                 window.location.href = "/contact?tab=requests";
+                            } else if (event.notification.type === "FRIEND_ACCEPTED") {
+                                window.location.href = "/contact";
                             } else if (event.notification.referenceId) {
                                 window.location.href = `/chat/${event.notification.referenceId}`;
                             }

@@ -59,6 +59,7 @@ public class MessageService {
     private final SimpMessagingTemplate messagingTemplate;
     private final NotificationService notificationService;
     private final ContactService contactService;
+    private final UserSettingsService userSettingsService;
     private final UserRepository userRepository;
     private final AgentProxyClient agentProxyClient;
     private final TaskScheduler taskScheduler;
@@ -194,6 +195,7 @@ public class MessageService {
                 .orElseThrow(() -> new AppException(ErrorCode.MESSAGE_NOT_FOUND));
 
         if (message.getSenderId().equals(userId)) return Optional.empty();
+        if (!userSettingsService.isReadReceiptVisible(userId)) return Optional.empty();
 
         boolean alreadySeen = message.getReadBy().stream()
                 .anyMatch(r -> r.getUserId().equals(userId));
