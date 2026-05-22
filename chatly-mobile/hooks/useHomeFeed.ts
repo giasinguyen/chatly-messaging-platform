@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Alert } from 'react-native';
+import { Alert, Share } from 'react-native';
 import { HOME_FEED_PAGE_SIZE } from '@/constants/feed';
 import { postService } from '@/services/post.service';
 import { storyService } from '@/services/story.service';
@@ -306,6 +306,23 @@ export function useHomeFeed() {
     [showError]
   );
 
+  const handleSharePost = useCallback(
+    async (postId: string) => {
+      try {
+        const response = await postService.sharePost(postId);
+        if (response.code !== 1000 || !response.result) {
+          throw new Error(response.message ?? 'Could not share post.');
+        }
+
+        replacePost(response.result);
+        await Share.share({ message: `chatly-mobile://post/${postId}` });
+      } catch (error: unknown) {
+        showError(error, 'Could not share post.');
+      }
+    },
+    [replacePost, showError]
+  );
+
   const handleAddComment = useCallback(
     async (postId: string, content: string, mediaUrls?: string[], parentCommentId?: string) => {
       try {
@@ -472,6 +489,7 @@ export function useHomeFeed() {
     flushPendingPosts,
     handleTogglePostLike,
     handleDoubleTapPostLike,
+    handleSharePost,
     handleSavePost,
     handleUnsavePost,
     handleDeletePost,

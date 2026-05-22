@@ -1,148 +1,27 @@
-import { useState, useRef, useEffect, useMemo } from 'react';
-import { View, Animated, PanResponder, Text } from 'react-native';
+import { Animated, Text, View } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
-import { normalizeMediaUrl } from '@/utils/mediaUrl';
+import { usePostImageCarousel, FALLBACK_ASPECT_RATIO } from '@/hooks/usePostImageCarousel';
 
 interface PostImageCarouselProps {
   images: string[];
   onDoubleTap?: () => void;
+  onPressImage?: (index: number) => void;
 }
 
-const FALLBACK_ASPECT_RATIO = 1;
 const FALLBACK_MEDIA_SOURCE = require('@/assets/fallback-image.png');
 
-function getFrameAspectRatio(imageSizes: Record<string, number>): number {
-  const aspectRatios = Object.values(imageSizes);
-  if (aspectRatios.length === 0) {
-    return FALLBACK_ASPECT_RATIO;
-  }
-
-  return Math.min(...aspectRatios);
-}
-
-export function PostImageCarousel({ images, onDoubleTap }: PostImageCarouselProps) {
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [imageAspectRatios, setImageAspectRatios] = useState<Record<string, number>>({});
-  const [failedImages, setFailedImages] = useState<Record<string, boolean>>({});
-  const currentIndexRef = useRef(0);
-  const lastTapRef = useRef(0);
-  const heartScale = useRef(new Animated.Value(0)).current;
-  const heartOpacity = useRef(new Animated.Value(0)).current;
-  const normalizedImages = useMemo(
-    () => images.map((uri) => normalizeMediaUrl(uri)).filter((uri): uri is string => Boolean(uri)),
-    [images],
-  );
-
-  const triggerDoubleTap = () => {
-    heartScale.setValue(0.45);
-    heartOpacity.setValue(1);
-    Animated.parallel([
-      Animated.spring(heartScale, {
-        toValue: 1,
-        friction: 4,
-        tension: 110,
-        useNativeDriver: true,
-      }),
-      Animated.sequence([
-        Animated.delay(420),
-        Animated.timing(heartOpacity, {
-          toValue: 0,
-          duration: 220,
-          useNativeDriver: true,
-        }),
-      ]),
-    ]).start();
-    onDoubleTap?.();
-  };
-
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => normalizedImages.length > 1 || Boolean(onDoubleTap),
-      onMoveShouldSetPanResponder: (_, gestureState) =>
-        Math.abs(gestureState.dx) > 8 && Math.abs(gestureState.dy) < 12 && normalizedImages.length > 1,
-      onPanResponderRelease: (evt, { vx }) => {
-        const idx = currentIndexRef.current;
-        const now = Date.now();
-        const tapGapMs = 280;
-
-        if (Math.abs(vx) < 0.2) {
-          if (now - lastTapRef.current <= tapGapMs) {
-            lastTapRef.current = 0;
-            triggerDoubleTap();
-            return;
-          }
-
-          lastTapRef.current = now;
-          return;
-        }
-
-        // vx is velocity in x direction
-        if (vx > 0.5 && idx > 0) {
-          // Swipe right - show previous image
-          setCurrentIndex((i) => Math.max(0, i - 1));
-        } else if (vx < -0.5 && idx < normalizedImages.length - 1) {
-          // Swipe left - show next image
-          setCurrentIndex((i) => Math.min(normalizedImages.length - 1, i + 1));
-        }
-      },
-    }),
-  ).current;
-
-  useEffect(() => {
-    currentIndexRef.current = currentIndex;
-  }, [currentIndex]);
-
-  useEffect(() => {
-    setFailedImages({});
-  }, [images]);
-
-  useEffect(() => {
-    if (currentIndex < normalizedImages.length) {
-      return;
-    }
-
-    setCurrentIndex(0);
-  }, [currentIndex, normalizedImages.length]);
-
-  useEffect(() => {
-    let isMounted = true;
-
-    setImageAspectRatios({});
-    if (normalizedImages.length !== 1) {
-      return undefined;
-    }
-
-    Promise.all(
-      normalizedImages.map(async (uri) => {
-        try {
-          const imageRef = await Image.loadAsync(uri);
-          return [uri, imageRef.width / imageRef.height] as const;
-        } catch {
-          return null;
-        }
-      })
-    )
-      .then((ratios) => {
-        if (!isMounted) {
-          return;
-        }
-
-        const measuredRatios = ratios.filter((ratio) => ratio !== null);
-        setImageAspectRatios(Object.fromEntries(measuredRatios));
-      });
-
-    return () => {
-      isMounted = false;
-    };
-  }, [normalizedImages]);
-
-  const frameAspectRatio =
-    normalizedImages.length === 1 ? getFrameAspectRatio(imageAspectRatios) : FALLBACK_ASPECT_RATIO;
-
-  const handleImageError = (uri: string) => {
-    setFailedImages((prev) => ({ ...prev, [uri]: true }));
-  };
+export function PostImageCarousel({ images, onDoubleTap, onPressImage }: PostImageCarouselProps) {
+  const {
+    currentIndex,
+    failedImages,
+    frameAspectRatio,
+    heartOpacity,
+    heartScale,
+    normalizedImages,
+    panHandlers,
+    handleImageError,
+  } = usePostImageCarousel({ images, onDoubleTap, onPressImage });
 
   if (images.length === 0) {
     return null;
@@ -173,7 +52,7 @@ export function PostImageCarousel({ images, onDoubleTap }: PostImageCarouselProp
 
     return (
       <View
-        {...panResponder.panHandlers}
+        {...panHandlers}
         style={{ width: '100%', aspectRatio: frameAspectRatio, backgroundColor: '#F5F5F7' }}
       >
         <Image
@@ -211,7 +90,7 @@ export function PostImageCarousel({ images, onDoubleTap }: PostImageCarouselProp
 
   return (
     <View
-      {...panResponder.panHandlers}
+      {...panHandlers}
       style={{
         width: '100%',
         aspectRatio: frameAspectRatio,
