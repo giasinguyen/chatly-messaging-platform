@@ -11,6 +11,7 @@ interface HomeFeedHeaderProps {
   onCreateStory: () => void;
   onOpenExplore: () => void;
   onOpenNotifications: () => void;
+  onOpenReels: () => void;
   onPressStoryGroup: (group: StoryGroup, groupIndex: number) => void;
   hasUnreadNotifications: boolean;
 }
@@ -21,6 +22,7 @@ export function HomeFeedHeader({
   onCreateStory,
   onOpenExplore,
   onOpenNotifications,
+  onOpenReels,
   onPressStoryGroup,
   hasUnreadNotifications,
 }: HomeFeedHeaderProps) {
@@ -46,6 +48,13 @@ export function HomeFeedHeader({
               {hasUnreadNotifications ? (
                 <View className="absolute right-1 top-1 h-2.5 w-2.5 rounded-full border-2 border-white bg-[#FF3B30]" />
               ) : null}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={onOpenReels}
+              className="rounded-full p-1.5"
+              activeOpacity={0.75}>
+              <Ionicons name="film-outline" size={26} color={Colors.text} />
             </TouchableOpacity>
 
             <TouchableOpacity
