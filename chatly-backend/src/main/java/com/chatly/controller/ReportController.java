@@ -13,6 +13,8 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -51,6 +53,17 @@ public class ReportController {
         Page<ReportResponse> reports = reportService.listReports(status, PageRequest.of(page, pageSize));
         return ApiResponse.<Page<ReportResponse>>builder()
                 .result(reports)
+                .build();
+    }
+
+    @PutMapping("/{id}/status")
+    ApiResponse<ReportResponse> updateStatus(
+            @PathVariable String id,
+            @RequestParam ReportStatus status
+    ) {
+        ReportResponse updated = reportService.updateReportStatus(id, status);
+        return ApiResponse.<ReportResponse>builder()
+                .result(updated)
                 .build();
     }
 

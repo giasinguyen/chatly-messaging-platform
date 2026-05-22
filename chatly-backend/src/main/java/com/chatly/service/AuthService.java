@@ -147,6 +147,10 @@ public class AuthService {
                     Map.of("userId", user.getId().toString()));
         }
 
+        if (user.isSuspended()) {
+            throw new AppException(ErrorCode.USER_SUSPENDED);
+        }
+
         ClientPlatform platform = ClientPlatformParser.parse(httpRequest.getHeader("X-Client-Platform"));
         String deviceHeader = httpRequest.getHeader("X-Device-Label");
         String userAgent = httpRequest.getHeader("User-Agent");

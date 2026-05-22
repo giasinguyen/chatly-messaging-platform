@@ -75,5 +75,17 @@ export const userService = {
         );
         return response.data;
     },
+
+    getSocialStats: async (id: string): Promise<ApiResponse<{ followersCount: number; followingCount: number; postsCount: number }>> => {
+        const response = await axiosClient.get<ApiResponse<{ followersCount: number; followingCount: number; postsCount: number }>>(
+            `/api/users/${id}/stats`
+        );
+        return response.data;
+    },
+
+    deleteUser: async (id: string): Promise<ApiResponse<void>> => {
+        const response = await axiosClient.delete<ApiResponse<void>>(`/api/users/${id}`);
+        return response.data;
+    },
 };
 
