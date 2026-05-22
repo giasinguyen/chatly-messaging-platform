@@ -35,6 +35,7 @@ import data from "@emoji-mart/data";
 import { agentService } from "@/services/agent.service";
 import { contactService } from "@/services/contact.service";
 import { CustomAiIcon } from "@/components/customize/CustomAiIcon";
+import { MediaPicker } from "@/components/media-picker/MediaPicker";
 import { MentionSuggestionsDropdown } from "@/components/mention/MentionSuggestionsDropdown";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -65,6 +66,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { postService } from "@/services/post.service";
 import { fileService } from "@/services/file.service";
+import { getDisplayUrl, type KlipyItem } from "@/services/klipy.service";
 import { usePostStore } from "@/store/post.store";
 import { useAuthStore } from "@/store/auth.store";
 import type {
@@ -251,6 +253,7 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
     );
     const [commentMentionIndex, setCommentMentionIndex] = useState(0);
     const [showCommentEmojiPicker, setShowCommentEmojiPicker] = useState(false);
+    const [isCommentGifOpen, setIsCommentGifOpen] = useState(false);
     const [replyToComment, setReplyToComment] = useState<PostComment | null>(
         null,
     );
@@ -878,6 +881,14 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
 
     const handleRemoveCommentMedia = (url: string) => {
         setCommentMediaUrls((prev) => prev.filter((u) => u !== url));
+    };
+
+    const handleCommentGifSelect = (item: KlipyItem) => {
+        const gifUrl = getDisplayUrl(item);
+        if (gifUrl) {
+            setCommentMediaUrls((current) => [...current, gifUrl]);
+        }
+        setIsCommentGifOpen(false);
     };
 
     useEffect(() => {
@@ -1656,6 +1667,7 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
                         setCommentMentionQuery(null);
                         setCommentMentionIndex(0);
                         setShowCommentEmojiPicker(false);
+                        setIsCommentGifOpen(false);
                         setCommentActionsId(null);
                         setCommentLightboxImages([]);
                         setShowReplyBar(true);
@@ -2063,7 +2075,7 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
                                         )}
                                 </div>
 
-                                <div className="flex items-center justify-between">
+                                <div className="relative flex items-center justify-between">
                                     <div className="flex items-center gap-2">
                                         {/* Emoji button */}
                                         <div
@@ -2116,16 +2128,38 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
                                             className="hidden"
                                         />
 
-                                        {/* GIF button (placeholder) */}
                                         <Button
                                             type="button"
                                             variant="ghost"
                                             size="sm"
                                             className="h-8 px-2 text-xs rounded-lg text-muted-foreground"
-                                            disabled
+                                            onClick={() =>
+                                                setIsCommentGifOpen(
+                                                    (current) => !current,
+                                                )
+                                            }
                                         >
                                             GIF
                                         </Button>
+                                        {isCommentGifOpen && (
+                                            <div className="absolute bottom-10 left-0 z-40 w-full max-w-sm">
+                                                <MediaPicker
+                                                    initialTab="gif"
+                                                    customerId={
+                                                        currentUser?.id ??
+                                                        "anonymous"
+                                                    }
+                                                    onSelect={
+                                                        handleCommentGifSelect
+                                                    }
+                                                    onClose={() =>
+                                                        setIsCommentGifOpen(
+                                                            false,
+                                                        )
+                                                    }
+                                                />
+                                            </div>
+                                        )}
                                     </div>
 
                                     <Button
