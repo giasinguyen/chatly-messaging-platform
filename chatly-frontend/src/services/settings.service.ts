@@ -25,7 +25,7 @@ export const settingsService = {
 
     updateSection: async (
         section: string,
-        data: Partial<PrivacySettingsType> | Record<string, any>,
+        data: Partial<PrivacySettingsType> | Record<string, unknown>,
     ): Promise<ApiResponse<UserSettingsType>> => {
         const response = await axiosClient.patch<ApiResponse<UserSettingsType>>(
             `/api/users/me/settings/${section}`,

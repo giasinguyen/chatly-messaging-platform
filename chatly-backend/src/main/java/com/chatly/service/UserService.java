@@ -26,6 +26,7 @@ public class UserService {
     private final UserRepository userRepository;
     private final UserMapper userMapper;
     private final ContactService contactService;
+    private final UserSettingsService userSettingsService;
 
     public UserResponse getCurrentUser() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
@@ -36,7 +37,7 @@ public class UserService {
         String userId = authentication.getPrincipal().toString();
         User user = userRepository.findById(UUID.fromString(userId))
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
-        return userMapper.toResponse(user);
+        return userSettingsService.applyPresencePrivacy(userMapper.toResponse(user));
     }
 
     public UserResponse getById(UUID id) {
@@ -57,18 +58,19 @@ public class UserService {
             }
         }
 
-        return userMapper.toResponse(user);
+        return userSettingsService.applyPresencePrivacy(userMapper.toResponse(user));
     }
 
     public UserResponse getByEmail(String email) {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
-        return userMapper.toResponse(user);
+        return userSettingsService.applyPresencePrivacy(userMapper.toResponse(user));
     }
 
     public List<UserResponse> getAll() {
         return userRepository.findAll().stream()
                 .map(userMapper::toResponse)
+                .map(userSettingsService::applyPresencePrivacy)
                 .toList();
     }
 
@@ -77,10 +79,13 @@ public class UserService {
         Page<UserResponse> userPage;
 
         if (keyword == null || keyword.isBlank()) {
-            userPage = userRepository.findAll(pageable).map(userMapper::toResponse);
+            userPage = userRepository.findAll(pageable)
+                    .map(userMapper::toResponse)
+                    .map(userSettingsService::applyPresencePrivacy);
         } else {
             userPage = userRepository.searchByKeyword(keyword.trim(), pageable)
-                    .map(userMapper::toResponse);
+                    .map(userMapper::toResponse)
+                    .map(userSettingsService::applyPresencePrivacy);
         }
 
         return PagedResponse.from(userPage);
@@ -123,7 +128,7 @@ public class UserService {
             user.setBio(request.getBio());
         }
 
-        return userMapper.toResponse(userRepository.save(user));
+        return userSettingsService.applyPresencePrivacy(userMapper.toResponse(userRepository.save(user)));
     }
 
     @Transactional

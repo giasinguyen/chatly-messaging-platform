@@ -7,6 +7,16 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -27,7 +37,9 @@ import {
     buildMentionSuggestions,
     detectMentionQuery,
     extractMentionTargets,
+    getTextareaMentionAnchor,
     insertMentionAtCursor,
+    type MentionDropdownAnchor,
     type MentionCandidate,
     type MentionSuggestion,
 } from "@/utils/mention";
@@ -50,6 +62,7 @@ export function CreatePostModal({ open, onClose }: CreatePostModalProps) {
     const [mediaUrls, setMediaUrls] = useState<string[]>([]);
     const [friends, setFriends] = useState<MentionCandidate[]>([]);
     const [mentionQuery, setMentionQuery] = useState<string | null>(null);
+    const [mentionAnchor, setMentionAnchor] = useState<MentionDropdownAnchor | null>(null);
     const [mentionIndex, setMentionIndex] = useState(0);
     const textareaRef = useRef<HTMLTextAreaElement | null>(null);
     const prependPost = usePostStore((s) => s.prependPost);
@@ -57,7 +70,12 @@ export function CreatePostModal({ open, onClose }: CreatePostModalProps) {
     const [visibility, setVisibility] = useState<PostVisibility>("PUBLIC");
     const [contentError, setContentError] = useState<string | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isDiscardOpen, setIsDiscardOpen] = useState(false);
     const canSubmit = content.trim().length > 0 && content.trim().length <= MAX_CONTENT_LENGTH;
+    const hasChanges =
+        content.trim().length > 0 ||
+        visibility !== "PUBLIC" ||
+        mediaUrls.length > 0;
 
     const mentionSuggestions = useMemo(
         () =>
@@ -112,10 +130,14 @@ export function CreatePostModal({ open, onClose }: CreatePostModalProps) {
         const nextMentionQuery = detectMentionQuery(nextValue, cursorPos);
         if (nextMentionQuery !== null) {
             setMentionQuery(nextMentionQuery);
+            if (textareaRef.current) {
+                setMentionAnchor(getTextareaMentionAnchor(textareaRef.current, cursorPos));
+            }
             setMentionIndex(0);
             return;
         }
         setMentionQuery(null);
+        setMentionAnchor(null);
     };
 
     const handleSelectMention = (suggestion: MentionSuggestion) => {
@@ -127,6 +149,7 @@ export function CreatePostModal({ open, onClose }: CreatePostModalProps) {
 
         setContent(nextContent);
         setMentionQuery(null);
+        setMentionAnchor(null);
         requestAnimationFrame(() => {
             textareaRef.current?.focus();
         });
@@ -158,15 +181,26 @@ export function CreatePostModal({ open, onClose }: CreatePostModalProps) {
         }
     };
 
-    const handleClose = () => {
+    const handleDiscard = () => {
         if (isSubmitting) return;
         setContent("");
         setVisibility("PUBLIC");
         setContentError(null);
         setMediaUrls([]);
         setMentionQuery(null);
+        setMentionAnchor(null);
         setMentionIndex(0);
+        setIsDiscardOpen(false);
         onClose();
+    };
+
+    const handleClose = () => {
+        if (isSubmitting) return;
+        if (hasChanges) {
+            setIsDiscardOpen(true);
+            return;
+        }
+        handleDiscard();
     };
 
     const onSubmit = async () => {
@@ -198,7 +232,7 @@ export function CreatePostModal({ open, onClose }: CreatePostModalProps) {
             if (response.code === 1000 && response.result) {
                 prependPost(response.result);
                 toast.success("Post published!");
-                handleClose();
+                handleDiscard();
             }
         } catch {
             toast.error("Failed to publish post. Please try again.");
@@ -208,8 +242,9 @@ export function CreatePostModal({ open, onClose }: CreatePostModalProps) {
     };
 
     return (
-        <Dialog open={open} onOpenChange={(isOpen) => !isOpen && handleClose()}>
-            <DialogContent className="max-w-lg rounded-3xl p-0 overflow-visible shadow-xl">
+        <>
+            <Dialog open={open} onOpenChange={(isOpen) => !isOpen && handleClose()}>
+                <DialogContent className="rounded-3xl p-0 overflow-visible shadow-xl sm:max-w-2xl">
                 <DialogHeader className="px-6 pt-6 pb-0">
                     <DialogTitle className="text-lg font-semibold text-gray-900">
                         Create Post
@@ -241,6 +276,9 @@ export function CreatePostModal({ open, onClose }: CreatePostModalProps) {
                                     );
                                 }}
                                 onKeyDown={handleMentionKeyDown}
+                                onScroll={() =>
+                                    handleMentionAwareContentChange(content)
+                                }
                                 className="resize-none rounded-2xl border-gray-200 bg-gray-50 text-sm focus-visible:ring-indigo-500 focus-visible:border-indigo-400"
                             />
                             {mentionQuery !== null &&
@@ -249,7 +287,7 @@ export function CreatePostModal({ open, onClose }: CreatePostModalProps) {
                                         suggestions={mentionSuggestions}
                                         activeIndex={mentionIndex}
                                         onSelect={handleSelectMention}
-                                        placement="bottom"
+                                        anchor={mentionAnchor}
                                     />
                                 )}
                         </div>
@@ -320,8 +358,26 @@ export function CreatePostModal({ open, onClose }: CreatePostModalProps) {
                         </div>
                     </div>
                 </form>
-            </DialogContent>
-        </Dialog>
+                </DialogContent>
+            </Dialog>
+
+            <AlertDialog open={isDiscardOpen} onOpenChange={setIsDiscardOpen}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Discard post?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Your post changes will be lost.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Keep editing</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleDiscard}>
+                            Discard
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+        </>
     );
 }
 

@@ -1,4 +1,3 @@
-import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { Post } from "@/types/post";
 
@@ -48,7 +47,7 @@ export function ExploreResultsGrid({
                     <div className="col-span-3 rounded-2xl border border-dashed border-border bg-card/60 px-6 py-12 text-center">
                         <p className="text-sm font-semibold text-foreground">
                             {isSearchActive
-                                ? `No results for \"${searchQuery}\"`
+                                ? `No results for "${searchQuery}"`
                                 : isHashtagActive
                                   ? `No posts found for #${activeHashtag}`
                                   : "No posts to explore right now"}

@@ -13,6 +13,7 @@ export interface ContactResponse {
         phone?: string;
         displayName: string;
         avatarUrl?: string;
+        status?: string;
     };
     contact: {
         id: string;
@@ -21,10 +22,19 @@ export interface ContactResponse {
         phone?: string;
         displayName: string;
         avatarUrl?: string;
+        status?: string;
     };
     status: ContactStatus;
     blockedBy?: string | null;
     createdAt: string;
+}
+
+export interface ContactSuggestionResponse {
+    id: string;
+    username: string;
+    displayName: string;
+    avatarUrl?: string;
+    mutualFriendCount: number;
 }
 
 export interface BlockStatusResponse {

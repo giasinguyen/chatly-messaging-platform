@@ -73,6 +73,13 @@ export interface PostPage {
     last: boolean;
 }
 
+export interface TrendingHashtag {
+    hashtag: string;
+    postCount: number;
+}
+
+export type PostSearchSort = "newest" | "oldest" | "interactions";
+
 export interface FeedResponse {
     items: Post[];
     nextCursor: string | null;

@@ -11,6 +11,13 @@ export interface MentionSuggestion extends MentionCandidate {
     kind: MentionKind;
 }
 
+export interface MentionDropdownAnchor {
+    left: number;
+    top: number;
+    placement: "top" | "bottom";
+    maxHeight?: number;
+}
+
 interface BuildSuggestionsOptions {
     includeAi?: boolean;
     includeAll?: boolean;
@@ -27,6 +34,11 @@ interface ExtractMentionTargetsOptions {
     includeAll?: boolean;
 }
 
+const MENTION_DROPDOWN_WIDTH = 288;
+const MENTION_DROPDOWN_MAX_HEIGHT = 208;
+const MENTION_DROPDOWN_GUTTER = 8;
+const MENTION_DROPDOWN_MIN_HEIGHT = 72;
+
 function escapeRegExp(value: string): string {
     return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
@@ -35,6 +47,77 @@ export function detectMentionQuery(text: string, cursorPos: number): string | nu
     const textBeforeCursor = text.slice(0, cursorPos);
     const mentionMatch = textBeforeCursor.match(/@([^\s@]*)$/);
     return mentionMatch ? mentionMatch[1] : null;
+}
+
+export function getTextareaMentionAnchor(
+    textarea: HTMLTextAreaElement,
+    cursorPos: number,
+): MentionDropdownAnchor {
+    const computed = window.getComputedStyle(textarea);
+    const mirror = document.createElement("div");
+    const marker = document.createElement("span");
+    const copiedStyles = [
+        "borderTopWidth",
+        "borderRightWidth",
+        "borderBottomWidth",
+        "borderLeftWidth",
+        "boxSizing",
+        "fontFamily",
+        "fontSize",
+        "fontStyle",
+        "fontWeight",
+        "letterSpacing",
+        "lineHeight",
+        "paddingTop",
+        "paddingRight",
+        "paddingBottom",
+        "paddingLeft",
+        "textTransform",
+        "textIndent",
+        "wordSpacing",
+    ] as const;
+
+    mirror.className = "pointer-events-none absolute invisible whitespace-pre-wrap break-words overflow-hidden";
+    mirror.style.width = `${textarea.offsetWidth}px`;
+    copiedStyles.forEach((property) => {
+        mirror.style[property] = computed[property];
+    });
+    mirror.textContent = textarea.value.slice(0, cursorPos);
+    marker.textContent = textarea.value.slice(cursorPos, cursorPos + 1) || ".";
+    mirror.appendChild(marker);
+    document.body.appendChild(mirror);
+
+    const lineHeight = Number.parseFloat(computed.lineHeight) || Number.parseFloat(computed.fontSize) * 1.2;
+    const maxLeft = textarea.clientWidth - MENTION_DROPDOWN_WIDTH - MENTION_DROPDOWN_GUTTER;
+    const left = Math.max(
+        MENTION_DROPDOWN_GUTTER,
+        Math.min(marker.offsetLeft - textarea.scrollLeft, maxLeft),
+    );
+    const caretTop = marker.offsetTop - textarea.scrollTop;
+    const maxHeight = Math.max(
+        MENTION_DROPDOWN_MIN_HEIGHT,
+        Math.min(
+            MENTION_DROPDOWN_MAX_HEIGHT,
+            textarea.clientHeight - MENTION_DROPDOWN_GUTTER * 2,
+        ),
+    );
+    const maxTop = Math.max(
+        MENTION_DROPDOWN_GUTTER,
+        textarea.clientHeight - maxHeight - MENTION_DROPDOWN_GUTTER,
+    );
+    const top = Math.max(
+        MENTION_DROPDOWN_GUTTER,
+        Math.min(caretTop + lineHeight + 6, maxTop),
+    );
+
+    mirror.remove();
+
+    return {
+        left,
+        top,
+        placement: "bottom",
+        maxHeight,
+    };
 }
 
 export function buildMentionSuggestions(

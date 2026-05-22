@@ -163,6 +163,8 @@ public class NotificationService {
                             title = "New follower";
                         } else if (notification.getType() == NotificationType.FRIEND_REQUEST) {
                             title = "Friend request";
+                        } else if (notification.getType() == NotificationType.FRIEND_ACCEPTED) {
+                            title = "Friend request accepted";
                         } else if (notification.getType() == NotificationType.GROUP_JOIN_REQUEST) {
                             title = "New join request";
                         } else if (notification.getType() == NotificationType.MEMBER_JOINED) {
