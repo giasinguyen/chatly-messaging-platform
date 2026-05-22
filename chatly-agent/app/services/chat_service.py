@@ -450,6 +450,11 @@ class ChatService:
         tools: list[BaseTool] = []
         if self._tool_service:
             tools = await self._tool_service.assemble_tools(user_id, [], False)
+        logger.info(
+            "Social mention assist assembled tools: count=%d names=%s",
+            len(tools),
+            [tool.name for tool in tools],
+        )
 
         if self._llm is None:
             raise ValueError("LLM is required for MentionAgent")
@@ -494,6 +499,11 @@ class ChatService:
         tools: list[BaseTool] = []
         if self._tool_service:
             tools = await self._tool_service.assemble_tools(user_id, [], False)
+        logger.info(
+            "Social post-command assist assembled tools: count=%d names=%s",
+            len(tools),
+            [tool.name for tool in tools],
+        )
 
         if self._llm is None:
             raise ValueError("LLM is required for SocialAgent")

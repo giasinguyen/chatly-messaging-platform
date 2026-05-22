@@ -19,7 +19,28 @@ from langgraph.prebuilt import create_react_agent
 
 logger = logging.getLogger(__name__)
 
-CREATE_AI_POST_COMMENT_TOOL_NAME = "createAiPostComment"
+PUBLISH_REQUIRED_FIELDS = {"postId", "content", "triggerType"}
+
+
+def _tool_input_fields(tool: BaseTool) -> set[str]:
+    args_schema = getattr(tool, "args_schema", None)
+    if args_schema is None:
+        return set()
+
+    # create_mcp_tool builds a Pydantic model class as args_schema.
+    fields = getattr(args_schema, "model_fields", None)
+    if isinstance(fields, dict):
+        return set(fields.keys())
+    return set()
+
+
+def _is_publish_comment_tool(tool: BaseTool) -> bool:
+    input_fields = _tool_input_fields(tool)
+    if PUBLISH_REQUIRED_FIELDS.issubset(input_fields):
+        return True
+
+    description = (getattr(tool, "description", "") or "").lower()
+    return "ai-generated comment" in description and "social post" in description
 
 SOCIAL_MENTION_SYSTEM_PROMPT = (
     "You are **Chatly AI**, responding to a user who mentioned @ai in a post comment thread.\n"
@@ -85,15 +106,19 @@ class SocialAgent:
         research_tools: list[BaseTool] = []
 
         for tool in tools:
-            if tool.name == CREATE_AI_POST_COMMENT_TOOL_NAME:
+            if _is_publish_comment_tool(tool):
                 self._send_tool = tool
             else:
                 research_tools.append(tool)
 
         if self._send_tool is None:
             logger.warning(
-                "createAiPostComment tool not found - social agent can generate text but cannot publish"
+                "createAiPostComment tool not found - social agent can generate text but cannot publish. "
+                "available_tools=%s",
+                [tool.name for tool in tools],
             )
+        else:
+            logger.info("SocialAgent publish tool resolved: %s", self._send_tool.name)
 
         self._graph = create_react_agent(llm, research_tools) if research_tools else None
 

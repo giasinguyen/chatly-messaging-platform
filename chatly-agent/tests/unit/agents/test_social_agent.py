@@ -3,20 +3,28 @@
 from unittest.mock import MagicMock
 
 import pytest
+from pydantic import BaseModel
 from langchain_core.tools import BaseTool
 
 import app.agents.social_agent as social_agent_module
-from app.agents.social_agent import CREATE_AI_POST_COMMENT_TOOL_NAME, SocialAgent
+from app.agents.social_agent import SocialAgent
 
 
-def _make_tool(name: str) -> BaseTool:
+def _make_tool(name: str, args_fields: list[str] | None = None, description: str = "") -> BaseTool:
     tool = MagicMock(spec=BaseTool)
     tool.name = name
+    tool.description = description
+    if args_fields:
+        attrs = {field: (str, ...) for field in args_fields}
+        tool.args_schema = type(f"{name}Args", (BaseModel,), {"__annotations__": {f: str for f in args_fields}})
+        # Ensure Pydantic v2 field model is initialized via explicit class creation.
+        tool.args_schema.model_rebuild(force=True)
+    else:
+        tool.args_schema = None
     return tool
 
 
-def _build_agent(tool_names: list[str]) -> SocialAgent:
-    tools = [_make_tool(name) for name in tool_names]
+def _build_agent(tools: list[BaseTool]) -> SocialAgent:
     return SocialAgent(llm=MagicMock(), tools=tools)
 
 
@@ -45,20 +53,41 @@ def _research_tool_names(agent: SocialAgent) -> list[str]:
     return []
 
 
-def test_create_ai_post_comment_is_captured_as_send_tool() -> None:
-    agent = _build_agent(["readRecentMessages", CREATE_AI_POST_COMMENT_TOOL_NAME])
+def test_publish_tool_with_required_schema_is_captured_as_send_tool() -> None:
+    agent = _build_agent([
+        _make_tool("getPostById", ["postId"]),
+        _make_tool("tool_x", ["postId", "content", "triggerType", "parentCommentId"]),
+    ])
     assert agent._send_tool is not None
-    assert agent._send_tool.name == CREATE_AI_POST_COMMENT_TOOL_NAME
+    assert agent._send_tool.name == "tool_x"
 
 
 def test_create_ai_post_comment_excluded_from_research_tools() -> None:
-    agent = _build_agent(["readRecentMessages", "getPostById", CREATE_AI_POST_COMMENT_TOOL_NAME])
+    agent = _build_agent([
+        _make_tool("readRecentMessages", ["conversationId"]),
+        _make_tool("getPostById", ["postId"]),
+        _make_tool("publish", ["postId", "content", "triggerType", "parentCommentId"]),
+    ])
     research_names = _research_tool_names(agent)
-    assert CREATE_AI_POST_COMMENT_TOOL_NAME not in research_names
+    assert "publish" not in research_names
+
+
+def test_publish_tool_can_be_detected_by_description_fallback() -> None:
+    agent = _build_agent([
+        _make_tool("getPostById", ["postId"]),
+        _make_tool("social_tool", description="Publish an AI-generated comment on a social post"),
+    ])
+    assert agent._send_tool is not None
+    assert agent._send_tool.name == "social_tool"
 
 
 def test_regular_tools_remain_available_for_research() -> None:
-    agent = _build_agent(["readRecentMessages", "getPostById", "getPostComments", CREATE_AI_POST_COMMENT_TOOL_NAME])
+    agent = _build_agent([
+        _make_tool("readRecentMessages", ["conversationId"]),
+        _make_tool("getPostById", ["postId"]),
+        _make_tool("getPostComments", ["postId"]),
+        _make_tool("publish", ["postId", "content", "triggerType", "parentCommentId"]),
+    ])
     research_names = _research_tool_names(agent)
     assert "readRecentMessages" in research_names
     assert "getPostById" in research_names
@@ -70,7 +99,7 @@ async def test_missing_publish_tool_logs_warning(caplog: pytest.LogCaptureFixtur
     import logging
 
     with caplog.at_level(logging.WARNING, logger="app.agents.social_agent"):
-        agent = _build_agent(["getPostById"])
+        agent = _build_agent([_make_tool("getPostById", ["postId"])])
 
     assert agent._send_tool is None
-    assert any("createAiPostComment" in record.message for record in caplog.records)
+    assert any("cannot publish" in record.message for record in caplog.records)
