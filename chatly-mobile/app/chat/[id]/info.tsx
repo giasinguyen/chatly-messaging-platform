@@ -648,7 +648,11 @@ export default function GroupInfoScreen() {
               <QuickActionBtn
                 iconName="person-outline"
                 label={'User\nprofile'}
-                onPress={() => {}}
+                onPress={() => {
+                  if (otherUser?.id) {
+                    router.push(`/profile/${otherUser.id}`);
+                  }
+                }}
               />
             )}
             <QuickActionBtn
@@ -685,6 +689,17 @@ export default function GroupInfoScreen() {
         )}
 
         {/* ── Media (Ảnh, file, link) ── */}
+        <View style={{ backgroundColor: Colors.white, marginBottom: 8 }}>
+          <TouchableOpacity
+            onPress={() => router.push(`/chat/${conversationId}/shared-media`)}
+            style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, height: 54 }}
+          >
+            <Ionicons name="images-outline" size={20} color={Colors.textMuted} style={{ marginRight: 14 }} />
+            <Text style={{ flex: 1, fontSize: 15, color: Colors.text }}>Media, files and links</Text>
+            <Ionicons name="chevron-forward" size={16} color={Colors.textLight} />
+          </TouchableOpacity>
+        </View>
+
         {mediaFiles.length > 0 && (
           <View style={{ backgroundColor: Colors.white, padding: 16, marginBottom: 8 }}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
