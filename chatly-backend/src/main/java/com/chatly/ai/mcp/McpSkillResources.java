@@ -47,6 +47,12 @@ public class McpSkillResources {
             "Workflow and guards for AI broadcasting into group conversations",
             "skills/group-facilitator.md"
         },
+        {
+            "chatly://skills/social-comment-mentor",
+            "Social Comment Mentor Skill",
+            "Workflow and guardrails for AI mention-in-comment and post-command on the social feed",
+            "skills/social-comment-mentor.md"
+        },
     };
 
     @Bean
@@ -67,7 +73,7 @@ public class McpSkillResources {
                 );
             })
             .toList();
-        log.info("MCP skill resources registered: conversation-analyst, reminder-detector, group-facilitator");
+        log.info("MCP skill resources registered: conversation-analyst, reminder-detector, group-facilitator, social-comment-mentor");
         return specs;
     }
 

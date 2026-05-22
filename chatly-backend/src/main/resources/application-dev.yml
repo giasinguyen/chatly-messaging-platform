@@ -97,6 +97,11 @@ app:
             client-id: ${JAMENDO_CLIENT_ID:4d1f4e11}
             client-secret: ${JAMENDO_CLIENT_SECRET:e77a4bbbd6e1404feeb5316426051971}
             base-url: ${JAMENDO_BASE_URL:https://api.jamendo.com/v3.0}
+    social-ai:
+        enabled: ${SOCIAL_AI_ENABLED:true}
+        bot-user-id: ${SOCIAL_AI_BOT_USER_ID:00000000-0000-0000-0000-000000000001}
+        mention:
+            rate-limit-per-hour: ${SOCIAL_AI_MENTION_RATE_LIMIT_PER_HOUR:10}
 
 # ── AI Agent ──────────────────────────────────────────────────────────────────
 agent:
