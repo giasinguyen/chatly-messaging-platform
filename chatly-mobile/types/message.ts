@@ -9,19 +9,24 @@ export interface ReadReceipt {
 
 export interface Attachment {
   fileId?: string;
-  kind?: 'POST_PREVIEW' | 'REEL_PREVIEW' | 'STORY_REPLY';
   url: string;
   name?: string;
   type?: string;
   size?: number;
   durationSeconds?: number;
+  kind?: 'POST_PREVIEW' | 'REEL_PREVIEW' | 'STORY_REPLY';
+  targetUrl?: string;
   postId?: string;
   postTitle?: string;
   postExcerpt?: string;
-  postImageUrl?: string;
   postAuthorName?: string;
   postAuthorAvatarUrl?: string;
-  targetUrl?: string;
+  postImageUrl?: string;
+  reelId?: string;
+  reelCaption?: string;
+  reelVideoUrl?: string;
+  reelAuthorName?: string;
+  reelAuthorAvatarUrl?: string;
 }
 
 export interface EditHistoryEntry {

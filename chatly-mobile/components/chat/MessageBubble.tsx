@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react';
 import { View, Text, TouchableOpacity, Image, Linking, Modal, Pressable, FlatList, Dimensions, PanResponder, Animated } from 'react-native';
 import { Image as ExpoImage } from 'expo-image';
+import { router } from 'expo-router';
 import RenderHtml from 'react-native-render-html';
 import { Ionicons } from '@expo/vector-icons';
 import {
@@ -21,9 +22,8 @@ import { formatMessageTime, isRichTextHtml, richTextToPlainText } from '@/utils/
 import { ImageLightbox } from '@/components/ui/ImageLightbox';
 import { VideoPlayer } from '@/components/chat/VideoPlayer';
 import { AudioPlayer } from '@/components/chat/AudioPlayer';
-import { PostPreviewAttachment } from '@/components/chat/PostPreviewAttachment';
-import { CoAuthorAvatar } from '@/components/ui/CoAuthorAvatar';
 import { Avatar } from '@/components/ui/Avatar';
+import { CoAuthorAvatar } from '@/components/ui/CoAuthorAvatar';
 import { UserQuickProfileDialog } from '@/components/profile/UserQuickProfileDialog';
 import { useCallStore } from '@/store/call.store';
 import type { Message } from '@/types/message';
@@ -101,51 +101,6 @@ export function MessageBubble({
   const [voterModal, setVoterModal] = useState<{ title: string; voterIds: string[] } | null>(null);
   const [quickProfileVisible, setQuickProfileVisible] = useState(false);
   const pan = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
-  const postPreviewAttachment = attachments?.find(
-    (attachment) =>
-      attachment.kind === 'POST_PREVIEW' ||
-      attachment.type === 'application/x-chatly-post-preview' ||
-      Boolean(attachment.postId),
-  );
-
-  const canOpenQuickProfile = !isMe && showAvatar && Boolean(message.senderId);
-  const quickProfileDialog = canOpenQuickProfile ? (
-    <UserQuickProfileDialog
-      visible={quickProfileVisible}
-      userId={message.senderId}
-      fallbackDisplayName={senderName}
-      fallbackAvatarUrl={senderAvatarUrl}
-      onClose={() => setQuickProfileVisible(false)}
-    />
-  ) : null;
-
-  const renderSenderAvatar = () => {
-    if (!canOpenQuickProfile) {
-      return null;
-    }
-
-    if (type === 'AGENT') {
-      return (
-        <TouchableOpacity onPress={() => setQuickProfileVisible(true)} activeOpacity={0.75}>
-          <View style={{ marginRight: 6, alignSelf: 'flex-end' }}>
-            <CoAuthorAvatar
-              userAvatarUrl={senderAvatarUrl}
-              userDisplayName={senderName ?? '?'}
-              size={28}
-            />
-          </View>
-        </TouchableOpacity>
-      );
-    }
-
-    return (
-      <TouchableOpacity onPress={() => setQuickProfileVisible(true)} activeOpacity={0.75}>
-        <View style={{ marginRight: 6 }}>
-          <Avatar uri={senderAvatarUrl} name={senderName ?? '?'} size={28} />
-        </View>
-      </TouchableOpacity>
-    );
-  };
 
   const panResponder = useRef(
     PanResponder.create({
@@ -187,9 +142,9 @@ export function MessageBubble({
 
   // Image message — show ALL images, not just the first
   const renderImageContent = () => {
-    const images = (attachments ?? []).filter((a) => !!a.url);
+    const images = (attachments ?? []).filter((attachment) => !!attachment.url);
     if (images.length === 0) return null;
-    const imageUrls = images.map((a) => a.url);
+    const imageUrls = images.map((attachment) => attachment.url);
     return (
       <>
         <ImageLightbox
@@ -215,6 +170,54 @@ export function MessageBubble({
         </View>
       </>
     );
+  };
+
+  const canOpenQuickProfile = !isMe && showAvatar && Boolean(message.senderId);
+  const quickProfileDialog = canOpenQuickProfile ? (
+    <UserQuickProfileDialog
+      visible={quickProfileVisible}
+      userId={message.senderId}
+      fallbackDisplayName={senderName}
+      fallbackAvatarUrl={senderAvatarUrl}
+      onClose={() => setQuickProfileVisible(false)}
+    />
+  ) : null;
+
+  const renderSenderAvatar = () => {
+    if (!showAvatar || isMe) {
+      return null;
+    }
+
+    const avatarContent = type === 'AGENT' ? (
+      <View style={{ marginRight: 6, alignSelf: 'flex-end' }}>
+        <CoAuthorAvatar
+          userAvatarUrl={senderAvatarUrl}
+          userDisplayName={senderName ?? '?'}
+          size={28}
+        />
+      </View>
+    ) : (
+      <View style={{ marginRight: 6 }}>
+        <Avatar uri={senderAvatarUrl} name={senderName ?? '?'} size={28} />
+      </View>
+    );
+
+    if (!canOpenQuickProfile) {
+      return avatarContent;
+    }
+
+    return (
+      <TouchableOpacity onPress={() => setQuickProfileVisible(true)} activeOpacity={0.75}>
+        {avatarContent}
+      </TouchableOpacity>
+    );
+  };
+
+  // Video message
+  const renderVideoContent = () => {
+    const video = attachments?.[0];
+    if (!video?.url) return null;
+    return <VideoPlayer url={video.url} name={video.name} />;
   };
 
   // Audio message
@@ -243,13 +246,7 @@ export function MessageBubble({
   };
 
   const renderFileContent = () => {
-    const files = (attachments ?? []).filter(
-      (attachment) =>
-        !!attachment.url &&
-        attachment.kind !== 'POST_PREVIEW' &&
-        attachment.type !== 'application/x-chatly-post-preview' &&
-        !attachment.postId,
-    );
+    const files = (attachments ?? []).filter((a) => !!a.url);
     if (files.length === 0) return null;
 
     const isVideoFile = (url: string) => {
@@ -333,13 +330,6 @@ export function MessageBubble({
     );
   };
 
-  // Video message
-  const renderVideoContent = () => {
-    const video = attachments?.[0];
-    if (!video?.url) return null;
-    return <VideoPlayer url={video.url} name={video.name} />;
-  };
-
   // Text with URL detection
   const renderHighlightedText = (text: string, textColor: string, keyPrefix = 'hl') => {
     if (!highlightKeyword?.trim()) return <Text key={keyPrefix} style={{ color: textColor }}>{text}</Text>;
@@ -358,6 +348,168 @@ export function MessageBubble({
           ),
         )}
       </Text>
+    );
+  };
+
+  const renderPostPreview = (att: any, idx: number) => {
+    const targetUrl = att.targetUrl ?? (att.postId ? `/post/${att.postId}` : att.url);
+    const previewTitle = att.postTitle ?? att.name ?? 'Shared post';
+    const previewText = att.postExcerpt ?? 'Open this post to see the full content.';
+    const authorName = att.postAuthorName ?? 'Unknown author';
+    const avatarUrl = att.postAuthorAvatarUrl;
+
+    const handlePress = () => {
+      if (att.postId) {
+        router.push(`/post/${att.postId}`);
+      } else if (targetUrl) {
+        if (targetUrl.startsWith('/post/')) {
+          const id = targetUrl.split('/').pop();
+          router.push(`/post/${id}`);
+        } else {
+          Linking.openURL(targetUrl);
+        }
+      }
+    };
+
+    return (
+      <TouchableOpacity
+        key={idx}
+        onPress={handlePress}
+        activeOpacity={0.85}
+        className={`w-full max-w-[280px] rounded-2xl border p-3 mt-1.5 ${
+          isMe
+            ? 'border-white/20 bg-white/10'
+            : 'border-slate-200 bg-white dark:border-zinc-700 dark:bg-zinc-800'
+        }`}
+      >
+        <View className="flex-row items-start gap-3">
+          {att.postImageUrl ? (
+            <ExpoImage
+              source={{ uri: att.postImageUrl }}
+              className="h-16 w-16 rounded-xl"
+              contentFit="cover"
+            />
+          ) : (
+            <View className={`h-16 w-16 items-center justify-center rounded-xl ${isMe ? 'bg-white/10' : 'bg-slate-100 dark:bg-zinc-700'}`}>
+              <Ionicons name="share-social-outline" size={20} color={isMe ? '#fff' : Colors.textMuted} />
+            </View>
+          )}
+          <View className="flex-1 min-w-0">
+            <View className="flex-row items-center gap-1">
+              <Text className={`text-[10px] font-bold uppercase tracking-wider ${isMe ? 'text-white/60' : 'text-slate-400'}`}>
+                Shared post
+              </Text>
+              <Ionicons name="open-outline" size={10} color={isMe ? 'rgba(255,255,255,0.6)' : Colors.textMuted} />
+            </View>
+            <Text
+              className={`mt-0.5 text-sm font-semibold leading-4 ${isMe ? 'text-white' : 'text-slate-900 dark:text-white'}`}
+              numberOfLines={2}
+            >
+              {previewTitle}
+            </Text>
+            <Text
+              className={`mt-0.5 text-xs ${isMe ? 'text-white/60' : 'text-slate-500 dark:text-zinc-400'}`}
+              numberOfLines={2}
+            >
+              {previewText}
+            </Text>
+
+            {/* Author row */}
+            <View className="mt-2 flex-row items-center gap-1.5">
+              {avatarUrl ? (
+                <ExpoImage source={{ uri: avatarUrl }} className="h-4 w-4 rounded-full" contentFit="cover" />
+              ) : (
+                <View className={`h-4 w-4 items-center justify-center rounded-full ${isMe ? 'bg-white/10' : 'bg-slate-200 dark:bg-zinc-700'}`}>
+                  <Text className={`text-[9px] font-bold ${isMe ? 'text-white' : 'text-slate-600 dark:text-zinc-300'}`}>
+                    {authorName.charAt(0).toUpperCase()}
+                  </Text>
+                </View>
+              )}
+              <Text className={`text-[10px] truncate ${isMe ? 'text-white/80' : 'text-slate-500 dark:text-zinc-400'}`} numberOfLines={1}>
+                {authorName}
+              </Text>
+            </View>
+          </View>
+        </View>
+      </TouchableOpacity>
+    );
+  };
+
+  const renderReelPreview = (att: any, idx: number) => {
+    const caption = att.reelCaption ?? att.postTitle ?? att.name ?? 'Shared reel';
+    const videoUrl = att.reelVideoUrl ?? att.url;
+    const authorName = att.reelAuthorName ?? att.postAuthorName ?? 'Unknown author';
+    const avatarUrl = att.reelAuthorAvatarUrl ?? att.postAuthorAvatarUrl;
+
+    const handlePress = () => {
+      if (att.reelId) {
+        router.push({ pathname: '/reels', params: { reelId: att.reelId } });
+      } else {
+        router.push('/reels');
+      }
+    };
+
+    return (
+      <TouchableOpacity
+        key={idx}
+        onPress={handlePress}
+        activeOpacity={0.85}
+        className={`w-full max-w-[280px] rounded-2xl border p-3 mt-1.5 ${
+          isMe
+            ? 'border-white/20 bg-white/10'
+            : 'border-slate-200 bg-white dark:border-zinc-700 dark:bg-zinc-800'
+        }`}
+      >
+        <View className="flex-row items-start gap-3">
+          <View className="relative h-20 w-14 overflow-hidden rounded-xl bg-black items-center justify-center">
+            {videoUrl ? (
+              <ExpoImage
+                source={{ uri: videoUrl }}
+                className="h-full w-full opacity-80"
+                contentFit="cover"
+              />
+            ) : (
+              <Ionicons name="film-outline" size={18} color="#fff" />
+            )}
+            <View className="absolute inset-0 items-center justify-center bg-black/25">
+              <View className="h-6 w-6 items-center justify-center rounded-full bg-white/85">
+                <Ionicons name="play" size={12} color="#000" style={{ marginLeft: 1 }} />
+              </View>
+            </View>
+          </View>
+
+          <View className="flex-1 min-w-0">
+            <View className="flex-row items-center gap-1">
+              <Text className={`text-[10px] font-bold uppercase tracking-wider ${isMe ? 'text-white/60' : 'text-slate-400'}`}>
+                Shared reel
+              </Text>
+              <Ionicons name="open-outline" size={10} color={isMe ? 'rgba(255,255,255,0.6)' : Colors.textMuted} />
+            </View>
+            <Text
+              className={`mt-0.5 text-sm font-semibold leading-4 ${isMe ? 'text-white' : 'text-slate-900 dark:text-white'}`}
+              numberOfLines={3}
+            >
+              {caption}
+            </Text>
+
+            {/* Author row */}
+            <View className="mt-2 flex-row items-center gap-1.5">
+              {avatarUrl ? (
+                <ExpoImage source={{ uri: avatarUrl }} className="h-4 w-4 rounded-full" contentFit="cover" />
+              ) : (
+                <View className={`h-4 w-4 items-center justify-center rounded-full ${isMe ? 'bg-white/10' : 'bg-slate-200 dark:bg-zinc-700'}`}>
+                  <Text className={`text-[9px] font-bold ${isMe ? 'text-white' : 'text-slate-600 dark:text-zinc-300'}`}>
+                    {authorName.charAt(0).toUpperCase()}
+                  </Text>
+                </View>
+              )}
+              <Text className={`text-[10px] truncate ${isMe ? 'text-white/80' : 'text-slate-500 dark:text-zinc-400'}`} numberOfLines={1}>
+                {authorName}
+              </Text>
+            </View>
+          </View>
+        </View>
+      </TouchableOpacity>
     );
   };
 
@@ -887,9 +1039,40 @@ export function MessageBubble({
           </View>
         );
       case 'AGENT':
-        return renderTextContent();
-      default:
-        return renderTextContent();
+      default: {
+        const textNode = renderTextContent();
+        const previewAttachments = (attachments ?? []).filter(
+          (a) =>
+            a.kind === 'POST_PREVIEW' ||
+            a.type === 'application/x-chatly-post-preview' ||
+            Boolean(a.postId) ||
+            a.kind === 'REEL_PREVIEW' ||
+            a.type === 'application/x-chatly-reel-preview' ||
+            Boolean(a.reelId)
+        );
+
+        if (previewAttachments.length === 0) {
+          return textNode;
+        }
+
+        return (
+          <View style={{ gap: 2 }}>
+            {textNode}
+            {previewAttachments.map((att, idx) => {
+              const isPost =
+                att.kind === 'POST_PREVIEW' ||
+                att.type === 'application/x-chatly-post-preview' ||
+                Boolean(att.postId);
+
+              if (isPost) {
+                return renderPostPreview(att, idx);
+              } else {
+                return renderReelPreview(att, idx);
+              }
+            })}
+          </View>
+        );
+      }
     }
   };
 
@@ -908,7 +1091,7 @@ export function MessageBubble({
           </Text>
         )}
         <View style={{ flexDirection: 'row', alignItems: 'flex-end' }}>
-            {renderSenderAvatar()}
+          {renderSenderAvatar()}
           <TouchableOpacity activeOpacity={1} onLongPress={onLongPress} delayLongPress={300}>
             {renderPollContent()}
           </TouchableOpacity>
@@ -993,6 +1176,7 @@ export function MessageBubble({
   // GIF & Sticker messages — no bubble background
   if (type === 'GIF' || type === 'STICKER') {
     return (
+      <>
       <Animated.View {...panResponder.panHandlers} style={{ transform: [{ translateX: pan.x }] }} className={`my-0.5 px-4 ${isMe ? 'items-end' : 'items-start'}`}>
         {!isMe && showAvatar && senderName && (
           <Text className="mb-0.5 ml-1 text-xs" style={{ color: Colors.textMuted }}>
@@ -1051,91 +1235,19 @@ export function MessageBubble({
           </View>
         )}
       </Animated.View>
-    );
-  }
-
-  if (postPreviewAttachment) {
-    return (
-      <Animated.View {...panResponder.panHandlers} style={{ transform: [{ translateX: pan.x }] }} className={`my-0.5 px-4 ${isMe ? 'items-end' : 'items-start'}`}>
-        {!isMe && showAvatar && senderName && (
-          <Text className="mb-0.5 ml-1 text-xs" style={{ color: Colors.textMuted }}>
-            {senderName}
-          </Text>
-        )}
-        <View style={{ flexDirection: 'row', alignItems: 'flex-end' }}>
-          {renderSenderAvatar()}
-          <TouchableOpacity activeOpacity={0.8} onLongPress={onLongPress} delayLongPress={300} style={{ maxWidth: '78%' }}>
-            {normalizedTextContent && normalizedTextContent !== 'Shared a post' ? (
-              <Text
-                className="mb-1 text-[15px] leading-5"
-                style={{ color: isMe ? Colors.bubbleSenderText : Colors.bubbleReceiverText }}>
-                {normalizedTextContent}
-              </Text>
-            ) : null}
-            <PostPreviewAttachment attachment={postPreviewAttachment} isMe={isMe} />
-            <View className="mt-1 flex-row items-center" style={{ alignSelf: 'flex-end' }}>
-              <Text
-                className="text-[10px]"
-                style={{ color: isMe ? 'rgba(255,255,255,0.6)' : Colors.textLight }}>
-                {formatMessageTime(createdAt)}
-              </Text>
-              {isMe && (
-                <Ionicons
-                  name={readBy && readBy.length > 0 ? 'checkmark-done' : 'checkmark'}
-                  size={14}
-                  color={readBy && readBy.length > 0 ? '#60D4F2' : Colors.textLight}
-                  style={{ marginLeft: 3 }}
-                />
-              )}
-            </View>
-          </TouchableOpacity>
-        </View>
-
-        {message.reactions && message.reactions.length > 0 && (
-          <View className={`mt-1 flex-row flex-wrap gap-1 ${isMe ? 'justify-end' : 'justify-start'}`}>
-            {Object.entries(
-              message.reactions.reduce<Record<string, string[]>>((acc, r) => {
-                (acc[r.emoji] ??= []).push(r.userId);
-                return acc;
-              }, {}),
-            ).map(([emoji, userIds]) => (
-              <TouchableOpacity
-                key={emoji}
-                onPress={() => onReact?.(message.id, emoji)}
-                activeOpacity={0.7}
-                className="flex-row items-center rounded-full px-1.5 py-0.5"
-                style={{
-                  backgroundColor: currentUserId && userIds.includes(currentUserId)
-                    ? 'rgba(99,102,241,0.15)'
-                    : 'rgba(0,0,0,0.06)',
-                  borderWidth: 1,
-                  borderColor: currentUserId && userIds.includes(currentUserId)
-                    ? 'rgba(99,102,241,0.4)'
-                    : 'rgba(0,0,0,0.08)',
-                }}>
-                <Text className="text-xs">{emoji}</Text>
-                {userIds.length > 1 && (
-                  <Text className="ml-0.5 text-[10px]" style={{ color: Colors.textMuted }}>
-                    {userIds.length}
-                  </Text>
-                )}
-              </TouchableOpacity>
-            ))}
-          </View>
-        )}
-      </Animated.View>
+      </>
     );
   }
 
   return (
     <>
-      <Animated.View {...panResponder.panHandlers} style={{ transform: [{ translateX: pan.x }] }} className={`my-0.5 px-4 ${isMe ? 'items-end' : 'items-start'}`}>
-        {/* Sender name for group chats */}
-        {!isMe && showAvatar && senderName && (
-          <Text className="mb-0.5 text-xs" style={{ color: Colors.textMuted, marginLeft: 38 }}>
-            {senderName}
-          </Text>
-        )}
+    <Animated.View {...panResponder.panHandlers} style={{ transform: [{ translateX: pan.x }] }} className={`my-0.5 px-4 ${isMe ? 'items-end' : 'items-start'}`}>
+      {/* Sender name for group chats */}
+      {!isMe && showAvatar && senderName && (
+        <Text className="mb-0.5 text-xs" style={{ color: Colors.textMuted, marginLeft: 38 }}>
+          {senderName}
+        </Text>
+      )}
 
       {/* Pinned indicator */}
       {message.pinned && (
@@ -1215,11 +1327,6 @@ export function MessageBubble({
           )}
 
           {renderContent()}
-          {postPreviewAttachment ? (
-            <View style={{ marginTop: normalizedTextContent ? 8 : 0 }}>
-              <PostPreviewAttachment attachment={postPreviewAttachment} isMe={isMe} />
-            </View>
-          ) : null}
 
           {/* Time + status */}
           <View className="mt-1 flex-row items-center justify-end">

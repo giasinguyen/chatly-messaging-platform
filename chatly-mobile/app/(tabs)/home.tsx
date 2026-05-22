@@ -97,6 +97,10 @@ export default function HomeTabScreen() {
     router.push({ pathname: '/notifications', params: { scope: 'social' } });
   }, [router]);
 
+  const handleOpenReels = useCallback(() => {
+    router.push('/reels');
+  }, [router]);
+
   const handlePressStoryGroup = useCallback(
     (group: StoryGroup, groupIndex: number) => {
       setViewerGroupIndex(groupIndex);
@@ -178,6 +182,7 @@ export default function HomeTabScreen() {
           onCreateStory={handleCreateStoryPress}
           onOpenExplore={handleOpenExplore}
           onOpenNotifications={handleOpenNotifications}
+          onOpenReels={handleOpenReels}
           onPressStoryGroup={handlePressStoryGroup}
           hasUnreadNotifications={socialUnreadCount > 0}
         />
@@ -190,6 +195,7 @@ export default function HomeTabScreen() {
       handleFlushPendingPosts,
       handleOpenExplore,
       handleOpenNotifications,
+      handleOpenReels,
       handlePressStoryGroup,
       pendingNewPosts.length,
       socialUnreadCount,
