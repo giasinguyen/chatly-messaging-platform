@@ -3,8 +3,10 @@ import { Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { Avatar } from '@/components/ui/Avatar';
+import { CustomAiIcon } from '@/components/ui/CustomAiIcon';
 import { ImageLightbox } from '@/components/ui/ImageLightbox';
 import { UserQuickProfileDialog } from '@/components/profile/UserQuickProfileDialog';
+import usePostAiChatStarter from '@/hooks/useStartPostAiChat';
 import { useAuthStore } from '@/store/auth.store';
 import { CommentsBottomSheet } from './CommentsBottomSheet';
 import { PostCardMenu } from './PostCardMenu';
@@ -14,6 +16,7 @@ import { SharePostDialog } from './SharePostDialog';
 import { MentionText } from '@/components/mention/MentionText';
 import { Colors } from '@/constants/theme';
 import type { Post, PostComment, ReportPostRequest } from '@/types/post';
+import { formatCompactCount, formatRelativeTime } from '@/utils/socialFormat';
 
 interface PostCardBodyProps {
   post: Post;
@@ -48,24 +51,6 @@ interface PostCardBodyProps {
 }
 
 const CAPTION_COLLAPSE_THRESHOLD = 160;
-
-function formatCount(value: number): string {
-  if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
-  if (value >= 1000) return `${(value / 1000).toFixed(1)}K`;
-  return `${value}`;
-}
-
-function formatRelativeTime(createdAt: string): string {
-  const diffMinutes = Math.floor((Date.now() - new Date(createdAt).getTime()) / 60000);
-  if (diffMinutes < 1) return 'just now';
-  if (diffMinutes < 60) return `${diffMinutes}m ago`;
-
-  const diffHours = Math.floor(diffMinutes / 60);
-  if (diffHours < 24) return `${diffHours}h ago`;
-
-  const diffDays = Math.floor(diffHours / 24);
-  return `${diffDays}d ago`;
-}
 
 export function PostCardBody({
   post,
@@ -103,6 +88,7 @@ export function PostCardBody({
   const [mediaViewerIndex, setMediaViewerIndex] = useState(0);
   const [isCaptionExpanded, setIsCaptionExpanded] = useState(false);
   const [isSubmittingReport, setIsSubmittingReport] = useState(false);
+  const { isStartingAiChat, startPostAiChat } = usePostAiChatStarter();
 
   const hasLongCaption = (post.content?.trim().length ?? 0) > CAPTION_COLLAPSE_THRESHOLD;
   const isOwnPost = currentUserId === authorId;
@@ -154,31 +140,45 @@ export function PostCardBody({
             </View>
           </TouchableOpacity>
 
-          <View className="relative">
+          <View className="flex-row items-center gap-1">
             <TouchableOpacity
-              onPress={() => setShowMenu((current) => !current)}
-              className="p-1.5"
-              activeOpacity={0.7}>
-              <Ionicons name="ellipsis-horizontal" size={18} color={Colors.textMuted} />
+              onPress={() => void startPostAiChat(post.id)}
+              className="h-9 w-9 items-center justify-center rounded-full bg-[#EEF5FF]"
+              activeOpacity={0.75}
+              disabled={isStartingAiChat}>
+              {isStartingAiChat ? (
+                <Ionicons name="hourglass-outline" size={16} color={Colors.cta} />
+              ) : (
+                <CustomAiIcon size={16} color={Colors.cta} />
+              )}
             </TouchableOpacity>
 
-            {showMenu ? (
-              <PostCardMenu
-                isOwnPost={isOwnPost}
-                onEdit={() => {
-                  onEditPost?.(post.id);
-                  setShowMenu(false);
-                }}
-                onDelete={() => {
-                  onDeletePost?.(post.id);
-                  setShowMenu(false);
-                }}
-                onReport={() => {
-                  setShowMenu(false);
-                  setShowReportModal(true);
-                }}
-              />
-            ) : null}
+            <View className="relative">
+              <TouchableOpacity
+                onPress={() => setShowMenu((current) => !current)}
+                className="p-1.5"
+                activeOpacity={0.7}>
+                <Ionicons name="ellipsis-horizontal" size={18} color={Colors.textMuted} />
+              </TouchableOpacity>
+
+              {showMenu ? (
+                <PostCardMenu
+                  isOwnPost={isOwnPost}
+                  onEdit={() => {
+                    onEditPost?.(post.id);
+                    setShowMenu(false);
+                  }}
+                  onDelete={() => {
+                    onDeletePost?.(post.id);
+                    setShowMenu(false);
+                  }}
+                  onReport={() => {
+                    setShowMenu(false);
+                    setShowReportModal(true);
+                  }}
+                />
+              ) : null}
+            </View>
           </View>
         </View>
 
@@ -218,7 +218,7 @@ export function PostCardBody({
           </View>
 
           <Text className="mt-1 text-sm font-semibold text-[#1D1D1F]">
-            {formatCount(totalLikes)} likes
+            {formatCompactCount(totalLikes)} likes
           </Text>
 
           <Text
@@ -243,7 +243,7 @@ export function PostCardBody({
           {post.commentCount > 0 && (
             <TouchableOpacity onPress={() => setShowComments(true)} activeOpacity={0.7}>
               <Text className="mt-1 text-sm text-[#6E6E73]">
-                View all {formatCount(post.commentCount)} comments
+                View all {formatCompactCount(post.commentCount)} comments
               </Text>
             </TouchableOpacity>
           )}

@@ -1,4 +1,5 @@
 import { View, Text, TouchableOpacity } from 'react-native';
+import type { AssistantContextMode } from '@/constants/assistant';
 import { Colors } from '@/constants/theme';
 
 interface QuickChip {
@@ -20,17 +21,34 @@ const GROUP_CONTEXT_CHIPS: QuickChip[] = [
   { label: '🔔 Group reminders', query: 'List all reminders in this group' },
 ];
 
+const POST_CONTEXT_CHIPS: QuickChip[] = [
+  { label: '📝 Summarize this post', query: 'Summarize this post and its main point' },
+  { label: '💡 Explain this post', query: 'Explain this post in a simple way' },
+  { label: '✍️ Draft a reply', query: 'Draft a helpful reply to this post' },
+  { label: '🌐 Translate this post', query: 'Translate this post to English' },
+];
+
 interface AssistantQuickChipsProps {
   onChipSelect: (query: string) => void;
   contextConversationName?: string;
+  contextMode?: AssistantContextMode;
 }
 
-export function AssistantQuickChips({ onChipSelect, contextConversationName }: AssistantQuickChipsProps) {
-  const hasGroupContext = !!contextConversationName;
+export function AssistantQuickChips({
+  onChipSelect,
+  contextConversationName,
+  contextMode = null,
+}: AssistantQuickChipsProps) {
+  const hasContext = Boolean(contextConversationName && contextMode);
+  const contextChips = contextMode === 'post' ? POST_CONTEXT_CHIPS : GROUP_CONTEXT_CHIPS;
+  const contextTitle = contextMode === 'post' ? 'Post actions' : 'Group actions';
+  const contextBorderColor = contextMode === 'post' ? '#BFDBFE' : '#C7D2FE';
+  const contextBackgroundColor = contextMode === 'post' ? '#EEF5FF' : '#EEF2FF';
+  const contextTextColor = contextMode === 'post' ? '#0A7AFF' : '#4338CA';
 
   return (
     <View style={{ width: '100%', maxWidth: 360, marginTop: 18 }}>
-      {hasGroupContext && (
+      {hasContext && (
         <>
           <Text
             style={{
@@ -43,31 +61,31 @@ export function AssistantQuickChips({ onChipSelect, contextConversationName }: A
               marginBottom: 8,
             }}
           >
-            Group actions
+            {contextTitle}
           </Text>
           <View className="flex-row flex-wrap justify-center" style={{ gap: 8 }}>
-            {GROUP_CONTEXT_CHIPS.map((chip) => (
+            {contextChips.map((chip) => (
               <TouchableOpacity
                 key={chip.label}
                 onPress={() => onChipSelect(chip.query)}
                 activeOpacity={0.8}
                 style={{
                   borderWidth: 1,
-                  borderColor: '#C7D2FE',
-                  backgroundColor: '#EEF2FF',
+                  borderColor: contextBorderColor,
+                  backgroundColor: contextBackgroundColor,
                   borderRadius: 999,
                   paddingHorizontal: 12,
                   paddingVertical: 7,
                 }}
               >
-                <Text style={{ fontSize: 13, color: '#4338CA', fontWeight: '500' }}>{chip.label}</Text>
+                <Text style={{ fontSize: 13, color: contextTextColor, fontWeight: '500' }}>{chip.label}</Text>
               </TouchableOpacity>
             ))}
           </View>
         </>
       )}
 
-      {hasGroupContext && (
+      {hasContext && (
         <Text
           style={{
             textAlign: 'center',

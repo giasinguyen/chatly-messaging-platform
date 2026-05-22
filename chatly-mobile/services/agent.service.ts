@@ -1,6 +1,7 @@
 import { fetch } from 'expo/fetch';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axiosClient from '@/lib/axiosClient';
+import type { ApiResponse } from '@/types/auth';
 import type {
   AgentSession,
   AgentSessionCreateOptions,
@@ -8,6 +9,7 @@ import type {
   AgentMessageHistory,
   AgentChatRequest,
   AgentChatResponse,
+  StartChatFromPostResponse,
 } from '@/types/agent';
 
 const BASE = '/api/ai/sessions';
@@ -78,6 +80,11 @@ export const agentService = {
       signal,
       reactNative: { textStreaming: true },
     } as any);
+  },
+
+  startChatFromPost: async (postId: string): Promise<ApiResponse<StartChatFromPostResponse>> => {
+    const res = await axiosClient.post('/api/ai/social/start-from-post', { postId });
+    return res.data;
   },
 
 };

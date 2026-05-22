@@ -2,33 +2,25 @@ import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { CustomAiIcon } from '@/components/ui/CustomAiIcon';
 import { postService } from '@/services/post.service';
 import { CommentsBottomSheet } from '@/components/social/CommentsBottomSheet';
 import { MentionText } from '@/components/mention/MentionText';
 import { Avatar } from '@/components/ui/Avatar';
 import { UserQuickProfileDialog } from '@/components/profile/UserQuickProfileDialog';
+import usePostAiChatStarter from '@/hooks/useStartPostAiChat';
 import { Colors } from '@/constants/theme';
 import type { Post, PostComment, ReactionType } from '@/types/post';
 import { countCommentBranch, removeCommentBranch } from '@/utils/commentTree';
 import { getApiErrorMessage } from '@/utils/errorHandler';
 import { PostMediaGallery } from '@/app/post/components/PostMediaGallery';
 import { PostCommentsSection } from '@/app/post/components/PostCommentsSection';
-
-function formatRelativeTime(createdAt: string): string {
-  const diffMinutes = Math.floor((Date.now() - new Date(createdAt).getTime()) / 60000);
-  if (diffMinutes < 1) return 'just now';
-  if (diffMinutes < 60) return `${diffMinutes}m ago`;
-
-  const diffHours = Math.floor(diffMinutes / 60);
-  if (diffHours < 24) return `${diffHours}h ago`;
-
-  const diffDays = Math.floor(diffHours / 24);
-  return `${diffDays}d ago`;
-}
+import { formatRelativeTime } from '@/utils/socialFormat';
 
 export default function PostDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const { isStartingAiChat, startPostAiChat } = usePostAiChatStarter();
 
   const [post, setPost] = useState<Post | null>(null);
   const [comments, setComments] = useState<PostComment[]>([]);
@@ -258,22 +250,36 @@ export default function PostDetailScreen() {
         </View>
       ) : post ? (
         <ScrollView className="flex-1 px-4 py-4" showsVerticalScrollIndicator={false}>
-          <TouchableOpacity
-            onPress={() => setIsQuickProfileVisible(true)}
-            className="flex-row items-center"
-            activeOpacity={0.75}>
-            <Avatar
-              uri={post.authorAvatarUrl}
-              name={post.authorDisplayName ?? post.authorUsername ?? 'Unknown user'}
-              size={40}
-            />
-            <View className="ml-2.5">
-              <Text className="text-sm font-semibold text-[#1D1D1F]">
-                {post.authorDisplayName ?? post.authorUsername ?? 'Unknown user'}
-              </Text>
-              <Text className="text-xs text-[#6E6E73]">{formatRelativeTime(post.createdAt)}</Text>
-            </View>
-          </TouchableOpacity>
+          <View className="flex-row items-center justify-between">
+            <TouchableOpacity
+              onPress={() => setIsQuickProfileVisible(true)}
+              className="flex-row items-center flex-1"
+              activeOpacity={0.75}>
+              <Avatar
+                uri={post.authorAvatarUrl}
+                name={post.authorDisplayName ?? post.authorUsername ?? 'Unknown user'}
+                size={40}
+              />
+              <View className="ml-2.5">
+                <Text className="text-sm font-semibold text-[#1D1D1F]">
+                  {post.authorDisplayName ?? post.authorUsername ?? 'Unknown user'}
+                </Text>
+                <Text className="text-xs text-[#6E6E73]">{formatRelativeTime(post.createdAt)}</Text>
+              </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => void startPostAiChat(id)}
+              className="ml-3 h-10 w-10 items-center justify-center rounded-full bg-[#EEF5FF]"
+              activeOpacity={0.78}
+              disabled={isStartingAiChat}>
+              {isStartingAiChat ? (
+                <ActivityIndicator size="small" color={Colors.cta} />
+              ) : (
+                <CustomAiIcon size={18} color={Colors.cta} />
+              )}
+            </TouchableOpacity>
+          </View>
 
           {post.content?.trim() ? (
             <MentionText content={post.content} style={{ marginTop: 12, fontSize: 16, lineHeight: 24, color: '#1D1D1F' }} />
