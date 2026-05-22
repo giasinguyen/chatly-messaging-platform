@@ -203,7 +203,10 @@ export default function PostDetailScreen() {
       <Stack.Screen options={{ headerShown: false }} />
 
       <View className="flex-row items-center border-b border-[#E5E5EA] bg-white px-4 py-3">
-        <TouchableOpacity onPress={() => router.back()} className="rounded-full p-1.5" activeOpacity={0.75}>
+        <TouchableOpacity
+          onPress={() => router.back()}
+          className="rounded-full p-1.5"
+          activeOpacity={0.75}>
           <Ionicons name="chevron-back" size={24} color={Colors.text} />
         </TouchableOpacity>
         <Text className="ml-2 text-lg font-semibold text-[#1D1D1F]">Post</Text>
@@ -219,14 +222,16 @@ export default function PostDetailScreen() {
           <Text className="mt-1 text-center text-sm text-[#6E6E73]">{errorMessage}</Text>
           <TouchableOpacity
             className="mt-4 rounded-full bg-[#0A7AFF] px-4 py-2 active:opacity-85"
-            onPress={() => void loadPost()}
-          >
+            onPress={() => void loadPost()}>
             <Text className="text-sm font-semibold text-white">Try again</Text>
           </TouchableOpacity>
         </View>
       ) : post ? (
         <ScrollView className="flex-1 px-4 py-4" showsVerticalScrollIndicator={false}>
-          <View className="flex-row items-center">
+          <TouchableOpacity
+            onPress={() => router.push(`/profile/${post.authorId}`)}
+            className="flex-row items-center"
+            activeOpacity={0.75}>
             <Image
               source={{ uri: post.authorAvatarUrl ?? FALLBACK_AVATAR }}
               contentFit="cover"
@@ -239,7 +244,7 @@ export default function PostDetailScreen() {
               </Text>
               <Text className="text-xs text-[#6E6E73]">{formatRelativeTime(post.createdAt)}</Text>
             </View>
-          </View>
+          </TouchableOpacity>
 
           {post.content?.trim() ? (
             <Text className="mt-3 text-base leading-6 text-[#1D1D1F]">{post.content}</Text>
@@ -250,7 +255,7 @@ export default function PostDetailScreen() {
           {post.hashtags.length > 0 && (
             <View className="mt-4 flex-row flex-wrap">
               {post.hashtags.map((tag) => (
-                <View key={tag} className="mr-2 mb-2 rounded-full bg-[#EEF5FF] px-3 py-1.5">
+                <View key={tag} className="mb-2 mr-2 rounded-full bg-[#EEF5FF] px-3 py-1.5">
                   <Text className="text-xs font-semibold text-[#0A7AFF]">#{tag}</Text>
                 </View>
               ))}

@@ -915,11 +915,7 @@ export default function ChatScreen() {
           }
         }}
         onPressInfo={() => {
-          if (!isGroup && otherUserId) {
-            router.push(`/profile/${otherUserId}`);
-          } else {
-            router.push(`/chat/${conversationId}/info`);
-          }
+          router.push(`/chat/${conversationId}/info`);
         }}
         onAskAi={isGroup ? handleAskAiFromHeader : undefined}
       />
