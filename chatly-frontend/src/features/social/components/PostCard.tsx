@@ -84,6 +84,10 @@ import {
     type MentionSuggestion,
 } from "@/utils/mention";
 import { usePostMentions } from "@/features/social/hooks/usePostMentions";
+import {
+    COLLAPSED_POST_CONTENT_MAX_CHARS,
+    COLLAPSED_POST_CONTENT_MAX_LINES,
+} from "@/constants/feed";
 import { SharePostDialog } from "./SharePostDialog";
 import { ReportPostDialog } from "./ReportPostDialog";
 import { MediaUploadZone } from "./MediaUploadZone";
@@ -177,6 +181,14 @@ function removeRenderedHashtags(text: string, hashtags: string[]): string {
         .trimEnd();
 }
 
+function shouldCollapsePostContent(text: string): boolean {
+    const lineCount = text.split(/\r?\n/).length;
+    return (
+        text.length > COLLAPSED_POST_CONTENT_MAX_CHARS ||
+        lineCount > COLLAPSED_POST_CONTENT_MAX_LINES
+    );
+}
+
 function buildCommentTree(comments: PostComment[]): CommentNode[] {
     const nodeMap = new Map<string, CommentNode>();
     const roots: CommentNode[] = [];
@@ -216,6 +228,7 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
     const updatePost = onPostUpdate ?? fallbackUpdate;
     const removePost = onPostRemove ?? fallbackRemove;
     const [pickerOpen, setPickerOpen] = useState(false);
+    const [isPostContentExpanded, setIsPostContentExpanded] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
     const [isDiscardEditOpen, setIsDiscardEditOpen] = useState(false);
     const [editContent, setEditContent] = useState(post.content);
@@ -336,6 +349,9 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
     const renderedPostContent = useMemo(
         () => removeRenderedHashtags(post.content, post.hashtags),
         [post.content, post.hashtags],
+    );
+    const isPostContentCollapsible = shouldCollapsePostContent(
+        renderedPostContent,
     );
     const hasEditChanges =
         editContent !== post.content ||
@@ -1316,9 +1332,29 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
 
                 {/* Content */}
                 {renderedPostContent && (
-                    <p className="px-5 py-2 text-sm text-foreground whitespace-pre-wrap leading-relaxed">
-                        {renderMentionText(renderedPostContent)}
-                    </p>
+                    <div className="px-5 py-2">
+                        <p
+                            className={cn(
+                                "whitespace-pre-wrap text-sm leading-relaxed text-foreground",
+                                isPostContentCollapsible &&
+                                    !isPostContentExpanded &&
+                                    "line-clamp-6",
+                            )}
+                        >
+                            {renderMentionText(renderedPostContent)}
+                        </p>
+                        {isPostContentCollapsible && (
+                            <button
+                                type="button"
+                                onClick={() =>
+                                    setIsPostContentExpanded((current) => !current)
+                                }
+                                className="mt-1 text-sm font-semibold text-muted-foreground transition-colors hover:text-foreground"
+                            >
+                                {isPostContentExpanded ? "See less" : "See more"}
+                            </button>
+                        )}
+                    </div>
                 )}
 
                 {/* Hashtags */}
