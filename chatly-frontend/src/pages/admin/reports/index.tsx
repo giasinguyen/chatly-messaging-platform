@@ -1,10 +1,7 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { reportService } from "@/services/report.service";
-import {
-  ReportResponse,
-  ReportStatus,
-  ReportReason,
-} from "@/types/admin";
+import { ReportStatus } from "@/types/admin";
+import type { ReportResponse } from "@/types/admin";
 import {
   ShieldAlert,
   CheckCircle,
@@ -21,7 +18,7 @@ export const ReportsPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isUpdating, setIsUpdating] = useState<string | null>(null);
 
-  const fetchReports = async () => {
+  const fetchReports = useCallback(async () => {
     setIsLoading(true);
     try {
       const statusParam = selectedStatus === "ALL" ? undefined : selectedStatus;
@@ -37,11 +34,11 @@ export const ReportsPage: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [selectedStatus]);
 
   useEffect(() => {
     fetchReports();
-  }, [selectedStatus]);
+  }, [fetchReports]);
 
   const handleUpdateStatus = async (reportId: string, status: ReportStatus) => {
     setIsUpdating(reportId);

@@ -47,19 +47,28 @@ export interface AdminStatsResponse {
   recentActivity: AdminActivityLog[];
 }
 
-export enum ReportReason {
-  SPAM = "SPAM",
-  HARASSMENT = "HARASSMENT",
-  INAPPROPRIATE_CONTENT = "INAPPROPRIATE_CONTENT",
-  VIOLENCE = "VIOLENCE",
-  OTHER = "OTHER"
-}
+export type ReportReason =
+  | "SPAM"
+  | "HARASSMENT"
+  | "INAPPROPRIATE_CONTENT"
+  | "VIOLENCE"
+  | "OTHER";
 
-export enum ReportStatus {
-  PENDING = "PENDING",
-  RESOLVED = "RESOLVED",
-  DISMISSED = "DISMISSED"
-}
+export const ReportReason: Record<ReportReason, ReportReason> = {
+  SPAM: "SPAM",
+  HARASSMENT: "HARASSMENT",
+  INAPPROPRIATE_CONTENT: "INAPPROPRIATE_CONTENT",
+  VIOLENCE: "VIOLENCE",
+  OTHER: "OTHER",
+};
+
+export type ReportStatus = "PENDING" | "RESOLVED" | "DISMISSED";
+
+export const ReportStatus: Record<ReportStatus, ReportStatus> = {
+  PENDING: "PENDING",
+  RESOLVED: "RESOLVED",
+  DISMISSED: "DISMISSED",
+};
 
 export interface ReportResponse {
   id: string;
