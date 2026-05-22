@@ -1,22 +1,12 @@
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
-import { ChevronRight, Check, Loader2 } from "lucide-react";
-import { Label } from "@/components/ui/label";
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from "@/components/ui/select";
+import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useAuthStore } from "@/store/auth.store";
 import { settingsService } from "@/services/settings.service";
 import type { UserSettingsType, PrivacySettingsType } from "@/services/settings.service";
 import { toast } from "sonner";
 
 export function PrivacySettings() {
-    const user = useAuthStore((s) => s.user);
     const [loading, setLoading] = useState(true);
     const [settings, setSettings] = useState<UserSettingsType | null>(null);
 

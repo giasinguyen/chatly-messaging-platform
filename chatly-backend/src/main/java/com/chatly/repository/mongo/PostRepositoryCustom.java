@@ -1,5 +1,6 @@
 package com.chatly.repository.mongo;
 
+import com.chatly.dto.response.TrendingHashtagResponse;
 import com.chatly.model.enums.PostVisibility;
 import com.chatly.model.mongo.Post;
 import org.springframework.data.domain.Page;
@@ -54,10 +55,11 @@ public interface PostRepositoryCustom {
     Page<Post> searchPublicPosts(String keyword, String hashtag, Pageable pageable);
 
     /**
-     * Returns top hashtags sorted by usage frequency in PUBLIC non-deleted posts.
+     * Returns top hashtags sorted by usage frequency in recent PUBLIC non-deleted posts.
      *
+     * @param since include only posts created on or after this instant
      * @param limit maximum number of hashtags to return
-     * @return ordered hashtag list without the '#' prefix
+     * @return ordered hashtag list with post counts
      */
-    List<String> findTrendingHashtags(int limit);
+    List<TrendingHashtagResponse> findTrendingHashtags(Instant since, int limit);
 }

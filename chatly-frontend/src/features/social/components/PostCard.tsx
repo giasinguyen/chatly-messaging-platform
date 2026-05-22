@@ -35,6 +35,7 @@ import data from "@emoji-mart/data";
 import { agentService } from "@/services/agent.service";
 import { contactService } from "@/services/contact.service";
 import { CustomAiIcon } from "@/components/customize/CustomAiIcon";
+import { MediaPicker } from "@/components/media-picker/MediaPicker";
 import { MentionSuggestionsDropdown } from "@/components/mention/MentionSuggestionsDropdown";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -53,8 +54,19 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { postService } from "@/services/post.service";
 import { fileService } from "@/services/file.service";
+import { getDisplayUrl, type KlipyItem } from "@/services/klipy.service";
 import { usePostStore } from "@/store/post.store";
 import { useAuthStore } from "@/store/auth.store";
 import type {
@@ -73,6 +85,11 @@ import {
     type MentionCandidate,
     type MentionSuggestion,
 } from "@/utils/mention";
+import { usePostMentions } from "@/features/social/hooks/usePostMentions";
+import {
+    COLLAPSED_POST_CONTENT_MAX_CHARS,
+    COLLAPSED_POST_CONTENT_MAX_LINES,
+} from "@/constants/feed";
 import { SharePostDialog } from "./SharePostDialog";
 import { ReportPostDialog } from "./ReportPostDialog";
 import { MediaUploadZone } from "./MediaUploadZone";
@@ -144,6 +161,36 @@ function renderMentionText(text: string) {
     });
 }
 
+function escapeRegExp(value: string): string {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function removeRenderedHashtags(text: string, hashtags: string[]): string {
+    if (hashtags.length === 0) {
+        return text;
+    }
+
+    const hashtagPattern = hashtags.map(escapeRegExp).join("|");
+    const renderedHashtagRegex = new RegExp(
+        `(^|\\s)#(?:${hashtagPattern})(?=$|[\\s.,!?;:])`,
+        "gi",
+    );
+
+    return text
+        .replace(renderedHashtagRegex, "$1")
+        .replace(/[ \t]+\n/g, "\n")
+        .replace(/\n{3,}/g, "\n\n")
+        .trimEnd();
+}
+
+function shouldCollapsePostContent(text: string): boolean {
+    const lineCount = text.split(/\r?\n/).length;
+    return (
+        text.length > COLLAPSED_POST_CONTENT_MAX_CHARS ||
+        lineCount > COLLAPSED_POST_CONTENT_MAX_LINES
+    );
+}
+
 function buildCommentTree(comments: PostComment[]): CommentNode[] {
     const nodeMap = new Map<string, CommentNode>();
     const roots: CommentNode[] = [];
@@ -183,7 +230,9 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
     const updatePost = onPostUpdate ?? fallbackUpdate;
     const removePost = onPostRemove ?? fallbackRemove;
     const [pickerOpen, setPickerOpen] = useState(false);
+    const [isPostContentExpanded, setIsPostContentExpanded] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
+    const [isDiscardEditOpen, setIsDiscardEditOpen] = useState(false);
     const [editContent, setEditContent] = useState(post.content);
     const [editVisibility, setEditVisibility] = useState<PostVisibility>(
         post.visibility,
@@ -191,10 +240,6 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
     const [editMediaUrls, setEditMediaUrls] = useState<string[]>(
         post.mediaUrls,
     );
-    const [editMentionQuery, setEditMentionQuery] = useState<string | null>(
-        null,
-    );
-    const [editMentionIndex, setEditMentionIndex] = useState(0);
     const [isSubmittingEdit, setIsSubmittingEdit] = useState(false);
     const [isSavingPost, setIsSavingPost] = useState(false);
     const [isCommentOpen, setIsCommentOpen] = useState(false);
@@ -208,6 +253,7 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
     );
     const [commentMentionIndex, setCommentMentionIndex] = useState(0);
     const [showCommentEmojiPicker, setShowCommentEmojiPicker] = useState(false);
+    const [isCommentGifOpen, setIsCommentGifOpen] = useState(false);
     const [replyToComment, setReplyToComment] = useState<PostComment | null>(
         null,
     );
@@ -250,6 +296,13 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
     const commentMediaInputRef = useRef<HTMLInputElement>(null);
     const commentInputRef = useRef<HTMLTextAreaElement | null>(null);
     const editInputRef = useRef<HTMLTextAreaElement | null>(null);
+    const editMentions = usePostMentions({
+        currentUserId,
+        content: editContent,
+        setContent: setEditContent,
+        textareaRef: editInputRef,
+        isActive: isEditing,
+    });
 
     const authorLabel =
         post.authorDisplayName ??
@@ -296,16 +349,17 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
             }),
         [commentMentionQuery, friendMentionCandidates, currentUserId],
     );
-    const editMentionSuggestions = useMemo(
-        () =>
-            buildMentionSuggestions(editMentionQuery, friendMentionCandidates, {
-                includeAi: true,
-                includeAll: false,
-                currentUserId,
-                maxUsers: 8,
-            }),
-        [editMentionQuery, friendMentionCandidates, currentUserId],
+    const renderedPostContent = useMemo(
+        () => removeRenderedHashtags(post.content, post.hashtags),
+        [post.content, post.hashtags],
     );
+    const isPostContentCollapsible = shouldCollapsePostContent(
+        renderedPostContent,
+    );
+    const hasEditChanges =
+        editContent !== post.content ||
+        editVisibility !== post.visibility ||
+        !areStringArraysEqual(editMediaUrls, post.mediaUrls);
 
     const renderCommentNode = (comment: CommentNode, depth = 0) => {
         const commentInitial = comment.userDisplayName
@@ -637,9 +691,27 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
         setEditContent(post.content);
         setEditVisibility(post.visibility);
         setEditMediaUrls(post.mediaUrls);
-        setEditMentionQuery(null);
-        setEditMentionIndex(0);
+        editMentions.reset();
         setIsEditing(true);
+    };
+
+    const handleDiscardEdit = () => {
+        if (isSubmittingEdit) return;
+        setEditContent(post.content);
+        setEditVisibility(post.visibility);
+        setEditMediaUrls(post.mediaUrls);
+        editMentions.reset();
+        setIsDiscardEditOpen(false);
+        setIsEditing(false);
+    };
+
+    const handleCloseEdit = () => {
+        if (isSubmittingEdit) return;
+        if (hasEditChanges) {
+            setIsDiscardEditOpen(true);
+            return;
+        }
+        handleDiscardEdit();
     };
 
     const handleAuthorNavigate = () => {
@@ -720,68 +792,6 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
     const handleCommentEmojiSelect = (emoji: { native: string }) => {
         setCommentDraft((current) => current + emoji.native);
         setShowCommentEmojiPicker(false);
-    };
-
-    const handleEditContentChange = (
-        nextValue: string,
-        cursorFromEvent?: number | null,
-    ) => {
-        setEditContent(nextValue);
-        const cursorPos =
-            cursorFromEvent ?? editInputRef.current?.selectionStart ?? nextValue.length;
-        const nextMentionQuery = detectMentionQuery(nextValue, cursorPos);
-        if (nextMentionQuery !== null) {
-            setEditMentionQuery(nextMentionQuery);
-            setEditMentionIndex(0);
-            return;
-        }
-        setEditMentionQuery(null);
-    };
-
-    const handleSelectEditMention = (suggestion: MentionSuggestion) => {
-        const cursorPos = editInputRef.current?.selectionStart ?? editContent.length;
-        const nextContent = insertMentionAtCursor(editContent, cursorPos, suggestion, {
-            userMentionField: "username",
-        });
-        setEditContent(nextContent);
-        setEditMentionQuery(null);
-        requestAnimationFrame(() => {
-            editInputRef.current?.focus();
-        });
-    };
-
-    const handleEditInputKeyDown = (
-        event: ReactKeyboardEvent<HTMLTextAreaElement>,
-    ) => {
-        if (editMentionQuery === null || !editMentionSuggestions.length) {
-            return;
-        }
-
-        if (event.key === "ArrowDown") {
-            event.preventDefault();
-            setEditMentionIndex(
-                (prev) => (prev + 1) % editMentionSuggestions.length,
-            );
-            return;
-        }
-        if (event.key === "ArrowUp") {
-            event.preventDefault();
-            setEditMentionIndex(
-                (prev) =>
-                    (prev - 1 + editMentionSuggestions.length) %
-                    editMentionSuggestions.length,
-            );
-            return;
-        }
-        if (event.key === "Enter" || event.key === "Tab") {
-            event.preventDefault();
-            handleSelectEditMention(editMentionSuggestions[editMentionIndex]);
-            return;
-        }
-        if (event.key === "Escape") {
-            event.preventDefault();
-            setEditMentionQuery(null);
-        }
     };
 
     const handleCommentDraftChange = (
@@ -871,6 +881,14 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
 
     const handleRemoveCommentMedia = (url: string) => {
         setCommentMediaUrls((prev) => prev.filter((u) => u !== url));
+    };
+
+    const handleCommentGifSelect = (item: KlipyItem) => {
+        const gifUrl = getDisplayUrl(item);
+        if (gifUrl) {
+            setCommentMediaUrls((current) => [...current, gifUrl]);
+        }
+        setIsCommentGifOpen(false);
     };
 
     useEffect(() => {
@@ -1146,10 +1164,7 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
         }
         setIsSubmittingEdit(true);
         try {
-            const mentionIds = extractMentionTargets(content, friendMentionCandidates, {
-                includeAi: false,
-                includeAll: false,
-            });
+            const mentionIds = editMentions.getMentionIds(content);
             const res = await postService.update(post.id, {
                 content,
                 mediaUrls: editMediaUrls,
@@ -1327,9 +1342,31 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
                 </div>
 
                 {/* Content */}
-                <p className="px-5 py-2 text-sm text-foreground whitespace-pre-wrap leading-relaxed">
-                    {renderMentionText(post.content)}
-                </p>
+                {renderedPostContent && (
+                    <div className="px-5 py-2">
+                        <p
+                            className={cn(
+                                "whitespace-pre-wrap text-sm leading-relaxed text-foreground",
+                                isPostContentCollapsible &&
+                                    !isPostContentExpanded &&
+                                    "line-clamp-6",
+                            )}
+                        >
+                            {renderMentionText(renderedPostContent)}
+                        </p>
+                        {isPostContentCollapsible && (
+                            <button
+                                type="button"
+                                onClick={() =>
+                                    setIsPostContentExpanded((current) => !current)
+                                }
+                                className="mt-1 text-sm font-semibold text-muted-foreground transition-colors hover:text-foreground"
+                            >
+                                {isPostContentExpanded ? "See less" : "See more"}
+                            </button>
+                        )}
+                    </div>
+                )}
 
                 {/* Hashtags */}
                 {post.hashtags.length > 0 && (
@@ -1351,19 +1388,11 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
                     </div>
                 )}
 
-                {/* Media - Single clickable thumbnail */}
+                {/* Media thumbnail */}
                 {post.mediaUrls.length > 0 && (
                     <>
                         <div
-                            className="relative bg-muted overflow-hidden aspect-video cursor-zoom-in flex items-center justify-center group"
-                            onClick={() => {
-                                const isVideo = /\.(mp4|webm)$/i.test(
-                                    post.mediaUrls[currentMediaIndex],
-                                );
-                                if (!isVideo && lightboxImages.length > 0) {
-                                    handleMediaClick(currentMediaIndex);
-                                }
-                            }}
+                            className="relative bg-muted overflow-hidden aspect-video flex items-center justify-center group"
                             onDoubleClick={() => handleMediaDoubleClick()}
                         >
                             {post.mediaUrls[currentMediaIndex].match(
@@ -1525,11 +1554,11 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
             <Dialog
                 open={isEditing}
                 onOpenChange={(open) => {
-                    setIsEditing(open);
-                    if (!open) {
-                        setEditMentionQuery(null);
-                        setEditMentionIndex(0);
+                    if (open) {
+                        setIsEditing(true);
+                        return;
                     }
+                    handleCloseEdit();
                 }}
             >
                 <DialogContent className="flex max-h-[90vh] flex-col gap-0 overflow-visible rounded-3xl p-0 shadow-xl sm:max-w-2xl">
@@ -1547,22 +1576,25 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
                             <Textarea
                                 ref={editInputRef}
                                 value={editContent}
-                                onChange={(event) =>
-                                    handleEditContentChange(
+                                onChange={(event) => {
+                                    setEditContent(event.target.value);
+                                    editMentions.updateQuery(
                                         event.target.value,
                                         event.target.selectionStart,
-                                    )
-                                }
-                                onKeyDown={handleEditInputKeyDown}
+                                    );
+                                }}
+                                onKeyDown={editMentions.handleKeyDown}
+                                onScroll={() => editMentions.updateQuery(editContent)}
                                 rows={5}
                                 className="resize-none rounded-2xl border-border bg-muted/20 text-sm"
                             />
-                            {editMentionQuery !== null &&
-                                editMentionSuggestions.length > 0 && (
+                            {editMentions.query !== null &&
+                                editMentions.suggestions.length > 0 && (
                                     <MentionSuggestionsDropdown
-                                        suggestions={editMentionSuggestions}
-                                        activeIndex={editMentionIndex}
-                                        onSelect={handleSelectEditMention}
+                                        suggestions={editMentions.suggestions}
+                                        activeIndex={editMentions.activeIndex}
+                                        onSelect={editMentions.selectSuggestion}
+                                        anchor={editMentions.anchor}
                                         placement="bottom"
                                     />
                                 )}
@@ -1598,7 +1630,7 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
                         <Button
                             type="button"
                             variant="ghost"
-                            onClick={() => setIsEditing(false)}
+                            onClick={handleCloseEdit}
                             disabled={isSubmittingEdit}
                             className="rounded-xl"
                         >
@@ -1635,6 +1667,7 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
                         setCommentMentionQuery(null);
                         setCommentMentionIndex(0);
                         setShowCommentEmojiPicker(false);
+                        setIsCommentGifOpen(false);
                         setCommentActionsId(null);
                         setCommentLightboxImages([]);
                         setShowReplyBar(true);
@@ -1801,9 +1834,9 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
                                             </div>
                                         </div>
 
-                                        {post.content && (
+                                        {renderedPostContent && (
                                             <p className="whitespace-pre-wrap pt-3 text-sm leading-relaxed text-foreground">
-                                                {renderMentionText(post.content)}
+                                                {renderMentionText(renderedPostContent)}
                                             </p>
                                         )}
 
@@ -1861,9 +1894,11 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
                                             </div>
                                         </div>
 
-                                        <p className="whitespace-pre-wrap py-3 text-sm leading-relaxed text-foreground">
-                                            {renderMentionText(post.content)}
-                                        </p>
+                                        {renderedPostContent && (
+                                            <p className="whitespace-pre-wrap py-3 text-sm leading-relaxed text-foreground">
+                                                {renderMentionText(renderedPostContent)}
+                                            </p>
+                                        )}
 
                                         {post.hashtags.length > 0 && (
                                             <div className="flex flex-wrap gap-1 pb-3">
@@ -2040,7 +2075,7 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
                                         )}
                                 </div>
 
-                                <div className="flex items-center justify-between">
+                                <div className="relative flex items-center justify-between">
                                     <div className="flex items-center gap-2">
                                         {/* Emoji button */}
                                         <div
@@ -2093,16 +2128,38 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
                                             className="hidden"
                                         />
 
-                                        {/* GIF button (placeholder) */}
                                         <Button
                                             type="button"
                                             variant="ghost"
                                             size="sm"
                                             className="h-8 px-2 text-xs rounded-lg text-muted-foreground"
-                                            disabled
+                                            onClick={() =>
+                                                setIsCommentGifOpen(
+                                                    (current) => !current,
+                                                )
+                                            }
                                         >
                                             GIF
                                         </Button>
+                                        {isCommentGifOpen && (
+                                            <div className="absolute bottom-10 left-0 z-40 w-full max-w-sm">
+                                                <MediaPicker
+                                                    initialTab="gif"
+                                                    customerId={
+                                                        currentUser?.id ??
+                                                        "anonymous"
+                                                    }
+                                                    onSelect={
+                                                        handleCommentGifSelect
+                                                    }
+                                                    onClose={() =>
+                                                        setIsCommentGifOpen(
+                                                            false,
+                                                        )
+                                                    }
+                                                />
+                                            </div>
+                                        )}
                                     </div>
 
                                     <Button
@@ -2134,6 +2191,26 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
                 onOpenChange={setIsReportOpen}
                 onSubmit={handleSubmitReport}
             />
+
+            <AlertDialog
+                open={isDiscardEditOpen}
+                onOpenChange={setIsDiscardEditOpen}
+            >
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Discard changes?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Your edit will be lost.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Keep editing</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleDiscardEdit}>
+                            Discard
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
 
             {lightboxIndex !== null && lightboxImages[lightboxIndex] && (
                 <ImageLightbox

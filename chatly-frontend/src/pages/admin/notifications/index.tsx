@@ -15,6 +15,7 @@ const notificationTypes: NotificationType[] = [
   "NEW_MESSAGE",
   "MENTION",
   "FRIEND_REQUEST",
+  "FRIEND_ACCEPTED",
   "GROUP_INVITE",
   "POST_LIKED",
   "POST_COMMENTED",

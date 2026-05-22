@@ -4,6 +4,7 @@ import com.chatly.dto.request.CreatePostRequest;
 import com.chatly.dto.request.ReactToPostRequest;
 import com.chatly.dto.request.UpdatePostRequest;
 import com.chatly.dto.response.PostResponse;
+import com.chatly.dto.response.TrendingHashtagResponse;
 import com.chatly.exception.AppException;
 import com.chatly.exception.ErrorCode;
 import com.chatly.mapper.PostMapper;
@@ -29,6 +30,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -398,25 +400,30 @@ class PostServiceTest {
 
     @Test
     void getTrendingHashtags_shouldReturnRepositoryResult() {
-        when(postRepository.findTrendingHashtags(10)).thenReturn(List.of("java", "spring"));
+        var javaTrend = TrendingHashtagResponse.builder().hashtag("java").postCount(3).build();
+        var springTrend = TrendingHashtagResponse.builder().hashtag("spring").postCount(2).build();
+        when(postRepository.findTrendingHashtags(any(Instant.class), eq(10)))
+                .thenReturn(List.of(javaTrend, springTrend));
 
-        List<String> result = postService.getTrendingHashtags(10);
+        List<TrendingHashtagResponse> result = postService.getTrendingHashtags(10);
 
-        assertThat(result).containsExactly("java", "spring");
-        verify(postRepository).findTrendingHashtags(10);
+        assertThat(result).containsExactly(javaTrend, springTrend);
+        verify(postRepository).findTrendingHashtags(any(Instant.class), eq(10));
     }
 
     @Test
     void getTrendingHashtags_shouldClampLimits() {
-        when(postRepository.findTrendingHashtags(1)).thenReturn(List.of("a"));
-        when(postRepository.findTrendingHashtags(50)).thenReturn(List.of("b"));
+        var lowTrend = TrendingHashtagResponse.builder().hashtag("a").postCount(1).build();
+        var highTrend = TrendingHashtagResponse.builder().hashtag("b").postCount(1).build();
+        when(postRepository.findTrendingHashtags(any(Instant.class), eq(1))).thenReturn(List.of(lowTrend));
+        when(postRepository.findTrendingHashtags(any(Instant.class), eq(50))).thenReturn(List.of(highTrend));
 
-        List<String> lowLimitResult = postService.getTrendingHashtags(0);
-        List<String> highLimitResult = postService.getTrendingHashtags(999);
+        List<TrendingHashtagResponse> lowLimitResult = postService.getTrendingHashtags(0);
+        List<TrendingHashtagResponse> highLimitResult = postService.getTrendingHashtags(999);
 
-        assertThat(lowLimitResult).containsExactly("a");
-        assertThat(highLimitResult).containsExactly("b");
-        verify(postRepository).findTrendingHashtags(1);
-        verify(postRepository).findTrendingHashtags(50);
+        assertThat(lowLimitResult).containsExactly(lowTrend);
+        assertThat(highLimitResult).containsExactly(highTrend);
+        verify(postRepository).findTrendingHashtags(any(Instant.class), eq(1));
+        verify(postRepository).findTrendingHashtags(any(Instant.class), eq(50));
     }
 }

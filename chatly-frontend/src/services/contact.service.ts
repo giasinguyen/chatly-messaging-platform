@@ -1,6 +1,12 @@
 import axiosClient from "@/lib/axiosClient";
 import type { ApiResponse } from "@/types/auth";
-import type { ContactResponse, ContactRequestPayload, ContactStatus, BlockStatusResponse } from "@/types/contact";
+import type {
+    BlockStatusResponse,
+    ContactRequestPayload,
+    ContactResponse,
+    ContactStatus,
+    ContactSuggestionResponse,
+} from "@/types/contact";
 
 export const contactService = {
     getAll: async (): Promise<ApiResponse<ContactResponse[]>> => {
@@ -13,6 +19,14 @@ export const contactService = {
     getByStatus: async (status: ContactStatus): Promise<ApiResponse<ContactResponse[]>> => {
         const response = await axiosClient.get<ApiResponse<ContactResponse[]>>(
             `/api/contacts/status/${status}`,
+        );
+        return response.data;
+    },
+
+    getSuggestions: async (limit = 5): Promise<ApiResponse<ContactSuggestionResponse[]>> => {
+        const response = await axiosClient.get<ApiResponse<ContactSuggestionResponse[]>>(
+            "/api/contacts/suggestions",
+            { params: { limit } },
         );
         return response.data;
     },

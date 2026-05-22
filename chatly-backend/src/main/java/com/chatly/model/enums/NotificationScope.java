@@ -14,6 +14,8 @@ public enum NotificationScope {
             NotificationType.CALL_MISSED
     )),
     SOCIAL(EnumSet.of(
+            NotificationType.FRIEND_REQUEST,
+            NotificationType.FRIEND_ACCEPTED,
             NotificationType.POST_LIKED,
             NotificationType.POST_COMMENTED,
             NotificationType.POST_SHARED,

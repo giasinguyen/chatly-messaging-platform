@@ -20,6 +20,7 @@ import { toast } from "sonner";
 
 const NOTIFICATION_REDIRECT: Record<string, string> = {
     FRIEND_REQUEST: "/contact?tab=requests",
+    FRIEND_ACCEPTED: "/contact",
     GROUP_INVITE: "/contact?tab=requests",
     GROUP_JOIN_REQUEST: "/contact?tab=requests",
 };
@@ -27,6 +28,7 @@ const NOTIFICATION_REDIRECT: Record<string, string> = {
 function getIcon(type: NotificationType) {
     switch (type) {
         case "FRIEND_REQUEST": return <UserPlus className="h-4 w-4 text-brand" />;
+        case "FRIEND_ACCEPTED": return <Users className="h-4 w-4 text-green-500" />;
         case "POST_LIKED":     return <Heart className="h-4 w-4 text-red-500" />;
         case "POST_COMMENTED": return <MessageCircle className="h-4 w-4 text-blue-500" />;
         case "COMMENT_REPLIED":return <Reply className="h-4 w-4 text-purple-500" />;
@@ -39,6 +41,7 @@ function getIcon(type: NotificationType) {
 function getColorClass(type: NotificationType) {
     switch (type) {
         case "FRIEND_REQUEST": return "bg-brand/5 border-brand/20";
+        case "FRIEND_ACCEPTED": return "bg-green-50 border-green-200 dark:bg-green-950/20";
         case "POST_LIKED":     return "bg-red-50 border-red-200 dark:bg-red-950/20";
         case "POST_COMMENTED": return "bg-blue-50 border-blue-200 dark:bg-blue-950/20";
         case "COMMENT_REPLIED":return "bg-purple-50 border-purple-200 dark:bg-purple-950/20";
