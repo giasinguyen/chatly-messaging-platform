@@ -46,8 +46,8 @@ spring:
     servlet:
         multipart:
             enabled: true
-            max-file-size: 20MB
-            max-request-size: 25MB
+            max-file-size: ${REEL_MULTIPART_MAX_FILE_SIZE:20MB}
+            max-request-size: ${REEL_MULTIPART_MAX_REQUEST_SIZE:25MB}
     mail:
         host: ${SPRING_MAIL_HOST:smtp.gmail.com}
         port: ${SPRING_MAIL_PORT:587}
@@ -102,6 +102,8 @@ app:
         bot-user-id: ${SOCIAL_AI_BOT_USER_ID:00000000-0000-0000-0000-000000000001}
         mention:
             rate-limit-per-hour: ${SOCIAL_AI_MENTION_RATE_LIMIT_PER_HOUR:10}
+    reels:
+        max-video-size-mb: ${REEL_MAX_VIDEO_SIZE_MB:20}
 
 # ── AI Agent ──────────────────────────────────────────────────────────────────
 agent:

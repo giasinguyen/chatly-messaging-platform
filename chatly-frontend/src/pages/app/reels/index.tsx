@@ -1,0 +1,262 @@
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ChevronDown, ChevronUp, Clapperboard, Eye, Loader2, Plus } from "lucide-react";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { CreateReelModal } from "@/components/app/CreateReelModal";
+import { REEL_FEED_PAGE_SIZE } from "@/constants/reel";
+import { reelService } from "@/services/reel.service";
+import { useAuthStore } from "@/store/auth.store";
+import type { Reel } from "@/types/reel";
+
+function mergeReels(existing: Reel[], incoming: Reel[]) {
+    const existingIds = new Set(existing.map((reel) => reel.id));
+    return [...existing, ...incoming.filter((reel) => !existingIds.has(reel.id))];
+}
+
+function formatCount(value: number) {
+    if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
+    if (value >= 1_000) return `${(value / 1_000).toFixed(1)}K`;
+    return value.toString();
+}
+
+function formatPrivacy(value: Reel["visibility"]) {
+    if (value === "FRIENDS_ONLY") return "Friends";
+    if (value === "ONLY_ME") return "Only me";
+    return "Everyone";
+}
+
+interface ReelSlideProps {
+    reel: Reel;
+    isActive: boolean;
+}
+
+function ReelSlide({ reel, isActive }: ReelSlideProps) {
+    const videoRef = useRef<HTMLVideoElement>(null);
+    const authorLabel = reel.authorDisplayName ?? reel.authorUsername ?? "Chatly user";
+
+    useEffect(() => {
+        const video = videoRef.current;
+        if (!video) return;
+        if (isActive) {
+            void video.play().catch(() => undefined);
+            return;
+        }
+        video.pause();
+    }, [isActive]);
+
+    return (
+        <section className="flex h-full w-full snap-center items-center justify-center bg-black px-4 py-5">
+            <div className="relative h-full max-h-[820px] w-full max-w-[460px] overflow-hidden rounded-lg bg-zinc-950 shadow-2xl">
+                <video
+                    ref={videoRef}
+                    src={reel.videoUrl}
+                    loop
+                    playsInline
+                    controls
+                    muted
+                    className="h-full w-full object-contain"
+                />
+
+                <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-linear-to-t from-black/80 via-black/30 to-transparent p-5 text-white">
+                    <div className="flex items-center gap-3">
+                        <Avatar className="h-10 w-10 border border-white/30">
+                            <AvatarImage src={reel.authorAvatarUrl} className="object-cover" />
+                            <AvatarFallback className="bg-white/20 text-white">
+                                {authorLabel.slice(0, 1).toUpperCase()}
+                            </AvatarFallback>
+                        </Avatar>
+                        <div className="min-w-0">
+                            <p className="truncate text-sm font-semibold">{authorLabel}</p>
+                            <p className="text-xs text-white/70">{formatPrivacy(reel.visibility)}</p>
+                        </div>
+                    </div>
+
+                    {reel.caption && (
+                        <p className="mt-3 line-clamp-3 text-sm leading-5 text-white/95">
+                            {reel.caption}
+                        </p>
+                    )}
+
+                    <div className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1 text-xs text-white/80 backdrop-blur">
+                        <Eye className="h-3.5 w-3.5" />
+                        {formatCount(reel.viewCount)} views
+                    </div>
+                </div>
+            </div>
+        </section>
+    );
+}
+
+export default function ReelsPage() {
+    const user = useAuthStore((s) => s.user);
+    const [reels, setReels] = useState<Reel[]>([]);
+    const [activeIndex, setActiveIndex] = useState(0);
+    const [nextCursor, setNextCursor] = useState<string | null>(null);
+    const [hasMore, setHasMore] = useState(true);
+    const [isLoading, setIsLoading] = useState(false);
+    const [isCreateOpen, setIsCreateOpen] = useState(false);
+    const viewedIdsRef = useRef<Set<string>>(new Set());
+
+    const activeReel = reels[activeIndex];
+    const isEmpty = !isLoading && reels.length === 0;
+
+    const loadReels = useCallback(
+        async (cursor: string | null, shouldReplace = false) => {
+            setIsLoading(true);
+            try {
+                const response = await reelService.getFeed(cursor, REEL_FEED_PAGE_SIZE);
+                if (response.code !== 1000 || !response.result) {
+                    toast.error(response.message ?? "Could not load reels.");
+                    return;
+                }
+
+                setReels((current) =>
+                    shouldReplace
+                        ? response.result.items
+                        : mergeReels(current, response.result.items),
+                );
+                setNextCursor(response.result.nextCursor);
+                setHasMore(response.result.hasMore);
+                if (shouldReplace) {
+                    setActiveIndex(0);
+                    viewedIdsRef.current = new Set();
+                }
+            } catch {
+                toast.error("Could not load reels.");
+            } finally {
+                setIsLoading(false);
+            }
+        },
+        [],
+    );
+
+    useEffect(() => {
+        void loadReels(null, true);
+    }, [loadReels]);
+
+    useEffect(() => {
+        if (!activeReel || viewedIdsRef.current.has(activeReel.id)) return;
+        viewedIdsRef.current.add(activeReel.id);
+        void reelService.recordView(activeReel.id);
+    }, [activeReel]);
+
+    useEffect(() => {
+        if (!hasMore || isLoading || !nextCursor) return;
+        if (activeIndex >= reels.length - 2) {
+            void loadReels(nextCursor);
+        }
+    }, [activeIndex, hasMore, isLoading, loadReels, nextCursor, reels.length]);
+
+    const goToPrevious = useCallback(() => {
+        setActiveIndex((current) => Math.max(current - 1, 0));
+    }, []);
+
+    const goToNext = useCallback(() => {
+        setActiveIndex((current) => Math.min(current + 1, Math.max(reels.length - 1, 0)));
+    }, [reels.length]);
+
+    useEffect(() => {
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if (event.key === "ArrowUp") {
+                event.preventDefault();
+                goToPrevious();
+            }
+            if (event.key === "ArrowDown" || event.key === " ") {
+                event.preventDefault();
+                goToNext();
+            }
+        };
+        window.addEventListener("keydown", handleKeyDown);
+        return () => window.removeEventListener("keydown", handleKeyDown);
+    }, [goToNext, goToPrevious]);
+
+    const translateStyle = useMemo(
+        () => ({ transform: `translateY(-${activeIndex * 100}%)` }),
+        [activeIndex],
+    );
+
+    const handleCreated = () => {
+        void loadReels(null, true);
+    };
+
+    return (
+        <div className="relative h-full w-full overflow-hidden bg-black text-white">
+            <div className="absolute left-5 top-5 z-20 flex items-center gap-2">
+                <Clapperboard className="h-6 w-6 text-white" />
+                <h1 className="text-xl font-bold">Reels</h1>
+            </div>
+
+            <Button
+                type="button"
+                size="sm"
+                onClick={() => setIsCreateOpen(true)}
+                className="absolute right-5 top-5 z-20 rounded-full bg-white text-black hover:bg-white/90"
+            >
+                <Plus className="mr-1.5 h-4 w-4" />
+                Create
+            </Button>
+
+            {isEmpty && (
+                <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
+                    <Clapperboard className="h-12 w-12 text-white/60" />
+                    <p className="text-lg font-semibold">No reels yet</p>
+                    <p className="max-w-sm text-sm text-white/60">
+                        Create the first reel or come back after more people share videos.
+                    </p>
+                </div>
+            )}
+
+            {reels.length > 0 && (
+                <div
+                    className="h-full w-full transition-transform duration-300 ease-out"
+                    style={translateStyle}
+                >
+                    {reels.map((reel, index) => (
+                        <ReelSlide
+                            key={reel.id}
+                            reel={reel}
+                            isActive={index === activeIndex}
+                        />
+                    ))}
+                </div>
+            )}
+
+            <div className="absolute right-6 top-1/2 z-20 flex -translate-y-1/2 flex-col gap-3">
+                <Button
+                    type="button"
+                    size="icon"
+                    variant="outline"
+                    disabled={activeIndex === 0}
+                    onClick={goToPrevious}
+                    className="rounded-full border-white/30 bg-black/30 text-white hover:bg-white/20"
+                >
+                    <ChevronUp className="h-5 w-5" />
+                </Button>
+                <Button
+                    type="button"
+                    size="icon"
+                    variant="outline"
+                    disabled={activeIndex >= reels.length - 1 && !hasMore}
+                    onClick={goToNext}
+                    className="rounded-full border-white/30 bg-black/30 text-white hover:bg-white/20"
+                >
+                    <ChevronDown className="h-5 w-5" />
+                </Button>
+            </div>
+
+            {isLoading && (
+                <div className="absolute bottom-5 left-1/2 z-20 -translate-x-1/2 rounded-full bg-white/10 px-4 py-2 backdrop-blur">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                </div>
+            )}
+
+            <CreateReelModal
+                isOpen={isCreateOpen}
+                onClose={() => setIsCreateOpen(false)}
+                user={user}
+                onCreated={handleCreated}
+            />
+        </div>
+    );
+}

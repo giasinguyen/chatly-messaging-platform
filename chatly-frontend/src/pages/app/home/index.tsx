@@ -7,6 +7,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { CreatePostModal } from "@/components/app/CreatePostModal";
 import { CreateOptionsModal } from "@/components/app/CreateOptionsModal";
 import { CreateStoryModal } from "@/components/app/CreateStoryModal";
+import { CreateReelModal } from "@/components/app/CreateReelModal";
 import { StoryViewer } from "@/components/app/StoryViewer";
 import { HOME_FEED_ROOT_MARGIN } from "@/constants/feed";
 import { FeedList } from "@/pages/app/feed/components/FeedList";
@@ -25,6 +26,7 @@ export default function HomePage() {
     const [showOptionsModal, setShowOptionsModal] = useState(false);
     const [showPostModal, setShowPostModal] = useState(false);
     const [showStoryModal, setShowStoryModal] = useState(false);
+    const [showReelModal, setShowReelModal] = useState(false);
     const [storyViewerIndex, setStoryViewerIndex] = useState<number | null>(
         null,
     );
@@ -257,6 +259,10 @@ export default function HomePage() {
                     setShowOptionsModal(false);
                     setShowStoryModal(true);
                 }}
+                onSelectReel={() => {
+                    setShowOptionsModal(false);
+                    setShowReelModal(true);
+                }}
             />
 
             <CreatePostModal
@@ -268,6 +274,13 @@ export default function HomePage() {
             <CreateStoryModal
                 isOpen={showStoryModal}
                 onClose={() => setShowStoryModal(false)}
+            />
+
+            <CreateReelModal
+                isOpen={showReelModal}
+                onClose={() => setShowReelModal(false)}
+                user={user}
+                onCreated={() => navigate("/reels")}
             />
 
                 {storyViewerIndex !== null && groupedStories.length > 0 && (

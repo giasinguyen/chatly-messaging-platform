@@ -405,6 +405,7 @@ Base URL: `http://localhost:8080`
 | **Posts**         | `POST /api/posts` · `GET /api/posts/feed` · `GET /api/posts/{id}` · `PATCH /api/posts/{id}` · `DELETE /api/posts/{id}` · `GET /api/posts/search` · `PUT /api/posts/{id}/save` · `POST /api/posts/{id}/react` · `POST /api/posts/{id}/comments` |
 | **Feed**          | `GET /api/feed/home` · `GET /api/feed/explore` · `GET /api/feed/user/{userId}`                                                                                                                                                                 |
 | **Stories**       | `POST /api/stories` · `GET /api/stories/feed` · `GET /api/stories/me` · `POST /api/stories/{id}/view` · `POST /api/stories/{id}/react` · `POST /api/stories/{id}/reply` · `GET /api/stories/{id}/viewers`                                      |
+| **Reels**         | `POST /api/reels` · `GET /api/reels/feed` · `GET /api/reels/{id}` · `GET /api/reels/users/{userId}` · `POST /api/reels/{id}/view`                                                                                                               |
 | **Notifications** | `GET /api/notifications` · `GET /api/notifications/unread-count` · `PUT /api/notifications/{id}/read` · `PUT /api/notifications/read-all`                                                                                                      |
 | **Files**         | `POST /api/files/upload` · `GET /api/files/{id}`                                                                                                                                                                                               |
 | **Music**         | `GET /api/music/search`                                                                                                                                                                                                                        |
@@ -445,6 +446,7 @@ Base URL: `http://localhost:8080`
 | `app.jwt.expiration-ms`       | `86400000`                                | Access token TTL (1 day)         |
 | `app.cors.allowed-origins`    | `http://localhost:3000`                   | Allowed CORS origins             |
 | `app.music.jamendo.client-id` | —                                         | Jamendo API client ID (optional) |
+| `app.reels.max-video-size-mb` | `20`                                      | Maximum Reel upload size in MB   |
 
 ### AI Agent (`.env`)
 
@@ -462,6 +464,7 @@ Base URL: `http://localhost:8080`
 | Key                     | Example                 | Description          |
 | ----------------------- | ----------------------- | -------------------- |
 | `VITE_BACKEND_BASE_URL` | `http://localhost:8080` | Backend API base URL |
+| `VITE_REEL_MAX_VIDEO_SIZE_MB` | `20`              | Client-side Reel upload size guard |
 
 ---
 

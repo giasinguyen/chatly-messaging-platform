@@ -71,6 +71,7 @@ public class WebSecurityConfig {
                         .requestMatchers(PUBLIC_ENDPOINTS).permitAll()
                         .requestMatchers("/api/admin/**").authenticated()
                         .requestMatchers("/api/posts/**").authenticated()
+                        .requestMatchers("/api/reels/**").authenticated()
                         .requestMatchers("/api/files/**").authenticated()
                         .requestMatchers("/api/ai/**").authenticated()
                         .requestMatchers("/api/reports/**").authenticated()

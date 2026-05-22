@@ -17,6 +17,7 @@ const ExplorePage = lazy(() => import("@/pages/app/explore"));
 const SavedPage = lazy(() => import("@/pages/app/saved"));
 const PostDetailPage = lazy(() => import("@/pages/app/post/[postId]"));
 const UsernamePage = lazy(() => import("@/pages/app/profile/[username]"));
+const ReelsPage = lazy(() => import("@/pages/app/reels"));
 
 export const appRoutes: RouteObject[] = [
     {
@@ -38,6 +39,7 @@ export const appRoutes: RouteObject[] = [
             { path: "cloud", element: <CloudPage /> },
             { path: "contact", element: <ContactPage /> },
             { path: "create", element: <CreatePage /> },
+            { path: "reels", element: <ReelsPage /> },
             { path: "explore", element: <ExplorePage /> },
             { path: "saved", element: <SavedPage /> },
             { path: "post/:postId", element: <PostDetailPage /> },
