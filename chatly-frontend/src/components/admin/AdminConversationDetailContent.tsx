@@ -1,5 +1,6 @@
 import { Bot, Clock, MessageSquare, Users } from "lucide-react";
 import type { ConversationResponse } from "@/types/conversation";
+import { toMessagePreviewText } from "@/pages/app/chat/components/richTextMessage.utils";
 
 interface AdminConversationDetailContentProps {
   conversation: ConversationResponse;
@@ -52,7 +53,7 @@ export default function AdminConversationDetailContent({
           Last Message
         </p>
         <p className="text-sm font-semibold text-slate-700">
-          {conversation.lastMessage?.content || "No message yet"}
+          {toMessagePreviewText(conversation.lastMessage?.content ?? "") || "No message yet"}
         </p>
         {conversation.lastMessage?.timestamp && (
           <p className="mt-1 text-xs text-slate-400">

@@ -1,5 +1,6 @@
 import { FileText, Pin, RotateCcw } from "lucide-react";
 import type { Message } from "@/types/message";
+import { toMessagePreviewText } from "@/pages/app/chat/components/richTextMessage.utils";
 
 interface AdminMessageDetailContentProps {
   message: Message;
@@ -29,7 +30,7 @@ export default function AdminMessageDetailContent({ message }: AdminMessageDetai
           Content
         </p>
         <p className="whitespace-pre-wrap text-sm font-medium leading-6 text-slate-700">
-          {message.recalled ? "Message recalled" : message.content || `${message.type} message`}
+          {message.recalled ? "Message recalled" : toMessagePreviewText(message.content) || `${message.type} message`}
         </p>
       </div>
 

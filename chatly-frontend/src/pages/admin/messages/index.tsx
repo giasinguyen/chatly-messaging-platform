@@ -1,13 +1,16 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
+import { useNavigate } from "react-router-dom";
 import AdminDetailPanel from "@/components/admin/AdminDetailPanel";
 import AdminMessageDetailContent from "@/components/admin/AdminMessageDetailContent";
 import { DashboardKpiCard } from "@/components/admin/DashboardKpiCard";
+import { useUserLookup } from "@/hooks/useUserLookup";
 import { adminService } from "@/services/admin.service";
 import type { AdminStatsResponse } from "@/types/admin";
 import type { Message } from "@/types/message";
-import { AlertTriangle, CheckCircle, Edit3, Loader2, MessageSquare, Pin, Search, Trash2 } from "lucide-react";
+import { AlertTriangle, CheckCircle, ChevronDown, ChevronUp, Edit3, ExternalLink, Loader2, MessageSquare, Pin, Search, Trash2, User } from "lucide-react";
 import { toast } from "sonner";
+import { toMessagePreviewText } from "@/pages/app/chat/components/richTextMessage.utils";
 
 const PAGE_SIZE = 20;
 
@@ -27,7 +30,130 @@ function getMessagePreview(message: Message) {
   if (message.recalled) {
     return "Message recalled";
   }
-  return message.content || `${message.type} message`;
+  return toMessagePreviewText(message.content) || `${message.type} message`;
+}
+
+function groupMessagesBySender(messages: Message[]): Map<string, Message[]> {
+  const grouped = new Map<string, Message[]>();
+  for (const message of messages) {
+    const key = message.senderId;
+    const group = grouped.get(key) ?? [];
+    group.push(message);
+    grouped.set(key, group);
+  }
+  return grouped;
+}
+
+function SenderGroup({
+  senderId,
+  messages,
+  deletingId,
+  onOpenDetail,
+  onDelete,
+}: {
+  senderId: string;
+  messages: Message[];
+  deletingId: string | null;
+  onOpenDetail: (message: Message) => void;
+  onDelete: (message: Message) => void;
+}) {
+  const [collapsed, setCollapsed] = useState(false);
+  const navigate = useNavigate();
+  const userMap = useUserLookup([senderId]);
+  const sender = userMap.get(senderId);
+  const senderName = sender?.displayName || sender?.username;
+  const senderHandle = sender?.username ? `@${sender.username}` : senderId;
+
+  return (
+    <div className="rounded-2xl border border-slate-100 bg-white shadow-sm overflow-hidden">
+      <button
+        type="button"
+        onClick={() => setCollapsed((prev) => !prev)}
+        className="flex w-full items-center gap-3 px-5 py-3.5 hover:bg-slate-50/70 text-left"
+      >
+        {sender?.avatarUrl ? (
+          <img src={sender.avatarUrl} alt={senderName || senderId} className="h-9 w-9 shrink-0 rounded-xl border border-slate-200 object-cover" />
+        ) : (
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-slate-100 text-slate-500">
+            <User size={16} />
+          </div>
+        )}
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-bold text-slate-700">{senderName || senderId}</p>
+          {senderName && <p className="font-mono text-[10px] text-slate-400 truncate">{senderHandle}</p>}
+        </div>
+        <button
+          type="button"
+          onClick={(event) => { event.stopPropagation(); navigate(`/u/${sender?.username ?? ""}`); }}
+          className="shrink-0 rounded-lg border border-slate-100 bg-slate-50 p-1 text-slate-400 hover:bg-purple-50 hover:text-purple-600"
+          title="View user profile"
+          disabled={!sender?.username}
+        >
+          <ExternalLink size={13} />
+        </button>
+        <span className="shrink-0 rounded-lg border border-purple-100 bg-purple-50 px-2 py-0.5 text-[10px] font-bold text-purple-600">
+          {messages.length} msg{messages.length !== 1 ? "s" : ""}
+        </span>
+        {collapsed ? <ChevronDown size={16} className="text-slate-400 shrink-0" /> : <ChevronUp size={16} className="text-slate-400 shrink-0" />}
+      </button>
+
+      {!collapsed && (
+        <div className="border-t border-slate-50 divide-y divide-slate-50">
+          {messages.map((message) => (
+            <div
+              key={message.id}
+              onClick={() => onOpenDetail(message)}
+              className="flex cursor-pointer items-start gap-3 px-5 py-3.5 hover:bg-slate-50/60 group"
+            >
+              <div className="min-w-0 flex-1">
+                <p className={`text-sm font-medium leading-5 line-clamp-2 ${message.recalled ? "text-slate-400 italic" : "text-slate-700"}`}>
+                  {getMessagePreview(message)}
+                </p>
+                <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                  <span className="rounded-md border border-slate-100 bg-slate-50 px-1.5 py-0.5 text-[10px] font-bold text-slate-500">
+                    {message.type}
+                  </span>
+                  <span className="rounded-md border border-slate-100 bg-slate-50 px-1.5 py-0.5 text-[10px] font-semibold text-slate-400">
+                    {message.status}
+                  </span>
+                  {message.pinned && (
+                    <span className="inline-flex items-center gap-0.5 rounded-md border border-purple-100 bg-purple-50 px-1.5 py-0.5 text-[10px] font-bold text-purple-600">
+                      <Pin size={10} />
+                      Pinned
+                    </span>
+                  )}
+                  {message.edited && (
+                    <span className="rounded-md border border-amber-100 bg-amber-50 px-1.5 py-0.5 text-[10px] font-bold text-amber-600">
+                      Edited
+                    </span>
+                  )}
+                  {message.recalled && (
+                    <span className="rounded-md border border-red-100 bg-red-50 px-1.5 py-0.5 text-[10px] font-bold text-red-600">
+                      Recalled
+                    </span>
+                  )}
+                </div>
+                <p className="mt-1 font-mono text-[10px] text-slate-300">{message.id}</p>
+              </div>
+              <div className="flex shrink-0 items-center gap-2">
+                <p className="text-[10px] text-slate-400">
+                  {message.createdAt ? new Date(message.createdAt).toLocaleString() : ""}
+                </p>
+                <button
+                  type="button"
+                  onClick={(event) => { event.stopPropagation(); onDelete(message); }}
+                  disabled={deletingId === message.id}
+                  className="rounded-xl border border-red-100 bg-red-50 p-1.5 text-red-600 hover:bg-red-100 disabled:opacity-50 opacity-0 group-hover:opacity-100 transition-opacity"
+                >
+                  <Trash2 size={14} />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default function MessagesPage() {
@@ -82,6 +208,7 @@ export default function MessagesPage() {
   const editedCount = useMemo(() => messages.filter((message) => message.edited).length, [messages]);
   const recalledCount = useMemo(() => messages.filter((message) => message.recalled).length, [messages]);
   const pinnedCount = useMemo(() => messages.filter((message) => message.pinned).length, [messages]);
+  const groupedMessages = useMemo(() => groupMessagesBySender(messages), [messages]);
 
   const handleSearchSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -152,36 +279,22 @@ export default function MessagesPage() {
         <button type="submit" className="rounded-xl bg-[#7c3aed] px-4 py-2 text-xs font-bold text-white hover:bg-[#6d28d9]">Apply</button>
       </form>
 
-      <div className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
+      <div className="space-y-3">
         {isLoading ? (
-          <div className="flex h-72 items-center justify-center"><Loader2 size={28} className="animate-spin text-[#7c3aed]" /></div>
+          <div className="flex h-72 items-center justify-center rounded-2xl border border-slate-100 bg-white"><Loader2 size={28} className="animate-spin text-[#7c3aed]" /></div>
         ) : messages.length === 0 ? (
-          <div className="p-12 text-center text-sm text-slate-400">No messages found</div>
+          <div className="rounded-2xl border border-slate-100 bg-white p-12 text-center text-sm text-slate-400">No messages found</div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left">
-              <thead className="border-b border-slate-100 bg-slate-50/70">
-                <tr>
-                  <th className="px-5 py-4 text-xs font-bold uppercase text-slate-400">Message</th>
-                  <th className="px-5 py-4 text-xs font-bold uppercase text-slate-400">Sender</th>
-                  <th className="px-5 py-4 text-xs font-bold uppercase text-slate-400">Conversation</th>
-                  <th className="px-5 py-4 text-xs font-bold uppercase text-slate-400">Flags</th>
-                  <th className="px-5 py-4 text-right text-xs font-bold uppercase text-slate-400">Action</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-50">
-                {messages.map((message) => (
-                  <tr key={message.id} onClick={() => handleOpenDetail(message)} className="cursor-pointer hover:bg-slate-50/60">
-                    <td className="max-w-xl px-5 py-4"><p className="line-clamp-2 text-sm font-medium text-slate-700">{getMessagePreview(message)}</p><p className="text-[11px] text-slate-400">{message.id}</p></td>
-                    <td className="px-5 py-4 font-mono text-xs text-slate-500">{message.senderId}</td>
-                    <td className="px-5 py-4 font-mono text-xs text-slate-500">{message.conversationId}</td>
-                    <td className="px-5 py-4"><div className="flex flex-wrap gap-1.5"><span className="rounded-lg border border-slate-100 bg-slate-50 px-2 py-1 text-[10px] font-bold text-slate-500">{message.type}</span>{message.pinned && <Pin size={14} className="text-purple-500" />}{message.edited && <span className="rounded-lg border border-amber-100 bg-amber-50 px-2 py-1 text-[10px] font-bold text-amber-600">EDITED</span>}{message.recalled && <span className="rounded-lg border border-red-100 bg-red-50 px-2 py-1 text-[10px] font-bold text-red-600">RECALLED</span>}</div></td>
-                    <td className="px-5 py-4 text-right"><button type="button" onClick={(event) => { event.stopPropagation(); handleDeleteMessage(message); }} disabled={deletingId === message.id} className="rounded-xl border border-red-100 bg-red-50 p-2 text-red-600 hover:bg-red-100 disabled:opacity-50"><Trash2 size={16} /></button></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          Array.from(groupedMessages.entries()).map(([senderId, senderMessages]) => (
+            <SenderGroup
+              key={senderId}
+              senderId={senderId}
+              messages={senderMessages}
+              deletingId={deletingId}
+              onOpenDetail={handleOpenDetail}
+              onDelete={handleDeleteMessage}
+            />
+          ))
         )}
       </div>
 

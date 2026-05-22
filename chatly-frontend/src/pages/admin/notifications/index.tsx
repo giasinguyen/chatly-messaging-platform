@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import AdminDetailPanel from "@/components/admin/AdminDetailPanel";
 import AdminNotificationDetailContent from "@/components/admin/AdminNotificationDetailContent";
 import { DashboardKpiCard } from "@/components/admin/DashboardKpiCard";
+import { useUserLookup } from "@/hooks/useUserLookup";
 import { adminService } from "@/services/admin.service";
 import type { Notification, NotificationType } from "@/types/notification";
-import { Bell, CheckCircle, Loader2, Megaphone, ShieldAlert } from "lucide-react";
+import { Bell, CheckCircle, ChevronDown, ChevronUp, ExternalLink, Loader2, Megaphone, ShieldAlert, User } from "lucide-react";
 import { toast } from "sonner";
 
 const PAGE_SIZE = 20;
@@ -36,6 +38,130 @@ function resolveReadFilter(filter: ReadFilter) {
     return false;
   }
   return undefined;
+}
+
+function getSenderKey(notification: Notification) {
+  return notification.senderName || notification.senderId || "system";
+}
+
+function getSenderLabel(notification: Notification) {
+  return notification.senderName || notification.senderId || "System";
+}
+
+function groupNotificationsBySender(notifications: Notification[]): Map<string, Notification[]> {
+  const grouped = new Map<string, Notification[]>();
+  for (const notification of notifications) {
+    const key = getSenderKey(notification);
+    const group = grouped.get(key) ?? [];
+    group.push(notification);
+    grouped.set(key, group);
+  }
+  return grouped;
+}
+
+function SenderNotificationGroup({
+  senderKey,
+  notifications,
+  onOpenDetail,
+}: {
+  senderKey: string;
+  notifications: Notification[];
+  onOpenDetail: (notification: Notification) => void;
+}) {
+  const [collapsed, setCollapsed] = useState(false);
+  const navigate = useNavigate();
+  const senderId = notifications[0].senderId;
+  const isSystem = senderKey === "system" || !senderId;
+  const userMap = useUserLookup(senderId ? [senderId] : []);
+  const resolvedUser = senderId ? userMap.get(senderId) : undefined;
+
+  const senderName = resolvedUser?.displayName || resolvedUser?.username || notifications[0].senderName || (isSystem ? "System" : senderId);
+  const senderHandle = resolvedUser?.username
+    ? `@${resolvedUser.username}`
+    : notifications[0].senderName && notifications[0].senderId
+    ? notifications[0].senderId
+    : undefined;
+  const avatarUrl = resolvedUser?.avatarUrl || notifications[0].senderAvatar;
+  const unreadCount = notifications.filter((n) => !n.read).length;
+
+  return (
+    <div className="rounded-2xl border border-slate-100 bg-white shadow-sm overflow-hidden">
+      <button
+        type="button"
+        onClick={() => setCollapsed((prev) => !prev)}
+        className="flex w-full items-center gap-3 px-5 py-3.5 hover:bg-slate-50/70 text-left"
+      >
+        {isSystem ? (
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-slate-100 text-slate-500">
+            <Megaphone size={16} />
+          </div>
+        ) : avatarUrl ? (
+          <img src={avatarUrl} alt={senderName || "User"} className="h-9 w-9 shrink-0 rounded-xl border border-slate-200 object-cover" />
+        ) : (
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-slate-100 text-slate-500">
+            <User size={16} />
+          </div>
+        )}
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-bold text-slate-700">{senderName}</p>
+          {senderHandle && <p className="font-mono text-[10px] text-slate-400 truncate">{senderHandle}</p>}
+        </div>
+        {!isSystem && (
+          <button
+            type="button"
+            onClick={(event) => { event.stopPropagation(); if (resolvedUser?.username) navigate(`/u/${resolvedUser.username}`); }}
+            className="shrink-0 rounded-lg border border-slate-100 bg-slate-50 p-1 text-slate-400 hover:bg-purple-50 hover:text-purple-600"
+            title="View user profile"
+            disabled={!resolvedUser?.username}
+          >
+            <ExternalLink size={13} />
+          </button>
+        )}
+        <div className="flex shrink-0 items-center gap-1.5">
+          {unreadCount > 0 && (
+            <span className="rounded-lg border border-purple-100 bg-purple-50 px-2 py-0.5 text-[10px] font-bold text-purple-600">
+              {unreadCount} unread
+            </span>
+          )}
+          <span className="rounded-lg border border-slate-100 bg-slate-50 px-2 py-0.5 text-[10px] font-bold text-slate-500">
+            {notifications.length} total
+          </span>
+        </div>
+        {collapsed ? <ChevronDown size={16} className="text-slate-400 shrink-0" /> : <ChevronUp size={16} className="text-slate-400 shrink-0" />}
+      </button>
+
+      {!collapsed && (
+        <div className="border-t border-slate-50 divide-y divide-slate-50">
+          {notifications.map((notification) => (
+            <button
+              key={notification.id}
+              type="button"
+              onClick={() => onOpenDetail(notification)}
+              className="flex w-full items-start gap-3 px-5 py-3.5 text-left hover:bg-slate-50/60"
+            >
+              <div className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border ${notification.read ? "border-slate-100 bg-slate-50 text-slate-400" : "border-purple-100 bg-purple-50 text-purple-600"}`}>
+                <Bell size={13} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-1.5 mb-0.5">
+                  <span className="rounded-md border border-slate-100 bg-slate-50 px-1.5 py-0.5 text-[10px] font-bold text-slate-500">
+                    {notification.type}
+                  </span>
+                  {!notification.read && (
+                    <span className="rounded-md border border-purple-100 bg-purple-50 px-1.5 py-0.5 text-[10px] font-bold text-purple-600">
+                      UNREAD
+                    </span>
+                  )}
+                </div>
+                <p className="text-sm font-medium text-slate-700 line-clamp-1">{getNotificationLabel(notification)}</p>
+                <p className="mt-0.5 text-[10px] text-slate-400">{new Date(notification.createdAt).toLocaleString()}</p>
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default function NotificationsPage() {
@@ -84,6 +210,7 @@ export default function NotificationsPage() {
     () => notifications.filter((notification) => notification.type === "SYSTEM").length,
     [notifications]
   );
+  const groupedNotifications = useMemo(() => groupNotificationsBySender(notifications), [notifications]);
 
   const handleOpenDetail = async (notification: Notification) => {
     setSelectedNotification(notification);
@@ -139,27 +266,20 @@ export default function NotificationsPage() {
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
+      <div className="space-y-3">
         {isLoading ? (
-          <div className="flex h-72 items-center justify-center"><Loader2 size={28} className="animate-spin text-[#7c3aed]" /></div>
+          <div className="flex h-72 items-center justify-center rounded-2xl border border-slate-100 bg-white"><Loader2 size={28} className="animate-spin text-[#7c3aed]" /></div>
         ) : notifications.length === 0 ? (
-          <div className="p-12 text-center text-sm text-slate-400">No notifications found</div>
+          <div className="rounded-2xl border border-slate-100 bg-white p-12 text-center text-sm text-slate-400">No notifications found</div>
         ) : (
-          <div className="divide-y divide-slate-50">
-            {notifications.map((notification) => (
-              <button key={notification.id} type="button" onClick={() => handleOpenDetail(notification)} className="flex w-full items-start justify-between gap-4 p-5 text-left hover:bg-slate-50/60">
-                <div className="min-w-0">
-                  <div className="mb-1 flex flex-wrap items-center gap-2">
-                    <span className="rounded-lg border border-slate-100 bg-slate-50 px-2 py-1 text-[10px] font-bold text-slate-500">{notification.type}</span>
-                    {!notification.read && <span className="rounded-lg border border-purple-100 bg-purple-50 px-2 py-1 text-[10px] font-bold text-purple-600">UNREAD</span>}
-                  </div>
-                  <p className="truncate text-sm font-semibold text-slate-700">{getNotificationLabel(notification)}</p>
-                  <p className="mt-1 text-[11px] text-slate-400">{new Date(notification.createdAt).toLocaleString()}</p>
-                </div>
-                <span className="shrink-0 text-xs text-slate-400">{notification.senderName || notification.senderId || "System"}</span>
-              </button>
-            ))}
-          </div>
+          Array.from(groupedNotifications.entries()).map(([senderKey, senderNotifications]) => (
+            <SenderNotificationGroup
+              key={senderKey}
+              senderKey={senderKey}
+              notifications={senderNotifications}
+              onOpenDetail={handleOpenDetail}
+            />
+          ))
         )}
       </div>
 

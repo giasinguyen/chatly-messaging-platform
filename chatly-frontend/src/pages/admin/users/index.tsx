@@ -1,15 +1,17 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ChangeEvent, FormEvent } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import AdminCreateUserModal from "@/components/admin/AdminCreateUserModal";
 import AdminDetailPanel from "@/components/admin/AdminDetailPanel";
 import AdminUserDetailContent from "@/components/admin/AdminUserDetailContent";
 import { DashboardKpiCard } from "@/components/admin/DashboardKpiCard";
 import { adminService } from "@/services/admin.service";
 import type { UserResponse } from "@/types/auth";
-import { Activity, Calendar, Loader2, Mail, Phone, Plus, Search, ShieldAlert, ShieldCheck, Users } from "lucide-react";
+import { Activity, Calendar, ExternalLink, Filter, Loader2, Mail, Phone, Plus, Search, ShieldAlert, ShieldCheck, Users } from "lucide-react";
 import { toast } from "sonner";
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50];
+type StatusFilter = "ALL" | "ONLINE" | "OFFLINE" | "SUSPENDED";
 
 function formatDate(value?: string) {
   return value ? new Date(value).toLocaleString() : "Not available";
@@ -25,10 +27,13 @@ function getAvatarUrl(user: UserResponse) {
 }
 
 export default function UsersPage() {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [users, setUsers] = useState<UserResponse[]>([]);
   const [selectedUser, setSelectedUser] = useState<UserResponse | null>(null);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [activeQuery, setActiveQuery] = useState("");
+  const [searchQuery, setSearchQuery] = useState(searchParams.get("q") ?? "");
+  const [activeQuery, setActiveQuery] = useState(searchParams.get("q") ?? "");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("ALL");
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(PAGE_SIZE_OPTIONS[0]);
   const [totalElements, setTotalElements] = useState(0);
@@ -59,6 +64,13 @@ export default function UsersPage() {
       setIsLoading(false);
     }
   }, [activeQuery, page, pageSize]);
+
+  const filteredUsers = useMemo(() => {
+    if (statusFilter === "ALL") return users;
+    if (statusFilter === "SUSPENDED") return users.filter((user) => user.suspended);
+    if (statusFilter === "ONLINE") return users.filter((user) => !user.suspended && user.status === "ONLINE");
+    return users.filter((user) => !user.suspended && user.status !== "ONLINE");
+  }, [users, statusFilter]);
 
   useEffect(() => {
     fetchUsers();
@@ -171,7 +183,20 @@ export default function UsersPage() {
             className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 pl-10 pr-4 text-sm outline-none focus:border-[#7c3aed] focus:ring-2 focus:ring-[#7c3aed]/20"
           />
         </form>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <Filter size={14} className="text-slate-400 shrink-0" />
+          <div className="flex rounded-xl border border-slate-200 bg-slate-50 p-0.5 gap-0.5">
+            {(["ALL", "ONLINE", "OFFLINE", "SUSPENDED"] as StatusFilter[]).map((status) => (
+              <button
+                key={status}
+                type="button"
+                onClick={() => setStatusFilter(status)}
+                className={`rounded-lg px-3 py-1.5 text-[11px] font-semibold transition-all ${statusFilter === status ? "bg-[#7c3aed] text-white shadow-sm" : "text-slate-500 hover:text-slate-800"}`}
+              >
+                {status}
+              </button>
+            ))}
+          </div>
           <select
             value={pageSize}
             onChange={handlePageSizeChange}
@@ -210,7 +235,7 @@ export default function UsersPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
-                {users.map((user) => (
+                {filteredUsers.map((user) => (
                   <tr
                     key={user.id}
                     onClick={() => handleOpenDetail(user)}
@@ -238,21 +263,31 @@ export default function UsersPage() {
                       </span>
                     </td>
                     <td className="px-5 py-4 text-right">
-                      <button
-                        type="button"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          handleToggleSuspend(user);
-                        }}
-                        disabled={updatingUserId === user.id}
-                        className="rounded-xl border border-slate-200 p-2 text-slate-500 hover:bg-slate-50 disabled:opacity-50"
-                      >
-                        {user.suspended ? <ShieldCheck size={16} /> : <ShieldAlert size={16} />}
-                      </button>
+                      <div className="flex items-center justify-end gap-1.5">
+                        <button
+                          type="button"
+                          onClick={(event) => { event.stopPropagation(); navigate(`/u/${user.username}`); }}
+                          className="rounded-xl border border-slate-200 p-2 text-slate-400 hover:bg-slate-50 hover:text-purple-600"
+                          title="View profile"
+                        >
+                          <ExternalLink size={16} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            handleToggleSuspend(user);
+                          }}
+                          disabled={updatingUserId === user.id}
+                          className="rounded-xl border border-slate-200 p-2 text-slate-500 hover:bg-slate-50 disabled:opacity-50"
+                        >
+                          {user.suspended ? <ShieldCheck size={16} /> : <ShieldAlert size={16} />}
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
-                {users.length === 0 && (
+                {filteredUsers.length === 0 && (
                   <tr><td colSpan={5} className="px-5 py-12 text-center text-sm text-slate-400">No users found</td></tr>
                 )}
               </tbody>

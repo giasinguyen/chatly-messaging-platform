@@ -1,3 +1,5 @@
+import { ExternalLink } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import type { UserResponse } from "@/types/auth";
 
 interface AdminUserDetailContentProps {
@@ -29,6 +31,7 @@ function DetailRow({ label, value }: { label: string; value?: string | null }) {
 }
 
 export default function AdminUserDetailContent({ user }: AdminUserDetailContentProps) {
+  const navigate = useNavigate();
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-4">
@@ -37,10 +40,20 @@ export default function AdminUserDetailContent({ user }: AdminUserDetailContentP
           alt={user.username}
           className="h-16 w-16 rounded-2xl border border-slate-100 object-cover"
         />
-        <div>
+        <div className="min-w-0 flex-1">
           <p className="text-sm font-bold text-slate-800">{user.displayName}</p>
+          <p className="text-xs text-slate-400">@{user.username}</p>
           <p className="text-xs text-slate-400">{user.status || "OFFLINE"}</p>
         </div>
+        <button
+          type="button"
+          onClick={() => navigate(`/u/${user.username}`)}
+          className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-[#7c3aed]/20 bg-purple-50 px-3 py-1.5 text-[11px] font-semibold text-[#7c3aed] hover:bg-purple-100"
+          title="View public profile"
+        >
+          <ExternalLink size={13} />
+          View Profile
+        </button>
       </div>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <DetailRow label="Email" value={user.email} />

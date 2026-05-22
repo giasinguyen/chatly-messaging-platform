@@ -4,7 +4,7 @@ import AdminDetailPanel from "@/components/admin/AdminDetailPanel";
 import { DashboardKpiCard } from "@/components/admin/DashboardKpiCard";
 import { adminService } from "@/services/admin.service";
 import type { AdminAuditLogResponse } from "@/types/admin";
-import { ClipboardList, Loader2, RefreshCw, Settings, ShieldAlert, UserPlus } from "lucide-react";
+import { AlertCircle, ClipboardList, Loader2, RefreshCw, Settings, ShieldAlert, UserPlus } from "lucide-react";
 import { toast } from "sonner";
 
 const PAGE_SIZE = 20;
@@ -30,6 +30,7 @@ export default function AuditLogsPage() {
   const [totalPages, setTotalPages] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const loadAuditData = useCallback(async (showToast = false) => {
     if (showToast) {
@@ -37,6 +38,7 @@ export default function AuditLogsPage() {
     } else {
       setIsLoading(true);
     }
+    setLoadError(null);
 
     try {
       const response = await adminService.listAuditLogs({
@@ -52,10 +54,13 @@ export default function AuditLogsPage() {
           toast.success("Audit feed refreshed");
         }
       } else {
-        toast.error(response.message || "Failed to load audit feed");
+        const msg = response.message || "Failed to load audit feed";
+        setLoadError(msg);
+        toast.error(msg);
       }
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : "Failed to load audit feed";
+      setLoadError(message);
       toast.error(message);
     } finally {
       setIsLoading(false);
@@ -114,8 +119,27 @@ export default function AuditLogsPage() {
       <div className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
         {isLoading ? (
           <div className="flex h-72 items-center justify-center"><Loader2 size={28} className="animate-spin text-[#7c3aed]" /></div>
+        ) : loadError ? (
+          <div className="flex flex-col items-center gap-3 p-12 text-center">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-red-100 bg-red-50 text-red-500">
+              <AlertCircle size={22} />
+            </div>
+            <p className="text-sm font-semibold text-slate-700">Failed to load audit logs</p>
+            <p className="max-w-xs text-xs text-slate-400">{loadError}</p>
+            <button type="button" onClick={() => loadAuditData()} className="mt-1 rounded-lg border border-slate-200 bg-white px-4 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50">
+              Try again
+            </button>
+          </div>
         ) : auditLogs.length === 0 ? (
-          <div className="p-12 text-center text-sm text-slate-400">No audit events found</div>
+          <div className="flex flex-col items-center gap-3 p-12 text-center">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-slate-100 bg-slate-50 text-slate-400">
+              <ClipboardList size={22} />
+            </div>
+            <p className="text-sm font-semibold text-slate-600">No audit events found</p>
+            <p className="max-w-xs text-xs text-slate-400">
+              Audit logs are recorded when admins perform actions (create users, delete posts, update settings, etc.). No events match the current filter.
+            </p>
+          </div>
         ) : (
           <div className="divide-y divide-slate-50">
             {auditLogs.map((activity) => (

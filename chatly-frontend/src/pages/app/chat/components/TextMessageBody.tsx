@@ -70,7 +70,6 @@ export function TextMessageBody({
                     "chat-rich-text break-words",
                     isMe && "text-white [&_a]:text-white/90",
                     !isMe && "text-foreground",
-                    "[&_p]:my-0 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5",
                 )}
                 dangerouslySetInnerHTML={{ __html: safeHtml }}
             />

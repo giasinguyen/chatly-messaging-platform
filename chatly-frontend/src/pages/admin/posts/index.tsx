@@ -1,15 +1,23 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ChangeEvent, FormEvent } from "react";
+import { useNavigate } from "react-router-dom";
 import AdminDetailPanel from "@/components/admin/AdminDetailPanel";
 import AdminPostDetailContent from "@/components/admin/AdminPostDetailContent";
 import { DashboardKpiCard } from "@/components/admin/DashboardKpiCard";
+import { useUserLookup } from "@/hooks/useUserLookup";
 import { adminService } from "@/services/admin.service";
 import type { AdminStatsResponse } from "@/types/admin";
-import type { Post } from "@/types/post";
-import { FileText, Hash, Heart, Loader2, MessageCircle, Search, Share2, Trash2 } from "lucide-react";
+import type { Post, PostVisibility } from "@/types/post";
+import { ExternalLink, FileText, Filter, Hash, Heart, Loader2, MessageCircle, Search, Share2, Trash2, User } from "lucide-react";
 import { toast } from "sonner";
 
 const PAGE_SIZE_OPTIONS = [10, 20, 30];
+const VISIBILITY_OPTIONS: Array<{ value: PostVisibility | "ALL"; label: string }> = [
+  { value: "ALL", label: "All visibility" },
+  { value: "PUBLIC", label: "Public" },
+  { value: "FRIENDS_ONLY", label: "Friends only" },
+  { value: "ONLY_ME", label: "Only me" },
+];
 
 function getReactionCount(post: Post) {
   return post.reactions.reduce((total, item) => total + item.count, 0);
@@ -21,11 +29,13 @@ function getHashtagFromQuery(query: string) {
 }
 
 export default function PostsPage() {
+  const navigate = useNavigate();
   const [stats, setStats] = useState<AdminStatsResponse | null>(null);
   const [posts, setPosts] = useState<Post[]>([]);
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
   const [query, setQuery] = useState("");
   const [activeQuery, setActiveQuery] = useState("");
+  const [visibility, setVisibility] = useState<PostVisibility | "ALL">("ALL");
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(PAGE_SIZE_OPTIONS[0]);
   const [totalPages, setTotalPages] = useState(0);
@@ -49,6 +59,7 @@ export default function PostsPage() {
       const response = await adminService.listPosts({
         q: hashtag ? undefined : activeQuery.trim() || undefined,
         hashtag: hashtag || undefined,
+        visibility: visibility === "ALL" ? undefined : visibility,
         page,
         size: pageSize,
       });
@@ -66,7 +77,7 @@ export default function PostsPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [activeQuery, page, pageSize]);
+  }, [activeQuery, page, pageSize, visibility]);
 
   useEffect(() => {
     adminService.getStats().then((response) => {
@@ -89,6 +100,9 @@ export default function PostsPage() {
     [posts]
   );
 
+  const authorIds = useMemo(() => [...new Set(posts.map((p) => p.authorId))], [posts]);
+  const userMap = useUserLookup(authorIds);
+
   const handleSearchSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setPage(0);
@@ -97,6 +111,11 @@ export default function PostsPage() {
 
   const handlePageSizeChange = (event: ChangeEvent<HTMLSelectElement>) => {
     setPageSize(Number(event.target.value));
+    setPage(0);
+  };
+
+  const handleVisibilityChange = (event: ChangeEvent<HTMLSelectElement>) => {
+    setVisibility(event.target.value as PostVisibility | "ALL");
     setPage(0);
   };
 
@@ -150,9 +169,15 @@ export default function PostsPage() {
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search posts or #hashtag..." className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 pl-10 pr-4 text-sm outline-none focus:border-[#7c3aed] focus:ring-2 focus:ring-[#7c3aed]/20" />
         </form>
-        <select value={pageSize} onChange={handlePageSizeChange} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-600 outline-none">
-          {PAGE_SIZE_OPTIONS.map((size) => <option key={size} value={size}>{size} rows</option>)}
-        </select>
+        <div className="flex items-center gap-2">
+          <Filter size={14} className="text-slate-400 shrink-0" />
+          <select value={visibility} onChange={handleVisibilityChange} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-600 outline-none">
+            {VISIBILITY_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+          </select>
+          <select value={pageSize} onChange={handlePageSizeChange} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-600 outline-none">
+            {PAGE_SIZE_OPTIONS.map((size) => <option key={size} value={size}>{size} rows</option>)}
+          </select>
+        </div>
       </div>
 
       <div className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
@@ -173,15 +198,45 @@ export default function PostsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
-                {posts.map((post) => (
+                {posts.map((post) => {
+                  const resolvedAuthor = userMap.get(post.authorId);
+                  const authorName = post.authorDisplayName || post.authorUsername || resolvedAuthor?.displayName || resolvedAuthor?.username || post.authorId;
+                  const authorHandle = post.authorUsername
+                    ? `@${post.authorUsername}`
+                    : resolvedAuthor?.username
+                    ? `@${resolvedAuthor.username}`
+                    : post.authorId;
+                  const avatarUrl = post.authorAvatarUrl || resolvedAuthor?.avatarUrl;
+                  const authorUsername = post.authorUsername || resolvedAuthor?.username;
+                  return (
                   <tr key={post.id} onClick={() => handleOpenDetail(post)} className="cursor-pointer hover:bg-slate-50/60">
                     <td className="max-w-xl px-5 py-4">
                       <p className="line-clamp-2 text-sm font-medium text-slate-700">{post.content || "Media-only post"}</p>
                       <p className="mt-1 text-[11px] text-slate-400">{post.id}</p>
                     </td>
                     <td className="px-5 py-4">
-                      <p className="text-sm font-bold text-slate-800">{post.authorDisplayName || "Unknown user"}</p>
-                      <p className="text-[11px] text-slate-400">@{post.authorUsername || "unknown"}</p>
+                      <div className="flex items-center gap-2.5">
+                        {avatarUrl ? (
+                          <img src={avatarUrl} alt={authorName} className="h-8 w-8 shrink-0 rounded-full border border-slate-100 object-cover" />
+                        ) : (
+                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-slate-100 text-slate-400">
+                            <User size={14} />
+                          </div>
+                        )}
+                        <div className="min-w-0">
+                          <p className="text-sm font-bold text-slate-800 truncate">{authorName}</p>
+                          <p className="text-[11px] text-slate-400 truncate">{authorHandle}</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={(event) => { event.stopPropagation(); if (authorUsername) navigate(`/u/${authorUsername}`); }}
+                          className="ml-1 shrink-0 rounded-lg border border-slate-100 bg-slate-50 p-1 text-slate-400 hover:bg-purple-50 hover:text-purple-600"
+                          title="View user profile"
+                          disabled={!authorUsername}
+                        >
+                          <ExternalLink size={12} />
+                        </button>
+                      </div>
                     </td>
                     <td className="px-5 py-4">
                       <div className="flex items-center gap-4 text-xs text-slate-500">
@@ -195,7 +250,8 @@ export default function PostsPage() {
                       <button type="button" onClick={(event) => { event.stopPropagation(); handleDeletePost(post); }} disabled={deletingPostId === post.id} className="rounded-xl border border-red-100 bg-red-50 p-2 text-red-600 hover:bg-red-100 disabled:opacity-50"><Trash2 size={16} /></button>
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>

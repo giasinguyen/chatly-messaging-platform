@@ -8,6 +8,7 @@ import type { AdminStatsResponse } from "@/types/admin";
 import type { ConversationResponse, ConversationType } from "@/types/conversation";
 import { Bot, Loader2, Lock, MessagesSquare, Search, Trash2, Users } from "lucide-react";
 import { toast } from "sonner";
+import { toMessagePreviewText } from "@/pages/app/chat/components/richTextMessage.utils";
 
 type ConversationFilter = ConversationType | "ALL";
 
@@ -171,7 +172,7 @@ export default function ConversationsPage() {
                   <tr key={conversation.id} onClick={() => handleOpenDetail(conversation)} className="cursor-pointer hover:bg-slate-50/60">
                     <td className="px-5 py-4"><p className="text-sm font-bold text-slate-800">{getConversationName(conversation)}</p><p className="text-[11px] text-slate-400">{conversation.id}</p></td>
                     <td className="px-5 py-4 text-sm font-semibold text-slate-600">{conversation.participantIds.length.toLocaleString()}</td>
-                    <td className="max-w-lg px-5 py-4"><p className="truncate text-sm text-slate-600">{conversation.lastMessage?.content || "No message yet"}</p></td>
+                    <td className="max-w-lg px-5 py-4"><p className="truncate text-sm text-slate-600">{toMessagePreviewText(conversation.lastMessage?.content ?? "") || "No message yet"}</p></td>
                     <td className="px-5 py-4"><div className="flex flex-wrap gap-1.5"><span className="rounded-lg border border-slate-100 bg-slate-50 px-2 py-1 text-[10px] font-bold text-slate-500">{conversation.type}</span>{conversation.aiProactiveEnabled && <span className="rounded-lg border border-purple-100 bg-purple-50 px-2 py-1 text-[10px] font-bold text-purple-600">AI</span>}</div></td>
                     <td className="px-5 py-4 text-right"><button type="button" onClick={(event) => { event.stopPropagation(); handleDeleteConversation(conversation); }} disabled={deletingId === conversation.id} className="rounded-xl border border-red-100 bg-red-50 p-2 text-red-600 hover:bg-red-100 disabled:opacity-50"><Trash2 size={16} /></button></td>
                   </tr>

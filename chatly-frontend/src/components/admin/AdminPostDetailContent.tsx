@@ -1,4 +1,6 @@
-import { Hash, Heart, Image, MessageCircle, Share2 } from "lucide-react";
+import { ExternalLink, Hash, Heart, Image, MessageCircle, Share2, User } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { useUserLookup } from "@/hooks/useUserLookup";
 import type { Post } from "@/types/post";
 
 interface AdminPostDetailContentProps {
@@ -23,26 +25,61 @@ function Metric({ label, value }: { label: string; value: number }) {
 }
 
 export default function AdminPostDetailContent({ post }: AdminPostDetailContentProps) {
+  const navigate = useNavigate();
+  const userMap = useUserLookup([post.authorId]);
+  const resolvedAuthor = userMap.get(post.authorId);
+
+  const authorName = post.authorDisplayName || post.authorUsername || resolvedAuthor?.displayName || resolvedAuthor?.username;
+  const authorHandle = post.authorUsername
+    ? `@${post.authorUsername}`
+    : resolvedAuthor?.username
+    ? `@${resolvedAuthor.username}`
+    : post.authorId;
+  const avatarUrl = post.authorAvatarUrl || resolvedAuthor?.avatarUrl;
+  const navigateToAuthor = () => {
+    const username = post.authorUsername || resolvedAuthor?.username;
+    if (username) navigate(`/u/${username}`);
+  };
+
   return (
     <div className="space-y-5">
       <div>
         <p className="text-[10px] font-bold uppercase text-slate-400">Author</p>
         <div className="mt-2 flex items-center gap-3">
-          <img
-            src={
-              post.authorAvatarUrl ||
-              `https://ui-avatars.com/api/?name=${encodeURIComponent(
-                post.authorDisplayName || post.authorUsername || "User"
-              )}&background=7c3aed&color=fff&size=96`
-            }
-            alt={post.authorDisplayName || post.authorUsername || "User"}
-            className="h-11 w-11 rounded-xl border border-slate-100 object-cover"
-          />
-          <div>
+          {avatarUrl ? (
+            <img
+              src={avatarUrl}
+              alt={authorName || "User"}
+              className="h-11 w-11 rounded-xl border border-slate-100 object-cover"
+            />
+          ) : (
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-purple-100 bg-purple-50 text-purple-600">
+              <User size={20} />
+            </div>
+          )}
+          <div className="min-w-0 flex-1">
             <p className="text-sm font-bold text-slate-800">
-              {post.authorDisplayName || "Unknown user"}
+              {authorName || post.authorId}
             </p>
-            <p className="text-xs text-slate-400">@{post.authorUsername || "unknown"}</p>
+            <p className="text-xs text-slate-400">{authorHandle}</p>
+          </div>
+          <div className="flex shrink-0 flex-col gap-1.5">
+            <button
+              type="button"
+              onClick={navigateToAuthor}
+              className="flex items-center gap-1 rounded-lg border border-purple-100 bg-purple-50 px-2.5 py-1.5 text-[11px] font-semibold text-purple-600 hover:bg-purple-100"
+            >
+              <ExternalLink size={12} />
+              View User
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate(`/post/${post.id}`)}
+              className="flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-[11px] font-semibold text-slate-600 hover:bg-slate-100"
+            >
+              <ExternalLink size={12} />
+              Open Post
+            </button>
           </div>
         </div>
       </div>
