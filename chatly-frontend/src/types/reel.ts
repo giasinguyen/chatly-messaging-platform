@@ -1,4 +1,5 @@
 import type { PostVisibility } from "@/types/post";
+import type { PostReactionSummary } from "@/types/post";
 
 export interface Reel {
     id: string;
@@ -9,6 +10,9 @@ export interface Reel {
     caption: string;
     videoUrl: string;
     visibility: PostVisibility;
+    reactions: PostReactionSummary[];
+    commentCount: number;
+    shareCount: number;
     viewCount: number;
     createdAt: string;
     updatedAt?: string;

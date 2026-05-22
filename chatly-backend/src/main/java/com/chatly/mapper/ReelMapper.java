@@ -11,5 +11,6 @@ public interface ReelMapper {
     @Mapping(target = "authorUsername", ignore = true)
     @Mapping(target = "authorDisplayName", ignore = true)
     @Mapping(target = "authorAvatarUrl", ignore = true)
+    @Mapping(target = "reactions", ignore = true)
     ReelResponse toResponse(Reel reel);
 }

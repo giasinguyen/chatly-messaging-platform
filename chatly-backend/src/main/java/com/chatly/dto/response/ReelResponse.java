@@ -4,6 +4,7 @@ import com.chatly.model.enums.PostVisibility;
 import lombok.*;
 
 import java.time.Instant;
+import java.util.List;
 
 @Getter
 @Setter
@@ -20,6 +21,9 @@ public class ReelResponse {
     private String caption;
     private String videoUrl;
     private PostVisibility visibility;
+    private List<PostReactionSummary> reactions;
+    private int commentCount;
+    private int shareCount;
     private int viewCount;
     private Instant createdAt;
     private Instant updatedAt;

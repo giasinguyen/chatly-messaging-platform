@@ -5,6 +5,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ProfileDialogs } from "./components/ProfileDialogs";
 import { ProfileHeader } from "./components/ProfileHeader";
 import { ProfilePostGrid } from "./components/ProfilePostGrid";
+import { ProfileReelGrid } from "./components/ProfileReelGrid";
 import { ProfileTabs } from "./components/ProfileTabs";
 import { useUsernameProfilePage } from "./hooks/useUsernameProfilePage";
 import { SocialErrorBoundary } from "@/features/social/components/SocialErrorBoundary";
@@ -184,9 +185,11 @@ export default function UsernameProfilePage() {
                         )}
 
                     {activeTab === "reels" && (
-                        <div className="py-10 text-center text-muted-foreground">
-                            Reels coming soon.
-                        </div>
+                        <ProfileReelGrid
+                            authorId={targetUserId}
+                            isLimited={isLimited}
+                            onNavigate={(id) => navigate(`/reels?reelId=${id}`)}
+                        />
                     )}
 
                     {activeTab === "saved" &&

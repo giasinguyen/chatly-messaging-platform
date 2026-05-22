@@ -1,94 +1,24 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ChevronDown, ChevronUp, Clapperboard, Eye, Loader2, Plus } from "lucide-react";
+import { ChevronDown, ChevronUp, Clapperboard, Loader2, Plus } from "lucide-react";
+import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { CreateReelModal } from "@/components/app/CreateReelModal";
 import { REEL_FEED_PAGE_SIZE } from "@/constants/reel";
 import { reelService } from "@/services/reel.service";
 import { useAuthStore } from "@/store/auth.store";
 import type { Reel } from "@/types/reel";
+import { ReelSlide } from "./components/ReelSlide";
+import { ReelCommentsDialog } from "./components/ReelCommentsDialog";
+import { ShareReelDialog } from "./components/ShareReelDialog";
 
 function mergeReels(existing: Reel[], incoming: Reel[]) {
     const existingIds = new Set(existing.map((reel) => reel.id));
     return [...existing, ...incoming.filter((reel) => !existingIds.has(reel.id))];
 }
 
-function formatCount(value: number) {
-    if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
-    if (value >= 1_000) return `${(value / 1_000).toFixed(1)}K`;
-    return value.toString();
-}
-
-function formatPrivacy(value: Reel["visibility"]) {
-    if (value === "FRIENDS_ONLY") return "Friends";
-    if (value === "ONLY_ME") return "Only me";
-    return "Everyone";
-}
-
-interface ReelSlideProps {
-    reel: Reel;
-    isActive: boolean;
-}
-
-function ReelSlide({ reel, isActive }: ReelSlideProps) {
-    const videoRef = useRef<HTMLVideoElement>(null);
-    const authorLabel = reel.authorDisplayName ?? reel.authorUsername ?? "Chatly user";
-
-    useEffect(() => {
-        const video = videoRef.current;
-        if (!video) return;
-        if (isActive) {
-            void video.play().catch(() => undefined);
-            return;
-        }
-        video.pause();
-    }, [isActive]);
-
-    return (
-        <section className="flex h-full w-full snap-center items-center justify-center bg-black px-4 py-5">
-            <div className="relative h-full max-h-[820px] w-full max-w-[460px] overflow-hidden rounded-lg bg-zinc-950 shadow-2xl">
-                <video
-                    ref={videoRef}
-                    src={reel.videoUrl}
-                    loop
-                    playsInline
-                    controls
-                    muted
-                    className="h-full w-full object-contain"
-                />
-
-                <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-linear-to-t from-black/80 via-black/30 to-transparent p-5 text-white">
-                    <div className="flex items-center gap-3">
-                        <Avatar className="h-10 w-10 border border-white/30">
-                            <AvatarImage src={reel.authorAvatarUrl} className="object-cover" />
-                            <AvatarFallback className="bg-white/20 text-white">
-                                {authorLabel.slice(0, 1).toUpperCase()}
-                            </AvatarFallback>
-                        </Avatar>
-                        <div className="min-w-0">
-                            <p className="truncate text-sm font-semibold">{authorLabel}</p>
-                            <p className="text-xs text-white/70">{formatPrivacy(reel.visibility)}</p>
-                        </div>
-                    </div>
-
-                    {reel.caption && (
-                        <p className="mt-3 line-clamp-3 text-sm leading-5 text-white/95">
-                            {reel.caption}
-                        </p>
-                    )}
-
-                    <div className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1 text-xs text-white/80 backdrop-blur">
-                        <Eye className="h-3.5 w-3.5" />
-                        {formatCount(reel.viewCount)} views
-                    </div>
-                </div>
-            </div>
-        </section>
-    );
-}
-
 export default function ReelsPage() {
+    const [searchParams] = useSearchParams();
     const user = useAuthStore((s) => s.user);
     const [reels, setReels] = useState<Reel[]>([]);
     const [activeIndex, setActiveIndex] = useState(0);
@@ -96,10 +26,38 @@ export default function ReelsPage() {
     const [hasMore, setHasMore] = useState(true);
     const [isLoading, setIsLoading] = useState(false);
     const [isCreateOpen, setIsCreateOpen] = useState(false);
+    const [selectedCommentsReel, setSelectedCommentsReel] = useState<Reel | null>(null);
+    const [selectedShareReel, setSelectedShareReel] = useState<Reel | null>(null);
+    const [busyReelId, setBusyReelId] = useState<string | null>(null);
     const viewedIdsRef = useRef<Set<string>>(new Set());
 
+    const focusedReelId = searchParams.get("reelId");
     const activeReel = reels[activeIndex];
     const isEmpty = !isLoading && reels.length === 0;
+
+    const updateReel = useCallback((updatedReel: Reel) => {
+        setReels((current) =>
+            current.map((reel) => (reel.id === updatedReel.id ? updatedReel : reel)),
+        );
+        setSelectedCommentsReel((current) =>
+            current?.id === updatedReel.id ? updatedReel : current,
+        );
+    }, []);
+
+    const incrementCommentCount = useCallback((reelId: string) => {
+        setReels((current) =>
+            current.map((reel) =>
+                reel.id === reelId
+                    ? { ...reel, commentCount: reel.commentCount + 1 }
+                    : reel,
+            ),
+        );
+        setSelectedCommentsReel((current) =>
+            current?.id === reelId
+                ? { ...current, commentCount: current.commentCount + 1 }
+                : current,
+        );
+    }, []);
 
     const loadReels = useCallback(
         async (cursor: string | null, shouldReplace = false) => {
@@ -132,8 +90,41 @@ export default function ReelsPage() {
     );
 
     useEffect(() => {
-        void loadReels(null, true);
-    }, [loadReels]);
+        if (!focusedReelId) {
+            void loadReels(null, true);
+            return;
+        }
+
+        let isActive = true;
+        setIsLoading(true);
+        Promise.all([
+            reelService.getById(focusedReelId),
+            reelService.getFeed(null, REEL_FEED_PAGE_SIZE),
+        ])
+            .then(([focusedResponse, feedResponse]) => {
+                if (!isActive) return;
+                if (focusedResponse.code !== 1000 || !focusedResponse.result) {
+                    toast.error(focusedResponse.message ?? "Could not load reel.");
+                    return;
+                }
+                const feed = feedResponse.result;
+                setReels(mergeReels([focusedResponse.result], feed?.items ?? []));
+                setNextCursor(feed?.nextCursor ?? null);
+                setHasMore(feed?.hasMore ?? false);
+                setActiveIndex(0);
+                viewedIdsRef.current = new Set();
+            })
+            .catch(() => {
+                if (isActive) toast.error("Could not load reel.");
+            })
+            .finally(() => {
+                if (isActive) setIsLoading(false);
+            });
+
+        return () => {
+            isActive = false;
+        };
+    }, [focusedReelId, loadReels]);
 
     useEffect(() => {
         if (!activeReel || viewedIdsRef.current.has(activeReel.id)) return;
@@ -176,6 +167,23 @@ export default function ReelsPage() {
         [activeIndex],
     );
 
+    const handleToggleLike = async (reel: Reel) => {
+        setBusyReelId(reel.id);
+        try {
+            const hasReacted = reel.reactions?.some((reaction) => reaction.reactedByMe);
+            const response = hasReacted
+                ? await reelService.removeReaction(reel.id)
+                : await reelService.react(reel.id, { type: "LIKE" });
+            if (response.code === 1000 && response.result) {
+                updateReel(response.result);
+            }
+        } catch {
+            toast.error("Could not update reaction.");
+        } finally {
+            setBusyReelId(null);
+        }
+    };
+
     const handleCreated = () => {
         void loadReels(null, true);
     };
@@ -217,6 +225,10 @@ export default function ReelsPage() {
                             key={reel.id}
                             reel={reel}
                             isActive={index === activeIndex}
+                            isBusy={busyReelId === reel.id}
+                            onToggleLike={(selectedReel) => void handleToggleLike(selectedReel)}
+                            onOpenComments={setSelectedCommentsReel}
+                            onShare={setSelectedShareReel}
                         />
                     ))}
                 </div>
@@ -256,6 +268,18 @@ export default function ReelsPage() {
                 onClose={() => setIsCreateOpen(false)}
                 user={user}
                 onCreated={handleCreated}
+            />
+            <ReelCommentsDialog
+                reel={selectedCommentsReel}
+                open={selectedCommentsReel !== null}
+                onOpenChange={(open) => !open && setSelectedCommentsReel(null)}
+                onCommentAdded={incrementCommentCount}
+            />
+            <ShareReelDialog
+                reel={selectedShareReel}
+                open={selectedShareReel !== null}
+                onOpenChange={(open) => !open && setSelectedShareReel(null)}
+                onShared={updateReel}
             />
         </div>
     );

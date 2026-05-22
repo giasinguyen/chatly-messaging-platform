@@ -44,11 +44,39 @@ public class Reel {
     @Getter(AccessLevel.NONE)
     private List<String> viewerIds = new ArrayList<>();
 
+    @Builder.Default
+    @Getter(AccessLevel.NONE)
+    private List<PostReaction> reactions = new ArrayList<>();
+
+    @Builder.Default
+    @Getter(AccessLevel.NONE)
+    private List<PostComment> comments = new ArrayList<>();
+
+    @Builder.Default
+    private int commentCount = 0;
+
+    @Builder.Default
+    private int shareCount = 0;
+
     public List<String> getViewerIds() {
         if (viewerIds == null) {
             viewerIds = new ArrayList<>();
         }
         return viewerIds;
+    }
+
+    public List<PostReaction> getReactions() {
+        if (reactions == null) {
+            reactions = new ArrayList<>();
+        }
+        return reactions;
+    }
+
+    public List<PostComment> getComments() {
+        if (comments == null) {
+            comments = new ArrayList<>();
+        }
+        return comments;
     }
 
     @Builder.Default
