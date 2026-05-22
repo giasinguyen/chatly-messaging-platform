@@ -64,4 +64,6 @@ public interface UserRepository extends JpaRepository<User, UUID> {
      */
     @Query("SELECT u FROM User u WHERE u.lastSeen >= :since")
     List<User> findActiveUsersSince(@Param("since") java.time.Instant since);
+
+    long countByCreatedAtBefore(java.time.Instant timestamp);
 }

@@ -30,6 +30,7 @@ public class UserResponse {
     private String bio;
     private UserStatus status;
     private Instant lastSeen;
+    private boolean suspended;
     private Instant createdAt;
     private Instant updatedAt;
 

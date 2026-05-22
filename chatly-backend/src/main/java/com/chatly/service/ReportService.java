@@ -54,4 +54,14 @@ public class ReportService {
 
         return reports.map(postReportMapper::toResponse);
     }
+
+    @Transactional
+    public ReportResponse updateReportStatus(String id, ReportStatus status) {
+        PostReport report = postReportRepository.findById(id)
+                .orElseThrow(() -> new AppException(ErrorCode.UNCATEGORIZED_EXCEPTION));
+        report.setStatus(status);
+        PostReport saved = postReportRepository.save(report);
+        log.info("Report status updated: id={}, status={}", saved.getId(), status);
+        return postReportMapper.toResponse(saved);
+    }
 }

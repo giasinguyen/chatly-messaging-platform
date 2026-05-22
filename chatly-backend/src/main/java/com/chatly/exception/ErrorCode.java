@@ -25,6 +25,7 @@ public enum ErrorCode {
     EMAIL_NOT_VERIFIED(1108, "Email is not verified", HttpStatus.FORBIDDEN),
     EMAIL_VERIFICATION_TOKEN_INVALID(1109, "Invalid or expired email verification link", HttpStatus.BAD_REQUEST),
     EMAIL_VERIFICATION_RESEND_TOO_SOON(1110, "Please wait before requesting another verification link", HttpStatus.TOO_MANY_REQUESTS),
+    USER_SUSPENDED(1115, "Your account has been suspended", HttpStatus.FORBIDDEN),
 
     CONTACT_NOT_FOUND(1200, "Contact not found", HttpStatus.NOT_FOUND),
     CONTACT_ALREADY_EXISTS(1201, "Contact relationship already exists", HttpStatus.CONFLICT),
