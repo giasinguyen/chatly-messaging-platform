@@ -77,6 +77,8 @@ public enum ErrorCode {
     COMMENT_NOT_FOUND(1903, "Comment not found", HttpStatus.NOT_FOUND),
     COMMENT_FORBIDDEN(1904, "You are not authorized to modify this comment", HttpStatus.FORBIDDEN),
     REPORT_ALREADY_EXISTS(1905, "You have already reported this post", HttpStatus.CONFLICT),
+    SOCIAL_AI_RATE_LIMITED(1906, "Too many AI requests. Please try again later.", HttpStatus.TOO_MANY_REQUESTS),
+    SOCIAL_AI_UNAVAILABLE(1907, "AI social features are currently unavailable", HttpStatus.SERVICE_UNAVAILABLE),
     STORY_NOT_FOUND(1910, "Story not found", HttpStatus.NOT_FOUND),
     STORY_FORBIDDEN(1911, "You are not authorized to perform this action on this story", HttpStatus.FORBIDDEN),
 
