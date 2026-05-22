@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { useAuthStore } from '@/store/auth.store';
-import { Text, TouchableOpacity, View, ScrollView } from 'react-native';
+import { Alert, Text, TouchableOpacity, View, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
+import * as Clipboard from 'expo-clipboard';
+import { UserQuickProfileDialog } from '@/components/profile/UserQuickProfileDialog';
+import { Avatar } from '@/components/ui/Avatar';
 import { Colors } from '@/constants/theme';
 import type { PostComment, ReactionType } from '@/types/post';
 
@@ -14,12 +16,11 @@ interface CommentItemProps {
   onLike?: (commentId: string, reactionType: ReactionType) => void;
   onUnlike?: (commentId: string) => void;
   onDelete?: (commentId: string) => void;
+  onEdit?: (commentId: string, content: string) => void;
   replyCount?: number;
   onShowReplies?: (commentId: string) => void;
   showRepliesButton?: boolean;
 }
-
-const FALLBACK_AVATAR = 'https://i.pravatar.cc/140?img=30';
 
 function formatRelativeTime(createdAt: string): string {
   const diffMinutes = Math.floor((Date.now() - new Date(createdAt).getTime()) / 60000);
@@ -86,21 +87,36 @@ export function CommentItem({
   onLike,
   onUnlike,
   onDelete,
+  onEdit,
   replyCount = 0,
   onShowReplies,
   showRepliesButton = false,
 }: CommentItemProps) {
   const router = useRouter();
   const [showMenu, setShowMenu] = useState(false);
+  const [showQuickProfile, setShowQuickProfile] = useState(false);
   const currentUser = useAuthStore((s) => s.user);
   const authorName = comment.userDisplayName ?? comment.userUsername ?? 'Unknown user';
-  const avatarUrl = comment.userAvatarUrl ?? FALLBACK_AVATAR;
+  const avatarUrl = comment.userAvatarUrl;
   const totalReactions = comment.reactions?.reduce((sum, r) => sum + r.count, 0) ?? 0;
   const userReaction = comment.reactions?.find((r) => r.reactedByMe);
   const leftPadding = level > 0 ? level * 16 : 0;
   const isAuthor = currentUser?.id === comment.userId;
+  const hasMenuActions = Boolean((isAuthor && (onDelete || onEdit)) || comment.content.trim());
   const handleOpenAuthorProfile = () => {
     router.push(`/profile/${comment.userId}`);
+  };
+
+  const handleCopyComment = async () => {
+    const text = comment.content.trim();
+    if (!text) {
+      Alert.alert('Nothing to copy', 'This comment does not contain text.');
+      return;
+    }
+
+    await Clipboard.setStringAsync(text);
+    Alert.alert('Copied', 'Comment copied to clipboard.');
+    setShowMenu(false);
   };
 
   return (
@@ -108,13 +124,8 @@ export function CommentItem({
       {level > 0 && <View className="absolute bottom-0 left-0 top-0 w-px bg-gray-200" />}
 
       <View className="flex-row gap-2 px-2">
-        <TouchableOpacity onPress={handleOpenAuthorProfile} activeOpacity={0.75}>
-          <Image
-            source={{ uri: avatarUrl }}
-            contentFit="cover"
-            transition={120}
-            style={{ width: 30, height: 30, borderRadius: 999 }}
-          />
+        <TouchableOpacity onPress={() => setShowQuickProfile(true)} activeOpacity={0.75}>
+          <Avatar uri={avatarUrl} name={authorName} size={30} />
         </TouchableOpacity>
 
         <View className="flex-1">
@@ -134,12 +145,14 @@ export function CommentItem({
                 {formatRelativeTime(comment.createdAt)}
               </Text>
 
-              <TouchableOpacity
-                onPress={() => setShowMenu(!showMenu)}
-                className="p-1"
-                activeOpacity={0.7}>
-                <Ionicons name="ellipsis-horizontal" size={16} color={Colors.textMuted} />
-              </TouchableOpacity>
+              {hasMenuActions ? (
+                <TouchableOpacity
+                  onPress={() => setShowMenu(!showMenu)}
+                  className="p-1"
+                  activeOpacity={0.7}>
+                  <Ionicons name="ellipsis-horizontal" size={16} color={Colors.textMuted} />
+                </TouchableOpacity>
+              ) : null}
             </View>
           </View>
 
@@ -202,7 +215,7 @@ export function CommentItem({
           {/* Menu Dropdown */}
           {showMenu && (
             <View className="absolute right-0 top-10 z-50 w-40 rounded-lg border border-gray-200 bg-white shadow-sm">
-              {isAuthor && (
+              {isAuthor && onDelete ? (
                 <>
                   <TouchableOpacity
                     onPress={() => {
@@ -225,32 +238,33 @@ export function CommentItem({
                     </Text>
                   </TouchableOpacity>
 
-                  <TouchableOpacity
-                    onPress={() => {
-                      // Edit action
-                      setShowMenu(false);
-                    }}
-                    style={{
-                      borderBottomWidth: 1,
-                      borderBottomColor: '#f3f4f6',
-                      paddingVertical: 10,
-                      paddingHorizontal: 12,
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      gap: 8,
-                    }}
-                    activeOpacity={0.7}>
-                    <Ionicons name="pencil-outline" size={14} color={Colors.text} />
-                    <Text style={{ fontSize: 14, fontWeight: '600', color: '#1D1D1F' }}>Edit</Text>
-                  </TouchableOpacity>
+                  {onEdit ? (
+                    <TouchableOpacity
+                      onPress={() => {
+                        onEdit(comment.id, comment.content);
+                        setShowMenu(false);
+                      }}
+                      style={{
+                        borderBottomWidth: 1,
+                        borderBottomColor: '#f3f4f6',
+                        paddingVertical: 10,
+                        paddingHorizontal: 12,
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        gap: 8,
+                      }}
+                      activeOpacity={0.7}>
+                      <Ionicons name="pencil-outline" size={14} color={Colors.text} />
+                      <Text style={{ fontSize: 14, fontWeight: '600', color: '#1D1D1F' }}>
+                        Edit
+                      </Text>
+                    </TouchableOpacity>
+                  ) : null}
                 </>
-              )}
+              ) : null}
 
               <TouchableOpacity
-                onPress={() => {
-                  // Copy action
-                  setShowMenu(false);
-                }}
+                onPress={() => void handleCopyComment()}
                 style={{
                   paddingVertical: 10,
                   paddingHorizontal: 12,
@@ -266,6 +280,14 @@ export function CommentItem({
           )}
         </View>
       </View>
+
+      <UserQuickProfileDialog
+        visible={showQuickProfile}
+        userId={comment.userId}
+        fallbackDisplayName={authorName}
+        fallbackAvatarUrl={avatarUrl}
+        onClose={() => setShowQuickProfile(false)}
+      />
     </View>
   );
 }

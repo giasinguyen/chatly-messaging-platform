@@ -66,6 +66,7 @@ export default function HomeTabScreen() {
     handleLikeComment,
     handleUnlikeComment,
     handleDeleteComment,
+    handleEditComment,
     handleEditPost,
     handlePostCreated,
     handlePostUpdated,
@@ -143,6 +144,7 @@ export default function HomeTabScreen() {
         }
         onUnlikeComment={(commentId) => void handleUnlikeComment(item.id, commentId)}
         onDeleteComment={(commentId) => void handleDeleteComment(item.id, commentId)}
+        onEditComment={(commentId, content) => void handleEditComment(item.id, commentId, content)}
         onOpenComments={(postId) => void loadComments(postId)}
       />
     ),
@@ -152,6 +154,7 @@ export default function HomeTabScreen() {
       handleDeleteComment,
       handleDeletePost,
       handleDoubleTapPostLike,
+      handleEditComment,
       handleEditPost,
       handleLikeComment,
       handleReportPost,

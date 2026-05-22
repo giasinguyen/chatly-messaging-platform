@@ -14,10 +14,10 @@ interface CommentInputProps {
   isLoading?: boolean;
   placeholder?: string;
   isReply?: boolean;
+  isEditing?: boolean;
   replyToUsername?: string | null;
+  initialContent?: string;
 }
-
-const FALLBACK_AVATAR = 'https://i.pravatar.cc/140?img=30';
 
 export function CommentInput({
   onSubmit,
@@ -25,7 +25,9 @@ export function CommentInput({
   isLoading = false,
   placeholder = 'Add a comment...',
   isReply = false,
+  isEditing = false,
   replyToUsername,
+  initialContent,
 }: CommentInputProps) {
   const [content, setContent] = useState(replyToUsername ? `@${replyToUsername} ` : '');
   const [selectedImages, setSelectedImages] = useState<string[]>([]);
@@ -33,15 +35,23 @@ export function CommentInput({
   const [isPickingImage, setIsPickingImage] = useState(false);
 
   useEffect(() => {
+    if (isEditing) {
+      setContent(initialContent ?? '');
+      setSelectedImages([]);
+      return;
+    }
+
     if (isReply && replyToUsername) {
       setContent(`@${replyToUsername} `);
+      setSelectedImages([]);
       return;
     }
 
     if (!isReply) {
       setContent('');
+      setSelectedImages([]);
     }
-  }, [isReply, replyToUsername]);
+  }, [initialContent, isEditing, isReply, replyToUsername]);
 
   const handlePickImage = async () => {
     try {
@@ -84,14 +94,18 @@ export function CommentInput({
   };
 
   const handleSubmit = () => {
-    if (content.trim()) {
-      onSubmit(content, selectedImages.length > 0 ? selectedImages : undefined);
-      setContent('');
-      setSelectedImages([]);
+    const trimmedContent = content.trim();
+    const hasImages = selectedImages.length > 0;
+    if (!trimmedContent && !hasImages) {
+      return;
     }
+
+    onSubmit(trimmedContent, hasImages ? selectedImages : undefined);
+    setContent('');
+    setSelectedImages([]);
   };
 
-  const canSubmit = content.trim().length > 0 && !isLoading;
+  const canSubmit = (content.trim().length > 0 || selectedImages.length > 0) && !isLoading;
 
   return (
     <View className={`border-t border-gray-200 bg-white px-3 py-3 ${isReply ? 'bg-gray-50' : ''}`}>
@@ -138,14 +152,16 @@ export function CommentInput({
           />
 
           {/* Image Picker Icon */}
-          <TouchableOpacity
-            onPress={handlePickImage}
-            className="ml-1 p-1"
-            activeOpacity={0.7}
-            disabled={isLoading || isPickingImage}
-          >
-            <Ionicons name="image-outline" size={18} color={Colors.textMuted} />
-          </TouchableOpacity>
+          {!isEditing ? (
+            <TouchableOpacity
+              onPress={handlePickImage}
+              className="ml-1 p-1"
+              activeOpacity={0.7}
+              disabled={isLoading || isPickingImage}
+            >
+              <Ionicons name="image-outline" size={18} color={Colors.textMuted} />
+            </TouchableOpacity>
+          ) : null}
 
           {/* Emoji Icon */}
           <TouchableOpacity
@@ -172,7 +188,7 @@ export function CommentInput({
         </TouchableOpacity>
 
         {/* Cancel Button (for replies) */}
-        {isReply && onCancel && (
+        {(isReply || isEditing) && onCancel && (
           <TouchableOpacity
             onPress={onCancel}
             className="rounded-full bg-gray-300 p-2"

@@ -1,10 +1,11 @@
 import { useMemo, useState } from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
+import { Avatar } from '@/components/ui/Avatar';
 import { Colors } from '@/constants/theme';
 import { normalizeMediaUrl } from '@/utils/mediaUrl';
+import { UserQuickProfileDialog } from '@/components/profile/UserQuickProfileDialog';
 import { CommentsBottomSheet } from './CommentsBottomSheet';
 import { PostImageCarousel } from './PostImageCarousel';
 import { ReportPostModal } from './ReportPostModal';
@@ -29,10 +30,9 @@ interface HomePostCardProps {
   onLikeComment?: (commentId: string, reactionType: string) => void;
   onUnlikeComment?: (commentId: string) => void;
   onDeleteComment?: (commentId: string) => void;
+  onEditComment?: (commentId: string, content: string) => void;
   onOpenComments?: (postId: string) => void;
 }
-
-const FALLBACK_AVATAR = 'https://i.pravatar.cc/140?img=30';
 
 function formatCount(value: number): string {
   if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
@@ -66,16 +66,18 @@ export function HomePostCard({
   onLikeComment,
   onUnlikeComment,
   onDeleteComment,
+  onEditComment,
   onOpenComments,
 }: HomePostCardProps) {
   const router = useRouter();
   const [showMenu, setShowMenu] = useState(false);
   const [showComments, setShowComments] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
+  const [showQuickProfile, setShowQuickProfile] = useState(false);
   const [isSubmittingReport, setIsSubmittingReport] = useState(false);
 
   const authorName = post.authorDisplayName ?? post.authorUsername ?? 'Unknown user';
-  const avatarUrl = post.authorAvatarUrl ?? FALLBACK_AVATAR;
+  const avatarUrl = post.authorAvatarUrl;
   const likeSummary = post.reactions?.find((reaction) => reaction.type === 'LIKE');
   const isLiked = likeSummary?.reactedByMe ?? false;
   const isSaved = post.savedByMe ?? false;
@@ -122,15 +124,10 @@ export function HomePostCard({
         {/* Header: Author Info + Menu */}
         <View className="flex-row items-center justify-between px-3 py-2.5">
           <TouchableOpacity
-            onPress={handleOpenAuthorProfile}
+            onPress={() => setShowQuickProfile(true)}
             className="flex-row items-center"
             activeOpacity={0.75}>
-            <Image
-              source={{ uri: avatarUrl }}
-              contentFit="cover"
-              transition={120}
-              style={{ width: 38, height: 38, borderRadius: 999 }}
-            />
+            <Avatar uri={avatarUrl} name={authorName} size={38} />
             <View className="ml-2.5">
               <Text className="text-sm font-semibold text-[#1D1D1F]">{authorName}</Text>
               <Text className="text-xs text-[#6E6E73]">{formatRelativeTime(post.createdAt)}</Text>
@@ -277,6 +274,7 @@ export function HomePostCard({
         onLikeComment={(commentId, reactionType) => onLikeComment?.(commentId, reactionType)}
         onUnlikeComment={(commentId) => onUnlikeComment?.(commentId)}
         onDeleteComment={(commentId) => onDeleteComment?.(commentId)}
+        onEditComment={async (_postId, commentId, content) => onEditComment?.(commentId, content)}
       />
 
       <ReportPostModal
@@ -284,6 +282,14 @@ export function HomePostCard({
         isSubmitting={isSubmittingReport}
         onClose={() => setShowReportModal(false)}
         onSubmit={handleSubmitReport}
+      />
+
+      <UserQuickProfileDialog
+        visible={showQuickProfile}
+        userId={post.authorId}
+        fallbackDisplayName={authorName}
+        fallbackAvatarUrl={avatarUrl}
+        onClose={() => setShowQuickProfile(false)}
       />
     </>
   );

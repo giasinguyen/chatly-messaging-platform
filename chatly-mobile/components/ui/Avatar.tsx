@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { View, Text, Image } from 'react-native';
 import { Colors } from '@/constants/theme';
 import { getInitials } from '@/utils/format';
@@ -11,15 +12,21 @@ interface AvatarProps {
 }
 
 export function Avatar({ uri, name, size = 48, showOnline = false, isOnline = false }: AvatarProps) {
+  const [hasImageError, setHasImageError] = useState(false);
   const borderRadius = size * 0.38;
   const fontSize = size * 0.32;
   const statusSize = size * 0.26;
 
+  useEffect(() => {
+    setHasImageError(false);
+  }, [uri]);
+
   return (
     <View style={{ width: size, height: size }}>
-      {uri ? (
+      {uri && !hasImageError ? (
         <Image
           source={{ uri }}
+          onError={() => setHasImageError(true)}
           style={{
             width: size,
             height: size,

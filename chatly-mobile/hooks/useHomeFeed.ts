@@ -5,6 +5,7 @@ import { postService } from '@/services/post.service';
 import { storyService } from '@/services/story.service';
 import type { Post, PostComment, PostReactionSummary, ReportPostRequest } from '@/types/post';
 import type { StoryGroup, StoryResponse } from '@/types/story';
+import { countCommentBranch, removeCommentBranch } from '@/utils/commentTree';
 import { getApiErrorMessage } from '@/utils/errorHandler';
 
 type FeedLoadMode = 'initial' | 'refresh' | 'append';
@@ -374,21 +375,44 @@ export function useHomeFeed() {
         if (response.code !== 1000) {
           throw new Error(response.message ?? 'Could not delete comment.');
         }
+        const removedCount = countCommentBranch(commentsByPostId[postId] || [], commentId);
         setCommentsByPostId((prev) => ({
           ...prev,
-          [postId]: (prev[postId] || []).filter((comment) => comment.id !== commentId),
+          [postId]: removeCommentBranch(prev[postId] || [], commentId),
         }));
         updatePost(postId, {
           commentCount: Math.max(
             0,
-            (posts.find((post) => post.id === postId)?.commentCount ?? 1) - 1
+            (posts.find((post) => post.id === postId)?.commentCount ?? removedCount) - removedCount
           ),
         });
       } catch (error: unknown) {
         showError(error, 'Could not delete comment.');
       }
     },
-    [posts, showError, updatePost]
+    [commentsByPostId, posts, showError, updatePost]
+  );
+
+  const handleEditComment = useCallback(
+    async (postId: string, commentId: string, content: string) => {
+      try {
+        const response = await postService.updateComment(postId, commentId, { content });
+        if (response.code !== 1000 || !response.result) {
+          throw new Error(response.message ?? 'Could not update comment.');
+        }
+
+        setCommentsByPostId((prev) => ({
+          ...prev,
+          [postId]: (prev[postId] || []).map((comment) =>
+            comment.id === commentId ? response.result : comment
+          ),
+        }));
+      } catch (error: unknown) {
+        showError(error, 'Could not update comment.');
+        throw error;
+      }
+    },
+    [showError]
   );
 
   const handleEditPost = useCallback(
@@ -456,6 +480,7 @@ export function useHomeFeed() {
     handleLikeComment,
     handleUnlikeComment,
     handleDeleteComment,
+    handleEditComment,
     handleEditPost,
     handlePostCreated,
     handlePostUpdated,

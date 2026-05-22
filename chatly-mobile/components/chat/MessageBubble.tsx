@@ -168,13 +168,6 @@ export function MessageBubble({
     );
   };
 
-  // Video message
-  const renderVideoContent = () => {
-    const video = attachments?.[0];
-    if (!video?.url) return null;
-    return <VideoPlayer url={video.url} name={video.name} />;
-  };
-
   // Audio message
   const renderAudioContent = () => {
     const audio = attachments?.[0];
@@ -283,6 +276,13 @@ export function MessageBubble({
         })}
       </View>
     );
+  };
+
+  // Video message
+  const renderVideoContent = () => {
+    const video = attachments?.[0];
+    if (!video?.url) return null;
+    return <VideoPlayer url={video.url} name={video.name} />;
   };
 
   // Text with URL detection
@@ -1010,13 +1010,14 @@ export function MessageBubble({
   }
 
   return (
-    <Animated.View {...panResponder.panHandlers} style={{ transform: [{ translateX: pan.x }] }} className={`my-0.5 px-4 ${isMe ? 'items-end' : 'items-start'}`}>
-      {/* Sender name for group chats */}
-      {!isMe && showAvatar && senderName && (
-        <Text className="mb-0.5 text-xs" style={{ color: Colors.textMuted, marginLeft: 38 }}>
-          {senderName}
-        </Text>
-      )}
+    <>
+      <Animated.View {...panResponder.panHandlers} style={{ transform: [{ translateX: pan.x }] }} className={`my-0.5 px-4 ${isMe ? 'items-end' : 'items-start'}`}>
+        {/* Sender name for group chats */}
+        {!isMe && showAvatar && senderName && (
+          <Text className="mb-0.5 text-xs" style={{ color: Colors.textMuted, marginLeft: 38 }}>
+            {senderName}
+          </Text>
+        )}
 
       {/* Pinned indicator */}
       {message.pinned && (
@@ -1269,5 +1270,6 @@ export function MessageBubble({
         </Modal>
       )}
       </Animated.View>
+    </>
   );
 }

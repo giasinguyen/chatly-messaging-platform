@@ -2,16 +2,16 @@ import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { Image } from 'expo-image';
 import { postService } from '@/services/post.service';
 import { CommentsBottomSheet } from '@/components/social/CommentsBottomSheet';
+import { Avatar } from '@/components/ui/Avatar';
+import { UserQuickProfileDialog } from '@/components/profile/UserQuickProfileDialog';
 import { Colors } from '@/constants/theme';
 import type { Post, PostComment, ReactionType } from '@/types/post';
+import { countCommentBranch, removeCommentBranch } from '@/utils/commentTree';
 import { getApiErrorMessage } from '@/utils/errorHandler';
 import { PostMediaGallery } from '@/app/post/components/PostMediaGallery';
 import { PostCommentsSection } from '@/app/post/components/PostCommentsSection';
-
-const FALLBACK_AVATAR = 'https://i.pravatar.cc/140?img=30';
 
 function formatRelativeTime(createdAt: string): string {
   const diffMinutes = Math.floor((Date.now() - new Date(createdAt).getTime()) / 60000);
@@ -37,6 +37,7 @@ export default function PostDetailScreen() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [commentsError, setCommentsError] = useState<string | null>(null);
   const [isCommentsSheetVisible, setIsCommentsSheetVisible] = useState(false);
+  const [isQuickProfileVisible, setIsQuickProfileVisible] = useState(false);
 
   const loadPost = useCallback(async () => {
     if (!id) {
@@ -174,17 +175,43 @@ export default function PostDetailScreen() {
           throw new Error(response.message ?? 'Could not delete comment.');
         }
 
-        setComments((prev) => prev.filter((comment) => comment.id !== commentId));
+        const removedCount = countCommentBranch(comments, commentId);
+
+        setComments((prev) => removeCommentBranch(prev, commentId));
         setPost((current) =>
           current
             ? {
                 ...current,
-                commentCount: Math.max(0, current.commentCount - 1),
+                commentCount: Math.max(0, current.commentCount - removedCount),
               }
             : current
         );
       } catch (error: unknown) {
         setCommentsError(getApiErrorMessage(error, 'Could not delete comment.'));
+      }
+    },
+    [comments, id]
+  );
+
+  const handleEditComment = useCallback(
+    async (_postId: string, commentId: string, content: string) => {
+      if (!id) {
+        return;
+      }
+
+      try {
+        const response = await postService.updateComment(id, commentId, { content });
+        if (response.code !== 1000 || !response.result) {
+          throw new Error(response.message ?? 'Could not update comment.');
+        }
+
+        setComments((prev) =>
+          prev.map((comment) => (comment.id === commentId ? response.result : comment))
+        );
+        setCommentsError(null);
+      } catch (error: unknown) {
+        setCommentsError(getApiErrorMessage(error, 'Could not update comment.'));
+        throw error;
       }
     },
     [id]
@@ -229,14 +256,13 @@ export default function PostDetailScreen() {
       ) : post ? (
         <ScrollView className="flex-1 px-4 py-4" showsVerticalScrollIndicator={false}>
           <TouchableOpacity
-            onPress={() => router.push(`/profile/${post.authorId}`)}
+            onPress={() => setIsQuickProfileVisible(true)}
             className="flex-row items-center"
             activeOpacity={0.75}>
-            <Image
-              source={{ uri: post.authorAvatarUrl ?? FALLBACK_AVATAR }}
-              contentFit="cover"
-              transition={120}
-              style={{ width: 40, height: 40, borderRadius: 999 }}
+            <Avatar
+              uri={post.authorAvatarUrl}
+              name={post.authorDisplayName ?? post.authorUsername ?? 'Unknown user'}
+              size={40}
             />
             <View className="ml-2.5">
               <Text className="text-sm font-semibold text-[#1D1D1F]">
@@ -292,9 +318,20 @@ export default function PostDetailScreen() {
           onLikeComment={handleLikeComment}
           onUnlikeComment={handleUnlikeComment}
           onDeleteComment={handleDeleteComment}
+          onEditComment={handleEditComment}
           isSubmittingComment={isSubmittingComment}
         />
       )}
+
+      {post ? (
+        <UserQuickProfileDialog
+          visible={isQuickProfileVisible}
+          userId={post.authorId}
+          fallbackDisplayName={post.authorDisplayName ?? post.authorUsername ?? 'Unknown user'}
+          fallbackAvatarUrl={post.authorAvatarUrl}
+          onClose={() => setIsQuickProfileVisible(false)}
+        />
+      ) : null}
     </View>
   );
 }

@@ -14,7 +14,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { CommentList } from './CommentList';
 import { CommentInput } from './CommentInput';
-import type { PostComment } from '@/types/post';
+import type { PostComment, ReactionType } from '@/types/post';
 import { Colors } from '@/constants/theme';
 
 interface CommentsBottomSheetProps {
@@ -30,9 +30,10 @@ interface CommentsBottomSheetProps {
     mediaUrls?: string[],
     parentCommentId?: string
   ) => void | Promise<void>;
-  onLikeComment?: (commentId: string, reactionType: string) => void;
+  onLikeComment?: (commentId: string, reactionType: ReactionType) => void;
   onUnlikeComment?: (commentId: string) => void;
   onDeleteComment?: (commentId: string) => void;
+  onEditComment?: (postId: string, commentId: string, content: string) => void | Promise<void>;
   isSubmittingComment?: boolean;
 }
 
@@ -51,11 +52,14 @@ export function CommentsBottomSheet({
   onLikeComment,
   onUnlikeComment,
   onDeleteComment,
+  onEditComment,
   isSubmittingComment = false,
 }: CommentsBottomSheetProps) {
   const [scrollPosition, setScrollPosition] = useState(0);
   const [replyToId, setReplyToId] = useState<string | null>(null);
   const [replyToUsername, setReplyToUsername] = useState<string | null>(null);
+  const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
+  const [editingContent, setEditingContent] = useState('');
   const pan = useRef(new Animated.ValueXY()).current;
   const scrollViewRef = useRef<ScrollView>(null);
 
@@ -88,6 +92,10 @@ export function CommentsBottomSheet({
       onOpen?.(postId);
     } else {
       pan.y.setValue(0);
+      setReplyToId(null);
+      setReplyToUsername(null);
+      setEditingCommentId(null);
+      setEditingContent('');
     }
   }, [visible, postId, onOpen, pan.y]);
 
@@ -143,8 +151,16 @@ export function CommentsBottomSheet({
                 <CommentList
                   comments={comments}
                   onAddComment={(parentId?: string, username?: string) => {
+                    setEditingCommentId(null);
+                    setEditingContent('');
                     setReplyToId(parentId ?? null);
                     setReplyToUsername(username ?? null);
+                  }}
+                  onEditComment={(commentId, content) => {
+                    setReplyToId(null);
+                    setReplyToUsername(null);
+                    setEditingCommentId(commentId);
+                    setEditingContent(content);
                   }}
                   onLikeComment={(commentId, reactionType) =>
                     onLikeComment?.(commentId, reactionType)
@@ -168,18 +184,29 @@ export function CommentsBottomSheet({
           {/* Comment Input - Sticky at bottom */}
           <CommentInput
             isReply={Boolean(replyToId)}
+            isEditing={Boolean(editingCommentId)}
             replyToUsername={replyToUsername}
+            initialContent={editingContent}
             isLoading={isSubmittingComment}
             onCancel={() => {
               setReplyToId(null);
               setReplyToUsername(null);
+              setEditingCommentId(null);
+              setEditingContent('');
             }}
             onSubmit={async (content, mediaUrls) => {
+              if (editingCommentId) {
+                await onEditComment?.(postId, editingCommentId, content);
+                setEditingCommentId(null);
+                setEditingContent('');
+                return;
+              }
+
               await onAddComment?.(postId, content, mediaUrls, replyToId ?? undefined);
               setReplyToId(null);
               setReplyToUsername(null);
             }}
-            placeholder={replyToId ? 'Reply...' : 'Add a comment...'}
+            placeholder={editingCommentId ? 'Edit comment...' : replyToId ? 'Reply...' : 'Add a comment...'}
           />
         </KeyboardAvoidingView>
       </Animated.View>

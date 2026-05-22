@@ -9,6 +9,7 @@ interface CommentListProps {
   onLikeComment?: (commentId: string, reactionType: ReactionType) => void;
   onUnlikeComment?: (commentId: string) => void;
   onDeleteComment?: (commentId: string) => void;
+  onEditComment?: (commentId: string, content: string) => void;
   maxVisibleCount?: number;
 }
 
@@ -18,6 +19,7 @@ export function CommentList({
   onLikeComment,
   onUnlikeComment,
   onDeleteComment,
+  onEditComment,
   maxVisibleCount = 3,
 }: CommentListProps) {
   const [expandedReplyGroups, setExpandedReplyGroups] = useState<Set<string>>(new Set());
@@ -69,6 +71,7 @@ export function CommentList({
           onLike={onLikeComment}
           onUnlike={onUnlikeComment}
           onDelete={onDeleteComment}
+          onEdit={onEditComment}
           replyCount={replies.length}
           onShowReplies={() => toggleReplies(comment.id)}
           showRepliesButton={replies.length > 0 && !isExpanded}
@@ -86,6 +89,7 @@ export function CommentList({
                 onLike={onLikeComment}
                 onUnlike={onUnlikeComment}
                 onDelete={onDeleteComment}
+                onEdit={onEditComment}
               />
             ))}
 
