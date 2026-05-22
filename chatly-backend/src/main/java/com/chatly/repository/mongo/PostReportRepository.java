@@ -15,4 +15,6 @@ public interface PostReportRepository extends MongoRepository<PostReport, String
     Page<PostReport> findByStatusOrderByCreatedAtDesc(ReportStatus status, Pageable pageable);
 
     Page<PostReport> findByPostIdOrderByCreatedAtDesc(String postId, Pageable pageable);
+
+    long countByStatus(ReportStatus status);
 }
