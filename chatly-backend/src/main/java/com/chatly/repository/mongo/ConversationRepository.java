@@ -1,6 +1,7 @@
 package com.chatly.repository.mongo;
 
 import com.chatly.model.mongo.Conversation;
+import com.chatly.model.enums.ConversationType;
 import org.springframework.data.mongodb.repository.MongoRepository;
 
 import java.util.List;
@@ -10,4 +11,6 @@ public interface ConversationRepository extends MongoRepository<Conversation, St
     List<Conversation> findByParticipantIdsContaining(String userId);
 
     List<Conversation> findByParticipantIdsContainingOrderByUpdatedAtDesc(String userId);
+
+    long countByType(ConversationType type);
 }

@@ -14,10 +14,16 @@ public class AdminStatsResponse {
 
     private long totalUsers;
     private long activeUsers;
+    private long onlineUsers;
     private long totalConversations;
     private long totalMessages;
-    
+    private long totalPosts;
+    private long totalGroups;
+    private long todayNewUsers;
+    private long pendingReports;
+
     private List<UserGrowthData> userGrowth;
+    private List<MessageActivityData> messageActivity;
     private List<SystemHealthStatus> systemHealth;
     private List<AdminActivityLog> recentActivity;
 
@@ -36,10 +42,20 @@ public class AdminStatsResponse {
     @NoArgsConstructor
     @AllArgsConstructor
     @Builder
+    public static class MessageActivityData {
+        private String date;
+        private long count;
+    }
+
+    @Getter
+    @Setter
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
     public static class SystemHealthStatus {
         private String service;
-        private double statusRate;
         private String status;
+        private String description;
     }
 
     @Getter

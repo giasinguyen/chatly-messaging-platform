@@ -1,14 +1,27 @@
-import React from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
-import { useAuthStore } from '../store/auth.store';
-import { authService } from '../services/auth.service';
-import { LayoutDashboard, Users, ShieldAlert, LogOut, Bell, Shield } from 'lucide-react';
+import React from "react";
+import { NavLink, useNavigate } from "react-router-dom";
+import { useAuthStore } from "@/store/auth.store";
+import { authService } from "@/services/auth.service";
+import {
+  LayoutDashboard,
+  Users,
+  ShieldAlert,
+  LogOut,
+  Bell,
+  MessagesSquare,
+  FileText,
+  MessageSquare,
+  Bot,
+  Activity,
+  ClipboardList,
+  Settings,
+} from "lucide-react";
 
-interface LayoutProps {
+interface AdminLayoutProps {
   children: React.ReactNode;
 }
 
-export const Layout: React.FC<LayoutProps> = ({ children }) => {
+export const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
   const { user, clearAuth } = useAuthStore();
   const navigate = useNavigate();
 
@@ -19,33 +32,47 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
       console.error(err);
     }
     clearAuth();
-    navigate('/login');
+    navigate("/login");
   };
 
   const navItems = [
-    { to: '/', label: 'Dashboard', icon: LayoutDashboard },
-    { to: '/users', label: 'User Management', icon: Users },
-    { to: '/reports', label: 'Spam & Abuse', icon: ShieldAlert },
+    { to: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
+    { to: "/admin/users", label: "User Management", icon: Users },
+    { to: "/admin/conversations", label: "Conversations", icon: MessagesSquare },
+    { to: "/admin/posts", label: "Post Moderation", icon: FileText },
+    { to: "/admin/reports", label: "Spam & Abuse", icon: ShieldAlert },
+    { to: "/admin/messages", label: "Message Moderation", icon: MessageSquare },
+    { to: "/admin/notifications", label: "Notifications", icon: Bell },
+    { to: "/admin/ai-agent", label: "AI Agent", icon: Bot },
+    { to: "/admin/system", label: "System Health", icon: Activity },
+    { to: "/admin/audit", label: "Audit Logs", icon: ClipboardList },
+    { to: "/admin/settings", label: "Settings", icon: Settings },
   ];
 
   return (
-    <div className="flex h-screen bg-[#faf8ff] overflow-hidden">
+    <div className="flex h-screen bg-[#faf8ff] overflow-hidden text-slate-800">
       {/* Sidebar - Fixed 260px */}
       <aside className="w-[260px] bg-white border-r border-slate-100 flex flex-col justify-between shrink-0">
-        <div>
+        <div className="flex flex-col h-[calc(100vh-140px)] overflow-y-auto">
           {/* Logo */}
-          <div className="h-16 px-6 flex items-center gap-2.5 border-b border-slate-50">
-            <div className="w-8 h-8 rounded-lg bg-[#005ab3] flex items-center justify-center text-white shadow-sm">
-              <Shield size={18} className="stroke-[2.5]" />
-            </div>
+          <div className="h-16 px-6 flex items-center gap-2.5 border-b border-slate-50 shrink-0 sticky top-0 bg-white z-10">
+            <img
+              src="/chatly-logo-nobg.png"
+              alt="Chatly Logo"
+              className="w-9 h-9 object-contain"
+            />
             <div>
-              <span className="font-bold text-[#2c3e50] tracking-tight text-base font-outfit">Control Center</span>
-              <span className="block text-[10px] font-semibold text-[#505f76] tracking-wider uppercase">Chatly Admin</span>
+              <span className="font-extrabold text-[#7c3aed] tracking-tight text-base font-outfit">
+                Control Center
+              </span>
+              <span className="block text-[10px] font-semibold text-[#505f76] tracking-wider uppercase">
+                Chatly Admin
+              </span>
             </div>
           </div>
 
           {/* Nav list */}
-          <nav className="p-4 space-y-1">
+          <nav className="p-4 space-y-1 flex-1">
             {navItems.map((item) => {
               const Icon = item.icon;
               return (
@@ -53,10 +80,10 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                   key={item.to}
                   to={item.to}
                   className={({ isActive }) =>
-                    `flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-150 ${
+                    `flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 ${
                       isActive
-                        ? 'bg-[#005ab3]/8 text-[#005ab3]'
-                        : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'
+                        ? "bg-[#7c3aed]/10 text-[#7c3aed] shadow-sm font-semibold"
+                        : "text-slate-500 hover:bg-slate-50 hover:text-slate-800"
                     }`
                   }
                 >
@@ -69,19 +96,22 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
         </div>
 
         {/* User profile & Logout */}
-        <div className="p-4 border-t border-slate-50">
+        <div className="p-4 border-t border-slate-50 bg-white shrink-0">
           <div className="flex items-center gap-3 p-2 mb-3 bg-slate-50/50 rounded-xl">
             <img
-              src={user?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80'}
+              src={
+                user?.avatarUrl ||
+                "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80"
+              }
               alt="Avatar"
               className="w-9 h-9 rounded-full object-cover border border-slate-200"
             />
             <div className="min-w-0 flex-1">
               <p className="text-xs font-semibold text-slate-800 truncate leading-tight">
-                {user?.displayName || 'Administrator'}
+                {user?.displayName || "Administrator"}
               </p>
               <p className="text-[10px] text-slate-500 truncate">
-                @{user?.username || 'admin'}
+                @{user?.username || "admin"}
               </p>
             </div>
           </div>
@@ -118,3 +148,4 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
     </div>
   );
 };
+export default AdminLayout;

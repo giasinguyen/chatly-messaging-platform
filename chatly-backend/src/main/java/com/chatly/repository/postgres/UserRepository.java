@@ -66,4 +66,8 @@ public interface UserRepository extends JpaRepository<User, UUID> {
     List<User> findActiveUsersSince(@Param("since") java.time.Instant since);
 
     long countByCreatedAtBefore(java.time.Instant timestamp);
+
+    long countByCreatedAtAfter(java.time.Instant timestamp);
+
+    long countByStatus(com.chatly.model.enums.UserStatus status);
 }

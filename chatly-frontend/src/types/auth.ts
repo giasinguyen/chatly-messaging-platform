@@ -13,6 +13,7 @@ export interface UserResponse {
     lastSeen?: string;
     /** True when the profile is limited due to the user having blocked the requester */
     limited?: boolean;
+    suspended?: boolean;
 }
 
 export interface UserUpdateRequest {
