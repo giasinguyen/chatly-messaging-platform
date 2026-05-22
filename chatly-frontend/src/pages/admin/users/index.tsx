@@ -101,18 +101,7 @@ export const UsersPage: React.FC = () => {
 
   return (
     <div className="space-y-6 animate-fade-in text-slate-800">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-extrabold text-slate-800 tracking-tight font-outfit">
-            User Management
-          </h1>
-          <p className="text-sm text-slate-500 font-medium">
-            Verify credentials, toggle suspension, and restrict platform access
-          </p>
-        </div>
-
-        {/* Search */}
+      <div className="flex justify-end">
         <form onSubmit={handleSearchSubmit} className="relative w-full md:w-80">
           <input
             type="text"

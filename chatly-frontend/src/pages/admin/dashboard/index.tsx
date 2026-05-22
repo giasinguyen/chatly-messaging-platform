@@ -63,20 +63,6 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6 animate-fade-in text-slate-800">
-      <div className="flex flex-col xl:flex-row xl:items-end justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-extrabold text-slate-800 tracking-tight font-outfit">
-            Dashboard Overview
-          </h1>
-          <p className="text-sm text-slate-500">
-            Real-time usage metrics, operational health, and moderation pressure
-          </p>
-        </div>
-        <div className="text-xs font-semibold text-slate-500 bg-white border border-slate-100 rounded-xl px-3 py-2 shadow-sm">
-          Live admin metrics
-        </div>
-      </div>
-
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6 gap-5">
         {dashboardData.kpiCards.map((card) => (
           <DashboardKpiCard key={card.label} {...card} />
