@@ -1,6 +1,6 @@
 import { CustomAiIcon } from "@/components/customize/CustomAiIcon";
 import { cn } from "@/lib/utils";
-import type { MentionSuggestion } from "@/utils/mention";
+import type { MentionDropdownAnchor, MentionSuggestion } from "@/utils/mention";
 
 interface MentionSuggestionsDropdownProps {
     suggestions: MentionSuggestion[];
@@ -8,6 +8,7 @@ interface MentionSuggestionsDropdownProps {
     onSelect: (suggestion: MentionSuggestion) => void;
     className?: string;
     placement?: "top" | "bottom";
+    anchor?: MentionDropdownAnchor | null;
 }
 
 export function MentionSuggestionsDropdown({
@@ -16,6 +17,7 @@ export function MentionSuggestionsDropdown({
     onSelect,
     className,
     placement = "top",
+    anchor,
 }: MentionSuggestionsDropdownProps) {
     if (!suggestions.length) {
         return null;
@@ -24,12 +26,23 @@ export function MentionSuggestionsDropdown({
     return (
         <div
             className={cn(
-                placement === "bottom"
+                !anchor && placement === "bottom"
                     ? "absolute top-full left-0 mt-1"
-                    : "absolute bottom-full left-0 mb-1",
+                    : !anchor && "absolute bottom-full left-0 mb-1",
+                anchor && "absolute",
+                anchor?.placement === "top" && "-translate-y-full",
                 "w-72 max-h-52 overflow-y-auto bg-popover border border-border rounded-lg shadow-lg z-50",
                 className,
             )}
+            style={
+                anchor
+                    ? {
+                        left: anchor.left,
+                        top: anchor.top,
+                        maxHeight: anchor.maxHeight,
+                    }
+                    : undefined
+            }
         >
             {suggestions.map((suggestion, index) => (
                 <button

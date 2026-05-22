@@ -149,148 +149,154 @@ export default function HomePage() {
             title="Home feed is unavailable"
             message="This social feed failed to render. Try again."
         >
-            <div className="w-full h-full flex justify-center overflow-y-auto bg-background relative hide-scrollbar">
-            {/* Central Feed Area */}
-            <div className="w-full max-w-2xl px-4 py-8 flex flex-col gap-3 pb-32">
-                {/* Stories Carousel */}
-                <div className="w-full relative">
-                    <div className="flex gap-4 overflow-x-auto hide-scrollbar pb-3 pt-1 snap-x">
-                        {/* Create */}
-                        <div
-                            className="flex flex-col items-center gap-1 snap-start cursor-pointer group"
-                            onClick={() => setShowOptionsModal(true)}
-                        >
-                            <div className="relative w-16 h-16 rounded-full bg-muted flex items-center justify-center border-2 border-background shadow-sm group-hover:scale-105 transition-transform">
-                                <Plus className="text-muted-foreground w-8 h-8" />
-                                <div className="absolute -bottom-1 -right-1 bg-primary text-primary-foreground rounded-full w-5 h-5 flex items-center justify-center border-2 border-background">
-                                    <Plus className="w-3 h-3 font-bold" />
-                                </div>
-                            </div>
-                            <span className="text-sm text-muted-foreground truncate w-16 text-center">
-                                News
-                            </span>
-                        </div>
-
-                        {/* Real Stories */}
-                        {groupedStories.map((group, groupIdx) => {
-                            const allViewed = group.stories.every(
-                                (s) => s.viewedByMe,
-                            );
-                            return (
+            <div className="w-full h-full overflow-y-auto bg-background relative hide-scrollbar">
+                <div className="flex w-full justify-center">
+                    <div
+                        className="hidden w-100 shrink-0 xl:block"
+                        aria-hidden="true"
+                    />
+                    {/* Central Feed Area */}
+                    <div className="w-full max-w-2xl px-4 py-8 flex flex-col gap-3 pb-32">
+                        {/* Stories Carousel */}
+                        <div className="w-full relative">
+                            <div className="flex gap-4 overflow-x-auto hide-scrollbar pb-3 pt-1 snap-x">
+                                {/* Create */}
                                 <div
-                                    key={group.user?.id}
                                     className="flex flex-col items-center gap-1 snap-start cursor-pointer group"
-                                    onClick={() =>
-                                        setStoryViewerIndex(groupIdx)
-                                    }
+                                    onClick={() => setShowOptionsModal(true)}
                                 >
-                                    <div
-                                        className={cn(
-                                            "p-[2.5px] rounded-full group-hover:scale-105 transition-transform shadow-sm",
-                                            allViewed
-                                                ? "bg-muted"
-                                                : "bg-linear-to-tr from-brand via-blue-500 to-cyan-400",
-                                        )}
-                                    >
-                                        <div className="bg-background p-0.5 rounded-full">
-                                            <Avatar className="w-14 h-14 border-2 border-background">
-                                                <AvatarImage
-                                                    src={group.user?.avatarUrl}
-                                                    alt={group.user?.displayName}
-                                                    className="object-cover"
-                                                />
-                                                <AvatarFallback className="bg-linear-to-tr from-pink-400 to-indigo-500 text-white text-base font-semibold">
-                                                    {group.user?.displayName?.charAt(0)?.toUpperCase() ?? "U"}
-                                                </AvatarFallback>
-                                            </Avatar>
+                                    <div className="relative w-16 h-16 rounded-full bg-muted flex items-center justify-center border-2 border-background shadow-sm group-hover:scale-105 transition-transform">
+                                        <Plus className="text-muted-foreground w-8 h-8" />
+                                        <div className="absolute -bottom-1 -right-1 bg-primary text-primary-foreground rounded-full w-5 h-5 flex items-center justify-center border-2 border-background">
+                                            <Plus className="w-3 h-3 font-bold" />
                                         </div>
                                     </div>
-                                    <span
-                                        className={cn(
-                                            "text-sm truncate w-16 text-center",
-                                            allViewed
-                                                ? "text-muted-foreground/50"
-                                                : "text-muted-foreground",
-                                        )}
-                                    >
-                                        {group.user?.id === user?.id
-                                            ? "Your story"
-                                            : group.user?.displayName}
+                                    <span className="text-sm text-muted-foreground truncate w-16 text-center">
+                                        News
                                     </span>
                                 </div>
-                            );
-                        })}
+
+                                {/* Real Stories */}
+                                {groupedStories.map((group, groupIdx) => {
+                                    const allViewed = group.stories.every(
+                                        (s) => s.viewedByMe,
+                                    );
+                                    return (
+                                        <div
+                                            key={group.user?.id}
+                                            className="flex flex-col items-center gap-1 snap-start cursor-pointer group"
+                                            onClick={() =>
+                                                setStoryViewerIndex(groupIdx)
+                                            }
+                                        >
+                                            <div
+                                                className={cn(
+                                                    "p-[2.5px] rounded-full group-hover:scale-105 transition-transform shadow-sm",
+                                                    allViewed
+                                                        ? "bg-muted"
+                                                        : "bg-linear-to-tr from-brand via-blue-500 to-cyan-400",
+                                                )}
+                                            >
+                                                <div className="bg-background p-0.5 rounded-full">
+                                                    <Avatar className="w-14 h-14 border-2 border-background">
+                                                        <AvatarImage
+                                                            src={group.user?.avatarUrl}
+                                                            alt={group.user?.displayName}
+                                                            className="object-cover"
+                                                        />
+                                                        <AvatarFallback className="bg-linear-to-tr from-pink-400 to-indigo-500 text-white text-base font-semibold">
+                                                            {group.user?.displayName?.charAt(0)?.toUpperCase() ?? "U"}
+                                                        </AvatarFallback>
+                                                    </Avatar>
+                                                </div>
+                                            </div>
+                                            <span
+                                                className={cn(
+                                                    "text-sm truncate w-16 text-center",
+                                                    allViewed
+                                                        ? "text-muted-foreground/50"
+                                                        : "text-muted-foreground",
+                                                )}
+                                            >
+                                                {group.user?.id === user?.id
+                                                    ? "Your story"
+                                                    : group.user?.displayName}
+                                            </span>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+
+                        {/* Feed Posts */}
+                        <div className="flex flex-col gap-6">
+                            <NewPostBanner
+                                count={pendingCount}
+                                onClick={handleFlushPending}
+                            />
+                            <FeedList
+                                posts={posts}
+                                hasMore={hasMore}
+                                isLoading={isLoading}
+                                isLoadingMore={isLoadingMore}
+                                error={feedError}
+                                sentinelRef={sentinelRef}
+                                onPostUpdate={updatePost}
+                                onPostRemove={removePost}
+                            />
+                        </div>
                     </div>
-                </div>
 
-                {/* Feed Posts */}
-                <div className="flex flex-col gap-6">
-                    <NewPostBanner
-                        count={pendingCount}
-                        onClick={handleFlushPending}
-                    />
-                    <FeedList
-                        posts={posts}
-                        hasMore={hasMore}
-                        isLoading={isLoading}
-                        isLoadingMore={isLoadingMore}
-                        error={feedError}
-                        sentinelRef={sentinelRef}
-                        onPostUpdate={updatePost}
-                        onPostRemove={removePost}
+                    <HomeRightSidebar
+                        user={user}
+                        hasMyStories={hasMyStories}
+                        onOpenProfile={() => navigate(`/u/${user?.username}`)}
                     />
                 </div>
-            </div>
 
-            <HomeRightSidebar
-                user={user}
-                hasMyStories={hasMyStories}
-                onOpenProfile={() => navigate(`/u/${user?.username}`)}
-            />
+                <CreateOptionsModal
+                    isOpen={showOptionsModal}
+                    onClose={() => setShowOptionsModal(false)}
+                    onSelectPost={() => {
+                        setShowOptionsModal(false);
+                        setShowPostModal(true);
+                    }}
+                    onSelectStory={() => {
+                        setShowOptionsModal(false);
+                        setShowStoryModal(true);
+                    }}
+                    onSelectReel={() => {
+                        setShowOptionsModal(false);
+                        setShowReelModal(true);
+                    }}
+                />
 
-            <CreateOptionsModal
-                isOpen={showOptionsModal}
-                onClose={() => setShowOptionsModal(false)}
-                onSelectPost={() => {
-                    setShowOptionsModal(false);
-                    setShowPostModal(true);
-                }}
-                onSelectStory={() => {
-                    setShowOptionsModal(false);
-                    setShowStoryModal(true);
-                }}
-                onSelectReel={() => {
-                    setShowOptionsModal(false);
-                    setShowReelModal(true);
-                }}
-            />
+                <CreatePostModal
+                    isOpen={showPostModal}
+                    onClose={() => setShowPostModal(false)}
+                    user={user}
+                />
 
-            <CreatePostModal
-                isOpen={showPostModal}
-                onClose={() => setShowPostModal(false)}
-                user={user}
-            />
+                <CreateStoryModal
+                    isOpen={showStoryModal}
+                    onClose={() => setShowStoryModal(false)}
+                />
 
-            <CreateStoryModal
-                isOpen={showStoryModal}
-                onClose={() => setShowStoryModal(false)}
-            />
-
-            <CreateReelModal
-                isOpen={showReelModal}
-                onClose={() => setShowReelModal(false)}
-                user={user}
-                onCreated={() => navigate("/reels")}
-            />
+                <CreateReelModal
+                    isOpen={showReelModal}
+                    onClose={() => setShowReelModal(false)}
+                    user={user}
+                    onCreated={() => navigate("/reels")}
+                />
 
                 {storyViewerIndex !== null && groupedStories.length > 0 && (
-                <StoryViewer
-                    groups={groupedStories}
-                    initialGroupIndex={storyViewerIndex}
-                    onClose={() => setStoryViewerIndex(null)}
-                    onStoryViewed={handleStoryViewed}
-                />
-            )}
+                    <StoryViewer
+                        groups={groupedStories}
+                        initialGroupIndex={storyViewerIndex}
+                        onClose={() => setStoryViewerIndex(null)}
+                        onStoryViewed={handleStoryViewed}
+                    />
+                )}
             </div>
         </SocialErrorBoundary>
     );
