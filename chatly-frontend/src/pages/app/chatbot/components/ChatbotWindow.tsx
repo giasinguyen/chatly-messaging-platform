@@ -1,5 +1,5 @@
 import { useEffect, useCallback, useRef, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ChatbotHeader } from "./ChatbotHeader";
@@ -19,6 +19,13 @@ import type { AgentMessage, MessageAttachment } from "@/types/agent";
 import type { Attachment } from "@/types/message";
 
 const DRAFT_SESSION_PLACEHOLDER = "__new__";
+const SOCIAL_POST_CONTEXT_PREFIX = "social:post:";
+
+interface ChatbotNavigationState {
+    contextMode?: "group" | "post";
+    title?: string;
+    postSnippet?: string;
+}
 
 interface Props {
     sessionId?: string;
@@ -28,6 +35,7 @@ interface Props {
 
 export function ChatbotWindow({ sessionId, sidebarCollapsed, onToggleSidebar }: Props) {
     const navigate = useNavigate();
+    const location = useLocation();
     const [searchParams, setSearchParams] = useSearchParams();
     const autoSendFired = useRef(false);
     const { user } = useAuthStore();
@@ -51,17 +59,24 @@ export function ChatbotWindow({ sessionId, sidebarCollapsed, onToggleSidebar }: 
     const { startStream, cancelStream, toolCalls } = useAgentStream(sessionId);
     const messages = sessionId ? (messagesBySession[sessionId] ?? []) : [];
     const session = sessions.find((s) => s.id === sessionId);
+    const isPostContextSession = !!session?.context_conversation_id?.startsWith(SOCIAL_POST_CONTEXT_PREFIX);
     const isStreaming =
         streamingStatus === "streaming" || streamingStatus === "connecting";
     const [loadingHistory, setLoadingHistory] = useState(
         sessionId ? !messagesBySession[sessionId]?.length : false,
     );
     const [contextConversationName, setContextConversationName] = useState<string | undefined>();
+    const navigationState = (location.state as ChatbotNavigationState | null) ?? null;
+    const isNavigationPostContext = navigationState?.contextMode === "post";
 
-    // Load context conversation name when session has a context_conversation_id
+    // Load context label for group sessions; social post sessions use the session title/snippet.
     useEffect(() => {
         if (!session?.context_conversation_id) {
-            setContextConversationName(undefined);
+            setContextConversationName(isNavigationPostContext ? navigationState?.title ?? "Post context" : undefined);
+            return;
+        }
+        if (session.context_conversation_id.startsWith(SOCIAL_POST_CONTEXT_PREFIX)) {
+            setContextConversationName(session.title ?? navigationState?.title ?? "Post context");
             return;
         }
         conversationService.getById(session.context_conversation_id)
@@ -73,7 +88,7 @@ export function ChatbotWindow({ sessionId, sidebarCollapsed, onToggleSidebar }: 
             .catch(() => {
                 // Silently ignore — name is non-critical
             });
-    }, [session?.context_conversation_id]);
+    }, [session?.context_conversation_id, session?.title, isNavigationPostContext, navigationState?.title]);
 
     // Set active session and load history
     useEffect(() => {
@@ -247,7 +262,8 @@ export function ChatbotWindow({ sessionId, sidebarCollapsed, onToggleSidebar }: 
                 </div>
             )}
             <ChatbotHeader
-                title={session?.title ?? "AI Chat"}
+                title={session?.title ?? navigationState?.title ?? "AI Chat"}
+                subtitle={isPostContextSession || isNavigationPostContext ? "Post context" : "AI Assistant"}
                 sidebarCollapsed={sidebarCollapsed}
                 onToggleSidebar={onToggleSidebar}
             />
@@ -259,6 +275,7 @@ export function ChatbotWindow({ sessionId, sidebarCollapsed, onToggleSidebar }: 
                     onToggleSidebar={onToggleSidebar}
                     onChipSelect={handleSend}
                     contextConversationName={contextConversationName}
+                    contextMode={isPostContextSession || isNavigationPostContext ? "post" : session?.context_conversation_id ? "group" : null}
                 />
             ) : sessionId ? (
                 <ChatbotMessageList

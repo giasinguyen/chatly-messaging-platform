@@ -23,15 +23,25 @@ const GROUP_CONTEXT_CHIPS: QuickChip[] = [
     { label: "🔔 Group reminders", query: "List all reminders in this group", group: true },
 ];
 
+const POST_CONTEXT_CHIPS: QuickChip[] = [
+    { label: "📝 Summarize this post", query: "Summarize this post and its main point" },
+    { label: "💡 Explain this post", query: "Explain this post in a simple way" },
+    { label: "✍️ Draft a reply", query: "Draft a helpful reply to this post" },
+    { label: "🌐 Translate this post", query: "Translate this post to English" },
+];
+
+type ContextMode = "group" | "post";
+
 interface ChatbotEmptyStateProps {
     sidebarCollapsed?: boolean;
     onToggleSidebar?: () => void;
     onChipSelect?: (query: string) => void;
     contextConversationName?: string;
+    contextMode?: ContextMode | null;
 }
 
-export function ChatbotEmptyState({ sidebarCollapsed, onToggleSidebar, onChipSelect, contextConversationName }: ChatbotEmptyStateProps) {
-    const hasGroupContext = !!contextConversationName;
+export function ChatbotEmptyState({ sidebarCollapsed, onToggleSidebar, onChipSelect, contextConversationName, contextMode }: ChatbotEmptyStateProps) {
+    const hasContext = !!contextConversationName && !!contextMode;
 
     return (
         <div className="flex flex-1 flex-col overflow-hidden">
@@ -61,10 +71,12 @@ export function ChatbotEmptyState({ sidebarCollapsed, onToggleSidebar, onChipSel
                     <h2 className="text-xl font-semibold text-foreground">
                         Chatly AI Assistant
                     </h2>
-                    {hasGroupContext ? (
+                    {hasContext ? (
                         <p className="mt-1.5 text-sm text-muted-foreground">
                             Chatting in context of{" "}
-                            <span className="font-medium text-violet-500">{contextConversationName}</span>
+                            <span className={cn("font-medium", contextMode === "post" ? "text-brand" : "text-violet-500")}>
+                                {contextMode === "post" ? "this post" : contextConversationName}
+                            </span>
                         </p>
                     ) : (
                         <p className="mt-1.5 text-sm text-muted-foreground max-w-xs">
@@ -73,22 +85,23 @@ export function ChatbotEmptyState({ sidebarCollapsed, onToggleSidebar, onChipSel
                     )}
                 </div>
 
-                {/* Group context chips */}
-                {hasGroupContext && onChipSelect && (
+                {/* Context chips */}
+                {hasContext && onChipSelect && (
                     <div className="w-full max-w-md">
                         <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2 text-center">
-                            Group actions
+                            {contextMode === "post" ? "Post actions" : "Group actions"}
                         </p>
                         <div className="flex flex-wrap justify-center gap-2">
-                            {GROUP_CONTEXT_CHIPS.map((chip) => (
+                            {(contextMode === "post" ? POST_CONTEXT_CHIPS : GROUP_CONTEXT_CHIPS).map((chip) => (
                                 <button
                                     key={chip.label}
                                     type="button"
                                     onClick={() => onChipSelect(chip.query)}
                                     className={cn(
                                         "inline-flex items-center rounded-full border px-3 py-1.5 text-sm transition-colors cursor-pointer",
-                                        "border-violet-200 dark:border-violet-800 bg-violet-50 dark:bg-violet-900/20",
-                                        "text-violet-700 dark:text-violet-300 hover:bg-violet-100 dark:hover:bg-violet-900/40",
+                                        contextMode === "post"
+                                            ? "border-brand/20 dark:border-brand/40 bg-brand/10 dark:bg-brand/15 text-brand hover:bg-brand/15 dark:hover:bg-brand/20"
+                                            : "border-violet-200 dark:border-violet-800 bg-violet-50 dark:bg-violet-900/20 text-violet-700 dark:text-violet-300 hover:bg-violet-100 dark:hover:bg-violet-900/40",
                                     )}
                                 >
                                     {chip.label}
@@ -101,7 +114,7 @@ export function ChatbotEmptyState({ sidebarCollapsed, onToggleSidebar, onChipSel
                 {/* General chips */}
                 {onChipSelect && (
                     <div className="w-full max-w-md">
-                        {hasGroupContext && (
+                        {hasContext && (
                             <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2 text-center">
                                 General
                             </p>

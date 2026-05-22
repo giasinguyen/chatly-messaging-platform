@@ -1,10 +1,30 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { MoreHorizontal, Heart, MessageCircle, Share2, Bookmark, PenLine, Trash2, ChevronLeft, ChevronRight, Smile, CornerUpLeft, Image as ImageIcon, X, Globe, Users, Lock, Flag, Bot } from "lucide-react";
+import {
+    MoreHorizontal,
+    Heart,
+    MessageCircle,
+    Share2,
+    Bookmark,
+    PenLine,
+    Trash2,
+    ChevronLeft,
+    ChevronRight,
+    Smile,
+    CornerUpLeft,
+    Image as ImageIcon,
+    X,
+    Globe,
+    Users,
+    Lock,
+    Flag,
+    Bot
+} from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import Picker from "@emoji-mart/react";
 import data from "@emoji-mart/data";
 import { agentService } from "@/services/agent.service";
+import { CustomAiIcon } from "@/components/customize/CustomAiIcon";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -26,7 +46,13 @@ import { postService } from "@/services/post.service";
 import { fileService } from "@/services/file.service";
 import { usePostStore } from "@/store/post.store";
 import { useAuthStore } from "@/store/auth.store";
-import type { Post, PostComment, PostVisibility, ReactionType, ReportPostRequest } from "@/types/post";
+import type {
+    Post,
+    PostComment,
+    PostVisibility,
+    ReactionType,
+    ReportPostRequest,
+} from "@/types/post";
 import { cn } from "@/lib/utils";
 import { SharePostDialog } from "./SharePostDialog";
 import { ReportPostDialog } from "./ReportPostDialog";
@@ -53,19 +79,23 @@ interface CommentNode extends PostComment {
     children: CommentNode[];
 }
 
-const VISIBILITY_OPTIONS: { value: PostVisibility; label: string; icon: typeof Globe }[] = [
+const VISIBILITY_OPTIONS: {
+    value: PostVisibility;
+    label: string;
+    icon: typeof Globe;
+}[] = [
     { value: "PUBLIC", label: "Everyone", icon: Globe },
     { value: "FRIENDS_ONLY", label: "Friends", icon: Users },
     { value: "ONLY_ME", label: "Only me", icon: Lock },
 ];
 
 const isPostVisibility = (value: string): value is PostVisibility =>
-    value === "PUBLIC" ||
-    value === "FRIENDS_ONLY" ||
-    value === "ONLY_ME";
+    value === "PUBLIC" || value === "FRIENDS_ONLY" || value === "ONLY_ME";
 
 function formatRelativeTime(value: string): string {
-    const diffMinutes = Math.floor((Date.now() - new Date(value).getTime()) / 60000);
+    const diffMinutes = Math.floor(
+        (Date.now() - new Date(value).getTime()) / 60000,
+    );
     if (diffMinutes < 1) return "Just now";
     if (diffMinutes < 60) return `${diffMinutes}m ago`;
 
@@ -93,7 +123,11 @@ function buildCommentTree(comments: PostComment[]): CommentNode[] {
     });
 
     const sortNodes = (nodes: CommentNode[]) => {
-        nodes.sort((left, right) => new Date(left.createdAt).getTime() - new Date(right.createdAt).getTime());
+        nodes.sort(
+            (left, right) =>
+                new Date(left.createdAt).getTime() -
+                new Date(right.createdAt).getTime(),
+        );
         nodes.forEach((node) => sortNodes(node.children));
     };
 
@@ -112,22 +146,33 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
     const [pickerOpen, setPickerOpen] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
     const [editContent, setEditContent] = useState(post.content);
-    const [editVisibility, setEditVisibility] = useState<PostVisibility>(post.visibility);
-    const [editMediaUrls, setEditMediaUrls] = useState<string[]>(post.mediaUrls);
+    const [editVisibility, setEditVisibility] = useState<PostVisibility>(
+        post.visibility,
+    );
+    const [editMediaUrls, setEditMediaUrls] = useState<string[]>(
+        post.mediaUrls,
+    );
     const [isSubmittingEdit, setIsSubmittingEdit] = useState(false);
     const [isSavingPost, setIsSavingPost] = useState(false);
     const [isCommentOpen, setIsCommentOpen] = useState(false);
     const [commentDraft, setCommentDraft] = useState("");
     const [commentMediaUrls, setCommentMediaUrls] = useState<string[]>([]);
     const [showCommentEmojiPicker, setShowCommentEmojiPicker] = useState(false);
-    const [replyToComment, setReplyToComment] = useState<PostComment | null>(null);
-    const [expandedCommentIds, setExpandedCommentIds] = useState<Set<string>>(new Set());
+    const [replyToComment, setReplyToComment] = useState<PostComment | null>(
+        null,
+    );
+    const [expandedCommentIds, setExpandedCommentIds] = useState<Set<string>>(
+        new Set(),
+    );
     const [comments, setComments] = useState<PostComment[]>([]);
     const [isLoadingComments, setIsLoadingComments] = useState(false);
     const [isSubmittingComment, setIsSubmittingComment] = useState(false);
-    const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
+    const [editingCommentId, setEditingCommentId] = useState<string | null>(
+        null,
+    );
     const [editingCommentContent, setEditingCommentContent] = useState("");
-    const [isSubmittingCommentEdit, setIsSubmittingCommentEdit] = useState(false);
+    const [isSubmittingCommentEdit, setIsSubmittingCommentEdit] =
+        useState(false);
     const [showHeartBurst, setShowHeartBurst] = useState(false);
     const [isActionsOpen, setIsActionsOpen] = useState(false);
     const [isShareOpen, setIsShareOpen] = useState(false);
@@ -138,7 +183,9 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
     const [currentMediaIndex, setCurrentMediaIndex] = useState(0);
     const [dialogMediaIndex, setDialogMediaIndex] = useState(0);
     const [deleteCommentId, setDeleteCommentId] = useState<string | null>(null);
-    const mediaClickTimerRef = useRef<ReturnType<typeof window.setTimeout> | null>(null);
+    const mediaClickTimerRef = useRef<ReturnType<
+        typeof window.setTimeout
+    > | null>(null);
     const actionsMenuRef = useRef<HTMLDivElement>(null);
     const commentEmojiPickerRef = useRef<HTMLDivElement>(null);
     const commentMediaInputRef = useRef<HTMLInputElement>(null);
@@ -177,13 +224,19 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
     const commentTree = useMemo(() => buildCommentTree(comments), [comments]);
 
     const renderCommentNode = (comment: CommentNode, depth = 0) => {
-        const commentInitial = comment.userDisplayName.slice(0, 1).toUpperCase();
+        const commentInitial = comment.userDisplayName
+            .slice(0, 1)
+            .toUpperCase();
         const commentMyReaction = comment.reactions?.find((r) => r.reactedByMe);
-        const commentTotalReactions = comment.reactions?.reduce((acc, r) => acc + r.count, 0) ?? 0;
+        const commentTotalReactions =
+            comment.reactions?.reduce((acc, r) => acc + r.count, 0) ?? 0;
         const isEditingThis = editingCommentId === comment.id;
 
         return (
-            <div key={comment.id} className={cn("flex items-start gap-2.5", depth > 0 && "ml-10")}> 
+            <div
+                key={comment.id}
+                className={cn("flex items-start gap-2.5", depth > 0 && "ml-10")}
+            >
                 <button
                     type="button"
                     className="h-8 w-8 rounded-full overflow-hidden bg-muted shrink-0"
@@ -211,7 +264,9 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
                         <div className="space-y-2">
                             <Textarea
                                 value={editingCommentContent}
-                                onChange={(e) => setEditingCommentContent(e.target.value)}
+                                onChange={(e) =>
+                                    setEditingCommentContent(e.target.value)
+                                }
                                 rows={2}
                                 className="resize-none text-sm"
                             />
@@ -232,7 +287,9 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
                                     onClick={handleSubmitEditComment}
                                     disabled={isSubmittingCommentEdit}
                                 >
-                                    {isSubmittingCommentEdit ? "Saving..." : "Save"}
+                                    {isSubmittingCommentEdit
+                                        ? "Saving..."
+                                        : "Save"}
                                 </Button>
                             </div>
                         </div>
@@ -244,18 +301,20 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
                                     className="text-sm font-medium text-foreground hover:underline"
                                     onClick={() => {
                                         if (comment.userUsername) {
-                                            navigate(`/u/${comment.userUsername}`);
+                                            navigate(
+                                                `/u/${comment.userUsername}`,
+                                            );
                                         }
                                     }}
                                 >
                                     {comment.userDisplayName}
                                 </button>
-                                    {comment.isAiGenerated && (
-                                        <span className="ml-1.5 inline-flex items-center gap-0.5 rounded-full bg-indigo-100 dark:bg-indigo-900/30 px-1.5 py-0.5 text-[10px] font-medium text-indigo-600 dark:text-indigo-400">
-                                            <Bot className="h-2.5 w-2.5" />
-                                            AI
-                                        </span>
-                                    )}
+                                {comment.isAiGenerated && (
+                                    <span className="ml-1.5 inline-flex items-center gap-0.5 rounded-full bg-indigo-100 dark:bg-indigo-900/30 px-1.5 py-0.5 text-[10px] font-medium text-indigo-600 dark:text-indigo-400">
+                                        <Bot className="h-2.5 w-2.5" />
+                                        AI
+                                    </span>
+                                )}
                                 {comment.content && (
                                     <p className="mt-1 text-sm text-foreground whitespace-pre-wrap">
                                         {comment.content}
@@ -275,10 +334,13 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
                                 )}
                             </div>
                             <div className="mt-1 flex items-center gap-2 text-[11px] text-muted-foreground">
-                                <span>{formatRelativeTime(comment.createdAt)}</span>
-                                {comment.updatedAt && comment.updatedAt !== comment.createdAt && (
-                                    <span>(edited)</span>
-                                )}
+                                <span>
+                                    {formatRelativeTime(comment.createdAt)}
+                                </span>
+                                {comment.updatedAt &&
+                                    comment.updatedAt !== comment.createdAt && (
+                                        <span>(edited)</span>
+                                    )}
                             </div>
 
                             <div className="mt-2 flex items-center gap-2 flex-nowrap overflow-x-auto scrollbar-hide">
@@ -287,23 +349,34 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
                                     variant="ghost"
                                     className={cn(
                                         "gap-1 text-[11px] font-normal h-auto py-1 px-1.5 whitespace-nowrap",
-                                        commentMyReaction ? "text-pink-500" : "text-muted-foreground",
+                                        commentMyReaction
+                                            ? "text-pink-500"
+                                            : "text-muted-foreground",
                                     )}
                                     onClick={() => {
-                                        if (commentMyReaction?.type === "LIKE") {
-                                            void handleRemoveCommentReaction(comment.id);
+                                        if (
+                                            commentMyReaction?.type === "LIKE"
+                                        ) {
+                                            void handleRemoveCommentReaction(
+                                                comment.id,
+                                            );
                                         } else {
-                                            void handleReactToComment(comment.id, "LIKE");
+                                            void handleReactToComment(
+                                                comment.id,
+                                                "LIKE",
+                                            );
                                         }
                                     }}
                                 >
                                     <Heart
                                         className={cn(
                                             "h-3 w-3",
-                                            commentMyReaction && "fill-pink-500",
+                                            commentMyReaction &&
+                                                "fill-pink-500",
                                         )}
                                     />
-                                    {commentTotalReactions > 0 && commentTotalReactions}
+                                    {commentTotalReactions > 0 &&
+                                        commentTotalReactions}
                                 </Button>
 
                                 <Button
@@ -321,7 +394,9 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
                                         size="sm"
                                         variant="ghost"
                                         className="gap-1 text-[11px] font-normal h-auto py-1 px-1.5 text-muted-foreground whitespace-nowrap"
-                                        onClick={() => handleEditComment(comment)}
+                                        onClick={() =>
+                                            handleEditComment(comment)
+                                        }
                                     >
                                         <PenLine className="h-3 w-3" />
                                         Edit
@@ -333,7 +408,9 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
                                         size="sm"
                                         variant="ghost"
                                         className="gap-1 text-[11px] font-normal h-auto py-1 px-1.5 text-red-600 hover:text-red-700 whitespace-nowrap"
-                                        onClick={() => handleDeleteComment(comment.id)}
+                                        onClick={() =>
+                                            handleDeleteComment(comment.id)
+                                        }
                                     >
                                         <Trash2 className="h-3 w-3" />
                                         Delete
@@ -343,39 +420,47 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
                         </>
                     )}
 
-                    {comment.children.length > 0 && expandedCommentIds.has(comment.id) && (
-                        <div className="mt-3 space-y-3 border-l border-border/70 pl-3">
-                            {comment.children.map((child) => renderCommentNode(child, depth + 1))}
-                        </div>
-                    )}
+                    {comment.children.length > 0 &&
+                        expandedCommentIds.has(comment.id) && (
+                            <div className="mt-3 space-y-3 border-l border-border/70 pl-3">
+                                {comment.children.map((child) =>
+                                    renderCommentNode(child, depth + 1),
+                                )}
+                            </div>
+                        )}
 
-                    {comment.children.length > 0 && !expandedCommentIds.has(comment.id) && (
-                        <button
-                            type="button"
-                            onClick={() => {
-                                const newSet = new Set(expandedCommentIds);
-                                newSet.add(comment.id);
-                                setExpandedCommentIds(newSet);
-                            }}
-                            className="mt-2 text-xs text-indigo-500 hover:text-indigo-600 font-medium"
-                        >
-                            View {comment.children.length} {comment.children.length === 1 ? "reply" : "replies"}
-                        </button>
-                    )}
+                    {comment.children.length > 0 &&
+                        !expandedCommentIds.has(comment.id) && (
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    const newSet = new Set(expandedCommentIds);
+                                    newSet.add(comment.id);
+                                    setExpandedCommentIds(newSet);
+                                }}
+                                className="mt-2 text-xs text-indigo-500 hover:text-indigo-600 font-medium"
+                            >
+                                View {comment.children.length}{" "}
+                                {comment.children.length === 1
+                                    ? "reply"
+                                    : "replies"}
+                            </button>
+                        )}
 
-                    {comment.children.length > 0 && expandedCommentIds.has(comment.id) && (
-                        <button
-                            type="button"
-                            onClick={() => {
-                                const newSet = new Set(expandedCommentIds);
-                                newSet.delete(comment.id);
-                                setExpandedCommentIds(newSet);
-                            }}
-                            className="mt-2 text-xs text-muted-foreground hover:text-foreground font-medium"
-                        >
-                            Hide replies
-                        </button>
-                    )}
+                    {comment.children.length > 0 &&
+                        expandedCommentIds.has(comment.id) && (
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    const newSet = new Set(expandedCommentIds);
+                                    newSet.delete(comment.id);
+                                    setExpandedCommentIds(newSet);
+                                }}
+                                className="mt-2 text-xs text-muted-foreground hover:text-foreground font-medium"
+                            >
+                                Hide replies
+                            </button>
+                        )}
                 </div>
             </div>
         );
@@ -423,7 +508,9 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
                 throw new Error(res.message ?? "Could not submit report.");
             }
             setIsReportOpen(false);
-            toast.success("Report submitted. Thanks for helping keep Chatly safe.");
+            toast.success(
+                "Report submitted. Thanks for helping keep Chatly safe.",
+            );
         } catch {
             toast.error("Could not submit report.");
         } finally {
@@ -468,7 +555,13 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
         try {
             const res = await agentService.startChatFromPost(post.id);
             if (res.code === 1000 && res.result) {
-                navigate(`/chatbot/${res.result.sessionId}`);
+                navigate(`/chatbot/${res.result.sessionId}`, {
+                    state: {
+                        contextMode: "post",
+                        title: res.result.title,
+                        postSnippet: res.result.postSnippet,
+                    },
+                });
             } else {
                 toast.error(res.message ?? "Could not start AI chat.");
             }
@@ -477,14 +570,14 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
         }
     };
 
-
-
     const handleCommentEmojiSelect = (emoji: { native: string }) => {
         setCommentDraft((current) => current + emoji.native);
         setShowCommentEmojiPicker(false);
     };
 
-    const handleCommentMediaSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const handleCommentMediaSelect = async (
+        event: React.ChangeEvent<HTMLInputElement>,
+    ) => {
         const files = event.currentTarget.files;
         if (!files) return;
 
@@ -513,7 +606,10 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
         }
 
         const handlePointerDown = (event: MouseEvent) => {
-            if (actionsMenuRef.current && !actionsMenuRef.current.contains(event.target as Node)) {
+            if (
+                actionsMenuRef.current &&
+                !actionsMenuRef.current.contains(event.target as Node)
+            ) {
                 setIsActionsOpen(false);
             }
         };
@@ -570,7 +666,11 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
     const handleReplyComment = (comment: PostComment) => {
         setReplyToComment(comment);
         setShowReplyBar(true);
-        setCommentDraft((current) => (current.startsWith(`@${comment.userDisplayName} `) ? current : `@${comment.userDisplayName} ${current}`));
+        setCommentDraft((current) =>
+            current.startsWith(`@${comment.userDisplayName} `)
+                ? current
+                : `@${comment.userDisplayName} ${current}`,
+        );
     };
 
     const handleSubmitEditComment = async () => {
@@ -584,10 +684,16 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
 
         setIsSubmittingCommentEdit(true);
         try {
-            const res = await postService.editComment(post.id, editingCommentId, content);
+            const res = await postService.editComment(
+                post.id,
+                editingCommentId,
+                content,
+            );
             if (res.code === 1000 && res.result) {
                 setComments((prev) =>
-                    prev.map((c) => (c.id === editingCommentId ? res.result : c)),
+                    prev.map((c) =>
+                        c.id === editingCommentId ? res.result : c,
+                    ),
                 );
                 setEditingCommentId(null);
                 setEditingCommentContent("");
@@ -608,9 +714,14 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
         if (!deleteCommentId) return;
 
         try {
-            const res = await postService.deleteComment(post.id, deleteCommentId);
+            const res = await postService.deleteComment(
+                post.id,
+                deleteCommentId,
+            );
             if (res.code === 1000) {
-                setComments((prev) => prev.filter((c) => c.id !== deleteCommentId));
+                setComments((prev) =>
+                    prev.filter((c) => c.id !== deleteCommentId),
+                );
                 updatePost(post.id, { commentCount: post.commentCount - 1 });
                 toast.success("Comment deleted.");
             }
@@ -621,9 +732,16 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
         }
     };
 
-    const handleReactToComment = async (commentId: string, type: ReactionType) => {
+    const handleReactToComment = async (
+        commentId: string,
+        type: ReactionType,
+    ) => {
         try {
-            const res = await postService.reactToComment(post.id, commentId, type);
+            const res = await postService.reactToComment(
+                post.id,
+                commentId,
+                type,
+            );
             if (res.code === 1000 && res.result) {
                 setComments((prev) =>
                     prev.map((c) => {
@@ -641,7 +759,10 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
 
     const handleRemoveCommentReaction = async (commentId: string) => {
         try {
-            const res = await postService.removeCommentReaction(post.id, commentId);
+            const res = await postService.removeCommentReaction(
+                post.id,
+                commentId,
+            );
             if (res.code === 1000 && res.result) {
                 setComments((prev) =>
                     prev.map((c) => {
@@ -776,13 +897,17 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
         }
 
         const handlePointerDown = (event: MouseEvent) => {
-            if (commentEmojiPickerRef.current && !commentEmojiPickerRef.current.contains(event.target as Node)) {
+            if (
+                commentEmojiPickerRef.current &&
+                !commentEmojiPickerRef.current.contains(event.target as Node)
+            ) {
                 setShowCommentEmojiPicker(false);
             }
         };
 
         document.addEventListener("mousedown", handlePointerDown);
-        return () => document.removeEventListener("mousedown", handlePointerDown);
+        return () =>
+            document.removeEventListener("mousedown", handlePointerDown);
     }, [showCommentEmojiPicker]);
 
     useEffect(() => {
@@ -798,197 +923,232 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
         void loadComments();
     }, [isCommentOpen, loadComments]);
 
-
-
     return (
         <>
             <article className="rounded-3xl bg-card shadow-sm border border-border overflow-hidden">
-            {/* Header */}
-            <div className="flex items-center justify-between px-5 pt-4 pb-2">
-                <button
-                    type="button"
-                    onClick={handleAuthorNavigate}
-                    className="flex items-center gap-2.5 min-w-0 text-left"
-                    disabled={!authorProfilePath}
-                >
-                    <div className="size-9 rounded-full bg-muted flex items-center justify-center text-sm font-semibold text-muted-foreground shrink-0 overflow-hidden">
-                        {authorAvatarUrl ? (
-                            <img
-                                src={authorAvatarUrl}
-                                alt={authorLabel}
-                                className="h-full w-full object-cover"
+                {/* Header */}
+                <div className="flex items-center justify-between px-5 pt-4 pb-2">
+                    <button
+                        type="button"
+                        onClick={handleAuthorNavigate}
+                        className="flex items-center gap-2.5 min-w-0 text-left"
+                        disabled={!authorProfilePath}
+                    >
+                        <div className="size-9 rounded-full bg-muted flex items-center justify-center text-sm font-semibold text-muted-foreground shrink-0 overflow-hidden">
+                            {authorAvatarUrl ? (
+                                <img
+                                    src={authorAvatarUrl}
+                                    alt={authorLabel}
+                                    className="h-full w-full object-cover"
+                                />
+                            ) : (
+                                authorInitial
+                            )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-foreground truncate hover:underline">
+                                {authorLabel}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                                {formatRelativeTime(post.createdAt)}
+                            </p>
+                        </div>
+                    </button>
+                    <div className="flex items-center gap-1">
+                        <Button
+                            size="icon-xs"
+                            variant="ghost"
+                            className="rounded-lg text-muted-foreground"
+                            onClick={() => void handleStartAiChat()}
+                            title="Chat with AI"
+                        >
+                            <CustomAiIcon className="size-4" />
+                        </Button>
+
+                        <div ref={actionsMenuRef} className="relative">
+                            <Button
+                                size="icon-xs"
+                                variant="ghost"
+                                className="rounded-lg text-muted-foreground"
+                                onClick={() =>
+                                    setIsActionsOpen((prev) => !prev)
+                                }
+                            >
+                                <MoreHorizontal className="size-4" />
+                            </Button>
+
+                            {isActionsOpen && (
+                                <div className="absolute right-0 top-10 z-50 w-44 rounded-2xl border border-border bg-background p-1 shadow-xl">
+                                    {currentUserId === post.authorId && (
+                                        <button
+                                            type="button"
+                                            onClick={handleEdit}
+                                            className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm text-foreground hover:bg-muted"
+                                        >
+                                            <PenLine className="h-4 w-4" />
+                                            Edit
+                                        </button>
+                                    )}
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setIsActionsOpen(false);
+                                            void handleSave();
+                                        }}
+                                        disabled={isSavingPost}
+                                        className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm text-foreground hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+                                    >
+                                        <Bookmark className="h-4 w-4" />
+                                        {post.savedByMe ? "Unsave" : "Save"}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setIsActionsOpen(false);
+                                            setIsReportOpen(true);
+                                        }}
+                                        className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm text-foreground hover:bg-muted"
+                                    >
+                                        <Flag className="h-4 w-4" />
+                                        Report
+                                    </button>
+                                    {currentUserId === post.authorId && (
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setIsActionsOpen(false);
+                                                void handleDelete();
+                                            }}
+                                            className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10"
+                                        >
+                                            <Trash2 className="h-4 w-4" />
+                                            Delete
+                                        </button>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+
+                {/* Content */}
+                <p className="px-5 py-2 text-sm text-foreground whitespace-pre-wrap leading-relaxed">
+                    {post.content}
+                </p>
+
+                {/* Hashtags */}
+                {post.hashtags.length > 0 && (
+                    <div className="flex flex-wrap gap-1 px-5 pb-2">
+                        {post.hashtags.map((tag) => (
+                            <button
+                                key={tag}
+                                type="button"
+                                onClick={() =>
+                                    navigate(
+                                        `/explore?hashtag=${encodeURIComponent(tag)}`,
+                                    )
+                                }
+                                className="cursor-pointer text-xs text-indigo-500 hover:underline"
+                            >
+                                #{tag}
+                            </button>
+                        ))}
+                    </div>
+                )}
+
+                {/* Media - Single clickable thumbnail */}
+                {post.mediaUrls.length > 0 && (
+                    <div
+                        className="relative bg-muted overflow-hidden aspect-video cursor-zoom-in flex items-center justify-center group"
+                        onClick={() => {
+                            const isVideo = /\.(mp4|webm)$/i.test(
+                                post.mediaUrls[currentMediaIndex],
+                            );
+                            if (!isVideo && lightboxImages.length > 0) {
+                                handleMediaClick(currentMediaIndex);
+                            }
+                        }}
+                        onDoubleClick={() => handleMediaDoubleClick()}
+                    >
+                        {post.mediaUrls[currentMediaIndex].match(
+                            /\.(mp4|webm)$/i,
+                        ) ? (
+                            <video
+                                src={post.mediaUrls[currentMediaIndex]}
+                                className="w-full h-full object-contain"
+                                muted
                             />
                         ) : (
-                            authorInitial
+                            <img
+                                src={post.mediaUrls[currentMediaIndex]}
+                                alt="Post media"
+                                className="w-full h-full object-contain"
+                            />
+                        )}
+                        {showHeartBurst && (
+                            <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                                <Heart className="h-16 w-16 fill-pink-500 text-pink-500 opacity-90 animate-pulse" />
+                            </div>
+                        )}
+
+                        {/* Navigation arrows */}
+                        {post.mediaUrls.length > 1 && (
+                            <>
+                                {currentMediaIndex > 0 && (
+                                    <button
+                                        type="button"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            setCurrentMediaIndex((prev) =>
+                                                Math.max(0, prev - 1),
+                                            );
+                                        }}
+                                        className="absolute left-2 p-2 text-white/50 hover:text-white bg-black/20 hover:bg-black/50 rounded-full transition-all opacity-0 group-hover:opacity-100"
+                                    >
+                                        <ChevronLeft size={24} />
+                                    </button>
+                                )}
+                                {currentMediaIndex <
+                                    post.mediaUrls.length - 1 && (
+                                    <button
+                                        type="button"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            setCurrentMediaIndex((prev) =>
+                                                Math.min(
+                                                    post.mediaUrls.length - 1,
+                                                    prev + 1,
+                                                ),
+                                            );
+                                        }}
+                                        className="absolute right-2 p-2 text-white/50 hover:text-white bg-black/20 hover:bg-black/50 rounded-full transition-all opacity-0 group-hover:opacity-100"
+                                    >
+                                        <ChevronRight size={24} />
+                                    </button>
+                                )}
+
+                                {/* Image counter */}
+                                <div className="absolute bottom-2 right-2 bg-black/60 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity">
+                                    {currentMediaIndex + 1}/
+                                    {post.mediaUrls.length}
+                                </div>
+                            </>
                         )}
                     </div>
-                    <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-foreground truncate hover:underline">{authorLabel}</p>
-                        <p className="text-xs text-muted-foreground">
-                            {formatRelativeTime(post.createdAt)}
-                        </p>
-                    </div>
-                </button>
-                <div ref={actionsMenuRef} className="relative">
-                    <Button
-                        size="icon-xs"
-                        variant="ghost"
-                        className="rounded-lg text-muted-foreground"
-                        onClick={() => setIsActionsOpen((prev) => !prev)}
-                    >
-                        <MoreHorizontal className="size-4" />
-                    </Button>
+                )}
 
-                    {isActionsOpen && (
-                        <div className="absolute right-0 top-10 z-50 w-44 rounded-2xl border border-border bg-background p-1 shadow-xl">
-                            {currentUserId === post.authorId && (
-                                <button
-                                    type="button"
-                                    onClick={handleEdit}
-                                    className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm text-foreground hover:bg-muted"
-                                >
-                                    <PenLine className="h-4 w-4" />
-                                    Edit
-                                </button>
-                            )}
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    setIsActionsOpen(false);
-                                    void handleSave();
-                                }}
-                                disabled={isSavingPost}
-                                className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm text-foreground hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
-                            >
-                                <Bookmark className="h-4 w-4" />
-                                {post.savedByMe ? "Unsave" : "Save"}
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    setIsActionsOpen(false);
-                                    setIsReportOpen(true);
-                                }}
-                                className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm text-foreground hover:bg-muted"
-                            >
-                                <Flag className="h-4 w-4" />
-                                Report
-                            </button>
-                            {currentUserId === post.authorId && (
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        setIsActionsOpen(false);
-                                        void handleDelete();
-                                    }}
-                                    className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10"
-                                >
-                                    <Trash2 className="h-4 w-4" />
-                                    Delete
-                                </button>
-                            )}
-                        </div>
-                    )}
-                </div>
-            </div>
-
-            {/* Content */}
-            <p className="px-5 py-2 text-sm text-foreground whitespace-pre-wrap leading-relaxed">
-                {post.content}
-            </p>
-
-            {/* Hashtags */}
-            {post.hashtags.length > 0 && (
-                <div className="flex flex-wrap gap-1 px-5 pb-2">
-                    {post.hashtags.map((tag) => (
-                        <button
-                            key={tag}
-                            type="button"
-                            onClick={() => navigate(`/explore?hashtag=${encodeURIComponent(tag)}`)}
-                            className="cursor-pointer text-xs text-indigo-500 hover:underline"
-                        >
-                            #{tag}
-                        </button>
-                    ))}
-                </div>
-            )}
-
-            {/* Media - Single clickable thumbnail */}
-            {post.mediaUrls.length > 0 && (
-                <div
-                    className="relative bg-muted overflow-hidden aspect-video cursor-zoom-in flex items-center justify-center group"
-                    onClick={() => {
-                        const isVideo = /\.(mp4|webm)$/i.test(post.mediaUrls[currentMediaIndex]);
-                        if (!isVideo && lightboxImages.length > 0) {
-                            handleMediaClick(currentMediaIndex);
-                        }
-                    }}
-                    onDoubleClick={() => handleMediaDoubleClick()}
-                >
-                    {post.mediaUrls[currentMediaIndex].match(/\.(mp4|webm)$/i) ? (
-                        <video
-                            src={post.mediaUrls[currentMediaIndex]}
-                            className="w-full h-full object-contain"
-                            muted
-                        />
-                    ) : (
-                        <img
-                            src={post.mediaUrls[currentMediaIndex]}
-                            alt="Post media"
-                            className="w-full h-full object-contain"
-                        />
-                    )}
-                    {showHeartBurst && (
-                        <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-                            <Heart className="h-16 w-16 fill-pink-500 text-pink-500 opacity-90 animate-pulse" />
-                        </div>
-                    )}
-                    
-                    {/* Navigation arrows */}
-                    {post.mediaUrls.length > 1 && (
-                        <>
-                            {currentMediaIndex > 0 && (
-                                <button
-                                    type="button"
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        setCurrentMediaIndex((prev) => Math.max(0, prev - 1));
-                                    }}
-                                    className="absolute left-2 p-2 text-white/50 hover:text-white bg-black/20 hover:bg-black/50 rounded-full transition-all opacity-0 group-hover:opacity-100"
-                                >
-                                    <ChevronLeft size={24} />
-                                </button>
-                            )}
-                            {currentMediaIndex < post.mediaUrls.length - 1 && (
-                                <button
-                                    type="button"
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        setCurrentMediaIndex((prev) => Math.min(post.mediaUrls.length - 1, prev + 1));
-                                    }}
-                                    className="absolute right-2 p-2 text-white/50 hover:text-white bg-black/20 hover:bg-black/50 rounded-full transition-all opacity-0 group-hover:opacity-100"
-                                >
-                                    <ChevronRight size={24} />
-                                </button>
-                            )}
-                            
-                            {/* Image counter */}
-                            <div className="absolute bottom-2 right-2 bg-black/60 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity">
-                                {currentMediaIndex + 1}/{post.mediaUrls.length}
-                            </div>
-                        </>
-                    )}
-                </div>
-            )}
-
-            {/* Footer actions */}
-            <div className="flex items-center gap-1 px-4 py-3 border-t border-border">
-                {/* Reaction button with picker */}
-                <div className="relative">
-                    {pickerOpen && (
-                        <div className="absolute bottom-full left-0 mb-2 flex gap-1 rounded-2xl bg-card shadow-lg border border-border px-3 py-2 z-10">
-                            {(Object.entries(REACTION_EMOJIS) as [ReactionType, string][]).map(
-                                ([type, emoji]) => (
+                {/* Footer actions */}
+                <div className="flex items-center gap-1 px-4 py-3 border-t border-border">
+                    {/* Reaction button with picker */}
+                    <div className="relative">
+                        {pickerOpen && (
+                            <div className="absolute bottom-full left-0 mb-2 flex gap-1 rounded-2xl bg-card shadow-lg border border-border px-3 py-2 z-10">
+                                {(
+                                    Object.entries(REACTION_EMOJIS) as [
+                                        ReactionType,
+                                        string,
+                                    ][]
+                                ).map(([type, emoji]) => (
                                     <button
                                         key={type}
                                         onClick={() => handleReact(type)}
@@ -997,54 +1157,54 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
                                     >
                                         {emoji}
                                     </button>
-                                ),
-                            )}
-                        </div>
-                    )}
-                    <Button
-                        size="sm"
-                        variant="ghost"
-                        className={cn(
-                            "gap-1.5 rounded-xl text-xs font-normal",
-                            myReaction ? "text-pink-500" : "text-muted-foreground",
+                                ))}
+                            </div>
                         )}
-                        onMouseEnter={() => setPickerOpen(true)}
-                        onMouseLeave={() => setPickerOpen(false)}
-                        onClick={() => handleReact(myReaction ? myReaction.type : "LIKE")}
-                    >
-                        <Heart className={cn("size-4", myReaction && "fill-pink-500")} />
-                        {totalReactions > 0 && totalReactions}
-                    </Button>
-                </div>
-
-                <Button
-                    size="sm"
-                    variant="ghost"
-                    className="gap-1.5 rounded-xl text-xs font-normal text-muted-foreground"
-                    onClick={handleOpenComments}
-                >
-                    <MessageCircle className="size-4" />
-                    {post.commentCount > 0 && post.commentCount}
-                </Button>
-
-                <Button
-                    size="sm"
-                    variant="ghost"
-                    className="gap-1.5 rounded-xl text-xs font-normal text-muted-foreground"
-                    onClick={() => setIsShareOpen(true)}
-                >
-                    <Share2 className="size-4" />
-                    {post.shareCount > 0 && post.shareCount}
-                </Button>
+                        <Button
+                            size="sm"
+                            variant="ghost"
+                            className={cn(
+                                "gap-1.5 rounded-xl text-xs font-normal",
+                                myReaction
+                                    ? "text-pink-500"
+                                    : "text-muted-foreground",
+                            )}
+                            onMouseEnter={() => setPickerOpen(true)}
+                            onMouseLeave={() => setPickerOpen(false)}
+                            onClick={() =>
+                                handleReact(
+                                    myReaction ? myReaction.type : "LIKE",
+                                )
+                            }
+                        >
+                            <Heart
+                                className={cn(
+                                    "size-4",
+                                    myReaction && "fill-pink-500",
+                                )}
+                            />
+                            {totalReactions > 0 && totalReactions}
+                        </Button>
+                    </div>
 
                     <Button
                         size="sm"
                         variant="ghost"
                         className="gap-1.5 rounded-xl text-xs font-normal text-muted-foreground"
-                        onClick={() => void handleStartAiChat()}
+                        onClick={handleOpenComments}
                     >
-                        <Bot className="size-4" />
-                        AI
+                        <MessageCircle className="size-4" />
+                        {post.commentCount > 0 && post.commentCount}
+                    </Button>
+
+                    <Button
+                        size="sm"
+                        variant="ghost"
+                        className="gap-1.5 rounded-xl text-xs font-normal text-muted-foreground"
+                        onClick={() => setIsShareOpen(true)}
+                    >
+                        <Share2 className="size-4" />
+                        {post.shareCount > 0 && post.shareCount}
                     </Button>
                 </div>
             </article>
@@ -1061,7 +1221,9 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
                     <div className="space-y-3">
                         <Textarea
                             value={editContent}
-                            onChange={(event) => setEditContent(event.target.value)}
+                            onChange={(event) =>
+                                setEditContent(event.target.value)
+                            }
                             rows={6}
                             className="resize-none"
                         />
@@ -1073,14 +1235,16 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                                {VISIBILITY_OPTIONS.map(({ value, label, icon: Icon }) => (
-                                    <SelectItem key={value} value={value}>
-                                        <span className="flex items-center gap-2">
-                                            <Icon className="h-3.5 w-3.5 text-indigo-500" />
-                                            {label}
-                                        </span>
-                                    </SelectItem>
-                                ))}
+                                {VISIBILITY_OPTIONS.map(
+                                    ({ value, label, icon: Icon }) => (
+                                        <SelectItem key={value} value={value}>
+                                            <span className="flex items-center gap-2">
+                                                <Icon className="h-3.5 w-3.5 text-indigo-500" />
+                                                {label}
+                                            </span>
+                                        </SelectItem>
+                                    ),
+                                )}
                             </SelectContent>
                         </Select>
                         <MediaUploadZone
@@ -1104,7 +1268,9 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
                             onClick={handleSubmitEdit}
                             disabled={
                                 isSubmittingEdit ||
-                                !editMediaUrls.some((url) => !/\.(mp4|webm)$/i.test(url))
+                                !editMediaUrls.some(
+                                    (url) => !/\.(mp4|webm)$/i.test(url),
+                                )
                             }
                         >
                             {isSubmittingEdit ? "Saving..." : "Save changes"}
@@ -1133,25 +1299,37 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
                     <div className="grid min-h-0 grid-cols-1 md:grid-cols-[minmax(0,1.15fr)_minmax(340px,0.85fr)] h-[90vh]">
                         <div className="bg-black relative flex min-h-0 items-center justify-center overflow-hidden group">
                             {post.mediaUrls.length > 0 ? (
-                                post.mediaUrls[dialogMediaIndex].match(/\.(mp4|webm)$/i) ? (
+                                post.mediaUrls[dialogMediaIndex].match(
+                                    /\.(mp4|webm)$/i,
+                                ) ? (
                                     <video
                                         src={post.mediaUrls[dialogMediaIndex]}
                                         className="max-h-full max-w-full object-contain cursor-zoom-in"
                                         controls
-                                        onClick={() => handleMediaClick(dialogMediaIndex)}
-                                        onDoubleClick={() => handleMediaDoubleClick()}
+                                        onClick={() =>
+                                            handleMediaClick(dialogMediaIndex)
+                                        }
+                                        onDoubleClick={() =>
+                                            handleMediaDoubleClick()
+                                        }
                                     />
                                 ) : (
                                     <img
                                         src={post.mediaUrls[dialogMediaIndex]}
                                         alt="Post media"
                                         className="max-h-full max-w-full object-contain cursor-zoom-in"
-                                        onClick={() => handleMediaClick(dialogMediaIndex)}
-                                        onDoubleClick={() => handleMediaDoubleClick()}
+                                        onClick={() =>
+                                            handleMediaClick(dialogMediaIndex)
+                                        }
+                                        onDoubleClick={() =>
+                                            handleMediaDoubleClick()
+                                        }
                                     />
                                 )
                             ) : (
-                                <div className="text-sm text-muted-foreground">No media</div>
+                                <div className="text-sm text-muted-foreground">
+                                    No media
+                                </div>
                             )}
                             {showHeartBurst && (
                                 <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
@@ -1166,19 +1344,28 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
                                             type="button"
                                             onClick={(e) => {
                                                 e.stopPropagation();
-                                                setDialogMediaIndex((prev) => Math.max(0, prev - 1));
+                                                setDialogMediaIndex((prev) =>
+                                                    Math.max(0, prev - 1),
+                                                );
                                             }}
                                             className="absolute left-4 p-2 text-white/50 hover:text-white bg-black/20 hover:bg-black/50 rounded-full transition-all opacity-0 group-hover:opacity-100"
                                         >
                                             <ChevronLeft size={32} />
                                         </button>
                                     )}
-                                    {dialogMediaIndex < post.mediaUrls.length - 1 && (
+                                    {dialogMediaIndex <
+                                        post.mediaUrls.length - 1 && (
                                         <button
                                             type="button"
                                             onClick={(e) => {
                                                 e.stopPropagation();
-                                                setDialogMediaIndex((prev) => Math.min(post.mediaUrls.length - 1, prev + 1));
+                                                setDialogMediaIndex((prev) =>
+                                                    Math.min(
+                                                        post.mediaUrls.length -
+                                                            1,
+                                                        prev + 1,
+                                                    ),
+                                                );
                                             }}
                                             className="absolute right-4 p-2 text-white/50 hover:text-white bg-black/20 hover:bg-black/50 rounded-full transition-all opacity-0 group-hover:opacity-100"
                                         >
@@ -1186,7 +1373,8 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
                                         </button>
                                     )}
                                     <div className="absolute bottom-4 right-4 bg-black/60 text-white text-sm px-3 py-1.5 rounded opacity-0 group-hover:opacity-100 transition-opacity">
-                                        {dialogMediaIndex + 1}/{post.mediaUrls.length}
+                                        {dialogMediaIndex + 1}/
+                                        {post.mediaUrls.length}
                                     </div>
                                 </>
                             )}
@@ -1194,7 +1382,9 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
 
                         <div className="flex min-h-0 flex-col bg-card">
                             <DialogHeader className="px-4 py-3 border-b border-border">
-                                <DialogTitle className="text-base">Comments</DialogTitle>
+                                <DialogTitle className="text-base">
+                                    Comments
+                                </DialogTitle>
                                 <DialogDescription className="sr-only">
                                     Join the conversation on this post.
                                 </DialogDescription>
@@ -1202,11 +1392,18 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
 
                             <div className="flex-1 min-h-0 overflow-y-auto px-4 py-3 space-y-3">
                                 {isLoadingComments ? (
-                                    <p className="text-sm text-muted-foreground">Loading comments...</p>
+                                    <p className="text-sm text-muted-foreground">
+                                        Loading comments...
+                                    </p>
                                 ) : commentTree.length === 0 ? (
-                                    <p className="text-sm text-muted-foreground">No comments yet. Be the first to comment!</p>
+                                    <p className="text-sm text-muted-foreground">
+                                        No comments yet. Be the first to
+                                        comment!
+                                    </p>
                                 ) : (
-                                    commentTree.map((comment) => renderCommentNode(comment))
+                                    commentTree.map((comment) =>
+                                        renderCommentNode(comment),
+                                    )
                                 )}
                             </div>
 
@@ -1214,14 +1411,19 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
                                 {replyToComment && showReplyBar && (
                                     <div className="flex items-center justify-between rounded-xl border border-border bg-muted/30 px-3 py-2 text-xs text-muted-foreground gap-2">
                                         <span className="flex-1 min-w-0 truncate">
-                                            Replying to <span className="font-medium">{replyToComment.userDisplayName}</span>
+                                            Replying to{" "}
+                                            <span className="font-medium">
+                                                {replyToComment.userDisplayName}
+                                            </span>
                                         </span>
                                         <Button
                                             type="button"
                                             variant="ghost"
                                             size="sm"
                                             className="h-6 px-2 text-xs shrink-0"
-                                            onClick={() => setShowReplyBar(false)}
+                                            onClick={() =>
+                                                setShowReplyBar(false)
+                                            }
                                         >
                                             Hide
                                         </Button>
@@ -1230,7 +1432,9 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
                                             variant="ghost"
                                             size="sm"
                                             className="h-6 px-2 text-xs text-red-500 hover:text-red-600 shrink-0"
-                                            onClick={() => setReplyToComment(null)}
+                                            onClick={() =>
+                                                setReplyToComment(null)
+                                            }
                                         >
                                             Cancel
                                         </Button>
@@ -1240,14 +1444,19 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
                                 {replyToComment && !showReplyBar && (
                                     <div className="flex items-center gap-2 px-3 py-2">
                                         <span className="text-xs text-muted-foreground flex-1 min-w-0 truncate">
-                                            Replying to <span className="font-medium">{replyToComment.userDisplayName}</span>
+                                            Replying to{" "}
+                                            <span className="font-medium">
+                                                {replyToComment.userDisplayName}
+                                            </span>
                                         </span>
                                         <Button
                                             type="button"
                                             variant="ghost"
                                             size="sm"
                                             className="h-6 px-2 text-xs shrink-0"
-                                            onClick={() => setShowReplyBar(true)}
+                                            onClick={() =>
+                                                setShowReplyBar(true)
+                                            }
                                         >
                                             Show
                                         </Button>
@@ -1257,7 +1466,10 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
                                 {commentMediaUrls.length > 0 && (
                                     <div className="flex flex-wrap gap-2">
                                         {commentMediaUrls.map((url) => (
-                                            <div key={url} className="relative group">
+                                            <div
+                                                key={url}
+                                                className="relative group"
+                                            >
                                                 <img
                                                     src={url}
                                                     alt="Comment attachment"
@@ -1265,7 +1477,11 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
                                                 />
                                                 <button
                                                     type="button"
-                                                    onClick={() => handleRemoveCommentMedia(url)}
+                                                    onClick={() =>
+                                                        handleRemoveCommentMedia(
+                                                            url,
+                                                        )
+                                                    }
                                                     className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
                                                 >
                                                     <X className="h-3 w-3" />
@@ -1277,7 +1493,9 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
 
                                 <Textarea
                                     value={commentDraft}
-                                    onChange={(event) => setCommentDraft(event.target.value)}
+                                    onChange={(event) =>
+                                        setCommentDraft(event.target.value)
+                                    }
                                     rows={2}
                                     placeholder="Add a comment..."
                                     className="resize-none"
@@ -1286,13 +1504,20 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
                                 <div className="flex items-center justify-between">
                                     <div className="flex items-center gap-2">
                                         {/* Emoji button */}
-                                        <div ref={commentEmojiPickerRef} className="relative">
+                                        <div
+                                            ref={commentEmojiPickerRef}
+                                            className="relative"
+                                        >
                                             <Button
                                                 type="button"
                                                 variant="ghost"
                                                 size="icon"
                                                 className="h-8 w-8 rounded-lg text-muted-foreground"
-                                                onClick={() => setShowCommentEmojiPicker((prev) => !prev)}
+                                                onClick={() =>
+                                                    setShowCommentEmojiPicker(
+                                                        (prev) => !prev,
+                                                    )
+                                                }
                                             >
                                                 <Smile className="h-4 w-4" />
                                             </Button>
@@ -1300,7 +1525,9 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
                                                 <div className="absolute bottom-full left-0 z-50 mb-2 rounded-2xl border border-border bg-card p-2 shadow-xl">
                                                     <Picker
                                                         data={data}
-                                                        onEmojiSelect={handleCommentEmojiSelect}
+                                                        onEmojiSelect={
+                                                            handleCommentEmojiSelect
+                                                        }
                                                     />
                                                 </div>
                                             )}
@@ -1312,7 +1539,9 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
                                             variant="ghost"
                                             size="icon"
                                             className="h-8 w-8 rounded-lg text-muted-foreground"
-                                            onClick={() => commentMediaInputRef.current?.click()}
+                                            onClick={() =>
+                                                commentMediaInputRef.current?.click()
+                                            }
                                         >
                                             <ImageIcon className="h-4 w-4" />
                                         </Button>
@@ -1342,7 +1571,9 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
                                         onClick={handleSubmitComment}
                                         disabled={isSubmittingComment}
                                     >
-                                        {isSubmittingComment ? "Posting..." : "Post"}
+                                        {isSubmittingComment
+                                            ? "Posting..."
+                                            : "Post"}
                                     </Button>
                                 </div>
                             </div>
@@ -1373,12 +1604,16 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
                 />
             )}
 
-            <Dialog open={deleteCommentId !== null} onOpenChange={(open) => !open && setDeleteCommentId(null)}>
+            <Dialog
+                open={deleteCommentId !== null}
+                onOpenChange={(open) => !open && setDeleteCommentId(null)}
+            >
                 <DialogContent className="max-w-sm">
                     <DialogHeader>
                         <DialogTitle>Delete Comment</DialogTitle>
                         <DialogDescription>
-                            Are you sure you want to delete this comment? This action cannot be undone.
+                            Are you sure you want to delete this comment? This
+                            action cannot be undone.
                         </DialogDescription>
                     </DialogHeader>
                     <DialogFooter>
@@ -1410,13 +1645,20 @@ function areStringArraysEqual(left: string[], right: string[]): boolean {
     return true;
 }
 
-function areReactionsEqual(left: Post["reactions"], right: Post["reactions"]): boolean {
+function areReactionsEqual(
+    left: Post["reactions"],
+    right: Post["reactions"],
+): boolean {
     if (left === right) return true;
     if (left.length !== right.length) return false;
     for (let i = 0; i < left.length; i += 1) {
         const a = left[i];
         const b = right[i];
-        if (a.type !== b.type || a.count !== b.count || a.reactedByMe !== b.reactedByMe) {
+        if (
+            a.type !== b.type ||
+            a.count !== b.count ||
+            a.reactedByMe !== b.reactedByMe
+        ) {
             return false;
         }
     }
@@ -1437,9 +1679,12 @@ function arePostsEqual(prev: PostCardProps, next: PostCardProps): boolean {
     if (prevPost.authorAvatarUrl !== nextPost.authorAvatarUrl) return false;
     if (prevPost.commentCount !== nextPost.commentCount) return false;
     if (prevPost.shareCount !== nextPost.shareCount) return false;
-    if (!areStringArraysEqual(prevPost.mediaUrls, nextPost.mediaUrls)) return false;
-    if (!areStringArraysEqual(prevPost.hashtags, nextPost.hashtags)) return false;
-    if (!areReactionsEqual(prevPost.reactions, nextPost.reactions)) return false;
+    if (!areStringArraysEqual(prevPost.mediaUrls, nextPost.mediaUrls))
+        return false;
+    if (!areStringArraysEqual(prevPost.hashtags, nextPost.hashtags))
+        return false;
+    if (!areReactionsEqual(prevPost.reactions, nextPost.reactions))
+        return false;
 
     return true;
 }

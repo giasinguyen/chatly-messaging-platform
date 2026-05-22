@@ -4,11 +4,12 @@ import { CustomAiIcon } from "@/components/customize/CustomAiIcon";
 
 interface ChatbotHeaderProps {
     title: string;
+    subtitle?: string;
     sidebarCollapsed?: boolean;
     onToggleSidebar?: () => void;
 }
 
-export function ChatbotHeader({ title, sidebarCollapsed, onToggleSidebar }: ChatbotHeaderProps) {
+export function ChatbotHeader({ title, subtitle = "AI Assistant", sidebarCollapsed, onToggleSidebar }: ChatbotHeaderProps) {
     return (
         <div className="flex items-center gap-3 px-4 py-3 border-b border-border bg-background/80 backdrop-blur-sm shrink-0">
             {sidebarCollapsed && onToggleSidebar && (
@@ -29,7 +30,7 @@ export function ChatbotHeader({ title, sidebarCollapsed, onToggleSidebar }: Chat
                 <h2 className="text-sm font-semibold text-foreground truncate">
                     {title}
                 </h2>
-                <p className="text-[11px] text-muted-foreground">AI Assistant</p>
+                <p className="text-[11px] text-muted-foreground truncate">{subtitle}</p>
             </div>
         </div>
     );
