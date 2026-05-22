@@ -18,7 +18,9 @@ import {
     DialogTitle,
 } from "@/components/ui/dialog";
 import type { ContactResponse } from "@/types/contact";
+import type { CreateUserReportRequest } from "@/types/userReport";
 import type { ConfirmDialogType } from "./profile.types";
+import { ReportUserDialog } from "./ReportUserDialog";
 
 interface ProfileDialogsProps {
     confirmDialog: ConfirmDialogType | null;
@@ -34,6 +36,10 @@ interface ProfileDialogsProps {
     loadingFriends: boolean;
     friends: ContactResponse[];
     targetUserId: string | null;
+    showReportUserDialog: boolean;
+    isSubmittingUserReport: boolean;
+    onShowReportUserDialogChange: (open: boolean) => void;
+    onReportUser: (payload: CreateUserReportRequest) => void | Promise<void>;
 }
 
 export function ProfileDialogs({
@@ -50,6 +56,10 @@ export function ProfileDialogs({
     loadingFriends,
     friends,
     targetUserId,
+    showReportUserDialog,
+    isSubmittingUserReport,
+    onShowReportUserDialogChange,
+    onReportUser,
 }: ProfileDialogsProps) {
     const navigate = useNavigate();
 
@@ -183,6 +193,14 @@ export function ProfileDialogs({
                     </div>
                 </DialogContent>
             </Dialog>
+
+            <ReportUserDialog
+                open={showReportUserDialog}
+                displayName={fullName}
+                isSubmitting={isSubmittingUserReport}
+                onOpenChange={onShowReportUserDialogChange}
+                onSubmit={onReportUser}
+            />
         </>
     );
 }
