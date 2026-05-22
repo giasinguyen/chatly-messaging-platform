@@ -1,10 +1,7 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { reportService } from "@/services/report.service";
-import {
-  ReportResponse,
-  ReportStatus,
-  ReportReason,
-} from "@/types/admin";
+import { ReportStatus } from "@/types/admin";
+import type { ReportResponse } from "@/types/admin";
 import {
   ShieldAlert,
   CheckCircle,
@@ -21,7 +18,7 @@ export const ReportsPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isUpdating, setIsUpdating] = useState<string | null>(null);
 
-  const fetchReports = async () => {
+  const fetchReports = useCallback(async () => {
     setIsLoading(true);
     try {
       const statusParam = selectedStatus === "ALL" ? undefined : selectedStatus;
@@ -37,11 +34,11 @@ export const ReportsPage: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [selectedStatus]);
 
   useEffect(() => {
     fetchReports();
-  }, [selectedStatus]);
+  }, [fetchReports]);
 
   const handleUpdateStatus = async (reportId: string, status: ReportStatus) => {
     setIsUpdating(reportId);
@@ -95,18 +92,7 @@ export const ReportsPage: React.FC = () => {
 
   return (
     <div className="space-y-6 animate-fade-in text-slate-800">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-extrabold text-slate-800 tracking-tight font-outfit">
-            Spam & Abuse Moderation
-          </h1>
-          <p className="text-sm text-slate-500 font-medium">
-            Moderate flagged social posts and inappropriate user activities
-          </p>
-        </div>
-
-        {/* Filters */}
+      <div className="flex flex-col md:flex-row md:items-center justify-end gap-4">
         <div className="flex gap-2 bg-slate-50 p-1 rounded-2xl border border-slate-100">
           {statusFilters.map((f) => (
             <button

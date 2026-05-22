@@ -47,19 +47,74 @@ export interface AdminStatsResponse {
   recentActivity: AdminActivityLog[];
 }
 
-export enum ReportReason {
-  SPAM = "SPAM",
-  HARASSMENT = "HARASSMENT",
-  INAPPROPRIATE_CONTENT = "INAPPROPRIATE_CONTENT",
-  VIOLENCE = "VIOLENCE",
-  OTHER = "OTHER"
+export interface AdminCreateUserRequest {
+  username: string;
+  email?: string;
+  phone?: string;
+  displayName: string;
+  password: string;
+  avatarUrl?: string;
+  bio?: string;
+  dob?: string;
 }
 
-export enum ReportStatus {
-  PENDING = "PENDING",
-  RESOLVED = "RESOLVED",
-  DISMISSED = "DISMISSED"
+export interface AdminAuditLogResponse {
+  id: string;
+  adminUserId: string;
+  type: string;
+  targetType: string;
+  targetId: string;
+  title: string;
+  description: string;
+  createdAt: string;
 }
+
+export interface AdminSettingsResponse {
+  id: string;
+  publicRegistrationEnabled: boolean;
+  userReportsEnabled: boolean;
+  aiProactiveRepliesEnabled: boolean;
+  maintenanceBannerEnabled: boolean;
+  sessionTimeoutDays: number;
+  maxUploadSizeMb: number;
+  messageRetentionDays: number;
+  rateLimitWindowSeconds: number;
+  updatedAt?: string;
+}
+
+export interface AdminSettingsRequest {
+  publicRegistrationEnabled?: boolean;
+  userReportsEnabled?: boolean;
+  aiProactiveRepliesEnabled?: boolean;
+  maintenanceBannerEnabled?: boolean;
+  sessionTimeoutDays?: number;
+  maxUploadSizeMb?: number;
+  messageRetentionDays?: number;
+  rateLimitWindowSeconds?: number;
+}
+
+export type ReportReason =
+  | "SPAM"
+  | "HARASSMENT"
+  | "INAPPROPRIATE_CONTENT"
+  | "VIOLENCE"
+  | "OTHER";
+
+export const ReportReason: Record<ReportReason, ReportReason> = {
+  SPAM: "SPAM",
+  HARASSMENT: "HARASSMENT",
+  INAPPROPRIATE_CONTENT: "INAPPROPRIATE_CONTENT",
+  VIOLENCE: "VIOLENCE",
+  OTHER: "OTHER",
+};
+
+export type ReportStatus = "PENDING" | "RESOLVED" | "DISMISSED";
+
+export const ReportStatus: Record<ReportStatus, ReportStatus> = {
+  PENDING: "PENDING",
+  RESOLVED: "RESOLVED",
+  DISMISSED: "DISMISSED",
+};
 
 export interface ReportResponse {
   id: string;

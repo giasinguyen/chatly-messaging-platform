@@ -54,16 +54,7 @@ export const SystemHealthPage: React.FC = () => {
 
   return (
     <div className="space-y-6 animate-fade-in text-slate-800">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-extrabold text-slate-800 tracking-tight font-outfit">
-            System Diagnostics
-          </h1>
-          <p className="text-sm text-slate-500">
-            Real-time status of the monolithic Chatly infrastructure
-          </p>
-        </div>
-
+      <div className="flex justify-end">
         <button
           onClick={() => fetchHealth(true)}
           disabled={isRefreshing}

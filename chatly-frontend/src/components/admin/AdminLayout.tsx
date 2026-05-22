@@ -1,5 +1,5 @@
-import React from "react";
-import { NavLink, useNavigate } from "react-router-dom";
+import type { ReactNode } from "react";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useAuthStore } from "@/store/auth.store";
 import { authService } from "@/services/auth.service";
 import {
@@ -18,12 +18,96 @@ import {
 } from "lucide-react";
 
 interface AdminLayoutProps {
-  children: React.ReactNode;
+  children: ReactNode;
 }
 
-export const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
+const navItems = [
+  {
+    to: "/admin/dashboard",
+    label: "Dashboard",
+    headerTitle: "Dashboard Overview",
+    headerDescription: "Live metrics and platform operations",
+    icon: LayoutDashboard,
+  },
+  {
+    to: "/admin/users",
+    label: "User Management",
+    headerTitle: "User Management",
+    headerDescription: "Accounts, access status, and moderation controls",
+    icon: Users,
+  },
+  {
+    to: "/admin/conversations",
+    label: "Conversations",
+    headerTitle: "Conversations",
+    headerDescription: "Direct chats, groups, membership, and routing status",
+    icon: MessagesSquare,
+  },
+  {
+    to: "/admin/posts",
+    label: "Post Moderation",
+    headerTitle: "Post Moderation",
+    headerDescription: "Social content search and visibility review",
+    icon: FileText,
+  },
+  {
+    to: "/admin/reports",
+    label: "Spam & Abuse",
+    headerTitle: "Spam & Abuse",
+    headerDescription: "Report queue and policy decisions",
+    icon: ShieldAlert,
+  },
+  {
+    to: "/admin/messages",
+    label: "Message Moderation",
+    headerTitle: "Message Moderation",
+    headerDescription: "Message ledger, recall review, and delivery controls",
+    icon: MessageSquare,
+  },
+  {
+    to: "/admin/notifications",
+    label: "Notifications",
+    headerTitle: "Notifications",
+    headerDescription: "Broadcasts, targeted notices, and dispatch history",
+    icon: Bell,
+  },
+  {
+    to: "/admin/ai-agent",
+    label: "AI Agent",
+    headerTitle: "AI Agent",
+    headerDescription: "Agent sessions, health, and internal service checks",
+    icon: Bot,
+  },
+  {
+    to: "/admin/system",
+    label: "System Health",
+    headerTitle: "System Health",
+    headerDescription: "Subsystem availability and infrastructure diagnostics",
+    icon: Activity,
+  },
+  {
+    to: "/admin/audit",
+    label: "Audit Logs",
+    headerTitle: "Audit Logs",
+    headerDescription: "Administrative action trace and accountability",
+    icon: ClipboardList,
+  },
+  {
+    to: "/admin/settings",
+    label: "Settings",
+    headerTitle: "Settings",
+    headerDescription: "Platform policies, limits, and operational defaults",
+    icon: Settings,
+  },
+];
+
+export function AdminLayout({ children }: AdminLayoutProps) {
   const { user, clearAuth } = useAuthStore();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  const activeItem =
+    navItems.find((item) => location.pathname.startsWith(item.to)) ?? navItems[0];
 
   const handleLogout = async () => {
     try {
@@ -35,26 +119,10 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
     navigate("/login");
   };
 
-  const navItems = [
-    { to: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
-    { to: "/admin/users", label: "User Management", icon: Users },
-    { to: "/admin/conversations", label: "Conversations", icon: MessagesSquare },
-    { to: "/admin/posts", label: "Post Moderation", icon: FileText },
-    { to: "/admin/reports", label: "Spam & Abuse", icon: ShieldAlert },
-    { to: "/admin/messages", label: "Message Moderation", icon: MessageSquare },
-    { to: "/admin/notifications", label: "Notifications", icon: Bell },
-    { to: "/admin/ai-agent", label: "AI Agent", icon: Bot },
-    { to: "/admin/system", label: "System Health", icon: Activity },
-    { to: "/admin/audit", label: "Audit Logs", icon: ClipboardList },
-    { to: "/admin/settings", label: "Settings", icon: Settings },
-  ];
-
   return (
     <div className="flex h-screen bg-[#faf8ff] overflow-hidden text-slate-800">
-      {/* Sidebar - Fixed 260px */}
       <aside className="w-[260px] bg-white border-r border-slate-100 flex flex-col justify-between shrink-0">
         <div className="flex flex-col h-[calc(100vh-140px)] overflow-y-auto">
-          {/* Logo */}
           <div className="h-16 px-6 flex items-center gap-2.5 border-b border-slate-50 shrink-0 sticky top-0 bg-white z-10">
             <img
               src="/chatly-logo-nobg.png"
@@ -95,7 +163,6 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
           </nav>
         </div>
 
-        {/* User profile & Logout */}
         <div className="p-4 border-t border-slate-50 bg-white shrink-0">
           <div className="flex items-center gap-3 p-2 mb-3 bg-slate-50/50 rounded-xl">
             <img
@@ -125,13 +192,16 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
         </div>
       </aside>
 
-      {/* Main content pane */}
       <div className="flex-1 flex flex-col min-w-0">
-        {/* Top Navbar */}
         <header className="h-16 bg-white border-b border-slate-100 px-8 flex items-center justify-between shrink-0">
-          <h2 className="text-lg font-bold text-slate-800 font-outfit">
-            System Control Panel
-          </h2>
+          <div className="min-w-0">
+            <h2 className="text-lg font-bold text-slate-800 font-outfit leading-tight">
+              {activeItem.headerTitle}
+            </h2>
+            <p className="text-xs font-medium text-slate-400 truncate">
+              {activeItem.headerDescription}
+            </p>
+          </div>
           <div className="flex items-center gap-4">
             <button className="w-9 h-9 rounded-xl bg-slate-50 text-slate-500 hover:bg-slate-100 flex items-center justify-center transition-all duration-150 relative">
               <Bell size={18} />
@@ -140,12 +210,11 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
           </div>
         </header>
 
-        {/* Content Body */}
-        <main className="flex-1 overflow-y-auto p-8 max-w-7xl w-full mx-auto">
+        <main className="flex-1 overflow-y-auto p-6 lg:p-8 w-full">
           {children}
         </main>
       </div>
     </div>
   );
-};
+}
 export default AdminLayout;
