@@ -32,6 +32,7 @@ export interface CreatePostRequest {
     content: string;
     mediaUrls?: string[];
     visibility?: PostVisibility;
+    mentionIds?: string[];
 }
 
 export interface UpdatePostRequest {
@@ -97,4 +98,5 @@ export interface CreatePostCommentRequest {
     content?: string;
     mediaUrls?: string[];
     parentCommentId?: string | null;
+    mentionIds?: string[];
 }

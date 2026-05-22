@@ -18,5 +18,8 @@ public class CreatePostRequest {
 
     private List<String> mediaUrls;
 
+    @Size(max = 20, message = "A post can include up to 20 mentions")
+    private List<String> mentionIds;
+
     private PostVisibility visibility = PostVisibility.PUBLIC;
 }
