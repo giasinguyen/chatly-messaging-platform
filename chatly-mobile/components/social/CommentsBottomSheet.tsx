@@ -61,14 +61,18 @@ export function CommentsBottomSheet({
 
   const panResponder = useRef(
     PanResponder.create({
-      onStartShouldSetPanResponder: () => scrollPosition === 0,
-      onMoveShouldSetPanResponder: () => scrollPosition === 0,
-      onPanResponderMove: (evt, { dy }) => {
+      onStartShouldSetPanResponder: () => false,
+      onMoveShouldSetPanResponder: (_, { dx, dy }) => {
+        if (scrollPosition > 0) return false;
+        const isVerticalDrag = Math.abs(dy) > Math.abs(dx);
+        return isVerticalDrag && dy > 6;
+      },
+      onPanResponderMove: (_, { dy }) => {
         if (dy > 0 && scrollPosition === 0) {
           pan.y.setValue(dy);
         }
       },
-      onPanResponderRelease: (evt, { dy }) => {
+      onPanResponderRelease: (_, { dy }) => {
         if (dy > DRAG_THRESHOLD) {
           onClose();
           pan.y.setValue(0);
@@ -100,14 +104,13 @@ export function CommentsBottomSheet({
 
       {/* Bottom Sheet */}
       <Animated.View
-        {...panResponder.panHandlers}
         style={{
           height: SHEET_HEIGHT,
           transform: [{ translateY: pan.y }],
         }}
         className="bg-white">
         {/* Handle Bar */}
-        <View className="items-center py-3">
+        <View className="items-center py-3" {...panResponder.panHandlers}>
           <View className="h-1 w-12 rounded-full bg-gray-300" />
         </View>
 
@@ -122,9 +125,12 @@ export function CommentsBottomSheet({
         {/* Comments List */}
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 20 : 0}
           style={{ flex: 1 }}>
           <ScrollView
             ref={scrollViewRef}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="interactive"
             scrollEventThrottle={16}
             onScroll={(evt) => {
               const offsetY = evt.nativeEvent.contentOffset.y;

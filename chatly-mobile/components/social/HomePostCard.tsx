@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { Colors } from '@/constants/theme';
+import { normalizeMediaUrl } from '@/utils/mediaUrl';
 import { CommentsBottomSheet } from './CommentsBottomSheet';
 import { PostImageCarousel } from './PostImageCarousel';
 import { ReportPostModal } from './ReportPostModal';
@@ -32,7 +33,6 @@ interface HomePostCardProps {
 }
 
 const FALLBACK_AVATAR = 'https://i.pravatar.cc/140?img=30';
-const FALLBACK_MEDIA = 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=1200';
 
 function formatCount(value: number): string {
   if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
@@ -80,6 +80,10 @@ export function HomePostCard({
   const isLiked = likeSummary?.reactedByMe ?? false;
   const isSaved = post.savedByMe ?? false;
   const totalLikes = likeSummary?.count ?? 0;
+  const mediaUrls = useMemo(
+    () => post.mediaUrls.map((url) => normalizeMediaUrl(url)).filter((url): url is string => Boolean(url)),
+    [post.mediaUrls],
+  );
 
   const handleLike = () => {
     onToggleLikePost?.(post.id);
@@ -201,10 +205,9 @@ export function HomePostCard({
         </View>
 
         {/* Post Image Carousel */}
-        <PostImageCarousel
-          images={post.mediaUrls && post.mediaUrls.length > 0 ? post.mediaUrls : [FALLBACK_MEDIA]}
-          onDoubleTap={handleDoubleTapLike}
-        />
+        {mediaUrls.length > 0 ? (
+          <PostImageCarousel images={mediaUrls} onDoubleTap={handleDoubleTapLike} />
+        ) : null}
 
         {/* Post Actions & Caption */}
         <View className="px-3 pb-3 pt-2">

@@ -2,9 +2,13 @@ import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Keyboard,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
+  StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
@@ -34,6 +38,7 @@ interface SelectedPostImage {
 
 const MAX_POST_IMAGES = 6;
 const DEFAULT_IMAGE_MIME_TYPE = 'image/jpeg';
+const MAX_POST_CONTENT_LENGTH = 2000;
 
 const VISIBILITY_OPTIONS: { label: string; value: PostVisibility; icon: keyof typeof Ionicons.glyphMap }[] = [
   { label: 'Everyone', value: 'PUBLIC', icon: 'earth-outline' },
@@ -52,9 +57,13 @@ export function CreatePostModal({
   const [visibility, setVisibility] = useState<PostVisibility>('PUBLIC');
   const [existingImageUrls, setExistingImageUrls] = useState<string[]>([]);
   const [images, setImages] = useState<SelectedPostImage[]>([]);
+  const [contentError, setContentError] = useState<string | null>(null);
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const isEditing = Boolean(editingPost);
   const totalImageCount = existingImageUrls.length + images.length;
+  const trimmedContent = content.trim();
+  const canSubmit = trimmedContent.length > 0 && trimmedContent.length <= MAX_POST_CONTENT_LENGTH;
 
   useEffect(() => {
     if (!visible) return;
@@ -64,17 +73,42 @@ export function CreatePostModal({
     setImages([]);
   }, [editingPost, visible]);
 
+  useEffect(() => {
+    const showSubscription = Keyboard.addListener('keyboardDidShow', () => {
+      setIsKeyboardVisible(true);
+    });
+    const hideSubscription = Keyboard.addListener('keyboardDidHide', () => {
+      setIsKeyboardVisible(false);
+    });
+
+    return () => {
+      showSubscription.remove();
+      hideSubscription.remove();
+    };
+  }, []);
+
   const reset = () => {
     setContent('');
     setVisibility('PUBLIC');
     setExistingImageUrls([]);
     setImages([]);
+    setContentError(null);
   };
 
   const handleClose = () => {
     if (isSubmitting) return;
+    Keyboard.dismiss();
     reset();
     onClose();
+  };
+
+  const handleBackdropPress = () => {
+    if (isKeyboardVisible) {
+      Keyboard.dismiss();
+      return;
+    }
+
+    handleClose();
   };
 
   const handlePickImages = async () => {
@@ -116,12 +150,17 @@ export function CreatePostModal({
   };
 
   const handleSubmit = async () => {
-    const trimmedContent = content.trim();
-    if (totalImageCount === 0) {
-      Alert.alert('Add an image', 'Posts must include at least one image.');
+    if (!trimmedContent) {
+      setContentError('Post content cannot be empty.');
       return;
     }
 
+    if (trimmedContent.length > MAX_POST_CONTENT_LENGTH) {
+      setContentError('Content must not exceed 2000 characters.');
+      return;
+    }
+
+    setContentError(null);
     setIsSubmitting(true);
     try {
       const uploadedUrls = await Promise.all(
@@ -133,12 +172,12 @@ export function CreatePostModal({
       const mediaUrls = [...existingImageUrls, ...uploadedUrls];
       const response = isEditing && editingPost
         ? await postService.update(editingPost.id, {
-          content: trimmedContent || 'Shared photos',
+          content: trimmedContent,
           mediaUrls,
           visibility,
         })
         : await postService.create({
-          content: trimmedContent || 'Shared photos',
+          content: trimmedContent,
           mediaUrls,
           visibility,
         });
@@ -168,147 +207,181 @@ export function CreatePostModal({
       animationType="slide"
       onRequestClose={handleClose}
     >
-      <Pressable
-        onPress={handleClose}
-        style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: Colors.overlay }}
-      >
-        <Pressable
-          onPress={(event) => event.stopPropagation()}
-          className="rounded-t-3xl bg-white px-4 pb-7 pt-4"
+      <View style={styles.overlay}>
+        <Pressable onPress={handleBackdropPress} style={StyleSheet.absoluteFill} />
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 12 : 0}
+          style={styles.sheetContainer}
         >
-          <View className="mb-4 flex-row items-center justify-between">
-            <Text className="text-lg font-semibold text-[#1D1D1F]">
-              {isEditing ? 'Edit post' : 'Create post'}
-            </Text>
-            <TouchableOpacity onPress={handleClose} className="rounded-full bg-[#F5F5F7] p-2">
-              <Ionicons name="close" size={18} color={Colors.textMuted} />
-            </TouchableOpacity>
-          </View>
-
-          <TextInput
-            value={content}
-            onChangeText={setContent}
-            multiline
-            placeholder="Share something with everyone..."
-            placeholderTextColor={Colors.textLight}
-            style={{
-              minHeight: 130,
-              borderWidth: 1,
-              borderColor: Colors.borderLight,
-              borderRadius: 14,
-              paddingHorizontal: 12,
-              paddingVertical: 10,
-              textAlignVertical: 'top',
-              color: Colors.text,
+          <Pressable
+            onPress={(event) => {
+              event.stopPropagation();
+              Keyboard.dismiss();
             }}
-          />
-
-          {totalImageCount > 0 && (
+            className="rounded-t-3xl bg-white"
+            style={{ maxHeight: '88%' }}
+          >
             <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              className="mt-3"
-              contentContainerStyle={{ gap: 8 }}
+              keyboardShouldPersistTaps="handled"
+              keyboardDismissMode="interactive"
+              bounces={false}
+              contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 28 }}
             >
-              {existingImageUrls.map((url) => (
-                <View key={url} className="relative">
-                  <Image
-                    source={{ uri: url }}
-                    contentFit="cover"
-                    style={{ width: 82, height: 82, borderRadius: 12 }}
-                  />
-                  <TouchableOpacity
-                    onPress={() => handleRemoveExistingImage(url)}
-                    className="absolute right-1 top-1 rounded-full bg-black/60 p-1"
-                    activeOpacity={0.8}
-                    disabled={isSubmitting}
-                  >
-                    <Ionicons name="close" size={13} color={Colors.white} />
-                  </TouchableOpacity>
-                </View>
-              ))}
-              {images.map((image) => (
-                <View key={image.uri} className="relative">
-                  <Image
-                    source={{ uri: image.uri }}
-                    contentFit="cover"
-                    style={{ width: 82, height: 82, borderRadius: 12 }}
-                  />
-                  <TouchableOpacity
-                    onPress={() => handleRemoveImage(image.uri)}
-                    className="absolute right-1 top-1 rounded-full bg-black/60 p-1"
-                    activeOpacity={0.8}
-                    disabled={isSubmitting}
-                  >
-                    <Ionicons name="close" size={13} color={Colors.white} />
-                  </TouchableOpacity>
-                </View>
-              ))}
-            </ScrollView>
-          )}
-
-          <TouchableOpacity
-            onPress={handlePickImages}
-            className="mt-3 flex-row items-center justify-center rounded-xl border border-[#D1D1D6] py-2.5"
-            activeOpacity={0.85}
-            disabled={isSubmitting}
-          >
-            <Ionicons name="image-outline" size={18} color={Colors.cta} />
-            <Text className="ml-2 text-sm font-semibold text-[#0071E3]">
-              Add images ({totalImageCount}/{MAX_POST_IMAGES})
-            </Text>
-          </TouchableOpacity>
-
-          <Text className="mb-2 mt-4 text-sm font-medium text-[#1D1D1F]">Visibility</Text>
-          <View className="mb-5 flex-row flex-wrap gap-2">
-            {VISIBILITY_OPTIONS.map((option) => {
-              const selected = option.value === visibility;
-              return (
-                <TouchableOpacity
-                  key={option.value}
-                  onPress={() => setVisibility(option.value)}
-                  className="rounded-full px-3 py-2"
-                  style={{
-                    backgroundColor: selected ? '#E8F2FE' : '#F5F5F7',
-                    borderWidth: selected ? 1 : 0,
-                    borderColor: selected ? '#0071E3' : 'transparent',
-                  }}
-                >
-                  <View className="flex-row items-center gap-1.5">
-                    <Ionicons
-                      name={option.icon}
-                      size={14}
-                      color={selected ? Colors.cta : Colors.textMuted}
-                    />
-                    <Text
-                      className="text-xs font-semibold"
-                      style={{ color: selected ? Colors.cta : Colors.textMuted }}
-                    >
-                      {option.label}
-                    </Text>
-                  </View>
+              <View className="mb-4 flex-row items-center justify-between">
+                <Text className="text-lg font-semibold text-[#1D1D1F]">
+                  {isEditing ? 'Edit post' : 'Create post'}
+                </Text>
+                <TouchableOpacity onPress={handleClose} className="rounded-full bg-[#F5F5F7] p-2">
+                  <Ionicons name="close" size={18} color={Colors.textMuted} />
                 </TouchableOpacity>
-              );
-            })}
-          </View>
+              </View>
 
-          <TouchableOpacity
-            onPress={handleSubmit}
-            activeOpacity={0.85}
-            className="items-center rounded-xl bg-[#0071E3] py-3"
-            disabled={isSubmitting || totalImageCount === 0}
-            style={{ opacity: isSubmitting || totalImageCount === 0 ? 0.55 : 1 }}
-          >
-            {isSubmitting ? (
-              <ActivityIndicator color={Colors.white} />
-            ) : (
-              <Text className="text-sm font-semibold text-white">
-                {isEditing ? 'Save changes' : 'Post'}
-              </Text>
-            )}
-          </TouchableOpacity>
-        </Pressable>
-      </Pressable>
+              <TextInput
+                value={content}
+                onChangeText={(value) => {
+                  setContent(value);
+                  if (contentError) {
+                    setContentError(null);
+                  }
+                }}
+                multiline
+                placeholder="Share something with everyone..."
+                placeholderTextColor={Colors.textLight}
+                style={{
+                  minHeight: 130,
+                  borderWidth: 1,
+                  borderColor: Colors.borderLight,
+                  borderRadius: 14,
+                  paddingHorizontal: 12,
+                  paddingVertical: 10,
+                  textAlignVertical: 'top',
+                  color: Colors.text,
+                }}
+              />
+              {contentError ? (
+                <Text className="mt-2 text-xs font-medium text-[#FF3B30]">{contentError}</Text>
+              ) : null}
+
+              {totalImageCount > 0 && (
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  className="mt-3"
+                  contentContainerStyle={{ gap: 8 }}
+                >
+                  {existingImageUrls.map((url) => (
+                    <View key={url} className="relative">
+                      <Image
+                        source={{ uri: url }}
+                        contentFit="cover"
+                        style={{ width: 82, height: 82, borderRadius: 12 }}
+                      />
+                      <TouchableOpacity
+                        onPress={() => handleRemoveExistingImage(url)}
+                        className="absolute right-1 top-1 rounded-full bg-black/60 p-1"
+                        activeOpacity={0.8}
+                        disabled={isSubmitting}
+                      >
+                        <Ionicons name="close" size={13} color={Colors.white} />
+                      </TouchableOpacity>
+                    </View>
+                  ))}
+                  {images.map((image) => (
+                    <View key={image.uri} className="relative">
+                      <Image
+                        source={{ uri: image.uri }}
+                        contentFit="cover"
+                        style={{ width: 82, height: 82, borderRadius: 12 }}
+                      />
+                      <TouchableOpacity
+                        onPress={() => handleRemoveImage(image.uri)}
+                        className="absolute right-1 top-1 rounded-full bg-black/60 p-1"
+                        activeOpacity={0.8}
+                        disabled={isSubmitting}
+                      >
+                        <Ionicons name="close" size={13} color={Colors.white} />
+                      </TouchableOpacity>
+                    </View>
+                  ))}
+                </ScrollView>
+              )}
+
+              <TouchableOpacity
+                onPress={handlePickImages}
+                className="mt-3 flex-row items-center justify-center rounded-xl border border-[#D1D1D6] py-2.5"
+                activeOpacity={0.85}
+                disabled={isSubmitting}
+              >
+                <Ionicons name="image-outline" size={18} color={Colors.cta} />
+                <Text className="ml-2 text-sm font-semibold text-[#0071E3]">
+                  Add images (optional) ({totalImageCount}/{MAX_POST_IMAGES})
+                </Text>
+              </TouchableOpacity>
+
+              <Text className="mb-2 mt-4 text-sm font-medium text-[#1D1D1F]">Visibility</Text>
+              <View className="mb-5 flex-row flex-wrap gap-2">
+                {VISIBILITY_OPTIONS.map((option) => {
+                  const selected = option.value === visibility;
+                  return (
+                    <TouchableOpacity
+                      key={option.value}
+                      onPress={() => setVisibility(option.value)}
+                      className="rounded-full px-3 py-2"
+                      style={{
+                        backgroundColor: selected ? '#E8F2FE' : '#F5F5F7',
+                        borderWidth: selected ? 1 : 0,
+                        borderColor: selected ? '#0071E3' : 'transparent',
+                      }}
+                    >
+                      <View className="flex-row items-center gap-1.5">
+                        <Ionicons
+                          name={option.icon}
+                          size={14}
+                          color={selected ? Colors.cta : Colors.textMuted}
+                        />
+                        <Text
+                          className="text-xs font-semibold"
+                          style={{ color: selected ? Colors.cta : Colors.textMuted }}
+                        >
+                          {option.label}
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              <TouchableOpacity
+                onPress={handleSubmit}
+                activeOpacity={0.85}
+                className="items-center rounded-xl bg-[#0071E3] py-3"
+                disabled={isSubmitting || !canSubmit}
+                style={{ opacity: isSubmitting || !canSubmit ? 0.55 : 1 }}
+              >
+                {isSubmitting ? (
+                  <ActivityIndicator color={Colors.white} />
+                ) : (
+                  <Text className="text-sm font-semibold text-white">
+                    {isEditing ? 'Save changes' : 'Post'}
+                  </Text>
+                )}
+              </TouchableOpacity>
+            </ScrollView>
+          </Pressable>
+        </KeyboardAvoidingView>
+      </View>
     </Modal>
   );
 }
+
+const styles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: Colors.overlay,
+  },
+  sheetContainer: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+});
