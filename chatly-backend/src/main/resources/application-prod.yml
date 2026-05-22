@@ -30,6 +30,11 @@ spring:
     redis:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: ${REEL_MULTIPART_MAX_FILE_SIZE:20MB}
+      max-request-size: ${REEL_MULTIPART_MAX_REQUEST_SIZE:25MB}
   mail:
     host: ${SPRING_MAIL_HOST:smtp.gmail.com}
     port: ${SPRING_MAIL_PORT:587}
@@ -64,6 +69,8 @@ app:
       client-id: ${JAMENDO_CLIENT_ID}
       client-secret: ${JAMENDO_CLIENT_SECRET}
       base-url: ${JAMENDO_BASE_URL:https://api.jamendo.com/v3.0}
+  reels:
+    max-video-size-mb: ${REEL_MAX_VIDEO_SIZE_MB:20}
 
 agent:
   base-url: ${AGENT_BASE_URL:http://chatly-agent:8000}

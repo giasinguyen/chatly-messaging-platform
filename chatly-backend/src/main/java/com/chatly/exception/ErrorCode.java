@@ -82,6 +82,9 @@ public enum ErrorCode {
     USER_REPORT_ALREADY_EXISTS(1908, "You have already reported this user", HttpStatus.CONFLICT),
     STORY_NOT_FOUND(1910, "Story not found", HttpStatus.NOT_FOUND),
     STORY_FORBIDDEN(1911, "You are not authorized to perform this action on this story", HttpStatus.FORBIDDEN),
+    REEL_NOT_FOUND(1920, "Reel not found", HttpStatus.NOT_FOUND),
+    REEL_FORBIDDEN(1921, "You are not authorized to view this reel", HttpStatus.FORBIDDEN),
+    REEL_VIDEO_REQUIRED(1922, "Reel video is required", HttpStatus.BAD_REQUEST),
 
     FILE_NOT_FOUND(1800, "File not found", HttpStatus.NOT_FOUND),
     FILE_UPLOAD_FAILED(1801, "File upload failed", HttpStatus.INTERNAL_SERVER_ERROR),

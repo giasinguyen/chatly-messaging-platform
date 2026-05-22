@@ -9,7 +9,7 @@ export interface ReadReceipt {
 
 export interface Attachment {
     fileId?: string;
-    kind?: "POST_PREVIEW" | "STORY_REPLY";
+    kind?: "POST_PREVIEW" | "REEL_PREVIEW" | "STORY_REPLY";
     url: string;
     name?: string;
     type?: string;
@@ -23,6 +23,12 @@ export interface Attachment {
     postAuthorName?: string;
     postAuthorAvatarUrl?: string;
     targetUrl?: string;
+    // REEL_PREVIEW fields
+    reelId?: string;
+    reelCaption?: string;
+    reelVideoUrl?: string;
+    reelAuthorName?: string;
+    reelAuthorAvatarUrl?: string;
     // STORY_REPLY fields
     storyId?: string;
     storyType?: string;
