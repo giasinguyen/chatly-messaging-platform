@@ -6,6 +6,7 @@ import { DashboardActivityTimeline } from "@/components/admin/DashboardActivityT
 import { DashboardBreakdownCard } from "@/components/admin/DashboardBreakdownCard";
 import { DashboardHealthPanel } from "@/components/admin/DashboardHealthPanel";
 import { DashboardKpiCard } from "@/components/admin/DashboardKpiCard";
+import DashboardOperationsPanel from "@/components/admin/DashboardOperationsPanel";
 import {
   buildDashboardViewModel,
   formatDecimal,
@@ -92,6 +93,8 @@ export default function DashboardPage() {
           })}
         </div>
       </div>
+
+      <DashboardOperationsPanel stats={stats} />
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-5">
         <div className="xl:col-span-2">
