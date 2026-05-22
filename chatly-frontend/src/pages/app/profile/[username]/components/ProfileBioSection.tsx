@@ -1,17 +1,17 @@
 interface ProfileBioSectionProps {
-    displayUsername: string;
+    fullName: string;
     bio?: string;
     isLimited: boolean;
 }
 
 export function ProfileBioSection({
-    displayUsername,
+    fullName,
     bio,
     isLimited,
 }: ProfileBioSectionProps) {
     return (
         <div className="flex max-w-lg flex-col gap-1">
-            <p className="text-sm font-bold text-foreground">@{displayUsername}</p>
+            <p className="text-sm font-semibold text-foreground">{fullName}</p>
             {!isLimited ? (
                 <p className="whitespace-pre-line text-sm text-muted-foreground">
                     {bio || "No bio yet."}

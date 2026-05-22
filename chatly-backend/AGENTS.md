@@ -79,7 +79,7 @@ All identifiers, comments, and Javadoc **must be in English**.
 - Pagination: use Spring's `Pageable` for any list endpoint that may grow unbounded.
 - Shared post actions live under `/api/posts/{postId}/share` and only mutate engagement counters; sharing content itself remains in the chat service.
 - Saved posts are listed through `/api/posts/saved` and should ignore stale saved records for deleted posts.
-- Post reports are created through `/api/reports` so moderation records can be stored independently from post engagement actions.
+- Post reports are created through `/api/reports` and user reports through `/api/reports/users` so moderation records can be stored independently from social engagement actions.
 
 ---
 

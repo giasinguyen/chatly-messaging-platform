@@ -7,12 +7,14 @@ import { conversationService } from "@/services/conversation.service";
 import { postService } from "@/services/post.service";
 import { storyService } from "@/services/story.service";
 import { userService } from "@/services/user.service";
+import { userReportService } from "@/services/userReport.service";
 import { useAuthStore } from "@/store/auth.store";
 import { useContactStore } from "@/store/contact.store";
 import type { UserResponse } from "@/types/auth";
 import type { ContactResponse } from "@/types/contact";
 import type { Post } from "@/types/post";
 import type { Story } from "@/types/story";
+import type { CreateUserReportRequest } from "@/types/userReport";
 import type { ConfirmDialogType, ProfileTab } from "../components/profile.types";
 
 export function useUsernameProfilePage() {
@@ -43,6 +45,8 @@ export function useUsernameProfilePage() {
     const [showFriendsModal, setShowFriendsModal] = useState(false);
     const [friends, setFriends] = useState<ContactResponse[]>([]);
     const [loadingFriends, setLoadingFriends] = useState(false);
+    const [showReportUserDialog, setShowReportUserDialog] = useState(false);
+    const [isSubmittingUserReport, setIsSubmittingUserReport] = useState(false);
 
     const loadingPostsRef = useRef(false);
 
@@ -288,6 +292,25 @@ export function useUsernameProfilePage() {
         toast.success("Profile link copied!");
     };
 
+    const handleReportUser = async (payload: CreateUserReportRequest) => {
+        if (!targetUserId) return;
+
+        setIsSubmittingUserReport(true);
+        try {
+            const response = await userReportService.create(targetUserId, payload);
+            if (response.code !== 1000) {
+                toast.error(response.message || "Could not report user");
+                return;
+            }
+            toast.success("User report submitted");
+            setShowReportUserDialog(false);
+        } catch {
+            toast.error("Could not report user");
+        } finally {
+            setIsSubmittingUserReport(false);
+        }
+    };
+
     const handleOpenFriends = useCallback(async () => {
         if (!targetUserId) return;
 
@@ -352,8 +375,10 @@ export function useUsernameProfilePage() {
         confirmDialog,
         activeTab,
         showFriendsModal,
+        showReportUserDialog,
         friends,
         loadingFriends,
+        isSubmittingUserReport,
         isOwnProfile,
         contactStatus,
         direction,
@@ -366,6 +391,7 @@ export function useUsernameProfilePage() {
         setShowStoryViewer,
         setConfirmDialog,
         setShowFriendsModal,
+        setShowReportUserDialog,
         loadPosts,
         loadData,
         handleTabChange,
@@ -375,6 +401,7 @@ export function useUsernameProfilePage() {
         handleAcceptRequest,
         handleMessage,
         handleCopyLink,
+        handleReportUser,
         handleBlock,
         handleUnblock,
         handleRemoveFriend,

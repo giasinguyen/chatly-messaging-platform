@@ -1,10 +1,8 @@
 import {
     Ban,
     Check,
-    Link as LinkIcon,
     Loader2,
     MessageCircle,
-    MoreHorizontal,
     ShieldOff,
     Unlock,
     UserMinus,
@@ -14,16 +12,10 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuSeparator,
-    DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { EditProfileModal } from "./EditProfileModal";
 import { ProfileBioSection } from "./ProfileBioSection";
+import { ProfileOverflowMenu } from "./ProfileOverflowMenu";
 import { ProfileStats } from "./ProfileStats";
 
 interface ProfileHeaderProps {
@@ -49,6 +41,7 @@ interface ProfileHeaderProps {
     onAcceptRequest: () => void;
     onMessage: () => void;
     onCopyLink: () => void;
+    onReportUser: () => void;
     onSetConfirmDialog: (value: "block" | "unblock" | "remove") => void;
 }
 
@@ -75,20 +68,21 @@ export function ProfileHeader({
     onAcceptRequest,
     onMessage,
     onCopyLink,
+    onReportUser,
     onSetConfirmDialog,
 }: ProfileHeaderProps) {
     return (
-        <section className="mb-10 flex flex-col items-start gap-10 md:flex-row md:items-center">
+        <section className="mb-10 grid gap-6 border-b border-border pb-10 sm:grid-cols-[10rem_minmax(0,1fr)] sm:gap-10 lg:grid-cols-[12rem_minmax(0,1fr)] lg:px-10">
             <div
                 className={cn(
-                    "relative shrink-0 rounded-full",
+                    "relative mx-auto shrink-0 rounded-full sm:mx-0",
                     hasActiveStories &&
                         "cursor-pointer bg-linear-to-tr from-brand via-blue-500 to-cyan-400 p-1",
                 )}
                 onClick={hasActiveStories ? onOpenStoryViewer : undefined}
             >
                 <div className={cn("rounded-full", hasActiveStories && "bg-background p-1")}>
-                    <Avatar className="h-24 w-24 rounded-full border-4 border-background shadow-lg md:h-36 md:w-36">
+                    <Avatar className="size-28 rounded-full border border-border bg-muted sm:size-36 lg:size-40">
                         <AvatarImage src={avatarUrl} className="object-cover" />
                         <AvatarFallback className="bg-linear-to-tr from-pink-400 to-indigo-500 text-4xl font-semibold text-white">
                             {userInitial}
@@ -97,168 +91,26 @@ export function ProfileHeader({
                 </div>
             </div>
 
-            <div className="flex w-full flex-1 flex-col gap-3">
-                <div className="flex flex-col gap-6 md:flex-row md:items-center">
-                    <h1 className="flex items-center gap-2 text-2xl font-bold text-foreground">
-                        {fullName}
-                        {direction === "I_BLOCKED" && (
-                            <Badge variant="destructive" className="gap-1 px-1.5 py-0">
-                                <Ban size={12} /> Blocked
-                            </Badge>
-                        )}
-                        {isLimited && direction !== "I_BLOCKED" && (
-                            <Badge
-                                variant="secondary"
-                                className="gap-1 bg-amber-100 px-1.5 py-0 text-amber-700"
-                            >
-                                <ShieldOff size={12} /> Limited
-                            </Badge>
-                        )}
-                        {contactStatus === "ACCEPTED" && !direction && (
-                            <Badge variant="secondary" className="gap-1 px-1.5 py-0">
-                                <Check size={12} /> Friends
-                            </Badge>
-                        )}
+            <div className="flex min-w-0 flex-col gap-4">
+                <div className="flex flex-wrap items-center gap-2">
+                    <h1 className="min-w-0 text-xl font-semibold text-foreground md:text-2xl">
+                        {displayUsername}
                     </h1>
-
-                    <div className="flex flex-wrap items-center gap-2">
-                        {isOwnProfile ? (
-                            <EditProfileModal username={displayUsername} />
-                        ) : (
-                            <>
-                                {direction === "I_BLOCKED" && (
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() => onSetConfirmDialog("unblock")}
-                                        disabled={actionLoading}
-                                    >
-                                        <Unlock size={15} className="mr-2" /> Unblock
-                                    </Button>
-                                )}
-
-                                {!direction && (
-                                    <>
-                                        {!contactStatus && (
-                                            <Button
-                                                size="sm"
-                                                onClick={onSendFriendRequest}
-                                                disabled={actionLoading}
-                                            >
-                                                {actionLoading ? (
-                                                    <Loader2 className="h-4 w-4 animate-spin" />
-                                                ) : (
-                                                    <UserPlus size={15} className="mr-2" />
-                                                )}
-                                                Add Friend
-                                            </Button>
-                                        )}
-
-                                        {iSentRequest && (
-                                            <Button
-                                                size="sm"
-                                                variant="outline"
-                                                onClick={onCancelRequest}
-                                                disabled={actionLoading}
-                                            >
-                                                <X size={15} className="mr-2" /> Cancel Request
-                                            </Button>
-                                        )}
-
-                                        {theySentRequest && (
-                                            <>
-                                                <Button
-                                                    size="sm"
-                                                    onClick={onAcceptRequest}
-                                                    disabled={actionLoading}
-                                                >
-                                                    <Check size={15} className="mr-2" /> Accept
-                                                </Button>
-                                                <Button
-                                                    size="sm"
-                                                    variant="outline"
-                                                    onClick={onCancelRequest}
-                                                    disabled={actionLoading}
-                                                >
-                                                    <X size={15} className="mr-2" /> Decline
-                                                </Button>
-                                            </>
-                                        )}
-
-                                        {contactStatus === "ACCEPTED" && (
-                                            <>
-                                                <Button
-                                                    size="sm"
-                                                    onClick={onMessage}
-                                                    disabled={actionLoading}
-                                                >
-                                                    <MessageCircle size={15} className="mr-2" /> Message
-                                                </Button>
-                                                <Button
-                                                    size="sm"
-                                                    variant="outline"
-                                                    onClick={() => onSetConfirmDialog("remove")}
-                                                    disabled={actionLoading}
-                                                >
-                                                    <UserMinus size={15} className="mr-2" /> Remove Friend
-                                                </Button>
-                                            </>
-                                        )}
-                                    </>
-                                )}
-
-                                <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                        <Button variant="outline" size="sm" className="px-2">
-                                            <MoreHorizontal size={16} />
-                                        </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end" className="w-52">
-                                        <DropdownMenuItem onClick={onCopyLink}>
-                                            <LinkIcon size={14} className="mr-2" /> Copy profile link
-                                        </DropdownMenuItem>
-                                        {contactStatus === "ACCEPTED" && !direction && (
-                                            <DropdownMenuItem onClick={onMessage}>
-                                                <MessageCircle size={14} className="mr-2" /> Send message
-                                            </DropdownMenuItem>
-                                        )}
-                                        {contactStatus === "ACCEPTED" && !direction && (
-                                            <>
-                                                <DropdownMenuSeparator />
-                                                <DropdownMenuItem
-                                                    onClick={() => onSetConfirmDialog("remove")}
-                                                    className="text-destructive focus:text-destructive"
-                                                >
-                                                    <UserMinus size={14} className="mr-2" /> Remove friend
-                                                </DropdownMenuItem>
-                                            </>
-                                        )}
-                                        {!direction && (
-                                            <>
-                                                <DropdownMenuSeparator />
-                                                <DropdownMenuItem
-                                                    onClick={() => onSetConfirmDialog("block")}
-                                                    className="text-destructive focus:text-destructive"
-                                                >
-                                                    <Ban size={14} className="mr-2" /> Block user
-                                                </DropdownMenuItem>
-                                            </>
-                                        )}
-                                        {direction === "I_BLOCKED" && (
-                                            <>
-                                                <DropdownMenuSeparator />
-                                                <DropdownMenuItem
-                                                    onClick={() => onSetConfirmDialog("unblock")}
-                                                >
-                                                    <Unlock size={14} className="mr-2" /> Unblock user
-                                                </DropdownMenuItem>
-                                            </>
-                                        )}
-                                    </DropdownMenuContent>
-                                </DropdownMenu>
-                            </>
-                        )}
-                    </div>
+                    {direction === "I_BLOCKED" && (
+                        <Badge variant="destructive" className="gap-1">
+                            <Ban className="size-3" /> Blocked
+                        </Badge>
+                    )}
+                    {isLimited && direction !== "I_BLOCKED" && (
+                        <Badge variant="secondary" className="gap-1 bg-amber-100 text-amber-700">
+                            <ShieldOff className="size-3" /> Limited
+                        </Badge>
+                    )}
+                    {contactStatus === "ACCEPTED" && !direction && (
+                        <Badge variant="secondary" className="gap-1">
+                            <Check className="size-3" /> Friends
+                        </Badge>
+                    )}
                 </div>
 
                 <ProfileStats
@@ -268,10 +120,80 @@ export function ProfileHeader({
                 />
 
                 <ProfileBioSection
-                    displayUsername={displayUsername}
+                    fullName={fullName}
                     bio={bio}
                     isLimited={isLimited}
                 />
+
+                <div className="flex w-full gap-2 sm:max-w-xl">
+                    {isOwnProfile ? (
+                        <EditProfileModal username={displayUsername} />
+                    ) : direction === "I_BLOCKED" ? (
+                        <Button
+                            variant="outline"
+                            onClick={() => onSetConfirmDialog("unblock")}
+                            disabled={actionLoading}
+                        >
+                            <Unlock className="mr-2 size-4" /> Unblock
+                        </Button>
+                    ) : (
+                        <div className="grid min-w-0 flex-1 gap-2 sm:grid-cols-2">
+                            {contactStatus === "ACCEPTED" ? (
+                                <Button
+                                    variant="outline"
+                                    onClick={() => onSetConfirmDialog("remove")}
+                                    disabled={actionLoading}
+                                >
+                                    <UserMinus className="mr-2 size-4" /> Unfriend
+                                </Button>
+                            ) : theySentRequest ? (
+                                <div className="grid gap-2 sm:grid-cols-2">
+                                    <Button onClick={onAcceptRequest} disabled={actionLoading}>
+                                        <Check className="mr-2 size-4" /> Accept
+                                    </Button>
+                                    <Button
+                                        variant="outline"
+                                        onClick={onCancelRequest}
+                                        disabled={actionLoading}
+                                    >
+                                        <X className="mr-2 size-4" /> Decline
+                                    </Button>
+                                </div>
+                            ) : iSentRequest ? (
+                                <Button
+                                    variant="outline"
+                                    onClick={onCancelRequest}
+                                    disabled={actionLoading}
+                                >
+                                    <X className="mr-2 size-4" /> Cancel request
+                                </Button>
+                            ) : (
+                                <Button onClick={onSendFriendRequest} disabled={actionLoading}>
+                                    {actionLoading ? (
+                                        <Loader2 className="mr-2 size-4 animate-spin" />
+                                    ) : (
+                                        <UserPlus className="mr-2 size-4" />
+                                    )}
+                                    Add friend
+                                </Button>
+                            )}
+                            <Button onClick={onMessage} disabled={actionLoading}>
+                                <MessageCircle className="mr-2 size-4" /> Message
+                            </Button>
+                        </div>
+                    )}
+
+                    {!isOwnProfile && (
+                        <ProfileOverflowMenu
+                            contactStatus={contactStatus}
+                            direction={direction}
+                            onCopyLink={onCopyLink}
+                            onMessage={onMessage}
+                            onReportUser={onReportUser}
+                            onSetConfirmDialog={onSetConfirmDialog}
+                        />
+                    )}
+                </div>
             </div>
         </section>
     );

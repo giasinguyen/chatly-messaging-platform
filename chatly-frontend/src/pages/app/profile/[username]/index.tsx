@@ -31,8 +31,10 @@ export default function UsernameProfilePage() {
         confirmDialog,
         activeTab,
         showFriendsModal,
+        showReportUserDialog,
         friends,
         loadingFriends,
+        isSubmittingUserReport,
         isOwnProfile,
         contactStatus,
         direction,
@@ -45,6 +47,7 @@ export default function UsernameProfilePage() {
         setShowStoryViewer,
         setConfirmDialog,
         setShowFriendsModal,
+        setShowReportUserDialog,
         loadPosts,
         loadData,
         handleTabChange,
@@ -54,6 +57,7 @@ export default function UsernameProfilePage() {
         handleAcceptRequest,
         handleMessage,
         handleCopyLink,
+        handleReportUser,
         handleBlock,
         handleUnblock,
         handleRemoveFriend,
@@ -129,6 +133,7 @@ export default function UsernameProfilePage() {
                     onAcceptRequest={handleAcceptRequest}
                     onMessage={handleMessage}
                     onCopyLink={handleCopyLink}
+                    onReportUser={() => setShowReportUserDialog(true)}
                     onSetConfirmDialog={setConfirmDialog}
                 />
 
@@ -241,6 +246,10 @@ export default function UsernameProfilePage() {
                 loadingFriends={loadingFriends}
                 friends={friends}
                 targetUserId={targetUserId}
+                showReportUserDialog={showReportUserDialog}
+                isSubmittingUserReport={isSubmittingUserReport}
+                onShowReportUserDialogChange={setShowReportUserDialog}
+                onReportUser={handleReportUser}
             />
             </div>
         </SocialErrorBoundary>
