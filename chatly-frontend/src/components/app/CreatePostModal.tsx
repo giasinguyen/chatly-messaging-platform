@@ -46,8 +46,6 @@ const isPostVisibility = (value: string): value is PostVisibility =>
     value === "FRIENDS_ONLY" ||
     value === "ONLY_ME";
 
-const hasImageMedia = (urls: string[]) => urls.some((url) => !/\.(mp4|webm)$/i.test(url));
-
 interface CreatePostModalProps {
     isOpen: boolean;
     onClose: () => void;
@@ -71,7 +69,6 @@ export function CreatePostModal({ isOpen, onClose, user }: CreatePostModalProps)
     });
 
     const visibility = watch("visibility");
-    const canSubmit = hasImageMedia(mediaUrls);
 
     const handleVisibilityChange = (value: string) => {
         if (isPostVisibility(value)) {
@@ -87,11 +84,6 @@ export function CreatePostModal({ isOpen, onClose, user }: CreatePostModalProps)
     };
 
     const onSubmit = async (values: FormValues) => {
-        if (!hasImageMedia(mediaUrls)) {
-            toast.error("Please add at least one image.");
-            return;
-        }
-
         try {
             const response = await postService.create({
                 content: values.content,
@@ -190,7 +182,7 @@ export function CreatePostModal({ isOpen, onClose, user }: CreatePostModalProps)
                         <Button
                             type="submit"
                             size="sm"
-                            disabled={isSubmitting || !canSubmit}
+                            disabled={isSubmitting}
                             className="bg-brand text-white hover:bg-brand/90"
                         >
                             {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

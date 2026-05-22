@@ -72,9 +72,6 @@ public class PostService {
 
     public PostResponse create(String authorId, CreatePostRequest request) {
         List<String> mediaUrls = request.getMediaUrls() != null ? request.getMediaUrls() : new ArrayList<>();
-        if (!hasImageMedia(mediaUrls)) {
-            throw new AppException(ErrorCode.POST_IMAGE_REQUIRED);
-        }
 
         List<String> hashtags = extractHashtags(request.getContent());
         PostVisibility visibility = request.getVisibility() != null
@@ -166,9 +163,6 @@ public class PostService {
             post.setHashtags(extractHashtags(request.getContent()));
         }
         if (request.getMediaUrls() != null) {
-            if (!hasImageMedia(request.getMediaUrls())) {
-                throw new AppException(ErrorCode.POST_IMAGE_REQUIRED);
-            }
             post.setMediaUrls(new ArrayList<>(request.getMediaUrls()));
         }
         if (request.getVisibility() != null) {
@@ -179,13 +173,6 @@ public class PostService {
         log.info("Post updated: id={}", postId);
         triggerSocialPostCommandIfNeeded(post, requesterId, previousContent);
         return toResponse(post, requesterId);
-    }
-
-    private static boolean hasImageMedia(List<String> mediaUrls) {
-        return mediaUrls.stream()
-                .filter(Objects::nonNull)
-                .map(String::toLowerCase)
-                .anyMatch(url -> !(url.endsWith(".mp4") || url.endsWith(".webm")));
     }
 
     public void delete(String postId, String requesterId) {

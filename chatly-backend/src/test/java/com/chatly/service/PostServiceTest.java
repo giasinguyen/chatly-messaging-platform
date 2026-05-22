@@ -108,6 +108,20 @@ class PostServiceTest {
     }
 
     @Test
+    void create_textOnlyPost_shouldSaveWithoutMedia() {
+        CreatePostRequest request = new CreatePostRequest();
+        request.setContent("Text-only update");
+
+        samplePost.setMediaUrls(new ArrayList<>());
+        when(postRepository.save(any(Post.class))).thenReturn(samplePost);
+        when(postMapper.toResponse(any(Post.class))).thenReturn(new PostResponse());
+
+        postService.create(AUTHOR_ID, request);
+
+        verify(postRepository).save(argThat(post -> post.getMediaUrls().isEmpty()));
+    }
+
+    @Test
     void create_shouldExtractHashtagsFromContent() {
         CreatePostRequest request = new CreatePostRequest();
         request.setContent("Check #spring and #java");
