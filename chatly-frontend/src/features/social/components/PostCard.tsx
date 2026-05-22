@@ -25,7 +25,8 @@ import {
     Users,
     Lock,
     Flag,
-    Bot
+    Bot,
+    FileText
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -190,6 +191,10 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
     const [editMediaUrls, setEditMediaUrls] = useState<string[]>(
         post.mediaUrls,
     );
+    const [editMentionQuery, setEditMentionQuery] = useState<string | null>(
+        null,
+    );
+    const [editMentionIndex, setEditMentionIndex] = useState(0);
     const [isSubmittingEdit, setIsSubmittingEdit] = useState(false);
     const [isSavingPost, setIsSavingPost] = useState(false);
     const [isCommentOpen, setIsCommentOpen] = useState(false);
@@ -215,6 +220,9 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
     const [editingCommentId, setEditingCommentId] = useState<string | null>(
         null,
     );
+    const [commentActionsId, setCommentActionsId] = useState<string | null>(
+        null,
+    );
     const [editingCommentContent, setEditingCommentContent] = useState("");
     const [isSubmittingCommentEdit, setIsSubmittingCommentEdit] =
         useState(false);
@@ -225,6 +233,12 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
     const [isSubmittingReport, setIsSubmittingReport] = useState(false);
     const [showReplyBar, setShowReplyBar] = useState(true);
     const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+    const [commentLightboxImages, setCommentLightboxImages] = useState<
+        LightboxImage[]
+    >([]);
+    const [commentLightboxIndex, setCommentLightboxIndex] = useState<
+        number | null
+    >(null);
     const [currentMediaIndex, setCurrentMediaIndex] = useState(0);
     const [dialogMediaIndex, setDialogMediaIndex] = useState(0);
     const [deleteCommentId, setDeleteCommentId] = useState<string | null>(null);
@@ -235,6 +249,7 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
     const commentEmojiPickerRef = useRef<HTMLDivElement>(null);
     const commentMediaInputRef = useRef<HTMLInputElement>(null);
     const commentInputRef = useRef<HTMLTextAreaElement | null>(null);
+    const editInputRef = useRef<HTMLTextAreaElement | null>(null);
 
     const authorLabel =
         post.authorDisplayName ??
@@ -248,6 +263,7 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
         post.authorUsername ??
         (post.authorId === currentUserId ? currentUser?.username : undefined);
     const authorInitial = authorLabel.slice(0, 1).toUpperCase();
+    const hasPostMedia = post.mediaUrls.length > 0;
     const authorProfilePath = useMemo(() => {
         if (authorUsername) {
             return `/u/${authorUsername}`;
@@ -268,6 +284,8 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
     );
 
     const commentTree = useMemo(() => buildCommentTree(comments), [comments]);
+    const isCommentModalLightboxOpen =
+        commentLightboxIndex !== null || lightboxIndex !== null;
     const commentMentionSuggestions = useMemo(
         () =>
             buildMentionSuggestions(commentMentionQuery, friendMentionCandidates, {
@@ -277,6 +295,16 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
                 maxUsers: 8,
             }),
         [commentMentionQuery, friendMentionCandidates, currentUserId],
+    );
+    const editMentionSuggestions = useMemo(
+        () =>
+            buildMentionSuggestions(editMentionQuery, friendMentionCandidates, {
+                includeAi: true,
+                includeAll: false,
+                currentUserId,
+                maxUsers: 8,
+            }),
+        [editMentionQuery, friendMentionCandidates, currentUserId],
     );
 
     const renderCommentNode = (comment: CommentNode, depth = 0) => {
@@ -291,7 +319,7 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
         return (
             <div
                 key={comment.id}
-                className={cn("flex items-start gap-2.5", depth > 0 && "ml-10")}
+                className={cn("flex items-start gap-2.5", depth > 0 && "ml-4")}
             >
                 <button
                     type="button"
@@ -378,13 +406,24 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
                                 )}
                                 {comment.mediaUrls.length > 0 && (
                                     <div className="mt-2 grid grid-cols-2 gap-2">
-                                        {comment.mediaUrls.map((url) => (
-                                            <img
+                                        {comment.mediaUrls.map((url, index) => (
+                                            <button
                                                 key={url}
-                                                src={url}
-                                                alt="Comment attachment"
-                                                className="h-36 w-full rounded-lg object-cover"
-                                            />
+                                                type="button"
+                                                className="overflow-hidden rounded-lg"
+                                                onClick={() =>
+                                                    handleOpenCommentImage(
+                                                        comment,
+                                                        index,
+                                                    )
+                                                }
+                                            >
+                                                <img
+                                                    src={url}
+                                                    alt="Comment attachment"
+                                                    className="h-36 w-full object-cover transition-transform hover:scale-105"
+                                                />
+                                            </button>
                                         ))}
                                     </div>
                                 )}
@@ -399,7 +438,7 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
                                     )}
                             </div>
 
-                            <div className="mt-2 flex items-center gap-2 flex-nowrap overflow-x-auto scrollbar-hide">
+                            <div className="mt-2 flex flex-wrap items-center gap-2">
                                 <Button
                                     size="sm"
                                     variant="ghost"
@@ -446,31 +485,50 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
                                 </Button>
 
                                 {comment.userId === currentUserId && (
-                                    <Button
-                                        size="sm"
-                                        variant="ghost"
-                                        className="gap-1 text-[11px] font-normal h-auto py-1 px-1.5 text-muted-foreground whitespace-nowrap"
-                                        onClick={() =>
-                                            handleEditComment(comment)
-                                        }
-                                    >
-                                        <PenLine className="h-3 w-3" />
-                                        Edit
-                                    </Button>
-                                )}
+                                    <div className="relative">
+                                        <Button
+                                            size="sm"
+                                            variant="ghost"
+                                            className="h-auto px-1.5 py-1 text-muted-foreground"
+                                            onClick={() =>
+                                                setCommentActionsId((current) =>
+                                                    current === comment.id
+                                                        ? null
+                                                        : comment.id,
+                                                )
+                                            }
+                                            title="Comment options"
+                                        >
+                                            <MoreHorizontal className="h-3.5 w-3.5" />
+                                        </Button>
 
-                                {comment.userId === currentUserId && (
-                                    <Button
-                                        size="sm"
-                                        variant="ghost"
-                                        className="gap-1 text-[11px] font-normal h-auto py-1 px-1.5 text-red-600 hover:text-red-700 whitespace-nowrap"
-                                        onClick={() =>
-                                            handleDeleteComment(comment.id)
-                                        }
-                                    >
-                                        <Trash2 className="h-3 w-3" />
-                                        Delete
-                                    </Button>
+                                        {commentActionsId === comment.id && (
+                                            <div className="absolute left-0 top-full z-20 mt-1 w-32 rounded-xl border border-border bg-background p-1 shadow-xl">
+                                                <button
+                                                    type="button"
+                                                    className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs text-foreground hover:bg-muted"
+                                                    onClick={() => {
+                                                        setCommentActionsId(null);
+                                                        handleEditComment(comment);
+                                                    }}
+                                                >
+                                                    <PenLine className="h-3.5 w-3.5" />
+                                                    Edit
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10"
+                                                    onClick={() => {
+                                                        setCommentActionsId(null);
+                                                        handleDeleteComment(comment.id);
+                                                    }}
+                                                >
+                                                    <Trash2 className="h-3.5 w-3.5" />
+                                                    Delete
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
                                 )}
                             </div>
                         </>
@@ -478,7 +536,7 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
 
                     {comment.children.length > 0 &&
                         expandedCommentIds.has(comment.id) && (
-                            <div className="mt-3 space-y-3 border-l border-border/70 pl-3">
+                            <div className="mt-3 space-y-3 border-l border-border/70 pl-2">
                                 {comment.children.map((child) =>
                                     renderCommentNode(child, depth + 1),
                                 )}
@@ -579,6 +637,8 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
         setEditContent(post.content);
         setEditVisibility(post.visibility);
         setEditMediaUrls(post.mediaUrls);
+        setEditMentionQuery(null);
+        setEditMentionIndex(0);
         setIsEditing(true);
     };
 
@@ -660,6 +720,68 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
     const handleCommentEmojiSelect = (emoji: { native: string }) => {
         setCommentDraft((current) => current + emoji.native);
         setShowCommentEmojiPicker(false);
+    };
+
+    const handleEditContentChange = (
+        nextValue: string,
+        cursorFromEvent?: number | null,
+    ) => {
+        setEditContent(nextValue);
+        const cursorPos =
+            cursorFromEvent ?? editInputRef.current?.selectionStart ?? nextValue.length;
+        const nextMentionQuery = detectMentionQuery(nextValue, cursorPos);
+        if (nextMentionQuery !== null) {
+            setEditMentionQuery(nextMentionQuery);
+            setEditMentionIndex(0);
+            return;
+        }
+        setEditMentionQuery(null);
+    };
+
+    const handleSelectEditMention = (suggestion: MentionSuggestion) => {
+        const cursorPos = editInputRef.current?.selectionStart ?? editContent.length;
+        const nextContent = insertMentionAtCursor(editContent, cursorPos, suggestion, {
+            userMentionField: "username",
+        });
+        setEditContent(nextContent);
+        setEditMentionQuery(null);
+        requestAnimationFrame(() => {
+            editInputRef.current?.focus();
+        });
+    };
+
+    const handleEditInputKeyDown = (
+        event: ReactKeyboardEvent<HTMLTextAreaElement>,
+    ) => {
+        if (editMentionQuery === null || !editMentionSuggestions.length) {
+            return;
+        }
+
+        if (event.key === "ArrowDown") {
+            event.preventDefault();
+            setEditMentionIndex(
+                (prev) => (prev + 1) % editMentionSuggestions.length,
+            );
+            return;
+        }
+        if (event.key === "ArrowUp") {
+            event.preventDefault();
+            setEditMentionIndex(
+                (prev) =>
+                    (prev - 1 + editMentionSuggestions.length) %
+                    editMentionSuggestions.length,
+            );
+            return;
+        }
+        if (event.key === "Enter" || event.key === "Tab") {
+            event.preventDefault();
+            handleSelectEditMention(editMentionSuggestions[editMentionIndex]);
+            return;
+        }
+        if (event.key === "Escape") {
+            event.preventDefault();
+            setEditMentionQuery(null);
+        }
     };
 
     const handleCommentDraftChange = (
@@ -973,6 +1095,17 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
         setLightboxIndex(index);
     };
 
+    const handleOpenCommentImage = (comment: PostComment, index: number) => {
+        const images = comment.mediaUrls.map((url, imageIndex) => ({
+            id: `${comment.id}-${imageIndex}`,
+            url,
+            name: `${comment.userDisplayName}-comment-${imageIndex + 1}`,
+        }));
+
+        setCommentLightboxImages(images);
+        setCommentLightboxIndex(index);
+    };
+
     const handleMediaClick = (index: number) => {
         clearMediaClickTimer();
         mediaClickTimerRef.current = window.setTimeout(() => {
@@ -1013,10 +1146,15 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
         }
         setIsSubmittingEdit(true);
         try {
+            const mentionIds = extractMentionTargets(content, friendMentionCandidates, {
+                includeAi: false,
+                includeAll: false,
+            });
             const res = await postService.update(post.id, {
                 content,
                 mediaUrls: editMediaUrls,
                 visibility: editVisibility,
+                mentionIds,
             });
 
             if (res.code === 1000 && res.result) {
@@ -1069,12 +1207,14 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
     }, []);
 
     useEffect(() => {
-        if (!isCommentOpen) {
+        if (!isCommentOpen && !isEditing) {
             return;
         }
-        void loadComments();
+        if (isCommentOpen) {
+            void loadComments();
+        }
         void loadFriendMentionCandidates();
-    }, [isCommentOpen, loadComments, loadFriendMentionCandidates]);
+    }, [isCommentOpen, isEditing, loadComments, loadFriendMentionCandidates]);
 
     return (
         <>
@@ -1213,83 +1353,101 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
 
                 {/* Media - Single clickable thumbnail */}
                 {post.mediaUrls.length > 0 && (
-                    <div
-                        className="relative bg-muted overflow-hidden aspect-video cursor-zoom-in flex items-center justify-center group"
-                        onClick={() => {
-                            const isVideo = /\.(mp4|webm)$/i.test(
-                                post.mediaUrls[currentMediaIndex],
-                            );
-                            if (!isVideo && lightboxImages.length > 0) {
-                                handleMediaClick(currentMediaIndex);
-                            }
-                        }}
-                        onDoubleClick={() => handleMediaDoubleClick()}
-                    >
-                        {post.mediaUrls[currentMediaIndex].match(
-                            /\.(mp4|webm)$/i,
-                        ) ? (
-                            <video
-                                src={post.mediaUrls[currentMediaIndex]}
-                                className="w-full h-full object-contain"
-                                muted
-                            />
-                        ) : (
-                            <img
-                                src={post.mediaUrls[currentMediaIndex]}
-                                alt="Post media"
-                                className="w-full h-full object-contain"
-                            />
-                        )}
-                        {showHeartBurst && (
-                            <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-                                <Heart className="h-16 w-16 fill-pink-500 text-pink-500 opacity-90 animate-pulse" />
+                    <>
+                        <div
+                            className="relative bg-muted overflow-hidden aspect-video cursor-zoom-in flex items-center justify-center group"
+                            onClick={() => {
+                                const isVideo = /\.(mp4|webm)$/i.test(
+                                    post.mediaUrls[currentMediaIndex],
+                                );
+                                if (!isVideo && lightboxImages.length > 0) {
+                                    handleMediaClick(currentMediaIndex);
+                                }
+                            }}
+                            onDoubleClick={() => handleMediaDoubleClick()}
+                        >
+                            {post.mediaUrls[currentMediaIndex].match(
+                                /\.(mp4|webm)$/i,
+                            ) ? (
+                                <video
+                                    src={post.mediaUrls[currentMediaIndex]}
+                                    className="w-full h-full object-contain"
+                                    muted
+                                />
+                            ) : (
+                                <img
+                                    src={post.mediaUrls[currentMediaIndex]}
+                                    alt="Post media"
+                                    className="w-full h-full object-contain"
+                                />
+                            )}
+                            {showHeartBurst && (
+                                <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                                    <Heart className="h-16 w-16 fill-pink-500 text-pink-500 opacity-90 animate-pulse" />
+                                </div>
+                            )}
+
+                            {/* Navigation arrows */}
+                            {post.mediaUrls.length > 1 && (
+                                <>
+                                    {currentMediaIndex > 0 && (
+                                        <button
+                                            type="button"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setCurrentMediaIndex((prev) =>
+                                                    Math.max(0, prev - 1),
+                                                );
+                                            }}
+                                            className="absolute left-2 p-2 text-white/50 hover:text-white bg-black/20 hover:bg-black/50 rounded-full transition-all opacity-0 group-hover:opacity-100"
+                                        >
+                                            <ChevronLeft size={24} />
+                                        </button>
+                                    )}
+                                    {currentMediaIndex <
+                                        post.mediaUrls.length - 1 && (
+                                        <button
+                                            type="button"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setCurrentMediaIndex((prev) =>
+                                                    Math.min(
+                                                        post.mediaUrls.length - 1,
+                                                        prev + 1,
+                                                    ),
+                                                );
+                                            }}
+                                            className="absolute right-2 p-2 text-white/50 hover:text-white bg-black/20 hover:bg-black/50 rounded-full transition-all opacity-0 group-hover:opacity-100"
+                                        >
+                                            <ChevronRight size={24} />
+                                        </button>
+                                    )}
+
+                                    {/* Image counter */}
+                                    <div className="absolute bottom-2 right-2 bg-black/60 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity">
+                                        {currentMediaIndex + 1}/
+                                        {post.mediaUrls.length}
+                                    </div>
+                                </>
+                            )}
+                        </div>
+
+                        {post.mediaUrls.length > 1 && (
+                            <div className="flex items-center justify-center gap-1.5 border-t border-border bg-card py-2">
+                                {post.mediaUrls.map((url, index) => (
+                                    <span
+                                        key={`${url}-${index}`}
+                                        className={cn(
+                                            "size-1.5 rounded-full transition-colors",
+                                            index === currentMediaIndex
+                                                ? "bg-indigo-500"
+                                                : "bg-muted-foreground/35",
+                                        )}
+                                    />
+                                ))}
                             </div>
                         )}
-
-                        {/* Navigation arrows */}
-                        {post.mediaUrls.length > 1 && (
-                            <>
-                                {currentMediaIndex > 0 && (
-                                    <button
-                                        type="button"
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            setCurrentMediaIndex((prev) =>
-                                                Math.max(0, prev - 1),
-                                            );
-                                        }}
-                                        className="absolute left-2 p-2 text-white/50 hover:text-white bg-black/20 hover:bg-black/50 rounded-full transition-all opacity-0 group-hover:opacity-100"
-                                    >
-                                        <ChevronLeft size={24} />
-                                    </button>
-                                )}
-                                {currentMediaIndex <
-                                    post.mediaUrls.length - 1 && (
-                                    <button
-                                        type="button"
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            setCurrentMediaIndex((prev) =>
-                                                Math.min(
-                                                    post.mediaUrls.length - 1,
-                                                    prev + 1,
-                                                ),
-                                            );
-                                        }}
-                                        className="absolute right-2 p-2 text-white/50 hover:text-white bg-black/20 hover:bg-black/50 rounded-full transition-all opacity-0 group-hover:opacity-100"
-                                    >
-                                        <ChevronRight size={24} />
-                                    </button>
-                                )}
-
-                                {/* Image counter */}
-                                <div className="absolute bottom-2 right-2 bg-black/60 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity">
-                                    {currentMediaIndex + 1}/
-                                    {post.mediaUrls.length}
-                                </div>
-                            </>
-                        )}
-                    </div>
+                    </>
                 )}
 
                 {/* Footer actions */}
@@ -1364,32 +1522,59 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
                 </div>
             </article>
 
-            <Dialog open={isEditing} onOpenChange={setIsEditing}>
-                <DialogContent className="sm:max-w-lg">
-                    <DialogHeader>
-                        <DialogTitle>Edit post</DialogTitle>
+            <Dialog
+                open={isEditing}
+                onOpenChange={(open) => {
+                    setIsEditing(open);
+                    if (!open) {
+                        setEditMentionQuery(null);
+                        setEditMentionIndex(0);
+                    }
+                }}
+            >
+                <DialogContent className="flex max-h-[90vh] flex-col gap-0 overflow-visible rounded-3xl p-0 shadow-xl sm:max-w-2xl">
+                    <DialogHeader className="px-6 pt-6 pb-0">
+                        <DialogTitle className="text-lg font-semibold">
+                            Edit post
+                        </DialogTitle>
                         <DialogDescription>
-                            Update your content and visibility.
+                            Update the post content, mentions, media, and visibility.
                         </DialogDescription>
                     </DialogHeader>
 
-                    <div className="space-y-3">
-                        <Textarea
-                            value={editContent}
-                            onChange={(event) =>
-                                setEditContent(event.target.value)
-                            }
-                            rows={6}
-                            className="resize-none"
-                        />
+                    <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 py-4">
+                        <div className="relative">
+                            <Textarea
+                                ref={editInputRef}
+                                value={editContent}
+                                onChange={(event) =>
+                                    handleEditContentChange(
+                                        event.target.value,
+                                        event.target.selectionStart,
+                                    )
+                                }
+                                onKeyDown={handleEditInputKeyDown}
+                                rows={5}
+                                className="resize-none rounded-2xl border-border bg-muted/20 text-sm"
+                            />
+                            {editMentionQuery !== null &&
+                                editMentionSuggestions.length > 0 && (
+                                    <MentionSuggestionsDropdown
+                                        suggestions={editMentionSuggestions}
+                                        activeIndex={editMentionIndex}
+                                        onSelect={handleSelectEditMention}
+                                        placement="bottom"
+                                    />
+                                )}
+                        </div>
                         <Select
                             value={editVisibility}
                             onValueChange={handleEditVisibilityChange}
                         >
-                            <SelectTrigger>
+                            <SelectTrigger className="w-44 rounded-xl">
                                 <SelectValue />
                             </SelectTrigger>
-                            <SelectContent>
+                            <SelectContent className="rounded-xl">
                                 {VISIBILITY_OPTIONS.map(
                                     ({ value, label, icon: Icon }) => (
                                         <SelectItem key={value} value={value}>
@@ -1409,24 +1594,21 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
                         />
                     </div>
 
-                    <DialogFooter>
+                    <DialogFooter className="shrink-0 border-t border-border bg-background px-6 py-4">
                         <Button
                             type="button"
-                            variant="outline"
+                            variant="ghost"
                             onClick={() => setIsEditing(false)}
                             disabled={isSubmittingEdit}
+                            className="rounded-xl"
                         >
                             Cancel
                         </Button>
                         <Button
                             type="button"
                             onClick={handleSubmitEdit}
-                            disabled={
-                                isSubmittingEdit ||
-                                !editMediaUrls.some(
-                                    (url) => !/\.(mp4|webm)$/i.test(url),
-                                )
-                            }
+                            disabled={isSubmittingEdit || !editContent.trim()}
+                            className="rounded-xl bg-indigo-600 px-5 text-white hover:bg-indigo-700"
                         >
                             {isSubmittingEdit ? "Saving..." : "Save changes"}
                         </Button>
@@ -1437,6 +1619,12 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
             <Dialog
                 open={isCommentOpen}
                 onOpenChange={(open) => {
+                    if (!open && isCommentModalLightboxOpen) {
+                        setCommentLightboxIndex(null);
+                        setLightboxIndex(null);
+                        return;
+                    }
+
                     setIsCommentOpen(open);
                     if (open) {
                         setDialogMediaIndex(0);
@@ -1447,13 +1635,38 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
                         setCommentMentionQuery(null);
                         setCommentMentionIndex(0);
                         setShowCommentEmojiPicker(false);
+                        setCommentActionsId(null);
+                        setCommentLightboxImages([]);
                         setShowReplyBar(true);
                         setExpandedCommentIds(new Set());
                     }
                 }}
             >
-                <DialogContent className="sm:max-w-5xl p-0 overflow-hidden max-h-[90vh]">
-                    <div className="grid min-h-0 grid-cols-1 md:grid-cols-[minmax(0,1.15fr)_minmax(340px,0.85fr)] h-[90vh]">
+                <DialogContent
+                    onEscapeKeyDown={(event) => {
+                        if (isCommentModalLightboxOpen) {
+                            event.preventDefault();
+                        }
+                    }}
+                    onInteractOutside={(event) => {
+                        if (isCommentModalLightboxOpen) {
+                            event.preventDefault();
+                        }
+                    }}
+                    className={cn(
+                        "max-h-[90vh] gap-0 overflow-hidden p-0",
+                        hasPostMedia ? "sm:max-w-6xl" : "sm:max-w-2xl",
+                    )}
+                >
+                    <div
+                        className={cn(
+                            "min-h-0",
+                            hasPostMedia
+                                ? "grid h-[90vh] grid-cols-1 md:grid-cols-[minmax(0,1.25fr)_minmax(380px,0.85fr)]"
+                                : "flex max-h-[90vh] flex-col",
+                        )}
+                    >
+                        {hasPostMedia && (
                         <div className="bg-black relative flex min-h-0 items-center justify-center overflow-hidden group">
                             {post.mediaUrls.length > 0 ? (
                                 post.mediaUrls[dialogMediaIndex].match(
@@ -1536,27 +1749,181 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
                                 </>
                             )}
                         </div>
+                        )}
 
                         <div className="flex min-h-0 flex-col bg-card">
-                            <DialogHeader className="px-4 py-3 border-b border-border">
+                            <DialogHeader
+                                className={cn(
+                                    "px-4 py-3 border-b border-border",
+                                    !hasPostMedia && "pr-14 text-center sm:text-center",
+                                )}
+                            >
                                 <DialogTitle className="text-base">
-                                    Comments
+                                    {hasPostMedia ? "Comments" : `${authorLabel}'s Post`}
                                 </DialogTitle>
                                 <DialogDescription className="sr-only">
                                     Join the conversation on this post.
                                 </DialogDescription>
                             </DialogHeader>
 
-                            <div className="flex-1 min-h-0 overflow-y-auto px-4 py-3 space-y-3">
+                            <div className="flex flex-1 min-h-0 flex-col overflow-y-auto px-4 py-3 space-y-3">
+                                {hasPostMedia && (
+                                    <div className="border-b border-border pb-3">
+                                        <div className="flex items-start gap-3">
+                                            <button
+                                                type="button"
+                                                onClick={handleAuthorNavigate}
+                                                disabled={!authorProfilePath}
+                                                className="size-9 shrink-0 overflow-hidden rounded-full bg-muted text-sm font-semibold text-muted-foreground"
+                                            >
+                                                {authorAvatarUrl ? (
+                                                    <img
+                                                        src={authorAvatarUrl}
+                                                        alt={authorLabel}
+                                                        className="h-full w-full object-cover"
+                                                    />
+                                                ) : (
+                                                    authorInitial
+                                                )}
+                                            </button>
+                                            <div className="min-w-0 flex-1">
+                                                <button
+                                                    type="button"
+                                                    onClick={handleAuthorNavigate}
+                                                    disabled={!authorProfilePath}
+                                                    className="block max-w-full truncate text-left text-sm font-semibold text-foreground hover:underline"
+                                                >
+                                                    {authorLabel}
+                                                </button>
+                                                <p className="text-xs text-muted-foreground">
+                                                    {formatRelativeTime(post.createdAt)}
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        {post.content && (
+                                            <p className="whitespace-pre-wrap pt-3 text-sm leading-relaxed text-foreground">
+                                                {renderMentionText(post.content)}
+                                            </p>
+                                        )}
+
+                                        {post.hashtags.length > 0 && (
+                                            <div className="flex flex-wrap gap-1 pt-2">
+                                                {post.hashtags.map((tag) => (
+                                                    <button
+                                                        key={tag}
+                                                        type="button"
+                                                        onClick={() =>
+                                                            navigate(
+                                                                `/explore?hashtag=${encodeURIComponent(tag)}`,
+                                                            )
+                                                        }
+                                                        className="text-xs text-indigo-500 hover:underline"
+                                                    >
+                                                        #{tag}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                                {!hasPostMedia && (
+                                    <div className="border-b border-border pb-3">
+                                        <div className="flex items-start gap-3">
+                                            <button
+                                                type="button"
+                                                onClick={handleAuthorNavigate}
+                                                disabled={!authorProfilePath}
+                                                className="size-10 shrink-0 overflow-hidden rounded-full bg-muted text-sm font-semibold text-muted-foreground"
+                                            >
+                                                {authorAvatarUrl ? (
+                                                    <img
+                                                        src={authorAvatarUrl}
+                                                        alt={authorLabel}
+                                                        className="h-full w-full object-cover"
+                                                    />
+                                                ) : (
+                                                    authorInitial
+                                                )}
+                                            </button>
+                                            <div className="min-w-0 flex-1">
+                                                <button
+                                                    type="button"
+                                                    onClick={handleAuthorNavigate}
+                                                    disabled={!authorProfilePath}
+                                                    className="block max-w-full truncate text-left text-sm font-semibold text-foreground hover:underline"
+                                                >
+                                                    {authorLabel}
+                                                </button>
+                                                <p className="text-xs text-muted-foreground">
+                                                    {formatRelativeTime(post.createdAt)}
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        <p className="whitespace-pre-wrap py-3 text-sm leading-relaxed text-foreground">
+                                            {renderMentionText(post.content)}
+                                        </p>
+
+                                        {post.hashtags.length > 0 && (
+                                            <div className="flex flex-wrap gap-1 pb-3">
+                                                {post.hashtags.map((tag) => (
+                                                    <button
+                                                        key={tag}
+                                                        type="button"
+                                                        onClick={() =>
+                                                            navigate(
+                                                                `/explore?hashtag=${encodeURIComponent(tag)}`,
+                                                            )
+                                                        }
+                                                        className="text-xs text-indigo-500 hover:underline"
+                                                    >
+                                                        #{tag}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        )}
+
+                                        <div className="flex items-center gap-4 border-t border-border pt-3 text-xs text-muted-foreground">
+                                            <span
+                                                className={cn(
+                                                    "inline-flex items-center gap-1",
+                                                    myReaction && "text-pink-500",
+                                                )}
+                                            >
+                                                <Heart
+                                                    className={cn(
+                                                        "size-4",
+                                                        myReaction && "fill-pink-500",
+                                                    )}
+                                                />
+                                                {totalReactions}
+                                            </span>
+                                            <span className="inline-flex items-center gap-1">
+                                                <MessageCircle className="size-4" />
+                                                {post.commentCount}
+                                            </span>
+                                            <span className="inline-flex items-center gap-1">
+                                                <Share2 className="size-4" />
+                                                {post.shareCount}
+                                            </span>
+                                        </div>
+                                    </div>
+                                )}
                                 {isLoadingComments ? (
                                     <p className="text-sm text-muted-foreground">
                                         Loading comments...
                                     </p>
                                 ) : commentTree.length === 0 ? (
-                                    <p className="text-sm text-muted-foreground">
-                                        No comments yet. Be the first to
-                                        comment!
-                                    </p>
+                                    <div className="flex flex-col items-center justify-center px-4 py-6 text-center text-muted-foreground">
+                                        <FileText className="mb-3 size-14 fill-muted text-muted-foreground/70" />
+                                        <p className="text-base font-semibold text-foreground/80">
+                                            No comments yet
+                                        </p>
+                                        <p className="text-sm">
+                                            Be the first to comment.
+                                        </p>
+                                    </div>
                                 ) : (
                                     commentTree.map((comment) =>
                                         renderCommentNode(comment),
@@ -1775,6 +2142,15 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
                     onIndexChange={setLightboxIndex}
                 />
             )}
+
+            {commentLightboxIndex !== null &&
+                commentLightboxImages[commentLightboxIndex] && (
+                    <ImageLightbox
+                        images={commentLightboxImages}
+                        index={commentLightboxIndex}
+                        onIndexChange={setCommentLightboxIndex}
+                    />
+                )}
 
             <Dialog
                 open={deleteCommentId !== null}

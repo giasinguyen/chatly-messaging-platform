@@ -39,6 +39,7 @@ export interface UpdatePostRequest {
     content?: string;
     mediaUrls?: string[];
     visibility?: PostVisibility;
+    mentionIds?: string[];
 }
 
 export interface ReactToPostRequest {

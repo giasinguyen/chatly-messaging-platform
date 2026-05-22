@@ -8,6 +8,7 @@ import com.chatly.exception.AppException;
 import com.chatly.exception.ErrorCode;
 import com.chatly.mapper.PostMapper;
 import com.chatly.model.enums.PostVisibility;
+import com.chatly.model.enums.NotificationType;
 import com.chatly.model.enums.ReactionType;
 import com.chatly.model.mongo.Post;
 import com.chatly.model.mongo.PostReaction;
@@ -58,6 +59,9 @@ class PostServiceTest {
 
     @Mock
     private FollowRepository followRepository;
+
+    @Mock
+    private NotificationService notificationService;
 
     @Mock
     private SimpMessagingTemplate messagingTemplate;
@@ -141,6 +145,21 @@ class PostServiceTest {
 
         verify(postRepository).save(argThat(p ->
                 p.getHashtags().containsAll(List.of("spring", "java"))
+        ));
+    }
+
+    @Test
+    void create_shouldIgnoreNumericRankingMarkersAsHashtags() {
+        CreatePostRequest request = new CreatePostRequest();
+        request.setContent("Scores: #1: 10 points, #2: 6 points. Follow #PGS4 and #series1.");
+
+        when(postRepository.save(any())).thenReturn(samplePost);
+        when(postMapper.toResponse(any())).thenReturn(new PostResponse());
+
+        postService.create(AUTHOR_ID, request);
+
+        verify(postRepository).save(argThat(p ->
+                p.getHashtags().equals(List.of("pgs4", "series1"))
         ));
     }
 
@@ -262,6 +281,27 @@ class PostServiceTest {
                 p.getContent().equals("Updated #content") &&
                 p.getVisibility() == PostVisibility.ONLY_ME
         ));
+    }
+
+    @Test
+    void update_withMentions_shouldNotifyMentionedUsers() {
+        UpdatePostRequest request = new UpdatePostRequest();
+        request.setContent("Updated @friend");
+        request.setMentionIds(List.of(OTHER_ID));
+
+        when(postRepository.findById(POST_ID)).thenReturn(Optional.of(samplePost));
+        when(postRepository.save(any())).thenReturn(samplePost);
+        when(postMapper.toResponse(any())).thenReturn(new PostResponse());
+
+        postService.update(POST_ID, AUTHOR_ID, request);
+
+        verify(notificationService).createAndPush(
+                NotificationType.POST_MENTION,
+                AUTHOR_ID,
+                OTHER_ID,
+                "Someone mentioned you in a post",
+                POST_ID
+        );
     }
 
     @Test

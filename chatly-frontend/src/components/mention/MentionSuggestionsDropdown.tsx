@@ -46,7 +46,7 @@ export function MentionSuggestionsDropdown({
                 >
                     <div
                         className={cn(
-                            "w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold shrink-0",
+                            "w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold shrink-0 overflow-hidden",
                             suggestion.kind === "ai"
                                 ? "bg-violet-100 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400"
                                 : "bg-brand/20 text-brand",
@@ -54,7 +54,15 @@ export function MentionSuggestionsDropdown({
                     >
                         {suggestion.kind === "all" && "@"}
                         {suggestion.kind === "ai" && <CustomAiIcon className="w-4 h-4" />}
-                        {suggestion.kind === "user" && suggestion.displayName.charAt(0).toUpperCase()}
+                        {suggestion.kind === "user" && suggestion.avatarUrl && (
+                            <img
+                                src={suggestion.avatarUrl}
+                                alt={suggestion.displayName}
+                                className="h-full w-full object-cover"
+                            />
+                        )}
+                        {suggestion.kind === "user" && !suggestion.avatarUrl &&
+                            suggestion.displayName.charAt(0).toUpperCase()}
                     </div>
 
                     <div className="min-w-0">

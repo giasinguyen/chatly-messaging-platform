@@ -44,7 +44,9 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class PostService {
 
-    private static final Pattern HASHTAG_PATTERN = Pattern.compile("#(\\w+)");
+    private static final Pattern HASHTAG_PATTERN = Pattern.compile(
+            "#(?=[\\p{L}\\p{N}_]*\\p{L})([\\p{L}\\p{N}_]+)"
+    );
     private static final Pattern AI_MENTION_PATTERN = Pattern.compile("(?i)@ai\\b");
     private static final String FEED_TOPIC_PREFIX = "/topic/feed/";
     private static final int DEFAULT_TRENDING_HASHTAG_LIMIT = 10;
@@ -185,6 +187,17 @@ public class PostService {
 
         post = postRepository.save(post);
         log.info("Post updated: id={}", postId);
+        User author = safeUuid(requesterId)
+                .flatMap(userRepository::findById)
+                .orElse(null);
+        String authorName = author != null ? author.getDisplayName() : "Someone";
+        notifyMentionedUsers(
+                NotificationType.POST_MENTION,
+                requesterId,
+                request.getMentionIds(),
+                authorName + " mentioned you in a post",
+                post.getId()
+        );
         triggerSocialPostCommandIfNeeded(post, requesterId, previousContent);
         return toResponse(post, requesterId);
     }

@@ -3,10 +3,11 @@ import { type RouteObject } from "react-router-dom";
 import { LazyWrapper } from "@/components/customize/LazyWrapper";
 import { ProtectedRoute } from "@/components/customize/ProtectedRoute";
 import ChatLayout from "@/layouts/app";
+import ChatPage from "@/pages/app/chat";
+import CloudPage from "@/pages/app/cloud";
+import RouteErrorPage from "@/pages/fallback/route-error";
 
-const ChatPage = lazy(() => import("@/pages/app/chat"));
 const ChatbotPage = lazy(() => import("@/pages/app/chatbot"));
-const CloudPage = lazy(() => import("@/pages/app/cloud"));
 const ContactPage = lazy(() => import("@/pages/app/contact"));
 const ProfilePage = lazy(() => import("@/pages/app/profile"));
 
@@ -21,6 +22,7 @@ const UsernamePage = lazy(() => import("@/pages/app/profile/[username]"));
 export const appRoutes: RouteObject[] = [
     {
         path: "/",
+        errorElement: <RouteErrorPage />,
         element: (
             <ProtectedRoute>
                 <LazyWrapper>

@@ -17,4 +17,6 @@ public class UpdatePostRequest {
     private List<String> mediaUrls;
 
     private PostVisibility visibility;
+
+    private List<String> mentionIds;
 }
