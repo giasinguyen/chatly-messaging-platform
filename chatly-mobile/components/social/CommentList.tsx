@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { View, Text, TouchableOpacity, FlatList } from 'react-native';
+import { View, Text, TouchableOpacity } from 'react-native';
 import { CommentItem } from './CommentItem';
 import type { PostComment, ReactionType } from '@/types/post';
 

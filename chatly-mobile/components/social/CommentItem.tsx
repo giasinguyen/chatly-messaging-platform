@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useAuthStore } from '@/store/auth.store';
 import { Alert, Text, TouchableOpacity, View, ScrollView } from 'react-native';
+import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import * as Clipboard from 'expo-clipboard';
@@ -32,16 +33,10 @@ function formatRelativeTime(createdAt: string): string {
   return `${diffDays}d`;
 }
 
-function formatCount(value: number): string {
-  if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
-  if (value >= 1000) return `${(value / 1000).toFixed(1)}K`;
-  return `${value}`;
-}
-
 // Parse mentions (@username) in text and return components with bold mentions
 function renderContentWithMentions(content: string) {
   const mentionRegex = /@([\w._]+)/g;
-  const parts: Array<{ type: 'text' | 'mention'; value: string }> = [];
+  const parts: { type: 'text' | 'mention'; value: string }[] = [];
   let lastIndex = 0;
   let match;
 
@@ -98,7 +93,6 @@ export function CommentItem({
   const currentUser = useAuthStore((s) => s.user);
   const authorName = comment.userDisplayName ?? comment.userUsername ?? 'Unknown user';
   const avatarUrl = comment.userAvatarUrl;
-  const totalReactions = comment.reactions?.reduce((sum, r) => sum + r.count, 0) ?? 0;
   const userReaction = comment.reactions?.find((r) => r.reactedByMe);
   const leftPadding = level > 0 ? level * 16 : 0;
   const isAuthor = currentUser?.id === comment.userId;
