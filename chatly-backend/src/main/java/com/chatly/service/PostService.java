@@ -92,6 +92,7 @@ public class PostService {
         post = postRepository.save(post);
         log.info("Post created: id={}, authorId={}", post.getId(), authorId);
         broadcastNewPost(post);
+        triggerSocialPostCommandIfNeeded(post, authorId, null);
         return toResponse(post, authorId);
     }
 
@@ -158,6 +159,7 @@ public class PostService {
     public PostResponse update(String postId, String requesterId, UpdatePostRequest request) {
         Post post = findPost(postId);
         assertOwner(post, requesterId);
+        String previousContent = post.getContent();
 
         if (request.getContent() != null) {
             post.setContent(request.getContent());
@@ -175,6 +177,7 @@ public class PostService {
 
         post = postRepository.save(post);
         log.info("Post updated: id={}", postId);
+        triggerSocialPostCommandIfNeeded(post, requesterId, previousContent);
         return toResponse(post, requesterId);
     }
 
@@ -617,6 +620,27 @@ public class PostService {
     private boolean containsAiMention(String content) {
         if (content == null || content.isBlank()) return false;
         return AI_MENTION_PATTERN.matcher(content).find();
+    }
+
+    private void triggerSocialPostCommandIfNeeded(Post post, String userId, String previousContent) {
+        if (!socialAiEnabled || post.getContent() == null || !containsAiMention(post.getContent())) {
+            return;
+        }
+
+        boolean hadAiMentionBefore = previousContent != null && containsAiMention(previousContent);
+        if (hadAiMentionBefore) {
+            return;
+        }
+
+        String postContext = buildPostContextForAi(post);
+        agentProxyClient.triggerSocialPostCommandAsync(
+                post.getId(),
+                userId,
+                post.getContent(),
+                postContext,
+                ""
+        );
+        log.info("Social post command trigger queued: postId={} userId={}", post.getId(), userId);
     }
 
     private String buildThreadContext(Post post, String parentCommentId) {

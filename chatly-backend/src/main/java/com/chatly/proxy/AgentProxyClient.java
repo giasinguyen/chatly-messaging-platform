@@ -307,6 +307,41 @@ public class AgentProxyClient {
                 );
     }
 
+                        public void triggerSocialPostCommandAsync(
+                            String postId,
+                            String userId,
+                            String commandContent,
+                            String postContext,
+                            String threadContext) {
+                        Map<String, String> payload = Map.of(
+                            "post_id", postId,
+                            "user_id", userId,
+                            "command_content", commandContent,
+                            "post_context", postContext != null ? postContext : "",
+                            "thread_context", threadContext != null ? threadContext : ""
+                        );
+                        byte[] bodyBytes;
+                        try {
+                            bodyBytes = OBJECT_MAPPER.writeValueAsBytes(payload);
+                        } catch (JsonProcessingException ex) {
+                            log.warn("Failed to serialize social post command request postId={}: {}", postId, ex.getMessage());
+                            return;
+                        }
+                        webClient.post()
+                            .uri("/internal/social/post-command")
+                            .header("X-User-Id", userId)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .bodyValue(bodyBytes)
+                            .retrieve()
+                            .onStatus(HttpStatusCode::isError, this::handleAgentError)
+                            .bodyToMono(Void.class)
+                            .timeout(Duration.ofSeconds(timeoutSeconds))
+                            .subscribe(
+                                null,
+                                ex -> log.warn("Social post command trigger failed postId={}: {}", postId, ex.getMessage())
+                            );
+                        }
+
     private String buildStreamErrorPayload(Throwable e) {
         final String message;
         final String code;
