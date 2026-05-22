@@ -3,6 +3,7 @@ package com.chatly.service;
 import com.chatly.dto.request.UserSettingsRequest;
 import com.chatly.exception.AppException;
 import com.chatly.exception.ErrorCode;
+import com.chatly.dto.response.UserResponse;
 import com.chatly.model.mongo.MessageSettings;
 import com.chatly.model.mongo.NotificationSettings;
 import com.chatly.model.mongo.PrivacySettings;
@@ -18,6 +19,7 @@ import java.util.Map;
 public class UserSettingsService {
 
     private final UserSettingsRepository userSettingsRepository;
+    private final PresenceService presenceService;
 
     public UserSettings getOrCreateDefault(String userId) {
         return userSettingsRepository.findByUserId(userId)
@@ -42,7 +44,11 @@ public class UserSettingsService {
             settings.setMessages(request.getMessages());
         }
 
-        return userSettingsRepository.save(settings);
+        UserSettings savedSettings = userSettingsRepository.save(settings);
+        if (request.getPrivacy() != null) {
+            presenceService.broadcastCurrentPresence(userId);
+        }
+        return savedSettings;
     }
 
     public UserSettings updateSection(String userId, String section, Map<String, Object> data) {
@@ -55,7 +61,11 @@ public class UserSettingsService {
             default -> throw new AppException(ErrorCode.SETTINGS_INVALID_SECTION);
         }
 
-        return userSettingsRepository.save(settings);
+        UserSettings savedSettings = userSettingsRepository.save(settings);
+        if ("privacy".equals(section) && shouldRefreshPresence(data)) {
+            presenceService.broadcastCurrentPresence(userId);
+        }
+        return savedSettings;
     }
 
     private void applyPrivacy(PrivacySettings privacy, Map<String, Object> data) {
@@ -101,5 +111,48 @@ public class UserSettingsService {
         if (data.containsKey("fontSize")) {
             messages.setFontSize((String) data.get("fontSize"));
         }
+    }
+
+    public boolean isOnlineStatusVisible(String userId) {
+        return !Boolean.FALSE.equals(getPrivacy(userId).getShowOnlineStatus());
+    }
+
+    public boolean isLastSeenVisible(String userId) {
+        return !Boolean.FALSE.equals(getPrivacy(userId).getShowLastSeen());
+    }
+
+    public boolean isReadReceiptVisible(String userId) {
+        return !Boolean.FALSE.equals(getPrivacy(userId).getShowReadReceipts());
+    }
+
+    public boolean isFriendRequestAllowed(String userId) {
+        return !Boolean.FALSE.equals(getPrivacy(userId).getAllowFriendRequests());
+    }
+
+    public boolean isFriendListVisible(String userId) {
+        return !Boolean.FALSE.equals(getPrivacy(userId).getShowFriendList());
+    }
+
+    public UserResponse applyPresencePrivacy(UserResponse user) {
+        if (user == null || user.getId() == null) {
+            return user;
+        }
+        if (!isOnlineStatusVisible(user.getId())) {
+            user.setStatus(null);
+        }
+        if (!isLastSeenVisible(user.getId())) {
+            user.setLastSeen(null);
+        }
+        return user;
+    }
+
+    private PrivacySettings getPrivacy(String userId) {
+        return userSettingsRepository.findByUserId(userId)
+                .map(UserSettings::getPrivacy)
+                .orElseGet(() -> PrivacySettings.builder().build());
+    }
+
+    private boolean shouldRefreshPresence(Map<String, Object> data) {
+        return data.containsKey("showOnlineStatus") || data.containsKey("showLastSeen");
     }
 }
