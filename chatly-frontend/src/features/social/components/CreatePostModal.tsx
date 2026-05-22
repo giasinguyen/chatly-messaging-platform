@@ -324,3 +324,4 @@ export function CreatePostModal({ open, onClose }: CreatePostModalProps) {
         </Dialog>
     );
 }
+

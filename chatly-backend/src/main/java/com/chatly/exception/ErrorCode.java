@@ -74,7 +74,6 @@ public enum ErrorCode {
 
     POST_NOT_FOUND(1900, "Post not found", HttpStatus.NOT_FOUND),
     POST_FORBIDDEN(1901, "You are not authorized to modify this post", HttpStatus.FORBIDDEN),
-    POST_IMAGE_REQUIRED(1902, "Post must include at least one image", HttpStatus.BAD_REQUEST),
     COMMENT_NOT_FOUND(1903, "Comment not found", HttpStatus.NOT_FOUND),
     COMMENT_FORBIDDEN(1904, "You are not authorized to modify this comment", HttpStatus.FORBIDDEN),
     REPORT_ALREADY_EXISTS(1905, "You have already reported this post", HttpStatus.CONFLICT),

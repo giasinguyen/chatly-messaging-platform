@@ -176,6 +176,7 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
     const currentUser = useAuthStore((s) => s.user);
     const navigate = useNavigate();
     const currentUserId = currentUser?.id;
+    const isOwnPost = currentUserId === post.authorId;
     const fallbackUpdate = usePostStore((s) => s.updatePost);
     const fallbackRemove = usePostStore((s) => s.removePost);
     const updatePost = onPostUpdate ?? fallbackUpdate;
@@ -1010,11 +1011,6 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
             toast.error("Post content cannot be empty.");
             return;
         }
-        if (!editMediaUrls.some((url) => !/\.(mp4|webm)$/i.test(url))) {
-            toast.error("Please keep at least one image.");
-            return;
-        }
-
         setIsSubmittingEdit(true);
         try {
             const res = await postService.update(post.id, {
@@ -1082,7 +1078,7 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
 
     return (
         <>
-            <article className="rounded-3xl bg-card shadow-sm border border-border overflow-hidden">
+            <article className="rounded-3xl bg-card shadow-sm border border-border overflow-visible">
                 {/* Header */}
                 <div className="flex items-center justify-between px-5 pt-4 pb-2">
                     <button
@@ -1136,7 +1132,7 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
 
                             {isActionsOpen && (
                                 <div className="absolute right-0 top-10 z-50 w-44 rounded-2xl border border-border bg-background p-1 shadow-xl">
-                                    {currentUserId === post.authorId && (
+                                    {isOwnPost && (
                                         <button
                                             type="button"
                                             onClick={handleEdit}
@@ -1158,18 +1154,20 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
                                         <Bookmark className="h-4 w-4" />
                                         {post.savedByMe ? "Unsave" : "Save"}
                                     </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            setIsActionsOpen(false);
-                                            setIsReportOpen(true);
-                                        }}
-                                        className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm text-foreground hover:bg-muted"
-                                    >
-                                        <Flag className="h-4 w-4" />
-                                        Report
-                                    </button>
-                                    {currentUserId === post.authorId && (
+                                    {!isOwnPost && (
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setIsActionsOpen(false);
+                                                setIsReportOpen(true);
+                                            }}
+                                            className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm text-foreground hover:bg-muted"
+                                        >
+                                            <Flag className="h-4 w-4" />
+                                            Report
+                                        </button>
+                                    )}
+                                    {isOwnPost && (
                                         <button
                                             type="button"
                                             onClick={() => {
