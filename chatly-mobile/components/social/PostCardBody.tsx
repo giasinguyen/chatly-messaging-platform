@@ -1,13 +1,16 @@
-import { useMemo, useState } from 'react';
-import { Share, Text, TouchableOpacity, View } from 'react-native';
+import { useState } from 'react';
+import { Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { Avatar } from '@/components/ui/Avatar';
 import { ImageLightbox } from '@/components/ui/ImageLightbox';
 import { UserQuickProfileDialog } from '@/components/profile/UserQuickProfileDialog';
+import { useAuthStore } from '@/store/auth.store';
 import { CommentsBottomSheet } from './CommentsBottomSheet';
+import { PostCardMenu } from './PostCardMenu';
 import { PostImageCarousel } from './PostImageCarousel';
 import { ReportPostModal } from './ReportPostModal';
+import { SharePostDialog } from './SharePostDialog';
 import { Colors } from '@/constants/theme';
 import type { Post, PostComment, ReportPostRequest } from '@/types/post';
 
@@ -25,6 +28,8 @@ interface PostCardBodyProps {
   onDoubleTapLikePost?: (postId: string) => void;
   onSavePost?: (postId: string) => void;
   onUnsavePost?: (postId: string) => void;
+  onDeletePost?: (postId: string) => void;
+  onEditPost?: (postId: string) => void;
   onReportPost?: (postId: string, payload: ReportPostRequest) => Promise<void> | void;
   onAddComment?: (
     postId: string,
@@ -37,7 +42,7 @@ interface PostCardBodyProps {
   onDeleteComment?: (commentId: string) => void;
   onEditComment?: (commentId: string, content: string) => void;
   onOpenComments?: (postId: string) => void;
-  onSharePost?: (postId: string) => void;
+  onSharePost?: (updatedPost: Post) => void;
 }
 
 const CAPTION_COLLAPSE_THRESHOLD = 160;
@@ -74,6 +79,8 @@ export function PostCardBody({
   onDoubleTapLikePost,
   onSavePost,
   onUnsavePost,
+  onDeletePost,
+  onEditPost,
   onReportPost,
   onAddComment,
   onLikeComment,
@@ -84,8 +91,11 @@ export function PostCardBody({
   onSharePost,
 }: PostCardBodyProps) {
   const router = useRouter();
+  const currentUserId = useAuthStore((state) => state.user?.id);
   const [showComments, setShowComments] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
+  const [showShareDialog, setShowShareDialog] = useState(false);
   const [showQuickProfile, setShowQuickProfile] = useState(false);
   const [showMediaViewer, setShowMediaViewer] = useState(false);
   const [mediaViewerIndex, setMediaViewerIndex] = useState(0);
@@ -93,6 +103,7 @@ export function PostCardBody({
   const [isSubmittingReport, setIsSubmittingReport] = useState(false);
 
   const hasLongCaption = (post.content?.trim().length ?? 0) > CAPTION_COLLAPSE_THRESHOLD;
+  const isOwnPost = currentUserId === authorId;
 
   const handleOpenAuthorProfile = () => {
     router.push(`/profile/${authorId}`);
@@ -107,12 +118,7 @@ export function PostCardBody({
   };
 
   const handleShare = () => {
-    if (onSharePost) {
-      onSharePost(post.id);
-      return;
-    }
-
-    void Share.share({ message: `chatly-mobile://post/${post.id}` });
+    setShowShareDialog(true);
   };
 
   const handleSubmitReport = async (payload: ReportPostRequest) => {
@@ -148,11 +154,29 @@ export function PostCardBody({
 
           <View className="relative">
             <TouchableOpacity
-              onPress={() => setShowReportModal(true)}
+              onPress={() => setShowMenu((current) => !current)}
               className="p-1.5"
               activeOpacity={0.7}>
               <Ionicons name="ellipsis-horizontal" size={18} color={Colors.textMuted} />
             </TouchableOpacity>
+
+            {showMenu ? (
+              <PostCardMenu
+                isOwnPost={isOwnPost}
+                onEdit={() => {
+                  onEditPost?.(post.id);
+                  setShowMenu(false);
+                }}
+                onDelete={() => {
+                  onDeletePost?.(post.id);
+                  setShowMenu(false);
+                }}
+                onReport={() => {
+                  setShowMenu(false);
+                  setShowReportModal(true);
+                }}
+              />
+            ) : null}
           </View>
         </View>
 
@@ -243,6 +267,13 @@ export function PostCardBody({
         isSubmitting={isSubmittingReport}
         onClose={() => setShowReportModal(false)}
         onSubmit={handleSubmitReport}
+      />
+
+      <SharePostDialog
+        post={post}
+        visible={showShareDialog}
+        onClose={() => setShowShareDialog(false)}
+        onShared={onSharePost}
       />
 
       <ImageLightbox

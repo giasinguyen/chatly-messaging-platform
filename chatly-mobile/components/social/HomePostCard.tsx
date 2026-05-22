@@ -1,4 +1,3 @@
-import { useMemo, useState } from 'react';
 import type { Post, PostComment, ReportPostRequest } from '@/types/post';
 import { PostCardBody } from './PostCardBody';
 
@@ -23,7 +22,7 @@ interface HomePostCardProps {
   onDeleteComment?: (commentId: string) => void;
   onEditComment?: (commentId: string, content: string) => void;
   onOpenComments?: (postId: string) => void;
-  onSharePost?: (postId: string) => void;
+  onSharePost?: (updatedPost: Post) => void;
 }
 
 export function HomePostCard(props: HomePostCardProps) {
@@ -46,6 +45,8 @@ export function HomePostCard(props: HomePostCardProps) {
       onDoubleTapLikePost={props.onDoubleTapLikePost}
       onSavePost={props.onSavePost}
       onUnsavePost={props.onUnsavePost}
+      onDeletePost={props.onDeletePost}
+      onEditPost={props.onEditPost}
       onReportPost={props.onReportPost}
       onAddComment={props.onAddComment}
       onLikeComment={props.onLikeComment}
