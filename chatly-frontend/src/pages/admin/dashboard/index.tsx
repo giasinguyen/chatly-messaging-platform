@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { adminService } from "@/services/admin.service";
 import type { AdminStatsResponse } from "@/types/admin";
 import { CustomChart } from "@/components/admin/CustomChart";
@@ -12,31 +12,41 @@ import {
   formatDecimal,
   formatNumber,
 } from "./dashboardData";
-import { Loader2 } from "lucide-react";
+import { Loader2, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
+
+const REFRESH_INTERVAL_MS = 30_000;
 
 export default function DashboardPage() {
   const [stats, setStats] = useState<AdminStatsResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const fetchStats = async (silent = false) => {
+    if (!silent) setIsLoading(true);
+    try {
+      const response = await adminService.getStats();
+      if (response.code === 1000) {
+        setStats(response.result);
+        setLastUpdated(new Date());
+      } else {
+        toast.error(response.message || "Failed to load system metrics");
+      }
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Unable to reach server";
+      if (!silent) toast.error(message);
+    } finally {
+      if (!silent) setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        const response = await adminService.getStats();
-        if (response.code === 1000) {
-          setStats(response.result);
-        } else {
-          toast.error(response.message || "Failed to load system metrics");
-        }
-      } catch (err: unknown) {
-        const message = err instanceof Error ? err.message : "Unable to reach server";
-        toast.error(message);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
     fetchStats();
+    intervalRef.current = setInterval(() => fetchStats(true), REFRESH_INTERVAL_MS);
+    return () => {
+      if (intervalRef.current !== null) clearInterval(intervalRef.current);
+    };
   }, []);
 
   const dashboardData = useMemo(() => {
@@ -64,6 +74,22 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6 animate-fade-in text-slate-800">
+      <div className="flex items-center justify-between">
+        <span className="text-xs text-slate-400 font-medium">
+          {lastUpdated
+            ? `Last updated: ${lastUpdated.toLocaleTimeString()} · auto-refreshes every 30s`
+            : ""}
+        </span>
+        <button
+          type="button"
+          onClick={() => fetchStats()}
+          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 transition-all"
+        >
+          <RefreshCw size={13} />
+          Refresh
+        </button>
+      </div>
+
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6 gap-5">
         {dashboardData.kpiCards.map((card) => (
           <DashboardKpiCard key={card.label} {...card} />

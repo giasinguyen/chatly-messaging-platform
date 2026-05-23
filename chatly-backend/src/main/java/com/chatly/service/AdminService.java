@@ -36,6 +36,7 @@ import com.chatly.model.mongo.PostReport;
 import com.chatly.model.mongo.PostReaction;
 import com.chatly.model.postgres.User;
 import com.chatly.proxy.AgentProxyClient;
+import com.chatly.service.NotificationService;
 import com.chatly.repository.mongo.AdminAuditLogRepository;
 import com.chatly.repository.mongo.AdminSettingsRepository;
 import com.chatly.repository.mongo.ConversationRepository;
@@ -101,6 +102,7 @@ public class AdminService {
     private final UserSessionService userSessionService;
     private final MongoTemplate mongoTemplate;
     private final PasswordEncoder passwordEncoder;
+    private final NotificationService notificationService;
 
     public AdminStatsResponse getStats() {
         long totalUsers = userRepository.count();
@@ -214,7 +216,7 @@ public class AdminService {
         // 3.5 AI Chatbot Agent
         boolean agentUp = false;
         try {
-            var response = agentProxyClient.forward(HttpMethod.GET, "/health", "system", null);
+            var response = agentProxyClient.forward(HttpMethod.GET, "/health/", "system", null);
             if (response != null && response.getStatusCode().is2xxSuccessful()) {
                 agentUp = true;
             }
@@ -300,10 +302,28 @@ public class AdminService {
         return userMapper.toResponse(saved);
     }
 
-    public PagedResponse<UserResponse> listUsers(String keyword, Pageable pageable) {
-        Page<User> users = isBlank(keyword)
-                ? userRepository.findAll(pageable)
-                : userRepository.searchByKeyword(keyword.trim(), pageable);
+    public PagedResponse<UserResponse> listUsers(String keyword, String statusFilter, Pageable pageable) {
+        boolean hasKeyword = !isBlank(keyword);
+        String kw = hasKeyword ? keyword.trim() : null;
+        Page<User> users;
+        switch (statusFilter == null ? "ALL" : statusFilter.toUpperCase()) {
+            case "SUSPENDED" ->
+                users = hasKeyword
+                        ? userRepository.searchSuspendedByKeyword(kw, pageable)
+                        : userRepository.findBySuspendedTrue(pageable);
+            case "ONLINE" ->
+                users = hasKeyword
+                        ? userRepository.searchByStatusAndKeyword(UserStatus.ONLINE, kw, pageable)
+                        : userRepository.findBySuspendedFalseAndStatus(UserStatus.ONLINE, pageable);
+            case "OFFLINE" ->
+                users = hasKeyword
+                        ? userRepository.searchOfflineByKeyword(UserStatus.ONLINE, kw, pageable)
+                        : userRepository.findBySuspendedFalseAndStatusNot(UserStatus.ONLINE, pageable);
+            default ->
+                users = hasKeyword
+                        ? userRepository.searchByKeyword(kw, pageable)
+                        : userRepository.findAll(pageable);
+        }
         return PagedResponse.from(users.map(userMapper::toResponse));
     }
 
@@ -315,7 +335,7 @@ public class AdminService {
     public void suspendUser(String adminUserId, String id, boolean suspend) {
         User user = findUser(id);
         user.setSuspended(suspend);
-        userRepository.save(user);
+        userRepository.saveAndFlush(user);
 
         if (suspend) {
             userSessionService.revokeAllForUser(user.getId());
@@ -347,9 +367,18 @@ public class AdminService {
     public void deletePost(String adminUserId, String id) {
         Post post = postRepository.findById(id)
                 .orElseThrow(() -> new AppException(ErrorCode.POST_NOT_FOUND));
+        String authorId = post.getAuthorId();
         postRepository.delete(post);
         logAudit(adminUserId, "POST_DELETED", "POST", id,
-                "Post deleted", "Admin deleted a post by user " + post.getAuthorId());
+                "Post deleted", "Admin deleted a post by user " + authorId);
+        if (authorId != null) {
+            notificationService.createAndPush(
+                    NotificationType.SYSTEM,
+                    null,
+                    authorId,
+                    "Your post has been removed for violating our community guidelines.",
+                    id);
+        }
     }
 
     public PagedResponse<ConversationResponse> listConversations(

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
-import { Mail, Lock, Eye, EyeOff, RefreshCw } from "lucide-react";
+import { Mail, Lock, Eye, EyeOff, RefreshCw, ShieldAlert, X } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Controller, useForm, type Resolver } from "react-hook-form";
@@ -32,12 +32,14 @@ import "./login.css";
 
 const SMS_LOGIN_MAINTENANCE_MESSAGE = "SMS login is currently under maintenance.";
 const LOGIN_ERROR_MESSAGE = "An error occurred";
+const SUSPENDED_ERROR_CODE = 1115;
 
 export default function LoginPage() {
     const [showPassword, setShowPassword] = useState(false);
     const [loginMethod, setLoginMethod] = useState<"password" | "sms">(
         "password",
     );
+    const [isSuspended, setIsSuspended] = useState(false);
     
     const [qrToken, setQrToken] = useState<string | null>(null);
     const [qrStatus, setQrStatus] = useState<"PENDING" | "EXPIRED" | "LOADING">("LOADING");
@@ -137,10 +139,14 @@ export default function LoginPage() {
             }
         } catch (error: unknown) {
             console.error("Login error:", error);
-            const msg = axios.isAxiosError<ApiResponse<unknown>>(error)
-                ? error.response?.data?.message ?? LOGIN_ERROR_MESSAGE
-                : LOGIN_ERROR_MESSAGE;
-            toast.error(msg);
+            if (axios.isAxiosError<ApiResponse<unknown>>(error) && error.response?.data?.code === SUSPENDED_ERROR_CODE) {
+                setIsSuspended(true);
+            } else {
+                const msg = axios.isAxiosError<ApiResponse<unknown>>(error)
+                    ? error.response?.data?.message ?? LOGIN_ERROR_MESSAGE
+                    : LOGIN_ERROR_MESSAGE;
+                toast.error(msg);
+            }
         } finally {
             setGlobalLoading(false);
         }
@@ -400,6 +406,44 @@ export default function LoginPage() {
                     </p>
                 </div>
             </div>
+
+            {/* Suspended account modal */}
+            {isSuspended && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+                    <div className="relative w-full max-w-md rounded-2xl bg-white shadow-2xl p-8 flex flex-col items-center text-center">
+                        <button
+                            type="button"
+                            onClick={() => setIsSuspended(false)}
+                            className="absolute top-4 right-4 rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+                            aria-label="Close"
+                        >
+                            <X size={18} />
+                        </button>
+                        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-red-50 mb-5">
+                            <ShieldAlert size={32} className="text-red-500" />
+                        </div>
+                        <h2 className="text-xl font-bold text-slate-900 mb-2">Account is temporarily suspended.</h2>
+                        <p className="text-sm text-slate-600 mb-4 leading-relaxed">
+                           Your account has been temporarily suspended for violating Chatly's community standards.
+                            If you believe this is a mistake, please contact support to file a complaint.
+                        </p>
+                        <a
+                            href="mailto:cskh@chatly.com"
+                            className="inline-flex items-center gap-2 rounded-xl bg-red-50 border border-red-100 px-5 py-2.5 text-sm font-semibold text-red-600 hover:bg-red-100 transition-colors mb-5"
+                        >
+                            <Mail size={15} />
+                            cskh@chatly.com
+                        </a>
+                        <button
+                            type="button"
+                            onClick={() => setIsSuspended(false)}
+                            className="w-full rounded-xl bg-slate-100 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-200 transition-colors"
+                        >
+                            Close
+                        </button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

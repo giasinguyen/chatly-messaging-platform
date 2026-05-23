@@ -120,7 +120,11 @@ export interface ReportResponse {
   id: string;
   postId: string;
   reporterId: string;
+  reporterUsername?: string;
+  reporterDisplayName?: string;
   reportedUserId: string;
+  reportedUserUsername?: string;
+  reportedUserDisplayName?: string;
   reason: ReportReason;
   description: string;
   status: ReportStatus;
