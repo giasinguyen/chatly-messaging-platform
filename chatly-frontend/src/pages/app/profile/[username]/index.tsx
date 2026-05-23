@@ -130,6 +130,7 @@ export default function UsernameProfilePage() {
                     postCount={postCount}
                     friendCount={friendCount}
                     actionLoading={actionLoading}
+                    suspended={profile.suspended}
                     onOpenStoryViewer={() => setShowStoryViewer(true)}
                     onOpenFriends={handleOpenFriends}
                     onSendFriendRequest={handleSendFriendRequest}

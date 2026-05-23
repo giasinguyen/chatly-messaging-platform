@@ -79,12 +79,14 @@ public class MessageService {
     public MessageResponse send(String senderId, MessageRequest request) {
         Conversation conversation = getConversationForParticipant(request.getConversationId(), senderId);
 
-        // Block guard: reject messages in PRIVATE conversations when either user has blocked the other
+        // Resolve other participant for PRIVATE conversation guards
+        String otherId = null;
         if (conversation.getType() == ConversationType.PRIVATE) {
-            String otherId = conversation.getParticipantIds().stream()
+            otherId = conversation.getParticipantIds().stream()
                     .filter(id -> !id.equals(senderId))
                     .findFirst()
                     .orElse(null);
+            // Block guard: reject if either user has blocked the other
             if (otherId != null && contactService.isBlocked(UUID.fromString(senderId), UUID.fromString(otherId))) {
                 throw new AppException(ErrorCode.CONTACT_BLOCKED);
             }
@@ -124,6 +126,25 @@ public class MessageService {
                 && Boolean.TRUE.equals(conversation.getAiProactiveEnabled())
                 && isQuestion(request.getContent())) {
             scheduleUnansweredCheck(conversation.getId(), savedMessage.getId(), senderId);
+        }
+
+        // Auto-reply when the recipient account is suspended (PRIVATE conversations only)
+        if (otherId != null) {
+            final String suspendedUserId = otherId;
+            userRepository.findById(UUID.fromString(otherId)).ifPresent(otherUser -> {
+                if (otherUser.isSuspended()) {
+                    Message autoReply = Message.builder()
+                            .conversationId(conversation.getId())
+                            .senderId(suspendedUserId)
+                            .content("This account is currently suspended and cannot respond. " +
+                                     "Please contact our support team for further assistance.")
+                            .type(MessageType.SYSTEM)
+                            .attachments(new ArrayList<>())
+                            .mentions(new ArrayList<>())
+                            .build();
+                    persistAndBroadcast(conversation, autoReply, suspendedUserId);
+                }
+            });
         }
 
         return messageMapper.toResponse(savedMessage);
