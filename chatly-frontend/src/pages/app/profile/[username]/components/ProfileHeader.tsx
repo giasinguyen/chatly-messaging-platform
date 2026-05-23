@@ -14,6 +14,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { AdminBadge } from "@/components/customize/AdminBadge";
 import { EditProfileModal } from "./EditProfileModal";
 import { ProfileBioSection } from "./ProfileBioSection";
 import { ProfileOverflowMenu } from "./ProfileOverflowMenu";
@@ -45,6 +46,7 @@ interface ProfileHeaderProps {
     onReportUser: () => void;
     onSetConfirmDialog: (value: "block" | "unblock" | "remove") => void;
     suspended?: boolean;
+    role?: "USER" | "ADMIN";
 }
 
 export function ProfileHeader({
@@ -73,6 +75,7 @@ export function ProfileHeader({
     onReportUser,
     onSetConfirmDialog,
     suspended = false,
+    role,
 }: ProfileHeaderProps) {
     return (
         <section className="mb-10 grid gap-6 border-b border-border pb-10 sm:grid-cols-[10rem_minmax(0,1fr)] sm:gap-10 lg:grid-cols-[12rem_minmax(0,1fr)] lg:px-10">
@@ -102,6 +105,7 @@ export function ProfileHeader({
                     <h1 className="min-w-0 text-xl font-semibold text-foreground md:text-2xl">
                         {displayUsername}
                     </h1>
+                    {role === "ADMIN" && <AdminBadge className="size-5" />}
                     {direction === "I_BLOCKED" && (
                         <Badge variant="destructive" className="gap-1">
                             <Ban className="size-3" /> Blocked

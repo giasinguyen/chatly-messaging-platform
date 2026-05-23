@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Check, Loader2, Search } from "lucide-react";
 import { toast } from "sonner";
+import { AdminBadge } from "@/components/customize/AdminBadge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
@@ -36,6 +37,7 @@ interface ShareTarget {
     title: string;
     subtitle: string;
     avatarUrl?: string | null;
+    role?: string;
 }
 
 function toTargetKey(kind: ShareTargetKind, id: string): string {
@@ -85,6 +87,7 @@ export function SharePostDialog({ post, open, onOpenChange, onShared }: SharePos
                 title: friend.displayName,
                 subtitle: `@${friend.username}`,
                 avatarUrl: friend.avatarUrl,
+                role: friend.role,
             })),
             ...groupConversations.map((conversation) => ({
                 key: toTargetKey("GROUP", conversation.id),
@@ -261,9 +264,14 @@ export function SharePostDialog({ post, open, onOpenChange, onShared }: SharePos
                                             <AvatarFallback>{target.title.slice(0, 1).toUpperCase()}</AvatarFallback>
                                         </Avatar>
                                         <div className="min-w-0 flex-1">
-                                            <p className="truncate text-sm font-medium text-foreground">
-                                                {target.title}
-                                            </p>
+                                            <div className="flex min-w-0 items-center gap-1.5">
+                                                <p className="truncate text-sm font-medium text-foreground">
+                                                    {target.title}
+                                                </p>
+                                                {target.role === "ADMIN" && (
+                                                    <AdminBadge className="size-3.5" />
+                                                )}
+                                            </div>
                                             <p className="truncate text-xs text-muted-foreground">
                                                 {target.subtitle}
                                             </p>

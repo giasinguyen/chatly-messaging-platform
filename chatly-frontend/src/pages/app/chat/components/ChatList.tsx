@@ -45,6 +45,7 @@ import {
     TooltipProvider,
     TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { AdminBadge } from "@/components/customize/AdminBadge";
 import { cn } from "@/lib/utils";
 import { conversationService } from "@/services/conversation.service";
 import { socketService } from "@/services/socket.service";
@@ -490,6 +491,9 @@ export const ChatList = forwardRef(function ChatListComponent(_, ref) {
         const otherId = !isGroup
             ? conv.participantIds.find((id) => id !== currentUser?.id)
             : undefined;
+        const otherUser = otherId
+            ? users.find((item) => item.id === otherId)
+            : undefined;
         const blockDirection =
             otherId && currentUser?.id
                 ? getBlockDirection(currentUser.id, otherId)
@@ -627,6 +631,9 @@ export const ChatList = forwardRef(function ChatListComponent(_, ref) {
                                         <span className="font-normal truncate block text-[15px] text-foreground">
                                             {displayName}
                                         </span>
+                                        {!isGroup && otherUser?.role === "ADMIN" && (
+                                            <AdminBadge className="size-3.5" />
+                                        )}
                                         {/* Category tag icons next to name */}
                                         {categories.length > 0 && (
                                             <TooltipProvider>

@@ -38,6 +38,11 @@ import Picker from "@emoji-mart/react";
 import data from "@emoji-mart/data";
 import { agentService } from "@/services/agent.service";
 import { contactService } from "@/services/contact.service";
+import {
+    userRoleService,
+    type UserRoleMap,
+} from "@/services/userRoleService";
+import { AdminBadge } from "@/components/customize/AdminBadge";
 import { CustomAiIcon } from "@/components/customize/CustomAiIcon";
 import { MediaPicker } from "@/components/media-picker/MediaPicker";
 import { MentionSuggestionsDropdown } from "@/components/mention/MentionSuggestionsDropdown";
@@ -305,6 +310,7 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
     const [commentLightboxIndex, setCommentLightboxIndex] = useState<
         number | null
     >(null);
+    const [userRolesById, setUserRolesById] = useState<UserRoleMap>({});
     const [currentMediaIndex, setCurrentMediaIndex] = useState(0);
     const [imageAspectRatios, setImageAspectRatios] = useState<
         Record<string, number>
@@ -339,6 +345,10 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
         post.authorUsername ??
         (post.authorId === currentUserId ? currentUser?.username : undefined);
     const authorInitial = authorLabel.slice(0, 1).toUpperCase();
+    const isAuthorAdmin =
+        post.authorRole === "ADMIN" ||
+        userRolesById[post.authorId] === "ADMIN" ||
+        (post.authorId === currentUserId && currentUser?.role === "ADMIN");
     const hasPostMedia = post.mediaUrls.length > 0;
     const authorProfilePath = useMemo(() => {
         if (authorUsername) {
@@ -408,6 +418,9 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
         const commentTotalReactions =
             comment.reactions?.reduce((acc, r) => acc + r.count, 0) ?? 0;
         const isEditingThis = editingCommentId === comment.id;
+        const isCommentAuthorAdmin =
+            comment.userRole === "ADMIN" ||
+            userRolesById[comment.userId] === "ADMIN";
 
         return (
             <div
@@ -475,7 +488,7 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
                             <div className="rounded-xl border border-border bg-muted/20 px-3 py-2">
                                 <button
                                     type="button"
-                                    className="text-sm font-medium text-foreground hover:underline"
+                                    className="inline-flex max-w-full items-center gap-1 text-sm font-medium text-foreground hover:underline"
                                     onClick={() => {
                                         if (comment.userUsername) {
                                             navigate(
@@ -484,7 +497,12 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
                                         }
                                     }}
                                 >
-                                    {comment.userDisplayName}
+                                    <span className="truncate">
+                                        {comment.userDisplayName}
+                                    </span>
+                                    {isCommentAuthorAdmin && (
+                                        <AdminBadge className="size-3" />
+                                    )}
                                 </button>
                                 {comment.isAiGenerated && (
                                     <span className="ml-1.5 inline-flex items-center gap-0.5 rounded-full bg-indigo-100 dark:bg-indigo-900/30 px-1.5 py-0.5 text-[10px] font-medium text-indigo-600 dark:text-indigo-400">
@@ -1267,6 +1285,36 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
     };
 
     useEffect(() => {
+        const shouldLoadAuthorRole =
+            !post.authorRole && !userRolesById[post.authorId];
+        const shouldLoadCommentRoles =
+            isCommentOpen &&
+            comments.some(
+                (comment) =>
+                    !comment.userRole && !userRolesById[comment.userId],
+            );
+
+        if (!shouldLoadAuthorRole && !shouldLoadCommentRoles) {
+            return;
+        }
+
+        let isActive = true;
+
+        userRoleService
+            .getRolesById()
+            .then((rolesById) => {
+                if (isActive) {
+                    setUserRolesById(rolesById);
+                }
+            })
+            .catch(() => undefined);
+
+        return () => {
+            isActive = false;
+        };
+    }, [comments, isCommentOpen, post.authorId, post.authorRole, userRolesById]);
+
+    useEffect(() => {
         if (!showCommentEmojiPicker) {
             return;
         }
@@ -1324,9 +1372,14 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
                             )}
                         </div>
                         <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-foreground truncate hover:underline">
-                                {authorLabel}
-                            </p>
+                            <div className="flex min-w-0 items-center gap-1.5">
+                                <p className="truncate text-sm font-medium text-foreground hover:underline">
+                                    {authorLabel}
+                                </p>
+                                {isAuthorAdmin && (
+                                    <AdminBadge className="size-3.5" />
+                                )}
+                            </div>
                             <p className="text-xs text-muted-foreground">
                                 {formatRelativeTime(post.createdAt)}
                             </p>
@@ -1905,9 +1958,14 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
                                                     type="button"
                                                     onClick={handleAuthorNavigate}
                                                     disabled={!authorProfilePath}
-                                                    className="block max-w-full truncate text-left text-sm font-semibold text-foreground hover:underline"
+                                                    className="inline-flex max-w-full items-center gap-1.5 text-left text-sm font-semibold text-foreground hover:underline"
                                                 >
-                                                    {authorLabel}
+                                                    <span className="truncate">
+                                                        {authorLabel}
+                                                    </span>
+                                                    {isAuthorAdmin && (
+                                                        <AdminBadge className="size-3.5" />
+                                                    )}
                                                 </button>
                                                 <p className="text-xs text-muted-foreground">
                                                     {formatRelativeTime(post.createdAt)}
@@ -1965,9 +2023,14 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
                                                     type="button"
                                                     onClick={handleAuthorNavigate}
                                                     disabled={!authorProfilePath}
-                                                    className="block max-w-full truncate text-left text-sm font-semibold text-foreground hover:underline"
+                                                    className="inline-flex max-w-full items-center gap-1.5 text-left text-sm font-semibold text-foreground hover:underline"
                                                 >
-                                                    {authorLabel}
+                                                    <span className="truncate">
+                                                        {authorLabel}
+                                                    </span>
+                                                    {isAuthorAdmin && (
+                                                        <AdminBadge className="size-3.5" />
+                                                    )}
                                                 </button>
                                                 <p className="text-xs text-muted-foreground">
                                                     {formatRelativeTime(post.createdAt)}

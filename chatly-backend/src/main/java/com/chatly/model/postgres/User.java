@@ -1,5 +1,6 @@
 package com.chatly.model.postgres;
 
+import com.chatly.model.enums.Role;
 import com.chatly.model.enums.UserStatus;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.AssertTrue;
@@ -51,6 +52,10 @@ public class User {
     private Instant dob;
 
     private String bio;
+
+    @Enumerated(EnumType.STRING)
+    @Builder.Default
+    private Role role = Role.USER;
 
     @Enumerated(EnumType.STRING)
     @Builder.Default

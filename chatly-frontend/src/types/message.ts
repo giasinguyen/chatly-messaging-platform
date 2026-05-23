@@ -137,6 +137,7 @@ export interface ChatUser {
     avatarUrl?: string;
     phone?: string;
     dob?: string;
+    role?: "USER" | "ADMIN";
     privacy?: {
         showPhone?: boolean;
         showDob?: boolean;

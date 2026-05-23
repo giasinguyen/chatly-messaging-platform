@@ -207,6 +207,7 @@ export function useChatMessageExtras({
                         avatarUrl: u.avatarUrl,
                         phone: u.phone,
                         dob: u.dob,
+                        role: u.role,
                     };
                 } catch {
                     return;

@@ -1019,6 +1019,7 @@ export default function ChatScreen() {
                     isMe={isMe}
                     showAvatar={isGroup}
                     senderName={agentSenderName}
+                    senderRole={isAgent ? undefined : sender?.role}
                     senderAvatarUrl={isGroup ? sender?.avatarUrl : undefined}
                     currentUserId={user?.id}
                     onLongPress={() => handleLongPress(msg)}

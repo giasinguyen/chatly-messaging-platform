@@ -1,4 +1,5 @@
 import { MessageCircle, UserPlus, UserRound } from "lucide-react";
+import { AdminBadge } from "@/components/customize/AdminBadge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 
@@ -8,6 +9,7 @@ export interface HomeHoverUser {
     username: string;
     avatarUrl?: string;
     subtitle?: string;
+    role?: string;
 }
 
 interface HomeUserHoverCardProps {
@@ -45,9 +47,12 @@ export function HomeUserHoverCard({
                     </Avatar>
 
                     <div className="min-w-0">
-                        <h4 className="truncate text-lg font-bold text-foreground">
-                            {user.displayName}
-                        </h4>
+                        <div className="flex min-w-0 items-center gap-1.5">
+                            <h4 className="truncate text-lg font-bold text-foreground">
+                                {user.displayName}
+                            </h4>
+                            {user.role === "ADMIN" && <AdminBadge />}
+                        </div>
                         <p className="truncate text-sm text-muted-foreground">
                             {user.subtitle ?? `@${user.username}`}
                         </p>

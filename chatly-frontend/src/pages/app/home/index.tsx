@@ -3,6 +3,7 @@ import { useAuthStore } from "@/store/auth.store";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
+import { AdminBadge } from "@/components/customize/AdminBadge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { CreatePostModal } from "@/components/app/CreatePostModal";
 import { CreateOptionsModal } from "@/components/app/CreateOptionsModal";
@@ -14,6 +15,10 @@ import { FeedList } from "@/pages/app/feed/components/FeedList";
 import { NewPostBanner } from "@/pages/app/feed/components/NewPostBanner";
 import { useInfiniteScroll } from "@/hooks/useInfiniteScroll";
 import { socketService } from "@/services/socket.service";
+import {
+    userRoleService,
+    type UserRoleMap,
+} from "@/services/userRoleService";
 import { useFeedStore } from "@/store/feed.store";
 import { storyService } from "@/services/story.service";
 import type { Story } from "@/types/story";
@@ -32,6 +37,7 @@ export default function HomePage() {
         null,
     );
     const [stories, setStories] = useState<Story[]>([]);
+    const [userRolesById, setUserRolesById] = useState<UserRoleMap>({});
 
     const posts = useFeedStore((s) => s.posts);
     const nextCursor = useFeedStore((s) => s.nextCursor);
@@ -48,6 +54,16 @@ export default function HomePage() {
     const removePost = useFeedStore((s) => s.removePost);
 
     const pendingCount = pendingNewPosts.length;
+    const resolvedUserRolesById = useMemo(() => {
+        if (!user?.role) {
+            return userRolesById;
+        }
+
+        return {
+            ...userRolesById,
+            [user.id]: user.role,
+        };
+    }, [user?.id, user?.role, userRolesById]);
 
     useEffect(() => {
         const fetchStories = async () => {
@@ -61,6 +77,27 @@ export default function HomePage() {
             }
         };
         fetchStories();
+    }, []);
+
+    useEffect(() => {
+        let isActive = true;
+
+        userRoleService
+            .getRolesById()
+            .then((rolesById) => {
+                if (isActive) {
+                    setUserRolesById(rolesById);
+                }
+            })
+            .catch(() => {
+                if (isActive) {
+                    setUserRolesById({});
+                }
+            });
+
+        return () => {
+            isActive = false;
+        };
     }, []);
 
     useEffect(() => {
@@ -121,7 +158,13 @@ export default function HomePage() {
         stories.forEach((s) => {
             if (!s.user) return;
             if (!groups[s.userId]) {
-                groups[s.userId] = { user: s.user, stories: [] };
+                groups[s.userId] = {
+                    user: {
+                        ...s.user,
+                        role: s.user.role ?? resolvedUserRolesById[s.userId],
+                    },
+                    stories: [],
+                };
             }
             groups[s.userId].stories.push(s);
         });
@@ -131,7 +174,7 @@ export default function HomePage() {
             if (b.user?.id === user?.id) return 1;
             return 0;
         });
-    }, [stories, user?.id]);
+    }, [resolvedUserRolesById, stories, user?.id]);
 
     const hasMyStories = useMemo(() => {
         return stories.some((s) => s.userId === user?.id);
@@ -210,15 +253,20 @@ export default function HomePage() {
                                             </div>
                                             <span
                                                 className={cn(
-                                                    "text-sm truncate w-16 text-center",
+                                                    "flex w-16 items-center justify-center gap-0.5 text-sm",
                                                     allViewed
                                                         ? "text-muted-foreground/50"
                                                         : "text-muted-foreground",
                                                 )}
                                             >
-                                                {group.user?.id === user?.id
-                                                    ? "Your story"
-                                                    : group.user?.displayName}
+                                                <span className="truncate">
+                                                    {group.user?.id === user?.id
+                                                        ? "Your story"
+                                                        : group.user?.displayName}
+                                                </span>
+                                                {group.user?.role === "ADMIN" && (
+                                                    <AdminBadge className="size-3" />
+                                                )}
                                             </span>
                                         </div>
                                     );
@@ -248,6 +296,7 @@ export default function HomePage() {
                     <HomeRightSidebar
                         user={user}
                         hasMyStories={hasMyStories}
+                        userRolesById={resolvedUserRolesById}
                         onOpenProfile={() => navigate(`/u/${user?.username}`)}
                     />
                 </div>

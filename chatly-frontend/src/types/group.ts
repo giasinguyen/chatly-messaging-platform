@@ -7,6 +7,7 @@ export interface GroupMemberResponse {
     displayName: string;
     avatar: string | null;
     role: GroupRole;
+    userRole?: "USER" | "ADMIN";
     joinedAt: string;
 }
 
@@ -48,6 +49,7 @@ export interface PendingJoinResponse {
     displayName: string;
     username: string;
     avatarUrl: string | null;
+    userRole?: "USER" | "ADMIN";
     invitedBy: string | null;
     createdAt: string;
 }

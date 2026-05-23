@@ -30,6 +30,7 @@ import { NotesDialog } from "./NotesDialog";
 import { PinnedMessagesDialog } from "./PinnedMessagesDialog";
 import { RemindersDialog } from "./RemindersDialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { AdminBadge } from "@/components/customize/AdminBadge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -576,6 +577,9 @@ export function ConversationInfoPanel({
                                 <span className="text-[15px] font-semibold text-foreground text-center leading-tight truncate max-w-full">
                                     {storedNickname || participant.displayName}
                                 </span>
+                                {!isGroup && participant.role === "ADMIN" && (
+                                    <AdminBadge className="size-3.5" />
+                                )}
                                 {!isGroup ? (
                                     <button
                                         type="button"

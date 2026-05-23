@@ -54,6 +54,7 @@ function buildParticipant(participantId: string, user?: UserResponse): ChatUser 
         avatarUrl: user.avatarUrl,
         phone: user.phone,
         dob: user.dob,
+        role: user.role,
     };
 }
 
@@ -136,6 +137,7 @@ export function useChatConversationInit({
                                   avatarUrl: other.avatarUrl,
                                   phone: other.phone,
                                   dob: other.dob,
+                                  role: other.role,
                                   privacy: {
                                       showPhone: getPrivacyFlag(otherRecord, "phone"),
                                       showDob: getPrivacyFlag(otherRecord, "dob"),

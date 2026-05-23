@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { ChevronLeft, ChevronRight, Eye, Pause, Play, Send, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { AdminBadge } from "@/components/customize/AdminBadge";
 import { useAuthStore } from "@/store/auth.store";
 import { storyService } from "@/services/story.service";
 import { conversationService } from "@/services/conversation.service";
@@ -28,6 +29,7 @@ interface StoryUser {
     displayName?: string;
     avatarUrl?: string;
     username?: string;
+    role?: "USER" | "ADMIN";
 }
 
 interface StoryGroup {
@@ -441,8 +443,13 @@ export function StoryViewer({ groups, initialGroupIndex, onClose, onStoryDeleted
                             )}
                         </div>
                         <div className="flex items-center gap-2">
-                            <span className="text-sm font-semibold text-white drop-shadow-md">
-                                {user.displayName ?? user.username ?? "User"}
+                            <span className="inline-flex min-w-0 items-center gap-1 text-sm font-semibold text-white drop-shadow-md">
+                                <span className="truncate">
+                                    {user.displayName ?? user.username ?? "User"}
+                                </span>
+                                {user.role === "ADMIN" && (
+                                    <AdminBadge className="size-3.5" />
+                                )}
                             </span>
                             <span className="text-xs text-white/60">
                                 {formatStoryTime(currentStory.createdAt)}
@@ -642,7 +649,14 @@ export function StoryViewer({ groups, initialGroupIndex, onClose, onStoryDeleted
                                                     </div>
                                                 )}
                                             </div>
-                                            <span className="text-white text-sm">{viewer.displayName ?? viewer.username}</span>
+                                            <span className="inline-flex min-w-0 items-center gap-1 text-white text-sm">
+                                                <span className="truncate">
+                                                    {viewer.displayName ?? viewer.username}
+                                                </span>
+                                                {viewer.role === "ADMIN" && (
+                                                    <AdminBadge className="size-3" />
+                                                )}
+                                            </span>
                                         </div>
                                     ))
                                 )
@@ -663,7 +677,14 @@ export function StoryViewer({ groups, initialGroupIndex, onClose, onStoryDeleted
                                                     </div>
                                                 )}
                                             </div>
-                                            <span className="text-white text-sm flex-1">{r.user?.displayName ?? r.user?.username}</span>
+                                            <span className="inline-flex min-w-0 flex-1 items-center gap-1 text-white text-sm">
+                                                <span className="truncate">
+                                                    {r.user?.displayName ?? r.user?.username}
+                                                </span>
+                                                {r.user?.role === "ADMIN" && (
+                                                    <AdminBadge className="size-3" />
+                                                )}
+                                            </span>
                                             <span className="text-xl">{r.emoji}</span>
                                         </div>
                                     ))
@@ -686,7 +707,14 @@ export function StoryViewer({ groups, initialGroupIndex, onClose, onStoryDeleted
                                                 )}
                                             </div>
                                             <div className="flex flex-col">
-                                                <span className="text-white/70 text-xs">{r.user?.displayName ?? r.user?.username}</span>
+                                                <span className="inline-flex min-w-0 items-center gap-1 text-white/70 text-xs">
+                                                    <span className="truncate">
+                                                        {r.user?.displayName ?? r.user?.username}
+                                                    </span>
+                                                    {r.user?.role === "ADMIN" && (
+                                                        <AdminBadge className="size-3" />
+                                                    )}
+                                                </span>
                                                 <span className="text-white text-sm">{r.content}</span>
                                             </div>
                                         </div>

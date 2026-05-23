@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import { AdminBadge } from "@/components/customize/AdminBadge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { usePresenceSocket, type PresenceEvent } from "@/hooks/usePresenceSocket";
 import { conversationService } from "@/services/conversation.service";
 import { useContactStore } from "@/store/contact.store";
 import type { UserResponse } from "@/types/auth";
 import type { ContactResponse } from "@/types/contact";
+import type { UserRoleMap } from "@/services/userRoleService";
 import { HomeUserHoverCard } from "./HomeUserHoverCard";
 
 type PresenceStatus = "ONLINE" | "OFFLINE";
@@ -17,10 +19,12 @@ interface FriendListItem {
     username: string;
     avatarUrl?: string;
     status?: string;
+    role?: string;
 }
 
 interface HomeFriendsPanelProps {
     user: UserResponse | null;
+    userRolesById: UserRoleMap;
 }
 
 function getFriend(
@@ -30,7 +34,10 @@ function getFriend(
     return contact.user.id === currentUserId ? contact.contact : contact.user;
 }
 
-export function HomeFriendsPanel({ user }: HomeFriendsPanelProps) {
+export function HomeFriendsPanel({
+    user,
+    userRolesById,
+}: HomeFriendsPanelProps) {
     const navigate = useNavigate();
     const contacts = useContactStore((state) => state.contacts);
     const loaded = useContactStore((state) => state.loaded);
@@ -129,6 +136,7 @@ export function HomeFriendsPanel({ user }: HomeFriendsPanelProps) {
                 {friends.map((friend) => {
                     const status = presenceByUserId[friend.id] ?? friend.status;
                     const isOnline = status === "ONLINE";
+                    const role = friend.role ?? userRolesById[friend.id];
 
                     return (
                         <div key={friend.id} className="group relative">
@@ -155,9 +163,14 @@ export function HomeFriendsPanel({ user }: HomeFriendsPanelProps) {
                                 </div>
 
                                 <div className="min-w-0">
-                                    <p className="truncate text-sm font-semibold text-foreground">
-                                        {friend.displayName}
-                                    </p>
+                                    <div className="flex min-w-0 items-center gap-1.5">
+                                        <p className="truncate text-sm font-semibold text-foreground">
+                                            {friend.displayName}
+                                        </p>
+                                        {role === "ADMIN" && (
+                                            <AdminBadge className="size-3.5" />
+                                        )}
+                                    </div>
                                     {isOnline && (
                                         <p className="text-xs text-emerald-600 dark:text-emerald-400">
                                             Online
@@ -173,6 +186,7 @@ export function HomeFriendsPanel({ user }: HomeFriendsPanelProps) {
                                     username: friend.username,
                                     avatarUrl: friend.avatarUrl,
                                     subtitle: isOnline ? "Online" : `@${friend.username}`,
+                                    role,
                                 }}
                                 mode="friend"
                                 onViewProfile={() => navigate(`/u/${friend.username}`)}

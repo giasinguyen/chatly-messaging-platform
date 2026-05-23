@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Phone, Video, Users, ChevronLeft, Search, Pin, BellOff, PanelRightOpen, PanelRightClose } from "lucide-react";
 import { CustomAiIcon } from "@/components/customize/CustomAiIcon";
+import { AdminBadge } from "@/components/customize/AdminBadge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { PresenceIndicator } from "@/components/customize/PresenceIndicator";
@@ -89,6 +90,9 @@ export function ChatHeader({ user, onOpenProfile, isGroup, conversationId, other
                             <h3 className="text-sm font-semibold text-foreground line-clamp-1">
                                 {nickname || user.displayName}
                             </h3>
+                            {!isGroup && user.role === "ADMIN" && (
+                                <AdminBadge className="size-3.5" />
+                            )}
                             {isPinned && (
                                 <Pin
                                     size={14}

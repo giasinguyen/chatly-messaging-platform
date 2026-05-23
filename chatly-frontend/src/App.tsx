@@ -27,12 +27,15 @@ const FATAL_BUSINESS_CODES = new Set([1100, 1006, 1001]);
 const FATAL_HTTP_STATUSES = new Set([403, 404, 410]);
 
 function SessionBootstrap() {
-    const { isAuthenticated, updateUser, clearAuth } = useAuthStore();
+    const { isAuthenticated, updateUser, clearAuth, setSessionReady } = useAuthStore();
 
     useEffect(() => {
         const syncSession = async () => {
             const token = localStorage.getItem("access_token");
-            if (!isAuthenticated || !token) return;
+            if (!isAuthenticated || !token) {
+                setSessionReady();
+                return;
+            }
 
             try {
                 const response = await userService.getMe();
@@ -65,11 +68,13 @@ function SessionBootstrap() {
                 }
                 // Other errors (network timeout, 500...) → do not logout, server might be restarting.
                 console.error("[SessionBootstrap] Session sync failed (non-fatal):", error);
+            } finally {
+                setSessionReady();
             }
         };
 
         syncSession();
-    }, [isAuthenticated, updateUser, clearAuth]);
+    }, [isAuthenticated, updateUser, clearAuth, setSessionReady]);
 
     return null;
 }

@@ -11,6 +11,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { AdminBadge } from "@/components/customize/AdminBadge";
 import {
     DialogDescription,
     DialogFooter,
@@ -74,9 +75,12 @@ export const ChatPrivateProfileContent = memo(function ChatPrivateProfileContent
                         </AvatarFallback>
                     </Avatar>
                     <div className="min-w-0">
-                        <p className="text-base font-semibold text-foreground truncate">
-                            {profileUser.displayName}
-                        </p>
+                        <div className="flex min-w-0 items-center gap-1.5">
+                            <p className="truncate text-base font-semibold text-foreground">
+                                {profileUser.displayName}
+                            </p>
+                            {profileUser.role === "ADMIN" && <AdminBadge />}
+                        </div>
                         <p className="text-sm text-muted-foreground truncate">
                             @{profileUser.username || "unknown"}
                         </p>
