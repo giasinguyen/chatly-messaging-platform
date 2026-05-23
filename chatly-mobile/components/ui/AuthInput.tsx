@@ -2,6 +2,8 @@ import { forwardRef } from 'react';
 import { View, TextInput as RNTextInput, Text, type TextInputProps } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/theme';
+import { useThemeStore } from '@/store/theme.store';
+import { getThemeColors } from '@/utils/themeColors';
 
 interface AuthInputProps extends TextInputProps {
   label: string;
@@ -11,16 +13,19 @@ interface AuthInputProps extends TextInputProps {
 
 export const AuthInput = forwardRef<RNTextInput, AuthInputProps>(
   ({ label, icon, error, ...props }, ref) => {
+    const isDarkMode = useThemeStore((s) => s.isDarkMode);
+    const palette = getThemeColors(isDarkMode);
+
     return (
       <View className="mb-4">
-        <Text className="mb-1.5 text-sm font-medium" style={{ color: Colors.text }}>
+        <Text className="mb-1.5 text-sm font-medium" style={{ color: palette.text }}>
           {label}
         </Text>
         <View
           className="flex-row items-center rounded-xl border px-4"
           style={{
-            borderColor: error ? Colors.error : Colors.borderLight,
-            backgroundColor: Colors.white,
+            borderColor: error ? Colors.error : palette.border,
+            backgroundColor: palette.field,
             height: 50,
           }}
         >
@@ -28,15 +33,15 @@ export const AuthInput = forwardRef<RNTextInput, AuthInputProps>(
             <Ionicons
               name={icon}
               size={20}
-              color={error ? Colors.error : Colors.textMuted}
+              color={error ? Colors.error : palette.textMuted}
               style={{ marginRight: 10 }}
             />
           )}
           <RNTextInput
             ref={ref}
             className="flex-1 text-base"
-            style={{ color: Colors.text }}
-            placeholderTextColor={Colors.textLight}
+            style={{ color: palette.text }}
+            placeholderTextColor={palette.textLight}
             autoCapitalize="none"
             {...props}
           />
