@@ -71,21 +71,25 @@ services:
     volumes:
       - chatly-qdrant-data:/qdrant/storage
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:6333/healthz"]
+      # qdrant/qdrant image has no curl/wget (debian:bookworm-slim base).
+      # The entrypoint.sh is a bash script, so bash is available.
+      # Use bash's built-in /dev/tcp to check if port 6333 is open.
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/6333'"]
       interval: 10s
       timeout: 5s
       retries: 5
-      start_period: 10s
+      start_period: 20s
     networks:
       - chatly-net
 
   # ─── Application Services ────────────────────────────────────────────────────
 
   ai-agent:
+    # On EC2: image is pulled from Docker Hub by CI/CD. build: is used only for local dev.
     build:
       context: ./chatly-agent
       dockerfile: Dockerfile
-    image: chatly-agent:latest
+    image: ${DOCKERHUB_USERNAME}/chatly-agent:latest
     container_name: chatly-ai-agent
     restart: unless-stopped
     # Port NOT exposed externally — accessible only within chatly-net
@@ -104,7 +108,7 @@ services:
       qdrant:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health/"]
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health/')\" 2>/dev/null && echo ok"]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -113,10 +117,11 @@ services:
       - chatly-net
 
   backend:
+    # On EC2: image is pulled from Docker Hub by CI/CD. build: is used only for local dev.
     build:
       context: ./chatly-backend
       dockerfile: Dockerfile
-    image: chatly-backend:latest
+    image: ${DOCKERHUB_USERNAME}/chatly-backend:latest
     container_name: chatly-backend
     restart: unless-stopped
     ports:
@@ -149,7 +154,7 @@ services:
       ai-agent:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/8080'"]
       interval: 30s
       timeout: 10s
       retries: 5
