@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useLayoutEffect } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { groupService } from "@/services/group.service";
 import { conversationService } from "@/services/conversation.service";
@@ -85,6 +86,11 @@ const ROLE_CONFIG: Record<
 };
 
 const ROLE_ORDER: Record<GroupRole, number> = { OWNER: 0, ADMIN: 1, MEMBER: 2 };
+const ROLE_MENU_WIDTH = 160;
+const ROLE_MENU_OFFSET = 6;
+const ROLE_MENU_VIEWPORT_PADDING = 12;
+const ROLE_MENU_HEADER_HEIGHT = 34;
+const ROLE_MENU_ITEM_HEIGHT = 34;
 
 function RoleBadge({ role }: { role: GroupRole }) {
     const cfg = ROLE_CONFIG[role];
@@ -500,14 +506,11 @@ export function GroupManagementPanel({
                                             canManage={canManageMember(member)}
                                             myRole={myRole}
                                             roleMenuOpenFor={roleMenuOpenFor}
-                                            onOpenRoleMenu={() =>
-                                                setRoleMenuOpenFor((prev) =>
-                                                    prev === member.userId
-                                                        ? null
-                                                        : member.userId,
+                                            onRoleMenuOpenChange={(nextOpen) =>
+                                                setRoleMenuOpenFor(
+                                                    nextOpen ? member.userId : null,
                                                 )
                                             }
-                                            onCloseRoleMenu={() => setRoleMenuOpenFor(null)}
                                             onUpdateRole={handleUpdateRole}
                                             onRemove={() => handleRemoveMember(member)}
                                         />
@@ -911,8 +914,7 @@ interface MemberRowProps {
     canManage: boolean;
     myRole: GroupRole | undefined;
     roleMenuOpenFor: string | null;
-    onOpenRoleMenu: () => void;
-    onCloseRoleMenu: () => void;
+    onRoleMenuOpenChange: (open: boolean) => void;
     onUpdateRole: (userId: string, role: GroupRole) => void;
     onRemove: () => void;
 }
@@ -923,14 +925,85 @@ function MemberRow({
     canManage,
     myRole,
     roleMenuOpenFor,
-    onOpenRoleMenu,
-    onCloseRoleMenu,
+    onRoleMenuOpenChange,
     onUpdateRole,
     onRemove,
 }: MemberRowProps) {
     const isRoleMenuOpen = roleMenuOpenFor === member.userId;
     const availableRoles: GroupRole[] =
         myRole === "OWNER" ? ["OWNER", "ADMIN", "MEMBER"] : ["ADMIN", "MEMBER"];
+    const roleButtonRef = useRef<HTMLButtonElement>(null);
+    const roleMenuRef = useRef<HTMLDivElement>(null);
+    const [roleMenuPosition, setRoleMenuPosition] = useState<{
+        left: number;
+        top: number;
+    } | null>(null);
+
+    const updateRoleMenuPosition = useCallback((triggerOverride?: HTMLButtonElement | null) => {
+        const trigger = triggerOverride ?? roleButtonRef.current;
+        if (!trigger) {
+            return;
+        }
+
+        const triggerRect = trigger.getBoundingClientRect();
+        const estimatedMenuHeight =
+            ROLE_MENU_HEADER_HEIGHT + availableRoles.length * ROLE_MENU_ITEM_HEIGHT;
+        const availableBelow =
+            window.innerHeight - triggerRect.bottom - ROLE_MENU_VIEWPORT_PADDING;
+        const preferredTop =
+            availableBelow >= estimatedMenuHeight
+                ? triggerRect.bottom + ROLE_MENU_OFFSET
+                : triggerRect.top - estimatedMenuHeight - ROLE_MENU_OFFSET;
+
+        setRoleMenuPosition({
+            left: Math.min(
+                Math.max(
+                    triggerRect.right - ROLE_MENU_WIDTH,
+                    ROLE_MENU_VIEWPORT_PADDING,
+                ),
+                window.innerWidth - ROLE_MENU_WIDTH - ROLE_MENU_VIEWPORT_PADDING,
+            ),
+            top: Math.max(ROLE_MENU_VIEWPORT_PADDING, preferredTop),
+        });
+    }, [availableRoles.length]);
+
+    useLayoutEffect(() => {
+        if (!isRoleMenuOpen) {
+            setRoleMenuPosition(null);
+            return;
+        }
+
+        updateRoleMenuPosition();
+    }, [isRoleMenuOpen, updateRoleMenuPosition]);
+
+    useEffect(() => {
+        if (!isRoleMenuOpen) {
+            return;
+        }
+        const handlePointerDown = (event: MouseEvent) => {
+            const target = event.target;
+            if (!(target instanceof Node)) {
+                return;
+            }
+            if (
+                roleMenuRef.current?.contains(target) ||
+                roleButtonRef.current?.contains(target)
+            ) {
+                return;
+            }
+            onRoleMenuOpenChange(false);
+        };
+
+        window.addEventListener("resize", updateRoleMenuPosition);
+        window.addEventListener("scroll", updateRoleMenuPosition, true);
+        document.addEventListener("mousedown", handlePointerDown);
+
+        return () => {
+            window.removeEventListener("resize", updateRoleMenuPosition);
+            window.removeEventListener("scroll", updateRoleMenuPosition, true);
+            document.removeEventListener("mousedown", handlePointerDown);
+        };
+    }, [isRoleMenuOpen, onRoleMenuOpenChange, updateRoleMenuPosition]);
 
     return (
         <div className="group relative flex items-center gap-3 rounded-lg px-2 py-2.5 transition-colors hover:bg-muted/40">
@@ -958,57 +1031,71 @@ function MemberRow({
 
             {/* Action buttons (appear on row hover) */}
             {canManage && (
-                <div className="flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                <div
+                    className={cn(
+                        "flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100",
+                        isRoleMenuOpen && "opacity-100",
+                    )}
+                >
                     {/* Role change */}
-                    <div className="relative">
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7 text-muted-foreground hover:text-foreground"
-                            title="Change role"
-                            onClick={onOpenRoleMenu}
-                        >
-                            <ChevronDown size={13} />
-                        </Button>
+                    <Button
+                        ref={roleButtonRef}
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                        title="Change role"
+                        onClick={(event) => {
+                            if (!isRoleMenuOpen) {
+                                updateRoleMenuPosition(event.currentTarget);
+                            }
+                            onRoleMenuOpenChange(!isRoleMenuOpen);
+                        }}
+                    >
+                        <ChevronDown size={13} />
+                    </Button>
 
-                        {isRoleMenuOpen && (
-                            <>
-                                <div
-                                    className="fixed inset-0 z-40"
-                                    onClick={onCloseRoleMenu}
-                                />
-                                <div className="absolute right-0 top-8 z-50 w-40 overflow-hidden rounded-lg border border-border bg-popover shadow-lg">
-                                    <div className="px-2 py-1.5">
-                                        <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                                            Update role
-                                        </p>
-                                    </div>
-                                    <div className="divide-y divide-border/50">
-                                        {availableRoles.map((role) => (
-                                            <button
-                                                type="button"
-                                                key={role}
-                                                onClick={() =>
-                                                    onUpdateRole(member.userId, role)
-                                                }
-                                                className={cn(
-                                                    "flex w-full items-center gap-2 px-3 py-2 text-xs transition-colors hover:bg-muted/50",
-                                                    member.role === role &&
-                                                        "bg-brand/10 text-brand",
-                                                )}
-                                            >
-                                                {ROLE_CONFIG[role].icon}
-                                                {ROLE_CONFIG[role].label}
-                                                {member.role === role && (
-                                                    <Check size={10} className="ml-auto" />
-                                                )}
-                                            </button>
-                                        ))}
-                                    </div>
+                    {isRoleMenuOpen &&
+                        roleMenuPosition &&
+                        createPortal(
+                            <div
+                                ref={roleMenuRef}
+                                className="fixed z-[100] w-40 overflow-hidden rounded-lg border border-border bg-popover text-popover-foreground shadow-lg"
+                                style={{
+                                    left: roleMenuPosition.left,
+                                    top: roleMenuPosition.top,
+                                }}
+                            >
+                                <div className="px-2 py-1.5">
+                                    <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                                        Update role
+                                    </p>
                                 </div>
-                            </>
+                                <div className="divide-y divide-border/50">
+                                    {availableRoles.map((role) => (
+                                        <button
+                                            type="button"
+                                            key={role}
+                                            onClick={() => {
+                                                onRoleMenuOpenChange(false);
+                                                onUpdateRole(member.userId, role);
+                                            }}
+                                            className={cn(
+                                                "flex w-full items-center gap-2 px-3 py-2 text-xs transition-colors hover:bg-muted/50",
+                                                member.role === role &&
+                                                    "bg-brand/10 text-brand",
+                                            )}
+                                        >
+                                            {ROLE_CONFIG[role].icon}
+                                            {ROLE_CONFIG[role].label}
+                                            {member.role === role && (
+                                                <Check size={10} className="ml-auto" />
+                                            )}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>,
+                            document.body,
                         )}
-                    </div>
 
                     {/* Remove member */}
                     <Button
