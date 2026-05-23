@@ -7,6 +7,7 @@ import {
     useState,
     type KeyboardEvent as ReactKeyboardEvent,
 } from "react";
+import { AxiosError } from "axios";
 import {
     MoreHorizontal,
     Heart,
@@ -672,11 +673,6 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
         setIsSubmittingReport(true);
         try {
             const res = await postService.reportPost(post.id, payload);
-            if (res.code === 1905) {
-                toast.info("You have already reported this post.");
-                setIsReportOpen(false);
-                return;
-            }
             if (res.code !== 1000) {
                 toast.error(res.message ?? "Could not submit report.");
                 return;
@@ -686,6 +682,18 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
                 "Report submitted. Thanks for helping keep Chatly safe.",
             );
         } catch (error: unknown) {
+            // Backend returns HTTP 409 when the user has already reported this post (code 1905).
+            // Axios rejects the promise for non-2xx responses, so we handle it here.
+            if (error instanceof AxiosError && error.response?.status === 409) {
+                const body = error.response.data as { code?: number; message?: string };
+                if (body?.code === 1905) {
+                    toast.info("You have already reported this post. We're reviewing it.", {
+                        description: "Our moderation team will take action shortly.",
+                    });
+                    setIsReportOpen(false);
+                    return;
+                }
+            }
             const message = error instanceof Error ? error.message : "Could not submit report.";
             toast.error(message);
         } finally {

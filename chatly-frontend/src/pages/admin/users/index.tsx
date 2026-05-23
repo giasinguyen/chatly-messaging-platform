@@ -117,15 +117,12 @@ export default function UsersPage() {
     try {
       const response = await adminService.suspendUser(user.id, false);
       if (response.code === 1000) {
-        setUsers((current) =>
-          current.map((item) =>
-            item.id === user.id ? { ...item, suspended: false } : item
-          )
-        );
+        toast.success("User restored");
+        // Refetch from backend to confirm actual DB state
+        await fetchUsers();
         setSelectedUser((current) =>
           current?.id === user.id ? { ...current, suspended: false } : current
         );
-        toast.success("User restored");
       } else {
         toast.error(response.message || "Failed to restore user");
       }
@@ -150,16 +147,13 @@ export default function UsersPage() {
       // Current endpoint: PUT /api/admin/users/{id}/suspend?suspend=true — no reason parameter.
       const response = await adminService.suspendUser(user.id, true);
       if (response.code === 1000) {
-        setUsers((current) =>
-          current.map((item) =>
-            item.id === user.id ? { ...item, suspended: true } : item
-          )
-        );
+        toast.success("User suspended");
+        setSuspendTarget(null);
+        // Refetch from backend to confirm actual DB state
+        await fetchUsers();
         setSelectedUser((current) =>
           current?.id === user.id ? { ...current, suspended: true } : current
         );
-        toast.success("User suspended");
-        setSuspendTarget(null);
       } else {
         toast.error(response.message || "Failed to suspend user");
       }

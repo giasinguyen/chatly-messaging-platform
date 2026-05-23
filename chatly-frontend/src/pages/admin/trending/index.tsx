@@ -1,47 +1,74 @@
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { adminService } from "@/services/admin.service";
+import type { AdminStatsResponse } from "@/types/admin";
 import type { Post } from "@/types/post";
 import { DashboardKpiCard } from "@/components/admin/DashboardKpiCard";
-import { TrendingUp, Loader2, FileText, MessageSquare, Share2, Flame } from "lucide-react";
+import {
+  TrendingUp,
+  Loader2,
+  FileText,
+  MessageSquare,
+  Share2,
+  Hash,
+  BarChart2,
+  MessageCircle,
+} from "lucide-react";
 import { toast } from "sonner";
 
-const TRENDING_TODO_NOTE =
-  "Backend trending API not yet available. Implement when GET /api/admin/analytics/trending is ready.";
+interface TagFreq {
+  tag: string;
+  count: number;
+}
 
-const DEFAULT_PAGE_SIZE = 10;
+function computeTagFrequency(posts: Post[]): TagFreq[] {
+  const freq: Record<string, number> = {};
+  for (const post of posts) {
+    for (const tag of post.hashtags ?? []) {
+      const key = tag.toLowerCase().replace(/^#/, "");
+      freq[key] = (freq[key] ?? 0) + 1;
+    }
+  }
+  return Object.entries(freq)
+    .map(([tag, count]) => ({ tag, count }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 10);
+}
 
 export default function TrendingPage() {
+  const [stats, setStats] = useState<AdminStatsResponse | null>(null);
   const [topPosts, setTopPosts] = useState<Post[]>([]);
+  const [trendingTags, setTrendingTags] = useState<TagFreq[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  const loadTopPosts = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      // Approximating trending: fetch recent admin posts and sort by share/reaction count locally.
-      // TODO: Replace with a dedicated GET /api/admin/analytics/trending endpoint when available.
-      const res = await adminService.listPosts({ page: 0, size: DEFAULT_PAGE_SIZE });
-      if (res.code === 1000) {
-        const sorted = [...res.result.items].sort(
-          (a, b) => (b.shareCount + b.commentCount) - (a.shareCount + a.commentCount)
-        );
-        setTopPosts(sorted);
-      } else {
-        toast.error(res.message || "Failed to load posts");
-      }
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : "Failed to load posts";
-      toast.error(message);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
   useEffect(() => {
-    loadTopPosts();
-  }, [loadTopPosts]);
+    let cancelled = false;
+    setIsLoading(true);
 
-  const totalShares = topPosts.reduce((sum, p) => sum + p.shareCount, 0);
-  const totalComments = topPosts.reduce((sum, p) => sum + p.commentCount, 0);
+    Promise.all([adminService.getStats(), adminService.listPosts({ page: 0, size: 30 })])
+      .then(([statsRes, postsRes]) => {
+        if (cancelled) return;
+        if (statsRes.code === 1000) setStats(statsRes.result);
+        else toast.error(statsRes.message || "Failed to load stats");
+
+        if (postsRes.code === 1000) {
+          const sorted = [...postsRes.result.items].sort(
+            (a, b) => (b.shareCount + b.commentCount) - (a.shareCount + a.commentCount)
+          );
+          setTopPosts(sorted.slice(0, 10));
+          setTrendingTags(computeTagFrequency(postsRes.result.items));
+        }
+      })
+      .catch((error: unknown) => {
+        if (cancelled) return;
+        const message = error instanceof Error ? error.message : "Failed to load trending data";
+        toast.error(message);
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoading(false);
+      });
+
+    return () => { cancelled = true; };
+  }, []);
 
   if (isLoading) {
     return (
@@ -51,91 +78,143 @@ export default function TrendingPage() {
     );
   }
 
+  const totalShares = topPosts.reduce((s, p) => s + p.shareCount, 0);
+  const totalComments = topPosts.reduce((s, p) => s + p.commentCount, 0);
+  const maxMsg = Math.max(...(stats?.messageActivity.map((p) => p.count) ?? [1]), 1);
+
   return (
     <div className="space-y-6 animate-fade-in text-slate-800">
-      <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
+      {/* KPI Cards */}
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
         <DashboardKpiCard
-          label="Posts Sampled"
-          value={topPosts.length.toLocaleString()}
-          helper="From admin post index"
+          label="Total Posts"
+          value={stats?.totalPosts.toLocaleString() ?? "—"}
+          helper="Platform-wide content"
           icon={FileText}
           colorClass="text-purple-600 bg-purple-50 border-purple-100"
         />
         <DashboardKpiCard
           label="Total Shares"
           value={totalShares.toLocaleString()}
-          helper="In sampled posts"
+          helper="From top 10 posts"
           icon={Share2}
           colorClass="text-blue-600 bg-blue-50 border-blue-100"
         />
         <DashboardKpiCard
           label="Total Comments"
           value={totalComments.toLocaleString()}
-          helper="In sampled posts"
+          helper="From top 10 posts"
           icon={MessageSquare}
           colorClass="text-emerald-600 bg-emerald-50 border-emerald-100"
         />
+        <DashboardKpiCard
+          label="Trending Tags"
+          value={trendingTags.length.toLocaleString()}
+          helper="Active hashtags found"
+          icon={Hash}
+          colorClass="text-amber-600 bg-amber-50 border-amber-100"
+        />
       </div>
 
-      {/* Top posts by engagement proxy */}
-      {topPosts.length > 0 && (
-        <div className="rounded-2xl border border-slate-100 bg-white shadow-sm overflow-hidden">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        {/* Top Posts Leaderboard — GET /api/admin/posts sorted by shareCount+commentCount */}
+        <div className="lg:col-span-2 rounded-2xl border border-slate-100 bg-white shadow-sm overflow-hidden">
           <div className="border-b border-slate-50 px-5 py-3 flex items-center justify-between">
-            <p className="text-xs font-bold text-slate-600">Most Shared Posts (Last Page)</p>
-            <span className="text-[11px] text-amber-500 bg-amber-50 border border-amber-100 px-2 py-0.5 rounded-lg font-semibold">
-              Proxy — real trending API pending
-            </span>
+            <p className="text-xs font-bold text-slate-700">Top Posts by Engagement</p>
+            <span className="text-[10px] text-slate-400">shares + comments</span>
           </div>
-          <ul className="divide-y divide-slate-50">
-            {topPosts.map((post, index) => (
-              <li key={post.id} className="px-5 py-3 hover:bg-slate-50/60">
-                <div className="flex items-start gap-3">
-                  <span className="text-xs font-bold text-slate-300 mt-0.5 w-5 shrink-0">
-                    {index + 1}
+          {topPosts.length > 0 ? (
+            <ul className="divide-y divide-slate-50">
+              {topPosts.map((post, i) => {
+                const engagement = post.shareCount + post.commentCount;
+                const maxEngage = topPosts[0].shareCount + topPosts[0].commentCount || 1;
+                return (
+                  <li key={post.id} className="px-5 py-3 hover:bg-slate-50/60 flex items-center gap-3">
+                    <span className={`text-xs font-bold w-5 shrink-0 ${i < 3 ? "text-[#7c3aed]" : "text-slate-300"}`}>
+                      {i + 1}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-semibold text-slate-700 line-clamp-1">{post.content || "(no text)"}</p>
+                      <div className="flex items-center gap-3 mt-1">
+                        <span className="text-[10px] text-slate-400">@{post.authorUsername ?? post.authorId}</span>
+                        <div className="h-1.5 flex-1 bg-slate-100 rounded-full overflow-hidden">
+                          <div
+                            className="h-full rounded-full bg-linear-to-r from-[#7c3aed] to-[#a855f7]"
+                            style={{ width: `${Math.round((engagement / maxEngage) * 100)}%` }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0 text-[11px] text-slate-400">
+                      <span className="flex items-center gap-1"><Share2 size={10} />{post.shareCount}</span>
+                      <span className="flex items-center gap-1"><MessageCircle size={10} />{post.commentCount}</span>
+                      <span className="font-bold text-[#7c3aed] bg-purple-50 border border-purple-100 rounded-lg px-2 py-0.5">
+                        {engagement}
+                      </span>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          ) : (
+            <div className="flex h-36 items-center justify-center text-slate-400 text-xs">
+              No posts available
+            </div>
+          )}
+        </div>
+
+        {/* Trending Hashtags — extracted from top posts */}
+        <div className="rounded-2xl border border-slate-100 bg-white shadow-sm overflow-hidden">
+          <div className="border-b border-slate-50 px-5 py-3">
+            <p className="text-xs font-bold text-slate-700">Trending Hashtags</p>
+            <p className="text-[10px] text-slate-400 mt-0.5">by frequency in recent 30 posts</p>
+          </div>
+          {trendingTags.length > 0 ? (
+            <ul className="divide-y divide-slate-50">
+              {trendingTags.map(({ tag, count }, i) => (
+                <li key={tag} className="px-5 py-2.5 flex items-center gap-3">
+                  <span className={`text-xs font-bold w-5 ${i < 3 ? "text-amber-400" : "text-slate-300"}`}>{i + 1}</span>
+                  <span className="text-xs font-semibold text-[#7c3aed] flex-1 truncate">#{tag}</span>
+                  <span className="text-[10px] font-bold text-slate-500 bg-slate-50 border border-slate-100 rounded-lg px-2 py-0.5">
+                    {count}
                   </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs font-semibold text-slate-700 line-clamp-2">{post.content || "(no text)"}</p>
-                    <p className="text-[11px] text-slate-400 mt-0.5">
-                      @{post.authorUsername ?? post.authorId} · {new Date(post.createdAt).toLocaleDateString()}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-3 shrink-0 text-[11px] text-slate-400">
-                    <span className="flex items-center gap-1"><Share2 size={11} />{post.shareCount}</span>
-                    <span className="flex items-center gap-1"><MessageSquare size={11} />{post.commentCount}</span>
-                  </div>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <div className="flex h-36 flex-col items-center justify-center gap-2 text-slate-400">
+              <Hash size={20} />
+              <p className="text-xs">No hashtags found</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Message Activity Mini Chart — GET /api/admin/stats → messageActivity[] */}
+      {stats?.messageActivity && stats.messageActivity.length > 0 && (
+        <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
+          <div className="flex items-center gap-2 mb-5">
+            <BarChart2 size={14} className="text-[#7c3aed]" />
+            <p className="text-sm font-bold text-slate-700">Message Activity (Last 7 Days)</p>
+          </div>
+          <div className="flex items-end gap-2" style={{ height: "100px" }}>
+            {stats.messageActivity.map((point) => {
+              const heightPct = Math.max(Math.round((point.count / maxMsg) * 100), 2);
+              return (
+                <div key={point.date} className="flex flex-col items-center gap-1 flex-1 h-full justify-end">
+                  <span className="text-[9px] text-slate-400 font-semibold">{point.count}</span>
+                  <div
+                    className="w-full rounded-t-lg bg-linear-to-t from-[#7c3aed]/70 to-[#a855f7]/40"
+                    style={{ height: `${heightPct}%` }}
+                  />
+                  <span className="text-[9px] text-slate-300 truncate w-full text-center">{point.date}</span>
                 </div>
-              </li>
-            ))}
-          </ul>
+              );
+            })}
+          </div>
         </div>
       )}
-
-      {/* Trending analytics placeholder */}
-      <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/60 p-8 text-center">
-        <Flame size={28} className="mx-auto mb-3 text-slate-300" />
-        <p className="text-sm font-bold text-slate-500 mb-1">Trending Topics & Viral Content</p>
-        <p className="text-xs text-slate-400 max-w-md mx-auto">
-          Real-time trending scores, velocity tracking, and geographic heat maps require a
-          dedicated backend analytics service. The post list above is a temporary proxy.
-        </p>
-        <code className="mt-3 block text-[11px] text-slate-400 bg-slate-100 rounded-lg px-3 py-2 max-w-lg mx-auto">
-          {TRENDING_TODO_NOTE}
-        </code>
-      </div>
-
-      <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
-        <div className="flex items-center gap-2 mb-3">
-          <TrendingUp size={16} className="text-[#7c3aed]" />
-          <h3 className="text-sm font-bold text-slate-700">Discovery Feed Signals</h3>
-        </div>
-        <p className="text-xs text-slate-400">
-          Hashtag trending velocity, content discovery recommendations, and "For You" ranking
-          signals are managed by the AI Agent service.{" "}
-          <span className="font-semibold text-slate-500">
-            See the AI Agent module for agent session and performance data.
-          </span>
-        </p>
-      </div>
     </div>
   );
 }
+

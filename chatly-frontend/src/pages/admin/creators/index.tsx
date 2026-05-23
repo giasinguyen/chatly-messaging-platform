@@ -1,37 +1,47 @@
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { adminService } from "@/services/admin.service";
 import type { AdminStatsResponse } from "@/types/admin";
+import type { UserResponse } from "@/types/auth";
 import { DashboardKpiCard } from "@/components/admin/DashboardKpiCard";
-import { Star, Loader2, Users, FileText } from "lucide-react";
+import {
+  Star,
+  Loader2,
+  Users,
+  TrendingUp,
+  UserCheck,
+  Calendar,
+  ExternalLink,
+} from "lucide-react";
 import { toast } from "sonner";
-
-const CREATOR_TODO_NOTE =
-  "Backend creator analytics API not yet available. Implement when GET /api/admin/analytics/creators is ready.";
 
 export default function CreatorsPage() {
   const [stats, setStats] = useState<AdminStatsResponse | null>(null);
+  const [recentUsers, setRecentUsers] = useState<UserResponse[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  const loadStats = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      const res = await adminService.getStats();
-      if (res.code === 1000) {
-        setStats(res.result);
-      } else {
-        toast.error(res.message || "Failed to load platform stats");
-      }
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : "Failed to load stats";
-      toast.error(message);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
   useEffect(() => {
-    loadStats();
-  }, [loadStats]);
+    let cancelled = false;
+    setIsLoading(true);
+
+    Promise.all([adminService.getStats(), adminService.listUsers({ page: 0, size: 10 })])
+      .then(([statsRes, usersRes]) => {
+        if (cancelled) return;
+        if (statsRes.code === 1000) setStats(statsRes.result);
+        else toast.error(statsRes.message || "Failed to load stats");
+
+        if (usersRes.code === 1000) setRecentUsers(usersRes.result.items);
+      })
+      .catch((error: unknown) => {
+        if (cancelled) return;
+        const message = error instanceof Error ? error.message : "Failed to load creator data";
+        toast.error(message);
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoading(false);
+      });
+
+    return () => { cancelled = true; };
+  }, []);
 
   if (isLoading) {
     return (
@@ -41,69 +51,136 @@ export default function CreatorsPage() {
     );
   }
 
+  const maxGrowth = Math.max(...(stats?.userGrowth.map((p) => p.count) ?? [1]), 1);
+  const weeklyIncrease =
+    stats?.userGrowth && stats.userGrowth.length >= 2
+      ? stats.userGrowth[stats.userGrowth.length - 1].count - stats.userGrowth[0].count
+      : 0;
+
   return (
     <div className="space-y-6 animate-fade-in text-slate-800">
-      <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
+      {/* KPI Cards — GET /api/admin/stats */}
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
         <DashboardKpiCard
           label="Total Users"
           value={stats?.totalUsers.toLocaleString() ?? "—"}
-          helper="Registered accounts"
+          helper="All registered accounts"
           icon={Users}
           colorClass="text-purple-600 bg-purple-50 border-purple-100"
         />
         <DashboardKpiCard
-          label="Total Posts"
-          value={stats?.totalPosts.toLocaleString() ?? "—"}
-          helper="Published content"
-          icon={FileText}
-          colorClass="text-blue-600 bg-blue-50 border-blue-100"
+          label="New Today"
+          value={stats?.todayNewUsers.toLocaleString() ?? "—"}
+          helper="Signed up in the last 24 h"
+          icon={TrendingUp}
+          colorClass="text-amber-600 bg-amber-50 border-amber-100"
+          trend={stats?.todayNewUsers ? `+${stats.todayNewUsers}` : undefined}
         />
         <DashboardKpiCard
-          label="Today's New Users"
-          value={stats?.todayNewUsers.toLocaleString() ?? "—"}
-          helper="New creator sign-ups in 24 h"
+          label="Active Users"
+          value={stats?.activeUsers.toLocaleString() ?? "—"}
+          helper="Active in last 24 h"
+          icon={UserCheck}
+          colorClass="text-emerald-600 bg-emerald-50 border-emerald-100"
+        />
+        <DashboardKpiCard
+          label="Online Now"
+          value={stats?.onlineUsers.toLocaleString() ?? "—"}
+          helper="Currently connected"
           icon={Star}
-          colorClass="text-amber-600 bg-amber-50 border-amber-100"
+          colorClass="text-blue-600 bg-blue-50 border-blue-100"
         />
       </div>
 
-      {/* Top creators leaderboard — awaiting backend API */}
-      <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/60 p-8 text-center">
-        <Star size={28} className="mx-auto mb-3 text-slate-300" />
-        <p className="text-sm font-bold text-slate-500 mb-1">Creator Leaderboard</p>
-        <p className="text-xs text-slate-400 max-w-md mx-auto">
-          Top creators ranked by post volume, follower growth, and engagement rate are not yet
-          available. A dedicated API endpoint is required to deliver this data efficiently.
-        </p>
-        <code className="mt-3 block text-[11px] text-slate-400 bg-slate-100 rounded-lg px-3 py-2 max-w-lg mx-auto">
-          {CREATOR_TODO_NOTE}
-        </code>
-      </div>
-
-      {/* User growth trend — real data from getStats() */}
-      {stats?.userGrowth && stats.userGrowth.length > 0 && (
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        {/* User Growth Chart — GET /api/admin/stats → userGrowth[] */}
         <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
-          <h3 className="text-sm font-bold text-slate-700 mb-4">User Growth (Last 7 Days)</h3>
-          <div className="flex items-end gap-2 h-32">
-            {stats.userGrowth.map((point) => {
-              const maxCount = Math.max(...stats.userGrowth.map((p) => p.count), 1);
-              const heightPct = Math.round((point.count / maxCount) * 100);
-              return (
-                <div key={point.date} className="flex flex-col items-center gap-1 flex-1">
-                  <span className="text-[10px] text-slate-400">{point.count}</span>
-                  <div
-                    className="w-full rounded-t-lg bg-amber-400/70"
-                    style={{ height: `${heightPct}%`, minHeight: "4px" }}
-                  />
-                  <span className="text-[9px] text-slate-300 truncate w-full text-center">
-                    {point.date?.slice(5)}
-                  </span>
-                </div>
-              );
-            })}
+          <div className="flex items-center justify-between mb-5">
+            <div>
+              <p className="text-sm font-bold text-slate-700">Cumulative User Growth</p>
+              <p className="text-xs text-slate-400 mt-0.5">Total registered users — last 7 days</p>
+            </div>
+            {weeklyIncrease > 0 && (
+              <span className="text-[11px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-100 rounded-xl px-3 py-1.5">
+                +{weeklyIncrease} this week
+              </span>
+            )}
           </div>
+          {stats?.userGrowth && stats.userGrowth.length > 0 ? (
+            <div className="flex items-end gap-2" style={{ height: "140px" }}>
+              {stats.userGrowth.map((point) => {
+                const heightPct = Math.max(Math.round((point.count / maxGrowth) * 100), 2);
+                return (
+                  <div key={point.date} className="flex flex-col items-center gap-1 flex-1 h-full justify-end">
+                    <span className="text-[9px] text-slate-400 font-semibold">{point.count}</span>
+                    <div
+                      className="w-full rounded-t-lg bg-linear-to-t from-amber-500 to-amber-300"
+                      style={{ height: `${heightPct}%` }}
+                    />
+                    <span className="text-[9px] text-slate-300 truncate w-full text-center leading-tight">
+                      {point.date}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="flex h-36 items-center justify-center text-slate-400 text-xs">
+              No growth data available
+            </div>
+          )}
         </div>
-      )}
+
+        {/* Recent Registrations — GET /api/admin/users?page=0&size=10 */}
+        <div className="rounded-2xl border border-slate-100 bg-white shadow-sm overflow-hidden">
+          <div className="border-b border-slate-50 px-5 py-3 flex items-center justify-between">
+            <p className="text-xs font-bold text-slate-700">Recent Registrations</p>
+            <a
+              href="/admin/users"
+              className="text-[11px] text-[#7c3aed] font-semibold flex items-center gap-1 hover:underline"
+            >
+              View all <ExternalLink size={10} />
+            </a>
+          </div>
+          {recentUsers.length > 0 ? (
+            <ul className="divide-y divide-slate-50">
+              {recentUsers.map((user) => (
+                <li key={user.id} className="px-5 py-3 flex items-center gap-3 hover:bg-slate-50/60">
+                  <div className="w-8 h-8 rounded-full overflow-hidden shrink-0 bg-purple-50 border border-purple-100 flex items-center justify-center">
+                    {user.avatarUrl ? (
+                      <img src={user.avatarUrl} alt={user.displayName} className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="text-[11px] font-bold text-purple-500">
+                        {(user.displayName || user.username).charAt(0).toUpperCase()}
+                      </span>
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-semibold text-slate-700 truncate">{user.displayName || user.username}</p>
+                    <p className="text-[10px] text-slate-400 truncate">@{user.username}</p>
+                  </div>
+                  <div className="shrink-0 text-right">
+                    {user.suspended ? (
+                      <span className="text-[10px] font-bold text-red-500 bg-red-50 border border-red-100 rounded-lg px-2 py-0.5">
+                        Suspended
+                      </span>
+                    ) : (
+                      <p className="text-[10px] text-slate-300 flex items-center gap-1">
+                        <Calendar size={9} />
+                        {user.createdAt ? new Date(user.createdAt).toLocaleDateString() : "—"}
+                      </p>
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <div className="flex h-36 items-center justify-center text-slate-400 text-xs">
+              No users found
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
