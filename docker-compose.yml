@@ -85,10 +85,11 @@ services:
   # ─── Application Services ────────────────────────────────────────────────────
 
   ai-agent:
+    # On EC2: image is pulled from Docker Hub by CI/CD. build: is used only for local dev.
     build:
       context: ./chatly-agent
       dockerfile: Dockerfile
-    image: chatly-agent:latest
+    image: ${DOCKERHUB_USERNAME}/chatly-agent:latest
     container_name: chatly-ai-agent
     restart: unless-stopped
     # Port NOT exposed externally — accessible only within chatly-net
@@ -116,10 +117,11 @@ services:
       - chatly-net
 
   backend:
+    # On EC2: image is pulled from Docker Hub by CI/CD. build: is used only for local dev.
     build:
       context: ./chatly-backend
       dockerfile: Dockerfile
-    image: chatly-backend:latest
+    image: ${DOCKERHUB_USERNAME}/chatly-backend:latest
     container_name: chatly-backend
     restart: unless-stopped
     ports:
