@@ -19,11 +19,15 @@ import { authService } from '@/services/auth.service';
 import { useAuthStore } from '@/store/auth.store';
 import { getApiErrorMessage } from '@/utils/errorHandler';
 import { Colors } from '@/constants/theme';
+import { useThemeStore } from '@/store/theme.store';
+import { getThemeColors } from '@/utils/themeColors';
 
 export default function LoginScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const setAuth = useAuthStore((s) => s.setAuth);
+  const isDarkMode = useThemeStore((s) => s.isDarkMode);
+  const palette = getThemeColors(isDarkMode);
 
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
@@ -59,7 +63,7 @@ export default function LoginScreen() {
 
       await setAuth(response.result);
       router.replace('/(tabs)/chats');
-    } catch (error: any) {
+    } catch (error: unknown) {
       const message = getApiErrorMessage(error, 'Login failed. Please try again.');
       Alert.alert('Login Failed', message);
     } finally {
@@ -98,7 +102,7 @@ export default function LoginScreen() {
     <KeyboardAvoidingView
       className="flex-1"
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={{ backgroundColor: Colors.bg }}
+      style={{ backgroundColor: palette.background }}
     >
       <ScrollView
         contentContainerStyle={{
@@ -115,7 +119,7 @@ export default function LoginScreen() {
           <Logo size="lg" />
           <Text
             className="mt-3 text-center text-base"
-            style={{ color: Colors.textMuted }}
+            style={{ color: palette.textMuted }}
           >
             Connect anytime, anywhere
           </Text>
@@ -169,7 +173,7 @@ export default function LoginScreen() {
 
         {/* Register Link */}
         <View className="mt-6 flex-row items-center justify-center">
-          <Text style={{ color: Colors.textMuted }}>Don't have an account? </Text>
+          <Text style={{ color: palette.textMuted }}>Don't have an account? </Text>
           <TouchableOpacity onPress={() => router.push('/(auth)/register')}>
             <Text className="font-semibold" style={{ color: Colors.cta }}>
               Sign Up
@@ -186,11 +190,11 @@ export default function LoginScreen() {
           onPress={() => !forgotLoading && setForgotOpen(false)}
         >
           <TouchableOpacity activeOpacity={1} onPress={(e) => e.stopPropagation()}>
-            <View className="rounded-2xl p-5" style={{ backgroundColor: Colors.white }}>
-              <Text className="text-[18px] font-bold" style={{ color: Colors.text }}>
+            <View className="rounded-2xl p-5" style={{ backgroundColor: palette.card }}>
+              <Text className="text-[18px] font-bold" style={{ color: palette.text }}>
                 Forgot password
               </Text>
-              <Text className="mt-2 text-[14px]" style={{ color: Colors.textLight }}>
+              <Text className="mt-2 text-[14px]" style={{ color: palette.textLight }}>
                 Enter your account email. We will send a new temporary password if the account exists.
               </Text>
               <AuthInput
@@ -211,7 +215,7 @@ export default function LoginScreen() {
                   disabled={forgotLoading}
                   onPress={() => setForgotOpen(false)}
                 >
-                  <Text style={{ color: Colors.textLight }}>Cancel</Text>
+                  <Text style={{ color: palette.textLight }}>Cancel</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   className="rounded-lg px-5 py-2"
