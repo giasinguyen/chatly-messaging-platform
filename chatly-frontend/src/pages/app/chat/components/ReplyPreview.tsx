@@ -14,6 +14,9 @@ interface ReplyPreviewProps {
 
 export function ReplyPreview({ replyMessage, participant, currentUserId, senderName, isMe }: ReplyPreviewProps) {
     const previewText = toMessagePreviewText(replyMessage.content);
+    const imageAttachment = replyMessage.attachments?.find((attachment) =>
+        attachment.type?.startsWith("image/"),
+    );
     const resolvedSenderName =
         senderName ??
         (replyMessage.senderId === currentUserId
@@ -42,7 +45,18 @@ export function ReplyPreview({ replyMessage, participant, currentUserId, senderN
             <p className={cn("font-semibold text-[10px] mb-0.5", isMe ? "text-white/90" : "text-brand")}>
                 {resolvedSenderName}
             </p>
-            <p className="line-clamp-1 text-[11px]">{previewText}</p>
+            <div className="flex items-center gap-2">
+                {imageAttachment && (
+                    <img
+                        src={imageAttachment.url}
+                        alt={imageAttachment.name ?? "Replied image"}
+                        className="h-15 w-15 shrink-0 rounded-lg object-cover"
+                    />
+                )}
+                <p className="line-clamp-1 min-w-0 text-[11px]">
+                    {previewText || (imageAttachment ? "Photo" : "")}
+                </p>
+            </div>
         </button>
     );
 }
