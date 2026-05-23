@@ -2,6 +2,7 @@ import { memo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
     CalendarDays,
+    Flag,
     Loader2,
     Phone,
     ShieldOff,
@@ -33,7 +34,9 @@ export interface ChatPrivateProfileContentProps {
     currentUserId: string | undefined;
     sendingContact: boolean;
     blockActionLoading: boolean;
+    reportUserSubmitting: boolean;
     onAddFriend: () => void;
+    onReportUser: () => void;
     onRequestBlockAction: (action: "block" | "unblock") => void;
     onClose: () => void;
 }
@@ -49,7 +52,9 @@ export const ChatPrivateProfileContent = memo(function ChatPrivateProfileContent
     currentUserId,
     sendingContact,
     blockActionLoading,
+    reportUserSubmitting,
     onAddFriend,
+    onReportUser,
     onRequestBlockAction,
     onClose,
 }: ChatPrivateProfileContentProps) {
@@ -190,6 +195,22 @@ export const ChatPrivateProfileContent = memo(function ChatPrivateProfileContent
                             Block user
                         </Button>
                     )}
+                {profileUser.id && profileUser.id !== currentUserId && (
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        disabled={reportUserSubmitting}
+                        onClick={onReportUser}
+                        className="text-destructive hover:text-destructive hover:bg-destructive/10 w-full sm:w-auto"
+                    >
+                        {reportUserSubmitting ? (
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        ) : (
+                            <Flag className="mr-2 h-4 w-4" />
+                        )}
+                        Report user
+                    </Button>
+                )}
                 {profileUser.id && profileUser.id !== currentUserId && (
                     <Button
                         variant="outline"

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Check, Loader2, Search } from "lucide-react";
 import { toast } from "sonner";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
     Dialog,
@@ -19,6 +20,7 @@ import { messageService } from "@/services/message.service";
 import { reelService } from "@/services/reel.service";
 import { useAuthStore } from "@/store/auth.store";
 import type { ContactResponse } from "@/types/contact";
+import type { ConversationResponse } from "@/types/conversation";
 import type { Attachment } from "@/types/message";
 import type { Reel } from "@/types/reel";
 
@@ -29,14 +31,19 @@ interface ShareReelDialogProps {
     onShared: (updatedReel: Reel) => void;
 }
 
-interface ShareFriend {
-    id: string;
-    username: string;
-    displayName: string;
+type ShareTargetType = "FRIEND" | "GROUP";
+
+interface ShareTarget {
+    key: string;
+    type: ShareTargetType;
+    title: string;
+    subtitle: string;
     avatarUrl?: string;
+    conversationId?: string;
+    participantId?: string;
 }
 
-function getOtherUser(contact: ContactResponse, currentUserId: string | undefined): ShareFriend {
+function getOtherUser(contact: ContactResponse, currentUserId: string | undefined) {
     const user = contact.user.id === currentUserId ? contact.contact : contact.user;
     return {
         id: user.id,
@@ -74,10 +81,10 @@ function buildPreviewAttachment(
 
 export function ShareReelDialog({ reel, open, onOpenChange, onShared }: ShareReelDialogProps) {
     const currentUser = useAuthStore((state) => state.user);
-    const [friends, setFriends] = useState<ShareFriend[]>([]);
-    const [selectedFriendIds, setSelectedFriendIds] = useState<string[]>([]);
+    const [targets, setTargets] = useState<ShareTarget[]>([]);
+    const [selectedTargetKeys, setSelectedTargetKeys] = useState<string[]>([]);
     const [searchQuery, setSearchQuery] = useState("");
-    const [isLoadingFriends, setIsLoadingFriends] = useState(false);
+    const [isLoadingTargets, setIsLoadingTargets] = useState(false);
     const [isSharing, setIsSharing] = useState(false);
 
     const previewAttachment = useMemo(
@@ -89,22 +96,60 @@ export function ShareReelDialog({ reel, open, onOpenChange, onShared }: ShareRee
         if (!open) return;
 
         let isActive = true;
-        setIsLoadingFriends(true);
-        contactService
-            .getByStatus("ACCEPTED")
-            .then((response) => {
+        setIsLoadingTargets(true);
+
+        Promise.all([
+            contactService.getByStatus("ACCEPTED"),
+            conversationService.getMyConversations(),
+        ])
+            .then(([friendsResponse, conversationsResponse]) => {
                 if (!isActive) return;
-                setFriends(
-                    (response.result ?? []).map((contact) =>
-                        getOtherUser(contact, currentUser?.id),
-                    ),
-                );
+
+                const conversations = conversationsResponse.result ?? [];
+                const privateConversationsByParticipantId = new Map<string, ConversationResponse>();
+
+                conversations.forEach((conversation) => {
+                    if (conversation.type !== "PRIVATE") return;
+                    const otherParticipantId = conversation.participantIds.find(
+                        (participantId) => participantId !== currentUser?.id,
+                    );
+                    if (otherParticipantId) {
+                        privateConversationsByParticipantId.set(otherParticipantId, conversation);
+                    }
+                });
+
+                const friendTargets: ShareTarget[] = (friendsResponse.result ?? []).map((contact: ContactResponse) => {
+                    const friend = getOtherUser(contact, currentUser?.id);
+                    const existingConversation = privateConversationsByParticipantId.get(friend.id);
+                    return {
+                        key: `friend:${friend.id}`,
+                        type: "FRIEND",
+                        title: friend.displayName,
+                        subtitle: `@${friend.username}`,
+                        avatarUrl: friend.avatarUrl,
+                        conversationId: existingConversation?.id,
+                        participantId: friend.id,
+                    };
+                });
+
+                const groupTargets: ShareTarget[] = conversations
+                    .filter((conversation) => conversation.type === "GROUP")
+                    .map((conversation) => ({
+                        key: `group:${conversation.id}`,
+                        type: "GROUP",
+                        title: conversation.name ?? "Group chat",
+                        subtitle: `${conversation.participantIds.length} members`,
+                        avatarUrl: conversation.avatarUrl ?? undefined,
+                        conversationId: conversation.id,
+                    }));
+
+                setTargets([...friendTargets, ...groupTargets]);
             })
             .catch(() => {
-                if (isActive) toast.error("Could not load friends list.");
+                if (isActive) toast.error("Could not load sharing targets.");
             })
             .finally(() => {
-                if (isActive) setIsLoadingFriends(false);
+                if (isActive) setIsLoadingTargets(false);
             });
 
         return () => {
@@ -115,24 +160,24 @@ export function ShareReelDialog({ reel, open, onOpenChange, onShared }: ShareRee
     useEffect(() => {
         if (!open) {
             setSearchQuery("");
-            setSelectedFriendIds([]);
+            setSelectedTargetKeys([]);
         }
     }, [open]);
 
-    const filteredFriends = friends.filter((friend) => {
+    const filteredTargets = targets.filter((target) => {
         if (!searchQuery.trim()) return true;
         const query = searchQuery.toLowerCase();
         return (
-            friend.displayName.toLowerCase().includes(query) ||
-            friend.username.toLowerCase().includes(query)
+            target.title.toLowerCase().includes(query) ||
+            target.subtitle.toLowerCase().includes(query)
         );
     });
 
-    const toggleFriend = (friendId: string) => {
-        setSelectedFriendIds((current) =>
-            current.includes(friendId)
-                ? current.filter((id) => id !== friendId)
-                : [...current, friendId],
+    const toggleTarget = (targetKey: string) => {
+        setSelectedTargetKeys((current) =>
+            current.includes(targetKey)
+                ? current.filter((key) => key !== targetKey)
+                : [...current, targetKey],
         );
     };
 
@@ -142,37 +187,36 @@ export function ShareReelDialog({ reel, open, onOpenChange, onShared }: ShareRee
             return;
         }
 
-        if (selectedFriendIds.length === 0) {
-            toast.error("Select at least one friend.");
+        if (selectedTargetKeys.length === 0) {
+            toast.error("Select at least one target.");
             return;
         }
 
         setIsSharing(true);
         try {
-            const conversationsRes = await conversationService.getMyConversations();
-            const conversations = conversationsRes.result ?? [];
-            const targetFriends = friends.filter((friend) => selectedFriendIds.includes(friend.id));
+            const selectedTargets = targets.filter((target) => selectedTargetKeys.includes(target.key));
 
             await Promise.all(
-                targetFriends.map(async (friend) => {
-                    const existingConversation = conversations.find(
-                        (conversation) =>
-                            conversation.type === "PRIVATE" &&
-                            conversation.participantIds.includes(friend.id) &&
-                            conversation.participantIds.includes(currentUser.id),
-                    );
+                selectedTargets.map(async (target) => {
+                    let conversationId = target.conversationId;
 
-                    const conversation =
-                        existingConversation ??
-                        (await conversationService.create({
+                    if (target.type === "FRIEND" && !conversationId) {
+                        if (!target.participantId) {
+                            throw new Error("Unable to determine conversation participant");
+                        }
+                        const createdConversation = await conversationService.create({
                             type: "PRIVATE",
-                            participantIds: [friend.id],
-                        })).result;
+                            participantIds: [target.participantId],
+                        });
+                        conversationId = createdConversation.result?.id;
+                    }
 
-                    if (!conversation) throw new Error("Unable to open conversation");
+                    if (!conversationId) {
+                        throw new Error("Unable to open conversation");
+                    }
 
                     await messageService.send({
-                        conversationId: conversation.id,
+                        conversationId,
                         content: "Shared a reel",
                         attachments: [previewAttachment],
                     });
@@ -181,7 +225,9 @@ export function ShareReelDialog({ reel, open, onOpenChange, onShared }: ShareRee
 
             const shareResponse = await reelService.share(reel.id);
             if (shareResponse.result) onShared(shareResponse.result);
-            toast.success(`Shared with ${targetFriends.length} friend${targetFriends.length > 1 ? "s" : ""}.`);
+            toast.success(
+                `Shared with ${selectedTargets.length} target${selectedTargets.length > 1 ? "s" : ""}.`,
+            );
             onOpenChange(false);
         } catch {
             toast.error("Could not share reel.");
@@ -190,7 +236,7 @@ export function ShareReelDialog({ reel, open, onOpenChange, onShared }: ShareRee
         }
     };
 
-    const selectedCount = selectedFriendIds.length;
+    const selectedCount = selectedTargetKeys.length;
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
@@ -198,7 +244,7 @@ export function ShareReelDialog({ reel, open, onOpenChange, onShared }: ShareRee
                 <DialogHeader>
                     <DialogTitle>Share reel</DialogTitle>
                     <DialogDescription>
-                        Choose one or more friends. They will receive a mini preview of this reel in chat.
+                        Choose one or more friends or groups. They will receive a mini preview of this reel in chat.
                     </DialogDescription>
                 </DialogHeader>
 
@@ -229,29 +275,29 @@ export function ShareReelDialog({ reel, open, onOpenChange, onShared }: ShareRee
                             <Input
                                 value={searchQuery}
                                 onChange={(event) => setSearchQuery(event.target.value)}
-                                placeholder="Search friends"
+                                placeholder="Search friends or groups"
                                 className="pl-9"
                             />
                         </div>
 
                         <div className="max-h-80 space-y-2 overflow-y-auto pr-1">
-                            {isLoadingFriends ? (
+                            {isLoadingTargets ? (
                                 <div className="flex items-center justify-center py-10 text-sm text-muted-foreground">
                                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                    Loading friends...
+                                    Loading targets...
                                 </div>
-                            ) : filteredFriends.length === 0 ? (
+                            ) : filteredTargets.length === 0 ? (
                                 <div className="py-10 text-center text-sm text-muted-foreground">
-                                    No friends found.
+                                    No targets found.
                                 </div>
                             ) : (
-                                filteredFriends.map((friend) => {
-                                    const isSelected = selectedFriendIds.includes(friend.id);
+                                filteredTargets.map((target) => {
+                                    const isSelected = selectedTargetKeys.includes(target.key);
                                     return (
                                         <button
-                                            key={friend.id}
+                                            key={target.key}
                                             type="button"
-                                            onClick={() => toggleFriend(friend.id)}
+                                            onClick={() => toggleTarget(target.key)}
                                             className={cn(
                                                 "flex w-full items-center gap-3 rounded-2xl border px-3 py-2 text-left transition-colors",
                                                 isSelected
@@ -260,13 +306,16 @@ export function ShareReelDialog({ reel, open, onOpenChange, onShared }: ShareRee
                                             )}
                                         >
                                             <Avatar className="h-10 w-10">
-                                                <AvatarImage src={friend.avatarUrl} alt={friend.displayName} />
-                                                <AvatarFallback>{friend.displayName.slice(0, 1).toUpperCase()}</AvatarFallback>
+                                                <AvatarImage src={target.avatarUrl} alt={target.title} />
+                                                <AvatarFallback>{target.title.slice(0, 1).toUpperCase()}</AvatarFallback>
                                             </Avatar>
                                             <div className="min-w-0 flex-1">
-                                                <p className="truncate text-sm font-medium text-foreground">{friend.displayName}</p>
-                                                <p className="truncate text-xs text-muted-foreground">@{friend.username}</p>
+                                                <p className="truncate text-sm font-medium text-foreground">{target.title}</p>
+                                                <p className="truncate text-xs text-muted-foreground">{target.subtitle}</p>
                                             </div>
+                                            <Badge variant="outline" className="mr-2 text-[10px] uppercase tracking-wide">
+                                                {target.type}
+                                            </Badge>
                                             <div
                                                 className={cn(
                                                     "flex h-5 w-5 items-center justify-center rounded-full border",

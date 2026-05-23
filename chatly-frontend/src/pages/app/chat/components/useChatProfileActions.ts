@@ -4,12 +4,14 @@ import { toast } from "sonner";
 import { contactService } from "@/services/contact.service";
 import { fileService } from "@/services/file.service";
 import { groupService } from "@/services/group.service";
+import { userReportService } from "@/services/userReport.service";
 import type { ChatUser } from "@/types/message";
 import type {
     BlockStatusResponse,
     ContactStatus,
 } from "@/types/contact";
 import type { ConversationResponse } from "@/types/conversation";
+import type { CreateUserReportRequest } from "@/types/userReport";
 
 interface UseChatProfileActionsOptions {
     conversation: ConversationResponse | null;
@@ -40,6 +42,8 @@ export function useChatProfileActions({
     const [sendingContact, setSendingContact] = useState(false);
     const [blockConfirmAction, setBlockConfirmAction] = useState<"block" | "unblock" | null>(null);
     const [blockActionLoading, setBlockActionLoading] = useState(false);
+    const [reportUserDialogOpen, setReportUserDialogOpen] = useState(false);
+    const [reportUserSubmitting, setReportUserSubmitting] = useState(false);
 
     const [isEditingGroup, setIsEditingGroup] = useState(false);
     const [groupNameDraft, setGroupNameDraft] = useState("");
@@ -244,11 +248,53 @@ export function useChatProfileActions({
         }
     }, [conversation?.id, currentUserId, navigate]);
 
+    const handleOpenReportUserDialog = useCallback(() => {
+        const targetUser =
+            selectedProfileUser ??
+            (conversation?.type === "PRIVATE" ? participant : null);
+        if (!targetUser || targetUser.id === currentUserId) {
+            return;
+        }
+        setReportUserDialogOpen(true);
+    }, [selectedProfileUser, conversation?.type, participant, currentUserId]);
+
+    const handleReportUser = useCallback(
+        async (payload: CreateUserReportRequest) => {
+            const targetUser =
+                selectedProfileUser ??
+                (conversation?.type === "PRIVATE" ? participant : null);
+
+            if (!targetUser || targetUser.id === currentUserId) {
+                toast.error("Could not report this user");
+                return;
+            }
+
+            setReportUserSubmitting(true);
+            try {
+                const response = await userReportService.create(targetUser.id, payload);
+                if (response.code !== 1000) {
+                    toast.error(response.message ?? "Could not report user");
+                    return;
+                }
+                toast.success("User reported successfully");
+                setReportUserDialogOpen(false);
+            } catch {
+                toast.error("Could not report user");
+            } finally {
+                setReportUserSubmitting(false);
+            }
+        },
+        [selectedProfileUser, conversation?.type, participant, currentUserId],
+    );
+
     return {
         sendingContact,
         blockConfirmAction,
         setBlockConfirmAction,
         blockActionLoading,
+        reportUserDialogOpen,
+        setReportUserDialogOpen,
+        reportUserSubmitting,
         isEditingGroup,
         setIsEditingGroup,
         groupNameDraft,
@@ -263,5 +309,7 @@ export function useChatProfileActions({
         handleGroupAvatarFileChange,
         handleSaveGroupProfile,
         handleLeaveGroup,
+        handleOpenReportUserDialog,
+        handleReportUser,
     };
 }

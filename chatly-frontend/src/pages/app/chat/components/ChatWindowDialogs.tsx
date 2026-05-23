@@ -7,9 +7,11 @@ import { ChatProfileDialog } from "./ChatProfileDialog";
 import { GroupManagementPanel } from "./GroupManagementPanel";
 import { CreateGroupDialog } from "./CreateGroupDialog";
 import { BlockConfirmDialog } from "./ChatWindowOverlays";
+import { ReportUserDialog } from "./ReportUserDialog";
 import type { ChatUser, Message } from "@/types/message";
 import type { BlockStatusResponse, ContactStatus } from "@/types/contact";
 import type { ConversationResponse } from "@/types/conversation";
+import type { CreateUserReportRequest } from "@/types/userReport";
 
 export interface ChatWindowDialogsProps {
     id: string;
@@ -27,6 +29,8 @@ export interface ChatWindowDialogsProps {
     sendingContact: boolean;
     blockActionLoading: boolean;
     blockConfirmAction: "block" | "unblock" | null;
+    reportUserDialogOpen: boolean;
+    reportUserSubmitting: boolean;
     isEditingGroup: boolean;
     groupNameDraft: string;
     groupAvatarDraft: string;
@@ -44,6 +48,7 @@ export interface ChatWindowDialogsProps {
     setShowPinnedDialog: (open: boolean) => void;
     setShowGroupPanel: (open: boolean) => void;
     setCreateGroupFromPrivateOpen: (open: boolean) => void;
+    setReportUserDialogOpen: (open: boolean) => void;
     setHighlightedMessageId: (id: string | null) => void;
     setConversation: React.Dispatch<React.SetStateAction<ConversationResponse | null>>;
     setParticipant: React.Dispatch<React.SetStateAction<ChatUser | null>>;
@@ -56,6 +61,8 @@ export interface ChatWindowDialogsProps {
     handleForwardToAiConfirm: (sessionId: string | null) => Promise<void>;
     handleTogglePin: (messageId: string) => Promise<void>;
     handleSendFriendRequest: () => void;
+    handleOpenReportUserDialog: () => void;
+    handleReportUser: (payload: CreateUserReportRequest) => Promise<void>;
     handleGroupAvatarFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
     handleSaveGroupProfile: () => void;
     handleBlockContact: () => void;
@@ -83,6 +90,8 @@ export const ChatWindowDialogs = memo(function ChatWindowDialogs(
         sendingContact,
         blockActionLoading,
         blockConfirmAction,
+        reportUserDialogOpen,
+        reportUserSubmitting,
         isEditingGroup,
         groupNameDraft,
         groupAvatarDraft,
@@ -100,6 +109,7 @@ export const ChatWindowDialogs = memo(function ChatWindowDialogs(
         setShowPinnedDialog,
         setShowGroupPanel,
         setCreateGroupFromPrivateOpen,
+        setReportUserDialogOpen,
         setHighlightedMessageId,
         setConversation,
         setParticipant,
@@ -112,6 +122,8 @@ export const ChatWindowDialogs = memo(function ChatWindowDialogs(
         handleForwardToAiConfirm,
         handleTogglePin,
         handleSendFriendRequest,
+        handleOpenReportUserDialog,
+        handleReportUser,
         handleGroupAvatarFileChange,
         handleSaveGroupProfile,
         handleBlockContact,
@@ -165,12 +177,14 @@ export const ChatWindowDialogs = memo(function ChatWindowDialogs(
                 currentUserId={currentUserId}
                 sendingContact={sendingContact}
                 blockActionLoading={blockActionLoading}
+                reportUserSubmitting={reportUserSubmitting}
                 isEditingGroup={isEditingGroup}
                 groupNameDraft={groupNameDraft}
                 groupAvatarDraft={groupAvatarDraft}
                 groupAvatarUploading={groupAvatarUploading}
                 groupProfileSaving={groupProfileSaving}
                 onAddFriend={handleSendFriendRequest}
+                onReportUser={handleOpenReportUserDialog}
                 onRequestBlockAction={setBlockConfirmAction}
                 onToggleEditing={() => setIsEditingGroup((prev) => !prev)}
                 onChangeGroupName={setGroupNameDraft}
@@ -236,6 +250,16 @@ export const ChatWindowDialogs = memo(function ChatWindowDialogs(
                         : handleUnblockContact
                 }
             />
+
+            {profileUser && profileUser.id !== currentUserId && (
+                <ReportUserDialog
+                    open={reportUserDialogOpen}
+                    displayName={profileUser.displayName}
+                    isSubmitting={reportUserSubmitting}
+                    onOpenChange={setReportUserDialogOpen}
+                    onSubmit={handleReportUser}
+                />
+            )}
         </>
     );
 });
