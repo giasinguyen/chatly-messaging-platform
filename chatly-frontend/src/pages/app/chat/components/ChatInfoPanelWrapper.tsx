@@ -1,13 +1,14 @@
 import { memo } from "react";
 import { useNavigate } from "react-router-dom";
 import { ConversationInfoPanel } from "./ConversationInfoPanel";
-import type { ChatUser } from "@/types/message";
+import type { ChatUser, Message } from "@/types/message";
 import type { ConversationResponse } from "@/types/conversation";
 
 interface ChatInfoPanelWrapperProps {
     conversation: ConversationResponse;
     participant: ChatUser;
     currentUserId: string;
+    messages: Message[];
     isGroup: boolean;
     setConversation: React.Dispatch<React.SetStateAction<ConversationResponse | null>>;
     setParticipant: React.Dispatch<React.SetStateAction<ChatUser | null>>;
@@ -20,6 +21,7 @@ export const ChatInfoPanelWrapper = memo(function ChatInfoPanelWrapper({
     conversation,
     participant,
     currentUserId,
+    messages,
     isGroup,
     setConversation,
     setParticipant,
@@ -34,6 +36,7 @@ export const ChatInfoPanelWrapper = memo(function ChatInfoPanelWrapper({
             conversation={conversation}
             participant={participant}
             currentUserId={currentUserId}
+            messages={messages}
             onDeleteConversation={() => navigate("/chat")}
             onOpenGroupPanel={isGroup ? onOpenMembersPanel : undefined}
             onCreateGroup={!isGroup ? onCreateGroupFromPrivate : undefined}

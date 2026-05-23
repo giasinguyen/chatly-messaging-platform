@@ -26,6 +26,8 @@ export default function UsernameProfilePage() {
         loadingPosts,
         savedPosts,
         loadingSaved,
+        taggedPosts,
+        loadingTagged,
         loadError,
         loading,
         actionLoading,
@@ -192,6 +194,26 @@ export default function UsernameProfilePage() {
                             onNavigate={(id) => navigate(`/reels?reelId=${id}`)}
                         />
                     )}
+
+                    {activeTab === "tagged" &&
+                        (isLimited ? (
+                            <div className="py-10 text-center text-muted-foreground">
+                                Tagged posts are hidden due to privacy settings.
+                            </div>
+                        ) : loadingTagged ? (
+                            <div className="flex justify-center py-4">
+                                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                            </div>
+                        ) : taggedPosts.length === 0 ? (
+                            <div className="py-10 text-center text-muted-foreground">
+                                No tagged posts yet.
+                            </div>
+                        ) : (
+                            <ProfilePostGrid
+                                posts={taggedPosts}
+                                onNavigate={(id) => navigate(`/post/${id}`)}
+                            />
+                        ))}
 
                     {activeTab === "saved" &&
                         isOwnProfile &&

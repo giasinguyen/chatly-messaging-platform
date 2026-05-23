@@ -32,7 +32,7 @@ import {
     Bot,
     FileText
 } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import Picker from "@emoji-mart/react";
 import data from "@emoji-mart/data";
@@ -155,14 +155,28 @@ function renderMentionText(text: string) {
         if (!isMention) {
             return <span key={`${token}-${index}`}>{token}</span>;
         }
+        if (token.toLowerCase() === "@ai") {
+            return (
+                <span
+                    key={`${token}-${index}`}
+                    className="font-medium text-indigo-600 dark:text-indigo-400"
+                >
+                    {token}
+                </span>
+            );
+        }
+
+        const username = token.slice(1);
 
         return (
-            <span
+            <Link
                 key={`${token}-${index}`}
+                to={`/u/${username}`}
                 className="font-medium text-indigo-600 dark:text-indigo-400"
+                onClick={(event) => event.stopPropagation()}
             >
                 {token}
-            </span>
+            </Link>
         );
     });
 }
