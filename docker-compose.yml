@@ -1,0 +1,170 @@
+# Root docker-compose.yml — Production deployment for EC2
+# Orchestrates: Backend (Spring Boot), AI Agent (FastAPI), and all required infrastructure.
+#
+# Usage:
+#   1. Copy .env.example to .env and fill in all values.
+#   2. docker compose up -d --build
+#
+# Internal service communication:
+#   Backend  → AI Agent : http://ai-agent:8000
+#   AI Agent → Backend  : http://backend:8080
+
+services:
+
+  # ─── Infrastructure ─────────────────────────────────────────────────────────
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: chatly-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-chatly}
+      POSTGRES_USER: ${POSTGRES_USER:-chatly}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - chatly-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-chatly} -d ${POSTGRES_DB:-chatly}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - chatly-net
+
+  mongodb:
+    image: mongo:7
+    container_name: chatly-mongodb
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_DATABASE: chatly
+    volumes:
+      - chatly-mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "mongodb://localhost:27017/admin", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - chatly-net
+
+  redis:
+    image: redis:7-alpine
+    container_name: chatly-redis
+    restart: unless-stopped
+    command: redis-server --requirepass ${REDIS_PASSWORD}
+    volumes:
+      - chatly-redis-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli --no-auth-warning -a \"$REDIS_PASSWORD\" ping | grep -q PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - chatly-net
+
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: chatly-qdrant
+    restart: unless-stopped
+    volumes:
+      - chatly-qdrant-data:/qdrant/storage
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:6333/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - chatly-net
+
+  # ─── Application Services ────────────────────────────────────────────────────
+
+  ai-agent:
+    build:
+      context: ./chatly-agent
+      dockerfile: Dockerfile
+    image: chatly-agent:latest
+    container_name: chatly-ai-agent
+    restart: unless-stopped
+    # Port NOT exposed externally — accessible only within chatly-net
+    env_file: .env
+    environment:
+      # Override URLs to use Docker service names instead of localhost
+      MONGODB_URI: mongodb://mongodb:27017
+      MONGODB_DB_NAME: ${MONGODB_DB_NAME:-agent_server}
+      QDRANT_URL: http://qdrant:6333
+      CHATLY_BACKEND_MCP_URL: http://backend:8080/api/ai/mcp/sse
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY}
+      APP_ENV: production
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      qdrant:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health/"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    networks:
+      - chatly-net
+
+  backend:
+    build:
+      context: ./chatly-backend
+      dockerfile: Dockerfile
+    image: chatly-backend:latest
+    container_name: chatly-backend
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    env_file: .env
+    environment:
+      # Activate production Spring profile
+      SPRING_PROFILES_ACTIVE: prod
+      # Override URLs to use Docker service names instead of localhost
+      DATABASE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-chatly}
+      DATABASE_USERNAME: ${POSTGRES_USER:-chatly}
+      DATABASE_PASSWORD: ${POSTGRES_PASSWORD}
+      MONGODB_URI: mongodb://mongodb:27017/chatly
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      # Inject Redis password into Spring Data Redis — property: spring.data.redis.password
+      SPRING_DATA_REDIS_PASSWORD: ${REDIS_PASSWORD}
+      # Internal API key — must match INTERNAL_API_KEY in .env used by ai-agent
+      AGENT_API_KEY: ${INTERNAL_API_KEY}
+      APP_MCP_INTERNAL_API_KEY: ${INTERNAL_API_KEY}
+      # AI Agent internal URL
+      AGENT_BASE_URL: http://ai-agent:8000
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      ai-agent:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 90s
+    networks:
+      - chatly-net
+
+# ─── Volumes ──────────────────────────────────────────────────────────────────
+volumes:
+  chatly-postgres-data:
+  chatly-mongo-data:
+  chatly-redis-data:
+  chatly-qdrant-data:
+
+# ─── Networks ─────────────────────────────────────────────────────────────────
+networks:
+  chatly-net:
+    driver: bridge
