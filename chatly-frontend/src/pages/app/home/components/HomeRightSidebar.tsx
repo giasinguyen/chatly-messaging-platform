@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -7,6 +8,7 @@ import { contactService } from "@/services/contact.service";
 import type { UserResponse } from "@/types/auth";
 import type { ContactSuggestionResponse } from "@/types/contact";
 import { HomeFriendsPanel } from "./HomeFriendsPanel";
+import { HomeUserHoverCard } from "./HomeUserHoverCard";
 
 const HOME_CONTACT_SUGGESTION_LIMIT = 5;
 
@@ -21,6 +23,7 @@ export function HomeRightSidebar({
     hasMyStories,
     onOpenProfile,
 }: HomeRightSidebarProps) {
+    const navigate = useNavigate();
     const [suggestions, setSuggestions] = useState<ContactSuggestionResponse[]>(
         [],
     );
@@ -164,60 +167,76 @@ export function HomeRightSidebar({
                     </div>
 
                     <div className="space-y-2 rounded-2xl border border-border bg-card/70 p-3">
-                        {suggestions.map((suggestion) => (
-                            <div
-                                key={suggestion.id}
-                                className="flex items-center gap-3 rounded-xl p-2 transition-colors hover:bg-muted/70"
-                            >
-                                <Avatar className="size-10 shrink-0">
-                                    <AvatarImage
-                                        src={suggestion.avatarUrl}
-                                        alt={suggestion.displayName}
-                                        className="object-cover"
-                                    />
-                                    <AvatarFallback className="bg-muted text-sm font-semibold text-muted-foreground">
-                                        {suggestion.displayName
-                                            .charAt(0)
-                                            .toUpperCase()}
-                                    </AvatarFallback>
-                                </Avatar>
-                                <div className="min-w-0 flex-1">
-                                    <p className="truncate text-sm font-semibold text-foreground">
-                                        {suggestion.displayName}
-                                    </p>
-                                    <p className="truncate text-xs text-muted-foreground">
-                                        @{suggestion.username} -{" "}
-                                        {suggestion.mutualFriendCount} mutual friends
-                                    </p>
-                                </div>
-                                <Button
-                                    type="button"
-                                    size="sm"
-                                    variant={
-                                        requestIdsBySuggestionId[suggestion.id]
-                                            ? "ghost"
-                                            : "outline"
-                                    }
-                                    disabled={pendingSuggestionIds.has(
-                                        suggestion.id,
-                                    )}
-                                    onClick={() =>
-                                        requestIdsBySuggestionId[suggestion.id]
-                                            ? void handleCancelRequest(suggestion)
-                                            : void handleAddFriend(suggestion)
-                                    }
-                                    className={cn(
-                                        "h-8 rounded-xl px-3 text-xs",
-                                        requestIdsBySuggestionId[suggestion.id] &&
-                                            "text-red-600 hover:bg-red-50 hover:text-red-700 dark:hover:bg-red-500/10",
-                                    )}
+                        {suggestions.map((suggestion) => {
+                            const hasRequested = Boolean(
+                                requestIdsBySuggestionId[suggestion.id],
+                            );
+                            const isPending = pendingSuggestionIds.has(suggestion.id);
+
+                            return (
+                                <div
+                                    key={suggestion.id}
+                                    className="group relative flex items-center gap-3 rounded-xl p-2 transition-colors hover:bg-muted/70"
                                 >
-                                    {requestIdsBySuggestionId[suggestion.id]
-                                        ? "Cancel"
-                                        : "Add"}
-                                </Button>
-                            </div>
-                        ))}
+                                    <Avatar className="size-10 shrink-0">
+                                        <AvatarImage
+                                            src={suggestion.avatarUrl}
+                                            alt={suggestion.displayName}
+                                            className="object-cover"
+                                        />
+                                        <AvatarFallback className="bg-muted text-sm font-semibold text-muted-foreground">
+                                            {suggestion.displayName
+                                                .charAt(0)
+                                                .toUpperCase()}
+                                        </AvatarFallback>
+                                    </Avatar>
+                                    <div className="min-w-0 flex-1">
+                                        <p className="truncate text-sm font-semibold text-foreground">
+                                            {suggestion.displayName}
+                                        </p>
+                                        <p className="truncate text-xs text-muted-foreground">
+                                            @{suggestion.username} -{" "}
+                                            {suggestion.mutualFriendCount} mutual friends
+                                        </p>
+                                    </div>
+                                    <Button
+                                        type="button"
+                                        size="sm"
+                                        variant={hasRequested ? "ghost" : "outline"}
+                                        disabled={isPending}
+                                        onClick={() =>
+                                            hasRequested
+                                                ? void handleCancelRequest(suggestion)
+                                                : void handleAddFriend(suggestion)
+                                        }
+                                        className={cn(
+                                            "h-8 rounded-xl px-3 text-xs",
+                                            hasRequested &&
+                                                "text-red-600 hover:bg-red-50 hover:text-red-700 dark:hover:bg-red-500/10",
+                                        )}
+                                    >
+                                        {hasRequested ? "Cancel" : "Add"}
+                                    </Button>
+
+                                    <HomeUserHoverCard
+                                        user={{
+                                            id: suggestion.id,
+                                            displayName: suggestion.displayName,
+                                            username: suggestion.username,
+                                            avatarUrl: suggestion.avatarUrl,
+                                            subtitle: `${suggestion.mutualFriendCount} mutual friends`,
+                                        }}
+                                        mode="suggestion"
+                                        isPending={isPending}
+                                        hasRequested={hasRequested}
+                                        onViewProfile={() =>
+                                            navigate(`/u/${suggestion.username}`)
+                                        }
+                                        onAddFriend={() => void handleAddFriend(suggestion)}
+                                    />
+                                </div>
+                            );
+                        })}
                     </div>
                 </>
             )}

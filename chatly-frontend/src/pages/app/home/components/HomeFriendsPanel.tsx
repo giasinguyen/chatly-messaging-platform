@@ -7,6 +7,7 @@ import { conversationService } from "@/services/conversation.service";
 import { useContactStore } from "@/store/contact.store";
 import type { UserResponse } from "@/types/auth";
 import type { ContactResponse } from "@/types/contact";
+import { HomeUserHoverCard } from "./HomeUserHoverCard";
 
 type PresenceStatus = "ONLINE" | "OFFLINE";
 
@@ -130,40 +131,54 @@ export function HomeFriendsPanel({ user }: HomeFriendsPanelProps) {
                     const isOnline = status === "ONLINE";
 
                     return (
-                        <button
-                            key={friend.id}
-                            type="button"
-                            disabled={openingFriendId !== null}
-                            onClick={() => void handleOpenConversation(friend.id)}
-                            className="flex w-full items-center gap-3 rounded-xl p-2 text-left transition-colors hover:bg-muted/70 disabled:cursor-wait disabled:opacity-70"
-                        >
-                            <div className="relative shrink-0">
-                                <Avatar className="size-10">
-                                    <AvatarImage
-                                        src={friend.avatarUrl}
-                                        alt={friend.displayName}
-                                        className="object-cover"
-                                    />
-                                    <AvatarFallback className="bg-muted text-sm font-semibold text-muted-foreground">
-                                        {friend.displayName.charAt(0).toUpperCase()}
-                                    </AvatarFallback>
-                                </Avatar>
-                                {isOnline && (
-                                    <span className="absolute right-0 bottom-0 size-3 rounded-full border-2 border-card bg-emerald-500" />
-                                )}
-                            </div>
+                        <div key={friend.id} className="group relative">
+                            <button
+                                type="button"
+                                disabled={openingFriendId !== null}
+                                onClick={() => void handleOpenConversation(friend.id)}
+                                className="flex w-full items-center gap-3 rounded-xl p-2 text-left transition-colors hover:bg-muted/70 disabled:cursor-wait disabled:opacity-70"
+                            >
+                                <div className="relative shrink-0">
+                                    <Avatar className="size-10">
+                                        <AvatarImage
+                                            src={friend.avatarUrl}
+                                            alt={friend.displayName}
+                                            className="object-cover"
+                                        />
+                                        <AvatarFallback className="bg-muted text-sm font-semibold text-muted-foreground">
+                                            {friend.displayName.charAt(0).toUpperCase()}
+                                        </AvatarFallback>
+                                    </Avatar>
+                                    {isOnline && (
+                                        <span className="absolute right-0 bottom-0 size-3 rounded-full border-2 border-card bg-emerald-500" />
+                                    )}
+                                </div>
 
-                            <div className="min-w-0">
-                                <p className="truncate text-sm font-semibold text-foreground">
-                                    {friend.displayName}
-                                </p>
-                                {isOnline && (
-                                    <p className="text-xs text-emerald-600 dark:text-emerald-400">
-                                        Online
+                                <div className="min-w-0">
+                                    <p className="truncate text-sm font-semibold text-foreground">
+                                        {friend.displayName}
                                     </p>
-                                )}
-                            </div>
-                        </button>
+                                    {isOnline && (
+                                        <p className="text-xs text-emerald-600 dark:text-emerald-400">
+                                            Online
+                                        </p>
+                                    )}
+                                </div>
+                            </button>
+
+                            <HomeUserHoverCard
+                                user={{
+                                    id: friend.id,
+                                    displayName: friend.displayName,
+                                    username: friend.username,
+                                    avatarUrl: friend.avatarUrl,
+                                    subtitle: isOnline ? "Online" : `@${friend.username}`,
+                                }}
+                                mode="friend"
+                                onViewProfile={() => navigate(`/u/${friend.username}`)}
+                                onMessage={() => void handleOpenConversation(friend.id)}
+                            />
+                        </div>
                     );
                 })}
             </div>
