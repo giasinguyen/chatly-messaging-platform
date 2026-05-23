@@ -86,7 +86,52 @@ export function useChatConversationData({ id }: UseChatConversationDataOptions) 
     const onEvent = useCallback(
         (event: ChatEvent) => {
             const { action, message: msg } = event;
-            if (action === "GROUP_UPDATE" || action === "ROLE_UPDATED") return;
+
+            if (action === "GROUP_UPDATE" || action === "ROLE_UPDATED") {
+                const updatedConversation = event.conversationData;
+                if (!updatedConversation || !currentUser) {
+                    return;
+                }
+
+                if (!updatedConversation.participantIds.includes(currentUser.id)) {
+                    setConversation(null);
+                    setNotFound(true);
+                    return;
+                }
+
+                setConversation(updatedConversation);
+
+                setParticipantDirectory((prev) => {
+                    const nextDirectory: Record<string, ChatUser> = {};
+                    for (const participantId of updatedConversation.participantIds) {
+                        if (prev[participantId]) {
+                            nextDirectory[participantId] = prev[participantId];
+                            continue;
+                        }
+
+                        const fallbackUser = userDirectory[participantId];
+                        nextDirectory[participantId] = {
+                            id: participantId,
+                            displayName: fallbackUser?.displayName ?? "User",
+                            username: fallbackUser?.username ?? "",
+                            avatarUrl: fallbackUser?.avatarUrl,
+                        };
+                    }
+                    return nextDirectory;
+                });
+
+                if (updatedConversation.type === "GROUP") {
+                    setParticipant((prevParticipant) => ({
+                        id: updatedConversation.id,
+                        username: "group",
+                        displayName: updatedConversation.name ?? prevParticipant?.displayName ?? "Chat group",
+                        avatarUrl: updatedConversation.avatarUrl ?? prevParticipant?.avatarUrl,
+                    }));
+                }
+
+                return;
+            }
+
             if (!msg) return;
 
             if (action === "SEND") {
@@ -128,7 +173,7 @@ export function useChatConversationData({ id }: UseChatConversationDataOptions) 
             }
         },
         // eslint-disable-next-line react-hooks/exhaustive-deps
-        [currentUser?.id, id, getPrefs],
+        [currentUser, id, getPrefs, userDirectory],
     );
 
     const onTyping = useCallback(

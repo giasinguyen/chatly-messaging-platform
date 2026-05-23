@@ -188,6 +188,14 @@ function upsertConversation(
     );
 }
 
+function isRemovedFromGroupNotification(notification: NotificationEvent["notification"]): boolean {
+    if (notification.type !== "SYSTEM") {
+        return false;
+    }
+    const content = (notification.content ?? "").toLowerCase();
+    return content.includes("removed from");
+}
+
 export const ChatList = forwardRef(function ChatListComponent(_, ref) {
     const { user: currentUser } = useAuthStore();
     const navigate = useNavigate();
@@ -279,6 +287,20 @@ export const ChatList = forwardRef(function ChatListComponent(_, ref) {
                     if (event.notification.type === "NEW_MESSAGE") {
                         processedNotifIdsRef.current.add(event.notification.id);
                         void refreshConversations();
+                        return;
+                    }
+
+                    if (event.notification.type === "GROUP_INVITE") {
+                        processedNotifIdsRef.current.add(event.notification.id);
+                        void refreshConversations();
+                        return;
+                    }
+
+                    if (isRemovedFromGroupNotification(event.notification) && event.notification.referenceId) {
+                        processedNotifIdsRef.current.add(event.notification.id);
+                        setConversations((prev) =>
+                            prev.filter((conv) => conv.id !== event.notification.referenceId),
+                        );
                     }
                 },
             );
@@ -297,7 +319,14 @@ export const ChatList = forwardRef(function ChatListComponent(_, ref) {
     // Notifications keep previews fresh when the list subscription misses a message.
     useEffect(() => {
         const newMsgNotifs = notifications.filter(
-            (n) => n.type === "NEW_MESSAGE" && n.referenceId && !processedNotifIdsRef.current.has(n.id),
+            (n) =>
+                (
+                    n.type === "NEW_MESSAGE"
+                    || n.type === "GROUP_INVITE"
+                    || (isRemovedFromGroupNotification(n) && Boolean(n.referenceId))
+                )
+                && n.referenceId
+                && !processedNotifIdsRef.current.has(n.id),
         );
         if (newMsgNotifs.length === 0) return;
 
@@ -305,6 +334,13 @@ export const ChatList = forwardRef(function ChatListComponent(_, ref) {
             processedNotifIdsRef.current.add(notif.id);
             const conversationId = notif.referenceId;
             if (!conversationId) continue;
+
+            if (isRemovedFromGroupNotification(notif)) {
+                setConversations((current) =>
+                    current.filter((conversation) => conversation.id !== conversationId),
+                );
+                continue;
+            }
 
             conversationService
                 .getById(conversationId)
@@ -367,11 +403,14 @@ export const ChatList = forwardRef(function ChatListComponent(_, ref) {
                         const updatedConv = event.conversationData;
                         if (!updatedConv) return;
 
-                        setConversations((prev) =>
-                            prev.map((c) =>
-                                c.id === updatedConv.id ? updatedConv : c
-                            )
-                        );
+                        if (!updatedConv.participantIds.includes(currentUser.id)) {
+                            setConversations((prev) =>
+                                prev.filter((conversation) => conversation.id !== updatedConv.id),
+                            );
+                            return;
+                        }
+
+                        setConversations((prev) => upsertConversation(prev, updatedConv));
                         return;
                     }
                 },

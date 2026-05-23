@@ -10,6 +10,7 @@ import com.chatly.exception.ErrorCode;
 import com.chatly.mapper.ConversationMapper;
 import com.chatly.model.enums.ConversationType;
 import com.chatly.model.enums.GroupRole;
+import com.chatly.model.enums.NotificationTargetType;
 import com.chatly.model.enums.NotificationType;
 import com.chatly.model.mongo.*;
 import com.chatly.model.postgres.GroupMember;
@@ -103,6 +104,8 @@ public class GroupService {
         conversation.getParticipantIds().add(targetUserId);
         conversationRepository.save(conversation);
 
+        broadcastGroupUpdate(conversation.getId(), conversationMapper.toResponse(conversation));
+
         notificationService.createAndPush(
                 NotificationType.GROUP_INVITE,
                 requesterId,
@@ -165,6 +168,21 @@ public class GroupService {
         // Update participantIds in MongoDB conversation
         conversation.getParticipantIds().remove(targetUserId);
         conversationRepository.save(conversation);
+
+        broadcastGroupUpdate(conversation.getId(), conversationMapper.toResponse(conversation));
+
+        // Notify removed member so their UI can update immediately without refresh
+        if (!isSelfLeave) {
+            String groupName = conversation.getName() != null ? conversation.getName() : "group";
+            notificationService.createAndPush(
+                NotificationType.SYSTEM,
+                requesterId,
+                targetUserId,
+                "You have been removed from " + groupName,
+                conversationId,
+                NotificationTargetType.NONE
+            );
+        }
 
         // Send system message
         try {

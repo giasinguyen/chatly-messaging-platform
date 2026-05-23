@@ -201,7 +201,7 @@ export function GroupManagementPanel({
         }
     }, [open, fetchMembers, initialGroupName, initialGroupAvatar]);
 
-    // Listen for ROLE_UPDATED events to refresh the member list in realtime
+    // Listen for group realtime events to refresh the member list
     useEffect(() => {
         if (!open || !conversationId) return;
         const client = socketService.getClient();
@@ -212,7 +212,7 @@ export function GroupManagementPanel({
             (frame) => {
                 try {
                     const event = JSON.parse(frame.body);
-                    if (event.action === "ROLE_UPDATED") {
+                    if (event.action === "ROLE_UPDATED" || event.action === "GROUP_UPDATE") {
                         fetchMembers();
                     }
                 } catch { /* ignore */ }
