@@ -90,6 +90,16 @@ public class MessageService {
             if (otherId != null && contactService.isBlocked(UUID.fromString(senderId), UUID.fromString(otherId))) {
                 throw new AppException(ErrorCode.CONTACT_BLOCKED);
             }
+
+            // Suspension guard: reject if recipient account is suspended
+            if (otherId != null) {
+                boolean recipientSuspended = userRepository.findById(UUID.fromString(otherId))
+                        .map(user -> user.isSuspended())
+                        .orElse(false);
+                if (recipientSuspended) {
+                    throw new AppException(ErrorCode.CONTACT_SUSPENDED);
+                }
+            }
         }
 
         Message message = Message.builder()
@@ -126,25 +136,6 @@ public class MessageService {
                 && Boolean.TRUE.equals(conversation.getAiProactiveEnabled())
                 && isQuestion(request.getContent())) {
             scheduleUnansweredCheck(conversation.getId(), savedMessage.getId(), senderId);
-        }
-
-        // Auto-reply when the recipient account is suspended (PRIVATE conversations only)
-        if (otherId != null) {
-            final String suspendedUserId = otherId;
-            userRepository.findById(UUID.fromString(otherId)).ifPresent(otherUser -> {
-                if (otherUser.isSuspended()) {
-                    Message autoReply = Message.builder()
-                            .conversationId(conversation.getId())
-                            .senderId(suspendedUserId)
-                            .content("This account is currently suspended and cannot respond. " +
-                                     "Please contact our support team for further assistance.")
-                            .type(MessageType.SYSTEM)
-                            .attachments(new ArrayList<>())
-                            .mentions(new ArrayList<>())
-                            .build();
-                    persistAndBroadcast(conversation, autoReply, suspendedUserId);
-                }
-            });
         }
 
         return messageMapper.toResponse(savedMessage);

@@ -33,6 +33,7 @@ public enum ErrorCode {
     CONTACT_NOT_AUTHORIZED(1203, "You are not authorized to perform this action on this contact", HttpStatus.FORBIDDEN),
     CONTACT_BLOCKED(1204, "Action blocked due to contact restriction", HttpStatus.FORBIDDEN),
     CONTACT_FRIEND_REQUESTS_DISABLED(1205, "This user is not accepting friend requests", HttpStatus.FORBIDDEN),
+    CONTACT_SUSPENDED(1206, "This user has been banned and cannot receive messages", HttpStatus.FORBIDDEN),
 
     CONVERSATION_NOT_FOUND(1300, "Conversation not found", HttpStatus.NOT_FOUND),
     CONVERSATION_ALREADY_EXISTS(1301, "Private conversation already exists", HttpStatus.CONFLICT),

@@ -25,6 +25,8 @@ import {
 import type { FailedMessageItem } from "./messageList.utils";
 import { useChatConversationInit } from "./useChatConversationInit";
 
+const CONTACT_SUSPENDED_ERROR_CODE = 1206;
+
 interface UseChatConversationDataOptions {
     id: string;
 }
@@ -157,6 +159,18 @@ export function useChatConversationData({ id }: UseChatConversationDataOptions) 
         onEvent,
         onTyping,
         onRead,
+        onError: (errorPayload) => {
+            if (errorPayload.code === CONTACT_SUSPENDED_ERROR_CODE) {
+                toast.error(
+                    errorPayload.message
+                        ?? "This user has been banned and cannot receive messages.",
+                );
+                return;
+            }
+            if (errorPayload.message) {
+                toast.error(errorPayload.message);
+            }
+        },
     });
 
     const onPresenceChange = useCallback((event: PresenceEvent) => {
