@@ -5,6 +5,7 @@ import AdminCreateUserModal from "@/components/admin/AdminCreateUserModal";
 import AdminDetailPanel from "@/components/admin/AdminDetailPanel";
 import AdminUserDetailContent from "@/components/admin/AdminUserDetailContent";
 import { DashboardKpiCard } from "@/components/admin/DashboardKpiCard";
+import { SuspendUserDialog } from "@/components/admin/SuspendUserDialog";
 import { adminService } from "@/services/admin.service";
 import type { UserResponse } from "@/types/auth";
 import { Activity, Calendar, ExternalLink, Filter, Loader2, Mail, Phone, Plus, Search, ShieldAlert, ShieldCheck, Users } from "lucide-react";
@@ -41,6 +42,8 @@ export default function UsersPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [updatingUserId, setUpdatingUserId] = useState<string | null>(null);
+  const [suspendTarget, setSuspendTarget] = useState<UserResponse | null>(null);
+  const [pageInput, setPageInput] = useState("");
 
   const fetchUsers = useCallback(async () => {
     setIsLoading(true);
@@ -109,30 +112,72 @@ export default function UsersPage() {
     }
   };
 
-  const handleToggleSuspend = async (user: UserResponse) => {
-    const targetState = !user.suspended;
+  const handleUnsuspend = async (user: UserResponse) => {
     setUpdatingUserId(user.id);
     try {
-      const response = await adminService.suspendUser(user.id, targetState);
+      const response = await adminService.suspendUser(user.id, false);
       if (response.code === 1000) {
         setUsers((current) =>
           current.map((item) =>
-            item.id === user.id ? { ...item, suspended: targetState } : item
+            item.id === user.id ? { ...item, suspended: false } : item
           )
         );
         setSelectedUser((current) =>
-          current?.id === user.id ? { ...current, suspended: targetState } : current
+          current?.id === user.id ? { ...current, suspended: false } : current
         );
-        toast.success(targetState ? "User suspended" : "User restored");
+        toast.success("User restored");
       } else {
-        toast.error(response.message || "Failed to update user");
+        toast.error(response.message || "Failed to restore user");
       }
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : "Failed to update user";
+      const message = error instanceof Error ? error.message : "Failed to restore user";
       toast.error(message);
     } finally {
       setUpdatingUserId(null);
     }
+  };
+
+  const handleOpenSuspendDialog = (user: UserResponse) => {
+    setSuspendTarget(user);
+  };
+
+  const handleConfirmSuspend = async (_reason: string) => {
+    if (!suspendTarget) return;
+    const user = suspendTarget;
+    setUpdatingUserId(user.id);
+    try {
+      // TODO: Send suspend reason to backend when API supports it.
+      // Current endpoint: PUT /api/admin/users/{id}/suspend?suspend=true — no reason parameter.
+      const response = await adminService.suspendUser(user.id, true);
+      if (response.code === 1000) {
+        setUsers((current) =>
+          current.map((item) =>
+            item.id === user.id ? { ...item, suspended: true } : item
+          )
+        );
+        setSelectedUser((current) =>
+          current?.id === user.id ? { ...current, suspended: true } : current
+        );
+        toast.success("User suspended");
+        setSuspendTarget(null);
+      } else {
+        toast.error(response.message || "Failed to suspend user");
+      }
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Failed to suspend user";
+      toast.error(message);
+    } finally {
+      setUpdatingUserId(null);
+    }
+  };
+
+  const handlePageJump = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const parsed = parseInt(pageInput, 10);
+    if (!isNaN(parsed) && parsed >= 1 && parsed <= totalPages) {
+      setPage(parsed - 1);
+    }
+    setPageInput("");
   };
 
   const handleUserCreated = (user: UserResponse) => {
@@ -276,12 +321,19 @@ export default function UsersPage() {
                           type="button"
                           onClick={(event) => {
                             event.stopPropagation();
-                            handleToggleSuspend(user);
+                            if (user.suspended) {
+                              handleUnsuspend(user);
+                            } else {
+                              handleOpenSuspendDialog(user);
+                            }
                           }}
                           disabled={updatingUserId === user.id}
                           className="rounded-xl border border-slate-200 p-2 text-slate-500 hover:bg-slate-50 disabled:opacity-50"
+                          title={user.suspended ? "Restore user" : "Suspend user"}
                         >
-                          {user.suspended ? <ShieldCheck size={16} /> : <ShieldAlert size={16} />}
+                          {updatingUserId === user.id
+                            ? <Loader2 size={16} className="animate-spin" />
+                            : user.suspended ? <ShieldCheck size={16} className="text-emerald-500" /> : <ShieldAlert size={16} className="text-red-400" />}
                         </button>
                       </div>
                     </td>
@@ -297,14 +349,34 @@ export default function UsersPage() {
       </div>
 
       {totalPages > 1 && (
-        <div className="flex items-center justify-center gap-3">
+        <div className="flex items-center justify-center gap-3 flex-wrap">
           <button onClick={() => setPage((current) => Math.max(0, current - 1))} disabled={page === 0} className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 disabled:opacity-40">Previous</button>
           <span className="text-xs font-medium text-slate-500">Page {page + 1} of {totalPages}</span>
           <button onClick={() => setPage((current) => Math.min(totalPages - 1, current + 1))} disabled={page >= totalPages - 1} className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 disabled:opacity-40">Next</button>
+          <form onSubmit={handlePageJump} className="flex items-center gap-1.5">
+            <span className="text-xs text-slate-400">Go to</span>
+            <input
+              type="number"
+              min={1}
+              max={totalPages}
+              value={pageInput}
+              onChange={(event) => setPageInput(event.target.value)}
+              placeholder="#"
+              className="w-14 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-xs font-semibold text-slate-700 outline-none focus:border-[#7c3aed] focus:ring-1 focus:ring-[#7c3aed]/20 [appearance:textfield]"
+            />
+            <button type="submit" className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50">Go</button>
+          </form>
         </div>
       )}
 
       <AdminCreateUserModal isOpen={isCreateOpen} onClose={() => setIsCreateOpen(false)} onCreated={handleUserCreated} />
+
+      <SuspendUserDialog
+        user={suspendTarget}
+        isSuspending={suspendTarget !== null && updatingUserId === suspendTarget.id}
+        onConfirm={handleConfirmSuspend}
+        onClose={() => setSuspendTarget(null)}
+      />
 
       {selectedUser && (
         <AdminDetailPanel
@@ -314,7 +386,13 @@ export default function UsersPage() {
           footer={
             <button
               type="button"
-              onClick={() => handleToggleSuspend(selectedUser)}
+              onClick={() => {
+                if (selectedUser.suspended) {
+                  handleUnsuspend(selectedUser);
+                } else {
+                  handleOpenSuspendDialog(selectedUser);
+                }
+              }}
               disabled={updatingUserId === selectedUser.id}
               className="w-full rounded-xl border border-slate-200 px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
             >

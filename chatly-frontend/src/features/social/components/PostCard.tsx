@@ -672,15 +672,22 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
         setIsSubmittingReport(true);
         try {
             const res = await postService.reportPost(post.id, payload);
+            if (res.code === 1905) {
+                toast.info("You have already reported this post.");
+                setIsReportOpen(false);
+                return;
+            }
             if (res.code !== 1000) {
-                throw new Error(res.message ?? "Could not submit report.");
+                toast.error(res.message ?? "Could not submit report.");
+                return;
             }
             setIsReportOpen(false);
             toast.success(
                 "Report submitted. Thanks for helping keep Chatly safe.",
             );
-        } catch {
-            toast.error("Could not submit report.");
+        } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : "Could not submit report.";
+            toast.error(message);
         } finally {
             setIsSubmittingReport(false);
         }

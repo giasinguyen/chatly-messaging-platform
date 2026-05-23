@@ -6,11 +6,12 @@ import { AdminLayout } from "@/components/admin/AdminLayout";
 
 const DashboardPage = lazy(() => import("@/pages/admin/dashboard"));
 const UsersPage = lazy(() => import("@/pages/admin/users"));
-const ConversationsPage = lazy(() => import("@/pages/admin/conversations"));
 const PostsPage = lazy(() => import("@/pages/admin/posts"));
 const ReportsPage = lazy(() => import("@/pages/admin/reports"));
-const MessagesPage = lazy(() => import("@/pages/admin/messages"));
-const NotificationsPage = lazy(() => import("@/pages/admin/notifications"));
+const EngagementPage = lazy(() => import("@/pages/admin/engagement"));
+const CreatorsPage = lazy(() => import("@/pages/admin/creators"));
+const HashtagsPage = lazy(() => import("@/pages/admin/hashtags"));
+const TrendingPage = lazy(() => import("@/pages/admin/trending"));
 const AiAgentPage = lazy(() => import("@/pages/admin/ai-agent"));
 const SystemHealthPage = lazy(() => import("@/pages/admin/system"));
 const AuditLogsPage = lazy(() => import("@/pages/admin/audit"));
@@ -32,11 +33,12 @@ export const adminRoutes: RouteObject[] = [
             { index: true, element: <Navigate to="dashboard" replace /> },
             { path: "dashboard", element: <DashboardPage /> },
             { path: "users", element: <UsersPage /> },
-            { path: "conversations", element: <ConversationsPage /> },
             { path: "posts", element: <PostsPage /> },
             { path: "reports", element: <ReportsPage /> },
-            { path: "messages", element: <MessagesPage /> },
-            { path: "notifications", element: <NotificationsPage /> },
+            { path: "engagement", element: <EngagementPage /> },
+            { path: "creators", element: <CreatorsPage /> },
+            { path: "hashtags", element: <HashtagsPage /> },
+            { path: "trending", element: <TrendingPage /> },
             { path: "ai-agent", element: <AiAgentPage /> },
             { path: "system", element: <SystemHealthPage /> },
             { path: "audit", element: <AuditLogsPage /> },
