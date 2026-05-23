@@ -10,7 +10,7 @@ import type {
 import type { ConversationResponse, ConversationType } from "@/types/conversation";
 import type { Message } from "@/types/message";
 import type { Notification, NotificationType } from "@/types/notification";
-import type { Post } from "@/types/post";
+import type { Post, PostVisibility } from "@/types/post";
 
 interface AdminListParams {
   page?: number;
@@ -24,6 +24,7 @@ interface AdminSearchParams extends AdminListParams {
 
 interface AdminPostParams extends AdminSearchParams {
   hashtag?: string | null;
+  visibility?: PostVisibility | null;
 }
 
 interface AdminConversationParams extends AdminSearchParams {

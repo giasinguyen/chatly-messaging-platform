@@ -143,13 +143,13 @@ export function GroupManagementPanel({
 
     // Invite link
     const [inviteLink, setInviteLink] = useState<string | null>(null);
-    const [inviteToken, setInviteToken] = useState<string | null>(null);
+    const [, setInviteToken] = useState<string | null>(null);
     const [inviteLinkLoading, setInviteLinkLoading] = useState(false);
     const [showQrDialog, setShowQrDialog] = useState(false);
 
     // Pending requests
     const [pendingRequests, setPendingRequests] = useState<PendingJoinResponse[]>([]);
-    const [pendingLoading, setPendingLoading] = useState(false);
+    const [, setPendingLoading] = useState(false);
 
     // Inline role dropdown
     const [roleMenuOpenFor, setRoleMenuOpenFor] = useState<string | null>(null);
