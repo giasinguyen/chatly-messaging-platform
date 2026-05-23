@@ -45,7 +45,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import type { ChatUser } from "@/types/message";
+import type { Attachment, ChatUser, Message } from "@/types/message";
 import type { ConversationResponse } from "@/types/conversation";
 import { conversationService } from "@/services/conversation.service";
 import { groupService } from "@/services/group.service";
@@ -58,6 +58,7 @@ interface ConversationInfoPanelProps {
     conversation: ConversationResponse;
     participant: ChatUser;
     currentUserId: string;
+    messages: Message[];
     onDeleteConversation: () => void;
     onOpenGroupPanel?: () => void;
     onOpenGroupSettingsPanel?: () => void;
@@ -74,16 +75,96 @@ const MUTE_OPTIONS = [
     { value: "forever", label: "Until I turn it back on", duration: null },
 ] as const;
 
+function attachmentToFile(
+    attachment: Attachment,
+    message: Message,
+): FileUploadResponse {
+    return {
+        fileId: attachment.fileId ?? `${message.id}-${attachment.url}`,
+        provider: "message",
+        url: attachment.url,
+        fileName: attachment.name ?? "Attachment",
+        fileType: attachment.type ?? "application/octet-stream",
+        fileSize: attachment.size ?? 0,
+        conversationId: message.conversationId,
+        createdAt: message.createdAt,
+    };
+}
+
+function messageToMediaFiles(message: Message): FileUploadResponse[] {
+    return message.attachments
+        .filter((attachment) =>
+            attachment.type?.startsWith("image/") || attachment.type?.startsWith("video/"),
+        )
+        .map((attachment) => attachmentToFile(attachment, message));
+}
+
+function messageToDocFiles(message: Message): FileUploadResponse[] {
+    return message.attachments
+        .filter((attachment) => {
+            const type = attachment.type ?? "";
+            return Boolean(attachment.url)
+                && !type.startsWith("image/")
+                && !type.startsWith("video/")
+                && !type.startsWith("audio/")
+                && attachment.kind !== "POST_PREVIEW"
+                && attachment.kind !== "REEL_PREVIEW"
+                && attachment.kind !== "STORY_REPLY";
+        })
+        .map((attachment) => attachmentToFile(attachment, message));
+}
+
+function mergeFiles(
+    fetchedFiles: FileUploadResponse[],
+    liveFiles: FileUploadResponse[],
+): FileUploadResponse[] {
+    const byKey = new Map<string, FileUploadResponse>();
+    [...liveFiles, ...fetchedFiles].forEach((file) => {
+        byKey.set(file.fileId || file.url, file);
+    });
+    return [...byKey.values()].sort(
+        (left, right) =>
+            new Date(right.createdAt ?? 0).getTime() -
+            new Date(left.createdAt ?? 0).getTime(),
+    );
+}
+
+function extractLinksFromMessages(messages: Message[]): { url: string; domain: string }[] {
+    const urlRegex = /(https?:\/\/[^\s<>"]+)/g;
+    const links: { url: string; domain: string }[] = [];
+    messages.forEach((message) => {
+        if (message.type === "GIF" || message.type === "STICKER") return;
+        const matches = message.content?.match(urlRegex) ?? [];
+        matches.forEach((url) => {
+            try {
+                links.push({ url, domain: new URL(url).hostname });
+            } catch {
+                // Ignore malformed URLs in plain text messages.
+            }
+        });
+    });
+    return links;
+}
+
+function mergeLinks(
+    fetchedLinks: { url: string; domain: string }[],
+    liveLinks: { url: string; domain: string }[],
+): { url: string; domain: string }[] {
+    const byUrl = new Map<string, { url: string; domain: string }>();
+    [...liveLinks, ...fetchedLinks].forEach((link) => byUrl.set(link.url, link));
+    return [...byUrl.values()].slice(0, 20);
+}
+
 export function ConversationInfoPanel({
     conversation,
     participant,
     currentUserId,
+    messages,
     onDeleteConversation,
     onOpenGroupPanel,
     onCreateGroup,
     onNicknameChange,
     onGroupUpdated,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     onConversationUpdate: _onConversationUpdate,
 }: ConversationInfoPanelProps) {
     const navigate = useNavigate();
@@ -101,6 +182,7 @@ export function ConversationInfoPanel({
     const [isDismissing, setIsDismissing] = useState(false);
     const [isLeaving, setIsLeaving] = useState(false);
     const [isOwner, setIsOwner] = useState(false);
+    const [isOwnerOrAdmin, setIsOwnerOrAdmin] = useState(false);
 
     // Fetch current user's role in group to determine owner status
     useEffect(() => {
@@ -109,6 +191,7 @@ export function ConversationInfoPanel({
             if (res.code === 1000) {
                 const me = res.result.find((m) => m.userId === currentUserId);
                 setIsOwner(me?.role === "OWNER");
+                setIsOwnerOrAdmin(me?.role === "OWNER" || me?.role === "ADMIN");
             }
         }).catch(() => {});
     }, [isGroup, conversation.id, currentUserId]);
@@ -132,6 +215,19 @@ export function ConversationInfoPanel({
     const [mediaFiles, setMediaFiles] = useState<FileUploadResponse[]>([]);
     const [docFiles, setDocFiles] = useState<FileUploadResponse[]>([]);
     const [linkMessages, setLinkMessages] = useState<{ url: string; domain: string }[]>([]);
+
+    const liveMediaFiles = useMemo(
+        () => mergeFiles(mediaFiles, messages.flatMap(messageToMediaFiles)),
+        [mediaFiles, messages],
+    );
+    const liveDocFiles = useMemo(
+        () => mergeFiles(docFiles, messages.flatMap(messageToDocFiles)),
+        [docFiles, messages],
+    );
+    const liveLinkMessages = useMemo(
+        () => mergeLinks(linkMessages, extractLinksFromMessages(messages)),
+        [linkMessages, messages],
+    );
 
     useEffect(() => {
         let cancelled = false;
@@ -201,13 +297,13 @@ export function ConversationInfoPanel({
         [notifications, conversation.id],
     );
     useEffect(() => {
-        if (!isGroup) return;
+        if (!isGroup || !isOwnerOrAdmin) return;
         let cancelled = false;
         groupService.getPendingRequests(conversation.id).then((res) => {
             if (!cancelled) setPendingCount(res.result?.length ?? 0);
         }).catch(() => { /* silent */ });
         return () => { cancelled = true; };
-    }, [isGroup, conversation.id, joinRequestCount]);
+    }, [isGroup, isOwnerOrAdmin, conversation.id, joinRequestCount]);
 
     // Invite link handlers
     const fetchInviteLink = useCallback(async () => {
@@ -294,7 +390,9 @@ export function ConversationInfoPanel({
             // Refetch to update ChatList
             const updated = await conversationService.getById(conversation.id);
             onGroupUpdated?.(trimmed, participant.avatarUrl);
-            _onConversationUpdate?.(updated.result as any);
+            if (updated.result) {
+                _onConversationUpdate?.(updated.result);
+            }
             setIsEditingGroupName(false);
             toast.success("Group name changed");
         } catch {
@@ -314,7 +412,9 @@ export function ConversationInfoPanel({
             // Refetch to update ChatList
             const updated = await conversationService.getById(conversation.id);
             onGroupUpdated?.(participant.displayName, res.url);
-            _onConversationUpdate?.(updated.result as any);
+            if (updated.result) {
+                _onConversationUpdate?.(updated.result);
+            }
             toast.success("Group avatar updated");
         } catch {
             toast.error("Could not update group avatar");
@@ -780,14 +880,14 @@ export function ConversationInfoPanel({
                                 className="text-[12px] text-brand hover:underline cursor-pointer bg-transparent border-none p-0"
                                 onClick={() => { setSharedMediaTab("media"); setSharedMediaOpen(true); }}
                             >
-                                View all ({mediaFiles.length})
+                                View all ({liveMediaFiles.length})
                             </button>
                         </div>
-                        {mediaFiles.length === 0 ? (
+                        {liveMediaFiles.length === 0 ? (
                             <p className="text-xs text-muted-foreground text-center py-3">No media yet</p>
                         ) : (
                             <div className="grid grid-cols-3 gap-1">
-                                {mediaFiles.slice(0, 6).map((file) => (
+                                {liveMediaFiles.slice(0, 6).map((file) => (
                                     <a
                                         key={file.fileId}
                                         href={file.url}
@@ -819,14 +919,14 @@ export function ConversationInfoPanel({
                                 className="text-[12px] text-brand hover:underline cursor-pointer bg-transparent border-none p-0"
                                 onClick={() => { setSharedMediaTab("files"); setSharedMediaOpen(true); }}
                             >
-                                View all ({docFiles.length})
+                                View all ({liveDocFiles.length})
                             </button>
                         </div>
-                        {docFiles.length === 0 ? (
+                        {liveDocFiles.length === 0 ? (
                             <p className="text-xs text-muted-foreground text-center py-3">No files yet</p>
                         ) : (
                             <div className="flex flex-col gap-2">
-                                {docFiles.slice(0, 5).map((file) => {
+                                {liveDocFiles.slice(0, 5).map((file) => {
                                     const sizeStr = file.fileSize
                                         ? file.fileSize > 1048576
                                             ? `${(file.fileSize / 1048576).toFixed(1)} MB`
@@ -861,7 +961,7 @@ export function ConversationInfoPanel({
                     <Separator />
 
                     {/* Link */}
-                    {linkMessages.length > 0 && (
+                    {liveLinkMessages.length > 0 && (
                         <>
                             <div className="px-4 py-3">
                                 <div className="flex items-center gap-2 mb-2">
@@ -872,10 +972,10 @@ export function ConversationInfoPanel({
                                     className="text-[12px] text-brand hover:underline cursor-pointer bg-transparent border-none p-0"
                                     onClick={() => { setSharedMediaTab("links"); setSharedMediaOpen(true); }}
                                 >
-                                    View all ({linkMessages.length})
+                                    View all ({liveLinkMessages.length})
                                 </button>
                                 <div className="flex flex-col gap-2">
-                                    {linkMessages.map((link, i) => (
+                                    {liveLinkMessages.map((link, i) => (
                                         <a key={i} href={link.url} target="_blank" rel="noopener noreferrer"
                                             className="flex min-w-0 items-center gap-2.5 p-2 rounded-lg bg-muted/30 border border-border/40 hover:bg-muted/50 transition no-underline">
                                             <div className="h-7 w-7 rounded bg-brand/10 flex items-center justify-center shrink-0">
