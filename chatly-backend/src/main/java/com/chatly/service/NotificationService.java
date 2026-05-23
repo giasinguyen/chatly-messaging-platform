@@ -5,6 +5,7 @@ import com.chatly.exception.AppException;
 import com.chatly.exception.ErrorCode;
 import com.chatly.mapper.NotificationMapper;
 import com.chatly.model.enums.NotificationScope;
+import com.chatly.model.enums.NotificationTargetType;
 import com.chatly.model.enums.NotificationType;
 import com.chatly.model.mongo.Notification;
 import com.chatly.model.postgres.User;
@@ -47,7 +48,18 @@ public class NotificationService {
                               String receiverId,
                               String content,
                               String referenceId) {
+        createAndPush(type, senderId, receiverId, content, referenceId, null);
+    }
+
+    public void createAndPush(NotificationType type,
+                              String senderId,
+                              String receiverId,
+                              String content,
+                              String referenceId,
+                              NotificationTargetType explicitTargetType) {
         if (senderId != null && senderId.equals(receiverId)) return;
+
+        NotificationTargetType targetType = resolveTargetType(type, explicitTargetType);
 
         Notification notification;
         var existing = notificationRepository
@@ -56,6 +68,7 @@ public class NotificationService {
         if (existing.isPresent()) {
             notification = existing.get();
             notification.setContent(content);
+            notification.setTargetType(targetType);
             notification = notificationRepository.save(notification);
         } else {
             notification = Notification.builder()
@@ -63,6 +76,7 @@ public class NotificationService {
                     .senderId(senderId)
                     .receiverId(receiverId)
                     .referenceId(referenceId)
+                    .targetType(targetType)
                     .content(content)
                     .build();
             notification = notificationRepository.save(notification);
@@ -192,6 +206,7 @@ public class NotificationService {
                         Map<String, Object> data = Map.of(
                             "type", notification.getType().toString(),
                             "referenceId", notification.getReferenceId() != null ? notification.getReferenceId() : "",
+                            "targetType", notification.getTargetType() != null ? notification.getTargetType().toString() : NotificationTargetType.NONE.toString(),
                             "notificationId", notification.getId() != null ? notification.getId() : ""
                         );
 
@@ -209,5 +224,21 @@ public class NotificationService {
         } catch (Exception e) {
             log.error("Failed to push notification to user {}: {}", userId, e.getMessage(), e);
         }
+    }
+
+    private NotificationTargetType resolveTargetType(
+            NotificationType type,
+            NotificationTargetType explicitTargetType
+    ) {
+        if (explicitTargetType != null) {
+            return explicitTargetType;
+        }
+
+        return switch (type) {
+            case NEW_MESSAGE, MENTION, GROUP_INVITE -> NotificationTargetType.CHAT;
+            case POST_LIKED, POST_COMMENTED, POST_SHARED, POST_MENTION, COMMENT_REPLIED -> NotificationTargetType.POST;
+            case NEW_FOLLOWER, FRIEND_REQUEST, FRIEND_ACCEPTED -> NotificationTargetType.USER;
+            default -> NotificationTargetType.NONE;
+        };
     }
 }

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ChevronDown, ChevronUp, Clapperboard, Loader2, Plus } from "lucide-react";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { CreateReelModal } from "@/components/app/CreateReelModal";
@@ -8,6 +8,8 @@ import { REEL_FEED_PAGE_SIZE } from "@/constants/reel";
 import { reelService } from "@/services/reel.service";
 import { useAuthStore } from "@/store/auth.store";
 import type { Reel } from "@/types/reel";
+import type { ReportPostRequest } from "@/types/post";
+import { ReportPostDialog } from "@/features/social/components/ReportPostDialog";
 import { ReelSlide } from "./components/ReelSlide";
 import { ReelCommentsDialog } from "./components/ReelCommentsDialog";
 import { ShareReelDialog } from "./components/ShareReelDialog";
@@ -18,6 +20,7 @@ function mergeReels(existing: Reel[], incoming: Reel[]) {
 }
 
 export default function ReelsPage() {
+    const navigate = useNavigate();
     const [searchParams] = useSearchParams();
     const user = useAuthStore((s) => s.user);
     const [reels, setReels] = useState<Reel[]>([]);
@@ -28,7 +31,9 @@ export default function ReelsPage() {
     const [isCreateOpen, setIsCreateOpen] = useState(false);
     const [selectedCommentsReel, setSelectedCommentsReel] = useState<Reel | null>(null);
     const [selectedShareReel, setSelectedShareReel] = useState<Reel | null>(null);
+    const [selectedReportReel, setSelectedReportReel] = useState<Reel | null>(null);
     const [busyReelId, setBusyReelId] = useState<string | null>(null);
+    const [isReportingReel, setIsReportingReel] = useState(false);
     const viewedIdsRef = useRef<Set<string>>(new Set());
 
     const focusedReelId = searchParams.get("reelId");
@@ -188,6 +193,44 @@ export default function ReelsPage() {
         void loadReels(null, true);
     };
 
+    const handleOpenAuthorProfile = useCallback(
+        (reel: Reel) => {
+            if (!reel.authorUsername) {
+                toast.error("Could not open author profile.");
+                return;
+            }
+            navigate(`/u/${reel.authorUsername}`);
+        },
+        [navigate],
+    );
+
+    const handleReportReel = useCallback((reel: Reel) => {
+        setSelectedReportReel(reel);
+    }, []);
+
+    const handleSubmitReelReport = useCallback(
+        async (payload: ReportPostRequest) => {
+            if (!selectedReportReel) {
+                return;
+            }
+            setIsReportingReel(true);
+            try {
+                const response = await reelService.report(selectedReportReel.id, payload);
+                if (response.code !== 1000) {
+                    toast.error(response.message ?? "Could not report reel.");
+                    return;
+                }
+                toast.success("Reel reported successfully.");
+                setSelectedReportReel(null);
+            } catch {
+                toast.error("Could not report reel.");
+            } finally {
+                setIsReportingReel(false);
+            }
+        },
+        [selectedReportReel],
+    );
+
     return (
         <div className="relative h-full w-full overflow-hidden bg-black text-white">
             <div className="absolute left-5 top-5 z-20 flex items-center gap-2">
@@ -229,6 +272,8 @@ export default function ReelsPage() {
                             onToggleLike={(selectedReel) => void handleToggleLike(selectedReel)}
                             onOpenComments={setSelectedCommentsReel}
                             onShare={setSelectedShareReel}
+                            onOpenAuthorProfile={handleOpenAuthorProfile}
+                            onReport={handleReportReel}
                         />
                     ))}
                 </div>
@@ -280,6 +325,12 @@ export default function ReelsPage() {
                 open={selectedShareReel !== null}
                 onOpenChange={(open) => !open && setSelectedShareReel(null)}
                 onShared={updateReel}
+            />
+            <ReportPostDialog
+                open={selectedReportReel !== null}
+                isSubmitting={isReportingReel}
+                onOpenChange={(open) => !open && setSelectedReportReel(null)}
+                onSubmit={handleSubmitReelReport}
             />
         </div>
     );

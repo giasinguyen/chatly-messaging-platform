@@ -3,6 +3,8 @@ import type { ApiResponse } from "@/types/auth";
 import type {
     CreatePostCommentRequest,
     PostComment,
+    ReportPostRequest,
+    ReportResponse,
     ReactToPostRequest,
 } from "@/types/post";
 import type { CreateReelRequest, Reel, ReelFeedResponse } from "@/types/reel";
@@ -90,6 +92,17 @@ export const reelService = {
     share: async (reelId: string): Promise<ApiResponse<Reel>> => {
         const response = await axiosClient.post<ApiResponse<Reel>>(
             `/api/reels/${reelId}/share`,
+        );
+        return response.data;
+    },
+
+    report: async (
+        reelId: string,
+        payload: ReportPostRequest,
+    ): Promise<ApiResponse<ReportResponse>> => {
+        const response = await axiosClient.post<ApiResponse<ReportResponse>>(
+            "/api/reports",
+            { postId: reelId, ...payload },
         );
         return response.data;
     },

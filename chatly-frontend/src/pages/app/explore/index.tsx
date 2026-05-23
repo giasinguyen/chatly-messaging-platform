@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { postService } from "@/services/post.service";
 import type {
     Post,
@@ -30,6 +30,7 @@ function parseHashtagQuery(value: string): string | null {
 
 export default function ExplorePage() {
     const navigate = useNavigate();
+    const location = useLocation();
     const [searchParams, setSearchParams] = useSearchParams();
     const [selectedCategory, setSelectedCategory] = useState("For You");
     const [selectedHashtag, setSelectedHashtag] = useState<string | null>(null);
@@ -241,6 +242,15 @@ export default function ExplorePage() {
     };
 
     const hasMore = isSearchActive || isHashtagActive ? hasMoreSearch : hasMoreExplore;
+    const openPostDetail = (postId: string) => {
+        navigate(`/post/${postId}`, {
+            state: {
+                source: "explore",
+                sourcePath: `${location.pathname}${location.search}`,
+            },
+        });
+    };
+
     const handlePostUpdate = (postId: string, updates: Partial<Post>) => {
         setPosts((current) =>
             current.map((post) =>
@@ -299,7 +309,7 @@ export default function ExplorePage() {
                             <ExploreCard
                                 key={post.id}
                                 post={post}
-                                onClick={() => navigate(`/post/${post.id}`)}
+                                onClick={() => openPostDetail(post.id)}
                             />
                         )}
                     />

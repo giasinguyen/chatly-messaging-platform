@@ -10,6 +10,7 @@ import {
     ChatLoadingSkeleton,
     ChatNotFound,
     DragDropOverlay,
+    SuspendedConversationBanner,
     TypingIndicator,
 } from "./ChatWindowOverlays";
 import { ChatWindowDialogs } from "./ChatWindowDialogs";
@@ -59,6 +60,7 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
 
     const { conversation, participant, currentUser } = s;
     const isGroup = conversation.type === "GROUP";
+    const isPrivateTargetSuspended = !isGroup && participant.suspended === true;
     const isTyping = s.typingUserIds.size > 0;
     const typingUserId = Array.from(s.typingUserIds)[0];
     const participantPresence = !isGroup ? s.presenceMap[participant.id] : undefined;
@@ -191,6 +193,8 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
                         direction={s.blockStatus.direction}
                         onUnblock={() => s.setBlockConfirmAction("unblock")}
                     />
+                ) : isPrivateTargetSuspended ? (
+                    <SuspendedConversationBanner />
                 ) : (
                     <ChatInput
                         ref={chatInputRef}
@@ -224,6 +228,8 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
                     sendingContact={s.sendingContact}
                     blockActionLoading={s.blockActionLoading}
                     blockConfirmAction={s.blockConfirmAction}
+                    reportUserDialogOpen={s.reportUserDialogOpen}
+                    reportUserSubmitting={s.reportUserSubmitting}
                     isEditingGroup={s.isEditingGroup}
                     groupNameDraft={s.groupNameDraft}
                     groupAvatarDraft={s.groupAvatarDraft}
@@ -241,6 +247,7 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
                     setShowPinnedDialog={s.setShowPinnedDialog}
                     setShowGroupPanel={s.setShowGroupPanel}
                     setCreateGroupFromPrivateOpen={s.setCreateGroupFromPrivateOpen}
+                    setReportUserDialogOpen={s.setReportUserDialogOpen}
                     setHighlightedMessageId={s.setHighlightedMessageId}
                     setConversation={s.setConversation}
                     setParticipant={s.setParticipant}
@@ -253,6 +260,8 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
                     handleForwardToAiConfirm={s.handleForwardToAiConfirm}
                     handleTogglePin={s.handleTogglePin}
                     handleSendFriendRequest={s.handleSendFriendRequest}
+                    handleOpenReportUserDialog={s.handleOpenReportUserDialog}
+                    handleReportUser={s.handleReportUser}
                     handleGroupAvatarFileChange={s.handleGroupAvatarFileChange}
                     handleSaveGroupProfile={s.handleSaveGroupProfile}
                     handleBlockContact={s.handleBlockContact}

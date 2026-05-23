@@ -1,0 +1,24 @@
+# VCS and editor metadata
+.git
+.gitignore
+.gitattributes
+.agent
+
+# Build outputs
+target
+
+# Local env and runtime files
+.env
+.env.*
+*.log
+
+# OS/editor noise
+.DS_Store
+.idea
+.vscode
+
+# Documentation and local scripts not needed in image build context
+docs
+README.md
+run-with-env.ps1
+run-with-env.sh
