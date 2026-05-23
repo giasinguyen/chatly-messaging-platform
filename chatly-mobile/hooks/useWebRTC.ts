@@ -14,12 +14,26 @@ try {
     RTCIceCandidate = webrtc.RTCIceCandidate;
     mediaDevices = webrtc.mediaDevices;
     MediaStream = webrtc.MediaStream;
-} catch (e) {
+} catch {
     console.warn('react-native-webrtc is not available (Expo Go?)');
 }
 
 const ICE_SERVERS = {
-    iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
+    iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' },
+        { urls: 'stun:stun2.l.google.com:19302' },
+        {
+            urls: [
+                'turn:openrelay.metered.ca:80',
+                'turn:openrelay.metered.ca:443',
+                'turn:openrelay.metered.ca:443?transport=tcp',
+            ],
+            username: 'openrelayproject',
+            credential: 'openrelayproject',
+        },
+    ],
+    iceCandidatePoolSize: 10,
 };
 
 interface UseWebRTCCallbacks {
@@ -34,10 +48,23 @@ export function useWebRTC(callbacks?: UseWebRTCCallbacks) {
     const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
     const [remoteStreamKey, setRemoteStreamKey] = useState(0);
     const remoteStreamRef = useRef<MediaStream | null>(null);
+    const pendingCandidates = useRef<RTCIceCandidateInit[]>([]);
+    const remoteDescriptionSet = useRef(false);
 
     // Refs cho callbacks để tránh re-create peer connection khi callback thay đổi
     const callbacksRef = useRef(callbacks);
     callbacksRef.current = callbacks;
+
+    const drainPendingCandidates = useCallback(async (connection: RTCPeerConnection): Promise<void> => {
+        const candidates = pendingCandidates.current.splice(0);
+        for (const candidate of candidates) {
+            try {
+                await connection.addIceCandidate(new RTCIceCandidate(candidate));
+            } catch (error) {
+                console.error('Failed to add buffered ICE candidate:', error);
+            }
+        }
+    }, []);
 
     const createPeerConnection = useCallback(() => {
         if (peerConnection.current) return peerConnection.current;
@@ -75,7 +102,7 @@ export function useWebRTC(callbacks?: UseWebRTCCallbacks) {
             const baseRemoteStream = remoteStreamRef.current ?? new MediaStream();
             const hasTrack = baseRemoteStream
                 .getTracks()
-                .some((track) => track.id === event.track.id);
+                .some((track: MediaStreamTrack) => track.id === event.track.id);
 
             if (!hasTrack) {
                 baseRemoteStream.addTrack(event.track);
@@ -125,7 +152,7 @@ export function useWebRTC(callbacks?: UseWebRTCCallbacks) {
                 setLocalStream(stream);
 
                 const pc = createPeerConnection();
-                stream.getTracks().forEach((track) => {
+                stream.getTracks().forEach((track: MediaStreamTrack) => {
                     pc.addTrack(track, stream);
                 });
 
@@ -160,6 +187,8 @@ export function useWebRTC(callbacks?: UseWebRTCCallbacks) {
             const pc = createPeerConnection();
             try {
                 await pc.setRemoteDescription(new RTCSessionDescription(offer));
+                remoteDescriptionSet.current = true;
+                await drainPendingCandidates(pc);
                 const answer = await pc.createAnswer();
                 await pc.setLocalDescription(new RTCSessionDescription(answer));
                 return answer;
@@ -168,7 +197,7 @@ export function useWebRTC(callbacks?: UseWebRTCCallbacks) {
                 throw new Error('Unable to accept the call.');
             }
         },
-        [createPeerConnection],
+        [createPeerConnection, drainPendingCandidates],
     );
 
     // Xử lý answer từ peer (cho caller)
@@ -177,18 +206,22 @@ export function useWebRTC(callbacks?: UseWebRTCCallbacks) {
         if (!pc) return;
         try {
             await pc.setRemoteDescription(new RTCSessionDescription(answer));
+            remoteDescriptionSet.current = true;
+            await drainPendingCandidates(pc);
         } catch (error) {
             console.error('Failed to set remote description:', error);
         }
-    }, []);
+    }, [drainPendingCandidates]);
 
     // Set remote description (offer hoặc answer) — dùng khi renegotiate
     const handleRemoteDescription = useCallback(
         async (sdp: RTCSessionDescriptionInit): Promise<void> => {
             const pc = createPeerConnection();
             await pc.setRemoteDescription(new RTCSessionDescription(sdp));
+            remoteDescriptionSet.current = true;
+            await drainPendingCandidates(pc);
         },
-        [createPeerConnection],
+        [createPeerConnection, drainPendingCandidates],
     );
 
     // Tạo answer không có offer arg — dùng sau khi setRemoteDescription
@@ -216,7 +249,7 @@ export function useWebRTC(callbacks?: UseWebRTCCallbacks) {
 
         const existingLocalVideoTrack = localStream
             ?.getVideoTracks()
-            .find((track) => track.readyState === 'live');
+            .find((track: MediaStreamTrack) => track.readyState === 'live');
 
         if (existingLocalVideoTrack) {
             existingLocalVideoTrack.enabled = true;
@@ -268,7 +301,10 @@ export function useWebRTC(callbacks?: UseWebRTCCallbacks) {
     // Xử lý ICE candidate từ peer
     const handleIceCandidate = useCallback(async (candidate: RTCIceCandidateInit): Promise<void> => {
         const pc = peerConnection.current;
-        if (!pc) return;
+        if (!pc || !remoteDescriptionSet.current) {
+            pendingCandidates.current.push(candidate);
+            return;
+        }
         try {
             await pc.addIceCandidate(new RTCIceCandidate(candidate));
         } catch (error) {
@@ -299,6 +335,8 @@ export function useWebRTC(callbacks?: UseWebRTCCallbacks) {
             peerConnection.current.close();
             peerConnection.current = null;
         }
+        pendingCandidates.current = [];
+        remoteDescriptionSet.current = false;
     }, [localStream]);
 
     // Toggle mute (bật/tắt mic)

@@ -1,27 +1,8 @@
 import { useRef, useCallback, useState, useEffect } from "react";
 import type { CallType } from "@/types/call";
+import { WEBRTC_ICE_CONFIG } from "@/constants/webrtc";
 import { requestMicrophoneStream } from "@/utils/call/audioMedia";
 import { requestCameraTrack, requestVideoCallStream } from "@/utils/call/videoMedia";
-
-const ICE_SERVERS: RTCConfiguration = {
-    iceServers: [
-        { urls: "stun:stun.l.google.com:19302" },
-        { urls: "stun:stun1.l.google.com:19302" },
-        { urls: "stun:stun2.l.google.com:19302" },
-        { urls: "stun:stun3.l.google.com:19302" },
-        // Free public TURN relay — required for cross-network calls (different NAT/ISP)
-        {
-            urls: [
-                "turn:openrelay.metered.ca:80",
-                "turn:openrelay.metered.ca:443",
-                "turn:openrelay.metered.ca:443?transport=tcp",
-            ],
-            username: "openrelayproject",
-            credential: "openrelayproject",
-        },
-    ],
-    iceCandidatePoolSize: 10,
-};
 
 interface UseWebRTCCallbacks {
     onIceCandidate: (candidate: RTCIceCandidate) => void;
@@ -68,7 +49,7 @@ export function useWebRTC() {
     const createPeerConnection = useCallback(() => {
         if (peerConnection.current) return peerConnection.current;
 
-        const pc = new RTCPeerConnection(ICE_SERVERS);
+        const pc = new RTCPeerConnection(WEBRTC_ICE_CONFIG);
 
         // Handle ICE candidate
         pc.onicecandidate = (event) => {
