@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, useRef, useMemo, forwardRef, useImperativeHandle } from "react";
-import { NavLink, useNavigate } from "react-router-dom";
+import { NavLink, useNavigate, useParams } from "react-router-dom";
 import {
     Search,
     UserPlus,
@@ -192,6 +192,7 @@ function upsertConversation(
 export const ChatList = forwardRef(function ChatListComponent(_, ref) {
     const { user: currentUser } = useAuthStore();
     const navigate = useNavigate();
+    const { id: activeId } = useParams<{ id: string }>();
     const [conversations, setConversations] = useState<ConversationResponse[]>(
         [],
     );
@@ -277,9 +278,29 @@ export const ChatList = forwardRef(function ChatListComponent(_, ref) {
                     const event = JSON.parse(payload.body) as NotificationEvent;
                     addNotification(event.notification);
 
-                    if (event.notification.type === "NEW_MESSAGE") {
+                    if (
+                        event.notification.type === "NEW_MESSAGE" ||
+                        event.notification.type === "GROUP_INVITE" ||
+                        event.notification.type === "GROUP_LEAVE"
+                    ) {
                         processedNotifIdsRef.current.add(event.notification.id);
+                        
+                        if (event.notification.type === "GROUP_LEAVE") {
+                            const removedId = event.notification.referenceId;
+                            if (removedId) {
+                                setConversations((prev) => prev.filter((c) => c.id !== removedId));
+                            }
+                        }
+
                         void refreshConversations();
+
+                        if (
+                            event.notification.type === "GROUP_LEAVE" &&
+                            event.notification.referenceId === activeId
+                        ) {
+                            toast.error("You have been removed from the group");
+                            navigate("/chat");
+                        }
                     }
                 },
             );
@@ -293,7 +314,7 @@ export const ChatList = forwardRef(function ChatListComponent(_, ref) {
             disposed = true;
             cleanupPromise.then((cleanup) => cleanup?.());
         };
-    }, [addNotification, currentUser?.id, refreshConversations]);
+    }, [addNotification, currentUser?.id, refreshConversations, activeId, navigate]);
 
     // Notifications keep previews fresh when the list subscription misses a message.
     useEffect(() => {
