@@ -9,6 +9,7 @@ import { useNotificationStore } from "@/store/notification.store";
 import { useConversationPrefsStore } from "@/store/conversationPrefs.store";
 import { useContactStore } from "@/store/contact.store";
 import type { Notification, NotificationEvent } from "@/types/notification";
+import { resolveNotificationRoute } from "@/utils/notificationRedirect";
 
 export function NotificationBell() {
     const { user } = useAuthStore();
@@ -112,15 +113,7 @@ export function NotificationBell() {
     const handleNotificationClick = useCallback(async (notif: Notification) => {
         await handleMarkRead(notif);
         setOpen(false);
-        if (notif.type === "FRIEND_REQUEST") {
-            navigate("/contact?tab=requests");
-        } else if (notif.type === "GROUP_INVITE" && notif.referenceId) {
-            navigate(`/chat/${notif.referenceId}`);
-        } else if ((notif.type === "POST_LIKED" || notif.type === "POST_COMMENTED" || notif.type === "COMMENT_REPLIED") && notif.referenceId) {
-            // Navigate to post - extract post ID (format: postId or postId_commentId)
-            const postId = notif.referenceId.split("_")[0];
-            navigate(`/post/${postId}`);
-        }
+        navigate(resolveNotificationRoute(notif));
     }, [handleMarkRead, navigate]);
 
     const getIcon = (type: Notification["type"]) => {

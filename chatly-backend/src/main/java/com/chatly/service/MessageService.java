@@ -654,21 +654,35 @@ public class MessageService {
                         if (content.contains("VIDEO")) return "🎥 Cuộc gọi video";
                         return "📞 Cuộc gọi thoại";
                 }
+
+            switch (message.getType()) {
+                case GIF:
+                    return "[GIF]";
+                case STICKER:
+                    return "[Sticker]";
+                case IMAGE:
+                    return "[Image]";
+                case FILE:
+                    return "[File]";
+                case VIDEO:
+                    return "[Video]";
+                case AUDIO:
+                    return "[Audio]";
+                case LOCATION:
+                    return "[Location]";
+                case AGENT:
+                    return "[AI Response]";
+                default:
+                    break;
+            }
+
                 if (message.getContent() != null && !message.getContent().isBlank()) {
                         return message.getContent().length() > 100
                                         ? message.getContent().substring(0, 100) + "..."
                                         : message.getContent();
                 }
 
-                return switch (message.getType()) {
-                        case IMAGE -> "[Image]";
-                        case FILE -> "[File]";
-                        case VIDEO -> "[Video]";
-                        case AUDIO -> "[Audio]";
-                        case LOCATION -> "[Location]";
-                        case AGENT -> "[AI Response]";
-                        default -> "[Message]";
-                };
+            return "[Message]";
         }
 
         /**

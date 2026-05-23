@@ -18,6 +18,8 @@ export type NotificationType =
     | "STORY_REPLIED"
     | "SYSTEM";
 
+export type NotificationTargetType = "NONE" | "CHAT" | "POST" | "USER";
+
 export type NotificationScope = "ALL" | "CHAT" | "SOCIAL";
 
 export interface Notification {
@@ -28,6 +30,7 @@ export interface Notification {
     senderAvatar?: string | null;
     receiverId: string;
     referenceId: string | null;
+    targetType?: NotificationTargetType | null;
     content: string | null;
     read: boolean;
     createdAt: string;

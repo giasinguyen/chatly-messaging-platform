@@ -22,6 +22,7 @@ import com.chatly.mapper.NotificationMapper;
 import com.chatly.mapper.PostMapper;
 import com.chatly.mapper.UserMapper;
 import com.chatly.model.enums.NotificationType;
+import com.chatly.model.enums.NotificationTargetType;
 import com.chatly.model.enums.ConversationType;
 import com.chatly.model.enums.ReactionType;
 import com.chatly.model.enums.ReportStatus;
@@ -377,7 +378,8 @@ public class AdminService {
                     null,
                     authorId,
                     "Your post has been removed for violating our community guidelines.",
-                    id);
+                    id,
+                    NotificationTargetType.POST);
         }
     }
 

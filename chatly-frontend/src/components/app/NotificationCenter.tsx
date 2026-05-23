@@ -17,13 +17,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-
-const NOTIFICATION_REDIRECT: Record<string, string> = {
-    FRIEND_REQUEST: "/contact?tab=requests",
-    FRIEND_ACCEPTED: "/contact",
-    GROUP_INVITE: "/contact?tab=requests",
-    GROUP_JOIN_REQUEST: "/contact?tab=requests",
-};
+import { resolveNotificationRoute } from "@/utils/notificationRedirect";
 
 function getIcon(type: NotificationType) {
     switch (type) {
@@ -47,13 +41,6 @@ function getColorClass(type: NotificationType) {
         case "COMMENT_REPLIED":return "bg-purple-50 border-purple-200 dark:bg-purple-950/20";
         default:               return "bg-muted/50 border-border";
     }
-}
-
-function getRedirectUrl(notif: Notification): string {
-    const byType = NOTIFICATION_REDIRECT[notif.type];
-    if (byType) return byType;
-    if (notif.referenceId) return `/chat/${notif.referenceId}`;
-    return "/";
 }
 
 export function NotificationCenter() {
@@ -98,6 +85,7 @@ export function NotificationCenter() {
                 icon: "/favicon.ico",
             });
             const redirectUrl = getRedirectUrl(event.notification);
+            const redirectUrl = resolveNotificationRoute(event.notification);
             browserNotif.onclick = () => {
                 window.focus();
                 navigate(redirectUrl);
@@ -179,7 +167,7 @@ export function NotificationCenter() {
         if (!notif.read) {
             await notificationService.markAsRead(notif.id);
         }
-        navigate(getRedirectUrl(notif));
+        navigate(resolveNotificationRoute(notif));
     };
 
     const handleMarkAllRead = async () => {

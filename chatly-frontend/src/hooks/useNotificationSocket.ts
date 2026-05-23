@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { socketService } from "@/services/socket.service";
 import { useAuthStore } from "@/store/auth.store";
 import type { NotificationEvent } from "@/types/notification";
+import { resolveNotificationRoute } from "@/utils/notificationRedirect";
 
 interface UseNotificationSocketProps {
     onEvent: (event: NotificationEvent) => void;
@@ -53,13 +54,7 @@ export function useNotificationSocket({ onEvent }: UseNotificationSocketProps) {
                         const notif = new window.Notification(title, options);
                         notif.onclick = () => {
                             window.focus();
-                            if (event.notification.type === "FRIEND_REQUEST") {
-                                window.location.href = "/contact?tab=requests";
-                            } else if (event.notification.type === "FRIEND_ACCEPTED") {
-                                window.location.href = "/contact";
-                            } else if (event.notification.referenceId) {
-                                window.location.href = `/chat/${event.notification.referenceId}`;
-                            }
+                            window.location.href = resolveNotificationRoute(event.notification);
                             notif.close();
                         };
                     }
