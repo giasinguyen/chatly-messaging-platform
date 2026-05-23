@@ -37,6 +37,7 @@ import { useAuthStore } from "@/store/auth.store";
 import type { UserResponse } from "@/types/auth";
 import { toast } from "sonner";
 import {
+    DISPLAY_NAME_ALLOWED_REGEX,
     DISPLAY_NAME_INVALID_MESSAGE,
     USERNAME_ALLOWED_REGEX,
     USERNAME_INVALID_MESSAGE,
@@ -254,7 +255,7 @@ export default function ProfilePage() {
             return;
         }
 
-        if (!USERNAME_ALLOWED_REGEX.test(trimmedDisplayName)) {
+        if (!DISPLAY_NAME_ALLOWED_REGEX.test(trimmedDisplayName)) {
             toast.error(DISPLAY_NAME_INVALID_MESSAGE);
             return;
         }
