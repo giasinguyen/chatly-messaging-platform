@@ -1,0 +1,158 @@
+name: Build & Deploy Backend + Agent
+
+# Triggers when backend, agent code, or docker-compose changes on main.
+# Also supports manual trigger for force-rebuild.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "chatly-backend/**"
+      - "chatly-agent/**"
+      - "docker-compose.yml"
+  workflow_dispatch:
+    inputs:
+      service:
+        description: "Service to rebuild"
+        required: true
+        default: "both"
+        type: choice
+        options: [backend, agent, both]
+
+jobs:
+  # ─── Detect which services changed ──────────────────────────────────────────
+  changes:
+    name: Detect changed services
+    runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+      agent: ${{ steps.filter.outputs.agent }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Filter changed paths
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            backend:
+              - 'chatly-backend/**'
+            agent:
+              - 'chatly-agent/**'
+
+  # ─── Build & push Backend image ─────────────────────────────────────────────
+  build-backend:
+    name: Build & Push Backend → Docker Hub
+    needs: changes
+    if: |
+      needs.changes.outputs.backend == 'true' ||
+      (github.event_name == 'workflow_dispatch' &&
+       (github.event.inputs.service == 'backend' || github.event.inputs.service == 'both'))
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build & push chatly-backend
+        uses: docker/build-push-action@v6
+        with:
+          context: ./chatly-backend
+          dockerfile: ./chatly-backend/Dockerfile
+          push: true
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/chatly-backend:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/chatly-backend:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ─── Build & push AI Agent image ────────────────────────────────────────────
+  build-agent:
+    name: Build & Push AI Agent → Docker Hub
+    needs: changes
+    if: |
+      needs.changes.outputs.agent == 'true' ||
+      (github.event_name == 'workflow_dispatch' &&
+       (github.event.inputs.service == 'agent' || github.event.inputs.service == 'both'))
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build & push chatly-agent
+        uses: docker/build-push-action@v6
+        with:
+          context: ./chatly-agent
+          dockerfile: ./chatly-agent/Dockerfile
+          push: true
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/chatly-agent:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/chatly-agent:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ─── Deploy to EC2 ──────────────────────────────────────────────────────────
+  deploy:
+    name: Deploy to EC2
+    needs: [build-backend, build-agent]
+    # Run even if one build was skipped (only path-changed services are built),
+    # but skip if any build actually failed or was cancelled.
+    if: ${{ always() && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Copy docker-compose.yml to EC2
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          source: "docker-compose.yml"
+          target: "${{ secrets.EC2_PROJECT_PATH }}"
+
+      - name: Pull images & restart services
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            set -e
+            cd ${{ secrets.EC2_PROJECT_PATH }}
+
+            echo "=== Login to Docker Hub (required for private repos) ==="
+            echo "${{ secrets.DOCKERHUB_TOKEN }}" | sudo docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
+
+            echo "=== Pulling latest images from Docker Hub ==="
+            sudo docker pull ${{ secrets.DOCKERHUB_USERNAME }}/chatly-backend:latest
+            sudo docker pull ${{ secrets.DOCKERHUB_USERNAME }}/chatly-agent:latest
+
+            echo "=== Restarting backend & agent (no rebuild) ==="
+            sudo docker compose up -d --no-build backend ai-agent
+
+            echo "=== Waiting 15s for services to initialize ==="
+            sleep 15
+
+            echo "=== Container status ==="
+            sudo docker compose ps
+
+            echo "=== Backend logs (last 15 lines) ==="
+            sudo docker logs chatly-backend --tail=15 2>&1 || true
+
+            echo "=== Agent logs (last 10 lines) ==="
+            sudo docker logs chatly-ai-agent --tail=10 2>&1 || true
