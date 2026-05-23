@@ -1,24 +1,8 @@
-import { useRef, useCallback, useState } from "react";
+import { useRef, useCallback, useEffect, useState } from "react";
 import type { CallType } from "@/types/call";
+import { WEBRTC_ICE_CONFIG } from "@/constants/webrtc";
 import { requestMicrophoneStream } from "@/utils/call/audioMedia";
 import { requestCameraTrack, requestVideoCallStream } from "@/utils/call/videoMedia";
-
-const ICE_SERVERS: RTCConfiguration = {
-    iceServers: [
-        { urls: "stun:stun.l.google.com:19302" },
-        { urls: "stun:stun1.l.google.com:19302" },
-        {
-            urls: [
-                "turn:openrelay.metered.ca:80",
-                "turn:openrelay.metered.ca:443",
-                "turn:openrelay.metered.ca:443?transport=tcp",
-            ],
-            username: "openrelayproject",
-            credential: "openrelayproject",
-        },
-    ],
-    iceCandidatePoolSize: 10,
-};
 
 function ensureReceiveOnlyVideo(connection: RTCPeerConnection): void {
     const videoTransceiver = connection
@@ -52,10 +36,13 @@ export function useGroupWebRTC(callbacks?: GroupWebRTCCallbacks) {
     const peers = useRef<Map<string, PeerEntry>>(new Map());
     const localStreamRef = useRef<MediaStream | null>(null);
     const callbacksRef = useRef(callbacks);
-    callbacksRef.current = callbacks;
 
     const [localStream, setLocalStream] = useState<MediaStream | null>(null);
     const [remoteStreams, setRemoteStreams] = useState<Record<string, MediaStream>>({});
+
+    useEffect(() => {
+        callbacksRef.current = callbacks;
+    }, [callbacks]);
 
     const initLocalStream = useCallback(async (type: CallType): Promise<MediaStream> => {
         const stream = type === "VIDEO"
@@ -71,7 +58,7 @@ export function useGroupWebRTC(callbacks?: GroupWebRTCCallbacks) {
         const existing = peers.current.get(peerId);
         if (existing) return existing.connection;
 
-        const pc = new RTCPeerConnection(ICE_SERVERS);
+        const pc = new RTCPeerConnection(WEBRTC_ICE_CONFIG);
 
         pc.onicecandidate = (event) => {
             if (event.candidate) {

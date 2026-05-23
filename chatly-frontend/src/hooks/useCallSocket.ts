@@ -135,7 +135,7 @@ export function useCallSocket(groupSignalRef?: React.MutableRefObject<((signal: 
                     callId: activeCall.callId,
                     senderId: user.id,
                     receiverId,
-                    payload: { candidate },
+                    payload: { candidate: candidate.toJSON() },
                 }),
             });
         },

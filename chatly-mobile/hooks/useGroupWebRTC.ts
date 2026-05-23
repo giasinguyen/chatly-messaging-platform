@@ -19,7 +19,21 @@ try {
 }
 
 const ICE_SERVERS = {
-  iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
+  iceServers: [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun1.l.google.com:19302' },
+    { urls: 'stun:stun2.l.google.com:19302' },
+    {
+      urls: [
+        'turn:openrelay.metered.ca:80',
+        'turn:openrelay.metered.ca:443',
+        'turn:openrelay.metered.ca:443?transport=tcp',
+      ],
+      username: 'openrelayproject',
+      credential: 'openrelayproject',
+    },
+  ],
+  iceCandidatePoolSize: 10,
 };
 
 interface GroupWebRTCCallbacks {
@@ -30,6 +44,8 @@ interface GroupWebRTCCallbacks {
 
 interface PeerEntry {
   connection: RTCPeerConnection;
+  pendingCandidates: RTCIceCandidateInit[];
+  remoteDescriptionSet: boolean;
 }
 
 export function useGroupWebRTC(callbacks?: GroupWebRTCCallbacks) {
@@ -140,9 +156,20 @@ export function useGroupWebRTC(callbacks?: GroupWebRTCCallbacks) {
       stream.getTracks().forEach((track) => pc.addTrack(track, stream));
     }
 
-    peers.current.set(peerId, { connection: pc });
+    peers.current.set(peerId, {
+      connection: pc,
+      pendingCandidates: [],
+      remoteDescriptionSet: false,
+    });
     return pc;
   }, [mergeRemoteStream]);
+
+  const drainPendingCandidates = useCallback(async (entry: PeerEntry): Promise<void> => {
+    const candidates = entry.pendingCandidates.splice(0);
+    for (const candidate of candidates) {
+      await entry.connection.addIceCandidate(new RTCIceCandidate(candidate)).catch(() => {});
+    }
+  }, []);
 
   const createOfferForPeer = useCallback(
     async (peerId: string): Promise<RTCSessionDescriptionInit> => {
@@ -161,11 +188,16 @@ export function useGroupWebRTC(callbacks?: GroupWebRTCCallbacks) {
     async (peerId: string, offer: RTCSessionDescriptionInit): Promise<RTCSessionDescriptionInit> => {
       const pc = addPeer(peerId);
       await pc.setRemoteDescription(new RTCSessionDescription(offer));
+      const entry = peers.current.get(peerId);
+      if (entry) {
+        entry.remoteDescriptionSet = true;
+        await drainPendingCandidates(entry);
+      }
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(new RTCSessionDescription(answer));
       return answer;
     },
-    [addPeer],
+    [addPeer, drainPendingCandidates],
   );
 
   const handleAnswerFromPeer = useCallback(
@@ -173,14 +205,20 @@ export function useGroupWebRTC(callbacks?: GroupWebRTCCallbacks) {
       const entry = peers.current.get(peerId);
       if (!entry) return;
       await entry.connection.setRemoteDescription(new RTCSessionDescription(answer));
+      entry.remoteDescriptionSet = true;
+      await drainPendingCandidates(entry);
     },
-    [],
+    [drainPendingCandidates],
   );
 
   const addIceCandidateForPeer = useCallback(
     async (peerId: string, candidate: RTCIceCandidateInit): Promise<void> => {
       const entry = peers.current.get(peerId);
       if (!entry) return;
+      if (!entry.remoteDescriptionSet) {
+        entry.pendingCandidates.push(candidate);
+        return;
+      }
       await entry.connection.addIceCandidate(new RTCIceCandidate(candidate));
     },
     [],
