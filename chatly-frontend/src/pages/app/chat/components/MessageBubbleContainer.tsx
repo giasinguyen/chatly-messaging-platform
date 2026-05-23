@@ -2,6 +2,7 @@ import { Check, CheckCheck, Pin } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { CoAuthorAvatar } from "@/components/customize/CoAuthorAvatar";
+import { AdminBadge } from "@/components/customize/AdminBadge";
 import type { Message, ChatUser } from "@/types/message";
 import type { ConversationType } from "@/types/conversation";
 import type { ContactResponse } from "@/types/contact";
@@ -166,10 +167,11 @@ export function MessageBubbleContainer(props: MessageBubbleContainerProps) {
                     <button
                         type="button"
                         onClick={() => onOpenSenderProfile?.(msg.senderId)}
-                        className="text-[11px] text-muted-foreground mb-1 px-1 hover:text-foreground transition-colors"
+                        className="flex items-center gap-1 text-[11px] text-muted-foreground mb-1 px-1 hover:text-foreground transition-colors"
                         title="View user info"
                     >
                         {isAgent ? `${senderShortName} + AI` : senderShortName}
+                        {!isAgent && sender.role === "ADMIN" && <AdminBadge className="size-3" />}
                     </button>
                 )}
 

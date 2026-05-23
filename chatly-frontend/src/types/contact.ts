@@ -14,6 +14,7 @@ export interface ContactResponse {
         displayName: string;
         avatarUrl?: string;
         status?: string;
+        role?: string;
     };
     contact: {
         id: string;
@@ -23,6 +24,7 @@ export interface ContactResponse {
         displayName: string;
         avatarUrl?: string;
         status?: string;
+        role?: string;
     };
     status: ContactStatus;
     blockedBy?: string | null;
@@ -35,6 +37,7 @@ export interface ContactSuggestionResponse {
     displayName: string;
     avatarUrl?: string;
     mutualFriendCount: number;
+    role?: "USER" | "ADMIN";
 }
 
 export interface BlockStatusResponse {

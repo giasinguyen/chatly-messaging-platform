@@ -8,6 +8,7 @@ import { socketService } from "@/services/socket.service";
 import { useAuthStore } from "@/store/auth.store";
 import { useNotificationStore } from "@/store/notification.store";
 import { AddMembersDialog } from "./AddMembersDialog";
+import { AdminBadge } from "@/components/customize/AdminBadge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -759,7 +760,12 @@ export function GroupManagementPanel({
                                                             </AvatarFallback>
                                                         </Avatar>
                                                         <div className="flex-1 min-w-0">
-                                                            <p className="text-sm font-medium truncate">{req.displayName}</p>
+                                                            <div className="flex min-w-0 items-center gap-1.5">
+                                                                <p className="truncate text-sm font-medium">{req.displayName}</p>
+                                                                {req.userRole === "ADMIN" && (
+                                                                    <AdminBadge className="size-3.5" />
+                                                                )}
+                                                            </div>
                                                             <p className="text-xs text-muted-foreground">@{req.username}</p>
                                                         </div>
                                                         <div className="flex gap-1 shrink-0">
@@ -1023,6 +1029,9 @@ function MemberRow({
                     <span className="text-sm font-medium leading-tight text-foreground">
                         {member.displayName}
                     </span>
+                    {member.userRole === "ADMIN" && (
+                        <AdminBadge className="size-3.5" />
+                    )}
                     {isCurrentUser && (
                         <span className="text-[10px] text-muted-foreground">(You)</span>
                     )}

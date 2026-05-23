@@ -14,6 +14,7 @@ export interface UserResponse {
     /** True when the profile is limited due to the user having blocked the requester */
     limited?: boolean;
     suspended?: boolean;
+    role?: "USER" | "ADMIN";
 }
 
 export interface UserUpdateRequest {

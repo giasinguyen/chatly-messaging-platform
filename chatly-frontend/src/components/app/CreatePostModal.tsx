@@ -32,6 +32,7 @@ import { MediaUploadZone } from "@/features/social/components/MediaUploadZone";
 import { postService } from "@/services/post.service";
 import { useFeedStore } from "@/store/feed.store";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { AdminBadge } from "@/components/customize/AdminBadge";
 import { MentionSuggestionsDropdown } from "@/components/mention/MentionSuggestionsDropdown";
 import { usePostMentions } from "@/features/social/hooks/usePostMentions";
 import type { UserResponse } from "@/types/auth";
@@ -166,8 +167,11 @@ export function CreatePostModal({ isOpen, onClose, user }: CreatePostModalProps)
                             </AvatarFallback>
                         </Avatar>
                         <div className="flex flex-col items-start">
-                            <span className="font-bold text-foreground">
-                                {user?.displayName || "Your profile"}
+                            <span className="flex items-center gap-1.5 font-bold text-foreground">
+                                <span className="truncate">
+                                    {user?.displayName || "Your profile"}
+                                </span>
+                                {user?.role === "ADMIN" && <AdminBadge />}
                             </span>
                             <Select
                                 value={visibility}

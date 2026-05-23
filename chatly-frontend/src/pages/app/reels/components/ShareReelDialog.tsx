@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Check, Loader2, Search } from "lucide-react";
 import { toast } from "sonner";
+import { AdminBadge } from "@/components/customize/AdminBadge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
@@ -34,6 +35,7 @@ interface ShareFriend {
     username: string;
     displayName: string;
     avatarUrl?: string;
+    role?: string;
 }
 
 function getOtherUser(contact: ContactResponse, currentUserId: string | undefined): ShareFriend {
@@ -43,6 +45,7 @@ function getOtherUser(contact: ContactResponse, currentUserId: string | undefine
         username: user.username,
         displayName: user.displayName,
         avatarUrl: user.avatarUrl,
+        role: user.role,
     };
 }
 
@@ -264,7 +267,12 @@ export function ShareReelDialog({ reel, open, onOpenChange, onShared }: ShareRee
                                                 <AvatarFallback>{friend.displayName.slice(0, 1).toUpperCase()}</AvatarFallback>
                                             </Avatar>
                                             <div className="min-w-0 flex-1">
-                                                <p className="truncate text-sm font-medium text-foreground">{friend.displayName}</p>
+                                                <div className="flex min-w-0 items-center gap-1.5">
+                                                    <p className="truncate text-sm font-medium text-foreground">{friend.displayName}</p>
+                                                    {friend.role === "ADMIN" && (
+                                                        <AdminBadge className="size-3.5" />
+                                                    )}
+                                                </div>
                                                 <p className="truncate text-xs text-muted-foreground">@{friend.username}</p>
                                             </div>
                                             <div

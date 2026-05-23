@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { AdminBadge } from "@/components/customize/AdminBadge";
 import type { ContactTab } from "../index";
 import type { ContactResponse } from "@/types/contact";
 import { FriendActions } from "./FriendActions";
@@ -121,8 +122,9 @@ export function ContactItem({
                     )}
                 </div>
                 <div className="flex flex-col min-w-0">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5">
                         <span className="text-sm font-medium text-foreground truncate">{otherUser.displayName}</span>
+                        {otherUser.role === "ADMIN" && <AdminBadge />}
                         {renderBlockedBadge()}
                     </div>
                     {activeTab === "requests" && (

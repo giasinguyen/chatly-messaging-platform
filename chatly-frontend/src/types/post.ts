@@ -16,6 +16,7 @@ export interface Post {
     authorUsername?: string;
     authorDisplayName?: string;
     authorAvatarUrl?: string;
+    authorRole?: "USER" | "ADMIN";
     savedByMe?: boolean;
     content: string;
     mediaUrls: string[];
@@ -92,6 +93,7 @@ export interface PostComment {
     userUsername?: string;
     userDisplayName: string;
     userAvatarUrl?: string;
+    userRole?: "USER" | "ADMIN";
     content: string;
     parentCommentId?: string | null;
     mediaUrls: string[];
