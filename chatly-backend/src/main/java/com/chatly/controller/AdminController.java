@@ -42,9 +42,10 @@ public class AdminController {
     @GetMapping("/users")
     public ApiResponse<PagedResponse<UserResponse>> listUsers(
             @RequestParam(required = false) String q,
+            @RequestParam(required = false) String status,
             Pageable pageable) {
         return ApiResponse.<PagedResponse<UserResponse>>builder()
-                .result(adminService.listUsers(q, pageable))
+                .result(adminService.listUsers(q, status, pageable))
                 .build();
     }
 

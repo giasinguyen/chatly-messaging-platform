@@ -19,6 +19,7 @@ interface AdminListParams {
 
 interface AdminSearchParams extends AdminListParams {
   q?: string;
+  status?: string;
 }
 
 interface AdminPostParams extends AdminSearchParams {
