@@ -1,5 +1,6 @@
 import { ScrollView, View } from 'react-native';
 import { Image } from 'expo-image';
+import { Colors } from '@/constants/theme';
 import { normalizeMediaUrl } from '@/utils/mediaUrl';
 
 interface PostMediaGalleryProps {
@@ -17,7 +18,7 @@ export function PostMediaGallery({ mediaUrls }: PostMediaGalleryProps) {
 
   if (normalizedMediaUrls.length === 1) {
     return (
-      <View className="mt-3 overflow-hidden rounded-2xl bg-[#E5E5EA]">
+      <View className="mt-3 overflow-hidden rounded-2xl" style={{ backgroundColor: Colors.borderLight }}>
         <Image
           source={{ uri: normalizedMediaUrls[0] }}
           contentFit="cover"

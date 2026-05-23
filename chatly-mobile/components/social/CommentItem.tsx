@@ -73,8 +73,8 @@ export function CommentItem({
   };
 
   return (
-    <View style={{ paddingLeft: leftPadding }} className="mb-3 border-l border-gray-200">
-      {level > 0 && <View className="absolute bottom-0 left-0 top-0 w-px bg-gray-200" />}
+    <View style={{ paddingLeft: leftPadding, borderLeftColor: Colors.borderLight }} className="mb-3 border-l">
+      {level > 0 && <View className="absolute bottom-0 left-0 top-0 w-px" style={{ backgroundColor: Colors.borderLight }} />}
 
       <View className="flex-row gap-2 px-2">
         <TouchableOpacity onPress={() => setShowQuickProfile(true)} activeOpacity={0.75}>
@@ -88,13 +88,13 @@ export function CommentItem({
               <Text
                 numberOfLines={1}
                 onPress={handleOpenAuthorProfile}
-                style={{ fontSize: 13, fontWeight: '700', color: '#1D1D1F' }}>
+                style={{ fontSize: 13, fontWeight: '700', color: Colors.text }}>
                 {authorName}
               </Text>
             </View>
 
             <View className="flex-row items-center gap-1">
-              <Text style={{ fontSize: 11, color: '#6E6E73' }}>
+              <Text style={{ fontSize: 11, color: Colors.textMuted }}>
                 {formatRelativeTime(comment.createdAt)}
               </Text>
 
@@ -111,7 +111,7 @@ export function CommentItem({
 
           <View className="flex-row items-start justify-between gap-3">
             <View className="flex-1">
-              <MentionText content={comment.content} style={{ marginTop: 0, fontSize: 13, lineHeight: 20, color: '#1D1D1F' }} />
+              <MentionText content={comment.content} style={{ marginTop: 0, fontSize: 13, lineHeight: 20, color: Colors.text }} />
             </View>
 
             <TouchableOpacity
@@ -151,7 +151,7 @@ export function CommentItem({
               onPress={() => onReply?.(comment.id, comment.userUsername)}
               className="flex-row items-center gap-1"
               activeOpacity={0.7}>
-              <Text style={{ fontSize: 11, fontWeight: '700', color: '#6E6E73' }}>Reply</Text>
+              <Text style={{ fontSize: 11, fontWeight: '700', color: Colors.textMuted }}>Reply</Text>
             </TouchableOpacity>
           </View>
 
@@ -169,7 +169,9 @@ export function CommentItem({
 
           {/* Menu Dropdown */}
           {showMenu && (
-            <View className="absolute right-0 top-10 z-50 w-40 rounded-lg border border-gray-200 bg-white shadow-sm">
+            <View
+              className="absolute right-0 top-10 z-50 w-40 rounded-lg border shadow-sm"
+              style={{ backgroundColor: Colors.bgCard, borderColor: Colors.borderLight }}>
               {isAuthor && onDelete ? (
                 <>
                   <TouchableOpacity
@@ -179,7 +181,7 @@ export function CommentItem({
                     }}
                     style={{
                       borderBottomWidth: 1,
-                      borderBottomColor: '#f3f4f6',
+                      borderBottomColor: Colors.borderLight,
                       paddingVertical: 10,
                       paddingHorizontal: 12,
                       flexDirection: 'row',
@@ -201,7 +203,7 @@ export function CommentItem({
                       }}
                       style={{
                         borderBottomWidth: 1,
-                        borderBottomColor: '#f3f4f6',
+                        borderBottomColor: Colors.borderLight,
                         paddingVertical: 10,
                         paddingHorizontal: 12,
                         flexDirection: 'row',
@@ -210,7 +212,7 @@ export function CommentItem({
                       }}
                       activeOpacity={0.7}>
                       <Ionicons name="pencil-outline" size={14} color={Colors.text} />
-                      <Text style={{ fontSize: 14, fontWeight: '600', color: '#1D1D1F' }}>
+                      <Text style={{ fontSize: 14, fontWeight: '600', color: Colors.text }}>
                         Edit
                       </Text>
                     </TouchableOpacity>
@@ -229,7 +231,7 @@ export function CommentItem({
                 }}
                 activeOpacity={0.7}>
                 <Ionicons name="copy-outline" size={14} color={Colors.text} />
-                <Text style={{ fontSize: 14, fontWeight: '600', color: '#1D1D1F' }}>Copy</Text>
+                <Text style={{ fontSize: 14, fontWeight: '600', color: Colors.text }}>Copy</Text>
               </TouchableOpacity>
             </View>
           )}

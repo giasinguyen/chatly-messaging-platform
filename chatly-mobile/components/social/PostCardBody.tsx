@@ -14,6 +14,7 @@ import { ReportPostModal } from './ReportPostModal';
 import { SharePostDialog } from './SharePostDialog';
 import { MentionText } from '@/components/mention/MentionText';
 import { Colors } from '@/constants/theme';
+import { useThemeStore } from '@/store/theme.store';
 import type { Post, PostComment, ReportPostRequest } from '@/types/post';
 import { formatCompactCount, formatRelativeTime } from '@/utils/socialFormat';
 
@@ -77,6 +78,7 @@ export function PostCardBody({
   onSharePost,
 }: PostCardBodyProps) {
   const router = useRouter();
+  useThemeStore((state) => state.isDarkMode);
   const currentUserId = useAuthStore((state) => state.user?.id);
   const [showComments, setShowComments] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
@@ -121,7 +123,8 @@ export function PostCardBody({
   const captionElement = (
     <>
       <Text
-        className="mt-1 text-[13.5px] leading-5 text-[#1D1D1F]"
+        className="mt-1 text-[13.5px] leading-5"
+        style={{ color: Colors.text }}
         numberOfLines={isCaptionExpanded ? undefined : 3}>
         {hasMedia ? (
           <Text className="font-semibold" onPress={handleOpenAuthorProfile}>
@@ -145,7 +148,7 @@ export function PostCardBody({
 
   return (
     <>
-      <View className="mb-4 bg-white">
+      <View className="mb-4" style={{ backgroundColor: Colors.bgCard }}>
         <View className="flex-row items-center justify-between px-3 py-2.5">
           <TouchableOpacity
             onPress={() => setShowQuickProfile(true)}
@@ -153,8 +156,12 @@ export function PostCardBody({
             activeOpacity={0.75}>
             <Avatar uri={avatarUrl} name={authorName} size={38} />
             <View className="ml-2.5">
-              <Text className="text-[13.5px] font-semibold text-[#1D1D1F]">{authorName}</Text>
-              <Text className="text-xs text-[#6E6E73]">{formatRelativeTime(post.createdAt)}</Text>
+              <Text className="text-[13.5px] font-semibold" style={{ color: Colors.text }}>
+                {authorName}
+              </Text>
+              <Text className="text-xs" style={{ color: Colors.textMuted }}>
+                {formatRelativeTime(post.createdAt)}
+              </Text>
             </View>
           </TouchableOpacity>
 
@@ -242,7 +249,7 @@ export function PostCardBody({
             </TouchableOpacity>
           </View>
 
-          <Text className="mt-1 text-sm font-semibold text-[#1D1D1F]">
+          <Text className="mt-1 text-sm font-semibold" style={{ color: Colors.text }}>
             {formatCompactCount(totalLikes)} likes
           </Text>
 
@@ -250,7 +257,7 @@ export function PostCardBody({
 
           {post.commentCount > 0 && (
             <TouchableOpacity onPress={() => setShowComments(true)} activeOpacity={0.7}>
-              <Text className="mt-1 text-sm text-[#6E6E73]">
+              <Text className="mt-1 text-sm" style={{ color: Colors.textMuted }}>
                 View all {formatCompactCount(post.commentCount)} comments
               </Text>
             </TouchableOpacity>

@@ -84,7 +84,7 @@ export const TextRichComposer = forwardRef<TextRichComposerRef, TextRichComposer
               paddingHorizontal: 10,
               paddingVertical: 5,
               borderRadius: 999,
-              backgroundColor: mode === 'plain' ? Colors.ctaLight : Colors.white,
+              backgroundColor: mode === 'plain' ? Colors.ctaLight : Colors.bgCard,
               borderWidth: 1,
               borderColor: Colors.borderLight,
             }}>
@@ -99,7 +99,7 @@ export const TextRichComposer = forwardRef<TextRichComposerRef, TextRichComposer
               paddingHorizontal: 10,
               paddingVertical: 5,
               borderRadius: 999,
-              backgroundColor: mode === 'editor' ? Colors.ctaLight : Colors.white,
+              backgroundColor: mode === 'editor' ? Colors.ctaLight : Colors.bgCard,
               borderWidth: 1,
               borderColor: Colors.borderLight,
             }}>
@@ -114,7 +114,7 @@ export const TextRichComposer = forwardRef<TextRichComposerRef, TextRichComposer
         <View
           style={{
             borderRadius: 18,
-            backgroundColor: Colors.white,
+            backgroundColor: Colors.bgCard,
             minHeight,
             paddingHorizontal: 14,
             justifyContent: 'center',
@@ -142,7 +142,7 @@ export const TextRichComposer = forwardRef<TextRichComposerRef, TextRichComposer
             borderRadius: 14,
             borderWidth: 1,
             borderColor: Colors.borderLight,
-            backgroundColor: Colors.white,
+            backgroundColor: Colors.bgCard,
             overflow: 'hidden',
           }}>
           {showToolbar && (
@@ -160,7 +160,7 @@ export const TextRichComposer = forwardRef<TextRichComposerRef, TextRichComposer
                 actions.insertOrderedList,
               ]}
               style={{
-                backgroundColor: '#f8fafc',
+                backgroundColor: Colors.bg,
                 borderBottomWidth: 0.5,
                 borderBottomColor: Colors.borderLight,
               }}
@@ -172,7 +172,7 @@ export const TextRichComposer = forwardRef<TextRichComposerRef, TextRichComposer
             initialContentHTML={editorInitialHtml}
             placeholder={placeholder}
             editorStyle={{
-              backgroundColor: Colors.white,
+              backgroundColor: Colors.bgCard,
               color: Colors.text,
               placeholderColor: Colors.textLight,
               contentCSSText:

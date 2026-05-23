@@ -107,7 +107,7 @@ export function ConversationItem({
       activeOpacity={0.7}
       className="flex-row items-center px-4 py-3"
       style={{
-        backgroundColor: isPinned ? Colors.ctaLight : Colors.white,
+        backgroundColor: isPinned ? Colors.ctaLight : Colors.bgCard,
         borderBottomWidth: 0.5,
         borderBottomColor: Colors.borderLight,
       }}

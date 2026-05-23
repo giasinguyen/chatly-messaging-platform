@@ -7,6 +7,7 @@ import { sessionService } from '@/services/session.service';
 import { authService } from '@/services/auth.service';
 import { socketService } from '@/services/socket.service';
 import { useAuthStore } from '@/store/auth.store';
+import { useThemeStore } from '@/store/theme.store';
 import type { UserSessionInfo } from '@/types/auth';
 import { Colors } from '@/constants/theme';
 
@@ -48,6 +49,7 @@ function isRevoked(s: UserSessionInfo): boolean {
 export default function SessionsScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  useThemeStore((s) => s.isDarkMode);
   const params = useLocalSearchParams<{ returnTo?: string }>();
   const clearAuth = useAuthStore((s) => s.clearAuth);
   const [sessions, setSessions] = useState<UserSessionInfo[]>([]);
@@ -179,7 +181,7 @@ export default function SessionsScreen() {
                 className="mb-3 rounded-2xl border p-4"
                 style={{
                   borderColor: Colors.borderLight,
-                  backgroundColor: isRevoked(s) ? `${Colors.bg}` : Colors.white,
+                  backgroundColor: isRevoked(s) ? Colors.bg : Colors.bgCard,
                   opacity: isRevoked(s) ? 0.92 : 1,
                 }}>
                 <View className="flex-row items-start justify-between gap-2">

@@ -116,16 +116,16 @@ export function CommentsBottomSheet({
         style={{
           height: SHEET_HEIGHT,
           transform: [{ translateY: pan.y }],
-        }}
-        className="bg-white">
+          backgroundColor: Colors.bgCard,
+        }}>
         {/* Handle Bar */}
         <View className="items-center py-3" {...panResponder.panHandlers}>
-          <View className="h-1 w-12 rounded-full bg-gray-300" />
+          <View className="h-1 w-12 rounded-full" style={{ backgroundColor: Colors.borderLight }} />
         </View>
 
         {/* Header */}
-        <View className="flex-row items-center justify-between border-b border-gray-200 px-4 py-3">
-          <Text className="text-lg font-semibold text-[#1D1D1F]">Comments</Text>
+        <View className="flex-row items-center justify-between border-b px-4 py-3" style={{ borderBottomColor: Colors.borderLight }}>
+          <Text className="text-lg font-semibold" style={{ color: Colors.text }}>Comments</Text>
           <TouchableOpacity onPress={onClose} className="p-1" activeOpacity={0.7}>
             <Ionicons name="close" size={24} color={Colors.text} />
           </TouchableOpacity>
@@ -173,8 +173,8 @@ export function CommentsBottomSheet({
               ) : (
                 <View className="items-center py-8">
                   <Ionicons name="chatbubble-outline" size={48} color={Colors.textMuted} />
-                  <Text className="mt-3 text-sm text-[#6E6E73]">No comments yet</Text>
-                  <Text className="mt-1 text-center text-xs text-[#6E6E73]">
+                  <Text className="mt-3 text-sm" style={{ color: Colors.textMuted }}>No comments yet</Text>
+                  <Text className="mt-1 text-center text-xs" style={{ color: Colors.textMuted }}>
                     Be the first to comment!
                   </Text>
                 </View>

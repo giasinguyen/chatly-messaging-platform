@@ -173,7 +173,7 @@ export function MediaPicker({
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       style={{
         height: 380,
-        backgroundColor: Colors.white,
+        backgroundColor: Colors.bgCard,
         borderTopWidth: 0.5,
         borderTopColor: Colors.borderLight,
       }}>
@@ -244,7 +244,7 @@ export function MediaPicker({
           onChangeText={handleSearchChange}
           style={{
             flex: 1,
-            backgroundColor: Colors.white,
+            backgroundColor: Colors.bgCard,
             borderRadius: 20,
             paddingHorizontal: 14,
             paddingVertical: 6,

@@ -409,14 +409,14 @@ export function ChatInput({
   }, [prefilledText, prefilledToken, onPrefillApplied]);
 
   return (
-    <View style={{ backgroundColor: Colors.white }}>
+    <View style={{ backgroundColor: Colors.bgCard }}>
       {/* Mention suggestions */}
       {mentionSuggestions.length > 0 && (
         <View
           style={{
             borderTopWidth: 0.5,
             borderTopColor: Colors.borderLight,
-            backgroundColor: Colors.white,
+            backgroundColor: Colors.bgCard,
             maxHeight: 200,
           }}>
           <FlatList
@@ -525,7 +525,7 @@ export function ChatInput({
             style={{
               borderLeftWidth: 3,
               borderLeftColor: Colors.cta,
-              backgroundColor: Colors.white,
+              backgroundColor: Colors.bgCard,
             }}>
             <Text className="mb-0.5 text-[11px] font-semibold" style={{ color: Colors.cta }}>
               Replying to
@@ -757,7 +757,7 @@ export function ChatInput({
         animationType="fade"
         onRequestClose={() => setShowLocationPreview(false)}>
         <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 }}>
-          <View style={{ backgroundColor: Colors.white, borderRadius: 24, width: '100%', overflow: 'hidden', maxWidth: 400 }}>
+          <View style={{ backgroundColor: Colors.bgCard, borderRadius: 24, width: '100%', overflow: 'hidden', maxWidth: 400 }}>
             {/* Header */}
             <View style={{ padding: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 0.5, borderBottomColor: Colors.borderLight }}>
               <Text style={{ fontSize: 18, fontWeight: '700', color: Colors.text }}>Share Location</Text>
@@ -816,7 +816,7 @@ export function ChatInput({
 
       {/* Loading overlay for location acquisition */}
       {isAcquiringLocation && (
-        <View style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(255,255,255,0.7)', alignItems: 'center', justifyContent: 'center', zIndex: 999 }}>
+        <View style={{ position: 'absolute', inset: 0, backgroundColor: Colors.overlay, alignItems: 'center', justifyContent: 'center', zIndex: 999 }}>
            <ActivityIndicator size="large" color={Colors.cta} />
            <Text style={{ marginTop: 12, fontSize: 14, color: Colors.text, fontWeight: '500' }}>Acquiring location...</Text>
         </View>
@@ -833,7 +833,7 @@ export function ChatInput({
           onPress={() => setShowOptionsSheet(false)}>
           <Pressable
             style={{
-              backgroundColor: Colors.white,
+              backgroundColor: Colors.bgCard,
               borderTopLeftRadius: 20,
               borderTopRightRadius: 20,
               paddingTop: 12,

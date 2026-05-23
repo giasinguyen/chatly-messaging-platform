@@ -19,6 +19,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/theme';
 import { fileService, type FileUploadResponse } from '@/services/file.service';
 import { useConversationStore } from '@/store/conversation.store';
+import { useThemeStore } from '@/store/theme.store';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -69,6 +70,7 @@ function isMedia(f: FileUploadResponse) {
 
 export default function CloudScreen() {
   const insets = useSafeAreaInsets();
+  useThemeStore((state) => state.isDarkMode);
   const conversations = useConversationStore((s) => s.conversations);
 
   const [tab, setTab] = useState<Tab>('all');
@@ -174,7 +176,7 @@ export default function CloudScreen() {
       <View
         style={{
           paddingTop: insets.top,
-          backgroundColor: Colors.white,
+          backgroundColor: Colors.bgCard,
           borderBottomWidth: 0.5,
           borderBottomColor: Colors.borderLight,
         }}
@@ -392,7 +394,7 @@ export default function CloudScreen() {
                     alignItems: 'center',
                     paddingHorizontal: 16,
                     paddingVertical: 12,
-                    backgroundColor: Colors.white,
+                    backgroundColor: Colors.bgCard,
                     borderBottomWidth: 0.5,
                     borderBottomColor: Colors.borderLight,
                   }}

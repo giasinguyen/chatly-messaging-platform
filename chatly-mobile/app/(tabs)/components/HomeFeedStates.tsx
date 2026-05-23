@@ -19,7 +19,9 @@ export function HomeFeedFooter({ isLoadingMore, hasMorePosts, postCount }: HomeF
   if (postCount > 0 && !hasMorePosts) {
     return (
       <View className="items-center pb-24 pt-4">
-        <Text className="text-sm text-[#6E6E73]">You are all caught up.</Text>
+        <Text className="text-sm" style={{ color: Colors.textMuted }}>
+          You are all caught up.
+        </Text>
       </View>
     );
   }
@@ -35,10 +37,10 @@ interface HomeFeedEmptyStateProps {
 export function HomeFeedEmptyState({ message, onRetry }: HomeFeedEmptyStateProps) {
   return (
     <View className="items-center px-8 py-16">
-      <Text className="text-base font-semibold text-[#1D1D1F]">
+      <Text className="text-base font-semibold" style={{ color: Colors.text }}>
         {message ? 'Could not load feed' : 'No posts yet'}
       </Text>
-      <Text className="mt-1 text-center text-sm text-[#6E6E73]">
+      <Text className="mt-1 text-center text-sm" style={{ color: Colors.textMuted }}>
         {message ?? 'Pull to refresh or create your first post from the plus button.'}
       </Text>
       {message && (

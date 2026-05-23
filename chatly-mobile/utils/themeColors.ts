@@ -1,25 +1,25 @@
-import { Colors } from '@/constants/theme';
+import { DarkColors, LightColors } from '@/constants/theme';
 
 export function getThemeColors(isDarkMode: boolean) {
   if (!isDarkMode) {
     return {
-      background: Colors.bg,
-      card: Colors.white,
-      text: Colors.text,
-      textMuted: Colors.textMuted,
-      textLight: Colors.textLight,
-      border: Colors.borderLight,
-      field: Colors.bg,
+      background: LightColors.bg,
+      card: LightColors.white,
+      text: LightColors.text,
+      textMuted: LightColors.textMuted,
+      textLight: LightColors.textLight,
+      border: LightColors.borderLight,
+      field: LightColors.bg,
     };
   }
 
   return {
-    background: '#0B0B0D',
-    card: '#151518',
-    text: '#F5F5F7',
-    textMuted: '#C7C7CC',
-    textLight: '#8E8E93',
-    border: '#2C2C2E',
-    field: '#1C1C1E',
+    background: DarkColors.bg,
+    card: DarkColors.bgCard,
+    text: DarkColors.text,
+    textMuted: DarkColors.textMuted,
+    textLight: DarkColors.textLight,
+    border: DarkColors.borderLight,
+    field: DarkColors.bubbleReceiver,
   };
 }

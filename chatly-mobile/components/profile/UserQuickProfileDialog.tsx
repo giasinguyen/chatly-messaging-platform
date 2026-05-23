@@ -149,12 +149,13 @@ export function UserQuickProfileDialog({
         onPress={onClose}
       >
         <Pressable
-          className="w-full max-w-[360px] rounded-3xl bg-white px-5 pb-5 pt-4"
+          className="w-full max-w-[360px] rounded-3xl px-5 pb-5 pt-4"
+          style={{ backgroundColor: Colors.bgCard }}
           onPress={() => {}}
         >
           <View className="flex-row items-start justify-between">
-            <Text className="text-lg font-semibold text-[#1D1D1F]">Profile</Text>
-            <TouchableOpacity onPress={onClose} className="rounded-full bg-[#F5F5F7] p-2">
+            <Text className="text-lg font-semibold" style={{ color: Colors.text }}>Profile</Text>
+            <TouchableOpacity onPress={onClose} className="rounded-full p-2" style={{ backgroundColor: Colors.bg }}>
               <Ionicons name="close" size={18} color={Colors.textMuted} />
             </TouchableOpacity>
           </View>
@@ -167,9 +168,9 @@ export function UserQuickProfileDialog({
             <>
               <View className="items-center pb-2 pt-4">
                 <Avatar uri={avatarUrl} name={displayName} size={72} />
-                <Text className="mt-3 text-lg font-semibold text-[#1D1D1F]">{displayName}</Text>
+                <Text className="mt-3 text-lg font-semibold" style={{ color: Colors.text }}>{displayName}</Text>
                 {profile?.username ? (
-                  <Text className="mt-1 text-sm text-[#6E6E73]">@{profile.username}</Text>
+                  <Text className="mt-1 text-sm" style={{ color: Colors.textMuted }}>@{profile.username}</Text>
                 ) : null}
                 {relationLabel ? (
                   <View className="mt-3 rounded-full bg-[#EEF5FF] px-3 py-1.5">
@@ -177,7 +178,7 @@ export function UserQuickProfileDialog({
                   </View>
                 ) : null}
                 {profile?.bio ? (
-                  <Text className="mt-3 text-center text-sm leading-5 text-[#1D1D1F]">
+                  <Text className="mt-3 text-center text-sm leading-5" style={{ color: Colors.text }}>
                     {profile.bio}
                   </Text>
                 ) : null}
@@ -198,20 +199,24 @@ export function UserQuickProfileDialog({
                 {onMessage && !isOwnProfile && !blockedByOther ? (
                   <TouchableOpacity
                     onPress={() => void handleMessage()}
-                    className="h-11 flex-row items-center justify-center rounded-xl border border-[#D1D1D6] active:opacity-75"
+                    className="h-11 flex-row items-center justify-center rounded-xl border active:opacity-75"
+                    style={{ borderColor: Colors.borderLight }}
                     disabled={isActionLoading}
                   >
                     <Ionicons name="chatbubble-outline" size={16} color={Colors.text} />
-                    <Text className="ml-2 text-sm font-semibold text-[#1D1D1F]">Message</Text>
+                    <Text className="ml-2 text-sm font-semibold" style={{ color: Colors.text }}>Message</Text>
                   </TouchableOpacity>
                 ) : null}
 
                 {!isOwnProfile ? (
                   <TouchableOpacity
                     onPress={() => void handleBlockToggle()}
-                    className="h-11 flex-row items-center justify-center rounded-xl border border-[#E5E5EA] active:opacity-75"
+                    className="h-11 flex-row items-center justify-center rounded-xl border active:opacity-75"
                     disabled={isActionLoading || blockedByOther}
-                    style={{ opacity: isActionLoading || blockedByOther ? 0.55 : 1 }}
+                    style={{
+                      borderColor: Colors.borderLight,
+                      opacity: isActionLoading || blockedByOther ? 0.55 : 1,
+                    }}
                   >
                     {isActionLoading ? (
                       <ActivityIndicator size="small" color={Colors.textMuted} />

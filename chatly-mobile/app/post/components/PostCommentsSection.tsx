@@ -27,9 +27,9 @@ export function PostCommentsSection({
   onDeleteComment,
 }: PostCommentsSectionProps) {
   return (
-    <View className="mt-6 rounded-2xl bg-white px-3 py-3">
+    <View className="mt-6 rounded-2xl px-3 py-3" style={{ backgroundColor: Colors.bgCard }}>
       <View className="mb-3 flex-row items-center justify-between">
-        <Text className="text-base font-semibold text-[#1D1D1F]">Comments ({commentCount})</Text>
+        <Text className="text-base font-semibold" style={{ color: Colors.text }}>Comments ({commentCount})</Text>
         {commentsError && (
           <TouchableOpacity onPress={onRetry} activeOpacity={0.75}>
             <Text className="text-sm font-semibold text-[#0A7AFF]">Retry</Text>
@@ -42,7 +42,7 @@ export function PostCommentsSection({
           <ActivityIndicator size="small" color={Colors.cta} />
         </View>
       ) : commentsError ? (
-        <Text className="mb-3 text-sm text-[#6E6E73]">{commentsError}</Text>
+        <Text className="mb-3 text-sm" style={{ color: Colors.textMuted }}>{commentsError}</Text>
       ) : (
         <CommentList
           comments={comments}
@@ -55,11 +55,12 @@ export function PostCommentsSection({
       )}
 
       <TouchableOpacity
-        className="mt-3 rounded-xl border border-[#E5E5EA] bg-[#FAFAFB] px-3 py-3"
+        className="mt-3 rounded-xl border px-3 py-3"
+        style={{ backgroundColor: Colors.bg, borderColor: Colors.borderLight }}
         activeOpacity={0.8}
         onPress={onOpenComments}
       >
-        <Text className="text-sm text-[#6E6E73]">Write a comment...</Text>
+        <Text className="text-sm" style={{ color: Colors.textMuted }}>Write a comment...</Text>
       </TouchableOpacity>
     </View>
   );
