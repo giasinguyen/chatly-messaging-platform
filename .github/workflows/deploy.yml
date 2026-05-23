@@ -139,8 +139,20 @@ jobs:
             echo "${{ secrets.DOCKERHUB_TOKEN }}" | sudo docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
 
             echo "=== Pulling latest images from Docker Hub ==="
-            sudo docker pull ${{ secrets.DOCKERHUB_USERNAME }}/chatly-backend:latest
-            sudo docker pull ${{ secrets.DOCKERHUB_USERNAME }}/chatly-agent:latest
+            BACKEND_BUILT="${{ needs.build-backend.result }}"
+            AGENT_BUILT="${{ needs.build-agent.result }}"
+
+            if [ "$BACKEND_BUILT" = "success" ]; then
+              sudo docker pull ${{ secrets.DOCKERHUB_USERNAME }}/chatly-backend:latest
+            else
+              echo "Backend not rebuilt, skipping pull"
+            fi
+
+            if [ "$AGENT_BUILT" = "success" ]; then
+              sudo docker pull ${{ secrets.DOCKERHUB_USERNAME }}/chatly-agent:latest
+            else
+              echo "Agent not rebuilt, skipping pull"
+            fi
 
             echo "=== Restarting backend & agent (no rebuild) ==="
             sudo docker compose up -d --no-build backend ai-agent
