@@ -10,7 +10,18 @@ import type {
     UpdatePostRequest,
     ReactToPostRequest,
     CreatePostCommentRequest,
+    ReportPostRequest,
+    ReportResponse,
+    ReactionType,
+    TrendingHashtag,
+    PostSearchSort,
 } from "@/types/post";
+
+const POST_SEARCH_SORT_PARAMS: Record<PostSearchSort, string> = {
+    newest: "createdAt,desc",
+    oldest: "createdAt,asc",
+    interactions: "engagementScore,desc",
+};
 
 export const postService = {
     create: async (payload: CreatePostRequest): Promise<ApiResponse<Post>> => {
@@ -22,6 +33,14 @@ export const postService = {
         const response = await axiosClient.get<ApiResponse<PostPage>>("/api/posts/feed", {
             params: { page, size, sort: "createdAt,desc" },
         });
+        return response.data;
+    },
+
+    getSavedPosts: async (page = 0, size = 10): Promise<ApiResponse<PostPage>> => {
+        const response = await axiosClient.get<ApiResponse<PostPage>>(
+            "/api/posts/saved",
+            { params: { page, size, sort: "createdAt,desc" } },
+        );
         return response.data;
     },
 
@@ -96,6 +115,17 @@ export const postService = {
     sharePost: async (postId: string): Promise<ApiResponse<Post>> => {
         const response = await axiosClient.post<ApiResponse<Post>>(
             `/api/posts/${postId}/share`,
+        );
+        return response.data;
+    },
+
+    reportPost: async (
+        postId: string,
+        payload: ReportPostRequest,
+    ): Promise<ApiResponse<ReportResponse>> => {
+        const response = await axiosClient.post<ApiResponse<ReportResponse>>(
+            "/api/reports",
+            { postId, ...payload },
         );
         return response.data;
     },
@@ -194,13 +224,26 @@ export const postService = {
         hashtag: string | null,
         page = 0,
         size = 12,
+        sort: PostSearchSort = "newest",
     ): Promise<ApiResponse<PostPage>> => {
-        const params: Record<string, string | number> = { page, size, sort: "createdAt,desc" };
+        const params: Record<string, string | number> = {
+            page,
+            size,
+            sort: POST_SEARCH_SORT_PARAMS[sort],
+        };
         if (q) params.q = q;
         if (hashtag) params.hashtag = hashtag;
         const response = await axiosClient.get<ApiResponse<PostPage>>(
             "/api/posts/search",
             { params },
+        );
+        return response.data;
+    },
+
+    getTrendingHashtags: async (limit = 10): Promise<ApiResponse<TrendingHashtag[]>> => {
+        const response = await axiosClient.get<ApiResponse<TrendingHashtag[]>>(
+            "/api/posts/hashtags/trending",
+            { params: { limit } },
         );
         return response.data;
     },

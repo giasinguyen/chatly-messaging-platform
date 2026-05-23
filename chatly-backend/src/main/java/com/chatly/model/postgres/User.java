@@ -58,6 +58,11 @@ public class User {
 
     private Instant lastSeen;
 
+    @Column(nullable = false)
+    @ColumnDefault("false")
+    @Builder.Default
+    private boolean suspended = false;
+
     @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(name = "user_device_tokens", joinColumns = @JoinColumn(name = "user_id"))
     @Column(name = "token")

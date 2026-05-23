@@ -10,6 +10,8 @@ import java.util.List;
 
 public interface MessageRepository extends MongoRepository<Message, String> {
 
+    Page<Message> findAllByOrderByCreatedAtDesc(Pageable pageable);
+
     Page<Message> findByConversationIdOrderByCreatedAtDesc(String conversationId, Pageable pageable);
 
     List<Message> findByConversationIdAndCreatedAtBetweenOrderByCreatedAtAsc(
@@ -17,4 +19,6 @@ public interface MessageRepository extends MongoRepository<Message, String> {
 
     long countByConversationIdAndCreatedAtAfterAndSenderIdNot(
             String conversationId, Instant after, String excludeSenderId);
+
+    long countByCreatedAtBetween(Instant from, Instant to);
 }

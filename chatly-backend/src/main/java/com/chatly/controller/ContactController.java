@@ -4,6 +4,7 @@ import com.chatly.dto.request.ContactRequest;
 import com.chatly.dto.response.ApiResponse;
 import com.chatly.dto.response.BlockStatusResponse;
 import com.chatly.dto.response.ContactResponse;
+import com.chatly.dto.response.ContactSuggestionResponse;
 import com.chatly.model.enums.ContactStatus;
 import com.chatly.service.ContactService;
 import jakarta.validation.Valid;
@@ -56,6 +57,28 @@ public class ContactController {
     ApiResponse<List<ContactResponse>> getAll() {
         return ApiResponse.<List<ContactResponse>>builder()
                 .result(contactService.getAllContacts(getAuthenticatedUserId()))
+                .build();
+    }
+
+    @GetMapping("/users/{userId}/friend-count")
+    ApiResponse<Long> getFriendCount(@PathVariable UUID userId) {
+        return ApiResponse.<Long>builder()
+                .result(contactService.getFriendCount(userId))
+                .build();
+    }
+
+    @GetMapping("/suggestions")
+    ApiResponse<List<ContactSuggestionResponse>> getSuggestions(
+            @RequestParam(defaultValue = "5") int limit) {
+        return ApiResponse.<List<ContactSuggestionResponse>>builder()
+                .result(contactService.getSuggestions(getAuthenticatedUserId(), limit))
+                .build();
+    }
+
+    @GetMapping("/users/{userId}")
+    ApiResponse<List<ContactResponse>> getFriendsForUser(@PathVariable UUID userId) {
+        return ApiResponse.<List<ContactResponse>>builder()
+                .result(contactService.getFriendsForUser(userId, getAuthenticatedUserId()))
                 .build();
     }
 

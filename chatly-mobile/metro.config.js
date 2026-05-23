@@ -13,10 +13,7 @@ config.transformer = {
   unstable_allowRequireContext: true,
 };
 
-// Ensure node_modules with import.meta are transformed (not excluded)
-config.resolver = {
-  ...config.resolver,
-  unstable_enableSymlinks: true,
-};
+// Add 'fx' to sourceExts to resolve side effect files (e.g. setUpJsLogger.fx)
+config.resolver.sourceExts = [...config.resolver.sourceExts, 'fx'];
 
 module.exports = withNativeWind(config, { input: './global.css' });

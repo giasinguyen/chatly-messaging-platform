@@ -1,6 +1,5 @@
 import { useEffect, useCallback, useRef } from 'react';
 import { Alert } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { socketService } from '@/services/socket.service';
 import { useAuthStore } from '@/store/auth.store';
 import { useCallStore } from '@/store/call.store';
@@ -11,7 +10,11 @@ import type { CallType, CallSignal, CallSession } from '@/types/call';
  * Hook for handling WebRTC signaling via STOMP WebSocket.
  * Subscribes to /user/queue/calls to receive call signals.
  */
-export function useCallSocket() {
+interface GroupSignalRef {
+  current: ((signal: CallSignal) => void) | null;
+}
+
+export function useCallSocket(groupSignalRef?: GroupSignalRef) {
   const user = useAuthStore((s) => s.user);
   const {
     setIncomingCall,
@@ -92,47 +95,31 @@ export function useCallSocket() {
   useEffect(() => {
     if (!user) return;
 
-    const doSubscribe = () => {
-      return socketService.subscribe(
-        `/user/queue/calls`,
-        (message) => {
-          const signal = JSON.parse(message.body) as CallSignal;
-          // GROUP_* signals are handled by useGroupCallSocket; skip them here.
-          // ICE_CANDIDATE during an active group call is also handled there.
-          if (signal.type.startsWith('GROUP_')) return;
-          if (signal.type === 'ICE_CANDIDATE' && useCallStore.getState().isGroupCall) return;
-          if (signal.senderId === user.id) return;
-          // Use ref to always call the latest handleSignal version
-          handleSignalRef.current?.(signal);
-        },
-      );
-    };
-
-    // If socket is already connected, subscribe immediately
-    // Otherwise wait for connection
-    if (socketService.isConnected()) {
-      const subscription = doSubscribe();
-      return () => { subscription?.unsubscribe(); };
-    }
-
-    // Wait for socket to connect then subscribe
     let subscription: ReturnType<typeof socketService.subscribe> = null;
-    let cancelled = false;
-    AsyncStorage.getItem('access_token').then((token) => {
-      if (!token || cancelled) return;
-      socketService.connect(token).then(() => {
-        if (!cancelled) {
-          subscription = doSubscribe();
+
+    const unregister = socketService.onConnect(() => {
+      subscription?.unsubscribe();
+      subscription = socketService.subscribe('/user/queue/calls', (message) => {
+        const signal = JSON.parse(message.body) as CallSignal;
+        const shouldHandleAsGroupSignal =
+          signal.type.startsWith('GROUP_')
+          || (signal.type === 'ICE_CANDIDATE' && useCallStore.getState().isGroupCall);
+
+        if (shouldHandleAsGroupSignal) {
+          groupSignalRef?.current?.(signal);
+          return;
         }
-      }).catch(console.error);
+
+        if (signal.senderId === user.id) return;
+        handleSignalRef.current?.(signal);
+      });
     });
 
     return () => {
-      cancelled = true;
+      unregister();
       subscription?.unsubscribe();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user]);
+  }, [user, groupSignalRef]);
 
   // Handle incoming signal from server
   const handleSignal = useCallback(
@@ -312,6 +299,7 @@ export function useCallSocket() {
     [
       setPendingOffer,
       setIncomingCall,
+      setRemoteParticipant,
       setCallStatus,
       setCameraOff,
       endCallStore,

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -13,19 +13,21 @@ import {
   Share,
 } from 'react-native';
 import { ImageLightbox } from '@/components/ui/ImageLightbox';
+import { useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/theme';
 import { fileService, type FileUploadResponse } from '@/services/file.service';
 import { useConversationStore } from '@/store/conversation.store';
+import { useThemeStore } from '@/store/theme.store';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-type Tab = 'all' | 'image' | 'file';
+type Tab = 'all' | 'media' | 'file';
 
 const TAB_FILTERS: { key: Tab; label: string; icon: string }[] = [
   { key: 'all',   label: 'All',  icon: 'albums-outline'         },
-  { key: 'image', label: 'Images',     icon: 'image-outline'          },
+  { key: 'media', label: 'Media', icon: 'image-outline' },
   { key: 'file',  label: 'Documents', icon: 'document-text-outline' },
 ];
 
@@ -56,10 +58,19 @@ function isImage(f: FileUploadResponse) {
   return (f.fileType ?? '').startsWith('image/');
 }
 
+function isVideo(f: FileUploadResponse) {
+  return (f.fileType ?? '').startsWith('video/');
+}
+
+function isMedia(f: FileUploadResponse) {
+  return isImage(f) || isVideo(f);
+}
+
 // ─── Main screen ──────────────────────────────────────────────────────────────
 
 export default function CloudScreen() {
   const insets = useSafeAreaInsets();
+  useThemeStore((state) => state.isDarkMode);
   const conversations = useConversationStore((s) => s.conversations);
 
   const [tab, setTab] = useState<Tab>('all');
@@ -93,8 +104,7 @@ export default function CloudScreen() {
   const load = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
     try {
-      const apiType = tab === 'all' ? undefined : tab === 'image' ? 'image' : 'file';
-      const res = await fileService.getMyFiles(apiType);
+      const res = await fileService.getMyFiles();
       setFiles(res);
     } catch (e) {
       console.error(e);
@@ -102,21 +112,30 @@ export default function CloudScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [tab]);
+  }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useFocusEffect(
+    useCallback(() => {
+      load(true);
+    }, [load]),
+  );
 
   const onRefresh = () => {
     setRefreshing(true);
     load(true);
   };
 
-  // search filter (client-side)
-  const displayed = searchQuery.trim()
-    ? files.filter((f) =>
-        f.fileName?.toLowerCase().includes(searchQuery.toLowerCase()),
-      )
-    : files;
+  const displayed = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    return files.filter((file) => {
+      const matchesTab =
+        tab === 'all' ||
+        (tab === 'media' && isMedia(file)) ||
+        (tab === 'file' && !isMedia(file));
+      const matchesSearch = !query || file.fileName?.toLowerCase().includes(query);
+      return matchesTab && matchesSearch;
+    });
+  }, [files, searchQuery, tab]);
 
   const toggleSearch = () => {
     const toActive = !searchActive;
@@ -130,8 +149,8 @@ export default function CloudScreen() {
 
   // stats
   const totalSize = files.reduce((s, f) => s + (f.fileSize ?? 0), 0);
-  const imageCount = files.filter(isImage).length;
-  const docCount = files.filter((f) => !isImage(f)).length;
+  const mediaCount = files.filter(isMedia).length;
+  const docCount = files.filter((f) => !isMedia(f)).length;
 
   // ── Group by date ──
   const grouped: { date: string; items: FileUploadResponse[] }[] = [];
@@ -157,7 +176,7 @@ export default function CloudScreen() {
       <View
         style={{
           paddingTop: insets.top,
-          backgroundColor: Colors.white,
+          backgroundColor: Colors.bgCard,
           borderBottomWidth: 0.5,
           borderBottomColor: Colors.borderLight,
         }}
@@ -272,7 +291,7 @@ export default function CloudScreen() {
                     {files.length} files · {formatSize(totalSize)}
                   </Text>
                   <Text style={{ color: 'rgba(255,255,255,0.75)', fontSize: 12, marginTop: 2 }}>
-                    {imageCount} images · {docCount} documents
+                    {mediaCount} media · {docCount} documents
                   </Text>
                 </View>
               </View>
@@ -298,25 +317,52 @@ export default function CloudScreen() {
                 </Text>
               ) : null}
 
-              {/* Image grid for image tab / all tab images */}
-              {tab !== 'file' && group.items.some(isImage) && (
+              {/* Media grid for image and video files */}
+              {tab !== 'file' && group.items.some(isMedia) && (
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 12, gap: 3 }}>
-                  {group.items.filter(isImage).map((f) => {
+                  {group.items.filter(isMedia).map((f) => {
                     const imgIdx = allImageUrls.indexOf(f.url);
+                    const handlePress = () => {
+                      if (isImage(f)) {
+                        openLightbox(allImageUrls, imgIdx >= 0 ? imgIdx : 0);
+                        return;
+                      }
+                      Linking.openURL(f.url);
+                    };
                     return (
                     <TouchableOpacity
                       key={f.fileId}
-                      onPress={() => openLightbox(allImageUrls, imgIdx >= 0 ? imgIdx : 0)}
+                      onPress={handlePress}
                       onLongPress={() =>
                         Share.share({ url: f.url, message: f.fileName })
                       }
                       style={{ borderRadius: 8, overflow: 'hidden' }}
                     >
-                      <Image
-                        source={{ uri: f.url }}
-                        style={{ width: 110, height: 110 }}
-                        resizeMode="cover"
-                      />
+                      {isImage(f) ? (
+                        <Image
+                          source={{ uri: f.url }}
+                          style={{ width: 110, height: 110 }}
+                          resizeMode="cover"
+                        />
+                      ) : (
+                        <View
+                          style={{
+                            width: 110,
+                            height: 110,
+                            backgroundColor: Colors.ctaLight,
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                          }}
+                        >
+                          <Ionicons name="play-circle-outline" size={34} color={Colors.cta} />
+                          <Text
+                            style={{ marginTop: 4, maxWidth: 88, color: Colors.textMuted, fontSize: 10, textAlign: 'center' }}
+                            numberOfLines={2}
+                          >
+                            {f.fileName}
+                          </Text>
+                        </View>
+                      )}
                       {/* Conversation badge */}
                       <View
                         style={{
@@ -338,7 +384,7 @@ export default function CloudScreen() {
               )}
 
               {/* Doc list rows */}
-              {tab !== 'image' && group.items.filter((f) => !isImage(f)).map((f) => (
+              {tab !== 'media' && group.items.filter((f) => !isMedia(f)).map((f) => (
                 <TouchableOpacity
                   key={f.fileId}
                   onPress={() => Linking.openURL(f.url)}
@@ -348,7 +394,7 @@ export default function CloudScreen() {
                     alignItems: 'center',
                     paddingHorizontal: 16,
                     paddingVertical: 12,
-                    backgroundColor: Colors.white,
+                    backgroundColor: Colors.bgCard,
                     borderBottomWidth: 0.5,
                     borderBottomColor: Colors.borderLight,
                   }}

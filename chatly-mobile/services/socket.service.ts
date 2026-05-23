@@ -1,5 +1,5 @@
-import { Client, IMessage, StompSubscription } from '@stomp/stompjs';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Client, type IMessage, type StompSubscription } from '@stomp/stompjs';
+import type { Post } from '@/types/post';
 
 /**
  * Socket Service for React Native
@@ -8,6 +8,13 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 class SocketService {
   private client: Client | null = null;
   private connectionPromise: Promise<void> | null = null;
+  private connectListeners: Set<() => void> = new Set();
+
+  onConnect(callback: () => void): () => void {
+    this.connectListeners.add(callback);
+    if (this.client?.connected) callback();
+    return () => this.connectListeners.delete(callback);
+  }
 
   /**
    * Connect to the STOMP broker
@@ -24,32 +31,47 @@ class SocketService {
         reconnectDelay: 5000,
         heartbeatIncoming: 10000,
         heartbeatOutgoing: 10000,
-        debug: (str) => {
-          if (__DEV__) console.log('STOMP:', str);
-        },
+        debug: () => undefined,
         forceBinaryWSFrames: true,
         appendMissingNULLonIncoming: true,
       });
 
       client.onConnect = () => {
-        console.log('WebSocket connected');
+        this.connectListeners.forEach((callback) => callback());
         resolve();
       };
 
       client.onStompError = (frame) => {
-        console.error('STOMP error:', frame.headers['message']);
         reject(new Error(frame.headers['message']));
       };
 
-      client.onWebSocketClose = () => {
-        console.log('WebSocket closed');
-      };
+      client.onWebSocketClose = () => undefined;
 
       client.activate();
       this.client = client;
     });
 
     return this.connectionPromise;
+  }
+
+  subscribeToFeed(userId: string, onPost: (post: Post) => void): () => void {
+    const destination = `/topic/feed/${userId}`;
+    let currentSubscription: StompSubscription | null = null;
+
+    const subscribe = () => {
+      if (!this.client?.connected) return;
+      currentSubscription?.unsubscribe();
+      currentSubscription = this.client.subscribe(destination, (message) => {
+        const post = this.parsePost(message);
+        if (post) onPost(post);
+      });
+    };
+
+    const removeConnectListener = this.onConnect(subscribe);
+    return () => {
+      removeConnectListener();
+      currentSubscription?.unsubscribe();
+    };
   }
 
   /**
@@ -80,10 +102,7 @@ class SocketService {
   /**
    * Subscribe to a topic
    */
-  subscribe(
-    destination: string,
-    callback: (message: IMessage) => void,
-  ): StompSubscription | null {
+  subscribe(destination: string, callback: (message: IMessage) => void): StompSubscription | null {
     if (!this.client?.connected) return null;
     return this.client.subscribe(destination, callback);
   }
@@ -98,6 +117,14 @@ class SocketService {
       body: JSON.stringify(body),
     });
     return true;
+  }
+
+  private parsePost(message: IMessage): Post | null {
+    try {
+      return JSON.parse(message.body) as Post;
+    } catch {
+      return null;
+    }
   }
 }
 

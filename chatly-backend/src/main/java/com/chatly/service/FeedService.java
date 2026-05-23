@@ -37,7 +37,7 @@ public class FeedService {
 
     private static final int EXPLORE_WINDOW_DAYS = 7;
     private static final List<PostVisibility> HOME_FEED_VISIBILITIES =
-            List.of(PostVisibility.PUBLIC, PostVisibility.FOLLOWERS_ONLY);
+            List.of(PostVisibility.PUBLIC, PostVisibility.FRIENDS_ONLY);
 
     private final PostRepository postRepository;
     private final ContactRepository contactRepository;
@@ -46,9 +46,9 @@ public class FeedService {
     private final SavedPostRepository savedPostRepository;
 
     /**
-     * Aggregates posts from all users the requester follows, newest first, cursor-based.
+     * Aggregates posts from all accepted contacts, newest first, cursor-based.
      * Includes the requester's own posts, excludes blocked users and deleted posts.
-     * FOLLOWERS_ONLY posts are included because the requester is a follower by definition.
+     * FRIENDS_ONLY posts are included because contacts are friends by definition.
      */
     @Transactional(readOnly = true)
     public FeedResponse getHomeFeed(String userId, String cursor, int size) {
@@ -75,7 +75,7 @@ public class FeedService {
 
     /**
      * Returns the public posts of a specific author, cursor-based.
-     * FOLLOWERS_ONLY posts are included only when the requester follows the author.
+     * FRIENDS_ONLY posts are included only when the requester is friends with the author.
      */
     @Transactional(readOnly = true)
     public FeedResponse getUserFeed(String targetUserId, String requesterId, String cursor, int size) {
@@ -86,11 +86,11 @@ public class FeedService {
             return emptyFeed();
         }
 
-        boolean isFollowing = contactRepository.findFollowingIds(requesterUuid)
+        boolean isFriend = contactRepository.findFollowingIds(requesterUuid)
                 .contains(targetUserId);
 
-        List<PostVisibility> visibilities = isFollowing
-                ? List.of(PostVisibility.PUBLIC, PostVisibility.FOLLOWERS_ONLY)
+        List<PostVisibility> visibilities = isFriend
+                ? List.of(PostVisibility.PUBLIC, PostVisibility.FRIENDS_ONLY)
                 : List.of(PostVisibility.PUBLIC);
 
         Instant before = parseCursor(cursor);

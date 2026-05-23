@@ -7,6 +7,7 @@ import com.chatly.dto.request.UpdatePostRequest;
 import com.chatly.dto.response.ApiResponse;
 import com.chatly.dto.response.PostCommentResponse;
 import com.chatly.dto.response.PostResponse;
+import com.chatly.dto.response.TrendingHashtagResponse;
 import com.chatly.service.PostService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -41,10 +42,25 @@ public class PostController {
                 .build();
     }
 
+    @GetMapping("/hashtags/trending")
+    ApiResponse<List<TrendingHashtagResponse>> getTrendingHashtags(
+            @RequestParam(defaultValue = "10") int limit) {
+        return ApiResponse.<List<TrendingHashtagResponse>>builder()
+                .result(postService.getTrendingHashtags(limit))
+                .build();
+    }
+
     @GetMapping("/feed")
     ApiResponse<Page<PostResponse>> getFeed(Pageable pageable) {
         return ApiResponse.<Page<PostResponse>>builder()
                 .result(postService.getFeed(getAuthenticatedUserId(), pageable))
+                .build();
+    }
+
+    @GetMapping("/saved")
+    ApiResponse<Page<PostResponse>> getSaved(Pageable pageable) {
+        return ApiResponse.<Page<PostResponse>>builder()
+                .result(postService.getSaved(getAuthenticatedUserId(), pageable))
                 .build();
     }
 

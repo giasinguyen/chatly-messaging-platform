@@ -1,6 +1,6 @@
 package com.chatly.dto.request;
 
-import tools.jackson.databind.annotation.JsonDeserialize;
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.chatly.constant.ValidationPatternConstants;
 import jakarta.validation.constraints.Pattern;
 import lombok.*;

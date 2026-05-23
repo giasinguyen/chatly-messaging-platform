@@ -14,6 +14,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
+import { getAssistantContextMode } from '@/constants/assistant';
 import { Colors } from '@/constants/theme';
 import { agentService } from '@/services/agent.service';
 import { useChatbotStore } from '@/store/chatbot.store';
@@ -45,6 +46,7 @@ export default function AssistantChatScreen() {
     setActiveSessionId,
     resetStreaming,
     sessions,
+    addSession,
     useWebSearch,
     selectedMcpIds,
     setLastUserPrompt,
@@ -69,10 +71,38 @@ export default function AssistantChatScreen() {
 
   const session = sessions.find((s) => s.id === sessionId);
   const title = session?.title ?? 'New Conversation';
+  const contextMode = getAssistantContextMode(session?.context_conversation_id);
   const contextConversationName =
-    session?.context_conversation_id
+    contextMode === 'group' && session?.context_conversation_id
       ? conversations.find((conversation) => conversation.id === session.context_conversation_id)?.name ?? 'this group'
-      : undefined;
+      : contextMode === 'post'
+        ? session?.title ?? 'Post context'
+        : undefined;
+
+  useEffect(() => {
+    if (!sessionId || session) {
+      return;
+    }
+
+    let isActive = true;
+
+    const loadSession = async () => {
+      try {
+        const nextSession = await agentService.getSession(sessionId);
+        if (isActive) {
+          addSession(nextSession);
+        }
+      } catch {
+        // Ignore session metadata failure; history load still drives the screen.
+      }
+    };
+
+    void loadSession();
+
+    return () => {
+      isActive = false;
+    };
+  }, [addSession, session, sessionId]);
 
   // Set active session / load history
   useEffect(() => {
@@ -188,7 +218,15 @@ export default function AssistantChatScreen() {
       setForwardModalVisible(false);
       setSelectedMessage(null);
       setMessageActionsVisible(false);
-      router.push(`/chat/${conversationId}?prefill=${encoded}&prefill_token=${token}`);
+      router.push({
+        pathname: '/chat/[id]',
+        params: {
+          id: conversationId,
+          prefill: encoded,
+          prefill_token: token,
+          returnTo: 'assistant',
+        },
+      });
     },
     [selectedMessage, router],
   );
@@ -253,6 +291,7 @@ export default function AssistantChatScreen() {
         title={title}
         onPressSetting={() => setMcpConfigVisible(true)}
         contextConversationName={contextConversationName}
+        contextMode={contextMode}
       />
 
       <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
@@ -282,6 +321,7 @@ export default function AssistantChatScreen() {
                 <AssistantQuickChips
                   onChipSelect={handleChipSelect}
                   contextConversationName={contextConversationName}
+                  contextMode={contextMode}
                 />
               </View>
             ) : (

@@ -4,27 +4,37 @@ import com.chatly.dto.request.CreatePostRequest;
 import com.chatly.dto.request.ReactToPostRequest;
 import com.chatly.dto.request.UpdatePostRequest;
 import com.chatly.dto.response.PostResponse;
+import com.chatly.dto.response.TrendingHashtagResponse;
 import com.chatly.exception.AppException;
 import com.chatly.exception.ErrorCode;
 import com.chatly.mapper.PostMapper;
 import com.chatly.model.enums.PostVisibility;
+import com.chatly.model.enums.NotificationType;
 import com.chatly.model.enums.ReactionType;
 import com.chatly.model.mongo.Post;
 import com.chatly.model.mongo.PostReaction;
 import com.chatly.model.mongo.SavedPost;
 import com.chatly.repository.mongo.PostRepository;
 import com.chatly.repository.mongo.SavedPostRepository;
+import com.chatly.repository.postgres.ContactRepository;
+import com.chatly.repository.postgres.FollowRepository;
 import com.chatly.repository.postgres.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -46,6 +56,18 @@ class PostServiceTest {
     @Mock
     private SavedPostRepository savedPostRepository;
 
+    @Mock
+    private ContactRepository contactRepository;
+
+    @Mock
+    private FollowRepository followRepository;
+
+    @Mock
+    private NotificationService notificationService;
+
+    @Mock
+    private SimpMessagingTemplate messagingTemplate;
+
     @InjectMocks
     private PostService postService;
 
@@ -62,12 +84,15 @@ class PostServiceTest {
                 .authorId(AUTHOR_ID)
                 .content("Hello #world")
                 .visibility(PostVisibility.PUBLIC)
-                .mediaUrls(new ArrayList<>())
+                .mediaUrls(new ArrayList<>(List.of("https://cdn.example.com/photo.jpg")))
                 .hashtags(new ArrayList<>())
                 .reactions(new ArrayList<>())
                 .build();
-        when(userRepository.findById(any())).thenReturn(Optional.empty());
-        when(savedPostRepository.existsByUserIdAndPostId(anyString(), anyString())).thenReturn(false);
+        lenient().when(userRepository.findById(any())).thenReturn(Optional.empty());
+        lenient().when(savedPostRepository.existsByUserIdAndPostId(anyString(), anyString())).thenReturn(false);
+        lenient().when(followRepository.findFollowerIdsByFolloweeId(any(), any(Pageable.class)))
+                .thenReturn(Page.empty());
+        lenient().when(contactRepository.findFollowingIds(any())).thenReturn(List.of());
     }
 
     @Test
@@ -75,6 +100,7 @@ class PostServiceTest {
         CreatePostRequest request = new CreatePostRequest();
         request.setContent("Hello #world");
         request.setVisibility(PostVisibility.PUBLIC);
+        request.setMediaUrls(List.of("https://cdn.example.com/photo.jpg"));
 
         when(postRepository.save(any(Post.class))).thenReturn(samplePost);
         PostResponse mockResponse = new PostResponse();
@@ -88,15 +114,30 @@ class PostServiceTest {
     }
 
     @Test
+    void create_textOnlyPost_shouldSaveWithoutMedia() {
+        CreatePostRequest request = new CreatePostRequest();
+        request.setContent("Text-only update");
+
+        samplePost.setMediaUrls(new ArrayList<>());
+        when(postRepository.save(any(Post.class))).thenReturn(samplePost);
+        when(postMapper.toResponse(any(Post.class))).thenReturn(new PostResponse());
+
+        postService.create(AUTHOR_ID, request);
+
+        verify(postRepository).save(argThat(post -> post.getMediaUrls().isEmpty()));
+    }
+
+    @Test
     void create_shouldExtractHashtagsFromContent() {
         CreatePostRequest request = new CreatePostRequest();
         request.setContent("Check #spring and #java");
+        request.setMediaUrls(List.of("https://cdn.example.com/photo.jpg"));
 
         Post saved = Post.builder()
                 .id(POST_ID).authorId(AUTHOR_ID)
                 .content("Check #spring and #java")
                 .hashtags(List.of("spring", "java"))
-                .reactions(new ArrayList<>()).mediaUrls(new ArrayList<>())
+                .reactions(new ArrayList<>()).mediaUrls(new ArrayList<>(List.of("https://cdn.example.com/photo.jpg")))
                 .build();
 
         when(postRepository.save(any())).thenReturn(saved);
@@ -110,10 +151,26 @@ class PostServiceTest {
     }
 
     @Test
+    void create_shouldIgnoreNumericRankingMarkersAsHashtags() {
+        CreatePostRequest request = new CreatePostRequest();
+        request.setContent("Scores: #1: 10 points, #2: 6 points. Follow #PGS4 and #series1.");
+
+        when(postRepository.save(any())).thenReturn(samplePost);
+        when(postMapper.toResponse(any())).thenReturn(new PostResponse());
+
+        postService.create(AUTHOR_ID, request);
+
+        verify(postRepository).save(argThat(p ->
+                p.getHashtags().equals(List.of("pgs4", "series1"))
+        ));
+    }
+
+    @Test
     void create_defaultsToPublicWhenVisibilityNull() {
         CreatePostRequest request = new CreatePostRequest();
         request.setContent("Visible to all");
         request.setVisibility(null);
+        request.setMediaUrls(List.of("https://cdn.example.com/photo.jpg"));
 
         when(postRepository.save(any())).thenReturn(samplePost);
         when(postMapper.toResponse(any())).thenReturn(new PostResponse());
@@ -121,6 +178,40 @@ class PostServiceTest {
         postService.create(AUTHOR_ID, request);
 
         verify(postRepository).save(argThat(p -> p.getVisibility() == PostVisibility.PUBLIC));
+    }
+
+    @Test
+    void create_publicPost_shouldBroadcastToFollowers() {
+        CreatePostRequest request = new CreatePostRequest();
+        request.setContent("Hello #world");
+        request.setVisibility(PostVisibility.PUBLIC);
+        request.setMediaUrls(List.of("https://cdn.example.com/photo.jpg"));
+
+        when(postRepository.save(any(Post.class))).thenReturn(samplePost);
+        when(postMapper.toResponse(any())).thenReturn(new PostResponse());
+        when(followRepository.findFollowerIdsByFolloweeId(eq(UUID.fromString(AUTHOR_ID)), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(UUID.fromString(OTHER_ID))));
+        when(contactRepository.findFollowingIds(UUID.fromString(AUTHOR_ID))).thenReturn(List.of(OTHER_ID));
+
+        postService.create(AUTHOR_ID, request);
+
+        verify(messagingTemplate).convertAndSend(eq("/topic/feed/" + OTHER_ID), any(PostResponse.class));
+    }
+
+    @Test
+    void create_onlyMePost_shouldNotBroadcast() {
+        CreatePostRequest request = new CreatePostRequest();
+        request.setContent("Private #world");
+        request.setVisibility(PostVisibility.ONLY_ME);
+        request.setMediaUrls(List.of("https://cdn.example.com/photo.jpg"));
+        samplePost.setVisibility(PostVisibility.ONLY_ME);
+
+        when(postRepository.save(any(Post.class))).thenReturn(samplePost);
+        when(postMapper.toResponse(any())).thenReturn(new PostResponse());
+
+        postService.create(AUTHOR_ID, request);
+
+        verifyNoInteractions(messagingTemplate);
     }
 
     @Test
@@ -144,6 +235,39 @@ class PostServiceTest {
     }
 
     @Test
+    void getSaved_shouldReturnExistingSavedPosts() {
+        SavedPost savedPost = SavedPost.builder()
+                .userId(AUTHOR_ID)
+                .postId(POST_ID)
+                .build();
+
+        when(savedPostRepository.findByUserIdOrderByCreatedAtDesc(AUTHOR_ID)).thenReturn(List.of(savedPost));
+        when(postRepository.findAllById(List.of(POST_ID))).thenReturn(List.of(samplePost));
+        when(postMapper.toResponse(samplePost)).thenReturn(new PostResponse());
+        when(savedPostRepository.existsByUserIdAndPostId(AUTHOR_ID, POST_ID)).thenReturn(true);
+
+        Page<PostResponse> result = postService.getSaved(AUTHOR_ID, Pageable.unpaged());
+
+        assertThat(result.getContent()).hasSize(1);
+    }
+
+    @Test
+    void getSaved_shouldCleanupMissingSavedPosts() {
+        SavedPost savedPost = SavedPost.builder()
+                .userId(AUTHOR_ID)
+                .postId(POST_ID)
+                .build();
+
+        when(savedPostRepository.findByUserIdOrderByCreatedAtDesc(AUTHOR_ID)).thenReturn(List.of(savedPost));
+        when(postRepository.findAllById(List.of(POST_ID))).thenReturn(List.of());
+
+        Page<PostResponse> result = postService.getSaved(AUTHOR_ID, Pageable.unpaged());
+
+        assertThat(result.getContent()).isEmpty();
+        verify(savedPostRepository).deleteByUserIdAndPostId(AUTHOR_ID, POST_ID);
+    }
+
+    @Test
     void update_asOwner_shouldPersistChanges() {
         UpdatePostRequest request = new UpdatePostRequest();
         request.setContent("Updated #content");
@@ -159,6 +283,27 @@ class PostServiceTest {
                 p.getContent().equals("Updated #content") &&
                 p.getVisibility() == PostVisibility.ONLY_ME
         ));
+    }
+
+    @Test
+    void update_withMentions_shouldNotifyMentionedUsers() {
+        UpdatePostRequest request = new UpdatePostRequest();
+        request.setContent("Updated @friend");
+        request.setMentionIds(List.of(OTHER_ID));
+
+        when(postRepository.findById(POST_ID)).thenReturn(Optional.of(samplePost));
+        when(postRepository.save(any())).thenReturn(samplePost);
+        when(postMapper.toResponse(any())).thenReturn(new PostResponse());
+
+        postService.update(POST_ID, AUTHOR_ID, request);
+
+        verify(notificationService).createAndPush(
+                NotificationType.POST_MENTION,
+                AUTHOR_ID,
+                OTHER_ID,
+                "Someone mentioned you in a post",
+                POST_ID
+        );
     }
 
     @Test
@@ -251,5 +396,34 @@ class PostServiceTest {
         postService.unsave(POST_ID, AUTHOR_ID);
 
         verify(savedPostRepository).deleteByUserIdAndPostId(AUTHOR_ID, POST_ID);
+    }
+
+    @Test
+    void getTrendingHashtags_shouldReturnRepositoryResult() {
+        var javaTrend = TrendingHashtagResponse.builder().hashtag("java").postCount(3).build();
+        var springTrend = TrendingHashtagResponse.builder().hashtag("spring").postCount(2).build();
+        when(postRepository.findTrendingHashtags(any(Instant.class), eq(10)))
+                .thenReturn(List.of(javaTrend, springTrend));
+
+        List<TrendingHashtagResponse> result = postService.getTrendingHashtags(10);
+
+        assertThat(result).containsExactly(javaTrend, springTrend);
+        verify(postRepository).findTrendingHashtags(any(Instant.class), eq(10));
+    }
+
+    @Test
+    void getTrendingHashtags_shouldClampLimits() {
+        var lowTrend = TrendingHashtagResponse.builder().hashtag("a").postCount(1).build();
+        var highTrend = TrendingHashtagResponse.builder().hashtag("b").postCount(1).build();
+        when(postRepository.findTrendingHashtags(any(Instant.class), eq(1))).thenReturn(List.of(lowTrend));
+        when(postRepository.findTrendingHashtags(any(Instant.class), eq(50))).thenReturn(List.of(highTrend));
+
+        List<TrendingHashtagResponse> lowLimitResult = postService.getTrendingHashtags(0);
+        List<TrendingHashtagResponse> highLimitResult = postService.getTrendingHashtags(999);
+
+        assertThat(lowLimitResult).containsExactly(lowTrend);
+        assertThat(highLimitResult).containsExactly(highTrend);
+        verify(postRepository).findTrendingHashtags(any(Instant.class), eq(1));
+        verify(postRepository).findTrendingHashtags(any(Instant.class), eq(50));
     }
 }

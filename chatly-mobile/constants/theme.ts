@@ -3,7 +3,7 @@
  * Apple-inspired design system adapted for React Native
  */
 
-export const Colors = {
+export const LightColors = {
   // Primary
   bg: '#F5F5F7',
   bgCard: '#FFFFFF',
@@ -37,6 +37,28 @@ export const Colors = {
   overlay: 'rgba(0, 0, 0, 0.4)',
   skeleton: '#E5E5EA',
 } as const;
+
+export const DarkColors = {
+  ...LightColors,
+  bg: '#0B0B0D',
+  bgCard: '#151518',
+  bgDark: '#000000',
+  text: '#F5F5F7',
+  textMuted: '#C7C7CC',
+  textLight: '#8E8E93',
+  ctaLight: '#10243A',
+  border: '#3A3A3C',
+  borderLight: '#2C2C2E',
+  bubbleReceiver: '#1C1C1E',
+  bubbleReceiverText: '#F5F5F7',
+  skeleton: '#2C2C2E',
+} as const;
+
+export const Colors = { ...LightColors };
+
+export function applyThemeColors(isDarkMode: boolean) {
+  Object.assign(Colors, isDarkMode ? DarkColors : LightColors);
+}
 
 export const Spacing = {
   xs: 4,

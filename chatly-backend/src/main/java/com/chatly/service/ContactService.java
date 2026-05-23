@@ -3,9 +3,11 @@ package com.chatly.service;
 import com.chatly.dto.request.ContactRequest;
 import com.chatly.dto.response.BlockStatusResponse;
 import com.chatly.dto.response.ContactResponse;
+import com.chatly.dto.response.ContactSuggestionResponse;
 import com.chatly.exception.AppException;
 import com.chatly.exception.ErrorCode;
 import com.chatly.mapper.ContactMapper;
+import com.chatly.mapper.ContactSuggestionMapper;
 import com.chatly.model.enums.ContactStatus;
 import com.chatly.model.enums.NotificationType;
 import com.chatly.model.postgres.Contact;
@@ -16,18 +18,22 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
+import java.util.*;
 
 @Service
 @RequiredArgsConstructor
 public class ContactService {
 
+    private static final int DEFAULT_SUGGESTION_LIMIT = 5;
+    private static final int MIN_SUGGESTION_LIMIT = 1;
+    private static final int MAX_SUGGESTION_LIMIT = 20;
+
     private final ContactRepository contactRepository;
     private final UserRepository userRepository;
     private final ContactMapper contactMapper;
+    private final ContactSuggestionMapper contactSuggestionMapper;
     private final NotificationService notificationService;
+    private final UserSettingsService userSettingsService;
 
     @Transactional
     public ContactResponse sendRequest(UUID userId, ContactRequest request) {
@@ -45,13 +51,16 @@ public class ContactService {
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
         User contact = userRepository.findById(contactId)
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+        if (!userSettingsService.isFriendRequestAllowed(contactId.toString())) {
+            throw new AppException(ErrorCode.CONTACT_FRIEND_REQUESTS_DISABLED);
+        }
 
         Contact newContact = Contact.builder()
                 .user(user)
                 .contact(contact)
                 .build();
 
-        ContactResponse response = contactMapper.toResponse(contactRepository.save(newContact));
+        ContactResponse response = toContactResponse(contactRepository.save(newContact));
 
         notificationService.createAndPush(
                 NotificationType.FRIEND_REQUEST,
@@ -70,7 +79,15 @@ public class ContactService {
                 .orElseThrow(() -> new AppException(ErrorCode.CONTACT_NOT_FOUND));
 
         contact.setStatus(ContactStatus.ACCEPTED);
-        return contactMapper.toResponse(contactRepository.save(contact));
+        Contact acceptedContact = contactRepository.save(contact);
+        notificationService.createAndPush(
+                NotificationType.FRIEND_ACCEPTED,
+                acceptedContact.getContact().getId().toString(),
+                acceptedContact.getUser().getId().toString(),
+                acceptedContact.getContact().getDisplayName() + " accepted your friend request",
+                acceptedContact.getContact().getId().toString()
+        );
+        return toContactResponse(acceptedContact);
     }
 
     @Transactional
@@ -80,7 +97,7 @@ public class ContactService {
 
         contact.setStatus(ContactStatus.BLOCKED);
         contact.setBlockedBy(currentUserId);
-        return contactMapper.toResponse(contactRepository.save(contact));
+        return toContactResponse(contactRepository.save(contact));
     }
 
     @Transactional
@@ -94,7 +111,7 @@ public class ContactService {
 
         contact.setStatus(ContactStatus.ACCEPTED);
         contact.setBlockedBy(null);
-        return contactMapper.toResponse(contactRepository.save(contact));
+        return toContactResponse(contactRepository.save(contact));
     }
 
     @Transactional(readOnly = true)
@@ -147,25 +164,55 @@ public class ContactService {
         // so the victim does not see the record in their own block list.
         if (status == ContactStatus.BLOCKED) {
             return contactRepository.findBlockedByUser(userId).stream()
-                    .map(contactMapper::toResponse)
+                    .map(this::toContactResponse)
                     .toList();
         }
         // For ACCEPTED: include contacts blocked by others (victim still sees blocker as friend),
         // but exclude contacts the current user has blocked themselves (those go to block list only).
         if (status == ContactStatus.ACCEPTED) {
             return contactRepository.findFriendsAndBlocked(userId).stream()
-                    .map(contactMapper::toResponse)
+                    .map(this::toContactResponse)
                     .toList();
         }
         return contactRepository.findByParticipantIdAndStatus(userId, status).stream()
-                .map(contactMapper::toResponse)
+                .map(this::toContactResponse)
                 .toList();
     }
 
     @Transactional(readOnly = true)
     public List<ContactResponse> getAllContacts(UUID userId) {
         return contactRepository.findByUserIdOrContactId(userId, userId).stream()
-                .map(contactMapper::toResponse)
+                .map(this::toContactResponse)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public long getFriendCount(UUID userId) {
+        return contactRepository.countByParticipantIdAndStatus(userId, ContactStatus.ACCEPTED);
+    }
+
+    @Transactional(readOnly = true)
+    public List<ContactSuggestionResponse> getSuggestions(UUID userId, Integer limit) {
+        List<Contact> directFriendContacts =
+                contactRepository.findByParticipantIdAndStatus(userId, ContactStatus.ACCEPTED);
+        if (directFriendContacts.isEmpty()) {
+            return List.of();
+        }
+
+        Set<UUID> excludedUserIds = getExistingRelationshipUserIds(userId);
+        Map<UUID, Set<UUID>> mutualFriendIds =
+                findMutualFriendCandidateIds(userId, directFriendContacts, excludedUserIds);
+        int safeLimit = normalizeSuggestionLimit(limit);
+        List<UUID> rankedCandidateIds = rankSuggestionIds(mutualFriendIds, safeLimit);
+        Map<UUID, User> suggestedUsers = new HashMap<>();
+        userRepository.findAllById(rankedCandidateIds)
+                .forEach(user -> suggestedUsers.put(user.getId(), user));
+
+        return rankedCandidateIds.stream()
+                .filter(suggestedUsers::containsKey)
+                .map(candidateId -> toSuggestionResponse(
+                        suggestedUsers.get(candidateId),
+                        mutualFriendIds.get(candidateId).size()))
                 .toList();
     }
 
@@ -183,7 +230,7 @@ public class ContactService {
         if (existing.isPresent()) {
             contact = existing.get();
             if (ContactStatus.BLOCKED == contact.getStatus() && currentUserId.equals(contact.getBlockedBy())) {
-                return contactMapper.toResponse(contact); // already blocked by this user
+                return toContactResponse(contact); // already blocked by this user
             }
         } else {
             User user = userRepository.findById(currentUserId)
@@ -197,7 +244,7 @@ public class ContactService {
         }
         contact.setStatus(ContactStatus.BLOCKED);
         contact.setBlockedBy(currentUserId);
-        return contactMapper.toResponse(contactRepository.save(contact));
+        return toContactResponse(contactRepository.save(contact));
     }
 
     /**
@@ -213,7 +260,7 @@ public class ContactService {
         }
         contact.setStatus(ContactStatus.ACCEPTED);
         contact.setBlockedBy(null);
-        return contactMapper.toResponse(contactRepository.save(contact));
+        return toContactResponse(contactRepository.save(contact));
     }
 
     /**
@@ -222,7 +269,7 @@ public class ContactService {
     @Transactional(readOnly = true)
     public ContactResponse getContactByUser(UUID currentUserId, UUID otherUserId) {
         return contactRepository.findByParticipants(currentUserId, otherUserId)
-                .map(contactMapper::toResponse)
+                .map(this::toContactResponse)
                 .orElse(null);
     }
 
@@ -232,5 +279,76 @@ public class ContactService {
             throw new AppException(ErrorCode.CONTACT_NOT_FOUND);
         }
         contactRepository.deleteById(contactRecordId);
+    }
+
+    @Transactional(readOnly = true)
+    public List<ContactResponse> getFriendsForUser(UUID targetUserId, UUID currentUserId) {
+        if (!targetUserId.equals(currentUserId)) {
+            if (!userSettingsService.isFriendListVisible(targetUserId.toString())) {
+                throw new AppException(ErrorCode.FRIEND_LIST_HIDDEN);
+            }
+        }
+        return contactRepository.findByParticipantIdAndStatus(targetUserId, ContactStatus.ACCEPTED).stream()
+                .map(this::toContactResponse)
+                .toList();
+    }
+
+    private Set<UUID> getExistingRelationshipUserIds(UUID userId) {
+        Set<UUID> userIds = new HashSet<>();
+        userIds.add(userId);
+        contactRepository.findByUserIdOrContactId(userId, userId)
+                .forEach(contact -> userIds.add(getOtherUserId(contact, userId)));
+        return userIds;
+    }
+
+    private Map<UUID, Set<UUID>> findMutualFriendCandidateIds(
+            UUID userId,
+            List<Contact> directFriendContacts,
+            Set<UUID> excludedUserIds) {
+        Map<UUID, Set<UUID>> candidateMutualFriendIds = new HashMap<>();
+        for (Contact directFriendContact : directFriendContacts) {
+            UUID friendId = getOtherUserId(directFriendContact, userId);
+            contactRepository.findByParticipantIdAndStatus(friendId, ContactStatus.ACCEPTED)
+                    .stream()
+                    .map(contact -> getOtherUserId(contact, friendId))
+                    .filter(candidateId -> !excludedUserIds.contains(candidateId))
+                    .forEach(candidateId -> candidateMutualFriendIds
+                            .computeIfAbsent(candidateId, ignored -> new HashSet<>())
+                            .add(friendId));
+        }
+        return candidateMutualFriendIds;
+    }
+
+    private List<UUID> rankSuggestionIds(Map<UUID, Set<UUID>> mutualFriendIds, int limit) {
+        return mutualFriendIds.entrySet().stream()
+                .sorted(Comparator
+                        .<Map.Entry<UUID, Set<UUID>>>comparingInt(entry -> entry.getValue().size())
+                        .reversed()
+                        .thenComparing(entry -> entry.getKey().toString()))
+                .limit(limit)
+                .map(Map.Entry::getKey)
+                .toList();
+    }
+
+    private ContactSuggestionResponse toSuggestionResponse(User user, int mutualFriendCount) {
+        return contactSuggestionMapper.toResponse(user, mutualFriendCount);
+    }
+
+    private UUID getOtherUserId(Contact contact, UUID userId) {
+        return contact.getUser().getId().equals(userId)
+                ? contact.getContact().getId()
+                : contact.getUser().getId();
+    }
+
+    private int normalizeSuggestionLimit(Integer limit) {
+        int requested = limit == null ? DEFAULT_SUGGESTION_LIMIT : limit;
+        return Math.max(MIN_SUGGESTION_LIMIT, Math.min(requested, MAX_SUGGESTION_LIMIT));
+    }
+
+    private ContactResponse toContactResponse(Contact contact) {
+        ContactResponse response = contactMapper.toResponse(contact);
+        userSettingsService.applyPresencePrivacy(response.getUser());
+        userSettingsService.applyPresencePrivacy(response.getContact());
+        return response;
     }
 }

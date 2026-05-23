@@ -12,6 +12,7 @@ import {
     PanelLeftClose,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { CustomAiIcon } from "@/components/customize/CustomAiIcon";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -108,6 +109,8 @@ export function ChatbotSessionSidebar({ activeSessionId, onToggleCollapse }: Pro
     };
 
     const cancelRename = () => setEditingId(null);
+    const isPostContextSession = (contextConversationId?: string | null) =>
+        !!contextConversationId?.startsWith("social:post:");
 
     return (
         <div className="w-full md:w-80 h-full border-r border-border flex flex-col bg-background">
@@ -183,8 +186,9 @@ export function ChatbotSessionSidebar({ activeSessionId, onToggleCollapse }: Pro
                         {sessions.map((session) => {
                             const isEditing = editingId === session.id;
                             const isActive = session.id === activeSessionId;
-                            const isGroupContext = !!session.context_conversation_id;
-                            const SessionIcon = isGroupContext ? MessagesSquare : MessageSquare;
+                            const isPostContext = isPostContextSession(session.context_conversation_id);
+                            const isGroupContext = !!session.context_conversation_id && !isPostContext;
+                            const SessionIcon = isPostContext ? CustomAiIcon : isGroupContext ? MessagesSquare : MessageSquare;
                             return (
                                 <div
                                     key={session.id}
@@ -194,7 +198,9 @@ export function ChatbotSessionSidebar({ activeSessionId, onToggleCollapse }: Pro
                                     className={cn(
                                         "w-full flex items-center gap-3 px-4 py-3 text-left transition-colors group cursor-pointer",
                                         isActive
-                                            ? isGroupContext
+                                            ? isPostContext
+                                                ? "bg-brand/8 border-r-2 border-brand"
+                                                : isGroupContext
                                                 ? "bg-violet-500/8 border-r-2 border-violet-500"
                                                 : "bg-brand/8 border-r-2 border-brand"
                                             : "hover:bg-muted/50",
@@ -202,10 +208,15 @@ export function ChatbotSessionSidebar({ activeSessionId, onToggleCollapse }: Pro
                                 >
                                     <SessionIcon
                                         className={cn(
-                                            "h-4 w-4 shrink-0",
+                                            "shrink-0",
+                                            isPostContext ? "h-4 w-4 text-brand" : "h-4 w-4",
                                             isActive
-                                                ? isGroupContext ? "text-violet-500" : "text-brand"
-                                                : isGroupContext ? "text-violet-400" : "text-muted-foreground",
+                                                ? isPostContext
+                                                    ? "text-brand"
+                                                    : isGroupContext ? "text-violet-500" : "text-brand"
+                                                : isPostContext
+                                                    ? "text-brand/80"
+                                                    : isGroupContext ? "text-violet-400" : "text-muted-foreground",
                                         )}
                                     />
                                     <div className="flex-1 min-w-0">
@@ -262,6 +273,11 @@ export function ChatbotSessionSidebar({ activeSessionId, onToggleCollapse }: Pro
                                                     {session.title}
                                                 </p>
                                                 <div className="flex items-center gap-1.5 mt-0.5">
+                                                    {isPostContext && (
+                                                        <span className="inline-flex items-center rounded-full bg-brand/10 dark:bg-brand/15 text-brand text-[10px] font-medium px-1.5 py-0 leading-4 shrink-0">
+                                                            Post
+                                                        </span>
+                                                    )}
                                                     {isGroupContext && (
                                                         <span className="inline-flex items-center rounded-full bg-violet-100 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400 text-[10px] font-medium px-1.5 py-0 leading-4 shrink-0">
                                                             Group

@@ -7,23 +7,6 @@ export function UtilitiesSettings() {
         <div className="flex-1 overflow-y-auto p-8">
             <div className="mx-auto flex max-w-2xl flex-col gap-10">
                 <section className="flex flex-col gap-4">
-                    <div className="flex flex-col gap-1">
-                        <h3 className="text-lg font-bold text-foreground">Cache</h3>
-                        <p className="text-sm text-muted-foreground">
-                            Check temporary files and clean up to increase performance
-                        </p>
-                    </div>
-
-                    <div className="flex items-center justify-between rounded-xl border border-border bg-card/40 p-6 transition-all hover:border-border/80">
-                        <div>
-                            <p className="text-sm font-semibold text-foreground">1.2 GB temporary data</p>
-                            <p className="text-xs text-muted-foreground">Includes preview images and local search history</p>
-                        </div>
-                        <Button variant="outline">Clean up now</Button>
-                    </div>
-                </section>
-
-                <section className="flex flex-col gap-4">
                     <h3 className="text-lg font-bold text-foreground">Export personal data</h3>
                     <div className="space-y-4 rounded-xl border border-border bg-card/40 p-6 transition-all hover:border-border/80">
                         <div className="space-y-2">
@@ -31,11 +14,11 @@ export function UtilitiesSettings() {
                             <Input
                                 id="export-email"
                                 type="email"
-                                defaultValue="minhanh@chatly.vn"
+                                defaultValue="thechallenger@iuh.edu.vn"
                             />
                         </div>
                         <div className="flex justify-end">
-                            <Button className="bg-brand text-white hover:bg-brand-hover">
+                            <Button onClick={() => alert("Development mode")} className="bg-brand text-white hover:bg-brand-hover">
                                 Request data export
                             </Button>
                         </div>

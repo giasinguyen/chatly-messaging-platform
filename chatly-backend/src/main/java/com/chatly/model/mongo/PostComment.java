@@ -34,4 +34,8 @@ public class PostComment {
 
     @Builder.Default
     private List<PostReaction> reactions = new ArrayList<>();
+
+    private boolean isAiGenerated;
+
+    private String triggerType;
 }

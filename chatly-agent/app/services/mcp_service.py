@@ -1,4 +1,5 @@
 """MCP client (SSE transport) and MCP server management service."""
+import asyncio
 import logging
 from datetime import UTC, datetime
 from typing import Any
@@ -11,6 +12,8 @@ from app.repositories.mcp_repo import MCPRepository
 logger = logging.getLogger(__name__)
 
 _HTTP_TIMEOUT = 10.0
+_CALL_TOOL_MAX_RETRIES = 3
+_CALL_TOOL_RETRY_BASE_DELAY_S = 0.5
 
 
 class MCPClient:
@@ -48,10 +51,34 @@ class MCPClient:
         return await self._list_tools_http()
 
     async def call_tool(self, tool_name: str, arguments: dict[str, Any]) -> str:
-        """Invoke a tool and return its text output."""
-        if self._transport == "sse":
-            return await self._call_tool_sse(tool_name, arguments)
-        return await self._call_tool_http(tool_name, arguments)
+        """Invoke a tool and return its text output with retry on connection failures."""
+        last_error: MCPConnectionError | None = None
+
+        for attempt in range(1, _CALL_TOOL_MAX_RETRIES + 1):
+            try:
+                if self._transport == "sse":
+                    return await self._call_tool_sse(tool_name, arguments)
+                return await self._call_tool_http(tool_name, arguments)
+            except MCPConnectionError as exc:
+                last_error = exc
+                if attempt < _CALL_TOOL_MAX_RETRIES:
+                    delay = _CALL_TOOL_RETRY_BASE_DELAY_S * (2 ** (attempt - 1))
+                    logger.warning(
+                        "MCP tool call '%s' failed on attempt %d/%d via %s (%s) — retrying in %.1fs",
+                        tool_name,
+                        attempt,
+                        _CALL_TOOL_MAX_RETRIES,
+                        self._url,
+                        exc,
+                        delay,
+                    )
+                    await asyncio.sleep(delay)
+                    continue
+
+        raise MCPConnectionError(
+            f"MCP tool call '{tool_name}' via {self._url} failed "
+            f"after {_CALL_TOOL_MAX_RETRIES} attempt(s): {last_error}"
+        )
 
     async def list_resources(self) -> list[dict[str, Any]]:
         """Fetch the list of resources exposed by this MCP server."""

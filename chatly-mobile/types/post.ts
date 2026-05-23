@@ -1,74 +1,106 @@
-export type PostVisibility = "PUBLIC" | "FOLLOWERS_ONLY" | "FRIENDS_ONLY" | "ONLY_ME";
+export type PostVisibility = 'PUBLIC' | 'FRIENDS_ONLY' | 'ONLY_ME';
 
-export type ReactionType = "LIKE" | "LOVE" | "HAHA" | "WOW" | "SAD" | "ANGRY";
+export type ReactionType = 'LIKE' | 'LOVE' | 'HAHA' | 'WOW' | 'SAD' | 'ANGRY';
+
+export type ReportReason = 'SPAM' | 'HARASSMENT' | 'INAPPROPRIATE' | 'OTHER';
 
 export interface PostReactionSummary {
-    type: ReactionType;
-    count: number;
-    reactedByMe: boolean;
+  type: ReactionType;
+  count: number;
+  reactedByMe: boolean;
 }
 
 export interface Post {
-    id: string;
-    authorId: string;
-    authorUsername?: string;
-    authorDisplayName?: string;
-    authorAvatarUrl?: string;
-    savedByMe?: boolean;
-    content: string;
-    mediaUrls: string[];
-    visibility: PostVisibility;
-    hashtags: string[];
-    reactions: PostReactionSummary[];
-    commentCount: number;
-    shareCount: number;
-    createdAt: string;
-    updatedAt: string;
+  id: string;
+  authorId: string;
+  authorUsername?: string;
+  authorDisplayName?: string;
+  authorAvatarUrl?: string;
+  savedByMe?: boolean;
+  content: string;
+  mediaUrls: string[];
+  visibility: PostVisibility;
+  hashtags: string[];
+  reactions: PostReactionSummary[];
+  commentCount: number;
+  shareCount: number;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface CreatePostRequest {
-    content: string;
-    mediaUrls?: string[];
-    visibility?: PostVisibility;
+  content: string;
+  mediaUrls?: string[];
+  visibility?: PostVisibility;
+  mentionIds?: string[];
 }
 
 export interface UpdatePostRequest {
-    content?: string;
-    visibility?: PostVisibility;
+  content?: string;
+  mediaUrls?: string[];
+  visibility?: PostVisibility;
+  mentionIds?: string[];
 }
 
 export interface ReactToPostRequest {
-    type: ReactionType;
+  type: ReactionType;
+}
+
+export interface ReportPostRequest {
+  reason: ReportReason;
+  description?: string;
+}
+
+export type ReportStatus = 'PENDING' | 'REVIEWED' | 'DISMISSED' | 'RESOLVED';
+
+export interface ReportResponse {
+  id: string;
+  postId: string;
+  reporterId: string;
+  reportedUserId: string;
+  reason: ReportReason;
+  description?: string;
+  status: ReportStatus;
+  createdAt: string;
+  updatedAt?: string;
 }
 
 export interface PostComment {
-    id: string;
-    userId: string;
-    userUsername?: string;
-    userDisplayName?: string;
-    userAvatarUrl?: string;
-    content: string;
-    mediaUrls: string[];
-    reactions: PostReactionSummary[];
-    parentCommentId?: string;
-    createdAt: string;
-    updatedAt: string;
+  id: string;
+  userId: string;
+  userUsername?: string;
+  userDisplayName?: string;
+  userAvatarUrl?: string;
+  content: string;
+  mediaUrls: string[];
+  reactions: PostReactionSummary[];
+  parentCommentId?: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface CreateCommentRequest {
-    content: string;
-    mediaUrls?: string[];
-    parentCommentId?: string;
+  content: string;
+  mediaUrls?: string[];
+  parentCommentId?: string;
+  mentionIds?: string[];
 }
 
 export interface UpdateCommentRequest {
-    content?: string;
+  content?: string;
+  mentionIds?: string[];
 }
 
 export interface PostPage {
-    content: Post[];
-    totalElements: number;
-    totalPages: number;
-    number: number;
-    last: boolean;
+  content: Post[];
+  totalElements: number;
+  totalPages: number;
+  number: number;
+  last: boolean;
+}
+
+export interface FeedResponse {
+  items: Post[];
+  nextCursor: string | null;
+  hasMore: boolean;
 }

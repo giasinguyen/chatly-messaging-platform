@@ -1,6 +1,16 @@
 import axiosClient from "@/lib/axiosClient";
 import type { ApiResponse, AuthResponse } from "@/types/auth";
 
+export interface QrLoginGenerateResponse {
+    token: string;
+    expiresAt: string;
+}
+
+export interface QrLoginStatusResponse {
+    status: "PENDING" | "SUCCESS" | "EXPIRED";
+    result?: AuthResponse;
+}
+
 /**
  * AUTH SERVICE
  * Contains APIs related to Authentication: Login, Register, Refresh Token
@@ -73,6 +83,20 @@ export const authService = {
 
         localStorage.removeItem("access_token");
         localStorage.removeItem("refresh_token");
+    },
+
+    generateQrLogin: async (): Promise<ApiResponse<QrLoginGenerateResponse>> => {
+        const response = await axiosClient.post<ApiResponse<QrLoginGenerateResponse>>(
+            "/api/auth/qr/generate",
+        );
+        return response.data;
+    },
+
+    checkQrLoginStatus: async (token: string): Promise<ApiResponse<QrLoginStatusResponse>> => {
+        const response = await axiosClient.get<ApiResponse<QrLoginStatusResponse>>(
+            `/api/auth/qr/status/${token}`,
+        );
+        return response.data;
     },
 };
 

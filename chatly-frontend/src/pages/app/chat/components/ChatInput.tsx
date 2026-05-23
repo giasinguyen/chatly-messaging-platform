@@ -44,6 +44,13 @@ import { contactService } from "@/services/contact.service";
 import { useAuthStore } from "@/store/auth.store";
 import type { Message, Attachment, Poll, ChatUser, LocationPayload } from "@/types/message";
 import { useAudioRecorder, MicPermissionDeniedError } from "@/hooks/useAudioRecorder";
+import { MentionSuggestionsDropdown } from "@/components/mention/MentionSuggestionsDropdown";
+import {
+    buildMentionSuggestions,
+    detectMentionQuery,
+    extractMentionTargets,
+    insertMentionAtCursor,
+} from "@/utils/mention";
 import { AudioRecordingBar } from "./AudioRecordingBar";
 import { RichTextMessageEditor, type RichTextMessageEditorRef } from "./RichTextMessageEditor";
 import { toMessagePreviewText } from "./richTextMessage.utils";
@@ -119,7 +126,6 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
     // Mention autocomplete state
     const [mentionQuery, setMentionQuery] = useState<string | null>(null);
     const [mentionIndex, setMentionIndex] = useState(0);
-    const mentionListRef = useRef<HTMLDivElement>(null);
     // Priority menu state
     const [showPriorityMenu, setShowPriorityMenu] = useState(false);
     const [selectedPriority, setSelectedPriority] = useState<string | null>(null);
@@ -168,12 +174,10 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
     const handleContentChange = (newVal: string) => {
         setContent(newVal);
 
-        // Detect @mention trigger
         const cursorPos = inputRef.current?.selectionStart ?? newVal.length;
-        const textBeforeCursor = newVal.slice(0, cursorPos);
-        const mentionMatch = textBeforeCursor.match(/@(\w*)$/);
-        if (mentionMatch) {
-            setMentionQuery(mentionMatch[1]);
+        const nextMentionQuery = detectMentionQuery(newVal, cursorPos);
+        if (nextMentionQuery !== null) {
+            setMentionQuery(nextMentionQuery);
             setMentionIndex(0);
         } else {
             setMentionQuery(null);
@@ -190,37 +194,19 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
 
     // Filtered mention suggestions
     const mentionSuggestions = useMemo(() => {
-        if (mentionQuery === null) return [];
-        const q = mentionQuery.toLowerCase();
-        const results: { id: string; displayName: string; username: string }[] = [];
-        // Always show @all option first
-        if ("all".startsWith(q)) {
-            results.push({ id: "all", displayName: "All members", username: "all" });
-        }
-        // Show @AI option only in groups with AI proactive feature enabled
-        if (groupMembers.length > 0 && isAiProactiveEnabled && "ai".startsWith(q)) {
-            results.push({ id: "AI", displayName: "AI", username: "AI" });
-        }
-        for (const m of groupMembers) {
-            if (m.id === currentUserId) continue; // don't suggest self
-            if (
-                m.displayName.toLowerCase().includes(q) ||
-                m.username.toLowerCase().includes(q)
-            ) {
-                results.push(m);
-            }
-            if (results.length >= 8) break;
-        }
-        return results;
-    }, [mentionQuery, groupMembers, currentUserId]);
+        return buildMentionSuggestions(mentionQuery, groupMembers, {
+            includeAll: true,
+            includeAi: groupMembers.length > 0 && isAiProactiveEnabled,
+            currentUserId,
+            maxUsers: 8,
+        });
+    }, [mentionQuery, groupMembers, currentUserId, isAiProactiveEnabled]);
 
-    const insertMention = (user: { id: string; displayName: string; username: string }) => {
+    const insertMention = (suggestion: { id: string; displayName: string; username: string; kind: "user" | "ai" | "all" }) => {
         const cursorPos = inputRef.current?.selectionStart ?? content.length;
-        const textBeforeCursor = content.slice(0, cursorPos);
-        const textAfterCursor = content.slice(cursorPos);
-        const mentionStart = textBeforeCursor.lastIndexOf("@");
-        const insertName = user.id === "all" ? "@all" : user.id === "AI" ? "@AI" : `@${user.displayName}`;
-        const newContent = textBeforeCursor.slice(0, mentionStart) + insertName + " " + textAfterCursor;
+        const newContent = insertMentionAtCursor(content, cursorPos, suggestion, {
+            userMentionField: "displayName",
+        });
         setContent(newContent);
         setMentionQuery(null);
         inputRef.current?.focus();
@@ -391,31 +377,10 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
 
     // Extract mention user IDs from the content text
     const extractMentions = (text: string): string[] => {
-        const mentionIds: string[] = [];
-        // Build sorted names (longest first) so multi-word display names match before partial ones
-        const names = [
-            ...groupMembers.flatMap((m) => [m.displayName, m.username]),
-            "all",
-            "AI",
-        ].filter(Boolean).sort((a, b) => b.length - a.length);
-        const escaped = names.map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
-        const mentionRegex = new RegExp(`@(${escaped.join('|')})`, 'g');
-        let match;
-        while ((match = mentionRegex.exec(text)) !== null) {
-            const name = match[1];
-            if (name === "all") {
-                mentionIds.push("all");
-            } else if (name === "AI") {
-                mentionIds.push("AI");
-            } else {
-                // Find user by displayName
-                const user = groupMembers.find(
-                    (m) => m.displayName === name || m.username === name,
-                );
-                if (user) mentionIds.push(user.id);
-            }
-        }
-        return [...new Set(mentionIds)];
+        return extractMentionTargets(text, groupMembers, {
+            includeAi: true,
+            includeAll: true,
+        });
     };
 
     const handleSend = () => {
@@ -1094,54 +1059,11 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
                         {inputMode === "plain" &&
                             mentionQuery !== null &&
                             mentionSuggestions.length > 0 && (
-                                <div
-                                    ref={mentionListRef}
-                                    className="absolute bottom-full left-0 mb-1 w-72 max-h-52 overflow-y-auto bg-popover border border-border rounded-lg shadow-lg z-50"
-                                >
-                                    {mentionSuggestions.map((user, idx) => (
-                                        <button
-                                            key={user.id}
-                                            type="button"
-                                            className={cn(
-                                                "flex items-center gap-2 w-full px-3 py-2 text-sm text-left hover:bg-accent transition-colors",
-                                                idx === mentionIndex &&
-                                                    "bg-accent",
-                                            )}
-                                            onMouseDown={(e) => {
-                                                e.preventDefault();
-                                                insertMention(user);
-                                            }}
-                                        >
-                                            <div className={cn(
-                                                "w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold shrink-0",
-                                                user.id === "AI"
-                                                    ? "bg-violet-100 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400"
-                                                    : "bg-brand/20 text-brand",
-                                            )}>
-                                                {user.id === "all"
-                                                    ? "@"
-                                                    : user.id === "AI"
-                                                    ? "✨"
-                                                    : user.displayName.charAt(0).toUpperCase()}
-                                            </div>
-                                            <div className="min-w-0">
-                                                <p className="font-medium truncate">
-                                                    {user.id === "AI" ? "@AI" : user.displayName}
-                                                </p>
-                                                {user.id !== "all" && user.id !== "AI" && (
-                                                    <p className="text-xs text-muted-foreground truncate">
-                                                        @{user.username}
-                                                    </p>
-                                                )}
-                                                {user.id === "AI" && (
-                                                    <p className="text-xs text-muted-foreground truncate">
-                                                        AI assistant
-                                                    </p>
-                                                )}
-                                            </div>
-                                        </button>
-                                    ))}
-                                </div>
+                                <MentionSuggestionsDropdown
+                                    suggestions={mentionSuggestions}
+                                    activeIndex={mentionIndex}
+                                    onSelect={insertMention}
+                                />
                             )}
                         {inputMode === "plain" ? (
                             <Input

@@ -1,22 +1,75 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
-import { ChevronRight, Check } from "lucide-react";
-import { Label } from "@/components/ui/label";
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from "@/components/ui/select";
+import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useAuthStore } from "@/store/auth.store";
+import { settingsService } from "@/services/settings.service";
+import type { UserSettingsType, PrivacySettingsType } from "@/services/settings.service";
+import { toast } from "sonner";
 
 export function PrivacySettings() {
-    const user = useAuthStore((s) => s.user);
-    const [showOnlineStatus, setShowOnlineStatus] = useState(true);
-    const [showSeenStatus, setShowSeenStatus] = useState(true);
-    const [allowSearchByPhone, setAllowSearchByPhone] = useState(true);
+    const [loading, setLoading] = useState(true);
+    const [settings, setSettings] = useState<UserSettingsType | null>(null);
+
+    useEffect(() => {
+        const fetchSettings = async () => {
+            try {
+                const res = await settingsService.getSettings();
+                if (res.code === 1000) {
+                    setSettings(res.result);
+                }
+            } catch {
+                toast.error("Could not load privacy settings");
+            } finally {
+                setLoading(false);
+            }
+        };
+        void fetchSettings();
+    }, []);
+
+    const handleTogglePrivacy = async (key: keyof PrivacySettingsType) => {
+        if (!settings) return;
+        const currentVal = settings.privacy[key];
+        const updatedVal = !currentVal;
+        
+        // Optimistic update
+        const originalSettings = { ...settings };
+        setSettings({
+            ...settings,
+            privacy: {
+                ...settings.privacy,
+                [key]: updatedVal,
+            },
+        });
+
+        try {
+            const res = await settingsService.updateSection("privacy", {
+                [key]: updatedVal,
+            });
+            if (res.code === 1000) {
+                setSettings(res.result);
+                toast.success("Settings updated");
+            } else {
+                setSettings(originalSettings);
+                toast.error("Could not update setting");
+            }
+        } catch {
+            setSettings(originalSettings);
+            toast.error("Could not update setting");
+        }
+    };
+
+    if (loading) {
+        return (
+            <div className="flex-1 flex items-center justify-center p-8">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            </div>
+        );
+    }
+
+    const showOnlineStatus = settings?.privacy?.showOnlineStatus ?? true;
+    const showSeenStatus = settings?.privacy?.showReadReceipts ?? true;
+    const showFriendList = settings?.privacy?.showFriendList ?? true;
+    const allowFriendRequests = settings?.privacy?.allowFriendRequests ?? true;
 
     return (
         <div className="flex-1 overflow-y-auto p-6 md:p-8">
@@ -26,8 +79,7 @@ export function PrivacySettings() {
                         Privacy
                     </h3>
                     <p className="text-sm text-muted-foreground">
-                        Manage what information you display and who can contact
-                        you.
+                        Manage what information you display and who can contact you.
                     </p>
                 </section>
 
@@ -36,29 +88,19 @@ export function PrivacySettings() {
                         Personal
                     </h4>
                     <div className="space-y-1 rounded-xl border border-border bg-card/40 p-4 md:p-5">
-                        <SettingRow label="Show date of birth">
-                            <Select defaultValue="hidden">
-                                <SelectTrigger className="w-[170px] bg-background/60">
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="hidden">Hide</SelectItem>
-                                    <SelectItem value="friends">
-                                        Friends
-                                    </SelectItem>
-                                    <SelectItem value="everyone">
-                                        Everyone
-                                    </SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </SettingRow>
-
                         <SettingRow label="Show online status">
                             <SettingSwitch
                                 checked={showOnlineStatus}
-                                onToggle={() =>
-                                    setShowOnlineStatus((prev) => !prev)
-                                }
+                                onToggle={() => void handleTogglePrivacy("showOnlineStatus")}
+                            />
+                        </SettingRow>
+                        <SettingRow
+                            label="Allow others to view my friend list"
+                            description="When off, people who open your profile will see that your friend list is private."
+                        >
+                            <SettingSwitch
+                                checked={showFriendList}
+                                onToggle={() => void handleTogglePrivacy("showFriendList")}
                             />
                         </SettingRow>
                     </div>
@@ -72,99 +114,15 @@ export function PrivacySettings() {
                         <SettingRow label='Show "Seen" status'>
                             <SettingSwitch
                                 checked={showSeenStatus}
-                                onToggle={() =>
-                                    setShowSeenStatus((prev) => !prev)
-                                }
+                                onToggle={() => void handleTogglePrivacy("showReadReceipts")}
                             />
                         </SettingRow>
-
-                        <SettingRow
-                            label="Allow messaging"
-                            description="Who can message you"
-                        >
-                            <Select defaultValue="all">
-                                <SelectTrigger className="w-[170px] bg-background/60">
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">
-                                        Everyone
-                                    </SelectItem>
-                                    <SelectItem value="friends">
-                                        Friends
-                                    </SelectItem>
-                                    <SelectItem value="none">None</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </SettingRow>
-
-                        <SettingRow
-                            label="Allow calls"
-                            description="Who can call you"
-                        >
-                            <Select defaultValue="friends-contacted">
-                                <SelectTrigger className="w-[260px] bg-background/60">
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">
-                                        Everyone
-                                    </SelectItem>
-                                    <SelectItem value="friends-contacted">
-                                        Friends and previously contacted
-                                        strangers
-                                    </SelectItem>
-                                    <SelectItem value="friends">
-                                        Only friends
-                                    </SelectItem>
-                                    <SelectItem value="none">None</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </SettingRow>
-                    </div>
-                </section>
-
-                <section className="space-y-4">
-                    <h4 className="text-xl font-semibold text-foreground">
-                        Blocked messages
-                    </h4>
-                    <button
-                        type="button"
-                        className="flex w-full items-center justify-between rounded-xl border border-border bg-card/40 px-4 py-4 text-left transition hover:border-border/80"
-                    >
-                        <span className="text-base font-medium text-foreground">
-                            Block list
-                        </span>
-                        <ChevronRight className="h-5 w-5 text-muted-foreground" />
-                    </button>
-                </section>
-
-                <section className="space-y-4">
-                    <h4 className="text-xl font-semibold text-foreground">
-                        Search criteria
-                    </h4>
-                    <div className="rounded-xl border border-border bg-card/40 p-4 md:p-5">
-                        <SettingRow
-                            label={`Allow strangers to find and add you via phone number ${user?.phone || "N/A"}`}
-                        >
+                        <SettingRow label="Allow friend requests">
                             <SettingSwitch
-                                checked={allowSearchByPhone}
-                                onToggle={() =>
-                                    setAllowSearchByPhone((prev) => !prev)
-                                }
+                                checked={allowFriendRequests}
+                                onToggle={() => void handleTogglePrivacy("allowFriendRequests")}
                             />
                         </SettingRow>
-                    </div>
-                </section>
-
-                <section className="space-y-4">
-                    <h4 className="text-xl font-semibold text-foreground">
-                        Allow strangers to add friend
-                    </h4>
-                    <div className="space-y-1 rounded-xl border border-border bg-card/40 p-4 md:p-5">
-                        <CheckboxRow label="My QR code" checked />
-                        <CheckboxRow label="Common groups" checked />
-                        <CheckboxRow label="Chatly business cards" checked />
                     </div>
                 </section>
             </div>
@@ -221,23 +179,5 @@ function SettingSwitch({
                 )}
             />
         </button>
-    );
-}
-
-function CheckboxRow({ label, checked }: { label: string; checked?: boolean }) {
-    return (
-        <Label className="flex cursor-pointer items-center gap-3 rounded-lg px-2 py-2 text-base font-medium text-foreground">
-            <span
-                className={cn(
-                    "flex h-5 w-5 items-center justify-center rounded-md border",
-                    checked
-                        ? "border-brand bg-brand text-white"
-                        : "border-border bg-background text-transparent",
-                )}
-            >
-                <Check className="h-3.5 w-3.5" />
-            </span>
-            {label}
-        </Label>
     );
 }

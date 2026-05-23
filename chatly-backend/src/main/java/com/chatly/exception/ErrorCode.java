@@ -25,12 +25,14 @@ public enum ErrorCode {
     EMAIL_NOT_VERIFIED(1108, "Email is not verified", HttpStatus.FORBIDDEN),
     EMAIL_VERIFICATION_TOKEN_INVALID(1109, "Invalid or expired email verification link", HttpStatus.BAD_REQUEST),
     EMAIL_VERIFICATION_RESEND_TOO_SOON(1110, "Please wait before requesting another verification link", HttpStatus.TOO_MANY_REQUESTS),
+    USER_SUSPENDED(1115, "Your account has been suspended", HttpStatus.FORBIDDEN),
 
     CONTACT_NOT_FOUND(1200, "Contact not found", HttpStatus.NOT_FOUND),
     CONTACT_ALREADY_EXISTS(1201, "Contact relationship already exists", HttpStatus.CONFLICT),
     CONTACT_SELF_REQUEST(1202, "Cannot add yourself as a contact", HttpStatus.BAD_REQUEST),
     CONTACT_NOT_AUTHORIZED(1203, "You are not authorized to perform this action on this contact", HttpStatus.FORBIDDEN),
     CONTACT_BLOCKED(1204, "Action blocked due to contact restriction", HttpStatus.FORBIDDEN),
+    CONTACT_FRIEND_REQUESTS_DISABLED(1205, "This user is not accepting friend requests", HttpStatus.FORBIDDEN),
 
     CONVERSATION_NOT_FOUND(1300, "Conversation not found", HttpStatus.NOT_FOUND),
     CONVERSATION_ALREADY_EXISTS(1301, "Private conversation already exists", HttpStatus.CONFLICT),
@@ -73,8 +75,17 @@ public enum ErrorCode {
 
     POST_NOT_FOUND(1900, "Post not found", HttpStatus.NOT_FOUND),
     POST_FORBIDDEN(1901, "You are not authorized to modify this post", HttpStatus.FORBIDDEN),
+    COMMENT_NOT_FOUND(1903, "Comment not found", HttpStatus.NOT_FOUND),
+    COMMENT_FORBIDDEN(1904, "You are not authorized to modify this comment", HttpStatus.FORBIDDEN),
+    REPORT_ALREADY_EXISTS(1905, "You have already reported this post", HttpStatus.CONFLICT),
+    SOCIAL_AI_RATE_LIMITED(1906, "Too many AI requests. Please try again later.", HttpStatus.TOO_MANY_REQUESTS),
+    SOCIAL_AI_UNAVAILABLE(1907, "AI social features are currently unavailable", HttpStatus.SERVICE_UNAVAILABLE),
+    USER_REPORT_ALREADY_EXISTS(1908, "You have already reported this user", HttpStatus.CONFLICT),
     STORY_NOT_FOUND(1910, "Story not found", HttpStatus.NOT_FOUND),
     STORY_FORBIDDEN(1911, "You are not authorized to perform this action on this story", HttpStatus.FORBIDDEN),
+    REEL_NOT_FOUND(1920, "Reel not found", HttpStatus.NOT_FOUND),
+    REEL_FORBIDDEN(1921, "You are not authorized to view this reel", HttpStatus.FORBIDDEN),
+    REEL_VIDEO_REQUIRED(1922, "Reel video is required", HttpStatus.BAD_REQUEST),
 
     FILE_NOT_FOUND(1800, "File not found", HttpStatus.NOT_FOUND),
     FILE_UPLOAD_FAILED(1801, "File upload failed", HttpStatus.INTERNAL_SERVER_ERROR),
@@ -90,12 +101,13 @@ public enum ErrorCode {
     AGENT_SERVICE_ERROR(2000, "AI service temporarily unavailable", HttpStatus.BAD_GATEWAY),
     AGENT_BAD_REQUEST(2001, "Invalid AI service request", HttpStatus.BAD_REQUEST),
 
+    SETTINGS_INVALID_SECTION(2100, "Invalid settings section. Allowed: privacy, notifications, messages", HttpStatus.BAD_REQUEST),
+
     ALREADY_FOLLOWING(2202, "You are already following this user", HttpStatus.CONFLICT),
     NOT_FOLLOWING(2203, "You are not following this user", HttpStatus.NOT_FOUND),
     CANNOT_FOLLOW_SELF(2207, "You cannot follow yourself", HttpStatus.BAD_REQUEST),
     FOLLOW_ACTION_BLOCKED(2208, "Follow action is blocked due to privacy restrictions", HttpStatus.FORBIDDEN),
-
-    SETTINGS_INVALID_SECTION(1900, "Invalid settings section. Allowed: privacy, notifications, messages", HttpStatus.BAD_REQUEST);
+    FRIEND_LIST_HIDDEN(2209, "This user has hidden their friend list", HttpStatus.FORBIDDEN);
 
     private final int code;
     private final String message;

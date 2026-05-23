@@ -17,6 +17,7 @@ import {
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { getAssistantContextMode } from '@/constants/assistant';
 import * as Clipboard from 'expo-clipboard';
 import { Colors } from '@/constants/theme';
 import { CustomAiIcon } from '@/components/ui/CustomAiIcon';
@@ -34,9 +35,11 @@ import { ForwardToChatModal } from '@/components/assistant/ForwardToChatModal';
 import { AssistantQuickChips } from '@/components/assistant/AssistantQuickChips';
 import { useConversationStore } from '@/store/conversation.store';
 import { useAuthStore } from '@/store/auth.store';
+import { useThemeStore } from '@/store/theme.store';
 
 export default function AssistantScreen() {
   const router = useRouter();
+  useThemeStore((state) => state.isDarkMode);
   const insets = useSafeAreaInsets();
   const flatListRef = useRef<FlatList<AgentMessage>>(null);
 
@@ -85,10 +88,13 @@ export default function AssistantScreen() {
 
   const session = sessions.find((s) => s.id === activeSessionId);
   const title = session?.title ?? 'AI Assistant';
+  const contextMode = getAssistantContextMode(session?.context_conversation_id);
   const contextConversationName =
-    session?.context_conversation_id
+    contextMode === 'group' && session?.context_conversation_id
       ? conversations.find((conversation) => conversation.id === session.context_conversation_id)?.name ?? 'this group'
-      : undefined;
+      : contextMode === 'post'
+        ? session?.title ?? 'Post context'
+        : undefined;
 
   // ─── Load sessions on mount ──────────────────────────────
   const loadSessions = useCallback(async () => {
@@ -198,7 +204,15 @@ export default function AssistantScreen() {
       const token = Date.now().toString();
       setForwardModalVisible(false);
       setSelectedMessage(null);
-      router.push(`/chat/${conversationId}?prefill=${encoded}&prefill_token=${token}`);
+      router.push({
+        pathname: '/chat/[id]',
+        params: {
+          id: conversationId,
+          prefill: encoded,
+          prefill_token: token,
+          returnTo: 'assistant',
+        },
+      });
     },
     [selectedMessage, router],
   );
@@ -322,7 +336,7 @@ export default function AssistantScreen() {
         />
       );
     },
-    [messages.length, streamingStatus, handleRetry, handleCopy],
+    [messages.length, streamingStatus, activeSessionId, handleRetry, handleCopy],
   );
 
   const keyExtractor = useCallback((item: AgentMessage) => item.id, []);
@@ -338,7 +352,10 @@ export default function AssistantScreen() {
   const renderSessionItem = ({ item }: { item: AgentSession }) => {
     const isEditing = editingId === item.id;
     const isActive = activeSessionId === item.id;
-    const isContextSession = !!item.context_conversation_id;
+    const itemContextMode = getAssistantContextMode(item.context_conversation_id);
+    const isContextSession = itemContextMode !== null;
+    const badgeLabel = itemContextMode === 'post' ? 'Post' : 'Group';
+    const badgeColor = itemContextMode === 'post' ? '#0A7AFF' : '#4338CA';
     return (
       <TouchableOpacity
         onPress={() => handleSelectSession(item)}
@@ -379,8 +396,8 @@ export default function AssistantScreen() {
           </Text>
           {isContextSession && (
             <View className="self-start rounded-full px-2 py-0.5 mt-1" style={{ backgroundColor: '#EEF2FF' }}>
-              <Text className="text-[10px] font-medium" style={{ color: '#4338CA' }}>
-                Group
+              <Text className="text-[10px] font-medium" style={{ color: badgeColor }}>
+                {badgeLabel}
               </Text>
             </View>
           )}
@@ -499,6 +516,7 @@ export default function AssistantScreen() {
               <AssistantQuickChips
                 onChipSelect={handleChipSelect}
                 contextConversationName={contextConversationName}
+                contextMode={contextMode}
               />
             </View>
           )}

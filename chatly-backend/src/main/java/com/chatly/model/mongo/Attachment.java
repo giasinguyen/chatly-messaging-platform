@@ -49,4 +49,37 @@ public class Attachment {
 
     @Field("targetUrl")
     private String targetUrl;
+
+    @Field("reelId")
+    private String reelId;
+
+    @Field("reelCaption")
+    private String reelCaption;
+
+    @Field("reelVideoUrl")
+    private String reelVideoUrl;
+
+    @Field("reelAuthorName")
+    private String reelAuthorName;
+
+    @Field("reelAuthorAvatarUrl")
+    private String reelAuthorAvatarUrl;
+
+    @Field("storyId")
+    private String storyId;
+
+    @Field("storyType")
+    private String storyType;
+
+    @Field("storyMediaUrl")
+    private String storyMediaUrl;
+
+    @Field("storyContent")
+    private String storyContent;
+
+    @Field("storyOwnerName")
+    private String storyOwnerName;
+
+    @Field("storyOwnerAvatarUrl")
+    private String storyOwnerAvatarUrl;
 }

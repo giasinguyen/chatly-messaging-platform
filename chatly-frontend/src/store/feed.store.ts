@@ -1,8 +1,9 @@
 import { create } from "zustand";
 import { postService } from "@/services/post.service";
 import { HOME_FEED_PAGE_SIZE } from "@/constants/feed";
-import { SAMPLE_FEED_POSTS } from "@/constants/feedSamples";
 import type { FeedResponse, Post } from "@/types/post";
+
+const FEED_LOAD_ERROR_MESSAGE = "Could not load feed.";
 
 interface FeedState {
     posts: Post[];
@@ -11,6 +12,7 @@ interface FeedState {
     pendingNewPosts: Post[];
     isLoading: boolean;
     isLoadingMore: boolean;
+    error: string | null;
 
     loadInitialFeed: () => Promise<void>;
     loadMore: (cursor?: string | null) => Promise<void>;
@@ -46,6 +48,12 @@ function applyFeedResponse(
     };
 }
 
+function getFeedErrorMessage(error: unknown): string {
+    return error instanceof Error && error.message
+        ? error.message
+        : FEED_LOAD_ERROR_MESSAGE;
+}
+
 export const useFeedStore = create<FeedState>((set, get) => ({
     posts: [],
     nextCursor: null,
@@ -53,6 +61,7 @@ export const useFeedStore = create<FeedState>((set, get) => ({
     pendingNewPosts: [],
     isLoading: false,
     isLoadingMore: false,
+    error: null,
 
     loadInitialFeed: async () => {
         if (get().isLoading) return;
@@ -63,29 +72,35 @@ export const useFeedStore = create<FeedState>((set, get) => ({
             nextCursor: null,
             hasMore: true,
             pendingNewPosts: [],
+            error: null,
         });
         try {
-            const res = await postService.getHomeFeed(null, HOME_FEED_PAGE_SIZE);
-            if (res.code === 1000 && res.result) {
-                if (res.result.items.length === 0) {
-                    set({
-                        posts: SAMPLE_FEED_POSTS,
-                        nextCursor: null,
-                        hasMore: false,
-                    });
-                } else {
-                    set({
-                        posts: res.result.items,
-                        nextCursor: res.result.nextCursor,
-                        hasMore: res.result.hasMore,
-                    });
-                }
+            const res = await postService.getHomeFeed(
+                null,
+                HOME_FEED_PAGE_SIZE,
+            );
+            if (res.code !== 1000 || !res.result) {
+                set({
+                    posts: [],
+                    nextCursor: null,
+                    hasMore: false,
+                    error: res.message ?? FEED_LOAD_ERROR_MESSAGE,
+                });
+                return;
             }
-        } catch (_error: unknown) {
+
             set({
-                posts: SAMPLE_FEED_POSTS,
+                posts: res.result.items,
+                nextCursor: res.result.nextCursor,
+                hasMore: res.result.hasMore,
+                error: null,
+            });
+        } catch (error: unknown) {
+            set({
+                posts: [],
                 nextCursor: null,
                 hasMore: false,
+                error: getFeedErrorMessage(error),
             });
         } finally {
             set({ isLoading: false });
@@ -97,7 +112,7 @@ export const useFeedStore = create<FeedState>((set, get) => ({
         const effectiveCursor = cursor ?? nextCursor;
         if (isLoadingMore || isLoading || !hasMore || !effectiveCursor) return;
 
-        set({ isLoadingMore: true });
+        set({ isLoadingMore: true, error: null });
         try {
             const res = await postService.getHomeFeed(
                 effectiveCursor,
@@ -105,7 +120,11 @@ export const useFeedStore = create<FeedState>((set, get) => ({
             );
             if (res.code === 1000 && res.result) {
                 set((state) => applyFeedResponse(res.result, state.posts));
+            } else {
+                set({ error: res.message ?? FEED_LOAD_ERROR_MESSAGE });
             }
+        } catch (error: unknown) {
+            set({ error: getFeedErrorMessage(error) });
         } finally {
             set({ isLoadingMore: false });
         }
@@ -137,7 +156,9 @@ export const useFeedStore = create<FeedState>((set, get) => ({
             }
             return {
                 posts: [post, ...state.posts],
-                pendingNewPosts: state.pendingNewPosts.filter((p) => p.id !== post.id),
+                pendingNewPosts: state.pendingNewPosts.filter(
+                    (p) => p.id !== post.id,
+                ),
             };
         });
     },

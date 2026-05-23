@@ -17,6 +17,7 @@ import { fileService, type FileUploadResponse } from '@/services/file.service';
 import { messageService } from '@/services/message.service';
 import { ImageLightbox } from '@/components/ui/ImageLightbox';
 import { Colors } from '@/constants/theme';
+import { useThemeStore } from '@/store/theme.store';
 
 type TabType = 'media' | 'files' | 'links';
 
@@ -37,6 +38,7 @@ export default function SharedMediaScreen() {
   }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  useThemeStore((state) => state.isDarkMode);
 
   const [activeTab, setActiveTab] = useState<TabType>(
     (initialTab as TabType) || 'media',
@@ -297,7 +299,7 @@ export default function SharedMediaScreen() {
       <View
         style={{
           paddingTop: insets.top,
-          backgroundColor: Colors.white,
+          backgroundColor: Colors.bgCard,
           borderBottomWidth: 0.5,
           borderBottomColor: Colors.borderLight,
         }}
@@ -372,7 +374,7 @@ export default function SharedMediaScreen() {
           data={files}
           renderItem={renderFileItem}
           keyExtractor={(item) => item.fileId}
-          contentContainerStyle={{ backgroundColor: Colors.white }}
+          contentContainerStyle={{ backgroundColor: Colors.bgCard }}
           ListEmptyComponent={renderEmpty(loadingFiles, 'files')}
           ListFooterComponent={
             loadingFiles ? (
@@ -386,7 +388,7 @@ export default function SharedMediaScreen() {
                 style={{
                   paddingVertical: 12,
                   alignItems: 'center',
-                  backgroundColor: Colors.white,
+                  backgroundColor: Colors.bgCard,
                 }}
               >
                 <Text style={{ fontSize: 13, color: Colors.cta }}>
@@ -403,7 +405,7 @@ export default function SharedMediaScreen() {
           data={links}
           renderItem={renderLinkItem}
           keyExtractor={(item, index) => `${item.url}-${index}`}
-          contentContainerStyle={{ backgroundColor: Colors.white }}
+          contentContainerStyle={{ backgroundColor: Colors.bgCard }}
           ListEmptyComponent={renderEmpty(loadingLinks, 'links')}
           ListFooterComponent={
             loadingLinks ? (

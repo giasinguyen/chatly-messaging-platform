@@ -134,7 +134,7 @@ export default function PendingRequestsScreen() {
       <View
         style={{
           paddingTop: insets.top,
-          backgroundColor: Colors.white,
+          backgroundColor: Colors.bgCard,
           borderBottomWidth: 0.5,
           borderBottomColor: Colors.borderLight,
         }}

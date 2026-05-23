@@ -14,6 +14,19 @@ export interface Attachment {
   type?: string;
   size?: number;
   durationSeconds?: number;
+  kind?: 'POST_PREVIEW' | 'REEL_PREVIEW' | 'STORY_REPLY';
+  targetUrl?: string;
+  postId?: string;
+  postTitle?: string;
+  postExcerpt?: string;
+  postAuthorName?: string;
+  postAuthorAvatarUrl?: string;
+  postImageUrl?: string;
+  reelId?: string;
+  reelCaption?: string;
+  reelVideoUrl?: string;
+  reelAuthorName?: string;
+  reelAuthorAvatarUrl?: string;
 }
 
 export interface EditHistoryEntry {

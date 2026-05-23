@@ -7,6 +7,7 @@ import com.chatly.dto.request.UpdatePostRequest;
 import com.chatly.dto.response.PostCommentResponse;
 import com.chatly.dto.response.PostReactionSummary;
 import com.chatly.dto.response.PostResponse;
+import com.chatly.dto.response.TrendingHashtagResponse;
 import com.chatly.exception.AppException;
 import com.chatly.exception.ErrorCode;
 import com.chatly.mapper.PostMapper;
@@ -18,16 +19,23 @@ import com.chatly.model.mongo.PostComment;
 import com.chatly.model.mongo.PostReaction;
 import com.chatly.model.mongo.SavedPost;
 import com.chatly.model.postgres.User;
+import com.chatly.proxy.AgentProxyClient;
 import com.chatly.repository.mongo.PostRepository;
 import com.chatly.repository.mongo.SavedPostRepository;
+import com.chatly.repository.postgres.ContactRepository;
+import com.chatly.repository.postgres.FollowRepository;
 import com.chatly.repository.postgres.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -38,16 +46,40 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class PostService {
 
-    private static final Pattern HASHTAG_PATTERN = Pattern.compile("#(\\w+)");
+    private static final Pattern HASHTAG_PATTERN = Pattern.compile(
+            "#(?=[\\p{L}\\p{N}_]*\\p{L})([\\p{L}\\p{N}_]+)"
+    );
+    private static final Pattern AI_MENTION_PATTERN = Pattern.compile("(?i)@ai\\b");
+    private static final String FEED_TOPIC_PREFIX = "/topic/feed/";
+    private static final int DEFAULT_TRENDING_HASHTAG_LIMIT = 10;
+    private static final int MIN_TRENDING_HASHTAG_LIMIT = 1;
+    private static final int MAX_TRENDING_HASHTAG_LIMIT = 50;
+    private static final long TRENDING_HASHTAG_WINDOW_HOURS = 24;
+    private static final int POST_AI_CONTEXT_COMMENT_LIMIT = 5;
+    private static final int POST_CONTENT_SNIPPET_MAX_LENGTH = 300;
 
     private final PostRepository postRepository;
     private final PostMapper postMapper;
     private final UserRepository userRepository;
     private final SavedPostRepository savedPostRepository;
+    private final ContactRepository contactRepository;
+    private final FollowRepository followRepository;
     private final NotificationService notificationService;
+    private final SimpMessagingTemplate messagingTemplate;
+    private final AgentProxyClient agentProxyClient;
+    private final SocialAiRateLimiter socialAiRateLimiter;
+
+    @Value("${app.social-ai.enabled:true}")
+    private boolean socialAiEnabled;
+
+    @Value("${app.social-ai.bot-user-id:00000000-0000-0000-0000-000000000001}")
+    private String aiBotUserId;
 
     public PostResponse create(String authorId, CreatePostRequest request) {
+        List<String> mediaUrls = request.getMediaUrls() != null ? request.getMediaUrls() : new ArrayList<>();
+
         List<String> hashtags = extractHashtags(request.getContent());
+
         PostVisibility visibility = request.getVisibility() != null
                 ? request.getVisibility()
                 : PostVisibility.PUBLIC;
@@ -55,32 +87,85 @@ public class PostService {
         Post post = Post.builder()
                 .authorId(authorId)
                 .content(request.getContent())
-                .mediaUrls(request.getMediaUrls() != null ? request.getMediaUrls() : new ArrayList<>())
+                .mediaUrls(mediaUrls)
                 .visibility(visibility)
                 .hashtags(hashtags)
                 .build();
 
         post = postRepository.save(post);
         log.info("Post created: id={}, authorId={}", post.getId(), authorId);
+
+        User author = safeUuid(authorId)
+            .flatMap(userRepository::findById)
+            .orElse(null);
+        String authorName = author != null ? author.getDisplayName() : "Someone";
+        notifyMentionedUsers(
+            NotificationType.POST_MENTION,
+            authorId,
+            request.getMentionIds(),
+            authorName + " mentioned you in a post",
+            post.getId()
+        );
+
+        broadcastNewPost(post);
+        triggerSocialPostCommandIfNeeded(post, authorId, null);
         return toResponse(post, authorId);
     }
 
     public Page<PostResponse> getFeed(String requesterId, Pageable pageable) {
-        return postRepository
-                .findByVisibilityOrderByCreatedAtDesc(PostVisibility.PUBLIC, pageable)
-                .map(post -> toResponse(post, requesterId));
+        Page<Post> page = postRepository
+                .findByVisibilityAndIsDeletedFalseOrderByCreatedAtDesc(PostVisibility.PUBLIC, pageable);
+        return toBatchedResponsePage(page, requesterId);
     }
 
     public Page<PostResponse> searchPosts(String keyword, String hashtag, String requesterId, Pageable pageable) {
-        return postRepository
-                .searchPublicPosts(keyword, hashtag, pageable)
-                .map(post -> toResponse(post, requesterId));
+        Page<Post> page = postRepository.searchPublicPosts(keyword, hashtag, pageable);
+        return toBatchedResponsePage(page, requesterId);
+    }
+
+    public List<TrendingHashtagResponse> getTrendingHashtags(Integer limit) {
+        int requested = limit == null ? DEFAULT_TRENDING_HASHTAG_LIMIT : limit;
+        int safeLimit = Math.max(MIN_TRENDING_HASHTAG_LIMIT, Math.min(requested, MAX_TRENDING_HASHTAG_LIMIT));
+        Instant since = Instant.now().minus(TRENDING_HASHTAG_WINDOW_HOURS, ChronoUnit.HOURS);
+        return postRepository.findTrendingHashtags(since, safeLimit);
     }
 
     public Page<PostResponse> getByAuthor(String authorId, String requesterId, Pageable pageable) {
-        return postRepository
-                .findByAuthorIdOrderByCreatedAtDesc(authorId, pageable)
-                .map(post -> toResponse(post, requesterId));
+        Page<Post> page = postRepository
+                .findByAuthorIdAndIsDeletedFalseOrderByCreatedAtDesc(authorId, pageable);
+        return toBatchedResponsePage(page, requesterId);
+    }
+
+    public Page<PostResponse> getSaved(String requesterId, Pageable pageable) {
+        List<SavedPost> savedPosts = savedPostRepository.findByUserIdOrderByCreatedAtDesc(requesterId);
+        List<String> postIds = savedPosts.stream()
+                .map(SavedPost::getPostId)
+                .toList();
+
+        if (postIds.isEmpty()) {
+            return Page.empty(pageable);
+        }
+
+        Map<String, Post> postsById = new HashMap<>();
+        postRepository.findAllById(postIds).forEach(post -> postsById.put(post.getId(), post));
+
+        List<PostResponse> validResponses = new ArrayList<>();
+        for (SavedPost savedPost : savedPosts) {
+            Post post = postsById.get(savedPost.getPostId());
+            if (post == null || post.isDeleted()) {
+                savedPostRepository.deleteByUserIdAndPostId(requesterId, savedPost.getPostId());
+                continue;
+            }
+            validResponses.add(toResponse(post, requesterId));
+        }
+
+        if (pageable.isUnpaged()) {
+            return new PageImpl<>(validResponses);
+        }
+
+        int start = Math.toIntExact(Math.min(pageable.getOffset(), validResponses.size()));
+        int end = Math.min(start + pageable.getPageSize(), validResponses.size());
+        return new PageImpl<>(validResponses.subList(start, end), pageable, validResponses.size());
     }
 
     public PostResponse getById(String postId, String requesterId) {
@@ -91,10 +176,14 @@ public class PostService {
     public PostResponse update(String postId, String requesterId, UpdatePostRequest request) {
         Post post = findPost(postId);
         assertOwner(post, requesterId);
+        String previousContent = post.getContent();
 
         if (request.getContent() != null) {
             post.setContent(request.getContent());
             post.setHashtags(extractHashtags(request.getContent()));
+        }
+        if (request.getMediaUrls() != null) {
+            post.setMediaUrls(new ArrayList<>(request.getMediaUrls()));
         }
         if (request.getVisibility() != null) {
             post.setVisibility(request.getVisibility());
@@ -102,6 +191,18 @@ public class PostService {
 
         post = postRepository.save(post);
         log.info("Post updated: id={}", postId);
+        User author = safeUuid(requesterId)
+                .flatMap(userRepository::findById)
+                .orElse(null);
+        String authorName = author != null ? author.getDisplayName() : "Someone";
+        notifyMentionedUsers(
+                NotificationType.POST_MENTION,
+                requesterId,
+                request.getMentionIds(),
+                authorName + " mentioned you in a post",
+                post.getId()
+        );
+        triggerSocialPostCommandIfNeeded(post, requesterId, previousContent);
         return toResponse(post, requesterId);
     }
 
@@ -233,7 +334,74 @@ public class PostService {
             }
         }
 
+        if (socialAiEnabled && containsAiMention(content)) {
+            if (socialAiRateLimiter.tryConsume(userId)) {
+                String postContext = buildPostContextForAi(post);
+                String threadContext = parentCommentId != null ? buildThreadContext(post, parentCommentId) : "";
+                agentProxyClient.triggerSocialMentionCommentAsync(
+                        post.getId(), comment.getId(), userId, content, postContext, threadContext);
+            } else {
+                log.warn("Social AI rate limit exceeded for userId={} on postId={}", userId, postId);
+            }
+        }
+
+            String commenterName = commenter != null ? commenter.getDisplayName() : "Someone";
+            notifyMentionedUsers(
+                NotificationType.POST_MENTION,
+                userId,
+                request.getMentionIds(),
+                commenterName + " mentioned you in a comment",
+                postId + "_" + comment.getId()
+            );
+
         return toCommentResponse(comment, commenter, userId);
+    }
+
+    public PostCommentResponse addAiComment(String postId, String content, String parentCommentId, String triggerType) {
+        Post post = findPost(postId);
+
+        if (content == null || content.isBlank()) {
+            throw new AppException(ErrorCode.INVALID_KEY);
+        }
+        if (parentCommentId != null && post.getComments().stream().noneMatch(c -> c.getId().equals(parentCommentId))) {
+            throw new AppException(ErrorCode.INVALID_KEY);
+        }
+
+        PostComment comment = PostComment.builder()
+                .id(UUID.randomUUID().toString())
+                .userId(aiBotUserId)
+                .content(content)
+                .createdAt(Instant.now())
+                .parentCommentId(parentCommentId)
+                .isAiGenerated(true)
+                .triggerType(triggerType)
+                .build();
+
+        List<PostComment> comments = new ArrayList<>(post.getComments());
+        comments.add(comment);
+        post.setComments(comments);
+        post.setCommentCount(comments.size());
+        postRepository.save(post);
+
+        log.info("AI comment added: postId={} commentId={} triggerType={}", postId, comment.getId(), triggerType);
+        return toCommentResponse(comment, null, aiBotUserId);
+    }
+
+    public String buildPostContextForAi(String postId) {
+        return buildPostContextForAi(findPost(postId));
+    }
+
+    public String buildPostCommentsContextForAi(String postId) {
+        Post post = findPost(postId);
+        if (post.getComments().isEmpty()) {
+            return "No comments yet.";
+        }
+        StringBuilder sb = new StringBuilder();
+        post.getComments().stream()
+                .sorted(Comparator.comparing(PostComment::getCreatedAt).reversed())
+                .limit(POST_AI_CONTEXT_COMMENT_LIMIT)
+                .forEach(c -> sb.append("[user:").append(c.getUserId()).append("] ").append(c.getContent()).append("\n"));
+        return sb.toString().trim();
     }
 
     public PostResponse react(String postId, String userId, ReactToPostRequest request) {
@@ -289,6 +457,45 @@ public class PostService {
         }
     }
 
+    private void broadcastNewPost(Post post) {
+        if (!shouldBroadcast(post.getVisibility())) {
+            return;
+        }
+
+        Set<String> recipientIds = findRealtimeFeedRecipientIds(post.getAuthorId());
+        recipientIds.forEach(recipientId -> sendFeedUpdate(post, recipientId));
+
+        if (!recipientIds.isEmpty()) {
+            log.info("Post broadcast: id={}, recipients={}", post.getId(), recipientIds.size());
+        }
+    }
+
+    private void sendFeedUpdate(Post post, String recipientId) {
+        try {
+            messagingTemplate.convertAndSend(FEED_TOPIC_PREFIX + recipientId, toResponse(post, recipientId));
+        } catch (RuntimeException ex) {
+            log.warn("Post broadcast failed: id={}, recipientId={}", post.getId(), recipientId, ex);
+        }
+    }
+
+    private boolean shouldBroadcast(PostVisibility visibility) {
+        return visibility == PostVisibility.PUBLIC || visibility == PostVisibility.FRIENDS_ONLY;
+    }
+
+    private Set<String> findRealtimeFeedRecipientIds(String authorId) {
+        Optional<UUID> authorUuid = safeUuid(authorId);
+        if (authorUuid.isEmpty()) {
+            return Collections.emptySet();
+        }
+
+        Set<String> recipientIds = new LinkedHashSet<>();
+        followRepository.findFollowerIdsByFolloweeId(authorUuid.get(), Pageable.unpaged())
+                .forEach(followerId -> recipientIds.add(followerId.toString()));
+        recipientIds.addAll(contactRepository.findFollowingIds(authorUuid.get()));
+        recipientIds.remove(authorId);
+        return recipientIds;
+    }
+
     private List<String> extractHashtags(String content) {
         Matcher matcher = HASHTAG_PATTERN.matcher(content);
         List<String> tags = new ArrayList<>();
@@ -304,6 +511,48 @@ public class PostService {
         applyAuthor(response, post.getAuthorId());
         response.setSavedByMe(savedPostRepository.existsByUserIdAndPostId(requesterId, post.getId()));
         return response;
+    }
+
+    private Page<PostResponse> toBatchedResponsePage(Page<Post> page, String requesterId) {
+        List<Post> posts = page.getContent();
+        Map<String, User> authors = loadUsersForPosts(posts);
+        List<String> savedIds = loadSavedPostIds(requesterId, posts);
+
+        List<PostResponse> responses = posts.stream().map(post -> {
+            PostResponse response = postMapper.toResponse(post);
+            response.setReactions(buildReactionSummary(post, requesterId));
+            response.setSavedByMe(savedIds.contains(post.getId()));
+            User author = authors.get(post.getAuthorId());
+            if (author != null) {
+                response.setAuthorUsername(author.getUsername());
+                response.setAuthorDisplayName(author.getDisplayName());
+                response.setAuthorAvatarUrl(author.getAvatarUrl());
+            }
+            return response;
+        }).toList();
+
+        return new PageImpl<>(responses, page.getPageable(), page.getTotalElements());
+    }
+
+    private Map<String, User> loadUsersForPosts(List<Post> posts) {
+        List<UUID> authorUuids = posts.stream()
+                .map(Post::getAuthorId)
+                .distinct()
+                .map(this::safeUuid)
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .toList();
+        if (authorUuids.isEmpty()) return Collections.emptyMap();
+        return userRepository.findAllById(authorUuids).stream()
+                .collect(Collectors.toMap(u -> u.getId().toString(), u -> u));
+    }
+
+    private List<String> loadSavedPostIds(String userId, List<Post> posts) {
+        List<String> postIds = posts.stream().map(Post::getId).toList();
+        if (postIds.isEmpty()) return Collections.emptyList();
+        return savedPostRepository.findByUserIdAndPostIdIn(userId, postIds).stream()
+                .map(SavedPost::getPostId)
+                .toList();
     }
 
     private void applyAuthor(PostResponse response, String authorId) {
@@ -327,6 +576,35 @@ public class PostService {
         }
     }
 
+    private void notifyMentionedUsers(
+            NotificationType notificationType,
+            String actorId,
+            List<String> mentionIds,
+            String message,
+            String referenceId
+    ) {
+        if (mentionIds == null || mentionIds.isEmpty()) {
+            return;
+        }
+
+        LinkedHashSet<String> targetUserIds = mentionIds.stream()
+                .filter(Objects::nonNull)
+                .map(String::trim)
+                .filter(value -> !value.isBlank())
+                .filter(value -> !value.equals(actorId))
+                .filter(value -> !value.equals(aiBotUserId))
+                .filter(value -> safeUuid(value).isPresent())
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+
+        targetUserIds.forEach(targetUserId -> notificationService.createAndPush(
+                notificationType,
+                actorId,
+                targetUserId,
+                message,
+                referenceId
+        ));
+    }
+
     private Map<String, User> loadUsersById(List<String> userIds) {
         List<UUID> uuids = userIds.stream()
                 .map(this::safeUuid)
@@ -343,11 +621,12 @@ public class PostService {
     }
 
     private PostCommentResponse toCommentResponse(PostComment comment, User user) {
+        String displayName = comment.isAiGenerated() ? "Chatly AI" : (user != null ? user.getDisplayName() : comment.getUserId());
         return PostCommentResponse.builder()
                 .id(comment.getId())
                 .userId(comment.getUserId())
                 .userUsername(user != null ? user.getUsername() : null)
-                .userDisplayName(user != null ? user.getDisplayName() : comment.getUserId())
+                .userDisplayName(displayName)
                 .userAvatarUrl(user != null ? user.getAvatarUrl() : null)
                 .content(comment.getContent())
                 .createdAt(comment.getCreatedAt())
@@ -355,15 +634,18 @@ public class PostService {
                 .parentCommentId(comment.getParentCommentId())
                 .mediaUrls(comment.getMediaUrls() != null ? comment.getMediaUrls() : List.of())
                 .reactions(buildCommentReactionSummary(comment, null))
+                .isAiGenerated(comment.isAiGenerated() ? Boolean.TRUE : null)
+                .triggerType(comment.getTriggerType())
                 .build();
     }
 
     private PostCommentResponse toCommentResponse(PostComment comment, User user, String requesterId) {
+        String displayName = comment.isAiGenerated() ? "Chatly AI" : (user != null ? user.getDisplayName() : comment.getUserId());
         return PostCommentResponse.builder()
                 .id(comment.getId())
                 .userId(comment.getUserId())
                 .userUsername(user != null ? user.getUsername() : null)
-                .userDisplayName(user != null ? user.getDisplayName() : comment.getUserId())
+                .userDisplayName(displayName)
                 .userAvatarUrl(user != null ? user.getAvatarUrl() : null)
                 .content(comment.getContent())
                 .createdAt(comment.getCreatedAt())
@@ -371,7 +653,58 @@ public class PostService {
                 .parentCommentId(comment.getParentCommentId())
                 .mediaUrls(comment.getMediaUrls() != null ? comment.getMediaUrls() : List.of())
                 .reactions(buildCommentReactionSummary(comment, requesterId))
+                .isAiGenerated(comment.isAiGenerated() ? Boolean.TRUE : null)
+                .triggerType(comment.getTriggerType())
                 .build();
+    }
+
+    private String buildPostContextForAi(Post post) {
+        StringBuilder sb = new StringBuilder();
+        if (post.getContent() != null && !post.getContent().isBlank()) {
+            String snippet = post.getContent().length() > POST_CONTENT_SNIPPET_MAX_LENGTH
+                    ? post.getContent().substring(0, POST_CONTENT_SNIPPET_MAX_LENGTH) + "..."
+                    : post.getContent();
+            sb.append(snippet);
+        }
+        if (!post.getHashtags().isEmpty()) {
+            sb.append(" ").append(post.getHashtags().stream()
+                    .map(t -> "#" + t).collect(Collectors.joining(" ")));
+        }
+        return sb.toString().trim();
+    }
+
+    private boolean containsAiMention(String content) {
+        if (content == null || content.isBlank()) return false;
+        return AI_MENTION_PATTERN.matcher(content).find();
+    }
+
+    private void triggerSocialPostCommandIfNeeded(Post post, String userId, String previousContent) {
+        if (!socialAiEnabled || post.getContent() == null || !containsAiMention(post.getContent())) {
+            return;
+        }
+
+        boolean hadAiMentionBefore = previousContent != null && containsAiMention(previousContent);
+        if (hadAiMentionBefore) {
+            return;
+        }
+
+        String postContext = buildPostContextForAi(post);
+        agentProxyClient.triggerSocialPostCommandAsync(
+                post.getId(),
+                userId,
+                post.getContent(),
+                postContext,
+                ""
+        );
+        log.info("Social post command trigger queued: postId={} userId={}", post.getId(), userId);
+    }
+
+    private String buildThreadContext(Post post, String parentCommentId) {
+        return post.getComments().stream()
+                .filter(c -> c.getId().equals(parentCommentId))
+                .findFirst()
+                .map(PostComment::getContent)
+                .orElse("");
     }
 
     private List<PostReactionSummary> buildCommentReactionSummary(PostComment comment, String requesterId) {
@@ -423,10 +756,10 @@ public class PostService {
         PostComment comment = post.getComments().stream()
                 .filter(c -> c.getId().equals(commentId))
                 .findFirst()
-                .orElseThrow(() -> new RuntimeException("Comment not found"));
+                .orElseThrow(() -> new AppException(ErrorCode.COMMENT_NOT_FOUND));
 
         if (!comment.getUserId().equals(userId)) {
-            throw new RuntimeException("Unauthorized to edit this comment");
+            throw new AppException(ErrorCode.COMMENT_FORBIDDEN);
         }
 
         comment.setContent(request.getContent().trim());
@@ -444,10 +777,10 @@ public class PostService {
         PostComment comment = post.getComments().stream()
                 .filter(c -> c.getId().equals(commentId))
                 .findFirst()
-                .orElseThrow(() -> new RuntimeException("Comment not found"));
+                .orElseThrow(() -> new AppException(ErrorCode.COMMENT_NOT_FOUND));
 
         if (!comment.getUserId().equals(userId)) {
-            throw new RuntimeException("Unauthorized to delete this comment");
+            throw new AppException(ErrorCode.COMMENT_FORBIDDEN);
         }
 
         Set<String> commentIdsToRemove = new HashSet<>();
@@ -477,7 +810,7 @@ public class PostService {
         PostComment comment = post.getComments().stream()
                 .filter(c -> c.getId().equals(commentId))
                 .findFirst()
-                .orElseThrow(() -> new RuntimeException("Comment not found"));
+                .orElseThrow(() -> new AppException(ErrorCode.COMMENT_NOT_FOUND));
 
         // Replace any existing reaction from this user
         List<PostReaction> reactions = new ArrayList<>(comment.getReactions());
@@ -516,7 +849,7 @@ public class PostService {
         PostComment comment = post.getComments().stream()
                 .filter(c -> c.getId().equals(commentId))
                 .findFirst()
-                .orElseThrow(() -> new RuntimeException("Comment not found"));
+                .orElseThrow(() -> new AppException(ErrorCode.COMMENT_NOT_FOUND));
 
         List<PostReaction> reactions = new ArrayList<>(comment.getReactions());
         reactions.removeIf(r -> r.getUserId().equals(userId));

@@ -113,7 +113,7 @@ export function ForwardMessageModal({
       >
         <Pressable
           className="rounded-t-3xl px-5 pb-8 pt-4"
-          style={{ backgroundColor: Colors.white, minHeight: '70%' }}
+          style={{ backgroundColor: Colors.bgCard, minHeight: '70%' }}
           onPress={(event) => event.stopPropagation()}
         >
           <View

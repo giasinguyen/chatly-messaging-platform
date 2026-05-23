@@ -57,6 +57,12 @@ export interface AgentChatResponse {
   agent_type: string;
 }
 
+export interface StartChatFromPostResponse {
+  sessionId: string;
+  title: string;
+  postSnippet: string;
+}
+
 /** SSE stream event types */
 export type StreamEventType = 'token' | 'tool_start' | 'tool_end' | 'error' | 'done';
 

@@ -143,3 +143,10 @@ export type StatusHint =
     | "searching_web"
     | "analyzing_documents"
     | "generating";
+
+// ─── Social AI ──────────────────────────────────────────────
+export interface StartChatFromPostResponse {
+    sessionId: string;
+    title: string;
+    postSnippet: string;
+}

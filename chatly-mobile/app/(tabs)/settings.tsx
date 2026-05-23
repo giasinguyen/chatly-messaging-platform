@@ -22,12 +22,19 @@ import { fileService } from '@/services/file.service';
 import { socketService } from '@/services/socket.service';
 import { Avatar } from '@/components/ui/Avatar';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
+import { AppearanceSettingsModal } from '@/components/settings/AppearanceSettingsModal';
+import { PrivacySettingsModal } from '@/components/settings/PrivacySettingsModal';
 import { Colors } from '@/constants/theme';
+import { useThemeStore } from '@/store/theme.store';
+import { getThemeColors } from '@/utils/themeColors';
 
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { user, clearAuth, updateUser } = useAuthStore();
+  const isDarkMode = useThemeStore((s) => s.isDarkMode);
+  const setDarkMode = useThemeStore((s) => s.setDarkMode);
+  const palette = getThemeColors(isDarkMode);
 
   const [editing, setEditing] = useState(false);
   const [displayName, setDisplayName] = useState(user?.displayName ?? '');
@@ -39,6 +46,8 @@ export default function SettingsScreen() {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [pwdSaving, setPwdSaving] = useState(false);
+  const [privacyVisible, setPrivacyVisible] = useState(false);
+  const [appearanceVisible, setAppearanceVisible] = useState(false);
 
   const handleLogout = useCallback(async () => {
     Alert.alert('Logout', 'Are you sure you want to log out?', [
@@ -141,10 +150,7 @@ export default function SettingsScreen() {
       }
       socketService.disconnect();
       await clearAuth();
-      Alert.alert(
-        'Password updated',
-        'Please sign in again with your new password.',
-      );
+      Alert.alert('Password updated', 'Please sign in again with your new password.');
     } catch (error: any) {
       Alert.alert('Error', error?.response?.data?.message ?? 'Could not change password.');
     } finally {
@@ -154,19 +160,19 @@ export default function SettingsScreen() {
 
   const settingsItems = [
     {
-      icon: 'notifications-outline' as const,
-      label: 'Notifications',
-      onPress: () => Alert.alert('Notifications', 'Feature coming soon'),
+      icon: 'bookmark-outline' as const,
+      label: 'Saved posts',
+      onPress: () => router.push({ pathname: '/saved', params: { returnTo: 'settings' } }),
     },
     {
       icon: 'lock-closed-outline' as const,
       label: 'Privacy',
-      onPress: () => Alert.alert('Privacy', 'Feature coming soon'),
+      onPress: () => setPrivacyVisible(true),
     },
     {
       icon: 'color-palette-outline' as const,
       label: 'Appearance',
-      onPress: () => Alert.alert('Appearance', 'Feature coming soon'),
+      onPress: () => setAppearanceVisible(true),
     },
     {
       icon: 'help-circle-outline' as const,
@@ -183,21 +189,19 @@ export default function SettingsScreen() {
   return (
     <ScrollView
       className="flex-1"
-      style={{ backgroundColor: Colors.bg, paddingTop: insets.top }}
-      contentContainerStyle={{ paddingBottom: insets.bottom + 40 }}
-    >
+      style={{ backgroundColor: palette.background, paddingTop: insets.top }}
+      contentContainerStyle={{ paddingBottom: insets.bottom + 40 }}>
       {/* Header */}
       <View
         className="border-b px-4 pb-4 pt-2"
-        style={{ borderBottomColor: Colors.borderLight, backgroundColor: Colors.white }}
-      >
-        <Text className="text-[22px] font-bold" style={{ color: Colors.text }}>
+        style={{ borderBottomColor: palette.border, backgroundColor: palette.card }}>
+        <Text className="text-[22px] font-bold" style={{ color: palette.text }}>
           Settings
         </Text>
       </View>
 
       {/* Profile Card */}
-      <View className="mx-4 mt-4 rounded-2xl p-4" style={{ backgroundColor: Colors.white }}>
+      <View className="mx-4 mt-4 rounded-2xl p-4" style={{ backgroundColor: palette.card }}>
         <View className="flex-row items-center">
           <TouchableOpacity onPress={handlePickAvatar} disabled={saving}>
             <View style={{ position: 'relative' }}>
@@ -218,9 +222,8 @@ export default function SettingsScreen() {
                   justifyContent: 'center',
                   alignItems: 'center',
                   borderWidth: 2,
-                  borderColor: Colors.white,
-                }}
-              >
+                  borderColor: palette.card,
+                }}>
                 {saving && localAvatarUri ? (
                   <ActivityIndicator size={12} color={Colors.white} />
                 ) : (
@@ -235,7 +238,8 @@ export default function SettingsScreen() {
                 className="rounded-lg border px-3 py-2 text-[16px]"
                 style={{
                   borderColor: Colors.cta,
-                  color: Colors.text,
+                  color: palette.text,
+                  backgroundColor: palette.field,
                 }}
                 value={displayName}
                 onChangeText={setDisplayName}
@@ -243,13 +247,13 @@ export default function SettingsScreen() {
               />
             ) : (
               <>
-                <Text className="text-[18px] font-bold" style={{ color: Colors.text }}>
+                <Text className="text-[18px] font-bold" style={{ color: palette.text }}>
                   {user?.displayName}
                 </Text>
-                <Text className="mt-0.5 text-[14px]" style={{ color: Colors.textLight }}>
+                <Text className="mt-0.5 text-[14px]" style={{ color: palette.textLight }}>
                   @{user?.username}
                 </Text>
-                <Text className="mt-0.5 text-[13px]" style={{ color: Colors.textLight }}>
+                <Text className="mt-0.5 text-[13px]" style={{ color: palette.textLight }}>
                   {user?.email}
                 </Text>
               </>
@@ -266,21 +270,19 @@ export default function SettingsScreen() {
           <View className="mt-3 flex-row justify-end gap-2">
             <TouchableOpacity
               className="rounded-lg px-4 py-2"
-              style={{ backgroundColor: Colors.bg }}
+              style={{ backgroundColor: palette.field }}
               onPress={() => {
                 setEditing(false);
                 setDisplayName(user?.displayName ?? '');
                 setLocalAvatarUri(null);
-              }}
-            >
-              <Text style={{ color: Colors.textLight }}>Cancel</Text>
+              }}>
+              <Text style={{ color: palette.textLight }}>Cancel</Text>
             </TouchableOpacity>
             <TouchableOpacity
               className="rounded-lg px-4 py-2"
               style={{ backgroundColor: Colors.cta }}
               onPress={handleSaveProfile}
-              disabled={saving}
-            >
+              disabled={saving}>
               <Text style={{ color: Colors.white }}>{saving ? 'Saving...' : 'Save'}</Text>
             </TouchableOpacity>
           </View>
@@ -288,32 +290,42 @@ export default function SettingsScreen() {
       </View>
 
       {/* Change password */}
-      <View className="mx-4 mt-4 rounded-2xl" style={{ backgroundColor: Colors.white }}>
+      <View className="mx-4 mt-4 rounded-2xl" style={{ backgroundColor: palette.card }}>
         <TouchableOpacity
           className="flex-row items-center px-4 py-3.5"
           onPress={() => setPwdModalVisible(true)}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="key-outline" size={22} color={Colors.text} />
-          <Text className="ml-3 flex-1 text-[15px]" style={{ color: Colors.text }}>
+          activeOpacity={0.7}>
+          <Ionicons name="key-outline" size={22} color={palette.text} />
+          <Text className="ml-3 flex-1 text-[15px]" style={{ color: palette.text }}>
             Change password
           </Text>
-          <Ionicons name="chevron-forward" size={18} color={Colors.textLight} />
+          <Ionicons name="chevron-forward" size={18} color={palette.textLight} />
         </TouchableOpacity>
       </View>
 
       {/* Devices & sessions (same API as web) */}
-      <View className="mx-4 mt-3 rounded-2xl" style={{ backgroundColor: Colors.white }}>
+      <View className="mx-4 mt-3 rounded-2xl" style={{ backgroundColor: palette.card }}>
         <TouchableOpacity
-          className="flex-row items-center px-4 py-3.5"
-          onPress={() => router.push('/sessions')}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="phone-portrait-outline" size={22} color={Colors.text} />
-          <Text className="ml-3 flex-1 text-[15px]" style={{ color: Colors.text }}>
+          className="flex-row items-center border-b px-4 py-3.5"
+          style={{ borderBottomColor: palette.border }}
+          onPress={() => router.push({ pathname: '/sessions', params: { returnTo: 'settings' } })}
+          activeOpacity={0.7}>
+          <Ionicons name="phone-portrait-outline" size={22} color={palette.text} />
+          <Text className="ml-3 flex-1 text-[15px]" style={{ color: palette.text }}>
             Devices & sessions
           </Text>
-          <Ionicons name="chevron-forward" size={18} color={Colors.textLight} />
+          <Ionicons name="chevron-forward" size={18} color={palette.textLight} />
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          className="flex-row items-center px-4 py-3.5"
+          onPress={() => router.push('/qr-scan')}
+          activeOpacity={0.7}>
+          <Ionicons name="qr-code-outline" size={22} color={palette.text} />
+          <Text className="ml-3 flex-1 text-[15px]" style={{ color: palette.text }}>
+            Scan QR to Login
+          </Text>
+          <Ionicons name="chevron-forward" size={18} color={palette.textLight} />
         </TouchableOpacity>
       </View>
 
@@ -321,56 +333,51 @@ export default function SettingsScreen() {
         visible={pwdModalVisible}
         animationType="slide"
         transparent
-        onRequestClose={() => !pwdSaving && setPwdModalVisible(false)}
-      >
+        onRequestClose={() => !pwdSaving && setPwdModalVisible(false)}>
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           className="flex-1 justify-end"
-          style={{ backgroundColor: 'rgba(0,0,0,0.45)' }}
-        >
+          style={{ backgroundColor: 'rgba(0,0,0,0.45)' }}>
           <TouchableOpacity
             className="flex-1"
             activeOpacity={1}
             onPress={() => !pwdSaving && setPwdModalVisible(false)}
           />
-          <View
-            className="rounded-t-3xl px-4 pb-8 pt-4"
-            style={{ backgroundColor: Colors.white }}
-          >
-            <Text className="mb-4 text-[18px] font-bold" style={{ color: Colors.text }}>
+          <View className="rounded-t-3xl px-4 pb-8 pt-4" style={{ backgroundColor: palette.card }}>
+            <Text className="mb-4 text-[18px] font-bold" style={{ color: palette.text }}>
               Change password
             </Text>
-            <Text className="mb-3 text-[13px]" style={{ color: Colors.textLight }}>
+            <Text className="mb-3 text-[13px]" style={{ color: palette.textLight }}>
               After changing your password you will need to sign in again on all devices.
             </Text>
-            <Text className="mb-1 text-[13px]" style={{ color: Colors.text }}>
+            <Text className="mb-1 text-[13px]" style={{ color: palette.text }}>
               Current password
             </Text>
             <TextInput
               className="mb-3 rounded-lg border px-3 py-2.5 text-[16px]"
-              style={{ borderColor: Colors.borderLight, color: Colors.text }}
+              style={{ borderColor: palette.border, color: palette.text, backgroundColor: palette.field }}
               secureTextEntry
               value={currentPassword}
               onChangeText={setCurrentPassword}
               editable={!pwdSaving}
             />
-            <Text className="mb-1 text-[13px]" style={{ color: Colors.text }}>
+            <Text className="mb-1 text-[13px]" style={{ color: palette.text }}>
               New password
             </Text>
             <TextInput
               className="mb-3 rounded-lg border px-3 py-2.5 text-[16px]"
-              style={{ borderColor: Colors.borderLight, color: Colors.text }}
+              style={{ borderColor: palette.border, color: palette.text, backgroundColor: palette.field }}
               secureTextEntry
               value={newPassword}
               onChangeText={setNewPassword}
               editable={!pwdSaving}
             />
-            <Text className="mb-1 text-[13px]" style={{ color: Colors.text }}>
+            <Text className="mb-1 text-[13px]" style={{ color: palette.text }}>
               Confirm new password
             </Text>
             <TextInput
               className="mb-4 rounded-lg border px-3 py-2.5 text-[16px]"
-              style={{ borderColor: Colors.borderLight, color: Colors.text }}
+              style={{ borderColor: palette.border, color: palette.text, backgroundColor: palette.field }}
               secureTextEntry
               value={confirmPassword}
               onChangeText={setConfirmPassword}
@@ -380,16 +387,14 @@ export default function SettingsScreen() {
               <TouchableOpacity
                 className="rounded-lg px-4 py-3"
                 onPress={() => !pwdSaving && setPwdModalVisible(false)}
-                disabled={pwdSaving}
-              >
-                <Text style={{ color: Colors.textLight }}>Cancel</Text>
+                disabled={pwdSaving}>
+                <Text style={{ color: palette.textLight }}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 className="rounded-lg px-5 py-3"
                 style={{ backgroundColor: Colors.cta }}
                 onPress={handleChangePassword}
-                disabled={pwdSaving}
-              >
+                disabled={pwdSaving}>
                 {pwdSaving ? (
                   <ActivityIndicator color={Colors.white} />
                 ) : (
@@ -402,23 +407,22 @@ export default function SettingsScreen() {
       </Modal>
 
       {/* Settings List */}
-      <View className="mx-4 mt-4 rounded-2xl" style={{ backgroundColor: Colors.white }}>
+      <View className="mx-4 mt-4 rounded-2xl" style={{ backgroundColor: palette.card }}>
         {settingsItems.map((item, index) => (
           <TouchableOpacity
             key={item.label}
             className="flex-row items-center px-4 py-3.5"
             style={{
               borderBottomWidth: index < settingsItems.length - 1 ? 0.5 : 0,
-              borderBottomColor: Colors.borderLight,
+              borderBottomColor: palette.border,
             }}
             onPress={item.onPress}
-            activeOpacity={0.7}
-          >
-            <Ionicons name={item.icon} size={22} color={Colors.text} />
-            <Text className="ml-3 flex-1 text-[15px]" style={{ color: Colors.text }}>
+            activeOpacity={0.7}>
+            <Ionicons name={item.icon} size={22} color={palette.text} />
+            <Text className="ml-3 flex-1 text-[15px]" style={{ color: palette.text }}>
               {item.label}
             </Text>
-            <Ionicons name="chevron-forward" size={18} color={Colors.textLight} />
+            <Ionicons name="chevron-forward" size={18} color={palette.textLight} />
           </TouchableOpacity>
         ))}
       </View>
@@ -427,6 +431,18 @@ export default function SettingsScreen() {
       <View className="mx-4 mt-4">
         <PrimaryButton title="Log Out" variant="outline" onPress={handleLogout} />
       </View>
+
+      <PrivacySettingsModal
+        visible={privacyVisible}
+        isDarkMode={isDarkMode}
+        onClose={() => setPrivacyVisible(false)}
+      />
+      <AppearanceSettingsModal
+        visible={appearanceVisible}
+        isDarkMode={isDarkMode}
+        onToggleDarkMode={(value) => void setDarkMode(value)}
+        onClose={() => setAppearanceVisible(false)}
+      />
     </ScrollView>
   );
 }

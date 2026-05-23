@@ -25,6 +25,7 @@ import { useContactStore } from '@/store/contact.store';
 import { Avatar } from '@/components/ui/Avatar';
 import { Colors } from '@/constants/theme';
 import { useRouter } from 'expo-router';
+import { useThemeStore } from '@/store/theme.store';
 import type { ContactResponse } from '@/types/contact';
 import type { UserResponse } from '@/types/auth';
 
@@ -32,6 +33,7 @@ type Tab = 'friends' | 'pending' | 'blocked' | 'search';
 
 export default function ContactsScreen() {
   const insets = useSafeAreaInsets();
+  useThemeStore((state) => state.isDarkMode);
   const user = useAuthStore((s) => s.user);
   const conversations = useConversationStore((s) => s.conversations);
   const router = useRouter();
@@ -299,7 +301,7 @@ export default function ContactsScreen() {
         c.participantIds.includes(user!.id),
     );
     if (existing) {
-      router.push(`/chat/${existing.id}`);
+      router.push({ pathname: '/chat/[id]', params: { id: existing.id, returnTo: 'contacts' } });
       return;
     }
     try {
@@ -307,7 +309,7 @@ export default function ContactsScreen() {
         type: 'PRIVATE',
         participantIds: [contactUser.id],
       });
-      router.push(`/chat/${res.result.id}`);
+      router.push({ pathname: '/chat/[id]', params: { id: res.result.id, returnTo: 'contacts' } });
     } catch (error: any) {
       Alert.alert('Error', error?.response?.data?.message ?? 'Could not create conversation.');
     }
@@ -580,7 +582,7 @@ export default function ContactsScreen() {
       {/* Header */}
       <View
         className="border-b px-4 pb-3 pt-2"
-        style={{ borderBottomColor: Colors.borderLight, backgroundColor: Colors.white }}
+        style={{ borderBottomColor: Colors.borderLight, backgroundColor: Colors.bgCard }}
       >
         <Text className="text-[22px] font-bold" style={{ color: Colors.text }}>
           Contacts
@@ -623,7 +625,7 @@ export default function ContactsScreen() {
 
       {/* Search bar (only in search tab) */}
       {activeTab === 'search' && (
-        <View className="px-4 py-2" style={{ backgroundColor: Colors.white }}>
+        <View className="px-4 py-2" style={{ backgroundColor: Colors.bgCard }}>
           <View className="flex-row items-center rounded-lg px-3" style={{ backgroundColor: Colors.bg, height: 40 }}>
             <Ionicons name="search" size={18} color={Colors.textLight} />
             <TextInput
@@ -655,7 +657,7 @@ export default function ContactsScreen() {
           <View
             className="flex-row items-center gap-2 px-4 py-2"
             style={{
-              backgroundColor: Colors.white,
+              backgroundColor: Colors.bgCard,
               borderBottomWidth: 0.5,
               borderBottomColor: Colors.borderLight,
             }}
@@ -822,7 +824,7 @@ export default function ContactsScreen() {
               left: 0,
               right: 0,
               bottom: 0,
-              backgroundColor: Colors.white,
+              backgroundColor: Colors.bgCard,
               borderTopLeftRadius: 16,
               borderTopRightRadius: 16,
               paddingBottom: insets.bottom + 8,

@@ -10,7 +10,8 @@ interface FeedListProps {
     hasMore: boolean;
     isLoading: boolean;
     isLoadingMore: boolean;
-    sentinelRef: RefObject<HTMLDivElement | null>;
+    error: string | null;
+    sentinelRef: RefObject<HTMLDivElement>;
     onPostUpdate: (postId: string, updates: Partial<Post>) => void;
     onPostRemove: (postId: string) => void;
 }
@@ -20,6 +21,7 @@ export function FeedList({
     hasMore,
     isLoading,
     isLoadingMore,
+    error,
     sentinelRef,
     onPostUpdate,
     onPostRemove,
@@ -27,9 +29,25 @@ export function FeedList({
     if (isLoading && posts.length === 0) {
         return (
             <div className="flex flex-col gap-4">
-                {Array.from({ length: HOME_FEED_INITIAL_SKELETONS }).map((_, idx) => (
-                    <PostCardSkeleton key={`feed-skeleton-${idx}`} />
-                ))}
+                {Array.from({ length: HOME_FEED_INITIAL_SKELETONS }).map(
+                    (_, idx) => (
+                        <PostCardSkeleton key={`feed-skeleton-${idx}`} />
+                    ),
+                )}
+            </div>
+        );
+    }
+
+    if (posts.length === 0) {
+        return (
+            <div className="rounded-lg border border-dashed border-border bg-card/60 px-6 py-10 text-center">
+                <p className="text-sm font-semibold text-foreground">
+                    {error ? "Could not load feed" : "No posts yet"}
+                </p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                    {error ??
+                        "Create a post or check back after following more people."}
+                </p>
             </div>
         );
     }

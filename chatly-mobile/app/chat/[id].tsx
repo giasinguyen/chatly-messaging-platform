@@ -38,6 +38,7 @@ import { useContactStore } from '@/store/contact.store';
 import { useChatSocket } from '@/hooks/useChatSocket';
 import { useCallContext } from '@/contexts/CallContext';
 import { useCallStore } from '@/store/call.store';
+import { useThemeStore } from '@/store/theme.store';
 import { usePresenceSocket } from '@/hooks/usePresenceSocket';
 import { Colors } from '@/constants/theme';
 import { formatDateSeparator, isRichTextHtml, richTextToPlainText } from '@/utils/format';
@@ -47,19 +48,37 @@ import type { UserResponse } from '@/types/auth';
 import type { ContactResponse } from '@/types/contact';
 
 const PAGE_SIZE = 20;
+const ENDED_CALL_STATUSES = new Set(['ENDED', 'MISSED', 'REJECTED']);
+
+interface CallMessagePayload {
+  callId?: string;
+  status?: string;
+  callType?: string;
+}
+
+function parseCallMessagePayload(rawContent: string): CallMessagePayload | null {
+  try {
+    return JSON.parse(rawContent) as CallMessagePayload;
+  } catch {
+    return null;
+  }
+}
 
 export default function ChatScreen() {
   const {
     id: conversationId,
     prefill,
     prefill_token,
-  } = useLocalSearchParams<{ id: string; prefill?: string; prefill_token?: string }>();
+    returnTo,
+  } = useLocalSearchParams<{ id: string; prefill?: string; prefill_token?: string; returnTo?: string }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  useThemeStore((state) => state.isDarkMode);
   const user = useAuthStore((s) => s.user);
   const flatListRef = useRef<FlatList>(null);
   // Guard: don't trigger loadMore until the initial page has fully loaded
   const initialLoadDoneRef = useRef(false);
+  const shouldScrollToLatestRef = useRef(false);
 
   const {
     messagesByConversation,
@@ -126,17 +145,47 @@ export default function ChatScreen() {
     invalidate: invalidateContacts,
   } = useContactStore();
 
-  const messages = messagesByConversation[conversationId ?? ''] ?? [];
+  const messages = useMemo(
+    () => messagesByConversation[conversationId ?? ''] ?? [],
+    [conversationId, messagesByConversation],
+  );
+  const endedGroupCallIds = useMemo(() => {
+    const endedCallIds = new Set<string>();
+
+    messages.forEach((message) => {
+      if (message.type !== 'CALL') return;
+
+      const payload = parseCallMessagePayload(message.content);
+      const status = (payload?.status ?? '').toUpperCase();
+      if (payload?.callId && ENDED_CALL_STATUSES.has(status)) {
+        endedCallIds.add(payload.callId);
+      }
+    });
+
+    return endedCallIds;
+  }, [messages]);
   const currentPage = page[conversationId ?? ''] ?? 0;
   const canLoadMore = hasMore[conversationId ?? ''] ?? true;
 
   const { updateConversation } = useConversationStore();
+
+  const scrollToLatestMessage = useCallback((animated: boolean) => {
+    flatListRef.current?.scrollToOffset({ offset: 0, animated });
+    shouldScrollToLatestRef.current = false;
+  }, []);
+
+  const handleMessagesContentSizeChange = useCallback(() => {
+    if (shouldScrollToLatestRef.current) {
+      scrollToLatestMessage(true);
+    }
+  }, [scrollToLatestMessage]);
 
   const handleChatEvent = useCallback(
     (event: ChatEvent) => {
       if (!conversationId) return;
       switch (event.action) {
         case 'SEND':
+          shouldScrollToLatestRef.current = true;
           addMessage(conversationId, event.message);
 
           // Mark as seen if not from current user
@@ -154,8 +203,6 @@ export default function ChatScreen() {
             },
           });
 
-          // offset 0 = visual bottom in inverted FlatList (newest messages)
-          flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
           break;
         case 'EDIT':
         case 'RECALL':
@@ -432,7 +479,7 @@ export default function ChatScreen() {
       if (sent) {
         updateConversation(conversationId, { lastMessage: optimisticLastMsg });
         setReplyingTo(null);
-        flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
+        scrollToLatestMessage(true);
         return;
       }
 
@@ -448,6 +495,7 @@ export default function ChatScreen() {
           poll,
           location,
         });
+        shouldScrollToLatestRef.current = true;
         addMessage(conversationId, res.result);
         updateConversation(conversationId, {
           lastMessage: {
@@ -458,12 +506,19 @@ export default function ChatScreen() {
           },
         });
         setReplyingTo(null);
-        flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
       } catch (error) {
         Alert.alert('Error', 'Could not send message. Please try again.');
       }
     },
-    [conversationId, user, replyingTo, wsSendMessage, addMessage, updateConversation]
+    [
+      conversationId,
+      user,
+      replyingTo,
+      wsSendMessage,
+      addMessage,
+      updateConversation,
+      scrollToLatestMessage,
+    ]
   );
 
   // Message actions
@@ -483,7 +538,7 @@ export default function ChatScreen() {
     setActionsVisible(false);
     try {
       const res = await agentService.createSession({
-        title: conversation?.name,
+        title: conversation?.name ?? undefined,
         context_conversation_id: conversationId,
       });
       const sessionId = res.id;
@@ -500,7 +555,7 @@ export default function ChatScreen() {
     if (!conversationId) return;
     try {
       const res = await agentService.createSession({
-        title: conversation?.name,
+        title: conversation?.name ?? undefined,
         context_conversation_id: conversationId,
       });
       const sessionId = res.id;
@@ -676,17 +731,14 @@ export default function ChatScreen() {
         return;
       }
 
-      const parseCallPayload = (rawContent: string): { callId?: string; status?: string; callType?: string } | null => {
-        try {
-          return JSON.parse(rawContent) as { callId?: string; status?: string; callType?: string };
-        } catch {
-          return null;
-        }
-      };
+      if (endedGroupCallIds.has(callId)) {
+        Alert.alert('Call ended', 'This call has already ended.');
+        return;
+      }
 
       const activeCallMessage = messages.find((message) => {
         if (message.type !== 'CALL') return false;
-        const payload = parseCallPayload(message.content);
+        const payload = parseCallMessagePayload(message.content);
         if (!payload || payload.callId !== callId) return false;
 
         const status = (payload.status ?? '').toUpperCase();
@@ -696,7 +748,7 @@ export default function ChatScreen() {
       const fallbackCallMessage = activeCallMessage
         ?? messages.find((message) => {
           if (message.type !== 'CALL') return false;
-          const payload = parseCallPayload(message.content);
+          const payload = parseCallMessagePayload(message.content);
           return payload?.callId === callId;
         });
 
@@ -704,7 +756,7 @@ export default function ChatScreen() {
       let initiatorId = '';
 
       if (fallbackCallMessage) {
-        const payload = parseCallPayload(fallbackCallMessage.content);
+        const payload = parseCallMessagePayload(fallbackCallMessage.content);
         callType = payload?.callType === 'VIDEO' ? 'VIDEO' : 'VOICE';
         initiatorId = fallbackCallMessage.senderId;
       }
@@ -726,7 +778,7 @@ export default function ChatScreen() {
       useCallStore.getState().setCallStatus('RINGING');
       joinGroupCall(true);
     },
-    [messages, participantMap, conversationId, conversation, joinGroupCall]
+    [messages, endedGroupCallIds, participantMap, conversationId, conversation, joinGroupCall]
   );
 
   const handleMentionPress = useCallback(
@@ -831,6 +883,30 @@ export default function ChatScreen() {
     [displayData]
   );
 
+  const handleBack = useCallback(() => {
+    if (returnTo === 'contacts') {
+      router.replace('/(tabs)/contacts');
+      return;
+    }
+    if (returnTo === 'assistant') {
+      router.replace('/(tabs)/assistant');
+      return;
+    }
+    if (returnTo === 'notifications') {
+      router.replace('/notifications');
+      return;
+    }
+    if (returnTo === 'chats') {
+      router.replace('/(tabs)/chats');
+      return;
+    }
+    if (router.canGoBack()) {
+      router.back();
+      return;
+    }
+    router.replace('/(tabs)/chats');
+  }, [returnTo, router]);
+
   // Resolve chat header info
   const isGroup = conversation?.type === 'GROUP';
   let chatName = conversation?.name ?? 'Conversation';
@@ -848,7 +924,7 @@ export default function ChatScreen() {
     <KeyboardAvoidingView
       className="flex-1"
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      style={{ backgroundColor: Colors.white }}>
+      style={{ backgroundColor: Colors.bg }}>
       {/* Header */}
       <ChatHeader
         name={chatName}
@@ -858,6 +934,7 @@ export default function ChatScreen() {
         isOnline={!isGroup && otherUserOnline}
         conversationId={conversationId}
         receiverId={otherUserId ?? undefined}
+        onBack={handleBack}
         onToggleSearch={() => {
           setShowSearch((prev) => !prev);
           if (showSearch) {
@@ -866,11 +943,7 @@ export default function ChatScreen() {
           }
         }}
         onPressInfo={() => {
-          if (!isGroup && otherUserId) {
-            router.push(`/profile/${otherUserId}`);
-          } else {
-            router.push(`/chat/${conversationId}/info`);
-          }
+          router.push(`/chat/${conversationId}/info`);
         }}
         onAskAi={isGroup ? handleAskAiFromHeader : undefined}
       />
@@ -956,6 +1029,7 @@ export default function ChatScreen() {
                     replyToMessage={msg.replyToId ? (messageById[msg.replyToId] ?? null) : null}
                     onCallAgain={handleCallAgain}
                     onJoinGroupCall={handleJoinGroupCall}
+                    endedGroupCallIds={endedGroupCallIds}
                     isGroupConversation={isGroup}
                     calleeInfo={
                       isMe
@@ -980,6 +1054,7 @@ export default function ChatScreen() {
             }}
             onEndReached={loadMore}
             onEndReachedThreshold={0.5}
+            onContentSizeChange={handleMessagesContentSizeChange}
             inverted
             // Prevent scroll position from jumping when older messages are appended
             maintainVisibleContentPosition={{ minIndexForVisible: 0 }}
@@ -1017,7 +1092,7 @@ export default function ChatScreen() {
             style={{
               paddingHorizontal: 16,
               paddingVertical: 14,
-              backgroundColor: Colors.white,
+              backgroundColor: Colors.bgCard,
               borderTopWidth: 0.5,
               borderTopColor: Colors.borderLight,
               flexDirection: 'row',
@@ -1154,7 +1229,7 @@ export default function ChatScreen() {
           onPress={() => setEditModalVisible(false)}>
           <Pressable
             style={{
-              backgroundColor: Colors.white,
+              backgroundColor: Colors.bgCard,
               borderRadius: 16,
               padding: 14,
               maxHeight: '75%',
@@ -1219,7 +1294,7 @@ export default function ChatScreen() {
           style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' }}
           onPress={() => setShowPinnedList(false)}>
           <Pressable
-            style={{ backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '70%' }}
+            style={{ backgroundColor: Colors.bgCard, borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '70%' }}
             onPress={() => {}}>
             {/* Header */}
             <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 0.5, borderBottomColor: Colors.borderLight }}>
@@ -1292,7 +1367,7 @@ export default function ChatScreen() {
           onPress={() => setShowMentionModal(false)}>
           <Pressable
             style={{
-              backgroundColor: '#fff',
+              backgroundColor: Colors.bgCard,
               borderRadius: 20,
               width: 280,
               overflow: 'hidden',
@@ -1353,7 +1428,7 @@ export default function ChatScreen() {
                     <View
                       style={{
                         borderTopWidth: 0.5,
-                        borderTopColor: 'rgba(0,0,0,0.08)',
+                        borderTopColor: Colors.borderLight,
                         paddingVertical: 12,
                         paddingHorizontal: 20,
                       }}>
@@ -1441,7 +1516,7 @@ export default function ChatScreen() {
                       onPress={() => setShowMentionModal(false)}
                       style={{
                         borderTopWidth: 0.5,
-                        borderTopColor: 'rgba(0,0,0,0.08)',
+                        borderTopColor: Colors.borderLight,
                         paddingVertical: 12,
                         alignItems: 'center',
                       }}>

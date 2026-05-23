@@ -23,11 +23,13 @@ import { Colors } from '@/constants/theme';
 import { useNotificationStore } from '@/store/notification.store';
 import { useConversationPrefsStore } from '@/store/conversationPrefs.store';
 import { isConvMuted } from '@/store/conversationPrefs.store';
+import { useThemeStore } from '@/store/theme.store';
 import type { ConversationResponse } from '@/types/conversation';
 import type { UserResponse } from '@/types/auth';
 
 export default function ChatsScreen() {
   const router = useRouter();
+  useThemeStore((state) => state.isDarkMode);
   const insets = useSafeAreaInsets();
   const user = useAuthStore((s) => s.user);
   const { conversations, fetchConversations, removeConversation, loading } = useConversationStore();
@@ -93,7 +95,7 @@ export default function ChatsScreen() {
     setRefreshing(false);
   }, [fetchConversations, loadParticipants]);
 
-  const unreadCount = useNotificationStore((s) => s.unreadCount);
+  const chatUnreadCount = useNotificationStore((s) => s.chatUnreadCount);
   const { prefs, hydrate } = useConversationPrefsStore();
 
   useEffect(() => { hydrate(); }, []);
@@ -124,7 +126,7 @@ export default function ChatsScreen() {
   });
 
   const handleConversationPress = (conversation: ConversationResponse) => {
-    router.push(`/chat/${conversation.id}`);
+    router.push({ pathname: '/chat/[id]', params: { id: conversation.id, returnTo: 'chats' } });
   };
 
   const handleDeleteConversation = useCallback((conversation: ConversationResponse) => {
@@ -159,7 +161,7 @@ export default function ChatsScreen() {
       <View
         style={{
           paddingTop: insets.top,
-          backgroundColor: Colors.white,
+          backgroundColor: Colors.bgCard,
           borderBottomWidth: 0.5,
           borderBottomColor: Colors.borderLight,
         }}
@@ -170,11 +172,11 @@ export default function ChatsScreen() {
           </Text>
           <View className="flex-row items-center">
             <TouchableOpacity 
-              onPress={() => router.push('/notifications')}
+              onPress={() => router.push({ pathname: '/notifications', params: { scope: 'chat' } })}
               className="mr-2 p-2 relative"
             >
               <Ionicons name="notifications-outline" size={24} color={Colors.text} />
-              {unreadCount > 0 && (
+              {chatUnreadCount > 0 && (
                 <View 
                   className="absolute top-1.5 right-1.5 w-2.5 h-2.5 rounded-full border-2 border-white"
                   style={{ backgroundColor: Colors.error }}

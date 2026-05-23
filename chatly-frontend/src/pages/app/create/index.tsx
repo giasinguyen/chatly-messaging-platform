@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -6,6 +6,16 @@ import { Globe, Users, Lock, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
     Select,
     SelectContent,
@@ -17,11 +27,12 @@ import { MediaUploadZone } from "@/features/social/components/MediaUploadZone";
 import { postService } from "@/services/post.service";
 import { useAuthStore } from "@/store/auth.store";
 import { useFeedStore } from "@/store/feed.store";
+import { MentionSuggestionsDropdown } from "@/components/mention/MentionSuggestionsDropdown";
+import { usePostMentions } from "@/features/social/hooks/usePostMentions";
 import type { PostVisibility } from "@/types/post";
 
 const VISIBILITY_OPTIONS: { value: PostVisibility; label: string; icon: typeof Globe }[] = [
     { value: "PUBLIC", label: "Everyone", icon: Globe },
-    { value: "FOLLOWERS_ONLY", label: "Followers", icon: Users },
     { value: "FRIENDS_ONLY", label: "Friends", icon: Users },
     { value: "ONLY_ME", label: "Only me", icon: Lock },
 ];
@@ -31,24 +42,22 @@ const schema = z.object({
         .string()
         .min(1, "Post content cannot be empty")
         .max(2000, "Content must not exceed 2000 characters"),
-    visibility: z.enum(["PUBLIC", "FOLLOWERS_ONLY", "FRIENDS_ONLY", "ONLY_ME"]),
+    visibility: z.enum(["PUBLIC", "FRIENDS_ONLY", "ONLY_ME"]),
 });
 
 type FormValues = z.infer<typeof schema>;
 
 const isPostVisibility = (value: string): value is PostVisibility =>
     value === "PUBLIC" ||
-    value === "FOLLOWERS_ONLY" ||
     value === "FRIENDS_ONLY" ||
     value === "ONLY_ME";
-
-const hasImageMedia = (urls: string[]) => urls.some((url) => !/\.(mp4|webm)$/i.test(url));
 
 export default function CreatePage() {
     const user = useAuthStore((s) => s.user);
     const addNewPost = useFeedStore((s) => s.addNewPost);
     const navigate = useNavigate();
     const [mediaUrls, setMediaUrls] = useState<string[]>([]);
+    const [isDiscardOpen, setIsDiscardOpen] = useState(false);
 
     const {
         register,
@@ -63,6 +72,21 @@ export default function CreatePage() {
     });
 
     const visibility = watch("visibility");
+    const content = watch("content");
+    const hasChanges =
+        content.trim().length > 0 ||
+        visibility !== "PUBLIC" ||
+        mediaUrls.length > 0;
+    const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+    const contentRegistration = register("content");
+    const mentions = usePostMentions({
+        currentUserId: user?.id,
+        content,
+        setContent: (nextContent) =>
+            setValue("content", nextContent, { shouldValidate: true }),
+        textareaRef,
+        isActive: true,
+    });
 
     const handleVisibilityChange = (value: string) => {
         if (isPostVisibility(value)) {
@@ -70,24 +94,31 @@ export default function CreatePage() {
         }
     };
 
-    const handleCancel = () => {
+    const handleDiscard = () => {
         if (isSubmitting) return;
         reset();
         setMediaUrls([]);
+        mentions.reset();
+        setIsDiscardOpen(false);
         navigate("/home");
     };
 
-    const onSubmit = async (values: FormValues) => {
-        if (!hasImageMedia(mediaUrls)) {
-            toast.error("Please add at least one image.");
+    const handleCancel = () => {
+        if (isSubmitting) return;
+        if (hasChanges) {
+            setIsDiscardOpen(true);
             return;
         }
+        handleDiscard();
+    };
 
+    const onSubmit = async (values: FormValues) => {
         try {
             const response = await postService.create({
                 content: values.content,
                 mediaUrls,
                 visibility: values.visibility,
+                mentionIds: mentions.getMentionIds(values.content),
             });
 
             if (response.code === 1000 && response.result) {
@@ -95,6 +126,7 @@ export default function CreatePage() {
                 toast.success("Post created.");
                 reset();
                 setMediaUrls([]);
+                mentions.reset();
                 navigate("/home");
             }
         } catch (error: unknown) {
@@ -107,8 +139,9 @@ export default function CreatePage() {
     };
 
     return (
-        <div className="h-full w-full overflow-y-auto bg-background">
-            <div className="mx-auto w-full max-w-2xl px-4 py-8">
+        <>
+            <div className="h-full w-full overflow-y-auto bg-background">
+                <div className="mx-auto w-full max-w-2xl px-4 py-8">
                 <div className="rounded-3xl border border-border bg-card p-6 shadow-sm">
                     <div className="flex items-center justify-between">
                         <div>
@@ -147,14 +180,37 @@ export default function CreatePage() {
                         onSubmit={handleSubmit(onSubmit)}
                         className="mt-6 flex flex-col gap-4"
                     >
-                        <div>
+                        <div className="relative">
                             <textarea
-                                {...register("content")}
+                                {...contentRegistration}
+                                ref={(node) => {
+                                    contentRegistration.ref(node);
+                                    textareaRef.current = node;
+                                }}
+                                onChange={(event) => {
+                                    void contentRegistration.onChange(event);
+                                    mentions.updateQuery(
+                                        event.target.value,
+                                        event.target.selectionStart,
+                                    );
+                                }}
+                                onKeyDown={mentions.handleKeyDown}
+                                onScroll={() => mentions.updateQuery(content)}
                                 placeholder="What is happening?"
                                 rows={5}
                                 disabled={isSubmitting}
-                                className="w-full resize-none rounded-2xl bg-muted/40 border border-input px-3 py-2 text-base placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                className="field-sizing-content min-h-36 max-h-[52vh] w-full resize-none overflow-y-auto rounded-2xl border border-input bg-muted/40 px-3 py-2 text-base placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                             />
+                            {mentions.query !== null &&
+                                mentions.suggestions.length > 0 && (
+                                    <MentionSuggestionsDropdown
+                                        suggestions={mentions.suggestions}
+                                        activeIndex={mentions.activeIndex}
+                                        onSelect={mentions.selectSuggestion}
+                                        anchor={mentions.anchor}
+                                        placement="bottom"
+                                    />
+                                )}
                             {errors.content && (
                                 <p className="mt-1 text-xs text-red-500">
                                     {errors.content.message}
@@ -214,7 +270,25 @@ export default function CreatePage() {
                         </div>
                     </form>
                 </div>
+                </div>
             </div>
-        </div>
+
+            <AlertDialog open={isDiscardOpen} onOpenChange={setIsDiscardOpen}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Discard post?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Your post changes will be lost.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Keep editing</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleDiscard}>
+                            Discard
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+        </>
     );
 }

@@ -21,6 +21,8 @@ import { Colors } from '@/constants/theme';
 import { IS_CALL_ENABLED } from '@/constants/runtime';
 import { notificationService } from '@/services/notification.service';
 import { useNotificationStore } from '@/store/notification.store';
+import { useThemeStore } from '@/store/theme.store';
+import { getThemeColors } from '@/utils/themeColors';
 
 const CallScreenComponent = IS_CALL_ENABLED
   ? require('@/components/call/CallScreen').CallScreen
@@ -44,7 +46,7 @@ function AuthGateInner({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, hydrated, hydrate, setAuth, clearAuth } = useAuthStore();
   const segments = useSegments();
   const router = useRouter();
-  const setUnreadCount = useNotificationStore((s) => s.setUnreadCount);
+  const setScopedUnreadCount = useNotificationStore((s) => s.setScopedUnreadCount);
 
   // Hydrate auth state from AsyncStorage on mount
   useEffect(() => {
@@ -89,14 +91,22 @@ function AuthGateInner({ children }: { children: React.ReactNode }) {
   const callStatus = useCallStore((s) => s.callStatus);
   const isGroupCall = useCallStore((s) => s.isGroupCall);
 
-  // Fetch initial unread count
+  // Fetch initial unread counts for each notification entry point.
   useEffect(() => {
     if (isAuthenticated && hydrated) {
-      notificationService.getUnreadCount()
-        .then(res => setUnreadCount(res.result))
+      Promise.all([
+        notificationService.getUnreadCount('all'),
+        notificationService.getUnreadCount('chat'),
+        notificationService.getUnreadCount('social'),
+      ])
+        .then(([all, chat, social]) => {
+          setScopedUnreadCount('all', all.result);
+          setScopedUnreadCount('chat', chat.result);
+          setScopedUnreadCount('social', social.result);
+        })
         .catch(err => console.error('Failed to fetch unread count', err));
     }
-  }, [isAuthenticated, hydrated, setUnreadCount]);
+  }, [isAuthenticated, hydrated, setScopedUnreadCount]);
 
   // Handle navigation based on auth state
   useEffect(() => {
@@ -169,6 +179,13 @@ export default function RootLayout() {
   const [fontsLoaded] = useFonts({
     ...Ionicons.font,
   });
+  const isDarkMode = useThemeStore((s) => s.isDarkMode);
+  const hydrateTheme = useThemeStore((s) => s.hydrate);
+  const palette = getThemeColors(isDarkMode);
+
+  useEffect(() => {
+    void hydrateTheme();
+  }, [hydrateTheme]);
 
   useEffect(() => {
     if (fontsLoaded) {
@@ -184,7 +201,7 @@ export default function RootLayout() {
 
   return (
     <SafeAreaProvider>
-      <StatusBar style="dark" />
+      <StatusBar style={isDarkMode ? 'light' : 'dark'} backgroundColor={palette.background} />
       <AuthGate>
         <Slot />
       </AuthGate>

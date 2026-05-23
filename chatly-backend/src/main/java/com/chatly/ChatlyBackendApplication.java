@@ -17,6 +17,7 @@ import com.chatly.ai.mcp.GroupTools;
 import com.chatly.ai.mcp.MessageTools;
 import com.chatly.ai.mcp.PollTools;
 import com.chatly.ai.mcp.ReminderTools;
+import com.chatly.ai.mcp.SocialPostTools;
 import com.chatly.ai.mcp.UserTools;
 
 @SpringBootApplication
@@ -43,9 +44,10 @@ public class ChatlyBackendApplication {
             MessageTools messageTools,
             GroupTools groupTools,
             ReminderTools reminderTools,
-            PollTools pollTools) {
+            PollTools pollTools,
+            SocialPostTools socialPostTools) {
         return MethodToolCallbackProvider.builder()
-                .toolObjects(userTools, conversationTools, messageTools, groupTools, reminderTools, pollTools)
+                .toolObjects(userTools, conversationTools, messageTools, groupTools, reminderTools, pollTools, socialPostTools)
                 .build();
     }
 
@@ -56,6 +58,6 @@ public class ChatlyBackendApplication {
 
     @Bean
     public ObjectMapper objectMapper() {
-        return new ObjectMapper();
+        return new ObjectMapper().findAndRegisterModules();
     }
 }

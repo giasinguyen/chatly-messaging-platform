@@ -1,6 +1,8 @@
-export type PostVisibility = "PUBLIC" | "FOLLOWERS_ONLY" | "FRIENDS_ONLY" | "ONLY_ME";
+export type PostVisibility = "PUBLIC" | "FRIENDS_ONLY" | "ONLY_ME";
 
 export type ReactionType = "LIKE" | "LOVE" | "HAHA" | "WOW" | "SAD" | "ANGRY";
+
+export type ReportReason = "SPAM" | "HARASSMENT" | "INAPPROPRIATE" | "OTHER";
 
 export interface PostReactionSummary {
     type: ReactionType;
@@ -30,15 +32,37 @@ export interface CreatePostRequest {
     content: string;
     mediaUrls?: string[];
     visibility?: PostVisibility;
+    mentionIds?: string[];
 }
 
 export interface UpdatePostRequest {
     content?: string;
+    mediaUrls?: string[];
     visibility?: PostVisibility;
+    mentionIds?: string[];
 }
 
 export interface ReactToPostRequest {
     type: ReactionType;
+}
+
+export interface ReportPostRequest {
+    reason: ReportReason;
+    description?: string;
+}
+
+export type ReportStatus = "PENDING" | "REVIEWED" | "DISMISSED" | "RESOLVED";
+
+export interface ReportResponse {
+    id: string;
+    postId: string;
+    reporterId: string;
+    reportedUserId: string;
+    reason: ReportReason;
+    description?: string;
+    status: ReportStatus;
+    createdAt: string;
+    updatedAt?: string;
 }
 
 export interface PostPage {
@@ -48,6 +72,13 @@ export interface PostPage {
     number: number;
     last: boolean;
 }
+
+export interface TrendingHashtag {
+    hashtag: string;
+    postCount: number;
+}
+
+export type PostSearchSort = "newest" | "oldest" | "interactions";
 
 export interface FeedResponse {
     items: Post[];
@@ -67,10 +98,13 @@ export interface PostComment {
     createdAt: string;
     updatedAt?: string;
     reactions: PostReactionSummary[];
+    isAiGenerated?: boolean;
+    triggerType?: string | null;
 }
 
 export interface CreatePostCommentRequest {
     content?: string;
     mediaUrls?: string[];
     parentCommentId?: string | null;
+    mentionIds?: string[];
 }

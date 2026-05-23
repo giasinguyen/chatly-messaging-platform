@@ -47,7 +47,7 @@ export function VoiceRecordingBar({ elapsedSeconds, onSend, onCancel, isSending 
   return (
     <View
       className="flex-row items-center border-t px-4 py-2"
-      style={{ backgroundColor: Colors.white, borderTopColor: Colors.borderLight }}
+      style={{ backgroundColor: Colors.bgCard, borderTopColor: Colors.borderLight }}
     >
       {/* Cancel button */}
       <TouchableOpacity

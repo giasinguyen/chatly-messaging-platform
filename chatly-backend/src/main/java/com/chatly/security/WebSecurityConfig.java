@@ -47,6 +47,8 @@ public class WebSecurityConfig {
             "/api/auth/resend-verification",
             "/api/auth/introspect",
             "/api/auth/verify-email",
+            "/api/auth/qr/generate",
+            "/api/auth/qr/status/**",
             "/ws/**",
             "/ws-raw/**",
             "/ws-test.html",
@@ -67,8 +69,12 @@ public class WebSecurityConfig {
                         .dispatcherTypeMatchers(DispatcherType.FORWARD, DispatcherType.ERROR, DispatcherType.ASYNC).permitAll()
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers(PUBLIC_ENDPOINTS).permitAll()
+                        .requestMatchers("/api/admin/**").authenticated()
+                        .requestMatchers("/api/posts/**").authenticated()
+                        .requestMatchers("/api/reels/**").authenticated()
                         .requestMatchers("/api/files/**").authenticated()
                         .requestMatchers("/api/ai/**").authenticated()
+                        .requestMatchers("/api/reports/**").authenticated()
                         .anyRequest().authenticated())
                 .exceptionHandling(ex -> ex
                         .authenticationEntryPoint((request, response, authException) ->

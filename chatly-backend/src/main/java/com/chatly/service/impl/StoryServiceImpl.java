@@ -11,24 +11,31 @@ import com.chatly.exception.AppException;
 import com.chatly.exception.ErrorCode;
 import com.chatly.mapper.StoryMapper;
 import com.chatly.model.enums.NotificationType;
+import com.chatly.model.enums.StoryPrivacy;
 import com.chatly.model.mongo.Story;
 import com.chatly.model.mongo.StoryReaction;
 import com.chatly.model.mongo.StoryReply;
+import com.chatly.repository.mongo.CloseFriendRepository;
 import com.chatly.repository.mongo.StoryReactionRepository;
 import com.chatly.repository.mongo.StoryReplyRepository;
 import com.chatly.repository.mongo.StoryRepository;
 import com.chatly.repository.postgres.ContactRepository;
+import com.chatly.repository.postgres.FollowRepository;
 import com.chatly.repository.postgres.UserRepository;
 import com.chatly.service.NotificationService;
 import com.chatly.service.StoryService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -37,10 +44,14 @@ import java.util.stream.Collectors;
 @Slf4j
 public class StoryServiceImpl implements StoryService {
 
+    private static final long STORY_TTL_HOURS = 24L;
+
     private final StoryRepository storyRepository;
+    private final CloseFriendRepository closeFriendRepository;
     private final StoryReactionRepository storyReactionRepository;
     private final StoryReplyRepository storyReplyRepository;
     private final ContactRepository contactRepository;
+    private final FollowRepository followRepository;
     private final UserRepository userRepository;
     private final StoryMapper storyMapper;
     private final NotificationService notificationService;
@@ -75,7 +86,7 @@ public class StoryServiceImpl implements StoryService {
     @Override
     @Transactional(readOnly = true)
     public List<StoryResponse> getActiveStoriesForUser(String userId) {
-        Instant cutoff = Instant.now().minus(24, ChronoUnit.HOURS);
+        Instant cutoff = Instant.now().minus(STORY_TTL_HOURS, ChronoUnit.HOURS);
         return storyRepository.findAllByUserIdOrderByCreatedAtDesc(userId).stream()
                 .filter(s -> s.getCreatedAt().isAfter(cutoff))
                 .map(story -> toResponseWithUser(story, userId))
@@ -86,21 +97,14 @@ public class StoryServiceImpl implements StoryService {
     @Transactional(readOnly = true)
     public List<StoryResponse> getStoriesFeed(String userId) {
         UUID userUuid = UUID.fromString(userId);
-        List<String> friendIds = contactRepository.findFriendsAndBlocked(userUuid).stream()
-                .map(contact -> {
-                    if (contact.getUser().getId().equals(userUuid)) {
-                        return contact.getContact().getId().toString();
-                    } else {
-                        return contact.getUser().getId().toString();
-                    }
-                })
-                .collect(Collectors.toList());
+        Set<String> followedUserIds = findFollowedUserIds(userUuid);
+        Set<String> candidateUserIds = new LinkedHashSet<>(followedUserIds);
+        candidateUserIds.add(userId);
 
-        friendIds.add(userId);
-
-        Instant cutoff = Instant.now().minus(24, ChronoUnit.HOURS);
-        return storyRepository.findAllByUserIdInOrderByCreatedAtDesc(friendIds).stream()
+        Instant cutoff = Instant.now().minus(STORY_TTL_HOURS, ChronoUnit.HOURS);
+        return storyRepository.findAllByUserIdInOrderByCreatedAtDesc(new ArrayList<>(candidateUserIds)).stream()
                 .filter(s -> s.getCreatedAt().isAfter(cutoff))
+                .filter(story -> canViewStory(story, userId, followedUserIds))
                 .map(story -> toResponseWithUser(story, userId))
                 .collect(Collectors.toList());
     }
@@ -255,6 +259,27 @@ public class StoryServiceImpl implements StoryService {
         return storyReplyRepository.findAllByStoryIdOrderByCreatedAtAsc(storyId).stream()
                 .map(this::toReplyResponse)
                 .collect(Collectors.toList());
+    }
+
+    private Set<String> findFollowedUserIds(UUID userUuid) {
+        Set<String> userIds = new LinkedHashSet<>(contactRepository.findFollowingIds(userUuid));
+        followRepository.findFollowingIdsByFollowerId(userUuid, Pageable.unpaged())
+                .forEach(followeeId -> userIds.add(followeeId.toString()));
+        return userIds;
+    }
+
+    private boolean canViewStory(Story story, String requesterId, Set<String> followedUserIds) {
+        if (requesterId.equals(story.getUserId())) {
+            return true;
+        }
+
+        StoryPrivacy privacy = story.getPrivacy() != null ? story.getPrivacy() : StoryPrivacy.EVERYONE;
+        return switch (privacy) {
+            case EVERYONE -> true;
+            case FRIENDS_ONLY -> followedUserIds.contains(story.getUserId());
+            case CLOSE_FRIENDS -> closeFriendRepository.existsByOwnerIdAndFriendId(story.getUserId(), requesterId);
+            case ONLY_ME -> false;
+        };
     }
 
     private StoryResponse toResponse(Story story, String requesterId) {

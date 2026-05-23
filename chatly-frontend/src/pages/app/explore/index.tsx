@@ -1,27 +1,38 @@
-import { Search, Filter, Play, Copy } from "lucide-react";
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { postService } from "@/services/post.service";
-import type { Post, FeedResponse, PostPage } from "@/types/post";
+import type {
+    Post,
+    FeedResponse,
+    PostPage,
+    PostSearchSort,
+} from "@/types/post";
 import { toast } from "sonner";
 import { AxiosError } from "axios";
-
-const CATEGORIES = [
-    { label: "For You", hashtag: null },
-    { label: "Trending", hashtag: "trending" },
-    { label: "Photography", hashtag: "photography" },
-    { label: "Digital Art", hashtag: "digitalart" },
-    { label: "Travel", hashtag: "travel" },
-    { label: "Architecture", hashtag: "architecture" },
-];
+import { SocialErrorBoundary } from "@/features/social/components/SocialErrorBoundary";
+import { ExploreResultsGrid } from "@/pages/app/explore/components/ExploreResultsGrid";
+import { ExploreTrendingSidebar } from "@/pages/app/explore/components/ExploreTrendingSidebar";
+import { ExploreCard } from "@/pages/app/explore/components/ExploreCard";
+import { ExploreHashtagFeed } from "@/pages/app/explore/components/ExploreHashtagFeed";
+import { ExploreToolbar } from "@/pages/app/explore/components/ExploreToolbar";
+import { EXPLORE_CATEGORIES } from "@/constants/explore";
 
 const DEBOUNCE_MS = 400;
 
+function parseHashtagQuery(value: string): string | null {
+    const trimmed = value.trim();
+    if (!trimmed.startsWith("#")) {
+        return null;
+    }
+    const normalized = trimmed.replace(/^#/, "").toLowerCase();
+    return /^[a-z0-9_]+$/i.test(normalized) ? normalized : null;
+}
+
 export default function ExplorePage() {
+    const navigate = useNavigate();
+    const [searchParams, setSearchParams] = useSearchParams();
     const [selectedCategory, setSelectedCategory] = useState("For You");
+    const [selectedHashtag, setSelectedHashtag] = useState<string | null>(null);
     const [searchInput, setSearchInput] = useState("");
     const [debouncedQuery, setDebouncedQuery] = useState("");
     const [posts, setPosts] = useState<Post[]>([]);
@@ -30,19 +41,51 @@ export default function ExplorePage() {
     const [hasMoreExplore, setHasMoreExplore] = useState(true);
     const [searchPage, setSearchPage] = useState(0);
     const [hasMoreSearch, setHasMoreSearch] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+    const [trendingHashtags, setTrendingHashtags] = useState<string[]>([]);
+    const [trendingLoading, setTrendingLoading] = useState(false);
+    const [hashtagSort, setHashtagSort] = useState<PostSearchSort>("newest");
 
     const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-    const isSearchActive = debouncedQuery.trim().length > 0;
-    const activeHashtag = CATEGORIES.find((c) => c.label === selectedCategory)?.hashtag ?? null;
-    const isHashtagActive = !isSearchActive && activeHashtag !== null;
+    const hashtagFromSearch = parseHashtagQuery(debouncedQuery);
+    const isSearchActive =
+        debouncedQuery.trim().length > 0 && hashtagFromSearch === null;
+    const activeHashtag = isSearchActive
+        ? null
+        : (hashtagFromSearch ?? selectedHashtag);
+    const isHashtagActive = activeHashtag !== null;
+
+    useEffect(() => {
+        const hashtagFromParams = searchParams.get("hashtag");
+        const normalized = hashtagFromParams
+            ? hashtagFromParams.replace(/^#/, "").trim().toLowerCase()
+            : null;
+
+        setSelectedHashtag(normalized);
+
+        if (normalized) {
+            setSearchInput(`#${normalized}`);
+            const matchedCategory = EXPLORE_CATEGORIES.find(
+                (category) => category.hashtag === normalized,
+            );
+            setSelectedCategory(matchedCategory?.label ?? "For You");
+            return;
+        }
+
+        setSelectedCategory("For You");
+        setSearchInput((current) => (current.startsWith("#") ? "" : current));
+    }, [searchParams]);
 
     const loadExploreFeed = useCallback(async (cursor: string | null, append: boolean) => {
         setIsLoading(true);
+        setError(null);
         try {
             const res = await postService.getExploreFeed(cursor);
             if (res.code !== 1000) {
-                toast.error(res.message ?? "Failed to load explore feed");
+                const message = res.message ?? "Failed to load explore feed";
+                setError(message);
+                toast.error(message);
                 return;
             }
             const data = res.result as FeedResponse;
@@ -54,6 +97,7 @@ export default function ExplorePage() {
                 error instanceof AxiosError
                     ? (error.response?.data?.message ?? "Failed to load explore feed")
                     : "An unexpected error occurred";
+            setError(msg);
             toast.error(msg);
         } finally {
             setIsLoading(false);
@@ -61,12 +105,27 @@ export default function ExplorePage() {
     }, []);
 
     const loadSearchResults = useCallback(
-        async (q: string | null, hashtag: string | null, page: number, append: boolean) => {
+        async (
+            q: string | null,
+            hashtag: string | null,
+            page: number,
+            append: boolean,
+            sort: PostSearchSort,
+        ) => {
             setIsLoading(true);
+            setError(null);
             try {
-                const res = await postService.searchPosts(q, hashtag, page);
+                const res = await postService.searchPosts(
+                    q,
+                    hashtag,
+                    page,
+                    undefined,
+                    sort,
+                );
                 if (res.code !== 1000) {
-                    toast.error(res.message ?? "Search failed");
+                    const message = res.message ?? "Search failed";
+                    setError(message);
+                    toast.error(message);
                     return;
                 }
                 const data = res.result as PostPage;
@@ -77,6 +136,7 @@ export default function ExplorePage() {
                     error instanceof AxiosError
                         ? (error.response?.data?.message ?? "Search failed")
                         : "An unexpected error occurred";
+                setError(msg);
                 toast.error(msg);
             } finally {
                 setIsLoading(false);
@@ -84,6 +144,26 @@ export default function ExplorePage() {
         },
         [],
     );
+
+    const loadTrendingHashtags = useCallback(async () => {
+        setTrendingLoading(true);
+        try {
+            const response = await postService.getTrendingHashtags(12);
+            if (response.code !== 1000 || !response.result) {
+                setTrendingHashtags([]);
+                return;
+            }
+            setTrendingHashtags(response.result.map((trend) => trend.hashtag));
+        } catch {
+            setTrendingHashtags([]);
+        } finally {
+            setTrendingLoading(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        loadTrendingHashtags();
+    }, [loadTrendingHashtags]);
 
     useEffect(() => {
         if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -95,146 +175,139 @@ export default function ExplorePage() {
 
     useEffect(() => {
         setPosts([]);
+        setError(null);
         setSearchPage(0);
         setExploreCursor(null);
         setHasMoreExplore(true);
         setHasMoreSearch(true);
 
         if (isSearchActive) {
-            loadSearchResults(debouncedQuery, null, 0, false);
+            loadSearchResults(debouncedQuery, null, 0, false, "newest");
         } else if (isHashtagActive) {
-            loadSearchResults(null, activeHashtag, 0, false);
+            loadSearchResults(null, activeHashtag, 0, false, hashtagSort);
         } else {
             loadExploreFeed(null, false);
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [debouncedQuery, selectedCategory]);
+    }, [debouncedQuery, selectedHashtag, hashtagSort]);
+
+    const updateHashtagFilter = (hashtag: string | null) => {
+        if (hashtag) {
+            setSearchParams({ hashtag }, { replace: true });
+        } else {
+            setSearchParams({}, { replace: true });
+        }
+    };
+
+    const handleCategoryClick = (label: string, hashtag: string | null) => {
+        setSelectedCategory(label);
+        setSelectedHashtag(hashtag);
+        setSearchInput(hashtag ? `#${hashtag}` : "");
+        setHashtagSort("newest");
+        updateHashtagFilter(hashtag);
+    };
+
+    const handleTrendingHashtagClick = (hashtag: string) => {
+        setSearchInput(`#${hashtag}`);
+        setDebouncedQuery("");
+        setSelectedCategory("For You");
+        setSelectedHashtag(hashtag);
+        setHashtagSort("newest");
+        updateHashtagFilter(hashtag);
+    };
+
+    const handleRetry = () => {
+        if (isSearchActive) {
+            loadSearchResults(debouncedQuery, null, 0, false, "newest");
+        } else if (isHashtagActive) {
+            loadSearchResults(null, activeHashtag, 0, false, hashtagSort);
+        } else {
+            loadExploreFeed(null, false);
+        }
+    };
 
     const handleLoadMore = () => {
         if (isSearchActive) {
             const nextPage = searchPage + 1;
             setSearchPage(nextPage);
-            loadSearchResults(debouncedQuery, null, nextPage, true);
+            loadSearchResults(debouncedQuery, null, nextPage, true, "newest");
         } else if (isHashtagActive) {
             const nextPage = searchPage + 1;
             setSearchPage(nextPage);
-            loadSearchResults(null, activeHashtag, nextPage, true);
+            loadSearchResults(null, activeHashtag, nextPage, true, hashtagSort);
         } else {
             loadExploreFeed(exploreCursor, true);
         }
     };
 
     const hasMore = isSearchActive || isHashtagActive ? hasMoreSearch : hasMoreExplore;
+    const handlePostUpdate = (postId: string, updates: Partial<Post>) => {
+        setPosts((current) =>
+            current.map((post) =>
+                post.id === postId ? { ...post, ...updates } : post,
+            ),
+        );
+    };
+
+    const handlePostRemove = (postId: string) => {
+        setPosts((current) => current.filter((post) => post.id !== postId));
+    };
 
     return (
-        <div className="w-full h-full bg-background overflow-y-auto px-6 py-6 hide-scrollbar">
-            <div className="max-w-5xl mx-auto mb-8 flex items-center gap-4">
-                <div className="relative flex-1">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                    <Input
-                        placeholder="Search explore..."
-                        value={searchInput}
-                        onChange={(e) => setSearchInput(e.target.value)}
-                        className="pl-10 h-12 bg-muted/50 border-none rounded-2xl text-base focus-visible:ring-1 focus-visible:ring-brand"
+        <SocialErrorBoundary
+            title="Explore is unavailable"
+            message="The explore page failed to render. Try again."
+        >
+            <div className="h-full w-full overflow-y-auto bg-background px-6 py-6 hide-scrollbar">
+                <ExploreToolbar
+                    searchInput={searchInput}
+                    selectedCategory={selectedCategory}
+                    selectedHashtag={selectedHashtag}
+                    onSearchChange={setSearchInput}
+                    onCategoryClick={handleCategoryClick}
+                />
+
+                {isHashtagActive && activeHashtag ? (
+                    <ExploreHashtagFeed
+                        hashtag={activeHashtag}
+                        posts={posts}
+                        sort={hashtagSort}
+                        hasMore={hasMore}
+                        isLoading={isLoading}
+                        error={error}
+                        onBack={() => navigate("/home")}
+                        onLoadMore={handleLoadMore}
+                        onRetry={handleRetry}
+                        onSortChange={setHashtagSort}
+                        onPostUpdate={handlePostUpdate}
+                        onPostRemove={handlePostRemove}
+                    />
+                ) : (
+                <div className="mx-auto grid max-w-6xl gap-6 lg:grid-cols-[minmax(0,1fr)_280px]">
+                    <ExploreResultsGrid
+                        isLoading={isLoading}
+                        error={error}
+                        posts={posts}
+                        isSearchActive={isSearchActive}
+                        searchQuery={debouncedQuery}
+                        isHashtagActive={isHashtagActive}
+                        activeHashtag={activeHashtag}
+                        hasMore={hasMore}
+                        onLoadMore={handleLoadMore}
+                        onRetry={handleRetry}
+                        renderCard={(post) => <ExploreCard key={post.id} post={post} />}
+                    />
+
+                    <ExploreTrendingSidebar
+                        hashtags={trendingHashtags}
+                        loading={trendingLoading}
+                        selectedHashtag={selectedHashtag}
+                        onSelect={handleTrendingHashtagClick}
                     />
                 </div>
-                <Button
-                    variant="outline"
-                    size="icon"
-                    className="h-12 w-12 rounded-2xl border-none bg-muted/50"
-                >
-                    <Filter className="w-5 h-5 text-muted-foreground" />
-                </Button>
-            </div>
-
-            <div className="max-w-5xl mx-auto mb-8 flex items-center gap-3 overflow-x-auto pb-2 hide-scrollbar">
-                {CATEGORIES.map((cat) => (
-                    <Badge
-                        key={cat.label}
-                        variant={selectedCategory === cat.label ? "default" : "secondary"}
-                        className={cn(
-                            "px-5 py-2 rounded-xl cursor-pointer text-sm font-medium transition-all whitespace-nowrap",
-                            selectedCategory === cat.label
-                                ? "bg-brand text-white shadow-md shadow-brand/20"
-                                : "bg-muted/50 text-muted-foreground hover:bg-muted",
-                        )}
-                        onClick={() => setSelectedCategory(cat.label)}
-                    >
-                        {cat.label}
-                    </Badge>
-                ))}
-            </div>
-
-            <div className="max-w-5xl mx-auto grid grid-cols-2 md:grid-cols-3 gap-4">
-                {isLoading && posts.length === 0 ? (
-                    <ExploreSkeletons />
-                ) : posts.length === 0 ? (
-                    <p className="col-span-3 text-center text-muted-foreground py-16">
-                        No posts found.
-                    </p>
-                ) : (
-                    posts.map((post) => <ExploreCard key={post.id} post={post} />)
                 )}
             </div>
-
-            {hasMore && posts.length > 0 && (
-                <div className="max-w-5xl mx-auto mt-8 flex justify-center">
-                    <Button
-                        variant="outline"
-                        onClick={handleLoadMore}
-                        disabled={isLoading}
-                        className="rounded-2xl px-8"
-                    >
-                        {isLoading ? "Loading..." : "Load more"}
-                    </Button>
-                </div>
-            )}
-        </div>
+        </SocialErrorBoundary>
     );
 }
 
-function ExploreCard({ post }: { post: Post }) {
-    const hasMedia = post.mediaUrls && post.mediaUrls.length > 0;
-    const isAlbum = post.mediaUrls && post.mediaUrls.length > 1;
-
-    return (
-        <div className="relative aspect-square rounded-3xl overflow-hidden group cursor-pointer shadow-sm hover:shadow-xl transition-all duration-300 bg-muted">
-            {hasMedia ? (
-                <img
-                    src={post.mediaUrls[0]}
-                    alt="Post media"
-                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                />
-            ) : (
-                <div className="w-full h-full flex items-center justify-center p-4 text-sm text-muted-foreground line-clamp-5">
-                    {post.content}
-                </div>
-            )}
-            <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity" />
-
-            {isAlbum && (
-                <div className="absolute top-4 right-4 bg-black/40 backdrop-blur-md rounded-full p-1.5">
-                    <Copy className="w-4 h-4 text-white" />
-                </div>
-            )}
-            {post.hashtags?.length > 0 && (
-                <div className="absolute bottom-0 left-0 right-0 bg-linear-to-t from-black/60 to-transparent px-3 py-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <p className="text-white text-xs truncate">
-                        {post.hashtags.map((h) => `#${h}`).join(" ")}
-                    </p>
-                </div>
-            )}
-            <Play className="hidden" />
-        </div>
-    );
-}
-
-function ExploreSkeletons() {
-    return (
-        <>
-            {Array.from({ length: 6 }).map((_, i) => (
-                <div key={i} className="aspect-square rounded-3xl bg-muted animate-pulse" />
-            ))}
-        </>
-    );
-}

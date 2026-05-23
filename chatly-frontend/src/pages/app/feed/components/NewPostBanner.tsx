@@ -7,7 +7,8 @@ interface NewPostBannerProps {
 }
 
 export function NewPostBanner({ count, onClick }: NewPostBannerProps) {
-    const label = count === 1 ? "1 new post" : `${count} new posts`;
+    const label =
+        count === 1 ? "New post available" : `${count} new posts available`;
     const shouldShow = count > 0;
 
     return (

@@ -5,9 +5,10 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
-import tools.jackson.core.JsonParser;
-import tools.jackson.databind.DeserializationContext;
-import tools.jackson.databind.ValueDeserializer;
+import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.databind.DeserializationContext;
+import com.fasterxml.jackson.databind.JsonDeserializer;
+import java.io.IOException;
 
 /*
  * Handles all datetime string variants returned by Python/Pydantic:
@@ -16,9 +17,9 @@ import tools.jackson.databind.ValueDeserializer;
  * 2026-04-09T08:32:06.773000           → assume UTC, parse as LocalDateTime
  * 2026-03-08                           → converted to 2026-03-08T00:00:00Z
  */
-public class CustomInstantDeserializer extends ValueDeserializer<Instant> {
+public class CustomInstantDeserializer extends JsonDeserializer<Instant> {
     @Override
-    public Instant deserialize(JsonParser p, DeserializationContext ctxt) {
+    public Instant deserialize(JsonParser p, DeserializationContext ctxt) throws IOException {
         try {
             String text = p.getValueAsString();
             if (text == null || text.isBlank())

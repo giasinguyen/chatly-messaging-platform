@@ -1,19 +1,21 @@
-/**
- * Maps backend error codes / axios errors to English user-facing messages
- */
-export function getApiErrorMessage(error: any, fallback: string): string {
-  // Network error – no response from server
-  if (!error?.response) {
-    if (error?.code === 'ECONNABORTED' || error?.message?.includes('timeout')) {
+import { isAxiosError } from 'axios';
+import type { ApiResponse } from '@/types/auth';
+
+export function getApiErrorMessage(error: unknown, fallback: string): string {
+  if (!isAxiosError<ApiResponse<unknown>>(error)) {
+    return error instanceof Error ? error.message : fallback;
+  }
+
+  if (!error.response) {
+    if (error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
       return 'Connection timed out. Please try again.';
     }
     return 'Could not connect to server. Please check your network.';
   }
 
-  const code: number = error.response.data?.code;
-  const serverMessage: string | undefined = error.response.data?.message;
+  const code = error.response.data?.code;
+  const serverMessage = error.response.data?.message;
 
-  // Map known error codes to English
   const codeMessages: Record<number, string> = {
     1104: 'Invalid credentials. Please check your email/phone or password.',
     1101: 'Account already exists.',
