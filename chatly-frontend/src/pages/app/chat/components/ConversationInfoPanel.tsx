@@ -195,6 +195,7 @@ export function ConversationInfoPanel({
     const [isDismissing, setIsDismissing] = useState(false);
     const [isLeaving, setIsLeaving] = useState(false);
     const [isOwner, setIsOwner] = useState(false);
+    const [isOwnerOrAdmin, setIsOwnerOrAdmin] = useState(false);
 
     // Fetch current user's role in group to determine owner status
     useEffect(() => {
@@ -203,6 +204,7 @@ export function ConversationInfoPanel({
             if (res.code === 1000) {
                 const me = res.result.find((m) => m.userId === currentUserId);
                 setIsOwner(me?.role === "OWNER");
+                setIsOwnerOrAdmin(me?.role === "OWNER" || me?.role === "ADMIN");
             }
         }).catch(() => {});
     }, [isGroup, conversation.id, currentUserId]);
@@ -308,13 +310,13 @@ export function ConversationInfoPanel({
         [notifications, conversation.id],
     );
     useEffect(() => {
-        if (!isGroup) return;
+        if (!isGroup || !isOwnerOrAdmin) return;
         let cancelled = false;
         groupService.getPendingRequests(conversation.id).then((res) => {
             if (!cancelled) setPendingCount(res.result?.length ?? 0);
         }).catch(() => { /* silent */ });
         return () => { cancelled = true; };
-    }, [isGroup, conversation.id, joinRequestCount]);
+    }, [isGroup, isOwnerOrAdmin, conversation.id, joinRequestCount]);
 
     // Invite link handlers
     const fetchInviteLink = useCallback(async () => {

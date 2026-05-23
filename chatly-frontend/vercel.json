@@ -1,5 +1,9 @@
 {
   "rewrites": [
+    {
+      "source": "/klipy-api/:path*",
+      "destination": "https://api.klipy.com/:path*"
+    },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }
