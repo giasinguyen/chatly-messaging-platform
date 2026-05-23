@@ -312,6 +312,10 @@ export default function PostDetailScreen() {
             onLikeComment={handleLikeComment}
             onUnlikeComment={handleUnlikeComment}
             onDeleteComment={handleDeleteComment}
+            onAddComment={(content, mediaUrls, mentionIds) =>
+              void handleSubmitComment(post.id, content, mediaUrls, undefined, mentionIds)
+            }
+            isSubmittingComment={isSubmittingComment}
           />
         </ScrollView>
       ) : (

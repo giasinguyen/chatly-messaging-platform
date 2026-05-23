@@ -1,5 +1,6 @@
 import { ActivityIndicator, Text, TouchableOpacity, View } from 'react-native';
 import { CommentList } from '@/components/social/CommentList';
+import { CommentInput } from '@/components/social/CommentInput';
 import { Colors } from '@/constants/theme';
 import type { PostComment, ReactionType } from '@/types/post';
 
@@ -13,6 +14,8 @@ interface PostCommentsSectionProps {
   onLikeComment: (commentId: string, reactionType: ReactionType) => void;
   onUnlikeComment: (commentId: string) => void;
   onDeleteComment: (commentId: string) => void;
+  onAddComment: (content: string, mediaUrls?: string[], mentionIds?: string[]) => void;
+  isSubmittingComment: boolean;
 }
 
 export function PostCommentsSection({
@@ -25,6 +28,8 @@ export function PostCommentsSection({
   onLikeComment,
   onUnlikeComment,
   onDeleteComment,
+  onAddComment,
+  isSubmittingComment,
 }: PostCommentsSectionProps) {
   return (
     <View className="mt-6 rounded-2xl px-3 py-3" style={{ backgroundColor: Colors.bgCard }}>
@@ -54,14 +59,14 @@ export function PostCommentsSection({
         />
       )}
 
-      <TouchableOpacity
-        className="mt-3 rounded-xl border px-3 py-3"
-        style={{ backgroundColor: Colors.bg, borderColor: Colors.borderLight }}
-        activeOpacity={0.8}
-        onPress={onOpenComments}
-      >
-        <Text className="text-sm" style={{ color: Colors.textMuted }}>Write a comment...</Text>
-      </TouchableOpacity>
+      <View
+        className="mt-3 overflow-hidden rounded-xl border"
+        style={{ backgroundColor: Colors.bgCard, borderColor: Colors.borderLight }}>
+        <CommentInput
+          isLoading={isSubmittingComment}
+          onSubmit={(content, mediaUrls, mentionIds) => onAddComment(content, mediaUrls, mentionIds)}
+        />
+      </View>
     </View>
   );
 }
