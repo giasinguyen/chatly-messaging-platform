@@ -182,11 +182,11 @@ export function GroupCallOverlay({
 
     if ((callStatus !== "ONGOING" && callStatus !== "RINGING") || !activeCall || !isGroupCall) return null;
 
-    const remotePeers = Object.entries(groupRemoteStreams).map(([peerId, stream]) => ({
+    const remotePeers = Object.entries(groupParticipantInfo).map(([peerId, info]) => ({
         peerId,
-        stream,
-        name: groupParticipantInfo[peerId]?.name ?? peerId.substring(0, 8),
-        avatar: groupParticipantInfo[peerId]?.avatar ?? null,
+        stream: groupRemoteStreams[peerId] ?? null,
+        name: info.name,
+        avatar: info.avatar,
     }));
 
     const totalParticipants = remotePeers.length + 1;

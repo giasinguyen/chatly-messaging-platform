@@ -42,8 +42,7 @@ export function useGroupCallSocket() {
       });
     },
     onPeerConnectionFailed: (peerId) => {
-      groupWebRTC.removePeer(peerId);
-      removeGroupParticipant(peerId);
+      console.warn(`[GroupCallSocket] Peer connection failed for ${peerId}`);
     },
   });
 

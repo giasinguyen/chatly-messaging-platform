@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useMemo, forwardRef, useImperativeHandle } from "react";
+import { useCallback, useEffect, useState, useRef, useMemo, forwardRef, useImperativeHandle } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import {
     Search,
@@ -58,6 +58,7 @@ import {
 } from "@/utils/conversation";
 import type { ConversationResponse } from "@/types/conversation";
 import type { ChatEvent } from "@/types/message";
+import type { NotificationEvent } from "@/types/notification";
 import type { UserResponse } from "@/types/auth";
 import { toast } from "sonner";
 import { CreateGroupDialog } from "./CreateGroupDialog";
@@ -174,6 +175,19 @@ function formatLastMessagePreview(
     return text || "Message";
 }
 
+function upsertConversation(
+    conversations: ConversationResponse[],
+    conversation: ConversationResponse,
+): ConversationResponse[] {
+    if (!conversations.some((item) => item.id === conversation.id)) {
+        return [conversation, ...conversations];
+    }
+
+    return conversations.map((item) =>
+        item.id === conversation.id ? conversation : item,
+    );
+}
+
 export const ChatList = forwardRef(function ChatListComponent(_, ref) {
     const { user: currentUser } = useAuthStore();
     const navigate = useNavigate();
@@ -189,6 +203,7 @@ export const ChatList = forwardRef(function ChatListComponent(_, ref) {
     const [searchQuery, setSearchQuery] = useState("");
     const toggleMobileDrawer = useUiStore((s) => s.toggleMobileDrawer);
     const notifications = useNotificationStore((s) => s.notifications);
+    const addNotification = useNotificationStore((s) => s.addNotification);
     const { fetchContacts, loaded: contactsLoaded, getBlockDirection } = useContactStore();
 
     // Lazy-initialize contact store once per session for blocked indicators
@@ -206,6 +221,11 @@ export const ChatList = forwardRef(function ChatListComponent(_, ref) {
         .map((conv) => conv.id)
         .sort()
         .join("|");
+
+    const refreshConversations = useCallback(async () => {
+        const response = await conversationService.getMyConversations();
+        setConversations(response.result ?? []);
+    }, []);
 
     useImperativeHandle(ref, () => ({
         updateConversation: (updated: ConversationResponse) => {
@@ -235,8 +255,46 @@ export const ChatList = forwardRef(function ChatListComponent(_, ref) {
         fetchData();
     }, [currentUser]);
 
-    // When a NEW_MESSAGE notification arrives for a conversation not yet in the list
-    // (e.g. someone starts a brand-new conversation), fetch that conversation and add it.
+    useEffect(() => {
+        if (!currentUser?.id) return;
+
+        let disposed = false;
+
+        const setup = async () => {
+            const token = localStorage.getItem("access_token");
+            if (!token) return;
+
+            await socketService.connect(token);
+            if (disposed) return;
+
+            const client = socketService.getClient();
+            if (!client) return;
+
+            const subscription = client.subscribe(
+                "/user/queue/notifications",
+                (payload) => {
+                    const event = JSON.parse(payload.body) as NotificationEvent;
+                    addNotification(event.notification);
+
+                    if (event.notification.type === "NEW_MESSAGE") {
+                        processedNotifIdsRef.current.add(event.notification.id);
+                        void refreshConversations();
+                    }
+                },
+            );
+
+            return () => subscription.unsubscribe();
+        };
+
+        const cleanupPromise = setup();
+
+        return () => {
+            disposed = true;
+            cleanupPromise.then((cleanup) => cleanup?.());
+        };
+    }, [addNotification, currentUser?.id, refreshConversations]);
+
+    // Notifications keep previews fresh when the list subscription misses a message.
     useEffect(() => {
         const newMsgNotifs = notifications.filter(
             (n) => n.type === "NEW_MESSAGE" && n.referenceId && !processedNotifIdsRef.current.has(n.id),
@@ -245,22 +303,21 @@ export const ChatList = forwardRef(function ChatListComponent(_, ref) {
 
         for (const notif of newMsgNotifs) {
             processedNotifIdsRef.current.add(notif.id);
-            const convId = notif.referenceId!;
-            setConversations((prev) => {
-                if (prev.some((c) => c.id === convId)) return prev;
-                // New conversation not in list — fetch and prepend
-                conversationService.getById(convId).then((res) => {
-                    if (res.result) {
-                        setConversations((p) => {
-                            if (p.some((c) => c.id === res.result.id)) return p;
-                            return [res.result, ...p];
-                        });
-                    }
-                }).catch(() => {});
-                return prev;
-            });
+            const conversationId = notif.referenceId;
+            if (!conversationId) continue;
+
+            conversationService
+                .getById(conversationId)
+                .then((response) => {
+                    if (!response.result) return;
+                    setConversations((current) =>
+                        upsertConversation(current, response.result),
+                    );
+                    void refreshConversations();
+                })
+                .catch(() => {});
         }
-    }, [notifications]);
+    }, [notifications, refreshConversations]);
 
     useEffect(() => {
         if (!currentUser?.id || conversations.length === 0) return;
@@ -367,7 +424,7 @@ export const ChatList = forwardRef(function ChatListComponent(_, ref) {
     }, [currentUser?.id, conversations.length, conversationIdsKey]);
 
     const filteredConversations = useMemo(() => {
-        let result = conversations.filter((conv) => {
+        const result = conversations.filter((conv) => {
             if (!searchQuery.trim()) return true;
             const prefs = convPrefs[conv.id] ?? {};
             const baseName = currentUser

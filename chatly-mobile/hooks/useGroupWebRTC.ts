@@ -1,5 +1,6 @@
 import { useRef, useCallback, useState } from 'react';
 import type { CallType } from '@/types/call';
+import { WEBRTC_ICE_CONFIG } from '@/constants/webrtc';
 
 let RTCPeerConnection: any;
 let RTCSessionDescription: any;
@@ -18,9 +19,6 @@ try {
   // react-native-webrtc not available in Expo Go
 }
 
-const ICE_SERVERS = {
-  iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
-};
 
 interface GroupWebRTCCallbacks {
   onIceCandidate?: (peerId: string, candidate: RTCIceCandidateInit) => void;
@@ -30,6 +28,8 @@ interface GroupWebRTCCallbacks {
 
 interface PeerEntry {
   connection: RTCPeerConnection;
+  pendingCandidates: RTCIceCandidateInit[];
+  remoteDescriptionSet: boolean;
 }
 
 export function useGroupWebRTC(callbacks?: GroupWebRTCCallbacks) {
@@ -108,7 +108,7 @@ export function useGroupWebRTC(callbacks?: GroupWebRTCCallbacks) {
       throw new Error('WebRTC is not available in Expo Go. Please use a development build to make calls.');
     }
 
-    const pc = new RTCPeerConnection(ICE_SERVERS);
+    const pc = new RTCPeerConnection(WEBRTC_ICE_CONFIG);
 
     pc.onicecandidate = (event: { candidate: RTCIceCandidateInit | null }) => {
       if (event.candidate) {
@@ -140,9 +140,20 @@ export function useGroupWebRTC(callbacks?: GroupWebRTCCallbacks) {
       stream.getTracks().forEach((track) => pc.addTrack(track, stream));
     }
 
-    peers.current.set(peerId, { connection: pc });
+    peers.current.set(peerId, {
+      connection: pc,
+      pendingCandidates: [],
+      remoteDescriptionSet: false,
+    });
     return pc;
   }, [mergeRemoteStream]);
+
+  const drainPendingCandidates = useCallback(async (entry: PeerEntry): Promise<void> => {
+    const candidates = entry.pendingCandidates.splice(0);
+    for (const candidate of candidates) {
+      await entry.connection.addIceCandidate(new RTCIceCandidate(candidate)).catch(() => {});
+    }
+  }, []);
 
   const createOfferForPeer = useCallback(
     async (peerId: string): Promise<RTCSessionDescriptionInit> => {
@@ -161,11 +172,16 @@ export function useGroupWebRTC(callbacks?: GroupWebRTCCallbacks) {
     async (peerId: string, offer: RTCSessionDescriptionInit): Promise<RTCSessionDescriptionInit> => {
       const pc = addPeer(peerId);
       await pc.setRemoteDescription(new RTCSessionDescription(offer));
+      const entry = peers.current.get(peerId);
+      if (entry) {
+        entry.remoteDescriptionSet = true;
+        await drainPendingCandidates(entry);
+      }
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(new RTCSessionDescription(answer));
       return answer;
     },
-    [addPeer],
+    [addPeer, drainPendingCandidates],
   );
 
   const handleAnswerFromPeer = useCallback(
@@ -173,14 +189,20 @@ export function useGroupWebRTC(callbacks?: GroupWebRTCCallbacks) {
       const entry = peers.current.get(peerId);
       if (!entry) return;
       await entry.connection.setRemoteDescription(new RTCSessionDescription(answer));
+      entry.remoteDescriptionSet = true;
+      await drainPendingCandidates(entry);
     },
-    [],
+    [drainPendingCandidates],
   );
 
   const addIceCandidateForPeer = useCallback(
     async (peerId: string, candidate: RTCIceCandidateInit): Promise<void> => {
       const entry = peers.current.get(peerId);
       if (!entry) return;
+      if (!entry.remoteDescriptionSet) {
+        entry.pendingCandidates.push(candidate);
+        return;
+      }
       await entry.connection.addIceCandidate(new RTCIceCandidate(candidate));
     },
     [],

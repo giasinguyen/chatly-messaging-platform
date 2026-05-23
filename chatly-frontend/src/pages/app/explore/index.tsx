@@ -295,7 +295,13 @@ export default function ExplorePage() {
                         hasMore={hasMore}
                         onLoadMore={handleLoadMore}
                         onRetry={handleRetry}
-                        renderCard={(post) => <ExploreCard key={post.id} post={post} />}
+                        renderCard={(post) => (
+                            <ExploreCard
+                                key={post.id}
+                                post={post}
+                                onClick={() => navigate(`/post/${post.id}`)}
+                            />
+                        )}
                     />
 
                     <ExploreTrendingSidebar

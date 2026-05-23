@@ -8,6 +8,7 @@ import { MessagesSettings } from "./components/MessagesSettings";
 import { ChangePasswordSettings } from "./components/ChangePasswordSettings";
 import { SessionSettings } from "./components/SessionSettings";
 import { UtilitiesSettings } from "./components/UtilitiesSettings";
+import SavedPage from "@/pages/app/saved";
 
 export default function SettingPage() {
     const [activeCategory, setActiveCategory] = useState("general");
@@ -28,6 +29,8 @@ export default function SettingPage() {
                 return <ChangePasswordSettings />;
             case "sessions":
                 return <SessionSettings />;
+            case "saved-posts":
+                return <SavedPage />;
             case "utilities":
                 return <UtilitiesSettings />;
             default:
