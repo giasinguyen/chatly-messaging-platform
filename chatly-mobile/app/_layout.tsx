@@ -21,6 +21,8 @@ import { Colors } from '@/constants/theme';
 import { IS_CALL_ENABLED } from '@/constants/runtime';
 import { notificationService } from '@/services/notification.service';
 import { useNotificationStore } from '@/store/notification.store';
+import { useThemeStore } from '@/store/theme.store';
+import { getThemeColors } from '@/utils/themeColors';
 
 const CallScreenComponent = IS_CALL_ENABLED
   ? require('@/components/call/CallScreen').CallScreen
@@ -177,6 +179,13 @@ export default function RootLayout() {
   const [fontsLoaded] = useFonts({
     ...Ionicons.font,
   });
+  const isDarkMode = useThemeStore((s) => s.isDarkMode);
+  const hydrateTheme = useThemeStore((s) => s.hydrate);
+  const palette = getThemeColors(isDarkMode);
+
+  useEffect(() => {
+    void hydrateTheme();
+  }, [hydrateTheme]);
 
   useEffect(() => {
     if (fontsLoaded) {
@@ -192,7 +201,7 @@ export default function RootLayout() {
 
   return (
     <SafeAreaProvider>
-      <StatusBar style="dark" />
+      <StatusBar style={isDarkMode ? 'light' : 'dark'} backgroundColor={palette.background} />
       <AuthGate>
         <Slot />
       </AuthGate>
