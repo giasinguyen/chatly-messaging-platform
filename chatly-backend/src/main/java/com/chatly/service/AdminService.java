@@ -23,6 +23,7 @@ import com.chatly.mapper.PostMapper;
 import com.chatly.mapper.UserMapper;
 import com.chatly.model.enums.NotificationType;
 import com.chatly.model.enums.ConversationType;
+import com.chatly.model.enums.Role;
 import com.chatly.model.enums.ReactionType;
 import com.chatly.model.enums.ReportStatus;
 import com.chatly.model.enums.UserStatus;
@@ -329,6 +330,19 @@ public class AdminService {
 
     public UserResponse getUser(String id) {
         return userMapper.toResponse(findUser(id));
+    }
+
+    @Transactional
+    public UserResponse setUserRole(String adminUserId, String id, Role role) {
+        User user = findUser(id);
+        Role oldRole = user.getRole();
+        user.setRole(role);
+        userRepository.saveAndFlush(user);
+        log.info("User {} role changed from {} to {} by admin {}", id, oldRole, role, adminUserId);
+        logAudit(adminUserId, "USER_ROLE_CHANGED", "USER", id,
+                "Role changed to " + role.name(),
+                "Admin changed @" + user.getUsername() + " role: " + oldRole + " → " + role);
+        return userMapper.toResponse(user);
     }
 
     @Transactional

@@ -13,6 +13,8 @@ export interface UserResponse {
   lastSeen?: string;
   /** True when the viewer is blocked by this user — backend returns limited info only. */
   limited?: boolean;
+  suspended?: boolean;
+  role?: "USER" | "ADMIN";
 }
 
 export interface UserUpdateRequest {

@@ -23,12 +23,12 @@ public class JwtProvider {
     @Value("${app.jwt.refresh-expiration-ms}")
     private long refreshExpirationMs;
 
-    public String generateAccessToken(String userId, String sessionId) {
-        return buildToken(userId, sessionId, jwtExpirationMs);
+    public String generateAccessToken(String userId, String sessionId, String role) {
+        return buildToken(userId, sessionId, role, jwtExpirationMs);
     }
 
-    public String generateRefreshToken(String userId, String sessionId) {
-        return buildToken(userId, sessionId, refreshExpirationMs);
+    public String generateRefreshToken(String userId, String sessionId, String role) {
+        return buildToken(userId, sessionId, role, refreshExpirationMs);
     }
 
     public String getUserIdFromToken(String token) {
@@ -70,20 +70,21 @@ public class JwtProvider {
         return parseClaims(token).getIssuedAt();
     }
 
-    private String buildToken(String userId, String sessionId, long expirationMs) {
+    private String buildToken(String userId, String sessionId, String role, long expirationMs) {
         Date now = new Date();
         Date expiry = new Date(now.getTime() + expirationMs);
 
         return Jwts.builder()
             .id(sessionId)
             .subject(userId)
+            .claim("role", role)
             .issuedAt(now)
             .expiration(expiry)
             .signWith(getSigningKey())
             .compact();
     }
 
-    private Claims parseClaims(String token) {
+    public Claims parseClaims(String token) {
         return Jwts.parser()
             .verifyWith(getSigningKey())
             .build()

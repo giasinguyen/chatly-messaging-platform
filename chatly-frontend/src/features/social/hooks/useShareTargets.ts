@@ -10,6 +10,7 @@ interface ShareFriend {
     username: string;
     displayName: string;
     avatarUrl?: string;
+    role?: string;
 }
 
 interface ShareGroupConversation {
@@ -25,6 +26,7 @@ function getOtherUser(contact: ContactResponse, currentUserId: string | undefine
         username: user.username,
         displayName: user.displayName,
         avatarUrl: user.avatarUrl,
+        role: user.role,
     };
 }
 

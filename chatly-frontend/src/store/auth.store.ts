@@ -16,6 +16,8 @@ interface AuthState {
     clearAuth: () => void;
     updateUser: (user: UserResponse) => void;
     setLoading: (loading: boolean) => void;
+    setSessionReady: () => void;
+    sessionReady: boolean;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
@@ -23,6 +25,8 @@ export const useAuthStore = create<AuthState>((set) => ({
     // Initialize isAuthenticated based on whether there's a token in localStorage
     isAuthenticated: !!localStorage.getItem("access_token"),
     loading: false,
+    // Becomes true once SessionBootstrap has completed its first /me fetch
+    sessionReady: !localStorage.getItem("access_token"),
 
     setAuth: (payload) => {
         // Store tokens in localStorage for axiosClient to use
@@ -32,6 +36,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         set({
             user: payload.user,
             isAuthenticated: true,
+            sessionReady: true,
         });
     },
 
@@ -54,5 +59,9 @@ export const useAuthStore = create<AuthState>((set) => ({
 
     setLoading: (loading) => {
         set({ loading });
+    },
+
+    setSessionReady: () => {
+        set({ sessionReady: true });
     },
 }));

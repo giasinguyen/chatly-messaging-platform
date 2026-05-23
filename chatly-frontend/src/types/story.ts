@@ -24,6 +24,7 @@ export interface StoryUser {
     displayName?: string;
     avatarUrl?: string;
     username?: string;
+    role?: "USER" | "ADMIN";
 }
 
 export interface Story {

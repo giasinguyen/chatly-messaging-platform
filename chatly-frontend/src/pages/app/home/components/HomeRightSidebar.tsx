@@ -2,11 +2,13 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { AdminBadge } from "@/components/customize/AdminBadge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { contactService } from "@/services/contact.service";
 import type { UserResponse } from "@/types/auth";
 import type { ContactSuggestionResponse } from "@/types/contact";
+import type { UserRoleMap } from "@/services/userRoleService";
 import { HomeFriendsPanel } from "./HomeFriendsPanel";
 import { HomeUserHoverCard } from "./HomeUserHoverCard";
 
@@ -15,12 +17,14 @@ const HOME_CONTACT_SUGGESTION_LIMIT = 5;
 interface HomeRightSidebarProps {
     user: UserResponse | null;
     hasMyStories: boolean;
+    userRolesById: UserRoleMap;
     onOpenProfile: () => void;
 }
 
 export function HomeRightSidebar({
     user,
     hasMyStories,
+    userRolesById,
     onOpenProfile,
 }: HomeRightSidebarProps) {
     const navigate = useNavigate();
@@ -145,9 +149,12 @@ export function HomeRightSidebar({
                         </div>
                     </div>
                     <div>
-                        <h4 className="font-semibold text-foreground">
-                            {user?.displayName || "current_user"}
-                        </h4>
+                        <div className="flex items-center gap-1.5">
+                            <h4 className="truncate font-semibold text-foreground">
+                                {user?.displayName || "current_user"}
+                            </h4>
+                            {user?.role === "ADMIN" && <AdminBadge />}
+                        </div>
                         <p className="text-[13px] text-muted-foreground">
                             {user?.email || "user@example.com"}
                         </p>
@@ -172,6 +179,8 @@ export function HomeRightSidebar({
                                 requestIdsBySuggestionId[suggestion.id],
                             );
                             const isPending = pendingSuggestionIds.has(suggestion.id);
+                            const suggestionRole =
+                                suggestion.role ?? userRolesById[suggestion.id];
 
                             return (
                                 <div
@@ -191,9 +200,14 @@ export function HomeRightSidebar({
                                         </AvatarFallback>
                                     </Avatar>
                                     <div className="min-w-0 flex-1">
-                                        <p className="truncate text-sm font-semibold text-foreground">
-                                            {suggestion.displayName}
-                                        </p>
+                                        <div className="flex min-w-0 items-center gap-1.5">
+                                            <p className="truncate text-sm font-semibold text-foreground">
+                                                {suggestion.displayName}
+                                            </p>
+                                            {suggestionRole === "ADMIN" && (
+                                                <AdminBadge className="size-3.5" />
+                                            )}
+                                        </div>
                                         <p className="truncate text-xs text-muted-foreground">
                                             @{suggestion.username} -{" "}
                                             {suggestion.mutualFriendCount} mutual friends
@@ -225,6 +239,7 @@ export function HomeRightSidebar({
                                             username: suggestion.username,
                                             avatarUrl: suggestion.avatarUrl,
                                             subtitle: `${suggestion.mutualFriendCount} mutual friends`,
+                                            role: suggestionRole,
                                         }}
                                         mode="suggestion"
                                         isPending={isPending}
@@ -241,7 +256,10 @@ export function HomeRightSidebar({
                 </>
             )}
 
-            <HomeFriendsPanel user={user} />
+            <HomeFriendsPanel
+                user={user}
+                userRolesById={userRolesById}
+            />
 
             <p className="mt-4 text-center text-[11px] text-muted-foreground">
                 © 2027 ChatLy - The Challenger Team

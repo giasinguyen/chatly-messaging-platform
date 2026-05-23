@@ -14,6 +14,7 @@ import com.chatly.dto.response.PostResponse;
 import com.chatly.dto.response.UserResponse;
 import com.chatly.model.enums.ConversationType;
 import com.chatly.model.enums.NotificationType;
+import com.chatly.model.enums.Role;
 import com.chatly.service.AdminService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -60,6 +61,14 @@ public class AdminController {
     public ApiResponse<UserResponse> getUser(@PathVariable String id) {
         return ApiResponse.<UserResponse>builder()
                 .result(adminService.getUser(id))
+                .build();
+    }
+
+    @PutMapping("/users/{id}/role")
+    public ApiResponse<UserResponse> setUserRole(@PathVariable String id, @RequestParam Role role) {
+        log.info("Setting role {} for user: {}", role, id);
+        return ApiResponse.<UserResponse>builder()
+                .result(adminService.setUserRole(getAuthenticatedUserId(), id, role))
                 .build();
     }
 

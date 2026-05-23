@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { AdminBadge } from "@/components/customize/AdminBadge";
 import { userService } from "@/services/user.service";
 import { contactService } from "@/services/contact.service";
 import type { UserResponse } from "@/types/auth";
@@ -153,8 +154,9 @@ export function AddFriendDialog({ open, onOpenChange }: AddFriendDialogProps) {
                                             </AvatarFallback>
                                         </Avatar>
                                         <div className="min-w-0">
-                                            <div className="flex items-center gap-2">
+                                            <div className="flex items-center gap-1.5">
                                                 <p className="text-sm font-medium truncate">{u.displayName}</p>
+                                                {u.role === "ADMIN" && <AdminBadge />}
                                                 {blockDir === "I_BLOCKED" && (
                                                     <Badge
                                                         variant="secondary"

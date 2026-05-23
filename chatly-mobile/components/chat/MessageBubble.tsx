@@ -32,6 +32,7 @@ interface ParticipantInfo {
   id: string;
   displayName: string;
   avatarUrl?: string;
+  role?: string;
 }
 
 interface MessageBubbleProps {
@@ -39,6 +40,7 @@ interface MessageBubbleProps {
   isMe: boolean;
   showAvatar?: boolean;
   senderName?: string;
+  senderRole?: string;
   senderAvatarUrl?: string;
   currentUserId?: string;
   onLongPress?: () => void;
@@ -67,6 +69,7 @@ export function MessageBubble({
   isMe,
   showAvatar = false,
   senderName,
+  senderRole,
   senderAvatarUrl,
   currentUserId,
   onLongPress,
@@ -1086,9 +1089,14 @@ export function MessageBubble({
     return (
       <View className="my-1 px-4 items-center">
         {!isMe && showAvatar && senderName && (
-          <Text className="mb-1 text-xs" style={{ color: Colors.textMuted, marginLeft: 34 }}>
-            {senderName}
-          </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginLeft: 34, marginBottom: 4, gap: 4 }}>
+            <Text className="text-xs" style={{ color: Colors.textMuted }}>
+              {senderName}
+            </Text>
+            {senderRole === 'ADMIN' && (
+              <Ionicons name="shield-checkmark" size={12} color="#1877F2" />
+            )}
+          </View>
         )}
         <View style={{ flexDirection: 'row', alignItems: 'flex-end' }}>
           {renderSenderAvatar()}
@@ -1179,9 +1187,14 @@ export function MessageBubble({
       <>
       <Animated.View {...panResponder.panHandlers} style={{ transform: [{ translateX: pan.x }] }} className={`my-0.5 px-4 ${isMe ? 'items-end' : 'items-start'}`}>
         {!isMe && showAvatar && senderName && (
-          <Text className="mb-0.5 ml-1 text-xs" style={{ color: Colors.textMuted }}>
-            {senderName}
-          </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginLeft: 4, marginBottom: 2, gap: 4 }}>
+            <Text className="text-xs" style={{ color: Colors.textMuted }}>
+              {senderName}
+            </Text>
+            {senderRole === 'ADMIN' && (
+              <Ionicons name="shield-checkmark" size={12} color="#1877F2" />
+            )}
+          </View>
         )}
         <TouchableOpacity activeOpacity={0.8} onLongPress={onLongPress} delayLongPress={300}>
           {renderContent()}
@@ -1244,9 +1257,14 @@ export function MessageBubble({
     <Animated.View {...panResponder.panHandlers} style={{ transform: [{ translateX: pan.x }] }} className={`my-0.5 px-4 ${isMe ? 'items-end' : 'items-start'}`}>
       {/* Sender name for group chats */}
       {!isMe && showAvatar && senderName && (
-        <Text className="mb-0.5 text-xs" style={{ color: Colors.textMuted, marginLeft: 38 }}>
-          {senderName}
-        </Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginLeft: 38, marginBottom: 2, gap: 4 }}>
+          <Text className="text-xs" style={{ color: Colors.textMuted }}>
+            {senderName}
+          </Text>
+          {senderRole === 'ADMIN' && (
+            <Ionicons name="shield-checkmark" size={12} color="#1877F2" />
+          )}
+        </View>
       )}
 
       {/* Pinned indicator */}

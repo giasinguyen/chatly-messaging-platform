@@ -10,6 +10,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { AdminBadge } from "@/components/customize/AdminBadge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { groupService } from "@/services/group.service";
 import { contactService } from "@/services/contact.service";
@@ -30,6 +31,7 @@ interface FriendOption {
     displayName: string;
     avatarUrl?: string;
     username: string;
+    role?: string;
 }
 
 export function AddMembersDialog({
@@ -64,6 +66,7 @@ export function AddMembersDialog({
                             displayName: other.displayName,
                             avatarUrl: other.avatarUrl,
                             username: other.username,
+                            role: other.role,
                         };
                     })
                     .filter((f) => !existingSet.has(f.id));
@@ -195,8 +198,13 @@ export function AddMembersDialog({
                                                         .toUpperCase()}
                                                 </AvatarFallback>
                                             </Avatar>
-                                            <span className="text-sm text-foreground truncate">
-                                                {f.displayName}
+                                            <span className="flex min-w-0 items-center gap-1.5 text-sm text-foreground">
+                                                <span className="truncate">
+                                                    {f.displayName}
+                                                </span>
+                                                {f.role === "ADMIN" && (
+                                                    <AdminBadge className="size-3.5" />
+                                                )}
                                             </span>
                                         </button>
                                     ))}

@@ -394,8 +394,9 @@ public class AuthService {
     private AuthResponse buildTokenResponse(User user, UUID sessionId) {
         String uid = user.getId().toString();
         String sid = sessionId.toString();
-        String token = jwtProvider.generateAccessToken(uid, sid);
-        String refreshToken = jwtProvider.generateRefreshToken(uid, sid);
+        String role = user.getRole().name();
+        String token = jwtProvider.generateAccessToken(uid, sid, role);
+        String refreshToken = jwtProvider.generateRefreshToken(uid, sid, role);
         UserResponse userResponse = userMapper.toResponse(user);
 
         return AuthResponse.builder()

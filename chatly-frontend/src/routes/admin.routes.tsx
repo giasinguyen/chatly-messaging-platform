@@ -1,7 +1,7 @@
 import { lazy } from "react";
 import { Navigate, Outlet, type RouteObject } from "react-router-dom";
 import { LazyWrapper } from "@/components/customize/LazyWrapper";
-import { ProtectedRoute } from "@/components/customize/ProtectedRoute";
+import { AdminRoute } from "@/components/customize/AdminRoute";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 
 const DashboardPage = lazy(() => import("@/pages/admin/dashboard"));
@@ -22,13 +22,13 @@ export const adminRoutes: RouteObject[] = [
     {
         path: "/admin",
         element: (
-            <ProtectedRoute>
+            <AdminRoute>
                 <LazyWrapper>
                     <AdminLayout>
                         <Outlet />
                     </AdminLayout>
                 </LazyWrapper>
-            </ProtectedRoute>
+            </AdminRoute>
         ),
         children: [
             { index: true, element: <Navigate to="dashboard" replace /> },

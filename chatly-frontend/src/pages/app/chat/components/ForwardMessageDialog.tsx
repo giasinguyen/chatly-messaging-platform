@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Search, Send } from "lucide-react";
+import { AdminBadge } from "@/components/customize/AdminBadge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -18,7 +19,11 @@ import { conversationService } from "@/services/conversation.service";
 import { userService } from "@/services/user.service";
 import type { UserResponse } from "@/types/auth";
 import type { ConversationResponse } from "@/types/conversation";
-import { getConversationAvatar, getConversationDisplayName } from "@/utils/conversation";
+import {
+    getConversationAvatar,
+    getConversationDisplayName,
+    getOtherParticipantId,
+} from "@/utils/conversation";
 
 interface ForwardMessageDialogProps {
     open: boolean;
@@ -142,6 +147,13 @@ export function ForwardMessageDialog({
                             filteredConversations.map((conversation) => {
                                 const displayName = getConversationDisplayName(conversation, currentUserId, users);
                                 const avatarUrl = getConversationAvatar(conversation, currentUserId, users);
+                                const otherUserId =
+                                    conversation.type === "PRIVATE"
+                                        ? getOtherParticipantId(conversation, currentUserId)
+                                        : null;
+                                const otherUser = otherUserId
+                                    ? users.find((user) => user.id === otherUserId)
+                                    : undefined;
                                 const selected = selectedIds.includes(conversation.id);
 
                                 return (
@@ -161,7 +173,12 @@ export function ForwardMessageDialog({
                                             <AvatarFallback>{displayName.charAt(0)}</AvatarFallback>
                                         </Avatar>
                                         <div className="min-w-0 flex-1">
-                                            <p className="truncate text-sm font-medium text-foreground">{displayName}</p>
+                                            <div className="flex min-w-0 items-center gap-1.5">
+                                                <p className="truncate text-sm font-medium text-foreground">{displayName}</p>
+                                                {otherUser?.role === "ADMIN" && (
+                                                    <AdminBadge className="size-3.5" />
+                                                )}
+                                            </div>
                                             <p className="truncate text-xs text-muted-foreground">
                                                 {conversation.type === "GROUP" ? "Group chat" : "Private chat"}
                                             </p>
