@@ -1,4 +1,4 @@
-import { Bookmark, Clapperboard, Grid } from "lucide-react";
+import { AtSign, Bookmark, Clapperboard, Grid } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ProfileTab } from "./profile.types";
 
@@ -12,6 +12,7 @@ export function ProfileTabs({ activeTab, isOwnProfile, onChange }: ProfileTabsPr
     const tabs = [
         { id: "posts" as const, label: "Posts", icon: <Grid className="h-4 w-4" /> },
         { id: "reels" as const, label: "Reels", icon: <Clapperboard className="h-4 w-4" /> },
+        { id: "tagged" as const, label: "Tagged", icon: <AtSign className="h-4 w-4" /> },
         ...(isOwnProfile
             ? [{ id: "saved" as const, label: "Saved", icon: <Bookmark className="h-4 w-4" /> }]
             : []),

@@ -75,20 +75,23 @@ export function ProfileHeader({
         <section className="mb-10 grid gap-6 border-b border-border pb-10 sm:grid-cols-[10rem_minmax(0,1fr)] sm:gap-10 lg:grid-cols-[12rem_minmax(0,1fr)] lg:px-10">
             <div
                 className={cn(
-                    "relative mx-auto shrink-0 rounded-full sm:mx-0",
+                    "relative mx-auto grid h-fit w-fit shrink-0 place-items-center rounded-full sm:mx-0",
                     hasActiveStories &&
                         "cursor-pointer bg-linear-to-tr from-brand via-blue-500 to-cyan-400 p-1",
                 )}
                 onClick={hasActiveStories ? onOpenStoryViewer : undefined}
             >
-                <div className={cn("rounded-full", hasActiveStories && "bg-background p-1")}>
-                    <Avatar className="size-28 rounded-full border border-border bg-muted sm:size-36 lg:size-40">
-                        <AvatarImage src={avatarUrl} className="object-cover" />
-                        <AvatarFallback className="bg-linear-to-tr from-pink-400 to-indigo-500 text-4xl font-semibold text-white">
-                            {userInitial}
-                        </AvatarFallback>
-                    </Avatar>
-                </div>
+                <Avatar
+                    className={cn(
+                        "size-28 rounded-full border border-border bg-muted sm:size-36 lg:size-40",
+                        hasActiveStories && "border-4 border-background",
+                    )}
+                >
+                    <AvatarImage src={avatarUrl} className="object-cover" />
+                    <AvatarFallback className="bg-linear-to-tr from-pink-400 to-indigo-500 text-4xl font-semibold text-white">
+                        {userInitial}
+                    </AvatarFallback>
+                </Avatar>
             </div>
 
             <div className="flex min-w-0 flex-col gap-4">
