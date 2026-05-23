@@ -6,6 +6,8 @@ import {
     useRef,
     useState,
     type KeyboardEvent as ReactKeyboardEvent,
+    type CSSProperties,
+    type SyntheticEvent as ReactSyntheticEvent,
 } from "react";
 import {
     MoreHorizontal,
@@ -124,6 +126,8 @@ const VISIBILITY_OPTIONS: {
     { value: "FRIENDS_ONLY", label: "Friends", icon: Users },
     { value: "ONLY_ME", label: "Only me", icon: Lock },
 ];
+
+const TALL_MEDIA_ASPECT_RATIO_THRESHOLD = 0.8;
 
 const isPostVisibility = (value: string): value is PostVisibility =>
     value === "PUBLIC" || value === "FRIENDS_ONLY" || value === "ONLY_ME";
@@ -286,6 +290,9 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
         number | null
     >(null);
     const [currentMediaIndex, setCurrentMediaIndex] = useState(0);
+    const [imageAspectRatios, setImageAspectRatios] = useState<
+        Record<string, number>
+    >({});
     const [dialogMediaIndex, setDialogMediaIndex] = useState(0);
     const [deleteCommentId, setDeleteCommentId] = useState<string | null>(null);
     const mediaClickTimerRef = useRef<ReturnType<
@@ -353,6 +360,22 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
         () => removeRenderedHashtags(post.content, post.hashtags),
         [post.content, post.hashtags],
     );
+    const currentMediaUrl = post.mediaUrls[currentMediaIndex] ?? "";
+    const isCurrentMediaVideo = /\.(mp4|webm)$/i.test(currentMediaUrl);
+    const baseMediaUrl = post.mediaUrls[0] ?? currentMediaUrl;
+    const hasMultiplePostMedia = post.mediaUrls.length > 1;
+    const mediaFrameAspectRatio =
+        hasMultiplePostMedia
+            ? imageAspectRatios[baseMediaUrl]
+            : imageAspectRatios[currentMediaUrl];
+    const mediaFrameStyle: CSSProperties | undefined =
+        hasMultiplePostMedia && mediaFrameAspectRatio !== undefined
+            ? { aspectRatio: `${mediaFrameAspectRatio}` }
+            : undefined;
+    const isMediaFrameTall =
+        !isCurrentMediaVideo &&
+        mediaFrameAspectRatio !== undefined &&
+        mediaFrameAspectRatio < TALL_MEDIA_ASPECT_RATIO_THRESHOLD;
     const isPostContentCollapsible = shouldCollapsePostContent(
         renderedPostContent,
     );
@@ -1136,6 +1159,23 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
         void handleLikeFromMedia();
     };
 
+    const handlePostImageLoad = (
+        event: ReactSyntheticEvent<HTMLImageElement>,
+    ) => {
+        const imageUrl = event.currentTarget.getAttribute("src");
+        const { naturalWidth, naturalHeight } = event.currentTarget;
+        if (!imageUrl || naturalHeight === 0) {
+            return;
+        }
+
+        const aspectRatio = naturalWidth / naturalHeight;
+        setImageAspectRatios((current) =>
+            current[imageUrl] === aspectRatio
+                ? current
+                : { ...current, [imageUrl]: aspectRatio },
+        );
+    };
+
     const handleSave = async () => {
         if (isSavingPost) return;
         setIsSavingPost(true);
@@ -1392,22 +1432,33 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
                 {post.mediaUrls.length > 0 && (
                     <>
                         <div
-                            className="relative bg-muted overflow-hidden aspect-video flex items-center justify-center group"
+                            className={cn(
+                                "relative flex items-center justify-center overflow-hidden bg-muted group",
+                                hasMultiplePostMedia && "w-full",
+                                isMediaFrameTall && "py-3",
+                            )}
+                            style={mediaFrameStyle}
                             onDoubleClick={() => handleMediaDoubleClick()}
                         >
-                            {post.mediaUrls[currentMediaIndex].match(
-                                /\.(mp4|webm)$/i,
-                            ) ? (
+                            {isCurrentMediaVideo ? (
                                 <video
-                                    src={post.mediaUrls[currentMediaIndex]}
-                                    className="w-full h-full object-contain"
+                                    src={currentMediaUrl}
+                                    className="aspect-video w-full object-contain"
                                     muted
                                 />
                             ) : (
                                 <img
-                                    src={post.mediaUrls[currentMediaIndex]}
+                                    src={currentMediaUrl}
                                     alt="Post media"
-                                    className="w-full h-full object-contain"
+                                    className={cn(
+                                        "object-contain",
+                                        isMediaFrameTall
+                                            ? "max-h-[900px] w-[calc(100%-2rem)]"
+                                            : hasMultiplePostMedia
+                                              ? "h-full w-full object-cover"
+                                            : "h-auto w-full",
+                                    )}
+                                    onLoad={handlePostImageLoad}
                                 />
                             )}
                             {showHeartBurst && (

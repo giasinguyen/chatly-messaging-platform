@@ -7,7 +7,7 @@ import {
   View,
   type ListRenderItemInfo,
 } from 'react-native';
-import { Stack, useRouter } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { HomePostCard } from '@/components/social/HomePostCard';
@@ -15,6 +15,18 @@ import { useSavedPosts } from '@/hooks/useSavedPosts';
 import { HOME_FEED_END_REACHED_THRESHOLD } from '@/constants/feed';
 import { Colors } from '@/constants/theme';
 import type { Post } from '@/types/post';
+
+type ReturnTab = 'home' | 'chats' | 'contacts' | 'assistant' | 'settings';
+
+function isReturnTab(value: string | string[] | undefined): value is ReturnTab {
+  return (
+    value === 'home' ||
+    value === 'chats' ||
+    value === 'contacts' ||
+    value === 'assistant' ||
+    value === 'settings'
+  );
+}
 
 function SavedPostsEmptyState({
   message,
@@ -39,8 +51,7 @@ function SavedPostsEmptyState({
       {message && (
         <Pressable
           className="mt-4 rounded-full bg-[#0A7AFF] px-4 py-2 active:opacity-85"
-          onPress={onRetry}
-        >
+          onPress={onRetry}>
           <Text className="text-sm font-semibold text-white">Try again</Text>
         </Pressable>
       )}
@@ -76,6 +87,7 @@ function SavedPostsFooter({ isLoadingMore, hasMorePosts, postCount }: SavedPosts
 
 export default function SavedPostsScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ returnTo?: string }>();
   const listRef = useRef<FlatList<Post>>(null);
   const {
     posts,
@@ -95,6 +107,11 @@ export default function SavedPostsScreen() {
     handleReportPost,
     loadComments,
   } = useSavedPosts();
+  const returnTab: ReturnTab = isReturnTab(params.returnTo) ? params.returnTo : 'settings';
+
+  const handleBack = useCallback(() => {
+    router.replace(`/(tabs)/${returnTab}`);
+  }, [returnTab, router]);
 
   const renderPost = useCallback(
     ({ item }: ListRenderItemInfo<Post>) => (
@@ -126,22 +143,15 @@ export default function SavedPostsScreen() {
     () => (
       <View className="border-b border-[#E5E5EA] bg-white px-4 py-4">
         <View className="flex-row items-center">
-          <Ionicons
-            name="chevron-back"
-            size={26}
-            color={Colors.text}
-            onPress={() => router.back()}
-          />
+          <Ionicons name="chevron-back" size={26} color={Colors.text} onPress={handleBack} />
           <View className="ml-3">
             <Text className="text-[22px] font-bold text-[#1D1D1F]">Saved posts</Text>
-            <Text className="mt-0.5 text-sm text-[#6E6E73]">
-              Revisit posts you bookmarked.
-            </Text>
+            <Text className="mt-0.5 text-sm text-[#6E6E73]">Revisit posts you bookmarked.</Text>
           </View>
         </View>
       </View>
     ),
-    [router]
+    [handleBack]
   );
 
   const listFooter = useMemo(

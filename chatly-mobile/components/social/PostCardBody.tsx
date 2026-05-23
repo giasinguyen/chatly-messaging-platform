@@ -4,7 +4,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { Avatar } from '@/components/ui/Avatar';
 import { CustomAiIcon } from '@/components/ui/CustomAiIcon';
-import { ImageLightbox } from '@/components/ui/ImageLightbox';
 import { UserQuickProfileDialog } from '@/components/profile/UserQuickProfileDialog';
 import usePostAiChatStarter from '@/hooks/useStartPostAiChat';
 import { useAuthStore } from '@/store/auth.store';
@@ -84,13 +83,12 @@ export function PostCardBody({
   const [showReportModal, setShowReportModal] = useState(false);
   const [showShareDialog, setShowShareDialog] = useState(false);
   const [showQuickProfile, setShowQuickProfile] = useState(false);
-  const [showMediaViewer, setShowMediaViewer] = useState(false);
-  const [mediaViewerIndex, setMediaViewerIndex] = useState(0);
   const [isCaptionExpanded, setIsCaptionExpanded] = useState(false);
   const [isSubmittingReport, setIsSubmittingReport] = useState(false);
   const { isStartingAiChat, startPostAiChat } = usePostAiChatStarter();
 
   const hasLongCaption = (post.content?.trim().length ?? 0) > CAPTION_COLLAPSE_THRESHOLD;
+  const hasMedia = mediaUrls.length > 0;
   const isOwnPost = currentUserId === authorId;
 
   const handleOpenAuthorProfile = () => {
@@ -120,10 +118,30 @@ export function PostCardBody({
     }
   };
 
-  const handleOpenMediaViewer = (index: number) => {
-    setMediaViewerIndex(index);
-    setShowMediaViewer(true);
-  };
+  const captionElement = (
+    <>
+      <Text
+        className="mt-1 text-[13.5px] leading-5 text-[#1D1D1F]"
+        numberOfLines={isCaptionExpanded ? undefined : 3}>
+        {hasMedia ? (
+          <Text className="font-semibold" onPress={handleOpenAuthorProfile}>
+            {authorName}{' '}
+          </Text>
+        ) : null}
+        <MentionText content={post.content || 'No caption'} />
+      </Text>
+
+      {hasLongCaption && (
+        <TouchableOpacity
+          onPress={() => setIsCaptionExpanded((current) => !current)}
+          activeOpacity={0.7}>
+          <Text className="mt-1 text-sm font-semibold text-[#0071E3]">
+            {isCaptionExpanded ? 'Hide' : 'View more'}
+          </Text>
+        </TouchableOpacity>
+      )}
+    </>
+  );
 
   return (
     <>
@@ -135,7 +153,7 @@ export function PostCardBody({
             activeOpacity={0.75}>
             <Avatar uri={avatarUrl} name={authorName} size={38} />
             <View className="ml-2.5">
-              <Text className="text-sm font-semibold text-[#1D1D1F]">{authorName}</Text>
+              <Text className="text-[13.5px] font-semibold text-[#1D1D1F]">{authorName}</Text>
               <Text className="text-xs text-[#6E6E73]">{formatRelativeTime(post.createdAt)}</Text>
             </View>
           </TouchableOpacity>
@@ -182,25 +200,32 @@ export function PostCardBody({
           </View>
         </View>
 
-        {mediaUrls.length > 0 ? (
+        {hasMedia ? (
           <PostImageCarousel
             images={mediaUrls}
             onDoubleTap={() => onDoubleTapLikePost?.(post.id)}
-            onPressImage={handleOpenMediaViewer}
           />
         ) : null}
 
         <View className="px-3 pb-3 pt-2">
+          {!hasMedia ? captionElement : null}
+
           <View className="flex-row items-center justify-between">
             <View className="flex-row items-center gap-4">
-              <TouchableOpacity onPress={() => onToggleLikePost?.(post.id)} className="p-1" activeOpacity={0.7}>
+              <TouchableOpacity
+                onPress={() => onToggleLikePost?.(post.id)}
+                className="p-1"
+                activeOpacity={0.7}>
                 <Ionicons
                   name={isLiked ? 'heart' : 'heart-outline'}
                   size={24}
                   color={isLiked ? '#FF3B30' : Colors.text}
                 />
               </TouchableOpacity>
-              <TouchableOpacity onPress={() => setShowComments(true)} className="p-1" activeOpacity={0.7}>
+              <TouchableOpacity
+                onPress={() => setShowComments(true)}
+                className="p-1"
+                activeOpacity={0.7}>
                 <Ionicons name="chatbubble-outline" size={22} color={Colors.text} />
               </TouchableOpacity>
               <TouchableOpacity onPress={handleShare} className="p-1" activeOpacity={0.7}>
@@ -221,24 +246,7 @@ export function PostCardBody({
             {formatCompactCount(totalLikes)} likes
           </Text>
 
-          <Text
-            className="mt-1 text-sm leading-5 text-[#1D1D1F]"
-            numberOfLines={isCaptionExpanded ? undefined : 3}>
-            <Text className="font-semibold" onPress={handleOpenAuthorProfile}>
-              {authorName}{' '}
-            </Text>
-            <MentionText content={post.content || 'No caption'} />
-          </Text>
-
-          {hasLongCaption && (
-            <TouchableOpacity
-              onPress={() => setIsCaptionExpanded((current) => !current)}
-              activeOpacity={0.7}>
-              <Text className="mt-1 text-sm font-semibold text-[#0071E3]">
-                {isCaptionExpanded ? 'Hide' : 'View more'}
-              </Text>
-            </TouchableOpacity>
-          )}
+          {hasMedia ? captionElement : null}
 
           {post.commentCount > 0 && (
             <TouchableOpacity onPress={() => setShowComments(true)} activeOpacity={0.7}>
@@ -261,7 +269,9 @@ export function PostCardBody({
         onLikeComment={(commentId, reactionType) => onLikeComment?.(commentId, reactionType)}
         onUnlikeComment={(commentId) => onUnlikeComment?.(commentId)}
         onDeleteComment={(commentId) => onDeleteComment?.(commentId)}
-        onEditComment={async (_postId, commentId, content, mentionIds) => onEditComment?.(commentId, content, mentionIds)}
+        onEditComment={async (_postId, commentId, content, mentionIds) =>
+          onEditComment?.(commentId, content, mentionIds)
+        }
       />
 
       <ReportPostModal
@@ -276,13 +286,6 @@ export function PostCardBody({
         visible={showShareDialog}
         onClose={() => setShowShareDialog(false)}
         onShared={onSharePost}
-      />
-
-      <ImageLightbox
-        images={mediaUrls}
-        initialIndex={mediaViewerIndex}
-        visible={showMediaViewer}
-        onClose={() => setShowMediaViewer(false)}
       />
 
       <UserQuickProfileDialog

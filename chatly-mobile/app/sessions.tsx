@@ -1,14 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
-import {
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  ActivityIndicator,
-  Alert,
-} from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { sessionService } from '@/services/session.service';
 import { authService } from '@/services/auth.service';
@@ -16,6 +9,18 @@ import { socketService } from '@/services/socket.service';
 import { useAuthStore } from '@/store/auth.store';
 import type { UserSessionInfo } from '@/types/auth';
 import { Colors } from '@/constants/theme';
+
+type ReturnTab = 'home' | 'chats' | 'contacts' | 'assistant' | 'settings';
+
+function isReturnTab(value: string | string[] | undefined): value is ReturnTab {
+  return (
+    value === 'home' ||
+    value === 'chats' ||
+    value === 'contacts' ||
+    value === 'assistant' ||
+    value === 'settings'
+  );
+}
 
 function formatWhen(iso?: string | null) {
   if (!iso) return '—';
@@ -43,11 +48,17 @@ function isRevoked(s: UserSessionInfo): boolean {
 export default function SessionsScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const params = useLocalSearchParams<{ returnTo?: string }>();
   const clearAuth = useAuthStore((s) => s.clearAuth);
   const [sessions, setSessions] = useState<UserSessionInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [revoking, setRevoking] = useState<string | null>(null);
   const [purging, setPurging] = useState(false);
+  const returnTab: ReturnTab = isReturnTab(params.returnTo) ? params.returnTo : 'settings';
+
+  const handleBack = useCallback(() => {
+    router.replace(`/(tabs)/${returnTab}`);
+  }, [returnTab, router]);
 
   const load = useCallback(async () => {
     try {
@@ -96,7 +107,7 @@ export default function SessionsScreen() {
             }
           },
         },
-      ],
+      ]
     );
   };
 
@@ -131,9 +142,8 @@ export default function SessionsScreen() {
     <View style={{ flex: 1, backgroundColor: Colors.bg, paddingTop: insets.top }}>
       <View
         className="flex-row items-center border-b px-4 py-3"
-        style={{ borderBottomColor: Colors.borderLight, backgroundColor: Colors.white }}
-      >
-        <TouchableOpacity onPress={() => router.back()} hitSlop={12}>
+        style={{ borderBottomColor: Colors.borderLight, backgroundColor: Colors.white }}>
+        <TouchableOpacity onPress={handleBack} hitSlop={12}>
           <Ionicons name="chevron-back" size={24} color={Colors.text} />
         </TouchableOpacity>
         <Text className="ml-2 flex-1 text-[18px] font-bold" style={{ color: Colors.text }}>
@@ -143,14 +153,14 @@ export default function SessionsScreen() {
 
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 24 }}>
         <Text className="mb-3 text-[13px]" style={{ color: Colors.textLight }}>
-          Full history including ended sessions. Use the button below to remove every row and sign out everywhere.
+          Full history including ended sessions. Use the button below to remove every row and sign
+          out everywhere.
         </Text>
         <TouchableOpacity
           className="mb-4 self-start rounded-lg px-4 py-3"
           style={{ backgroundColor: Colors.error }}
           disabled={purging || loading}
-          onPress={onPurgeAll}
-        >
+          onPress={onPurgeAll}>
           <Text style={{ color: Colors.white, fontWeight: '600', fontSize: 14 }}>
             {purging ? 'Clearing…' : 'Clear all & sign out everywhere'}
           </Text>
@@ -171,13 +181,14 @@ export default function SessionsScreen() {
                   borderColor: Colors.borderLight,
                   backgroundColor: isRevoked(s) ? `${Colors.bg}` : Colors.white,
                   opacity: isRevoked(s) ? 0.92 : 1,
-                }}
-              >
+                }}>
                 <View className="flex-row items-start justify-between gap-2">
                   <View className="min-w-0 flex-1">
                     <View className="flex-row flex-wrap items-center gap-2">
                       <Ionicons
-                        name={s.platform === 'MOBILE' ? 'phone-portrait-outline' : 'desktop-outline'}
+                        name={
+                          s.platform === 'MOBILE' ? 'phone-portrait-outline' : 'desktop-outline'
+                        }
                         size={18}
                         color={Colors.textMuted}
                       />
@@ -185,20 +196,26 @@ export default function SessionsScreen() {
                         {s.platform === 'MOBILE' ? 'Mobile' : 'Web'}
                       </Text>
                       {isRevoked(s) ? (
-                        <View className="rounded-full px-2 py-0.5" style={{ backgroundColor: Colors.borderLight }}>
+                        <View
+                          className="rounded-full px-2 py-0.5"
+                          style={{ backgroundColor: Colors.borderLight }}>
                           <Text className="text-[11px]" style={{ color: Colors.textMuted }}>
                             Logged out
                           </Text>
                         </View>
                       ) : (
-                        <View className="rounded-full px-2 py-0.5" style={{ backgroundColor: '#d1fae5' }}>
+                        <View
+                          className="rounded-full px-2 py-0.5"
+                          style={{ backgroundColor: '#d1fae5' }}>
                           <Text className="text-[11px]" style={{ color: '#065f46' }}>
                             Active
                           </Text>
                         </View>
                       )}
                       {s.current && !isRevoked(s) && (
-                        <View className="rounded-full px-2 py-0.5" style={{ backgroundColor: `${Colors.cta}22` }}>
+                        <View
+                          className="rounded-full px-2 py-0.5"
+                          style={{ backgroundColor: `${Colors.cta}22` }}>
                           <Text className="text-[11px]" style={{ color: Colors.cta }}>
                             This device
                           </Text>
@@ -212,7 +229,9 @@ export default function SessionsScreen() {
                       {s.locationLabel ? `${s.locationLabel} · ` : ''}
                       {s.ipAddress ? `IP ${s.ipAddress} · ` : ''}
                       Last seen {formatWhen(s.lastSeenAt ?? s.createdAt)}
-                      {isRevoked(s) && s.revokedAt ? ` · Logged out ${formatWhen(s.revokedAt)}` : ''}
+                      {isRevoked(s) && s.revokedAt
+                        ? ` · Logged out ${formatWhen(s.revokedAt)}`
+                        : ''}
                     </Text>
                     {extra ? (
                       <Text className="mt-0.5 text-[12px]" style={{ color: Colors.textMuted }}>
@@ -226,8 +245,7 @@ export default function SessionsScreen() {
                     className="mt-3 self-start rounded-lg px-4 py-2"
                     style={{ borderWidth: 1, borderColor: Colors.borderLight }}
                     disabled={revoking === s.id}
-                    onPress={() => onRevoke(s)}
-                  >
+                    onPress={() => onRevoke(s)}>
                     <Text style={{ color: Colors.text, fontSize: 13 }}>
                       {revoking === s.id ? '…' : s.current ? 'Sign out this device' : 'Revoke'}
                     </Text>
