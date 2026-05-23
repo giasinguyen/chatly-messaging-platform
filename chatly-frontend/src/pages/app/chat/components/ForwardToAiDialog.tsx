@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Bot, MessagesSquare, MessageSquare, Plus, Search, Send } from "lucide-react";
+import { Bot, MessagesSquare, MessageSquare, Plus, Search } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {

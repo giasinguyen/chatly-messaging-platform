@@ -117,28 +117,6 @@ export function useGroupCallSocket() {
         }
     }, []);
 
-    const waitForGroupVideoUpgradeDecision = useCallback((peerIds: string[]): Promise<void> => {
-        if (peerIds.length === 0) return Promise.resolve();
-
-        if (pendingGroupVideoUpgradeDecisionRef.current) {
-            throw new Error("A group video upgrade request is already pending.");
-        }
-
-        return new Promise<void>((resolve, reject) => {
-            const timeoutId = window.setTimeout(() => {
-                pendingGroupVideoUpgradeDecisionRef.current = null;
-                reject(new Error("Some participants did not respond to the video call request."));
-            }, 20000);
-
-            pendingGroupVideoUpgradeDecisionRef.current = {
-                remainingPeerIds: new Set(peerIds),
-                resolve,
-                reject,
-                timeoutId,
-            };
-        });
-    }, []);
-
     const respondToGroupVideoUpgradeRequest = useCallback((accept: boolean) => {
         const activeCall = useCallStore.getState().activeCall;
         const requesterId = pendingIncomingGroupVideoUpgradeRequesterIdRef.current;

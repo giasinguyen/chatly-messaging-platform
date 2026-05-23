@@ -128,7 +128,6 @@ export function CreateStoryModal({ isOpen, onClose }: CreateStoryModalProps) {
     const [imageScale, setImageScale] = useState(1);
     const [imageRotation, setImageRotation] = useState(0);
     const [fontSize, setFontSize] = useState(30);
-    const [font, setFont] = useState("Clean");
 
     // Global Story State
     const [privacy, setPrivacy] = useState<StoryPrivacy>(StoryPrivacy.EVERYONE);

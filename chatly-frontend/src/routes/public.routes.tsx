@@ -1,5 +1,5 @@
 import { lazy } from "react";
-import { Navigate, type RouteObject } from "react-router-dom";
+import { type RouteObject } from "react-router-dom";
 import { LazyWrapper } from "@/components/customize/LazyWrapper";
 import PublicLayout from "@/layouts/public";
 import TermsPage from "@/pages/public/terms";

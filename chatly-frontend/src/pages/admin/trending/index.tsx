@@ -4,7 +4,6 @@ import type { AdminStatsResponse } from "@/types/admin";
 import type { Post } from "@/types/post";
 import { DashboardKpiCard } from "@/components/admin/DashboardKpiCard";
 import {
-  TrendingUp,
   Loader2,
   FileText,
   MessageSquare,

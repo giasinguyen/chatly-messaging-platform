@@ -61,7 +61,6 @@ export function MessageBubbleBody(props: MessageBubbleBodyProps) {
         isBeingEdited,
         editPlainDraft,
         setEditPlainDraft,
-        editHtmlDraft,
         setEditRichDraft,
         isEditingRichText,
         onCommitEdit,
