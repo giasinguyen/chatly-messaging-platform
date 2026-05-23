@@ -148,11 +148,11 @@ export function GroupCallOverlay() {
 
   const isVideoCall = activeCall.type === 'VIDEO';
 
-  const remotePeers = Object.entries(groupRemoteStreams).map(([peerId, stream]) => ({
+  const remotePeers = Object.entries(groupParticipantInfo).map(([peerId, info]) => ({
     peerId,
-    stream,
-    name: groupParticipantInfo[peerId]?.name ?? peerId,
-    avatar: groupParticipantInfo[peerId]?.avatar ?? null,
+    stream: groupRemoteStreams[peerId] ?? null,
+    name: info.name,
+    avatar: info.avatar,
   }));
 
   const handleToggleMute = () => {

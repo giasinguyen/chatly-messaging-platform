@@ -1,5 +1,6 @@
 import { useRef, useCallback, useState } from 'react';
 import type { CallType } from '@/types/call';
+import { WEBRTC_ICE_CONFIG } from '@/constants/webrtc';
 
 let RTCPeerConnection: any;
 let RTCSessionDescription: any;
@@ -18,23 +19,6 @@ try {
     console.warn('react-native-webrtc is not available (Expo Go?)');
 }
 
-const ICE_SERVERS = {
-    iceServers: [
-        { urls: 'stun:stun.l.google.com:19302' },
-        { urls: 'stun:stun1.l.google.com:19302' },
-        { urls: 'stun:stun2.l.google.com:19302' },
-        {
-            urls: [
-                'turn:openrelay.metered.ca:80',
-                'turn:openrelay.metered.ca:443',
-                'turn:openrelay.metered.ca:443?transport=tcp',
-            ],
-            username: 'openrelayproject',
-            credential: 'openrelayproject',
-        },
-    ],
-    iceCandidatePoolSize: 10,
-};
 
 interface UseWebRTCCallbacks {
     onRemoteStream?: (stream: MediaStream) => void;
@@ -73,7 +57,7 @@ export function useWebRTC(callbacks?: UseWebRTCCallbacks) {
             throw new Error('WebRTC is not available in Expo Go. Please use a development build to make calls.');
         }
 
-        const pc = new RTCPeerConnection(ICE_SERVERS);
+        const pc = new RTCPeerConnection(WEBRTC_ICE_CONFIG);
 
         // Xử lý ICE candidate
         pc.onicecandidate = (event: { candidate: RTCIceCandidateInit | null }) => {
