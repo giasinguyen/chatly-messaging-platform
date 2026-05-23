@@ -83,6 +83,54 @@ public class ReportService {
         return userReportMapper.toResponse(saved);
     }
 
+    @Transactional(readOnly = true)
+    public Page<ReportResponse> listUserReports(ReportStatus status, Pageable pageable) {
+        Page<UserReport> reports = (status != null)
+                ? userReportRepository.findByStatusOrderByCreatedAtDesc(status, pageable)
+                : userReportRepository.findAllByOrderByCreatedAtDesc(pageable);
+
+        Set<UUID> userIds = new HashSet<>();
+        for (UserReport r : reports.getContent()) {
+            toUUID(r.getReporterId()).ifPresent(userIds::add);
+            toUUID(r.getReportedUserId()).ifPresent(userIds::add);
+        }
+        Map<UUID, User> userMap = userRepository.findAllById(userIds).stream()
+                .collect(Collectors.toMap(User::getId, u -> u));
+
+        return reports.map(r -> {
+            ReportResponse resp = userReportMapper.toResponse(r);
+            toUUID(r.getReporterId()).map(userMap::get).ifPresent(u -> {
+                resp.setReporterUsername(u.getUsername());
+                resp.setReporterDisplayName(u.getDisplayName());
+            });
+            toUUID(r.getReportedUserId()).map(userMap::get).ifPresent(u -> {
+                resp.setReportedUserUsername(u.getUsername());
+                resp.setReportedUserDisplayName(u.getDisplayName());
+            });
+            return resp;
+        });
+    }
+
+    @Transactional
+    public ReportResponse updateUserReportStatus(String id, ReportStatus status) {
+        UserReport report = userReportRepository.findById(id)
+                .orElseThrow(() -> new AppException(ErrorCode.UNCATEGORIZED_EXCEPTION));
+        report.setStatus(status);
+        UserReport saved = userReportRepository.save(report);
+        log.info("User report status updated: id={}, status={}", saved.getId(), status);
+
+        if (status == ReportStatus.RESOLVED && saved.getReportedUserId() != null) {
+            notificationService.createAndPush(
+                    NotificationType.SYSTEM,
+                    null,
+                    saved.getReportedUserId(),
+                    "Your account has been reviewed and action was taken based on our community guidelines.",
+                    saved.getId());
+        }
+
+        return userReportMapper.toResponse(saved);
+    }
+
     private UUID parseUserId(String userId) {
         try {
             return UUID.fromString(userId);

@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { type ReactNode, useState } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useAuthStore } from "@/store/auth.store";
 import { authService } from "@/services/auth.service";
@@ -17,6 +17,8 @@ import {
   Star,
   Hash,
   TrendingUp,
+  ChevronDown,
+  UserX,
 } from "lucide-react";
 
 interface AdminLayoutProps {
@@ -44,13 +46,6 @@ const navItems = [
     headerTitle: "Post Moderation",
     headerDescription: "Social content search and visibility review",
     icon: FileText,
-  },
-  {
-    to: "/admin/reports",
-    label: "Report Management",
-    headerTitle: "Report Management",
-    headerDescription: "Content report queue and policy enforcement",
-    icon: ShieldAlert,
   },
   {
     to: "/admin/engagement",
@@ -110,13 +105,54 @@ const navItems = [
   },
 ];
 
+const reportsGroup = {
+  prefix: "/admin/reports",
+  label: "Report Management",
+  icon: ShieldAlert,
+  headerTitle: "Report Management",
+  headerDescription: "Report queue and policy enforcement",
+  children: [
+    {
+      to: "/admin/reports/posts",
+      label: "Post Reports",
+      headerTitle: "Post Reports",
+      headerDescription: "Reported posts — content review and moderation actions",
+      icon: FileText,
+    },
+    {
+      to: "/admin/reports/users",
+      label: "User Reports",
+      headerTitle: "User Reports",
+      headerDescription: "Reported user accounts — review and enforcement actions",
+      icon: UserX,
+    },
+  ],
+};
+
 export function AdminLayout({ children }: AdminLayoutProps) {
   const { user, clearAuth } = useAuthStore();
   const navigate = useNavigate();
   const location = useLocation();
 
-  const activeItem =
-    navItems.find((item) => location.pathname.startsWith(item.to)) ?? navItems[0];
+  const isReportsActive = location.pathname.startsWith(reportsGroup.prefix);
+  const [reportsOpen, setReportsOpen] = useState(isReportsActive);
+
+  const activeNavItem = navItems.find((item) => location.pathname.startsWith(item.to));
+  const activeReportsChild = isReportsActive
+    ? reportsGroup.children.find((c) => location.pathname.startsWith(c.to))
+    : null;
+
+  const activeItem = activeReportsChild ?? activeNavItem ?? navItems[0];
+  const headerTitle = activeReportsChild
+    ? activeReportsChild.headerTitle
+    : isReportsActive
+      ? reportsGroup.headerTitle
+      : activeItem.headerTitle;
+  const headerDescription = activeReportsChild
+    ? activeReportsChild.headerDescription
+    : isReportsActive
+      ? reportsGroup.headerDescription
+      : activeItem.headerDescription;
 
   const handleLogout = async () => {
     try {
@@ -150,7 +186,72 @@ export function AdminLayout({ children }: AdminLayoutProps) {
 
           {/* Nav list */}
           <nav className="p-4 space-y-1 flex-1">
-            {navItems.map((item) => {
+            {navItems.slice(0, 3).map((item) => {
+              const Icon = item.icon;
+              return (
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  className={({ isActive }) =>
+                    `flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 ${
+                      isActive
+                        ? "bg-[#7c3aed]/10 text-[#7c3aed] shadow-sm font-semibold"
+                        : "text-slate-500 hover:bg-slate-50 hover:text-slate-800"
+                    }`
+                  }
+                >
+                  <Icon size={18} />
+                  <span>{item.label}</span>
+                </NavLink>
+              );
+            })}
+
+            {/* Report Management expandable group */}
+            <div>
+              <button
+                type="button"
+                onClick={() => setReportsOpen((prev) => !prev)}
+                className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 cursor-pointer ${
+                  isReportsActive
+                    ? "bg-[#7c3aed]/10 text-[#7c3aed] font-semibold"
+                    : "text-slate-500 hover:bg-slate-50 hover:text-slate-800"
+                }`}
+              >
+                <ShieldAlert size={18} />
+                <span className="flex-1 text-left">{reportsGroup.label}</span>
+                <ChevronDown
+                  size={14}
+                  className={`transition-transform duration-200 ${reportsOpen ? "rotate-0" : "-rotate-90"}`}
+                />
+              </button>
+              <div
+                className={`ml-6 mt-1 space-y-0.5 overflow-hidden transition-all duration-200 ${
+                  reportsOpen ? "max-h-24 opacity-100" : "max-h-0 opacity-0"
+                }`}
+              >
+                {reportsGroup.children.map((child) => {
+                  const ChildIcon = child.icon;
+                  return (
+                    <NavLink
+                      key={child.to}
+                      to={child.to}
+                      className={({ isActive }) =>
+                        `flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium transition-all duration-150 ${
+                          isActive
+                            ? "bg-[#7c3aed]/10 text-[#7c3aed] font-semibold"
+                            : "text-slate-500 hover:bg-slate-50 hover:text-slate-700"
+                        }`
+                      }
+                    >
+                      <ChildIcon size={14} />
+                      <span>{child.label}</span>
+                    </NavLink>
+                  );
+                })}
+              </div>
+            </div>
+
+            {navItems.slice(3).map((item) => {
               const Icon = item.icon;
               return (
                 <NavLink
@@ -205,10 +306,10 @@ export function AdminLayout({ children }: AdminLayoutProps) {
         <header className="h-16 bg-white border-b border-slate-100 px-8 flex items-center justify-between shrink-0">
           <div className="min-w-0">
             <h2 className="text-lg font-bold text-slate-800 font-outfit leading-tight">
-              {activeItem.headerTitle}
+              {headerTitle}
             </h2>
             <p className="text-xs font-medium text-slate-400 truncate">
-              {activeItem.headerDescription}
+              {headerDescription}
             </p>
           </div>
           <div className="flex items-center gap-4">

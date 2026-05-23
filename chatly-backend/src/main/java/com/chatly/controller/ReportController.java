@@ -43,6 +43,30 @@ public class ReportController {
                 .build();
     }
 
+    @GetMapping("/users")
+    ApiResponse<Page<ReportResponse>> listUserReports(
+            @RequestParam(required = false) ReportStatus status,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size
+    ) {
+        int pageSize = Math.min(size, DEFAULT_PAGE_SIZE);
+        Page<ReportResponse> reports = reportService.listUserReports(status, PageRequest.of(page, pageSize));
+        return ApiResponse.<Page<ReportResponse>>builder()
+                .result(reports)
+                .build();
+    }
+
+    @PutMapping("/users/{id}/status")
+    ApiResponse<ReportResponse> updateUserReportStatus(
+            @PathVariable String id,
+            @RequestParam ReportStatus status
+    ) {
+        ReportResponse updated = reportService.updateUserReportStatus(id, status);
+        return ApiResponse.<ReportResponse>builder()
+                .result(updated)
+                .build();
+    }
+
     @GetMapping
     ApiResponse<Page<ReportResponse>> list(
             @RequestParam(required = false) ReportStatus status,

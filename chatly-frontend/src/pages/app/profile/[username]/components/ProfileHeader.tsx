@@ -4,6 +4,7 @@ import {
     Loader2,
     MessageCircle,
     ShieldOff,
+    ShieldAlert,
     Unlock,
     UserMinus,
     UserPlus,
@@ -43,6 +44,7 @@ interface ProfileHeaderProps {
     onCopyLink: () => void;
     onReportUser: () => void;
     onSetConfirmDialog: (value: "block" | "unblock" | "remove") => void;
+    suspended?: boolean;
 }
 
 export function ProfileHeader({
@@ -70,6 +72,7 @@ export function ProfileHeader({
     onCopyLink,
     onReportUser,
     onSetConfirmDialog,
+    suspended = false,
 }: ProfileHeaderProps) {
     return (
         <section className="mb-10 grid gap-6 border-b border-border pb-10 sm:grid-cols-[10rem_minmax(0,1fr)] sm:gap-10 lg:grid-cols-[12rem_minmax(0,1fr)] lg:px-10">
@@ -104,6 +107,11 @@ export function ProfileHeader({
                             <Ban className="size-3" /> Blocked
                         </Badge>
                     )}
+                    {suspended && !isOwnProfile && (
+                        <Badge variant="destructive" className="gap-1 bg-red-100 text-red-700 border-red-200">
+                            <ShieldAlert className="size-3" /> Account Suspended
+                        </Badge>
+                    )}
                     {isLimited && direction !== "I_BLOCKED" && (
                         <Badge variant="secondary" className="gap-1 bg-amber-100 text-amber-700">
                             <ShieldOff className="size-3" /> Limited
@@ -129,7 +137,7 @@ export function ProfileHeader({
                 />
 
                 <div className="flex w-full gap-2 sm:max-w-xl">
-                    {isOwnProfile ? (
+                    {!(suspended && !isOwnProfile) && (isOwnProfile ? (
                         <EditProfileModal username={displayUsername} />
                     ) : direction === "I_BLOCKED" ? (
                         <Button
@@ -184,7 +192,7 @@ export function ProfileHeader({
                                 <MessageCircle className="mr-2 size-4" /> Message
                             </Button>
                         </div>
-                    )}
+                    ))}
 
                     {!isOwnProfile && (
                         <ProfileOverflowMenu
