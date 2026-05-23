@@ -137,7 +137,7 @@ export function ProfileHeader({
                 />
 
                 <div className="flex w-full gap-2 sm:max-w-xl">
-                    {isOwnProfile ? (
+                    {!(suspended && !isOwnProfile) && (isOwnProfile ? (
                         <EditProfileModal username={displayUsername} />
                     ) : direction === "I_BLOCKED" ? (
                         <Button
@@ -192,7 +192,7 @@ export function ProfileHeader({
                                 <MessageCircle className="mr-2 size-4" /> Message
                             </Button>
                         </div>
-                    )}
+                    ))}
 
                     {!isOwnProfile && (
                         <ProfileOverflowMenu

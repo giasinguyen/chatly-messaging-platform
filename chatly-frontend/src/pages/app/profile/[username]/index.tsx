@@ -142,14 +142,21 @@ export default function UsernameProfilePage() {
                     onSetConfirmDialog={setConfirmDialog}
                 />
 
-                <ProfileTabs
-                    activeTab={activeTab}
-                    isOwnProfile={Boolean(isOwnProfile)}
-                    onChange={handleTabChange}
-                />
+                {!(profile.suspended && !isOwnProfile) && (
+                    <ProfileTabs
+                        activeTab={activeTab}
+                        isOwnProfile={Boolean(isOwnProfile)}
+                        onChange={handleTabChange}
+                    />
+                )}
 
                 <div className="flex flex-col gap-4">
-                    {activeTab === "posts" &&
+                {profile.suspended && !isOwnProfile && (
+                    <div className="py-12 text-center text-muted-foreground">
+                        <p className="text-sm">This account has been suspended. Content is not available.</p>
+                    </div>
+                )}
+                    {!profile.suspended && activeTab === "posts" &&
                         (isLimited ? (
                             <div className="py-10 text-center text-muted-foreground">
                                 Posts are hidden due to privacy settings.
@@ -165,13 +172,13 @@ export default function UsernameProfilePage() {
                             />
                         ))}
 
-                    {activeTab === "posts" && loadingPosts && (
+                    {!profile.suspended && activeTab === "posts" && loadingPosts && (
                         <div className="flex justify-center py-4">
                             <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
                         </div>
                     )}
 
-                    {activeTab === "posts" &&
+                    {!profile.suspended && activeTab === "posts" &&
                         !isLimited &&
                         hasMorePosts &&
                         !loadingPosts &&
@@ -188,7 +195,7 @@ export default function UsernameProfilePage() {
                             </div>
                         )}
 
-                    {activeTab === "reels" && (
+                    {!profile.suspended && activeTab === "reels" && (
                         <ProfileReelGrid
                             authorId={targetUserId}
                             isLimited={isLimited}
@@ -196,7 +203,7 @@ export default function UsernameProfilePage() {
                         />
                     )}
 
-                    {activeTab === "tagged" &&
+                    {!profile.suspended && activeTab === "tagged" &&
                         (isLimited ? (
                             <div className="py-10 text-center text-muted-foreground">
                                 Tagged posts are hidden due to privacy settings.
@@ -216,7 +223,7 @@ export default function UsernameProfilePage() {
                             />
                         ))}
 
-                    {activeTab === "saved" &&
+                    {!profile.suspended && activeTab === "saved" &&
                         isOwnProfile &&
                         (loadingSaved ? (
                             <div className="flex justify-center py-4">
