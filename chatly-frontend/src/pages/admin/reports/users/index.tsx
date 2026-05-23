@@ -1,22 +1,20 @@
-﻿import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { reportService } from "@/services/report.service";
 import { ReportStatus } from "@/types/admin";
 import type { ReportResponse } from "@/types/admin";
-import { ResolveReportDialog } from "@/components/admin/ResolveReportDialog";
+import { ResolveUserReportDialog } from "@/components/admin/ResolveUserReportDialog";
 import {
   ShieldAlert,
   CheckCircle,
   XCircle,
   Clock,
-  Link as LinkIcon,
   Loader2,
-  ExternalLink,
   Gavel,
   ChevronLeft,
   ChevronRight,
-  FileText,
-  Flag,
   User,
+  Flag,
+  UserX,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -68,7 +66,7 @@ const STATUS_FILTERS: Array<{ value: ReportStatus | "ALL"; label: string }> = [
   { value: ReportStatus.DISMISSED, label: "Dismissed" },
 ];
 
-export default function ReportsPage() {
+export default function UserReportsPage() {
   const [reports, setReports] = useState<ReportResponse[]>([]);
   const [selectedStatus, setSelectedStatus] = useState<ReportStatus | "ALL">("ALL");
   const [isLoading, setIsLoading] = useState(true);
@@ -81,16 +79,16 @@ export default function ReportsPage() {
     setIsLoading(true);
     try {
       const statusParam = selectedStatus === "ALL" ? undefined : selectedStatus;
-      const response = await reportService.list(statusParam, page, PAGE_SIZE);
+      const response = await reportService.listUserReports(statusParam, page, PAGE_SIZE);
       if (response.code === 1000) {
         setReports(response.result.content);
         setTotalPages(response.result.totalPages);
         setTotalElements(response.result.totalElements);
       } else {
-        toast.error(response.message || "Failed to fetch reports");
+        toast.error(response.message || "Failed to fetch user reports");
       }
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : "Failed to load reports from server";
+      const message = error instanceof Error ? error.message : "Failed to load user reports";
       toast.error(message);
     } finally {
       setIsLoading(false);
@@ -110,21 +108,18 @@ export default function ReportsPage() {
     setReports((prev) => prev.map((r) => (r.id === reportId ? { ...r, status } : r)));
   };
 
-  const handleViewPost = (postId: string) => {
-    window.open(`/post/${postId}`, "_blank", "noopener,noreferrer");
-  };
-
   const pendingCount = reports.filter((r) => r.status === ReportStatus.PENDING).length;
 
   return (
     <div className="space-y-6 animate-fade-in text-slate-800">
+      {/* Top bar */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-violet-50 flex items-center justify-center border border-violet-100">
-            <FileText size={18} className="text-[#7c3aed]" />
+          <div className="w-9 h-9 rounded-xl bg-red-50 flex items-center justify-center border border-red-100">
+            <UserX size={18} className="text-red-500" />
           </div>
           <div>
-            <p className="text-sm font-bold text-slate-800">Post Reports</p>
+            <p className="text-sm font-bold text-slate-800">User Reports</p>
             <p className="text-xs text-slate-400">
               {totalElements > 0
                 ? `${totalElements} report${totalElements !== 1 ? "s" : ""} total`
@@ -154,23 +149,37 @@ export default function ReportsPage() {
         </div>
       </div>
 
+      {/* Report cards */}
       <div className="space-y-4">
         {isLoading ? (
           <div className="bg-white border border-slate-100 rounded-3xl h-64 flex items-center justify-center">
             <Loader2 size={24} className="animate-spin text-[#7c3aed]" />
           </div>
+        ) : reports.length === 0 ? (
+          <div className="bg-white border border-slate-100 rounded-3xl p-16 flex flex-col items-center gap-3 text-center">
+            <div className="w-14 h-14 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-center">
+              <ShieldAlert size={26} className="text-slate-300" />
+            </div>
+            <p className="text-sm font-semibold text-slate-500">No user reports found</p>
+            <p className="text-xs text-slate-400">
+              {selectedStatus !== "ALL"
+                ? `No reports with status "${selectedStatus.toLowerCase()}"`
+                : "No user reports have been submitted yet"}
+            </p>
+          </div>
         ) : (
-<>
-            {reports.map((r) => {
-              const reasonKey = r.reason as string;
-              const reasonLabel = REASON_LABEL[reasonKey] ?? reasonKey;
-              const reasonColor =
-                REASON_COLOR[reasonKey] ?? "bg-slate-50 text-slate-500 border-slate-100";
-              return (
+          reports.map((r) => {
+            const reasonKey = r.reason as string;
+            const reasonLabel = REASON_LABEL[reasonKey] ?? reasonKey;
+            const reasonColor =
+              REASON_COLOR[reasonKey] ?? "bg-slate-50 text-slate-500 border-slate-100";
+
+            return (
               <div
                 key={r.id}
                 className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm space-y-4 hover:border-slate-200 transition-all"
               >
+                {/* Header row */}
                 <div className="flex items-start justify-between gap-4">
                   <div className="space-y-1.5">
                     <div className="flex items-center gap-2 flex-wrap">
@@ -183,36 +192,25 @@ export default function ReportsPage() {
                       {getStatusBadge(r.status)}
                     </div>
                     <p className="text-[11px] text-slate-400 font-medium">
-                      Report ID:{" "}
-                      <code className="bg-slate-50 px-1 py-0.5 rounded text-[10px]">{r.id}</code>
+                      Report ID: <code className="bg-slate-50 px-1 py-0.5 rounded text-[10px]">{r.id}</code>
                       {" · "}
                       {new Date(r.createdAt).toLocaleString()}
                     </p>
                   </div>
 
-                  <div className="flex items-center gap-2 shrink-0">
+                  {r.status === ReportStatus.PENDING && (
                     <button
                       type="button"
-                      onClick={() => handleViewPost(r.postId)}
-                      className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 border border-slate-200 text-slate-500 hover:bg-slate-100 text-xs font-semibold rounded-xl transition-all"
-                      title="View flagged post"
+                      onClick={() => setResolveTarget(r)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-[#7c3aed]/10 border border-[#7c3aed]/20 text-[#7c3aed] hover:bg-[#7c3aed]/20 text-xs font-bold rounded-xl transition-all shrink-0"
                     >
-                      <ExternalLink size={13} />
-                      View Post
+                      <Gavel size={13} />
+                      Take Action
                     </button>
-                    {r.status === ReportStatus.PENDING && (
-                      <button
-                        type="button"
-                        onClick={() => setResolveTarget(r)}
-                        className="flex items-center gap-1.5 px-3 py-1.5 bg-[#7c3aed]/10 border border-[#7c3aed]/20 text-[#7c3aed] hover:bg-[#7c3aed]/20 text-xs font-bold rounded-xl transition-all"
-                      >
-                        <Gavel size={13} />
-                        Take Action
-                      </button>
-                    )}
-                  </div>
+                  )}
                 </div>
 
+                {/* Reporter description */}
                 {r.description && (
                   <div className="bg-slate-50/60 rounded-xl p-4 border border-slate-100">
                     <p className="text-[11px] font-semibold text-slate-500 mb-1">Reporter note</p>
@@ -220,62 +218,55 @@ export default function ReportsPage() {
                   </div>
                 )}
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div className="flex items-center gap-3 bg-blue-50/40 border border-blue-100/60 rounded-xl px-3 py-2.5">
-                    <User size={14} className="text-blue-400 shrink-0" />
+                {/* User cards */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {/* Reporter card */}
+                  <div className="flex items-center gap-3 bg-blue-50/40 border border-blue-100/60 rounded-xl px-4 py-3">
+                    <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center shrink-0">
+                      <User size={15} className="text-blue-500" />
+                    </div>
                     <div className="min-w-0">
-                      <p className="text-[10px] font-semibold text-blue-500 uppercase tracking-wider">Reporter</p>
-                      <p className="text-xs font-semibold text-slate-800 truncate">
-                        {r.reporterDisplayName || r.reporterId}
+                      <p className="text-[10px] font-semibold text-blue-500 uppercase tracking-wider mb-0.5">
+                        Reported by
+                      </p>
+                      <p className="text-xs font-bold text-slate-800 truncate">
+                        {r.reporterDisplayName || "Unknown"}
                       </p>
                       {r.reporterUsername && (
-                        <p className="text-[10px] text-slate-400">@{r.reporterUsername}</p>
+                        <p className="text-[11px] text-slate-400 truncate">
+                          @{r.reporterUsername}
+                        </p>
                       )}
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-3 bg-red-50/40 border border-red-100/60 rounded-xl px-3 py-2.5">
-                    <ShieldAlert size={14} className="text-red-400 shrink-0" />
+                  {/* Reported user card */}
+                  <div className="flex items-center gap-3 bg-red-50/40 border border-red-100/60 rounded-xl px-4 py-3">
+                    <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center shrink-0">
+                      <UserX size={15} className="text-red-500" />
+                    </div>
                     <div className="min-w-0">
-                      <p className="text-[10px] font-semibold text-red-500 uppercase tracking-wider">Reported user</p>
-                      <p className="text-xs font-semibold text-slate-800 truncate">
-                        {r.reportedUserDisplayName || r.reportedUserId}
+                      <p className="text-[10px] font-semibold text-red-500 uppercase tracking-wider mb-0.5">
+                        Reported user
+                      </p>
+                      <p className="text-xs font-bold text-slate-800 truncate">
+                        {r.reportedUserDisplayName || "Unknown"}
                       </p>
                       {r.reportedUserUsername && (
-                        <p className="text-[10px] text-slate-400">@{r.reportedUserUsername}</p>
+                        <p className="text-[11px] text-slate-400 truncate">
+                          @{r.reportedUserUsername}
+                        </p>
                       )}
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-3 bg-slate-50/60 border border-slate-100 rounded-xl px-3 py-2.5">
-                    <LinkIcon size={14} className="text-slate-400 shrink-0" />
-                    <div className="min-w-0">
-                      <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Post ID</p>
-                      <code className="text-[11px] text-slate-600 truncate block">{r.postId}</code>
                     </div>
                   </div>
                 </div>
               </div>
             );
-            })}
-
-            {reports.length === 0 && (
-              <div className="bg-white border border-slate-100 rounded-3xl p-16 flex flex-col items-center gap-3 text-center">
-                <div className="w-14 h-14 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-center">
-                  <ShieldAlert size={26} className="text-slate-300" />
-                </div>
-                <p className="text-sm font-semibold text-slate-500">No post reports found</p>
-                <p className="text-xs text-slate-400">
-                  {selectedStatus !== "ALL"
-                    ? `No reports with status "${selectedStatus.toLowerCase()}"`
-                    : "No post reports have been submitted yet"}
-                </p>
-              </div>
-            )}
-          </>
+          })
         )}
       </div>
 
+      {/* Pagination */}
       {totalPages > 1 && (
         <div className="flex items-center justify-between pt-2">
           <span className="text-xs text-slate-400 font-medium">
@@ -304,7 +295,7 @@ export default function ReportsPage() {
         </div>
       )}
 
-      <ResolveReportDialog
+      <ResolveUserReportDialog
         report={resolveTarget}
         onClose={() => setResolveTarget(null)}
         onResolved={handleResolved}
@@ -312,4 +303,3 @@ export default function ReportsPage() {
     </div>
   );
 }
-
