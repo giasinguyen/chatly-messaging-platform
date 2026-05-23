@@ -38,6 +38,8 @@ export function useUsernameProfilePage() {
     const [loadingPosts, setLoadingPosts] = useState(false);
     const [savedPosts, setSavedPosts] = useState<Post[]>([]);
     const [loadingSaved, setLoadingSaved] = useState(false);
+    const [taggedPosts, setTaggedPosts] = useState<Post[]>([]);
+    const [loadingTagged, setLoadingTagged] = useState(false);
     const [loading, setLoading] = useState(true);
     const [loadError, setLoadError] = useState<string | null>(null);
     const [actionLoading, setActionLoading] = useState(false);
@@ -70,6 +72,7 @@ export function useUsernameProfilePage() {
 
             const resolvedId = foundUser.id;
             setTargetUserId(resolvedId);
+            setTaggedPosts([]);
 
             const [
                 profileRes,
@@ -339,6 +342,10 @@ export function useUsernameProfilePage() {
         }
     }, [targetUserId]);
 
+    const fullName = profile?.displayName || "User";
+    const displayUsername = profile?.username || username || "profile";
+    const userInitial = fullName.charAt(0).toUpperCase() || "U";
+
     const handleLoadSaved = useCallback(async () => {
         if (savedPosts.length > 0) return;
 
@@ -353,16 +360,44 @@ export function useUsernameProfilePage() {
         }
     }, [savedPosts.length]);
 
+    const handleLoadTagged = useCallback(async () => {
+        if (!displayUsername || taggedPosts.length > 0) return;
+
+        setLoadingTagged(true);
+        try {
+            const response = await postService.searchPosts(`@${displayUsername}`, null, 0, 30);
+            const escapedUsername = displayUsername.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+            const mentionPattern = new RegExp(
+                `(^|\\s)@${escapedUsername}(?=$|[\\s.,!?;:])`,
+                "i",
+            );
+            setTaggedPosts(
+                (response.result?.content ?? []).filter((post) =>
+                    mentionPattern.test(post.content),
+                ),
+            );
+        } catch {
+            toast.error("Could not load tagged posts");
+        } finally {
+            setLoadingTagged(false);
+        }
+    }, [displayUsername, taggedPosts.length]);
+
     const handleTabChange = (tab: ProfileTab) => {
         setActiveTab(tab);
         if (tab === "saved" && isOwnProfile) {
             void handleLoadSaved();
         }
+        if (tab === "tagged" && !isLimited) {
+            void handleLoadTagged();
+        }
     };
 
-    const fullName = profile?.displayName || "User";
-    const displayUsername = profile?.username || username || "profile";
-    const userInitial = fullName.charAt(0).toUpperCase() || "U";
+    useEffect(() => {
+        if (activeTab === "tagged" && targetUserId && !isLimited) {
+            void handleLoadTagged();
+        }
+    }, [activeTab, targetUserId, isLimited, handleLoadTagged]);
 
     return {
         username,
@@ -380,6 +415,8 @@ export function useUsernameProfilePage() {
         loadingPosts,
         savedPosts,
         loadingSaved,
+        taggedPosts,
+        loadingTagged,
         loadError,
         loading,
         actionLoading,

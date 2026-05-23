@@ -52,7 +52,7 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
         if (content) chatInputRef.current?.setText(content);
         if (attachments?.length) chatInputRef.current?.addAttachments(attachments);
         prefillRef.current = null;
-    }, [s.loading, id]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [s.loading, id]);
 
     if (s.loading) return <ChatLoadingSkeleton />;
     if (s.notFound || !s.conversation || !s.participant) return <ChatNotFound />;
@@ -266,6 +266,7 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
                     conversation={conversation}
                     participant={participant}
                     currentUserId={currentUser?.id ?? ""}
+                    messages={s.messages}
                     isGroup={isGroup}
                     setConversation={s.setConversation}
                     setParticipant={s.setParticipant}
