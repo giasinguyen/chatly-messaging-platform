@@ -1,12 +1,5 @@
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from "@/components/ui/select";
 
 export function MessagesSettings() {
     return (
@@ -21,7 +14,7 @@ export function MessagesSettings() {
                     </div>
 
                     <div className="rounded-xl border border-border bg-card/40 p-6 transition-all hover:border-border/80">
-                        <RadioGroup defaultValue="enter-send" className="flex flex-col gap-5">
+                        <RadioGroup disabled defaultValue="enter-send" className="flex flex-col gap-5">
                             <div className="flex items-center justify-between">
                                 <Label htmlFor="send-enter">Enter to send</Label>
                                 <RadioGroupItem value="enter-send" id="send-enter" />
@@ -37,7 +30,7 @@ export function MessagesSettings() {
                 <section className="flex flex-col gap-4">
                     <h3 className="text-lg font-bold text-foreground">Link Preview</h3>
                     <div className="rounded-xl border border-border bg-card/40 p-6 transition-all hover:border-border/80">
-                        <RadioGroup defaultValue="enabled" className="flex flex-col gap-5">
+                        <RadioGroup disabled defaultValue="enabled" className="flex flex-col gap-5">
                             <div className="flex items-center justify-between">
                                 <Label htmlFor="link-preview-enabled">Enable preview</Label>
                                 <RadioGroupItem value="enabled" id="link-preview-enabled" />
@@ -47,24 +40,6 @@ export function MessagesSettings() {
                                 <RadioGroupItem value="disabled" id="link-preview-disabled" />
                             </div>
                         </RadioGroup>
-                    </div>
-                </section>
-
-                <section className="flex flex-col gap-4">
-                    <h3 className="text-lg font-bold text-foreground">Auto-delete messages</h3>
-                    <div className="flex items-center justify-between rounded-xl border border-border bg-card/40 p-6 transition-all hover:border-border/80">
-                        <Label htmlFor="auto-delete">Deletion cycle</Label>
-                        <Select defaultValue="never">
-                            <SelectTrigger id="auto-delete" className="w-[220px]">
-                                <SelectValue placeholder="Select cycle" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="24h">24 hours</SelectItem>
-                                <SelectItem value="7d">7 days</SelectItem>
-                                <SelectItem value="30d">30 days</SelectItem>
-                                <SelectItem value="never">Never</SelectItem>
-                            </SelectContent>
-                        </Select>
                     </div>
                 </section>
             </div>

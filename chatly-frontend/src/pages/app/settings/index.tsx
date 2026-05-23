@@ -2,7 +2,6 @@ import { useMemo, useState } from "react";
 import { SettingsSidebar } from "./components/SettingsSidebar";
 import { GeneralSettings } from "./components/GeneralSettings";
 import { PrivacySettings } from "./components/PrivacySettings";
-import { SyncSettings } from "./components/SyncSettings";
 import { AppearanceSettings } from "./components/AppearanceSettings";
 import { NotificationsSettings } from "./components/NotificationsSettings";
 import { MessagesSettings } from "./components/MessagesSettings";
@@ -19,8 +18,6 @@ export default function SettingPage() {
                 return <GeneralSettings />;
             case "privacy":
                 return <PrivacySettings />;
-            case "sync":
-                return <SyncSettings />;
             case "appearance":
                 return <AppearanceSettings />;
             case "notifications":

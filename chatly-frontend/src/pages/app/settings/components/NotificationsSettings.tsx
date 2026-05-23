@@ -22,7 +22,7 @@ export function NotificationsSettings() {
                     </div>
 
                     <div className="rounded-xl border border-border bg-card/40 p-6 transition-all hover:border-border/80">
-                        <RadioGroup defaultValue="enabled" className="flex flex-col gap-5">
+                        <RadioGroup disabled defaultValue="enabled" className="flex flex-col gap-5">
                             <div className="flex items-center justify-between">
                                 <Label htmlFor="push-enabled">Enable push notifications</Label>
                                 <RadioGroupItem value="enabled" id="push-enabled" />
@@ -39,7 +39,7 @@ export function NotificationsSettings() {
                     <h3 className="text-lg font-bold text-foreground">Notification Sound</h3>
                     <div className="flex items-center justify-between rounded-xl border border-border bg-card/40 p-6 transition-all hover:border-border/80">
                         <Label htmlFor="notification-sound">Sound type</Label>
-                        <Select defaultValue="soft-bell">
+                        <Select disabled defaultValue="soft-bell">
                             <SelectTrigger id="notification-sound" className="w-[220px]">
                                 <SelectValue placeholder="Select sound" />
                             </SelectTrigger>
@@ -57,11 +57,11 @@ export function NotificationsSettings() {
                     <div className="grid grid-cols-1 gap-4 rounded-xl border border-border bg-card/40 p-6 transition-all hover:border-border/80 md:grid-cols-2">
                         <div className="space-y-2">
                             <Label htmlFor="dnd-start">Start</Label>
-                            <Input id="dnd-start" type="time" defaultValue="22:00" />
+                            <Input disabled id="dnd-start" type="time" defaultValue="22:00" />
                         </div>
                         <div className="space-y-2">
                             <Label htmlFor="dnd-end">End</Label>
-                            <Input id="dnd-end" type="time" defaultValue="07:00" />
+                            <Input disabled id="dnd-end" type="time" defaultValue="07:00" />
                         </div>
                     </div>
                 </section>

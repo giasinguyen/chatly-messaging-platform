@@ -1,7 +1,6 @@
 import {
     Settings,
     ShieldCheck,
-    RefreshCcw,
     Palette,
     Bell,
     MessageSquare,
@@ -23,12 +22,11 @@ export function SettingsSidebar({
     const categories = [
         { id: "general", label: "General", icon: Settings },
         { id: "privacy", label: "Privacy", icon: ShieldCheck },
-        { id: "sync", label: "Message Sync", icon: RefreshCcw },
+        { id: "change-password", label: "Change Password", icon: KeyRound },
+        { id: "sessions", label: "Sessions", icon: MonitorSmartphone },
         { id: "appearance", label: "Appearance", icon: Palette },
         { id: "notifications", label: "Notifications", icon: Bell },
         { id: "messages", label: "Messages", icon: MessageSquare },
-        { id: "change-password", label: "Change Password", icon: KeyRound },
-        { id: "sessions", label: "Sessions", icon: MonitorSmartphone },
         { id: "utilities", label: "Utilities", icon: LayoutGrid },
     ];
 
