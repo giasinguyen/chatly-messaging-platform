@@ -7,10 +7,12 @@ import com.chatly.exception.AppException;
 import com.chatly.exception.ErrorCode;
 import com.chatly.mapper.PostReportMapper;
 import com.chatly.mapper.UserReportMapper;
+import com.chatly.model.enums.NotificationType;
 import com.chatly.model.enums.ReportStatus;
 import com.chatly.model.mongo.Post;
 import com.chatly.model.mongo.PostReport;
 import com.chatly.model.mongo.UserReport;
+import com.chatly.model.postgres.User;
 import com.chatly.repository.mongo.PostReportRepository;
 import com.chatly.repository.mongo.PostRepository;
 import com.chatly.repository.mongo.UserReportRepository;
@@ -22,7 +24,12 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -35,6 +42,7 @@ public class ReportService {
     private final UserReportRepository userReportRepository;
     private final UserReportMapper userReportMapper;
     private final UserRepository userRepository;
+    private final NotificationService notificationService;
 
     @Transactional
     public ReportResponse createPostReport(String reporterId, CreateReportRequest request) {
@@ -89,7 +97,35 @@ public class ReportService {
                 ? postReportRepository.findByStatusOrderByCreatedAtDesc(status, pageable)
                 : postReportRepository.findAllByOrderByCreatedAtDesc(pageable);
 
-        return reports.map(postReportMapper::toResponse);
+        Set<UUID> userIds = new HashSet<>();
+        for (PostReport r : reports.getContent()) {
+            toUUID(r.getReporterId()).ifPresent(userIds::add);
+            toUUID(r.getReportedUserId()).ifPresent(userIds::add);
+        }
+        Map<UUID, User> userMap = userRepository.findAllById(userIds).stream()
+                .collect(Collectors.toMap(User::getId, u -> u));
+
+        return reports.map(r -> {
+            ReportResponse resp = postReportMapper.toResponse(r);
+            toUUID(r.getReporterId()).map(userMap::get).ifPresent(u -> {
+                resp.setReporterUsername(u.getUsername());
+                resp.setReporterDisplayName(u.getDisplayName());
+            });
+            toUUID(r.getReportedUserId()).map(userMap::get).ifPresent(u -> {
+                resp.setReportedUserUsername(u.getUsername());
+                resp.setReportedUserDisplayName(u.getDisplayName());
+            });
+            return resp;
+        });
+    }
+
+    private Optional<UUID> toUUID(String s) {
+        if (s == null || s.isBlank()) return Optional.empty();
+        try {
+            return Optional.of(UUID.fromString(s));
+        } catch (IllegalArgumentException e) {
+            return Optional.empty();
+        }
     }
 
     @Transactional
@@ -99,6 +135,16 @@ public class ReportService {
         report.setStatus(status);
         PostReport saved = postReportRepository.save(report);
         log.info("Report status updated: id={}, status={}", saved.getId(), status);
+
+        if (status == ReportStatus.RESOLVED && saved.getReportedUserId() != null) {
+            notificationService.createAndPush(
+                    NotificationType.SYSTEM,
+                    null,
+                    saved.getReportedUserId(),
+                    "Your content has been reviewed and action was taken based on our community guidelines.",
+                    saved.getId());
+        }
+
         return postReportMapper.toResponse(saved);
     }
 }

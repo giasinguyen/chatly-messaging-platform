@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+﻿import { useCallback, useEffect, useState } from "react";
 import { reportService } from "@/services/report.service";
 import { ReportStatus } from "@/types/admin";
 import type { ReportResponse } from "@/types/admin";
@@ -12,8 +12,12 @@ import {
   Loader2,
   ExternalLink,
   Gavel,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { toast } from "sonner";
+
+const PAGE_SIZE = 20;
 
 function getStatusBadge(status: ReportStatus) {
   switch (status) {
@@ -50,14 +54,19 @@ export default function ReportsPage() {
   const [selectedStatus, setSelectedStatus] = useState<ReportStatus | "ALL">("ALL");
   const [isLoading, setIsLoading] = useState(true);
   const [resolveTarget, setResolveTarget] = useState<ReportResponse | null>(null);
+  const [page, setPage] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+  const [totalElements, setTotalElements] = useState(0);
 
   const fetchReports = useCallback(async () => {
     setIsLoading(true);
     try {
       const statusParam = selectedStatus === "ALL" ? undefined : selectedStatus;
-      const response = await reportService.list(statusParam, 0, 55);
+      const response = await reportService.list(statusParam, page, PAGE_SIZE);
       if (response.code === 1000) {
         setReports(response.result.content);
+        setTotalPages(response.result.totalPages);
+        setTotalElements(response.result.totalElements);
       } else {
         toast.error(response.message || "Failed to fetch reports");
       }
@@ -67,30 +76,36 @@ export default function ReportsPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [selectedStatus]);
+  }, [selectedStatus, page]);
 
   useEffect(() => {
     fetchReports();
   }, [fetchReports]);
+
+  const handleStatusFilterChange = (status: ReportStatus | "ALL") => {
+    setSelectedStatus(status);
+    setPage(0);
+  };
 
   const handleResolved = (reportId: string, status: ReportStatus) => {
     setReports((prev) => prev.map((r) => (r.id === reportId ? { ...r, status } : r)));
   };
 
   const handleViewPost = (postId: string) => {
-    // TODO: Navigate to /admin/posts/:postId once a dedicated post detail route is created.
-    // For now, opening the admin posts page as a fallback.
-    window.open(`/admin/posts?postId=${postId}`, "_blank", "noopener,noreferrer");
+    window.open(`/post/${postId}`, "_blank", "noopener,noreferrer");
   };
 
   return (
     <div className="space-y-6 animate-fade-in text-slate-800">
-      <div className="flex flex-col md:flex-row md:items-center justify-end gap-4">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <p className="text-xs text-slate-400 font-medium">
+          {totalElements > 0 ? `${totalElements} report${totalElements !== 1 ? "s" : ""} total` : ""}
+        </p>
         <div className="flex gap-2 bg-slate-50 p-1 rounded-2xl border border-slate-100">
           {STATUS_FILTERS.map((f) => (
             <button
               key={f.value}
-              onClick={() => setSelectedStatus(f.value)}
+              onClick={() => handleStatusFilterChange(f.value)}
               className={`px-4 py-1.5 rounded-xl text-xs font-semibold transition-all duration-150 ${
                 selectedStatus === f.value
                   ? "bg-[#7c3aed] text-white shadow-sm"
@@ -124,7 +139,7 @@ export default function ReportsPage() {
                       {getStatusBadge(r.status)}
                     </div>
                     <p className="text-xs text-slate-400 font-medium mt-1">
-                      Report ID: {r.id} · Created: {new Date(r.createdAt).toLocaleString()}
+                      Report ID: {r.id} Â· Created: {new Date(r.createdAt).toLocaleString()}
                     </p>
                   </div>
 
@@ -161,11 +176,25 @@ export default function ReportsPage() {
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs font-medium text-slate-500 pt-1">
                   <div className="flex items-center gap-1.5">
                     <ShieldAlert size={14} className="text-slate-400" />
-                    <span>Reporter: <code className="bg-slate-50 px-1 py-0.5 rounded">{r.reporterId}</code></span>
+                    <span>
+                      Reporter:{" "}
+                      <span className="font-semibold text-slate-700">
+                        {r.reporterDisplayName
+                          ? `${r.reporterDisplayName}${r.reporterUsername ? ` (@${r.reporterUsername})` : ""}`
+                          : r.reporterId}
+                      </span>
+                    </span>
                   </div>
                   <div className="flex items-center gap-1.5">
                     <ShieldAlert size={14} className="text-slate-400" />
-                    <span>Reported User: <code className="bg-slate-50 px-1 py-0.5 rounded">{r.reportedUserId}</code></span>
+                    <span>
+                      Reported User:{" "}
+                      <span className="font-semibold text-slate-700">
+                        {r.reportedUserDisplayName
+                          ? `${r.reportedUserDisplayName}${r.reportedUserUsername ? ` (@${r.reportedUserUsername})` : ""}`
+                          : r.reportedUserId}
+                      </span>
+                    </span>
                   </div>
                   <div className="flex items-center gap-1.5">
                     <LinkIcon size={14} className="text-slate-400" />
@@ -183,6 +212,34 @@ export default function ReportsPage() {
           </>
         )}
       </div>
+
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between pt-2">
+          <span className="text-xs text-slate-400 font-medium">
+            Page {page + 1} of {totalPages}
+          </span>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setPage((p) => Math.max(0, p - 1))}
+              disabled={page === 0}
+              className="flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-xl border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+            >
+              <ChevronLeft size={14} />
+              Previous
+            </button>
+            <button
+              type="button"
+              onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+              disabled={page >= totalPages - 1}
+              className="flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-xl border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+            >
+              Next
+              <ChevronRight size={14} />
+            </button>
+          </div>
+        </div>
+      )}
 
       <ResolveReportDialog
         report={resolveTarget}

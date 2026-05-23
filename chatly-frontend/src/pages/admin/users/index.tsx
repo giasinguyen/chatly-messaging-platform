@@ -50,6 +50,7 @@ export default function UsersPage() {
     try {
       const response = await adminService.listUsers({
         q: activeQuery || undefined,
+        status: statusFilter === "ALL" ? undefined : statusFilter,
         page,
         size: pageSize,
       });
@@ -66,14 +67,7 @@ export default function UsersPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [activeQuery, page, pageSize]);
-
-  const filteredUsers = useMemo(() => {
-    if (statusFilter === "ALL") return users;
-    if (statusFilter === "SUSPENDED") return users.filter((user) => user.suspended);
-    if (statusFilter === "ONLINE") return users.filter((user) => !user.suspended && user.status === "ONLINE");
-    return users.filter((user) => !user.suspended && user.status !== "ONLINE");
-  }, [users, statusFilter]);
+  }, [activeQuery, page, pageSize, statusFilter]);
 
   useEffect(() => {
     fetchUsers();
@@ -92,6 +86,11 @@ export default function UsersPage() {
     event.preventDefault();
     setPage(0);
     setActiveQuery(searchQuery.trim());
+  };
+
+  const handleStatusFilterChange = (status: StatusFilter) => {
+    setStatusFilter(status);
+    setPage(0);
   };
 
   const handlePageSizeChange = (event: ChangeEvent<HTMLSelectElement>) => {
@@ -229,7 +228,7 @@ export default function UsersPage() {
               <button
                 key={status}
                 type="button"
-                onClick={() => setStatusFilter(status)}
+                onClick={() => handleStatusFilterChange(status)}
                 className={`rounded-lg px-3 py-1.5 text-[11px] font-semibold transition-all ${statusFilter === status ? "bg-[#7c3aed] text-white shadow-sm" : "text-slate-500 hover:text-slate-800"}`}
               >
                 {status}
@@ -274,7 +273,7 @@ export default function UsersPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
-                {filteredUsers.map((user) => (
+                {users.map((user) => (
                   <tr
                     key={user.id}
                     onClick={() => handleOpenDetail(user)}
@@ -333,7 +332,7 @@ export default function UsersPage() {
                     </td>
                   </tr>
                 ))}
-                {filteredUsers.length === 0 && (
+                {users.length === 0 && (
                   <tr><td colSpan={5} className="px-5 py-12 text-center text-sm text-slate-400">No users found</td></tr>
                 )}
               </tbody>

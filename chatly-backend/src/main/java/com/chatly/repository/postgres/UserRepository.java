@@ -58,6 +58,41 @@ public interface UserRepository extends JpaRepository<User, UUID> {
 
     boolean existsByUsername(String username);
 
+    // --- Status/suspended filters for admin user listing ---
+
+    Page<User> findBySuspendedTrue(Pageable pageable);
+
+    @Query("""
+        SELECT u FROM User u WHERE u.suspended = true
+        AND (LOWER(COALESCE(u.displayName, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
+          OR LOWER(COALESCE(u.username, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
+          OR LOWER(COALESCE(u.email, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
+          OR LOWER(COALESCE(u.phone, '')) LIKE LOWER(CONCAT('%', :keyword, '%')))
+        """)
+    Page<User> searchSuspendedByKeyword(@Param("keyword") String keyword, Pageable pageable);
+
+    Page<User> findBySuspendedFalseAndStatus(com.chatly.model.enums.UserStatus status, Pageable pageable);
+
+    @Query("""
+        SELECT u FROM User u WHERE u.suspended = false AND u.status = :status
+        AND (LOWER(COALESCE(u.displayName, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
+          OR LOWER(COALESCE(u.username, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
+          OR LOWER(COALESCE(u.email, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
+          OR LOWER(COALESCE(u.phone, '')) LIKE LOWER(CONCAT('%', :keyword, '%')))
+        """)
+    Page<User> searchByStatusAndKeyword(@Param("status") com.chatly.model.enums.UserStatus status, @Param("keyword") String keyword, Pageable pageable);
+
+    Page<User> findBySuspendedFalseAndStatusNot(com.chatly.model.enums.UserStatus status, Pageable pageable);
+
+    @Query("""
+        SELECT u FROM User u WHERE u.suspended = false AND u.status <> :status
+        AND (LOWER(COALESCE(u.displayName, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
+          OR LOWER(COALESCE(u.username, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
+          OR LOWER(COALESCE(u.email, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
+          OR LOWER(COALESCE(u.phone, '')) LIKE LOWER(CONCAT('%', :keyword, '%')))
+        """)
+    Page<User> searchOfflineByKeyword(@Param("status") com.chatly.model.enums.UserStatus status, @Param("keyword") String keyword, Pageable pageable);
+
     /**
      * Return all users who were seen after the given threshold,
      * used by DailyBriefingScheduler to identify active users.

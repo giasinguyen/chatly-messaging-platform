@@ -20,7 +20,11 @@ public class ReportResponse {
     private String id;
     private String postId;
     private String reporterId;
+    private String reporterUsername;
+    private String reporterDisplayName;
     private String reportedUserId;
+    private String reportedUserUsername;
+    private String reportedUserDisplayName;
     private ReportReason reason;
     private String description;
     private ReportStatus status;
