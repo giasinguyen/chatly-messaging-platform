@@ -49,14 +49,17 @@ export function ActiveCallOverlay() {
 
   // Activate audio session when call starts
   useEffect(() => {
-    if (callStatus !== 'ONGOING') return;
+    if (callStatus !== 'ONGOING' || !activeCall) return;
+
+    const isVideo = activeCall.type === 'VIDEO';
+    setIsSpeakerOn(isVideo);
 
     setAudioModeAsync({
       allowsRecording: true,
       playsInSilentMode: true,
       shouldPlayInBackground: true,
       interruptionMode: 'doNotMix',
-      shouldRouteThroughEarpiece: true,
+      shouldRouteThroughEarpiece: !isVideo,
     }).catch(console.error);
 
     return () => {
@@ -69,7 +72,7 @@ export function ActiveCallOverlay() {
         shouldRouteThroughEarpiece: false,
       }).catch(console.error);
     };
-  }, [callStatus]);
+  }, [callStatus, activeCall]);
 
   // Timer for call duration
   useEffect(() => {
@@ -91,10 +94,10 @@ export function ActiveCallOverlay() {
   if (callStatus !== 'ONGOING' || !activeCall) return null;
 
   const hasLocalVideoTrack = Boolean(
-    localStream?.getVideoTracks().some((track) => track.readyState === 'live'),
+    localStream?.getVideoTracks().some((track) => track.enabled && track.readyState !== 'ended'),
   );
   const hasRemoteVideoTrack = Boolean(
-    remoteStream?.getVideoTracks().some((track) => track.readyState === 'live'),
+    remoteStream?.getVideoTracks().some((track) => track.enabled && track.readyState !== 'ended'),
   );
   const isVideoCall = activeCall.type === 'VIDEO' || hasLocalVideoTrack || hasRemoteVideoTrack;
 
