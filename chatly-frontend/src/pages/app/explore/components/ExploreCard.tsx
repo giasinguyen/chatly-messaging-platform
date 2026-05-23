@@ -3,14 +3,19 @@ import type { Post } from "@/types/post";
 
 interface ExploreCardProps {
     post: Post;
+    onClick?: () => void;
 }
 
-export function ExploreCard({ post }: ExploreCardProps) {
+export function ExploreCard({ post, onClick }: ExploreCardProps) {
     const hasMedia = post.mediaUrls.length > 0;
     const isAlbum = post.mediaUrls.length > 1;
 
     return (
-        <div className="group relative aspect-square cursor-pointer overflow-hidden rounded-3xl bg-muted shadow-sm transition-all duration-300 hover:shadow-xl">
+        <button
+            type="button"
+            onClick={onClick}
+            className="group relative aspect-square w-full cursor-pointer overflow-hidden rounded-3xl bg-muted text-left shadow-sm transition-all duration-300 hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
+        >
             {hasMedia ? (
                 <img
                     src={post.mediaUrls[0]}
@@ -39,6 +44,6 @@ export function ExploreCard({ post }: ExploreCardProps) {
                 </div>
             )}
             <Play className="hidden" />
-        </div>
+        </button>
     );
 }
