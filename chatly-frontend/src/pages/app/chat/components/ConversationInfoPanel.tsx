@@ -91,11 +91,24 @@ function attachmentToFile(
     };
 }
 
+function isGifOrStickerMessage(message: Message): boolean {
+    return message.type === "GIF" || message.type === "STICKER";
+}
+
+function isSharedMediaType(fileType?: string): boolean {
+    if (!fileType || fileType === "image/gif") {
+        return false;
+    }
+    return fileType.startsWith("image/") || fileType.startsWith("video/");
+}
+
 function messageToMediaFiles(message: Message): FileUploadResponse[] {
+    if (isGifOrStickerMessage(message)) {
+        return [];
+    }
+
     return message.attachments
-        .filter((attachment) =>
-            attachment.type?.startsWith("image/") || attachment.type?.startsWith("video/"),
-        )
+        .filter((attachment) => isSharedMediaType(attachment.type))
         .map((attachment) => attachmentToFile(attachment, message));
 }
 
@@ -238,7 +251,7 @@ export function ConversationInfoPanel({
                     messageService.search(conversation.id, "http", 0, 50).catch(() => ({ result: [] })),
                 ]);
                 if (!cancelled) {
-                    setMediaFiles(images);
+                        setMediaFiles(images.filter((file) => isSharedMediaType(file.fileType)));
                     setDocFiles(docs);
                     const extracted: { url: string; domain: string }[] = [];
                     for (const msg of linkMsgs.result) {
