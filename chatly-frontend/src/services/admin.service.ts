@@ -87,6 +87,15 @@ export const adminService = {
     return response.data;
   },
 
+  setUserRole: async (userId: string, role: "USER" | "ADMIN"): Promise<ApiResponse<UserResponse>> => {
+    const response = await axiosClient.put<ApiResponse<UserResponse>>(
+      `/api/admin/users/${userId}/role`,
+      null,
+      { params: { role } }
+    );
+    return response.data;
+  },
+
   listPosts: async (
     params: AdminPostParams = {}
   ): Promise<ApiResponse<PagedResponse<Post>>> => {
