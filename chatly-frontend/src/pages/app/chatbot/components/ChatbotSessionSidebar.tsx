@@ -40,7 +40,7 @@ interface Props {
 
 export function ChatbotSessionSidebar({ activeSessionId, onToggleCollapse }: Props) {
     const navigate = useNavigate();
-    const { sessions, setSessions, addSession, removeSession, renameSession } =
+    const { sessions, setSessions, removeSession, renameSession } =
         useChatbotStore();
     const [loading, setLoading] = useState(false);
     const [configOpen, setConfigOpen] = useState(false);

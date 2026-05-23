@@ -44,8 +44,6 @@ export function ChatbotComposer({ sessionId, onSend, disabled, isStreaming, onCa
         selectedMcpIds,
         draftsBySession,
         setDraft,
-        draftAttachmentsBySession,
-        setDraftAttachments,
     } = useChatbotStore();
 
     const draft = draftsBySession[sessionId] ?? "";

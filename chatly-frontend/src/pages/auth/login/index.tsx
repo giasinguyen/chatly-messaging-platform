@@ -43,7 +43,7 @@ export default function LoginPage() {
     
     const [qrToken, setQrToken] = useState<string | null>(null);
     const [qrStatus, setQrStatus] = useState<"PENDING" | "EXPIRED" | "LOADING">("LOADING");
-    const pollingRef = useRef<NodeJS.Timeout | null>(null);
+    const pollingRef = useRef<ReturnType<typeof window.setInterval> | null>(null);
 
     const form = useForm<LoginFormValues>({
         // The active schema matches the login method before submit validation runs.

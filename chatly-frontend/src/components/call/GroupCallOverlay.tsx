@@ -32,13 +32,11 @@ function ParticipantTile({
     name,
     avatar,
     stream,
-    isVideoCall,
     isLocal,
 }: {
     name: string;
     avatar: string | null;
     stream: MediaStream | null;
-    isVideoCall: boolean;
     isLocal?: boolean;
 }) {
     const videoRef = useRef<HTMLVideoElement>(null);
@@ -150,7 +148,7 @@ export function GroupCallOverlay({
             if (!audio) {
                 audio = document.createElement("audio");
                 audio.autoplay = true;
-                audio.playsInline = true;
+                audio.setAttribute("playsinline", "true");
                 audio.style.display = "none";
                 document.body.appendChild(audio);
                 audioRefs.current.set(peerId, audio);
@@ -183,8 +181,6 @@ export function GroupCallOverlay({
     }, []);
 
     if ((callStatus !== "ONGOING" && callStatus !== "RINGING") || !activeCall || !isGroupCall) return null;
-
-    const isVideoCall = activeCall.type === "VIDEO";
 
     const remotePeers = Object.entries(groupRemoteStreams).map(([peerId, stream]) => ({
         peerId,
@@ -273,7 +269,6 @@ export function GroupCallOverlay({
                         name="You"
                         avatar={null}
                         stream={groupLocalStream}
-                        isVideoCall={isVideoCall}
                         isLocal
                     />
                     {remotePeers.map(({ peerId, stream, name, avatar }) => (
@@ -282,7 +277,6 @@ export function GroupCallOverlay({
                             name={name}
                             avatar={avatar}
                             stream={stream}
-                            isVideoCall={isVideoCall}
                         />
                     ))}
                 </div>

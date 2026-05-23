@@ -1,15 +1,23 @@
-export enum StoryType {
-    TEXT = "TEXT",
-    PHOTO = "PHOTO",
-    VIDEO = "VIDEO"
-}
+export type StoryType = "TEXT" | "PHOTO" | "VIDEO";
 
-export enum StoryPrivacy {
-    EVERYONE = "EVERYONE",
-    FRIENDS_ONLY = "FRIENDS_ONLY",
-    CLOSE_FRIENDS = "CLOSE_FRIENDS",
-    ONLY_ME = "ONLY_ME"
-}
+export const StoryType: Record<StoryType, StoryType> = {
+    TEXT: "TEXT",
+    PHOTO: "PHOTO",
+    VIDEO: "VIDEO",
+};
+
+export type StoryPrivacy =
+    | "EVERYONE"
+    | "FRIENDS_ONLY"
+    | "CLOSE_FRIENDS"
+    | "ONLY_ME";
+
+export const StoryPrivacy: Record<StoryPrivacy, StoryPrivacy> = {
+    EVERYONE: "EVERYONE",
+    FRIENDS_ONLY: "FRIENDS_ONLY",
+    CLOSE_FRIENDS: "CLOSE_FRIENDS",
+    ONLY_ME: "ONLY_ME",
+};
 
 export interface StoryUser {
     id: string;
