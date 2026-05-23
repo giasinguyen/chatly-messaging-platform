@@ -55,6 +55,7 @@ public class WebSecurityConfig {
             "/chatroom-test.html",
             "/",
             "/api/health",
+            "/actuator/health",
             "/uploads/**"
     };
 
