@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { usePresenceSocket, type PresenceEvent } from "@/hooks/usePresenceSocket";
+import { conversationService } from "@/services/conversation.service";
 import { useContactStore } from "@/store/contact.store";
 import type { UserResponse } from "@/types/auth";
 import type { ContactResponse } from "@/types/contact";
@@ -27,9 +30,11 @@ function getFriend(
 }
 
 export function HomeFriendsPanel({ user }: HomeFriendsPanelProps) {
+    const navigate = useNavigate();
     const contacts = useContactStore((state) => state.contacts);
     const loaded = useContactStore((state) => state.loaded);
     const fetchContacts = useContactStore((state) => state.fetchContacts);
+    const [openingFriendId, setOpeningFriendId] = useState<string | null>(null);
     const [presenceByUserId, setPresenceByUserId] = useState<
         Record<string, PresenceStatus>
     >({});
@@ -48,6 +53,45 @@ export function HomeFriendsPanel({ user }: HomeFriendsPanelProps) {
     }, []);
 
     usePresenceSocket({ onPresenceChange: handlePresenceChange });
+
+    const handleOpenConversation = useCallback(
+        async (friendId: string) => {
+            if (!user || openingFriendId) {
+                return;
+            }
+
+            setOpeningFriendId(friendId);
+            try {
+                const conversationsResponse =
+                    await conversationService.getMyConversations();
+                const existingConversation = conversationsResponse.result?.find(
+                    (conversation) =>
+                        conversation.type === "PRIVATE" &&
+                        conversation.participantIds.includes(friendId) &&
+                        conversation.participantIds.includes(user.id),
+                );
+
+                if (existingConversation) {
+                    navigate(`/chat/${existingConversation.id}`);
+                    return;
+                }
+
+                const response = await conversationService.create({
+                    type: "PRIVATE",
+                    participantIds: [friendId],
+                });
+
+                if (response.result) {
+                    navigate(`/chat/${response.result.id}`);
+                }
+            } catch {
+                toast.error("Could not open conversation.");
+            } finally {
+                setOpeningFriendId(null);
+            }
+        },
+        [navigate, openingFriendId, user],
+    );
 
     const friends = useMemo(() => {
         if (!user) {
@@ -86,9 +130,12 @@ export function HomeFriendsPanel({ user }: HomeFriendsPanelProps) {
                     const isOnline = status === "ONLINE";
 
                     return (
-                        <div
+                        <button
                             key={friend.id}
-                            className="flex items-center gap-3 rounded-xl p-2 transition-colors hover:bg-muted/70"
+                            type="button"
+                            disabled={openingFriendId !== null}
+                            onClick={() => void handleOpenConversation(friend.id)}
+                            className="flex w-full items-center gap-3 rounded-xl p-2 text-left transition-colors hover:bg-muted/70 disabled:cursor-wait disabled:opacity-70"
                         >
                             <div className="relative shrink-0">
                                 <Avatar className="size-10">
@@ -116,7 +163,7 @@ export function HomeFriendsPanel({ user }: HomeFriendsPanelProps) {
                                     </p>
                                 )}
                             </div>
-                        </div>
+                        </button>
                     );
                 })}
             </div>

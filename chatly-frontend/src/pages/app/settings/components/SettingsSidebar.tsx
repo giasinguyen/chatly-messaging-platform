@@ -7,6 +7,7 @@ import {
     LayoutGrid,
     KeyRound,
     MonitorSmartphone,
+    Bookmark,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -24,6 +25,7 @@ export function SettingsSidebar({
         { id: "privacy", label: "Privacy", icon: ShieldCheck },
         { id: "change-password", label: "Change Password", icon: KeyRound },
         { id: "sessions", label: "Sessions", icon: MonitorSmartphone },
+        { id: "saved-posts", label: "Saved Posts", icon: Bookmark },
         { id: "appearance", label: "Appearance", icon: Palette },
         { id: "notifications", label: "Notifications", icon: Bell },
         { id: "messages", label: "Messages", icon: MessageSquare },
