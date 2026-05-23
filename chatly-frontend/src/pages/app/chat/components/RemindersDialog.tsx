@@ -31,11 +31,6 @@ function formatReminderTime(iso: string): string {
     return `${pad(d.getHours())}:${pad(d.getMinutes())} - ${pad(d.getDate())}/${pad(d.getMonth() + 1)}`;
 }
 
-function todayString(): string {
-    const d = new Date();
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-}
-
 function nowPlusOneMinute(): { date: string; time: string } {
     const d = new Date(Date.now() + 60_000);
     return {

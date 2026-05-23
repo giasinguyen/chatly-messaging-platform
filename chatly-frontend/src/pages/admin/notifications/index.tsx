@@ -45,10 +45,6 @@ function getSenderKey(notification: Notification) {
   return notification.senderName || notification.senderId || "system";
 }
 
-function getSenderLabel(notification: Notification) {
-  return notification.senderName || notification.senderId || "System";
-}
-
 function groupNotificationsBySender(notifications: Notification[]): Map<string, Notification[]> {
   const grouped = new Map<string, Notification[]>();
   for (const notification of notifications) {

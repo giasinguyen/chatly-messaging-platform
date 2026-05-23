@@ -32,7 +32,7 @@ interface ChatHeaderProps {
     memberCount?: number;
 }
 
-export function ChatHeader({ user, onOpenProfile, isGroup, conversationId, otherUserId, onOpenGroupPanel, onToggleSearch, onToggleInfoPanel, isInfoPanelOpen, presenceStatus, lastSeen, onBack, isPinned, isMuted, nickname, memberCount }: ChatHeaderProps) {
+export function ChatHeader({ user, onOpenProfile, isGroup, conversationId, otherUserId, onOpenGroupPanel, onToggleSearch, onToggleInfoPanel, isInfoPanelOpen, presenceStatus, lastSeen, onBack, isPinned, isMuted, nickname }: ChatHeaderProps) {
     const navigate = useNavigate();
     const { initiateCall, initiateGroupCall } = useCallContext();
     const callStatus = useCallStore((s) => s.callStatus);
