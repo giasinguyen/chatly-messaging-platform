@@ -62,7 +62,10 @@ export function useWebRTC(callbacks?: UseWebRTCCallbacks) {
         // Xử lý ICE candidate
         pc.onicecandidate = (event: { candidate: RTCIceCandidateInit | null }) => {
             if (event.candidate) {
+                console.log('[WebRTC] Gathered local ICE candidate:', event.candidate.candidate);
                 callbacksRef.current?.onIceCandidate?.(event.candidate);
+            } else {
+                console.log('[WebRTC] Gathering local ICE candidates complete');
             }
         };
 
@@ -286,13 +289,16 @@ export function useWebRTC(callbacks?: UseWebRTCCallbacks) {
     const handleIceCandidate = useCallback(async (candidate: RTCIceCandidateInit): Promise<void> => {
         const pc = peerConnection.current;
         if (!pc || !remoteDescriptionSet.current) {
+            console.log('[WebRTC] Buffering remote ICE candidate (remote description not set yet):', candidate.candidate);
             pendingCandidates.current.push(candidate);
             return;
         }
         try {
+            console.log('[WebRTC] Adding remote ICE candidate:', candidate.candidate);
             await pc.addIceCandidate(new RTCIceCandidate(candidate));
+            console.log('[WebRTC] Remote ICE candidate added successfully');
         } catch (error) {
-            console.error('Failed to add ICE candidate:', error);
+            console.error('[WebRTC] Failed to add ICE candidate:', error);
         }
     }, []);
 

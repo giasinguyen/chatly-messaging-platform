@@ -220,7 +220,7 @@ export function useGroupWebRTC(callbacks?: GroupWebRTCCallbacks) {
 
         const existingVideoTrack = stream
             .getVideoTracks()
-            .find((track) => track.readyState === "live");
+            .find((track) => track.enabled && track.readyState !== "ended");
 
         if (existingVideoTrack) {
             existingVideoTrack.enabled = true;
