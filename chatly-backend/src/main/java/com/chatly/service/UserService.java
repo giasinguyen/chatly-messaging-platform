@@ -1,6 +1,7 @@
 package com.chatly.service;
 
 import com.chatly.dto.request.UserUpdateRequest;
+import com.chatly.dto.response.PagedResponse;
 import com.chatly.dto.response.UserResponse;
 import com.chatly.exception.AppException;
 import com.chatly.exception.ErrorCode;
@@ -8,6 +9,8 @@ import com.chatly.mapper.UserMapper;
 import com.chatly.model.postgres.User;
 import com.chatly.repository.postgres.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -22,6 +25,8 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final UserMapper userMapper;
+    private final ContactService contactService;
+    private final UserSettingsService userSettingsService;
 
     public UserResponse getCurrentUser() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
@@ -32,25 +37,58 @@ public class UserService {
         String userId = authentication.getPrincipal().toString();
         User user = userRepository.findById(UUID.fromString(userId))
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
-        return userMapper.toResponse(user);
+        return userSettingsService.applyPresencePrivacy(userMapper.toResponse(user));
     }
 
     public UserResponse getById(UUID id) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
-        return userMapper.toResponse(user);
+
+        // If the target user has blocked the requester, return a limited profile.
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.isAuthenticated()) {
+            UUID requesterId = UUID.fromString(auth.getPrincipal().toString());
+            if (!requesterId.equals(id) && contactService.isBlockedBy(requesterId, id)) {
+                return UserResponse.builder()
+                        .id(user.getId().toString())
+                        .displayName(user.getDisplayName())
+                        .avatarUrl(user.getAvatarUrl())
+                        .limited(true)
+                        .build();
+            }
+        }
+
+        return userSettingsService.applyPresencePrivacy(userMapper.toResponse(user));
     }
 
     public UserResponse getByEmail(String email) {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
-        return userMapper.toResponse(user);
+        return userSettingsService.applyPresencePrivacy(userMapper.toResponse(user));
     }
 
     public List<UserResponse> getAll() {
         return userRepository.findAll().stream()
                 .map(userMapper::toResponse)
+                .map(userSettingsService::applyPresencePrivacy)
                 .toList();
+    }
+
+    public PagedResponse<UserResponse> search(String keyword, int page, int size) {
+        PageRequest pageable = PageRequest.of(page, size);
+        Page<UserResponse> userPage;
+
+        if (keyword == null || keyword.isBlank()) {
+            userPage = userRepository.findAll(pageable)
+                    .map(userMapper::toResponse)
+                    .map(userSettingsService::applyPresencePrivacy);
+        } else {
+            userPage = userRepository.searchByKeyword(keyword.trim(), pageable)
+                    .map(userMapper::toResponse)
+                    .map(userSettingsService::applyPresencePrivacy);
+        }
+
+        return PagedResponse.from(userPage);
     }
 
     @Transactional
@@ -90,7 +128,7 @@ public class UserService {
             user.setBio(request.getBio());
         }
 
-        return userMapper.toResponse(userRepository.save(user));
+        return userSettingsService.applyPresencePrivacy(userMapper.toResponse(userRepository.save(user)));
     }
 
     @Transactional
@@ -99,5 +137,35 @@ public class UserService {
             throw new AppException(ErrorCode.USER_NOT_FOUND);
         }
         userRepository.deleteById(id);
+    }
+
+    @Transactional
+    public void addDeviceToken(String token) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()) {
+            throw new AppException(ErrorCode.UNAUTHENTICATED);
+        }
+
+        String userId = authentication.getPrincipal().toString();
+        User user = userRepository.findById(UUID.fromString(userId))
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+
+        user.getDeviceTokens().add(token);
+        userRepository.save(user);
+    }
+
+    @Transactional
+    public void removeDeviceToken(String token) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()) {
+            throw new AppException(ErrorCode.UNAUTHENTICATED);
+        }
+
+        String userId = authentication.getPrincipal().toString();
+        User user = userRepository.findById(UUID.fromString(userId))
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+
+        user.getDeviceTokens().remove(token);
+        userRepository.save(user);
     }
 }

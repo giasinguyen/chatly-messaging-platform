@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Chatly WebSocket Test</title>
+    <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
+    <style>
+        * { box-sizing: border-box; }
+        body { font-family: monospace; padding: 16px; background: #0d1117; color: #c9d1d9; margin: 0; }
+        h2 { color: #58a6ff; margin: 0 0 12px; }
+        h3 { color: #8b949e; margin: 8px 0 4px; font-size: 13px; text-transform: uppercase; }
+        input, textarea { font-family: monospace; font-size: 13px; padding: 6px 8px; background: #161b22; border: 1px solid #30363d; color: #c9d1d9; border-radius: 4px; width: 100%; }
+        button { font-family: monospace; font-size: 13px; padding: 6px 14px; cursor: pointer; border-radius: 4px; border: 1px solid #30363d; margin: 2px; }
+        .btn-green { background: #238636; color: #fff; border-color: #2ea043; }
+        .btn-blue  { background: #1f6feb; color: #fff; border-color: #388bfd; }
+        .btn-red   { background: #b91c1c; color: #fff; border-color: #dc2626; }
+        .btn-gray  { background: #21262d; color: #c9d1d9; }
+        .row { display: flex; gap: 8px; margin-bottom: 8px; }
+        .col { flex: 1; }
+        .panel { background: #161b22; border: 1px solid #30363d; border-radius: 6px; padding: 10px; margin-bottom: 10px; }
+        #log { white-space: pre-wrap; border: 1px solid #30363d; padding: 10px; height: 260px; overflow-y: auto; background: #010409; font-size: 12px; border-radius: 4px; }
+        .error   { color: #f85149; }
+        .success { color: #3fb950; }
+        .info    { color: #d29922; }
+        .recv    { color: #79c0ff; }
+        .status  { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: #f85149; margin-right: 6px; }
+        .status.connected { background: #3fb950; }
+        #statusLabel { font-size: 13px; vertical-align: middle; }
+    </style>
+</head>
+<body>
+    <h2>🔌 Chatly WebSocket Test</h2>
+
+    <div class="panel">
+        <h3>Connection — <span class="status" id="statusDot"></span><span id="statusLabel">Disconnected</span></h3>
+        <div class="row">
+            <div class="col">
+                <input type="text" id="token" placeholder="Paste JWT token here (get from POST /api/auth/login)">
+            </div>
+        </div>
+        <div>
+            <button class="btn-green" onclick="connectRaw()">Connect /ws-raw (Raw WS)</button>
+            <button class="btn-blue"  onclick="connectSockJS()">Connect /ws (SockJS)</button>
+            <button class="btn-red"   onclick="disconnect()">Disconnect</button>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col panel">
+            <h3>Subscribe to Conversation</h3>
+            <input type="text" id="subConvId" placeholder="Conversation ID">
+            <div style="margin-top:6px">
+                <button class="btn-blue" onclick="subscribe()">Subscribe /topic/conversation.{id}</button>
+                <button class="btn-gray" onclick="unsubscribe()">Unsubscribe</button>
+            </div>
+        </div>
+        <div class="col panel">
+            <h3>Send Message</h3>
+            <input type="text" id="sendConvId" placeholder="Conversation ID">
+            <textarea id="msgContent" rows="2" placeholder="Message content..." style="margin-top:4px"></textarea>
+            <div style="margin-top:6px">
+                <button class="btn-green" onclick="sendMessage()">Send /app/chat.send</button>
+                <button class="btn-gray"  onclick="sendTyping(true)">Typing ON</button>
+                <button class="btn-gray"  onclick="sendTyping(false)">Typing OFF</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="panel">
+        <h3>Mark Message as Seen</h3>
+        <div class="row">
+            <div class="col">
+                <input type="text" id="seenMsgId" placeholder="Message ID">
+            </div>
+            <div>
+                <button class="btn-blue" onclick="sendSeen()">Send /app/chat.seen</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="panel">
+        <h3>Event Log</h3>
+        <div id="log"></div>
+        <button class="btn-gray" onclick="document.getElementById('log').innerHTML=''" style="margin-top:6px;font-size:11px">Clear Log</button>
+    </div>
+
+    <script>
+        var stompClient = null;
+        var subscription = null;
+
+        function log(msg, cls) {
+            var el = document.getElementById('log');
+            var line = document.createElement('div');
+            line.className = cls || '';
+            line.textContent = new Date().toLocaleTimeString('en-GB', {hour12:false}) + ' | ' + msg;
+            el.appendChild(line);
+            el.scrollTop = el.scrollHeight;
+        }
+
+        function setStatus(connected) {
+            document.getElementById('statusDot').className = 'status' + (connected ? ' connected' : '');
+            document.getElementById('statusLabel').textContent = connected ? 'Connected' : 'Disconnected';
+        }
+
+        function doConnect(socketFactory) {
+            stompClient = Stomp.over(socketFactory());
+            stompClient.debug = null; // suppress verbose frame logs (comment out to re-enable)
+            stompClient.connect({}, function(frame) {
+                setStatus(true);
+                log('✅ CONNECTED! session=' + frame.headers['session'], 'success');
+            }, function(error) {
+                setStatus(false);
+                log('❌ STOMP ERROR: ' + error, 'error');
+            });
+        }
+
+        function connectRaw() {
+            var token = document.getElementById('token').value.trim();
+            if (!token) { log('⚠ Please enter a JWT token', 'error'); return; }
+            log('Connecting via Raw WebSocket (/ws-raw)...', 'info');
+            doConnect(function() {
+                var ws = new WebSocket('ws://localhost:8080/ws-raw?token=' + token);
+                ws.onclose = function(e) { setStatus(false); log('WS closed: code=' + e.code + (e.reason ? ' reason='+e.reason : ''), 'error'); };
+                return ws;
+            });
+        }
+
+        function connectSockJS() {
+            var token = document.getElementById('token').value.trim();
+            if (!token) { log('⚠ Please enter a JWT token', 'error'); return; }
+            log('Connecting via SockJS (/ws)...', 'info');
+            doConnect(function() {
+                return new SockJS('http://localhost:8080/ws?token=' + token);
+            });
+        }
+
+        function disconnect() {
+            if (stompClient) {
+                stompClient.disconnect(function() { setStatus(false); log('Disconnected', 'info'); });
+                stompClient = null;
+                subscription = null;
+            }
+        }
+
+        function subscribe() {
+            if (!stompClient || !stompClient.connected) { log('⚠ Not connected', 'error'); return; }
+            var convId = document.getElementById('subConvId').value.trim();
+            if (!convId) { log('⚠ Enter a conversation ID', 'error'); return; }
+            if (subscription) subscription.unsubscribe();
+
+            var topic = '/topic/conversation.' + convId;
+            log('📌 Subscribing to ' + topic, 'info');
+            subscription = stompClient.subscribe(topic, function(msg) {
+                log('📨 RECEIVED on ' + topic + ':\n' + JSON.stringify(JSON.parse(msg.body), null, 2), 'recv');
+            });
+
+            // Also subscribe to typing
+            stompClient.subscribe('/topic/conversation.' + convId + '.typing', function(msg) {
+                var data = JSON.parse(msg.body);
+                log('⌨  TYPING event: userId=' + data.userId + ' typing=' + data.typing, 'recv');
+            });
+
+            // Subscribe to personal error queue (requires JwtHandshakeHandler to set Principal)
+            stompClient.subscribe('/user/queue/errors', function(msg) {
+                var err = JSON.parse(msg.body);
+                log('🚨 SERVER ERROR [' + err.code + ']: ' + err.message, 'error');
+            });
+
+            log('✅ Subscribed (messages + typing + errors)', 'success');
+        }
+
+        function unsubscribe() {
+            if (subscription) { subscription.unsubscribe(); subscription = null; log('Unsubscribed', 'info'); }
+        }
+
+        function sendMessage() {
+            if (!stompClient || !stompClient.connected) { log('⚠ Not connected', 'error'); return; }
+            var convId   = document.getElementById('sendConvId').value.trim();
+            var content  = document.getElementById('msgContent').value.trim();
+            if (!convId || !content) { log('⚠ Fill in conversation ID and message', 'error'); return; }
+
+            var payload = JSON.stringify({ conversationId: convId, content: content, type: 'TEXT' });
+            stompClient.send('/app/chat.send', {}, payload);
+            log('📤 SENT /app/chat.send: ' + payload, 'info');
+        }
+
+        function sendTyping(isTyping) {
+            if (!stompClient || !stompClient.connected) { log('⚠ Not connected', 'error'); return; }
+            var convId = document.getElementById('sendConvId').value.trim();
+            if (!convId) { log('⚠ Fill in conversation ID', 'error'); return; }
+            var payload = JSON.stringify({ conversationId: convId, typing: isTyping });
+            stompClient.send('/app/chat.typing', {}, payload);
+            log('📤 SENT /app/chat.typing: ' + payload, 'info');
+        }
+
+        function sendSeen() {
+            if (!stompClient || !stompClient.connected) { log('⚠ Not connected', 'error'); return; }
+            var msgId = document.getElementById('seenMsgId').value.trim();
+            if (!msgId) { log('⚠ Enter a message ID', 'error'); return; }
+            var payload = JSON.stringify({ messageId: msgId });
+            stompClient.send('/app/chat.seen', {}, payload);
+            log('📤 SENT /app/chat.seen: ' + payload, 'info');
+        }
+
+        log('Page ready. SockJS: ' + (typeof SockJS !== 'undefined') + ', Stomp: ' + (typeof Stomp !== 'undefined'), 'info');
+    </script>
+</body>
+</html>

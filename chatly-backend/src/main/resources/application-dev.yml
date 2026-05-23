@@ -1,16 +1,30 @@
 spring:
     application:
-        name: chatly-backend
+        name: ${SPRING_APPLICATION_NAME:chatly-backend}
+    ai:
+        mcp:
+            server:
+                enabled: ${SPRING_AI_MCP_ENABLED:true}
+                name: ${SPRING_AI_MCP_SERVER_NAME:chatly-backend-mcp}
+                version: ${SPRING_AI_MCP_SERVER_VERSION:0.0.1}
+                instructions: "This server provides Chatly system tools."
+                sse-endpoint: ${SPRING_AI_MCP_SSE_ENDPOINT:/api/ai/mcp/sse}
+                sse-message-endpoint: ${SPRING_AI_MCP_SSE_MESSAGE_ENDPOINT:/api/ai/mcp/message}
+                capabilities:
+                    tool: true
+                    resource: true
+                    prompt: true
+                    completion: true
 
     datasource:
-        url: jdbc:postgresql://localhost:5432/chatly
-        username: chatly
-        password: chatly123
+        url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/chatly}
+        username: ${SPRING_DATASOURCE_USERNAME:chatly}
+        password: ${SPRING_DATASOURCE_PASSWORD:chatly123}
         driver-class-name: org.postgresql.Driver
 
     jpa:
         hibernate:
-            ddl-auto: update
+            ddl-auto: ${SPRING_JPA_HIBERNATE_DDL_AUTO:update}
         defer-datasource-initialization: true
         open-in-view: false
         properties:
@@ -22,18 +36,92 @@ spring:
             mode: never # chịu khó gọi Postman 'register / create' data sample đi seed lag vc:v
             data-locations: classpath:db/seed-data.sql
 
+    mongodb:
+        uri: ${SPRING_DATA_MONGODB_URI:mongodb://localhost:27017/chatly}
     data:
-        mongodb:
-            uri: mongodb://localhost:27017/chatly
         redis:
-            host: localhost
-            port: 6379
+            host: ${REDIS_HOST:localhost}
+            port: ${REDIS_PORT:6379}
+            password: ${REDIS_PASSWORD:admin}
+    servlet:
+        multipart:
+            enabled: true
+            max-file-size: ${REEL_MULTIPART_MAX_FILE_SIZE:20MB}
+            max-request-size: ${REEL_MULTIPART_MAX_REQUEST_SIZE:25MB}
+    mail:
+        host: ${SPRING_MAIL_HOST:smtp.gmail.com}
+        port: ${SPRING_MAIL_PORT:587}
+        username: ${SPRING_MAIL_USERNAME:nvminh1602@gmail.com}
+        password: ${SPRING_MAIL_PASSWORD:tujv woqm dmhk eknr}
+        properties:
+            mail:
+                smtp:
+                    auth: true
+                    starttls:
+                        enable: true
 
 server:
-    port: 8080
+    port: ${SERVER_PORT:8080}
+
+logging:
+    level:
+        root: INFO
+        com.chatly: DEBUG
+        # Spring WebSocket/Messaging framework internals — DEBUG floods logs with
+        # every STOMP heartbeat/frame; keep at WARN in dev to avoid drowning traces
+        org.springframework.web.socket: WARN
+        org.springframework.messaging: WARN
+        org.springframework.security: WARN
+        org.hibernate.SQL: WARN
 
 app:
     jwt:
-        secret: Y2hhdGx5LXNlY3JldC1rZXktZm9yLWp3dC10b2tlbi1nZW5lcmF0aW9uLTIwMjY=
-        expiration-ms: 86400000
-        refresh-expiration-ms: 604800000
+        secret: ${APP_JWT_SECRET:Y2hhdGx5LXNlY3JldC1rZXktZm9yLWp3dC10b2tlbi1nZW5lcmF0aW9uLTIwMjY=}
+        expiration-ms: ${APP_JWT_EXPIRATION_MS:86400000} # 1d
+        refresh-expiration-ms: ${APP_JWT_REFRESH_EXPIRATION_MS:86400000} # 1d
+    cors:
+        allowed-origins: ${APP_CORS_ALLOWED_ORIGINS:http://localhost:3000, http://localhost:3001, http://localhost:5174, http://localhost:8081, http://192.168.*:*, https://*.devtunnels.ms}
+    auth:
+        verification:
+            expiration-minutes: ${APP_AUTH_VERIFICATION_EXPIRATION_MINUTES:15}
+            resend-cooldown-seconds: ${APP_AUTH_VERIFICATION_RESEND_COOLDOWN_SECONDS:60}
+        verification-link-base-url: ${APP_AUTH_VERIFICATION_LINK_BASE_URL:http://localhost:8080/api/auth/verify-email}
+    mail:
+        from: ${APP_MAIL_FROM:${SPRING_MAIL_USERNAME:}}
+    geoip:
+        enabled: false
+    mcp:
+        internal-api-key: ${APP_MCP_INTERNAL_API_KEY:${AGENT_API_KEY:change-me-use-a-long-random-string-min-32-chars}}
+    music:
+        jamendo:
+            client-id: ${JAMENDO_CLIENT_ID:4d1f4e11}
+            client-secret: ${JAMENDO_CLIENT_SECRET:e77a4bbbd6e1404feeb5316426051971}
+            base-url: ${JAMENDO_BASE_URL:https://api.jamendo.com/v3.0}
+    social-ai:
+        enabled: ${SOCIAL_AI_ENABLED:true}
+        bot-user-id: ${SOCIAL_AI_BOT_USER_ID:00000000-0000-0000-0000-000000000001}
+        mention:
+            rate-limit-per-hour: ${SOCIAL_AI_MENTION_RATE_LIMIT_PER_HOUR:10}
+    reels:
+        max-video-size-mb: ${REEL_MAX_VIDEO_SIZE_MB:20}
+
+# ── AI Agent ──────────────────────────────────────────────────────────────────
+agent:
+    base-url: ${AGENT_BASE_URL:http://localhost:8000}
+    api-key: ${AGENT_API_KEY:change-me-use-a-long-random-string-min-32-chars}
+    timeout-seconds: ${AGENT_TIMEOUT_SECONDS:60}
+    stream-timeout-seconds: ${AGENT_STREAM_TIMEOUT_SECONDS:120}
+
+# ── File Storage ──────────────────────────────────────────────────────────────
+storage:
+    provider: ${STORAGE_PROVIDER:local} # switch to "s3" when ready for cloud
+    max-file-size-mb: ${STORAGE_MAX_FILE_SIZE_MB:20}
+    local:
+        upload-dir: ${STORAGE_LOCAL_UPLOAD_DIR:./uploads}
+        base-url: ${STORAGE_LOCAL_BASE_URL:http://localhost:8080/uploads}
+    # S3 settings (fill in when switching to s3 provider)
+    s3:
+        bucket: ${AWS_S3_BUCKET:}
+        region: ${AWS_REGION:}
+        access-key: ${AWS_ACCESS_KEY:}
+        secret-key: ${AWS_SECRET_KEY:}

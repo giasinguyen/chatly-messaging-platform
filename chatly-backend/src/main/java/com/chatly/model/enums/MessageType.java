@@ -6,5 +6,13 @@ public enum MessageType {
     FILE,
     VIDEO,
     AUDIO,
-    SYSTEM
+    SYSTEM,
+    POLL,
+    CALL,
+    GIF,
+    STICKER,
+    VCARD,
+    LOCATION,
+    AGENT
+
 }

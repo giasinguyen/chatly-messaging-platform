@@ -21,6 +21,12 @@ public class ConversationResponse {
     private String creatorId;
     private List<String> participantIds;
     private LastMessage lastMessage;
+    private long unreadCount;
+    private Boolean requireApproval;
+    private String inviteToken;
+    private boolean isPinned;
+    private boolean isMuted;
+    private Boolean aiProactiveEnabled;
     private Instant createdAt;
     private Instant updatedAt;
 }

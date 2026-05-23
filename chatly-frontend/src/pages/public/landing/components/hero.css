@@ -1,0 +1,25 @@
+/* Hero Section — Background Animations */
+.hero-section {
+    background: var(--gradient-brand);
+}
+
+/* Blob floating animation */
+.hero-blob {
+    animation: hero-blob-float 12s ease-in-out infinite;
+}
+
+@keyframes hero-blob-float {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    33% { transform: translate(30px, -20px) scale(1.05); }
+    66% { transform: translate(-20px, 15px) scale(0.95); }
+}
+
+/* Star twinkling */
+.hero-star {
+    animation: hero-star-twinkle 3s ease-in-out infinite;
+}
+
+@keyframes hero-star-twinkle {
+    0%, 100% { opacity: 0.2; transform: scale(1); }
+    50% { opacity: 0.9; transform: scale(1.4); }
+}

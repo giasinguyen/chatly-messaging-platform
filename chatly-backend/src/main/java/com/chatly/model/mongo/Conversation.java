@@ -10,7 +10,11 @@ import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 @Document(collection = "conversations")
 @CompoundIndex(def = "{'participantIds': 1}")
@@ -42,4 +46,27 @@ public class Conversation {
 
     @LastModifiedDate
     private Instant updatedAt;
+
+    @Builder.Default
+    private Boolean allowMembersUpdateInfo = true;
+
+    @Builder.Default
+    private Boolean requireApproval = false;
+
+    private String inviteToken;
+
+    /** User IDs who pinned this conversation */
+    @Builder.Default
+    private Set<String> pinnedBy = new HashSet<>();
+
+    /** userId -> muteUntil (null value = muted indefinitely) */
+    @Builder.Default
+    private Map<String, Instant> mutedBy = new HashMap<>();
+
+    /** When true, the AI assistant may proactively post into this group conversation. */
+    @Builder.Default
+    private Boolean aiProactiveEnabled = false;
+    /** User IDs who soft-deleted this conversation from their chat list */
+    @Builder.Default
+    private Set<String> deletedBy = new HashSet<>();
 }

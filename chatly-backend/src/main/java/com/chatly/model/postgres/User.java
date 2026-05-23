@@ -4,10 +4,13 @@ import com.chatly.model.enums.UserStatus;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.AssertTrue;
 import lombok.*;
+import org.hibernate.annotations.ColumnDefault;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.Instant;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.UUID;
 
 @Entity
@@ -30,6 +33,11 @@ public class User {
     private String email;
 
     @Column(nullable = false)
+    @ColumnDefault("false")
+    @Builder.Default
+    private boolean emailVerified = false;
+
+    @Column(nullable = false)
     private String password;
 
     @Column(nullable = false)
@@ -49,6 +57,23 @@ public class User {
     private UserStatus status = UserStatus.OFFLINE;
 
     private Instant lastSeen;
+
+    @Column(nullable = false)
+    @ColumnDefault("false")
+    @Builder.Default
+    private boolean suspended = false;
+
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "user_device_tokens", joinColumns = @JoinColumn(name = "user_id"))
+    @Column(name = "token")
+    @Builder.Default
+    private Set<String> deviceTokens = new HashSet<>();
+
+    /**
+     * When the password was last set. JWTs issued before this instant are invalid.
+     * Null for legacy rows; validation falls back to {@link #createdAt}.
+     */
+    private Instant passwordChangedAt;
 
     @CreationTimestamp
     private Instant createdAt;

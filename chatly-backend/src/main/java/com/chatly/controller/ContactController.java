@@ -2,11 +2,15 @@ package com.chatly.controller;
 
 import com.chatly.dto.request.ContactRequest;
 import com.chatly.dto.response.ApiResponse;
+import com.chatly.dto.response.BlockStatusResponse;
 import com.chatly.dto.response.ContactResponse;
+import com.chatly.dto.response.ContactSuggestionResponse;
 import com.chatly.model.enums.ContactStatus;
 import com.chatly.service.ContactService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -19,12 +23,11 @@ public class ContactController {
 
     private final ContactService contactService;
 
-    @PostMapping("/{userId}")
-    ApiResponse<ContactResponse> sendRequest(
-            @PathVariable UUID userId,
-            @RequestBody @Valid ContactRequest request) {
+    // Gửi lời mời kết bạn (userId lấy từ JWT, không nhận từ URL)
+    @PostMapping
+    ApiResponse<ContactResponse> sendRequest(@RequestBody @Valid ContactRequest request) {
         return ApiResponse.<ContactResponse>builder()
-                .result(contactService.sendRequest(userId, request))
+                .result(contactService.sendRequest(getAuthenticatedUserId(), request))
                 .build();
     }
 
@@ -38,23 +41,84 @@ public class ContactController {
     @PutMapping("/{id}/block")
     ApiResponse<ContactResponse> block(@PathVariable UUID id) {
         return ApiResponse.<ContactResponse>builder()
-                .result(contactService.blockContact(id))
+                .result(contactService.blockContact(id, getAuthenticatedUserId()))
                 .build();
     }
 
-    @GetMapping("/user/{userId}")
-    ApiResponse<List<ContactResponse>> getAll(@PathVariable UUID userId) {
-        return ApiResponse.<List<ContactResponse>>builder()
-                .result(contactService.getAllContacts(userId))
+    @PutMapping("/{id}/unblock")
+    ApiResponse<ContactResponse> unblock(@PathVariable UUID id) {
+        return ApiResponse.<ContactResponse>builder()
+                .result(contactService.unblockContact(id, getAuthenticatedUserId()))
                 .build();
     }
 
-    @GetMapping("/user/{userId}/status/{status}")
-    ApiResponse<List<ContactResponse>> getByStatus(
-            @PathVariable UUID userId,
-            @PathVariable ContactStatus status) {
+    // Lấy tất cả contact của user đang đăng nhập
+    @GetMapping
+    ApiResponse<List<ContactResponse>> getAll() {
         return ApiResponse.<List<ContactResponse>>builder()
-                .result(contactService.getContacts(userId, status))
+                .result(contactService.getAllContacts(getAuthenticatedUserId()))
+                .build();
+    }
+
+    @GetMapping("/users/{userId}/friend-count")
+    ApiResponse<Long> getFriendCount(@PathVariable UUID userId) {
+        return ApiResponse.<Long>builder()
+                .result(contactService.getFriendCount(userId))
+                .build();
+    }
+
+    @GetMapping("/suggestions")
+    ApiResponse<List<ContactSuggestionResponse>> getSuggestions(
+            @RequestParam(defaultValue = "5") int limit) {
+        return ApiResponse.<List<ContactSuggestionResponse>>builder()
+                .result(contactService.getSuggestions(getAuthenticatedUserId(), limit))
+                .build();
+    }
+
+    @GetMapping("/users/{userId}")
+    ApiResponse<List<ContactResponse>> getFriendsForUser(@PathVariable UUID userId) {
+        return ApiResponse.<List<ContactResponse>>builder()
+                .result(contactService.getFriendsForUser(userId, getAuthenticatedUserId()))
+                .build();
+    }
+
+    // Lọc theo trạng thái
+    @GetMapping("/status/{status}")
+    ApiResponse<List<ContactResponse>> getByStatus(@PathVariable ContactStatus status) {
+        return ApiResponse.<List<ContactResponse>>builder()
+                .result(contactService.getContacts(getAuthenticatedUserId(), status))
+                .build();
+    }
+
+    // Block a user directly by their userId (no need to look up the contact record first)
+    @PutMapping("/block-by-user/{userId}")
+    ApiResponse<ContactResponse> blockByUser(@PathVariable UUID userId) {
+        return ApiResponse.<ContactResponse>builder()
+                .result(contactService.blockByUser(userId, getAuthenticatedUserId()))
+                .build();
+    }
+
+    // Unblock a user directly by their userId
+    @PutMapping("/unblock-by-user/{userId}")
+    ApiResponse<ContactResponse> unblockByUser(@PathVariable UUID userId) {
+        return ApiResponse.<ContactResponse>builder()
+                .result(contactService.unblockByUser(userId, getAuthenticatedUserId()))
+                .build();
+    }
+
+    // Get the contact record between current user and another user (null if none)
+    @GetMapping("/by-user/{userId}")
+    ApiResponse<ContactResponse> getByUser(@PathVariable UUID userId) {
+        return ApiResponse.<ContactResponse>builder()
+                .result(contactService.getContactByUser(getAuthenticatedUserId(), userId))
+                .build();
+    }
+
+    // Check block relationship between current user and another user
+    @GetMapping("/block-status/{userId}")
+    ApiResponse<BlockStatusResponse> blockStatus(@PathVariable UUID userId) {
+        return ApiResponse.<BlockStatusResponse>builder()
+                .result(contactService.getBlockStatus(getAuthenticatedUserId(), userId))
                 .build();
     }
 
@@ -64,5 +128,10 @@ public class ContactController {
         return ApiResponse.<Void>builder()
                 .message("Contact deleted successfully")
                 .build();
+    }
+
+    private UUID getAuthenticatedUserId() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        return UUID.fromString(authentication.getPrincipal().toString());
     }
 }

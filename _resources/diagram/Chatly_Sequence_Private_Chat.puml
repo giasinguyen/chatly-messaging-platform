@@ -1,0 +1,62 @@
+@startuml Chatly_Sequence_Private_Chat
+title Chatly - Private Chat 1-1 (ECB)
+
+autonumber
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+
+actor "User A" as UserA
+actor "User B" as UserB
+boundary "Client A" as ClientA
+boundary "Client B" as ClientB
+control "ConversationController\nPOST /api/conversations" as ConversationController
+control "ConversationService" as ConversationService
+control "ChatMessageController\nSTOMP /app/chat.send" as ChatWsController
+control "MessageService" as MessageService
+entity "Conversation" as ConversationEntity
+entity "Message" as MessageEntity
+control "ConversationRepository" as ConversationRepo
+control "ContactService" as ContactService
+control "MessageRepository" as MessageRepo
+boundary "Topic /topic/conversation.{id}" as TopicConversation
+boundary "User Queue /queue/errors" as QueueErrors
+
+UserA -> ClientA: Open chat with User B
+opt Conversation not created yet
+  ClientA -> ConversationController: createPrivate{targetUserId}
+  ConversationController -> ConversationService: createPrivate(currentUserId, targetUserId)
+  ConversationService -> ConversationRepo: findDirectPair(...)
+  alt Conversation exists
+    ConversationRepo --> ConversationService: conversationId
+  else Create new
+    ConversationService -> ConversationEntity: build{type:PRIVATE}
+    ConversationEntity --> ConversationService: conversation
+    ConversationService -> ConversationRepo: save(conversation)
+    ConversationRepo --> ConversationService: conversationId
+  end
+  ConversationService --> ConversationController: conversationId
+  ConversationController --> ClientA: conversationId
+end
+
+ClientA -> ChatWsController: chat.send{conversationId,\ncontent, clientMessageId}
+ChatWsController -> MessageService: send(senderId, request)
+MessageService -> ConversationRepo: findById(conversationId)
+MessageService -> ContactService: isBlocked(userA, userB)
+
+alt Blocked or not participant
+  MessageService --> ChatWsController: AppException(...)
+  ChatWsController --> QueueErrors: {code, message}
+  QueueErrors --> ClientA: Error event
+else Allowed
+  MessageService -> MessageEntity: build message
+  MessageEntity --> MessageService: message
+  MessageService -> MessageRepo: save(message)
+  MessageRepo --> MessageService: saved
+  MessageService -> TopicConversation: ChatEvent{SEND, messageId}
+  TopicConversation --> ClientA: New message
+  TopicConversation --> ClientB: New message
+end
+
+ClientB --> UserB: Show message
+
+@enduml

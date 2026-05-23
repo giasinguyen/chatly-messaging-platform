@@ -1,0 +1,57 @@
+%%{init: {"theme": "default"}}%%
+C4Container
+    title Chatly Messaging Platform — Container Diagram (C4 Level 2)
+
+    Person(webUser, "Web User", "Uses Chatly via web browser")
+    Person(mobileUser, "Mobile User", "Uses Chatly via Expo mobile app")
+
+    System_Boundary(chatly, "Chatly Messaging Platform") {
+
+        Container(webApp, "Web Application", "React 19 / TypeScript 5 / Vite 7 / Zustand / ShadCN UI / Tailwind CSS v4", "SPA providing chat, calls, file sharing, and AI assistant via web browser")
+        Container(mobileApp, "Mobile Application", "Expo 54 / React Native 0.81 / NativeWind / Zustand", "Native mobile client for chat, calls, push notifications, and AI assistant")
+
+        Container(backend, "Backend API Server", "Java 21 / Spring Boot 4 / Spring Security / Spring WebSocket (STOMP/SockJS)", "Handles auth, users, contacts, groups, conversations, messages, file upload, presence, WebSocket brokering, and call signaling")
+
+        Container(agentService, "AI Agent Service", "Python 3.12 / FastAPI / LangGraph / LangChain", "LLM chatbot pipeline: AI sessions, prompt management, RAG retrieval, tool execution, MCP orchestration")
+
+        ContainerDb(postgresDb, "PostgreSQL", "PostgreSQL 16", "Stores users, contacts, friend requests, groups, group memberships")
+        ContainerDb(mongoBackend, "MongoDB (Backend)", "MongoDB 7", "Stores conversations and messages (chat history)")
+        ContainerDb(redisCache, "Redis", "Redis 7", "Caches presence state, JWT token blacklist, session data")
+        ContainerDb(mongoAgent, "MongoDB (Agent)", "MongoDB 7", "Stores AI agent sessions, chat history, tool execution logs")
+        ContainerDb(qdrantDb, "Qdrant", "Qdrant Vector DB", "Stores document embeddings for RAG retrieval")
+
+        Container(fileStorage, "File / Object Storage", "Local FS (dev) / AWS S3 (prod) / MinIO (agent dev)", "Stores uploaded files, media, and documents")
+
+        Container(mcpServers, "MCP Tool Servers", "Python / FastAPI / MCP SDK", "External MCP servers providing tools to AI agent (math, text, etc.)")
+    }
+
+    System_Ext(groqLlm, "Groq LLM API", "LLM inference — Llama 3.3 70B")
+    System_Ext(huggingFace, "HuggingFace API", "Embedding models — BGE-base-en-v1.5")
+    System_Ext(tavily, "Tavily Search API", "Web search for AI agent")
+    System_Ext(pushServices, "APNs / FCM", "Mobile push notification delivery via Expo")
+
+    Rel(webUser, webApp, "Uses", "HTTPS")
+    Rel(mobileUser, mobileApp, "Uses", "HTTPS")
+
+    Rel(webApp, backend, "REST APIs: auth, users, contacts, groups, messages, file upload", "HTTPS / JSON")
+    Rel(webApp, backend, "Real-time: chat, typing, presence, call signaling", "WebSocket (STOMP over SockJS)")
+
+    Rel(mobileApp, backend, "REST APIs: auth, users, contacts, groups, messages, file upload", "HTTPS / JSON")
+    Rel(mobileApp, backend, "Real-time: chat, typing, presence, call signaling", "WebSocket (STOMP)")
+
+    Rel(backend, postgresDb, "Reads/writes user, contact, group data", "JDBC / Spring Data JPA")
+    Rel(backend, mongoBackend, "Reads/writes conversations and messages", "Spring Data MongoDB")
+    Rel(backend, redisCache, "Caches presence, token blacklist, sessions", "Spring Data Redis / Lettuce")
+    Rel(backend, fileStorage, "Uploads/serves files and media", "Local FS / AWS S3 SDK")
+    Rel(backend, agentService, "Forwards AI chat requests with user context", "Internal REST (X-Internal-API-Key)")
+    Rel(backend, pushServices, "Sends push notifications", "HTTPS")
+
+    Rel(agentService, mongoAgent, "Stores/retrieves agent sessions and history", "Motor (async MongoDB)")
+    Rel(agentService, qdrantDb, "Stores/queries document embeddings", "Qdrant Python client")
+    Rel(agentService, fileStorage, "Stores/retrieves documents for RAG processing", "MinIO client / boto3")
+    Rel(agentService, groqLlm, "LLM inference requests", "HTTPS / REST")
+    Rel(agentService, huggingFace, "Embedding vector requests", "HTTPS / REST")
+    Rel(agentService, tavily, "Web search queries", "HTTPS / REST")
+    Rel(agentService, mcpServers, "Dynamically registers and invokes tools", "HTTP / MCP Protocol")
+
+    UpdateLayoutConfig($c4ShapeInRow="4", $c4BoundaryInRow="1")

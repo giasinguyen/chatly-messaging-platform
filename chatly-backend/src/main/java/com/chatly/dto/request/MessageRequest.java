@@ -2,6 +2,8 @@ package com.chatly.dto.request;
 
 import com.chatly.model.enums.MessageType;
 import com.chatly.model.mongo.Attachment;
+import com.chatly.model.mongo.LocationPayload;
+import com.chatly.model.mongo.Poll;
 import jakarta.validation.constraints.NotBlank;
 import lombok.*;
 
@@ -24,4 +26,12 @@ public class MessageRequest {
     private String replyToId;
 
     private List<Attachment> attachments;
+
+    private Poll poll;
+
+    private LocationPayload location;
+
+    private String priority;
+
+    private List<String> mentions;
 }

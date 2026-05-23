@@ -1,0 +1,84 @@
+import axiosClient from "@/lib/axiosClient";
+import type {
+    AgentSession,
+    AgentSessionCreateOptions,
+    AgentSessionList,
+    AgentMessageHistory,
+    AgentChatRequest,
+    AgentChatResponse,
+    StartChatFromPostResponse,
+} from "@/types/agent";
+import type { ApiResponse } from "@/types/auth";
+
+const BASE = "/api/ai/sessions";
+
+export const agentService = {
+    // ─── Sessions ────────────────────────────────────────────
+    createSession: async (options?: AgentSessionCreateOptions): Promise<AgentSession> => {
+        const res = await axiosClient.post(BASE, {
+            title: options?.title ?? "New Chat",
+            context_conversation_id: options?.context_conversation_id,
+        });
+        return res.data;
+    },
+
+    listSessions: async (): Promise<AgentSessionList> => {
+        const res = await axiosClient.get(BASE);
+        return res.data;
+    },
+
+    getSession: async (sessionId: string): Promise<AgentSession> => {
+        const res = await axiosClient.get(`${BASE}/${sessionId}`);
+        return res.data;
+    },
+
+    deleteSession: async (sessionId: string): Promise<void> => {
+        await axiosClient.delete(`${BASE}/${sessionId}`);
+    },
+
+    renameSession: async (sessionId: string, title: string): Promise<AgentSession> => {
+        const res = await axiosClient.patch(`${BASE}/${sessionId}`, { title });
+        return res.data;
+    },
+
+    // ─── Messages ────────────────────────────────────────────
+    getHistory: async (sessionId: string): Promise<AgentMessageHistory> => {
+        const res = await axiosClient.get(`${BASE}/${sessionId}/messages`);
+        return res.data;
+    },
+
+    // ─── Chat (blocking) ────────────────────────────────────
+    chat: async (sessionId: string, payload: AgentChatRequest): Promise<AgentChatResponse> => {
+        const res = await axiosClient.post(`${BASE}/${sessionId}/chat`, payload);
+        return res.data;
+    },
+
+    // ─── Chat (SSE stream) — returns raw Response for streaming ─
+    chatStream: (sessionId: string, payload: AgentChatRequest, signal?: AbortSignal): Promise<Response> => {
+        const token = localStorage.getItem("access_token");
+        return fetch(`${import.meta.env.VITE_BACKEND_BASE_URL}${BASE}/${sessionId}/chat/stream`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            },
+            body: JSON.stringify(payload),
+            signal,
+        });
+    },
+
+    // ─── Files ───────────────────────────────────────────────
+    downloadFile: async (sessionId: string, fileId: string): Promise<Blob> => {
+        const res = await axiosClient.get<Blob>(
+            `${BASE}/${sessionId}/files/${fileId}/content`,
+            { responseType: "blob" },
+        );
+        return res.data;
+    },
+
+    // ─── Social AI ───────────────────────────────────────────
+    startChatFromPost: async (postId: string): Promise<ApiResponse<StartChatFromPostResponse>> => {
+        const res = await axiosClient.post("/api/ai/social/start-from-post", { postId });
+        return res.data;
+    },
+};

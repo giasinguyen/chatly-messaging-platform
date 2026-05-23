@@ -1,0 +1,67 @@
+from fastapi import APIRouter, Depends
+from fastapi.responses import StreamingResponse
+
+from app.dependencies import get_chat_service, get_request_context
+from app.models.chat import ChatRequest, ChatResponse
+from app.models.context import RequestContext
+from app.services.chat_service import ChatService
+
+router = APIRouter(prefix="/sessions/{session_id}", tags=["chat"])
+
+
+@router.post(
+    "/chat",
+    response_model=ChatResponse,
+    summary="Invoke agent (blocking)",
+    description="Send a message to the agent and receive the full response once complete.",
+    responses={
+        401: {"description": "Missing or invalid API key"},
+        404: {"description": "Session not found"},
+    },
+)
+async def invoke_chat(
+    session_id: str,
+    payload: ChatRequest,
+    ctx: RequestContext = Depends(get_request_context),  # noqa: B008
+    service: ChatService = Depends(get_chat_service),  # noqa: B008
+) -> ChatResponse:
+    """Run one chat turn and return full response."""
+    return await service.chat(
+        user_id=ctx.user_id,
+        session_id=session_id,
+        request=payload,
+    )
+
+
+@router.post(
+    "/chat/stream",
+    summary="Invoke agent (SSE streaming)",
+    description=(
+        "Send a message and receive the response as a stream of Server-Sent Events. "
+        "Format: `data: {\"token\": \"...\"}\\n\\n`, terminated by `data: [DONE]\\n\\n`."
+    ),
+    responses={
+        401: {"description": "Missing or invalid API key"},
+        404: {"description": "Session not found"},
+    },
+)
+async def stream_chat(
+    session_id: str,
+    payload: ChatRequest,
+    ctx: RequestContext = Depends(get_request_context),  # noqa: B008
+    service: ChatService = Depends(get_chat_service),  # noqa: B008
+) -> StreamingResponse:
+    """Run one chat turn and stream SSE tokens."""
+    return StreamingResponse(
+        service.stream_chat(
+            user_id=ctx.user_id,
+            session_id=session_id,
+            request=payload,
+        ),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+            "Connection": "keep-alive",
+        },
+    )

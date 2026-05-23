@@ -1,0 +1,41 @@
+# Version control
+.git
+.gitignore
+
+# Python cache
+__pycache__
+*.py[cod]
+*.pyo
+.mypy_cache
+.ruff_cache
+
+# Virtual environments
+.venv
+
+# Tests & dev files
+tests/
+AGENTS.md
+PROMPT.md
+README.md
+*.md
+
+# Docker files (không cần thiết bên trong image)
+Dockerfile
+.dockerignore
+docker-compose.yml
+
+# Env files (inject qua --env-file hoặc secret manager)
+.env
+.env.*
+!.env.example
+
+# Editor / OS
+.vscode
+.idea
+*.swp
+*~
+.DS_Store
+Thumbs.db
+
+# CI/CD
+.github

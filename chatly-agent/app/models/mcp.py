@@ -1,0 +1,52 @@
+from datetime import datetime
+from typing import Literal
+
+from pydantic import BaseModel, Field, HttpUrl
+
+MCP_TRANSPORT_SSE = "sse"
+MCP_TRANSPORT_HTTP = "http"
+
+
+class MCPServerCreate(BaseModel):
+    """Payload to register a new MCP server."""
+
+    name: str = Field(..., min_length=1, max_length=100)
+    url: HttpUrl
+    headers: dict[str, str] = Field(default_factory=dict)
+    transport: Literal["sse", "http"] = MCP_TRANSPORT_HTTP
+
+
+class MCPServerUpdate(BaseModel):
+    """Payload to toggle the active state of an MCP server."""
+
+    is_active: bool
+
+
+class MCPToolInfo(BaseModel):
+    """Metadata for a single tool exposed by an MCP server."""
+
+    name: str
+    description: str
+    input_schema: dict
+
+
+class MCPServerResponse(BaseModel):
+    """API response shape for a user-owned MCP server record."""
+
+    id: str
+    user_id: str
+    name: str
+    url: str
+    headers: dict[str, str]
+    is_active: bool
+    transport: str = MCP_TRANSPORT_HTTP
+    created_at: datetime
+    updated_at: datetime | None = None
+
+
+class SystemMCPServerInfo(BaseModel):
+    """Read-only metadata for a built-in system MCP server."""
+
+    name: str
+    url: str
+    is_active: bool

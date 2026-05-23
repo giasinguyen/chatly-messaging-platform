@@ -1,0 +1,110 @@
+import { useState, useEffect, useCallback } from 'react';
+import { View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { VideoView, useVideoPlayer } from 'expo-video';
+import { Ionicons } from '@expo/vector-icons';
+import { Colors } from '@/constants/theme';
+
+interface VideoPlayerProps {
+  url: string;
+  name?: string;
+}
+
+export function VideoPlayer({ url }: VideoPlayerProps) {
+  const player = useVideoPlayer({ uri: url }, (videoPlayer) => {
+    videoPlayer.loop = false;
+  });
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [hasStarted, setHasStarted] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    const statusSubscription = player.addListener('statusChange', ({ status, error: playerError }) => {
+      setIsLoading(status === 'loading');
+      if (status === 'error' || playerError) {
+        setError(true);
+      }
+    });
+
+    const playingSubscription = player.addListener('playingChange', ({ isPlaying: isNowPlaying }) => {
+      setIsPlaying(isNowPlaying);
+    });
+
+    const endSubscription = player.addListener('playToEnd', () => {
+      setHasStarted(false);
+      setIsPlaying(false);
+      player.currentTime = 0;
+    });
+
+    return () => {
+      statusSubscription.remove();
+      playingSubscription.remove();
+      endSubscription.remove();
+    };
+  }, [player]);
+
+  const handleTogglePlay = useCallback(async () => {
+    if (isLoading) return;
+
+    if (isPlaying) {
+      player.pause();
+    } else {
+      if (error) {
+        await player.replaceAsync({ uri: url });
+        setError(false);
+      }
+      if (!hasStarted) setHasStarted(true);
+      player.play();
+    }
+  }, [error, hasStarted, isLoading, isPlaying, player, url]);
+
+  return (
+    <View
+      className="overflow-hidden rounded-2xl"
+      style={{
+        width: 260,
+        height: 180,
+        marginBottom: 8,
+        borderWidth: 1,
+        borderColor: Colors.borderLight,
+        backgroundColor: Colors.bgCard,
+      }}
+    >
+      <VideoView
+        player={player}
+        contentFit="contain"
+        nativeControls={hasStarted}
+        onFirstFrameRender={() => setIsLoading(false)}
+        style={{ width: '100%', height: '100%' }}
+      />
+      
+      {!hasStarted && !error && (
+        <TouchableOpacity
+          onPress={handleTogglePlay}
+          activeOpacity={0.9}
+          className="absolute inset-0 items-center justify-center"
+          style={{ backgroundColor: Colors.overlay }}
+        >
+          <View className="h-16 w-16 items-center justify-center rounded-full" style={{ backgroundColor: 'rgba(255,255,255,0.24)' }}>
+            <View className="h-12 w-12 items-center justify-center rounded-full" style={{ backgroundColor: Colors.cta }}>
+              <Ionicons name="play" size={22} color="#fff" style={{ marginLeft: 3 }} />
+            </View>
+          </View>
+        </TouchableOpacity>
+      )}
+
+      {isLoading && (
+        <View className="absolute inset-0 items-center justify-center" style={{ backgroundColor: 'rgba(255,255,255,0.2)' }}>
+          <ActivityIndicator color={Colors.cta} />
+        </View>
+      )}
+
+      {error && (
+        <View className="absolute inset-0 items-center justify-center bg-black/60 p-4">
+          <Ionicons name="alert-circle" size={32} color="white" />
+          <Text className="mt-2 text-center text-xs text-white">Failed to load video</Text>
+        </View>
+      )}
+    </View>
+  );
+}

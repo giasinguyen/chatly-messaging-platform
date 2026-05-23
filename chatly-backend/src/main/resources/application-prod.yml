@@ -1,6 +1,14 @@
 spring:
   application:
     name: chatly-backend
+  ai:
+    mcp:
+      server:
+        enabled: ${SPRING_AI_MCP_ENABLED:true}
+        name: ${SPRING_AI_MCP_SERVER_NAME:chatly-backend-mcp}
+        version: ${SPRING_AI_MCP_SERVER_VERSION:0.0.1}
+        sse-endpoint: ${SPRING_AI_MCP_SSE_ENDPOINT:/api/ai/mcp/sse}
+        sse-message-endpoint: ${SPRING_AI_MCP_SSE_MESSAGE_ENDPOINT:/api/ai/mcp/message}
 
   datasource:
     url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/chatly}
@@ -16,12 +24,28 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
 
+  mongodb:
+    uri: ${MONGODB_URI:mongodb://localhost:27017/chatly}
   data:
-    mongodb:
-      uri: ${MONGODB_URI:mongodb://localhost:27017/chatly}
     redis:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: ${REEL_MULTIPART_MAX_FILE_SIZE:20MB}
+      max-request-size: ${REEL_MULTIPART_MAX_REQUEST_SIZE:25MB}
+  mail:
+    host: ${SPRING_MAIL_HOST:smtp.gmail.com}
+    port: ${SPRING_MAIL_PORT:587}
+    username: ${SPRING_MAIL_USERNAME}
+    password: ${SPRING_MAIL_PASSWORD}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
 
 server:
   port: ${SERVER_PORT:8080}
@@ -31,3 +55,25 @@ app:
     secret: ${JWT_SECRET}
     expiration-ms: ${JWT_EXPIRATION_MS:86400000}
     refresh-expiration-ms: ${JWT_REFRESH_EXPIRATION_MS:604800000}
+  auth:
+    verification:
+      expiration-minutes: ${APP_AUTH_VERIFICATION_EXPIRATION_MINUTES:15}
+      resend-cooldown-seconds: ${APP_AUTH_VERIFICATION_RESEND_COOLDOWN_SECONDS:60}
+    verification-link-base-url: ${APP_AUTH_VERIFICATION_LINK_BASE_URL:https://api.chatly.app/api/auth/verify-email}
+  mail:
+    from: ${APP_MAIL_FROM:${SPRING_MAIL_USERNAME}}
+  mcp:
+    internal-api-key: ${APP_MCP_INTERNAL_API_KEY:${AGENT_API_KEY}}
+  music:
+    jamendo:
+      client-id: ${JAMENDO_CLIENT_ID}
+      client-secret: ${JAMENDO_CLIENT_SECRET}
+      base-url: ${JAMENDO_BASE_URL:https://api.jamendo.com/v3.0}
+  reels:
+    max-video-size-mb: ${REEL_MAX_VIDEO_SIZE_MB:20}
+
+agent:
+  base-url: ${AGENT_BASE_URL:http://chatly-agent:8000}
+  api-key: ${AGENT_API_KEY}
+  timeout-seconds: ${AGENT_TIMEOUT_SECONDS:60}
+  stream-timeout-seconds: ${AGENT_STREAM_TIMEOUT_SECONDS:120}

@@ -1,0 +1,37 @@
+@startuml Chatly_Sequence_Handle_Friend_Request
+title Chatly - Handle Friend Request (ECB)
+
+autonumber
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+
+actor "Authenticated User" as User
+boundary "Web/Mobile Client" as Client
+control "ContactController\n/api/contacts/*" as ContactController
+control "ContactService" as ContactService
+entity "Contact" as ContactEntity
+control "ContactRepository" as ContactRepo
+control "GlobalExceptionHandler" as ExceptionHandler
+
+User -> Client: Choose Accept / Reject / Block
+Client -> ContactController: FriendActionRequest{contactId,\naction}
+ContactController -> ContactService: handleRequest(contactId, action)
+
+ContactService -> ContactRepo: findById(contactId)
+ContactRepo --> ContactService: contact?
+
+alt Contact not found or unauthorized
+  ContactService -> ExceptionHandler: AppException(...)
+  ExceptionHandler --> Client: HTTP 4xx\nApiResponse{error}
+else Valid request
+  ContactService -> ContactEntity: apply action\n(ACCEPT/REJECT/BLOCK)
+  ContactEntity --> ContactService: updated contact
+  ContactService -> ContactRepo: save or delete
+  ContactRepo --> ContactService: updated
+  ContactService --> ContactController: ContactResponse or message
+  ContactController --> Client: HTTP 200\nApiResponse{code:1000, result/message}
+end
+
+Client --> User: Show updated status
+
+@enduml

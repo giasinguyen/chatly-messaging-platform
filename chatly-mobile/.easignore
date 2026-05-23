@@ -1,0 +1,70 @@
+# Dependencies - will be reinstalled during build
+node_modules/
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+*.sublime-project
+*.sublime-workspace
+
+# Build and output directories
+build/
+dist/
+.expo/
+.expo-shared/
+*.log
+npm-debug.*
+yarn-error.*
+
+# Test files and coverage
+__tests__/
+*.test.ts
+*.test.tsx
+*.spec.ts
+*.spec.tsx
+coverage/
+.jest/
+
+# Documentation
+README.md
+docs/
+.github/
+
+*.tmp
+.cache/
+.turbo/
+
+android/build/
+android/.gradle/
+android/local.properties
+android/app/build/
+android/app/.cxx/
+android/.kotlin/
+android/**/build/
+android/**/.cxx/
+ios/Pods/
+ios/Podfile.lock
+
+.env.local
+.env.*.local
+
+*.bak
+*.backup
+*~
+
+docker-compose*.yml
+Dockerfile
+
+# Expo prebuild native folders generated locally
+android/
+ios/    

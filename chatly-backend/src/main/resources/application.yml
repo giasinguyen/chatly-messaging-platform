@@ -1,3 +1,9 @@
 spring:
     profiles:
         active: dev
+    config:
+        import: optional:file:.env[.properties]
+    mvc:
+        view:
+            prefix: /WEB-INF/jsp/
+            suffix: .jsp

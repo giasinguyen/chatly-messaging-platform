@@ -1,3 +1,4 @@
+@import url("https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&display=swap");
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
@@ -92,7 +93,13 @@
     --brand-light: #34aadc;
     --brand-dark: #0d3b7a;
     --brand-deep: #0a1628;
-    --gradient-brand: linear-gradient(135deg, #dbeafe 0%, #93c5fd 30%, #3b82f6 70%, #0071e3 100%);
+    --gradient-brand: linear-gradient(
+        135deg,
+        #dbeafe 0%,
+        #93c5fd 30%,
+        #3b82f6 70%,
+        #0071e3 100%
+    );
 }
 
 .dark {
@@ -134,14 +141,109 @@
     --brand-light: #34aadc;
     --brand-dark: #0d3b7a;
     --brand-deep: #0a1628;
-    --gradient-brand: linear-gradient(135deg, #0a1628 0%, #0d3b7a 40%, #0071e3 70%, #34aadc 100%);
+    --gradient-brand: linear-gradient(
+        135deg,
+        #0a1628 0%,
+        #0d3b7a 40%,
+        #0071e3 70%,
+        #34aadc 100%
+    );
 }
 
 @layer base {
-  * {
-    @apply border-border outline-ring/50;
+    * {
+        @apply border-border outline-ring/50;
     }
-  body {
-    @apply bg-background text-foreground;
+    body {
+        @apply bg-background text-foreground;
+    }
+}
+
+/* Landing page components (from light-saas-landing-page-nextjs) */
+@layer components {
+    .btn {
+        @apply px-4 py-2 rounded-lg font-medium inline-flex items-center justify-center tracking-tighter;
+    }
+    .btn-primary {
+        @apply bg-[#0071e3] text-white;
+    }
+    .btn-text {
+        @apply text-black dark:text-white bg-transparent;
+    }
+    .logo-ticker-image {
+        @apply h-8 w-auto;
+    }
+    .tag {
+        @apply text-sm inline-flex border border-[#222]/10 dark:border-white/20 px-3 py-1 rounded-lg tracking-tight text-gray-700 dark:text-gray-200;
+    }
+    .section-title {
+        @apply text-center text-3xl md:text-[54px] md:leading-[60px] font-bold tracking-tighter bg-gradient-to-b from-black to-brand dark:from-white dark:to-brand-light bg-clip-text text-transparent;
+    }
+    .section-description {
+        @apply text-center text-[22px] leading-[30px] tracking-tight text-[#010D3E] dark:text-white/70;
+    }
+    .section-heading {
+        @apply max-w-[540px] mx-auto;
+    }
+    .search-highlight {
+        @apply bg-yellow-200/40 dark:bg-yellow-500/20 rounded-lg;
+    }
+    .highlight-reply-target {
+        animation: replyFlash 1.5s ease-out;
+    }
+    @keyframes replyFlash {
+        0%   { background-color: rgba(234, 179, 8, 0.25); }
+        60%  { background-color: rgba(234, 179, 8, 0.15); }
+        100% { background-color: transparent; }
+    }
+    @keyframes storyEmojiFloat {
+        0%   { opacity: 1; transform: translateX(-50%) translateY(0)     scale(1); }
+        40%  { opacity: 1; transform: translateX(-50%) translateY(-50px)  scale(1.4); }
+        100% { opacity: 0; transform: translateX(-50%) translateY(-110px) scale(0.8); }
+    }
+    .card {
+        @apply p-10 border border-[#222222]/10 dark:border-white/10 rounded-3xl shadow-[0_7px_14px_#EAEAEA] dark:shadow-none w-full max-w-xs dark:bg-[#1a1c23]/50;
+    }
+    /* Landing container: center + padding (match Next.js light-saas config) */
+    .container {
+        @apply mx-auto w-full max-w-[1200px] px-5 lg:px-20;
+    }
+    /* Hide scrollbar while keeping scroll functionality */
+    .hide-scrollbar {
+        -ms-overflow-style: none; /* IE and Edge */
+        scrollbar-width: none; /* Firefox */
+    }
+    .hide-scrollbar::-webkit-scrollbar {
+        display: none; /* Chrome, Safari and Opera */
+    }
+
+    /* Rich text message bubble — re-applies list/paragraph styles stripped by Tailwind Preflight */
+    .chat-rich-text p {
+        margin: 0;
+    }
+    .chat-rich-text ul {
+        list-style-type: disc;
+        padding-left: 1.25rem;
+    }
+    .chat-rich-text ol {
+        list-style-type: decimal;
+        padding-left: 1.25rem;
+    }
+    .chat-rich-text li {
+        display: list-item;
+        margin-top: 0.125rem;
+        margin-bottom: 0.125rem;
+    }
+    .chat-rich-text strong {
+        font-weight: 700;
+    }
+    .chat-rich-text em {
+        font-style: italic;
+    }
+    .chat-rich-text u {
+        text-decoration: underline;
+    }
+    .chat-rich-text s {
+        text-decoration: line-through;
     }
 }

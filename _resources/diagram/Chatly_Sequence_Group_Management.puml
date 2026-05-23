@@ -1,0 +1,50 @@
+@startuml Chatly_Sequence_Group_Management
+title Chatly - Group Management (ECB)
+
+autonumber
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+
+actor "Owner/Admin" as Manager
+boundary "Web/Mobile Client" as Client
+control "GroupController\n/api/groups/*" as GroupController
+control "GroupService" as GroupService
+entity "Group" as GroupEntity
+entity "GroupMember" as GroupMemberEntity
+control "ConversationRepository" as ConversationRepo
+control "GroupMemberRepository" as GroupMemberRepo
+control "NotificationService" as NotificationService
+boundary "Topic /topic/conversation.{id}" as TopicConversation
+control "GlobalExceptionHandler" as ExceptionHandler
+
+Manager -> Client: Choose group action
+Client -> GroupController: GroupActionRequest{conversationId,\naction, memberId?,\nrole?, title?, avatarUrl?}
+GroupController -> GroupService: execute(action, request)
+
+GroupService -> ConversationRepo: findById(conversationId)
+ConversationRepo --> GroupService: group?
+
+alt Not found or permission denied
+  GroupService -> ExceptionHandler: AppException(...)
+  ExceptionHandler --> Client: HTTP 4xx\nApiResponse{error}
+else Allowed
+  GroupService -> GroupMemberRepo: find membership\n(managerId)
+  GroupMemberRepo --> GroupService: role
+  alt Role not allowed
+    GroupService -> ExceptionHandler: AppException(FORBIDDEN)
+    ExceptionHandler --> Client: HTTP 403\nApiResponse{error}
+  else Apply update
+    GroupService -> GroupEntity: apply group changes
+    GroupEntity --> GroupService: updated group
+    GroupService -> GroupMemberEntity: update members/roles
+    GroupMemberEntity --> GroupService: updated members
+    GroupService -> ConversationRepo: save group
+    GroupService -> GroupMemberRepo: save members
+    GroupService -> NotificationService: createAndPush(...)
+    GroupService -> TopicConversation: ChatEvent{GROUP_UPDATE/ROLE_UPDATED}
+    GroupService --> GroupController: response
+    GroupController --> Client: HTTP 200\nApiResponse{code:1000, result}
+  end
+end
+
+@enduml

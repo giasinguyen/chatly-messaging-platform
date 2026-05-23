@@ -1,25 +1,12 @@
-import { Stack, Link } from 'expo-router';
+import { Redirect } from 'expo-router';
+import { useAuthStore } from '@/store/auth.store';
 
-import { View } from 'react-native';
+export default function Index() {
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
 
-import { Button } from '@/components/Button';
-import { Container } from '@/components/Container';
-import { ScreenContent } from '@/components/ScreenContent';
+  if (isAuthenticated) {
+    return <Redirect href="/(tabs)/chats" />;
+  }
 
-export default function Home() {
-  return (
-    <View className={styles.container}>
-      <Stack.Screen options={{ title: 'Home' }} />
-      <Container>
-        <ScreenContent path="app/index.tsx" title="Home"></ScreenContent>
-        <Link href={{ pathname: '/details', params: { name: 'Dan' } }} asChild>
-          <Button title="Show Details" />
-        </Link>
-      </Container>
-    </View>
-  );
+  return <Redirect href="/(auth)/login" />;
 }
-
-const styles = {
-  container: 'flex flex-1 bg-white',
-};

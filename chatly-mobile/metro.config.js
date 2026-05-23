@@ -7,4 +7,13 @@ const { withNativeWind } = require('nativewind/metro');
 
 const config = getDefaultConfig(__dirname);
 
+// Allow Metro to transform ESM packages using import.meta in node_modules
+config.transformer = {
+  ...config.transformer,
+  unstable_allowRequireContext: true,
+};
+
+// Add 'fx' to sourceExts to resolve side effect files (e.g. setUpJsLogger.fx)
+config.resolver.sourceExts = [...config.resolver.sourceExts, 'fx'];
+
 module.exports = withNativeWind(config, { input: './global.css' });

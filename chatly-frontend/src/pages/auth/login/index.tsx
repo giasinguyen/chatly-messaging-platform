@@ -1,13 +1,12 @@
-import { useState } from "react";
-import { Link } from "react-router-dom";
-import { Mail, Lock, Eye, EyeOff, Sun, Moon } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import axios from "axios";
+import { Mail, Lock, Eye, EyeOff, RefreshCw, ShieldAlert, X } from "lucide-react";
+import { QRCodeSVG } from "qrcode.react";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Controller, useForm } from "react-hook-form";
+import { Controller, useForm, type Resolver } from "react-hook-form";
 import { toast } from "sonner";
 
-import chatlyLogo from "@/assets/brand/chatly-logo-transparent.png";
-import qrCode from "@/mocks/images/QR-fake.png";
-import { useThemeStore } from "@/store/theme.store";
 import { ForgotPasswordDialog } from "./components/ForgotPasswordDialog";
 import {
     loginSchema,
@@ -26,49 +25,131 @@ import {
     InputGroupInput,
     InputGroupButton,
 } from "@/components/ui/input-group";
+import { authService } from "@/services/auth.service";
+import { useAuthStore } from "@/store/auth.store";
+import type { ApiResponse } from "@/types/auth";
 import "./login.css";
+
+const SMS_LOGIN_MAINTENANCE_MESSAGE = "SMS login is currently under maintenance.";
+const LOGIN_ERROR_MESSAGE = "An error occurred";
+const SUSPENDED_ERROR_CODE = 1115;
 
 export default function LoginPage() {
     const [showPassword, setShowPassword] = useState(false);
     const [loginMethod, setLoginMethod] = useState<"password" | "sms">(
         "password",
     );
-    const toggleTheme = useThemeStore((s) => s.toggleTheme);
+    const [isSuspended, setIsSuspended] = useState(false);
+    
+    const [qrToken, setQrToken] = useState<string | null>(null);
+    const [qrStatus, setQrStatus] = useState<"PENDING" | "EXPIRED" | "LOADING">("LOADING");
+    const pollingRef = useRef<NodeJS.Timeout | null>(null);
 
     const form = useForm<LoginFormValues>({
+        // The active schema matches the login method before submit validation runs.
         resolver: zodResolver(
             loginMethod === "password" ? loginSchema : smsLoginSchema,
-        ),
+        ) as Resolver<LoginFormValues>,
         defaultValues: {
             identifier: "",
             password: "",
         },
     });
 
-    const onSubmit = (data: LoginFormValues) => {
-        if (loginMethod === "sms") {
-            return toast(
-                "Xin lỗi, tính năng đang trong giai đoạn thử nghiệm và phát triển",
-                {
-                    description: "SMS login is not available yet",
-                },
-            );
+    const setAuth = useAuthStore((s) => s.setAuth);
+    const setGlobalLoading = useAuthStore((s) => s.setLoading);
+    const isGlobalLoading = useAuthStore((s) => s.loading);
+    const navigate = useNavigate();
+
+    const fetchQrToken = async () => {
+        try {
+            setQrStatus("LOADING");
+            const response = await authService.generateQrLogin();
+            if (response.code === 1000 && response.result) {
+                setQrToken(response.result.token);
+                setQrStatus("PENDING");
+                startPolling(response.result.token);
+            }
+        } catch (error) {
+            console.error("Failed to generate QR token", error);
+            setQrStatus("EXPIRED");
+        }
+    };
+
+    const startPolling = (token: string) => {
+        if (pollingRef.current) clearInterval(pollingRef.current);
+        
+        pollingRef.current = setInterval(async () => {
+            try {
+                const response = await authService.checkQrLoginStatus(token);
+                if (response.code === 1000 && response.result) {
+                    if (response.result.status === "SUCCESS" && response.result.result) {
+                        if (pollingRef.current) clearInterval(pollingRef.current);
+                        setAuth(response.result.result);
+                        toast.success("Login successful via QR!");
+                        navigate("/");
+                    } else if (response.result.status === "EXPIRED") {
+                        if (pollingRef.current) clearInterval(pollingRef.current);
+                        setQrStatus("EXPIRED");
+                    }
+                }
+            } catch (error) {
+                console.error("Failed to check QR status", error);
+            }
+        }, 2000);
+    };
+
+    useEffect(() => {
+        fetchQrToken();
+        return () => {
+            if (pollingRef.current) clearInterval(pollingRef.current);
+        };
+    }, []);
+
+    const handleLoginMethodToggle = () => {
+        if (loginMethod === "password") {
+            toast.info(SMS_LOGIN_MAINTENANCE_MESSAGE);
+            return;
         }
 
-        const { identifier, ...rest } = data;
-        const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(identifier);
+        setLoginMethod("password");
+    };
+
+    const onSubmit = async (data: LoginFormValues) => {
+        if (loginMethod === "sms") {
+            toast.info(SMS_LOGIN_MAINTENANCE_MESSAGE);
+            return;
+        }
 
         const payload = {
-            ...rest,
-            email: isEmail ? identifier : null,
-            phone: !isEmail ? identifier : null,
-            method: loginMethod,
+            identifier: data.identifier,
+            password: data.password || "",
         };
 
-        toast("Login initiated", {
-            description: `${loginMethod === "password" ? "Password" : "SMS"} - Identifier: ${identifier}`,
-        });
-        console.log("Login Payload:", payload);
+        try {
+            setGlobalLoading(true);
+            const response = await authService.login(payload);
+
+            if (response.code === 1000) {
+                setAuth(response.result);
+                toast.success("Login successful!");
+                navigate("/");
+            } else {
+                toast.error(response.message || "Login failed");
+            }
+        } catch (error: unknown) {
+            console.error("Login error:", error);
+            if (axios.isAxiosError<ApiResponse<unknown>>(error) && error.response?.data?.code === SUSPENDED_ERROR_CODE) {
+                setIsSuspended(true);
+            } else {
+                const msg = axios.isAxiosError<ApiResponse<unknown>>(error)
+                    ? error.response?.data?.message ?? LOGIN_ERROR_MESSAGE
+                    : LOGIN_ERROR_MESSAGE;
+                toast.error(msg);
+            }
+        } finally {
+            setGlobalLoading(false);
+        }
     };
 
     return (
@@ -96,27 +177,8 @@ export default function LoginPage() {
                 ))}
             </div>
 
-            {/* Logo top-left */}
-            <div className="absolute top-7 left-8 z-10 flex items-center gap-2.5">
-                <img
-                    src={chatlyLogo}
-                    alt="Chatly"
-                    className="h-16 w-auto drop-shadow-[0_2px_8px_rgba(0,0,0,0.25)]"
-                />
-            </div>
-
-            {/* Theme toggle top-right */}
-            <button
-                onClick={toggleTheme}
-                className="absolute top-7 right-8 z-10 flex h-10 w-10 cursor-pointer items-center justify-center rounded-full border border-white/20 bg-white/10 text-white backdrop-blur-sm transition-all duration-200 hover:scale-105 hover:bg-white/20 dark:border-white/10 dark:bg-white/5 dark:hover:bg-white/10"
-                aria-label="Toggle theme"
-            >
-                <Sun size={18} className="block dark:hidden" />
-                <Moon size={18} className="hidden dark:block" />
-            </button>
-
             {/* Center card */}
-            <div className="login-card-enter relative z-5 flex w-[90%] max-w-[780px] overflow-hidden rounded-[20px] border border-black/10 bg-white/90 shadow-[0_4px_20px_rgba(0,0,0,0.08)] backdrop-blur-[20px] dark:border-white/8 dark:bg-[rgba(30,33,40,0.92)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.4)]">
+            <div className="login-card-enter mt-10 relative z-5 flex w-[90%] max-w-[780px] overflow-hidden rounded-[20px] border border-black/10 bg-white/90 shadow-[0_4px_20px_rgba(0,0,0,0.08)] backdrop-blur-[20px] dark:border-white/8 dark:bg-[rgba(30,33,40,0.92)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.4)]">
                 {/* Left — form */}
                 <div className="flex-1 p-9 pb-8">
                     <h1 className="mb-1.5 text-center text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
@@ -141,7 +203,9 @@ export default function LoginPage() {
                                             htmlFor="login-identifier"
                                             className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-[#b0b3bc]"
                                         >
-                                            Email or Phone Number{" "}
+                                            {loginMethod === "password"
+                                                ? "Email, Phone or Username"
+                                                : "Phone Number"}{" "}
                                             <span className="text-red-400">
                                                 *
                                             </span>
@@ -166,7 +230,11 @@ export default function LoginPage() {
                                                 onBlur={field.onBlur}
                                                 ref={field.ref}
                                                 type="text"
-                                                placeholder="Enter your email or phone"
+                                                placeholder={
+                                                    loginMethod === "password"
+                                                        ? "Enter email, phone or username"
+                                                        : "Enter your phone number"
+                                                }
                                                 autoComplete="username"
                                                 aria-invalid={
                                                     fieldState.invalid
@@ -220,7 +288,7 @@ export default function LoginPage() {
                                                     aria-invalid={
                                                         fieldState.invalid
                                                     }
-                                                    className="py-2.5 text-[15px] !text-gray-900 dark:!text-white pr-0"
+                                                    className="py-2.5 text-[15px] text-gray-900! dark:text-white! pr-0"
                                                 />
                                                 <InputGroupAddon align="inline-end">
                                                     <InputGroupButton
@@ -247,11 +315,7 @@ export default function LoginPage() {
                                                     errors={[fieldState.error]}
                                                 />
                                             )}
-                                            <ForgotPasswordDialog
-                                                email={form.getValues(
-                                                    "identifier",
-                                                )}
-                                            />
+                                            <ForgotPasswordDialog />
                                         </Field>
                                     )}
                                 />
@@ -261,11 +325,20 @@ export default function LoginPage() {
                         {/* Submit */}
                         <button
                             type="submit"
-                            className="mt-1 w-full cursor-pointer rounded-full border-none bg-brand py-3 text-[15px] font-semibold text-white transition-all duration-300 hover:scale-[1.02] hover:bg-brand-hover active:scale-[0.99]"
+                            disabled={isGlobalLoading}
+                            className="mt-1 flex w-full cursor-pointer items-center justify-center gap-2 rounded-full border-none bg-brand py-3 text-[15px] font-semibold text-white transition-all duration-300 hover:scale-[1.02] hover:bg-brand-hover active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-70"
                         >
-                            {loginMethod === "password"
-                                ? "Log In"
-                                : "Send OTP via SMS"}
+                            {isGlobalLoading ? (
+                                <div className="h-5 w-5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                            ) : (
+                                <>
+                                    <span>
+                                        {loginMethod === "password"
+                                            ? "Log In"
+                                            : "Send OTP"}
+                                    </span>
+                                </>
+                            )}
                         </button>
 
                         <div className="flex items-center justify-between text-[13px]">
@@ -280,13 +353,7 @@ export default function LoginPage() {
                             </p>
                             <button
                                 type="button"
-                                onClick={() =>
-                                    setLoginMethod(
-                                        loginMethod === "password"
-                                            ? "sms"
-                                            : "password",
-                                    )
-                                }
+                                onClick={handleLoginMethodToggle}
                                 className="cursor-pointer bg-transparent border-none p-0 font-medium text-brand no-underline transition-colors duration-200 hover:text-brand-light hover:underline dark:text-brand-light dark:hover:text-brand-light"
                             >
                                 {loginMethod === "password"
@@ -295,82 +362,37 @@ export default function LoginPage() {
                             </button>
                         </div>
                     </form>
-
-                    {/* Divider */}
-                    <div className="my-2 flex items-center gap-3">
-                        <span className="h-px flex-1 bg-gray-200 dark:bg-white/8" />
-                        <span className="text-xs font-semibold uppercase tracking-widest text-gray-400 dark:text-[#6c6f78]">
-                            OR
-                        </span>
-                        <span className="h-px flex-1 bg-gray-200 dark:bg-white/8" />
-                    </div>
-
-                    {/* Social login */}
-                    <div className="flex flex-col gap-2.5">
-                        <button
-                            type="button"
-                            onClick={() =>
-                                toast(
-                                    "Xin lỗi, tính năng đang trong giai đoạn thử nghiệm và phát triển",
-                                )
-                            }
-                            className="flex w-full cursor-pointer items-center justify-center gap-2.5 rounded-full border border-gray-200 bg-gray-50 px-2.5 py-2.5 text-sm font-medium text-gray-700 transition-all duration-200 hover:scale-[1.02] hover:border-gray-300 hover:bg-gray-100 active:scale-[0.99] dark:border-white/10 dark:bg-white/4 dark:text-[#d1d3da] dark:hover:border-white/18 dark:hover:bg-white/8"
-                        >
-                            <svg
-                                width="18"
-                                height="18"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                            >
-                                <path
-                                    d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"
-                                    fill="#4285F4"
-                                />
-                                <path
-                                    d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                                    fill="#34A853"
-                                />
-                                <path
-                                    d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-                                    fill="#FBBC05"
-                                />
-                                <path
-                                    d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-                                    fill="#EA4335"
-                                />
-                            </svg>
-                            <span>Continue with Google</span>
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() =>
-                                toast(
-                                    "Xin lỗi, tính năng đang trong giai đoạn thử nghiệm và phát triển",
-                                )
-                            }
-                            className="flex w-full cursor-pointer items-center justify-center gap-2.5 rounded-full border border-gray-200 bg-gray-50 px-2.5 py-2.5 text-sm font-medium text-gray-700 transition-all duration-200 hover:scale-[1.02] hover:border-gray-300 hover:bg-gray-100 active:scale-[0.99] dark:border-white/10 dark:bg-white/4 dark:text-[#d1d3da] dark:hover:border-white/18 dark:hover:bg-white/8"
-                        >
-                            <svg
-                                width="18"
-                                height="18"
-                                viewBox="0 0 24 24"
-                                fill="#1877F2"
-                            >
-                                <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
-                            </svg>
-                            <span>Continue with Facebook</span>
-                        </button>
-                    </div>
                 </div>
 
                 {/* Right — QR Code */}
                 <div className="hidden w-[240px] flex-col items-center justify-center border-l border-gray-200 p-9 px-7 text-center dark:border-white/6 md:flex">
-                    <div className="mb-5 h-[160px] w-[160px] rounded-[20px] bg-white p-2 shadow-[0_4px_20px_rgba(0,0,0,0.08)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.4)]">
-                        <img
-                            src={qrCode}
-                            alt="QR Code"
-                            className="h-full w-full rounded-md object-contain"
-                        />
+                    <div className="relative mb-5 flex h-[160px] w-[160px] items-center justify-center overflow-hidden rounded-[20px] bg-white p-2 shadow-[0_4px_20px_rgba(0,0,0,0.08)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.4)]">
+                        {qrStatus === "LOADING" ? (
+                            <div className="flex h-full w-full items-center justify-center">
+                                <div className="h-6 w-6 animate-spin rounded-full border-2 border-brand/30 border-t-brand" />
+                            </div>
+                        ) : qrStatus === "EXPIRED" || !qrToken ? (
+                            <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-50/80 backdrop-blur-sm dark:bg-black/40 z-10">
+                                <p className="mb-2 text-xs font-medium text-gray-600 dark:text-gray-300">QR Expired</p>
+                                <button
+                                    type="button"
+                                    onClick={fetchQrToken}
+                                    className="flex cursor-pointer items-center justify-center gap-1.5 rounded-full bg-brand px-3 py-1.5 text-xs font-medium text-white transition-all hover:bg-brand-hover"
+                                >
+                                    <RefreshCw size={14} /> Refresh
+                                </button>
+                            </div>
+                        ) : null}
+                        
+                        {qrToken && (
+                            <QRCodeSVG
+                                value={qrToken}
+                                size={144}
+                                level="H"
+                                includeMargin={false}
+                                className={`h-full w-full rounded-md object-contain transition-opacity duration-300 ${qrStatus === "EXPIRED" ? "opacity-30" : "opacity-100"}`}
+                            />
+                        )}
                     </div>
                     <h3 className="mb-2 text-base font-bold tracking-tight text-gray-900 dark:text-white">
                         Log in with QR Code
@@ -384,6 +406,44 @@ export default function LoginPage() {
                     </p>
                 </div>
             </div>
+
+            {/* Suspended account modal */}
+            {isSuspended && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+                    <div className="relative w-full max-w-md rounded-2xl bg-white shadow-2xl p-8 flex flex-col items-center text-center">
+                        <button
+                            type="button"
+                            onClick={() => setIsSuspended(false)}
+                            className="absolute top-4 right-4 rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+                            aria-label="Close"
+                        >
+                            <X size={18} />
+                        </button>
+                        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-red-50 mb-5">
+                            <ShieldAlert size={32} className="text-red-500" />
+                        </div>
+                        <h2 className="text-xl font-bold text-slate-900 mb-2">Account is temporarily suspended.</h2>
+                        <p className="text-sm text-slate-600 mb-4 leading-relaxed">
+                           Your account has been temporarily suspended for violating Chatly's community standards.
+                            If you believe this is a mistake, please contact support to file a complaint.
+                        </p>
+                        <a
+                            href="mailto:cskh@chatly.com"
+                            className="inline-flex items-center gap-2 rounded-xl bg-red-50 border border-red-100 px-5 py-2.5 text-sm font-semibold text-red-600 hover:bg-red-100 transition-colors mb-5"
+                        >
+                            <Mail size={15} />
+                            cskh@chatly.com
+                        </a>
+                        <button
+                            type="button"
+                            onClick={() => setIsSuspended(false)}
+                            className="w-full rounded-xl bg-slate-100 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-200 transition-colors"
+                        >
+                            Close
+                        </button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

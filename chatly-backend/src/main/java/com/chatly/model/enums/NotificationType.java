@@ -1,0 +1,22 @@
+package com.chatly.model.enums;
+
+public enum NotificationType {
+    NEW_MESSAGE,
+    MENTION,
+    NEW_FOLLOWER,
+    FRIEND_REQUEST,
+    FRIEND_ACCEPTED,
+    GROUP_INVITE,
+    GROUP_JOIN_REQUEST,
+    MEMBER_JOINED,
+    CALL_MISSED,
+    POST_LIKED,
+    POST_COMMENTED,
+    POST_SHARED,
+    POST_MENTION,
+    COMMENT_REPLIED,
+    STORY_VIEWED,
+    STORY_REACTED,
+    STORY_REPLIED,
+    SYSTEM
+}

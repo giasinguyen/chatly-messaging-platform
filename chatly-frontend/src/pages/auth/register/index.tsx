@@ -1,11 +1,9 @@
-import { Link } from "react-router-dom";
-import { Sun, Moon } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";
+import { AxiosError } from "axios";
 
-import chatlyLogo from "@/assets/brand/chatly-logo-transparent.png";
-import { useThemeStore } from "@/store/theme.store";
 import {
     registerSchema,
     type RegisterFormValues,
@@ -17,13 +15,15 @@ import {
     FieldLabel,
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { authService } from "@/services/auth.service";
+import { useAuthStore } from "@/store/auth.store";
 import "../login/login.css";
 
 export default function RegisterPage() {
-    const toggleTheme = useThemeStore((s) => s.toggleTheme);
-
     const form = useForm<RegisterFormValues>({
         resolver: zodResolver(registerSchema),
+        mode: "onChange",
+        reValidateMode: "onChange",
         defaultValues: {
             identifier: "",
             displayName: "",
@@ -32,11 +32,14 @@ export default function RegisterPage() {
             month: "",
             day: "",
             year: "",
-            promo: false,
         },
     });
 
-    const onSubmit = (data: RegisterFormValues) => {
+    const setGlobalLoading = useAuthStore((s) => s.setLoading);
+    const isGlobalLoading = useAuthStore((s) => s.loading);
+    const navigate = useNavigate();
+
+    const onSubmit = async (data: RegisterFormValues) => {
         const { identifier, month, day, year, ...rest } = data;
         const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(identifier);
 
@@ -55,10 +58,25 @@ export default function RegisterPage() {
             dob,
         };
 
-        toast("Registration initiated", {
-            description: `Username: ${payload.username}`,
-        });
-        console.log("Register payload:", payload);
+        try {
+            setGlobalLoading(true);
+            const response = await authService.register(payload);
+
+            if (response.code === 1000) {
+                toast.success("Registration successful! Please log in.");
+                navigate("/auth/login");
+            } else {
+                toast.error(response.message || "Registration failed");
+            }
+        } catch (error: unknown) {
+            const msg =
+                error instanceof AxiosError
+                    ? error.response?.data?.message ?? "Registration failed"
+                    : "An unexpected error occurred";
+            toast.error(msg);
+        } finally {
+            setGlobalLoading(false);
+        }
     };
 
     return (
@@ -86,27 +104,8 @@ export default function RegisterPage() {
                 ))}
             </div>
 
-            {/* Logo top-left */}
-            <div className="absolute top-7 left-8 z-10 flex items-center gap-2.5">
-                <img
-                    src={chatlyLogo}
-                    alt="Chatly"
-                    className="h-16 w-auto drop-shadow-[0_2px_8px_rgba(0,0,0,0.25)]"
-                />
-            </div>
-
-            {/* Theme toggle top-right */}
-            <button
-                onClick={toggleTheme}
-                className="absolute top-7 right-8 z-10 flex h-10 w-10 cursor-pointer items-center justify-center rounded-full border border-white/20 bg-white/10 text-white backdrop-blur-sm transition-all duration-200 hover:scale-105 hover:bg-white/20 dark:border-white/10 dark:bg-white/5 dark:hover:bg-white/10"
-                aria-label="Toggle theme"
-            >
-                <Sun size={18} className="block dark:hidden" />
-                <Moon size={18} className="hidden dark:block" />
-            </button>
-
             {/* Center card */}
-            <div className="login-card-enter relative z-5 flex w-[90%] max-w-[480px] flex-col overflow-hidden rounded-[20px] border border-black/10 bg-white/90 p-8 shadow-[0_4px_20px_rgba(0,0,0,0.08)] backdrop-blur-[20px] dark:border-white/8 dark:bg-[rgba(30,33,40,0.92)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.4)]">
+            <div className="login-card-enter mt-10 relative z-5 flex w-[90%] max-w-[480px] flex-col overflow-hidden rounded-[20px] border border-black/10 bg-white/90 p-8 shadow-[0_4px_20px_rgba(0,0,0,0.08)] backdrop-blur-[20px] dark:border-white/8 dark:bg-[rgba(30,33,40,0.92)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.4)]">
                 <h1 className="mb-6 text-center text-[22px] font-bold tracking-tight text-gray-900 dark:text-white">
                     Create an account
                 </h1>
@@ -390,48 +389,12 @@ export default function RegisterPage() {
                                     errors={[
                                         {
                                             message:
-                                                "Please specify complete Date of Birth",
+                                                "Please enter your full date of birth.",
                                         },
                                     ]}
                                 />
                             ) : null}
                         </div>
-
-                        {/* Promo Checkbox */}
-                        <Controller
-                            name="promo"
-                            control={form.control}
-                            render={({ field }) => (
-                                <label className="mt-1 flex cursor-pointer items-start gap-3">
-                                    <div className="relative flex h-5 w-5 shrink-0 items-center justify-center">
-                                        <input
-                                            type="checkbox"
-                                            className="peer h-5 w-5 cursor-pointer appearance-none rounded-[6px] border border-gray-300 bg-white transition-all checked:border-brand checked:bg-brand dark:border-white/20 dark:bg-black/20 dark:checked:border-brand dark:checked:bg-brand"
-                                            checked={field.value}
-                                            onChange={(e) =>
-                                                field.onChange(e.target.checked)
-                                            }
-                                        />
-                                        <svg
-                                            className="pointer-events-none absolute hidden h-3.5 w-3.5 text-white peer-checked:block"
-                                            viewBox="0 0 24 24"
-                                            fill="none"
-                                            stroke="currentColor"
-                                            strokeWidth="3"
-                                            strokeLinecap="round"
-                                            strokeLinejoin="round"
-                                        >
-                                            <polyline points="20 6 9 17 4 12"></polyline>
-                                        </svg>
-                                    </div>
-                                    <span className="text-[12px] leading-snug text-gray-500 dark:text-[#a0a3ab]">
-                                        (Optional) It's okay to send me emails
-                                        with Chatly updates, tips, and special
-                                        offers. You can opt out at any time.
-                                    </span>
-                                </label>
-                            )}
-                        />
                     </FieldGroup>
 
                     {/* Terms and Submit */}
@@ -455,9 +418,16 @@ export default function RegisterPage() {
 
                         <button
                             type="submit"
-                            className="w-full cursor-pointer rounded-full border-none bg-brand py-3.5 text-[15px] font-bold text-white transition-all duration-300 hover:scale-[1.02] hover:bg-brand-hover active:scale-[0.99]"
+                            disabled={isGlobalLoading}
+                            className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-full border-none bg-brand py-3.5 text-[15px] font-bold text-white transition-all duration-300 hover:scale-[1.02] hover:bg-brand-hover active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-70"
                         >
-                            Create Account
+                            {isGlobalLoading ? (
+                                <div className="h-5 w-5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                            ) : (
+                                <>
+                                    <span>Create Account</span>
+                                </>
+                            )}
                         </button>
 
                         <Link

@@ -1,0 +1,140 @@
+@startuml Chatly_Entity_SQL
+!theme plain
+top to bottom direction
+
+skinparam classAttributeIconSize 0
+skinparam class {
+  BackgroundColor #EEF6FF
+  BorderColor #4A90D9
+  FontSize 11
+  HeaderBackgroundColor #4A90D9
+  HeaderFontColor #FFFFFF
+  HeaderFontStyle bold
+}
+skinparam package {
+  BackgroundColor #F5F9FF
+  BorderColor #4A90D9
+  FontSize 13
+  FontStyle bold
+}
+skinparam arrow {
+  Color #4A90D9
+  FontSize 10
+}
+skinparam linetype ortho
+skinparam nodesep 50
+skinparam ranksep 60
+
+title Chatly -- Entity Diagram: SQL Entities (PostgreSQL)
+
+package "PostgreSQL -- chatly-backend" {
+
+  class User <<entity>> {
+    + id : UUID <<PK>>
+    --
+    # username : String <<unique>>
+    # email : String <<unique, nullable>>
+    # emailVerified : boolean
+    # password : String
+    # displayName : String
+    # avatarUrl : String
+    # phone : String <<unique, nullable>>
+    # dob : Instant
+    # bio : String
+    # status : UserStatus
+    # lastSeen : Instant
+    # deviceTokens : Set<String>
+    # passwordChangedAt : Instant
+    # createdAt : Instant
+    # updatedAt : Instant
+  }
+
+  class Contact <<entity>> {
+    + id : UUID <<PK>>
+    --
+    # user : UUID <<FK -> User>>
+    # contact : UUID <<FK -> User>>
+    # status : ContactStatus
+    # blockedBy : UUID
+    # createdAt : Instant
+    .. constraint ..
+    unique(user_id, contact_id)
+  }
+
+  class GroupMember <<entity>> {
+    + id : UUID <<PK>>
+    --
+    # conversationId : String <<ref -> Conversation>>
+    # user : UUID <<FK -> User>>
+    # role : GroupRole
+    # nickname : String
+    # joinedAt : Instant
+    .. constraint ..
+    unique(conversation_id, user_id)
+  }
+
+  class UserLoginSession <<entity>> {
+    + id : UUID <<PK>>
+    --
+    # userId : UUID <<ref -> User>>
+    # platform : ClientPlatform
+    # revoked : boolean
+    # revokedAt : Instant
+    # deviceLabel : String
+    # userAgent : String
+    # ipAddress : String
+    # locationLabel : String
+    # geoSnapshot : JsonNode
+    # createdAt : Instant
+    # lastSeenAt : Instant
+  }
+
+  class EmailVerificationOtp <<entity>> {
+    + id : UUID <<PK>>
+    --
+    # userId : UUID <<ref -> User>>
+    # verificationToken : String
+    # expiresAt : Instant
+    # used : boolean
+    # createdAt : Instant
+  }
+
+  ' Enums
+  enum UserStatus {
+    ONLINE
+    OFFLINE
+    AWAY
+  }
+
+  enum ContactStatus {
+    PENDING
+    ACCEPTED
+    BLOCKED
+  }
+
+  enum GroupRole {
+    OWNER
+    ADMIN
+    MEMBER
+  }
+
+  enum ClientPlatform {
+    WEB
+    MOBILE
+    DESKTOP
+  }
+}
+
+' ── Relationships ──
+User "1" --> "0..*" Contact : requester >
+User "1" --> "0..*" Contact : target >
+User "1" --> "0..*" GroupMember : member of >
+User "1" --> "0..*" UserLoginSession : sessions >
+User "1" --> "0..*" EmailVerificationOtp : otps >
+
+User ..> UserStatus
+Contact ..> ContactStatus
+GroupMember ..> GroupRole
+UserLoginSession ..> ClientPlatform
+
+@enduml

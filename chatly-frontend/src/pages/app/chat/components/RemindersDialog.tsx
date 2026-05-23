@@ -1,0 +1,420 @@
+import { useState, useEffect, useCallback } from "react";
+import axios from "axios";
+import { groupService } from "@/services/group.service";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
+import {
+    Plus,
+    Trash2,
+    Loader2,
+    Clock,
+    CheckCircle2,
+    Circle,
+    CalendarClock,
+    Pencil,
+} from "lucide-react";
+import { toast } from "sonner";
+import { cn } from "@/lib/utils";
+import type { GroupReminderResponse } from "@/types/group";
+
+const pad = (n: number) => String(n).padStart(2, "0");
+
+function formatReminderTime(iso: string): string {
+    const d = new Date(iso);
+    return `${pad(d.getHours())}:${pad(d.getMinutes())} - ${pad(d.getDate())}/${pad(d.getMonth() + 1)}`;
+}
+
+function todayString(): string {
+    const d = new Date();
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+function nowPlusOneMinute(): { date: string; time: string } {
+    const d = new Date(Date.now() + 60_000);
+    return {
+        date: `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`,
+        time: `${pad(d.getHours())}:${pad(d.getMinutes())}`,
+    };
+}
+
+function localDateParts(iso: string): { date: string; time: string } {
+    const d = new Date(iso);
+    return {
+        date: `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`,
+        time: `${pad(d.getHours())}:${pad(d.getMinutes())}`,
+    };
+}
+
+function combineDateTime(date: string, time: string): string | undefined {
+    if (!date) return undefined;
+    return new Date(`${date}T${time || "00:00"}`).toISOString();
+}
+
+interface RemindersDialogProps {
+    conversationId: string;
+    open: boolean;
+    onOpenChange: (open: boolean) => void;
+}
+
+export function RemindersDialog({
+    conversationId,
+    open,
+    onOpenChange,
+}: RemindersDialogProps) {
+    const [reminders, setReminders] = useState<GroupReminderResponse[]>([]);
+    const [loading, setLoading] = useState(false);
+
+    // New reminder form
+    const [showForm, setShowForm] = useState(false);
+    const [title, setTitle] = useState("");
+    const [description, setDescription] = useState("");
+    const [remindDate, setRemindDate] = useState("");
+    const [remindTime, setRemindTime] = useState("");
+    const [creating, setCreating] = useState(false);
+
+    // Edit reminder state
+    const [editingId, setEditingId] = useState<string | null>(null);
+    const [editTitle, setEditTitle] = useState("");
+    const [editDescription, setEditDescription] = useState("");
+    const [editRemindDate, setEditRemindDate] = useState("");
+    const [editRemindTime, setEditRemindTime] = useState("");
+    const [updating, setUpdating] = useState(false);
+
+    const fetchReminders = useCallback(async () => {
+        if (!conversationId) return;
+        setLoading(true);
+        try {
+            const res = await groupService.getReminders(conversationId);
+            setReminders(res.result ?? []);
+        } catch {
+            toast.error("Could not load reminders");
+        } finally {
+            setLoading(false);
+        }
+    }, [conversationId]);
+
+    useEffect(() => {
+        if (open) {
+            fetchReminders();
+            setShowForm(false);
+            setTitle("");
+            setDescription("");
+            const { date, time } = nowPlusOneMinute();
+            setRemindDate(date);
+            setRemindTime(time);
+        }
+    }, [open, fetchReminders]);
+
+    const handleCreate = async () => {
+        if (!title.trim()) {
+            toast.error("Title cannot be empty");
+            return;
+        }
+        const remindAt = combineDateTime(remindDate, remindTime);
+        if (remindAt && new Date(remindAt) <= new Date()) {
+            toast.error("Reminder time must be in the future");
+            return;
+        }
+        setCreating(true);
+        try {
+            await groupService.createReminder(conversationId, {
+                title: title.trim(),
+                description: description.trim() || undefined,
+                remindAt,
+            });
+            toast.success("Reminder created");
+            setTitle("");
+            setDescription("");
+            const { date, time } = nowPlusOneMinute();
+            setRemindDate(date);
+            setRemindTime(time);
+            setShowForm(false);
+            fetchReminders();
+        } catch (err) {
+            const msg = axios.isAxiosError(err)
+                ? (err.response?.data as { message?: string })?.message
+                : undefined;
+            toast.error(msg ?? "Could not create reminder");
+        } finally {
+            setCreating(false);
+        }
+    };
+
+    const handleToggle = async (id: string) => {
+        try {
+            await groupService.toggleReminder(id);
+            fetchReminders();
+        } catch {
+            toast.error("Could not update reminder");
+        }
+    };
+
+    const handleDelete = async (id: string) => {
+        try {
+            await groupService.deleteReminder(id);
+            toast.success("Reminder deleted");
+            fetchReminders();
+        } catch {
+            toast.error("Could not delete reminder");
+        }
+    };
+
+    const startEdit = (r: GroupReminderResponse) => {
+        setEditingId(r.id);
+        setEditTitle(r.title);
+        setEditDescription(r.description ?? "");
+        if (r.remindAt) {
+            const { date, time } = localDateParts(r.remindAt);
+            setEditRemindDate(date);
+            setEditRemindTime(time);
+        } else {
+            setEditRemindDate("");
+            setEditRemindTime("");
+        }
+    };
+
+    const handleUpdate = async () => {
+        if (!editingId || !editTitle.trim()) {
+            toast.error("Title cannot be empty");
+            return;
+        }
+        const editRemindAt = combineDateTime(editRemindDate, editRemindTime);
+        if (editRemindAt && new Date(editRemindAt) <= new Date()) {
+            toast.error("Reminder time must be in the future");
+            return;
+        }
+        setUpdating(true);
+        try {
+            await groupService.updateReminder(editingId, {
+                title: editTitle.trim(),
+                description: editDescription.trim() || undefined,
+                remindAt: editRemindAt,
+            });
+            toast.success("Reminder updated");
+            setEditingId(null);
+            fetchReminders();
+        } catch (err) {
+            const msg = axios.isAxiosError(err)
+                ? (err.response?.data as { message?: string })?.message
+                : undefined;
+            toast.error(msg ?? "Could not update reminder");
+        } finally {
+            setUpdating(false);
+        }
+    };
+
+    return (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent className="sm:max-w-md p-0 gap-0 overflow-hidden max-h-[80vh] flex flex-col">
+                <DialogHeader className="px-5 pt-5 pb-3 shrink-0">
+                    <DialogTitle className="flex items-center gap-2 text-base">
+                        <CalendarClock size={16} className="text-brand" />
+                        Reminders list
+                    </DialogTitle>
+                </DialogHeader>
+
+                <div className="px-5 pb-2 shrink-0">
+                    {!showForm ? (
+                        <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-8 text-xs gap-1.5 w-full border-dashed"
+                            onClick={() => setShowForm(true)}
+                        >
+                            <Plus size={13} />
+                            Create new reminder
+                        </Button>
+                    ) : (
+                        <div className="space-y-2 rounded-lg border border-border/50 bg-muted/20 p-3">
+                            <Input
+                                value={title}
+                                onChange={(e) => setTitle(e.target.value)}
+                                placeholder="Reminder title..."
+                                className="h-8 text-sm"
+                            />
+                            <Input
+                                value={description}
+                                onChange={(e) => setDescription(e.target.value)}
+                                placeholder="Description (optional)..."
+                                className="h-8 text-sm"
+                            />
+                            <div className="flex gap-2">
+                                <Input
+                                    type="text"
+                                    value={remindDate}
+                                    placeholder="YYYY-MM-DD"
+                                    onChange={(e) => setRemindDate(e.target.value)}
+                                    className="h-8 text-sm flex-1"
+                                />
+                                <Input
+                                    type="text"
+                                    value={remindTime}
+                                    placeholder="HH:MM"
+                                    onChange={(e) => setRemindTime(e.target.value)}
+                                    className="h-8 text-sm w-28"
+                                />
+                            </div>
+                            <div className="flex gap-2">
+                                <Button
+                                    size="sm"
+                                    className="h-7 text-xs flex-1 gap-1"
+                                    onClick={handleCreate}
+                                    disabled={creating}
+                                >
+                                    {creating ? <Loader2 size={11} className="animate-spin" /> : <Plus size={11} />}
+                                    Create
+                                </Button>
+                                <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="h-7 text-xs"
+                                    onClick={() => setShowForm(false)}
+                                >
+                                    Cancel
+                                </Button>
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                <ScrollArea className="flex-1 min-h-0 px-5 pb-5">
+                    {loading ? (
+                        <div className="flex items-center justify-center py-10">
+                            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                        </div>
+                    ) : reminders.length === 0 ? (
+                        <div className="flex flex-col items-center gap-2 py-10 text-muted-foreground">
+                            <Clock size={24} className="opacity-30" />
+                            <p className="text-xs">No reminders yet</p>
+                        </div>
+                    ) : (
+                        <div className="space-y-1.5">
+                            {reminders.map((r) =>
+                                editingId === r.id ? (
+                                    <div
+                                        key={r.id}
+                                        className="space-y-2 rounded-lg border border-brand/40 bg-muted/20 p-3"
+                                    >
+                                        <Input
+                                            value={editTitle}
+                                            onChange={(e) => setEditTitle(e.target.value)}
+                                            placeholder="Reminder title..."
+                                            className="h-8 text-sm"
+                                        />
+                                        <Input
+                                            value={editDescription}
+                                            onChange={(e) => setEditDescription(e.target.value)}
+                                            placeholder="Description (optional)..."
+                                            className="h-8 text-sm"
+                                        />
+                                        <div className="flex gap-2">
+                                            <Input
+                                                type="text"
+                                                value={editRemindDate}
+                                                placeholder="YYYY-MM-DD"
+                                                onChange={(e) => setEditRemindDate(e.target.value)}
+                                                className="h-8 text-sm flex-1"
+                                            />
+                                            <Input
+                                                type="text"
+                                                value={editRemindTime}
+                                                placeholder="HH:MM"
+                                                onChange={(e) => setEditRemindTime(e.target.value)}
+                                                className="h-8 text-sm w-28"
+                                            />
+                                        </div>
+                                        <div className="flex gap-2">
+                                            <Button
+                                                size="sm"
+                                                className="h-7 text-xs flex-1 gap-1"
+                                                onClick={handleUpdate}
+                                                disabled={updating}
+                                            >
+                                                {updating ? <Loader2 size={11} className="animate-spin" /> : <Pencil size={11} />}
+                                                Update
+                                            </Button>
+                                            <Button
+                                                size="sm"
+                                                variant="ghost"
+                                                className="h-7 text-xs"
+                                                onClick={() => setEditingId(null)}
+                                            >
+                                                Cancel
+                                            </Button>
+                                        </div>
+                                    </div>
+                                ) : (
+                                <div
+                                    key={r.id}
+                                    className={cn(
+                                        "group rounded-xl border border-border/50 overflow-hidden transition-opacity",
+                                        r.completed && "opacity-60",
+                                    )}
+                                >
+                                    {/* Card header bar */}
+                                    <div className={cn(
+                                        "flex items-center gap-2 px-3 py-1.5 border-b border-border/40",
+                                        r.completed ? "bg-green-50 dark:bg-green-950/30" : "bg-brand/5 dark:bg-brand/10",
+                                    )}>
+                                        <button
+                                            type="button"
+                                            className="shrink-0"
+                                            onClick={() => handleToggle(r.id)}
+                                        >
+                                            {r.completed ? (
+                                                <CheckCircle2 size={15} className="text-green-500" />
+                                            ) : (
+                                                <Circle size={15} className="text-muted-foreground" />
+                                            )}
+                                        </button>
+                                        <Clock size={12} className={r.completed ? "text-green-500" : "text-brand"} />
+                                        {r.remindAt && (
+                                            <span className={cn("text-[11px] font-semibold", r.completed ? "text-green-600" : "text-brand")}>
+                                                {formatReminderTime(r.remindAt)}
+                                            </span>
+                                        )}
+                                        <div className="flex items-center gap-0.5 ml-auto shrink-0 opacity-0 group-hover:opacity-100">
+                                            <Button
+                                                size="icon"
+                                                variant="ghost"
+                                                className="h-5 w-5 text-muted-foreground hover:text-foreground"
+                                                onClick={() => startEdit(r)}
+                                            >
+                                                <Pencil size={11} />
+                                            </Button>
+                                            <Button
+                                                size="icon"
+                                                variant="ghost"
+                                                className="h-5 w-5 text-muted-foreground hover:text-destructive"
+                                                onClick={() => handleDelete(r.id)}
+                                            >
+                                                <Trash2 size={11} />
+                                            </Button>
+                                        </div>
+                                    </div>
+                                    {/* Card body */}
+                                    <div className="px-3 py-2.5">
+                                        <p className={cn("text-sm font-semibold", r.completed && "line-through text-muted-foreground")}>
+                                            {r.title}
+                                        </p>
+                                        {r.description && (
+                                            <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{r.description}</p>
+                                        )}
+                                    </div>
+                                </div>
+                                ),
+                            )}
+                        </div>
+                    )}
+                </ScrollArea>
+            </DialogContent>
+        </Dialog>
+    );
+}

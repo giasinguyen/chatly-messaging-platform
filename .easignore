@@ -1,0 +1,30 @@
+# EAS archives this repository from the git root for the mobile build.
+# Keep only files needed by the Expo app build.
+chatly-agent/
+chatly-backend/
+chatly-frontend/
+_resources/
+
+# Local mobile dependencies and generated output.
+chatly-mobile/node_modules/
+chatly-mobile/.expo/
+chatly-mobile/dist/
+chatly-mobile/build/
+chatly-mobile/eas-archive-check*/
+chatly-mobile/*.log
+
+# Expo prebuild native folders generated locally.
+chatly-mobile/android/
+chatly-mobile/ios/
+
+# Local environment files.
+chatly-mobile/.env
+chatly-mobile/.env.local
+chatly-mobile/.env.*.local
+
+# Repository/editor metadata not needed by the cloud build.
+.git/
+.github/
+.vscode/
+.idea/
+.cursor/

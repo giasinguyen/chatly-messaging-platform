@@ -1,0 +1,389 @@
+import { Alert, View, Text, TouchableOpacity } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { Ionicons } from '@expo/vector-icons';
+import { setAudioModeAsync } from 'expo-audio';
+
+let RTCView: any;
+try {
+  RTCView = require('react-native-webrtc').RTCView;
+} catch (e) {
+  RTCView = View; // fallback for Expo Go
+}
+
+import { Avatar } from '@/components/ui/Avatar';
+import { Colors } from '@/constants/theme';
+import { useCallStore } from '@/store/call.store';
+import { useCallContext } from '@/contexts/CallContext';
+
+function formatDuration(seconds: number): string {
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+}
+
+function getStreamUrl(stream: MediaStream): string {
+  if ('toURL' in stream && typeof (stream as { toURL?: unknown }).toURL === 'function') {
+    return (stream as MediaStream & { toURL: () => string }).toURL();
+  }
+  return '';
+}
+
+export function ActiveCallOverlay() {
+  const {
+    callStatus,
+    activeCall,
+    isMuted,
+    isCameraOff,
+    callDuration,
+    remoteParticipant,
+    toggleMute: toggleMuteStore,
+    toggleCamera: toggleCameraStore,
+    incrementDuration,
+  } = useCallStore();
+
+  const { endCall, localStream, remoteStream, remoteStreamKey, toggleCamera, upgradeToVideo } = useCallContext();
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [isSpeakerOn, setIsSpeakerOn] = useState(false);
+  const [isUpgradingToVideo, setIsUpgradingToVideo] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Activate audio session when call starts
+  useEffect(() => {
+    if (callStatus !== 'ONGOING') return;
+
+    setAudioModeAsync({
+      allowsRecording: true,
+      playsInSilentMode: true,
+      shouldPlayInBackground: true,
+      interruptionMode: 'doNotMix',
+      shouldRouteThroughEarpiece: true,
+    }).catch(console.error);
+
+    return () => {
+      // Reset to normal media mode after call ends
+      setAudioModeAsync({
+        allowsRecording: false,
+        playsInSilentMode: false,
+        shouldPlayInBackground: false,
+        interruptionMode: 'duckOthers',
+        shouldRouteThroughEarpiece: false,
+      }).catch(console.error);
+    };
+  }, [callStatus]);
+
+  // Timer for call duration
+  useEffect(() => {
+    if (callStatus === 'ONGOING') {
+      timerRef.current = setInterval(() => {
+        incrementDuration();
+      }, 1000);
+    }
+
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+    };
+  }, [callStatus, incrementDuration]);
+
+  // Don't show if no active call
+  if (callStatus !== 'ONGOING' || !activeCall) return null;
+
+  const hasLocalVideoTrack = Boolean(
+    localStream?.getVideoTracks().some((track) => track.readyState === 'live'),
+  );
+  const hasRemoteVideoTrack = Boolean(
+    remoteStream?.getVideoTracks().some((track) => track.readyState === 'live'),
+  );
+  const isVideoCall = activeCall.type === 'VIDEO' || hasLocalVideoTrack || hasRemoteVideoTrack;
+
+  const handleToggleMute = () => {
+    const newMuted = !isMuted;
+    // Toggle audio track on stream directly
+    localStream?.getAudioTracks().forEach((track) => {
+      track.enabled = !newMuted;
+    });
+    toggleMuteStore();
+  };
+
+  const handleToggleSpeaker = () => {
+    const next = !isSpeakerOn;
+    setAudioModeAsync({
+      allowsRecording: true,
+      playsInSilentMode: true,
+      shouldPlayInBackground: true,
+      interruptionMode: 'doNotMix',
+      shouldRouteThroughEarpiece: !next,
+    }).catch(console.error);
+    setIsSpeakerOn(next);
+  };
+
+  const handleToggleCamera = async () => {
+    const hasLiveLocalVideoTrack = Boolean(
+      localStream?.getVideoTracks().some((track) => track.readyState === 'live'),
+    );
+
+    // If this side has no video sender yet, enabling camera requires renegotiation.
+    if (isCameraOff && !hasLiveLocalVideoTrack) {
+      try {
+        await upgradeToVideo();
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Failed to enable camera.';
+        Alert.alert('Camera Error', message);
+      }
+      return;
+    }
+
+    toggleCameraStore();
+    toggleCamera(!isCameraOff);
+  };
+
+  const handleUpgradeToVideo = async () => {
+    if (isUpgradingToVideo) return;
+
+    try {
+      setIsUpgradingToVideo(true);
+      await upgradeToVideo();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to upgrade to video call.';
+      Alert.alert('Upgrade Failed', message);
+    } finally {
+      setIsUpgradingToVideo(false);
+    }
+  };
+
+  const handleEndCall = () => {
+    endCall();
+  };
+
+  // Floating mode (collapsed)
+  if (!isExpanded) {
+    return (
+      <TouchableOpacity
+        onPress={() => setIsExpanded(true)}
+        activeOpacity={0.9}
+        style={{
+          position: 'absolute',
+          top: 60,
+          right: 16,
+          zIndex: 50,
+          width: 100,
+          height: 130,
+          borderRadius: 16,
+          backgroundColor: Colors.bgDark,
+          overflow: 'hidden',
+          shadowColor: Colors.black,
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.3,
+          shadowRadius: 8,
+          elevation: 10,
+        }}
+      >
+        {/* Thumbnail video or avatar */}
+        {isVideoCall && hasRemoteVideoTrack && remoteStream ? (
+          <RTCView
+            key={remoteStreamKey}
+            streamURL={getStreamUrl(remoteStream)}
+            style={{ flex: 1 }}
+            objectFit="cover"
+          />
+        ) : (
+          <View className="flex-1 items-center justify-center">
+            <Ionicons name="call" size={28} color={Colors.online} />
+          </View>
+        )}
+
+        {/* Call duration */}
+        <View
+          className="items-center py-1"
+          style={{ backgroundColor: Colors.online }}
+        >
+          <Text className="text-xs font-medium" style={{ color: Colors.white }}>
+            {formatDuration(callDuration)}
+          </Text>
+        </View>
+      </TouchableOpacity>
+    );
+  }
+
+  // Expanded mode (full screen)
+  return (
+    <View
+      style={{
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        zIndex: 50,
+        backgroundColor: Colors.bgDark,
+      }}
+    >
+      {/* Video remote stream (full screen background) */}
+      {isVideoCall && hasRemoteVideoTrack && remoteStream ? (
+        <RTCView
+          key={remoteStreamKey}
+          streamURL={getStreamUrl(remoteStream)}
+          style={{ flex: 1 }}
+          objectFit="cover"
+        />
+      ) : (
+        <View className="flex-1 items-center justify-center">
+          <Avatar
+            uri={remoteParticipant?.avatar ?? null}
+            name={remoteParticipant?.name ?? 'User'}
+            size={100}
+          />
+          <Text className="text-lg font-semibold mt-4" style={{ color: Colors.white }}>
+            {remoteParticipant?.name ?? 'Voice call'}
+          </Text>
+        </View>
+      )}
+
+      {/* Video local stream (picture-in-picture) */}
+      {isVideoCall && hasLocalVideoTrack && localStream && (
+        <View
+          style={{
+            position: 'absolute',
+            top: 60,
+            right: 16,
+            width: 100,
+            height: 140,
+            borderRadius: 12,
+            overflow: 'hidden',
+            borderWidth: 2,
+            borderColor: Colors.white,
+          }}
+        >
+          <RTCView
+            streamURL={getStreamUrl(localStream)}
+            style={{ flex: 1 }}
+            objectFit="cover"
+            mirror
+          />
+        </View>
+      )}
+
+      {/* Thời gian cuộc gọi */}
+      <View
+        style={{ position: 'absolute', top: 60, left: 0, right: 0 }}
+        className="items-center"
+      >
+        <Text className="text-base font-medium" style={{ color: Colors.white }}>
+          {formatDuration(callDuration)}
+        </Text>
+      </View>
+
+      {/* Minimize button */}
+      <TouchableOpacity
+        onPress={() => setIsExpanded(false)}
+        style={{ position: 'absolute', top: 56, left: 16 }}
+        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+      >
+        <Ionicons name="chevron-down" size={28} color={Colors.white} />
+      </TouchableOpacity>
+
+      {/* Controls bar */}
+      <View
+        className="flex-row items-center justify-center pb-12 pt-6"
+        style={{ gap: 24, backgroundColor: 'rgba(0, 0, 0, 0.5)' }}
+      >
+        {/* Mute/unmute mic button */}
+        <TouchableOpacity
+          onPress={handleToggleMute}
+          className="items-center justify-center"
+          style={{
+            width: 56,
+            height: 56,
+            borderRadius: 28,
+            backgroundColor: isMuted ? Colors.error : 'rgba(255, 255, 255, 0.2)',
+          }}
+          activeOpacity={0.7}
+        >
+          <Ionicons
+            name={isMuted ? 'mic-off' : 'mic'}
+            size={26}
+            color={Colors.white}
+          />
+        </TouchableOpacity>
+
+        {/* Camera button (only in video call) */}
+        {isVideoCall && (
+          <TouchableOpacity
+            onPress={handleToggleCamera}
+            className="items-center justify-center"
+            style={{
+              width: 56,
+              height: 56,
+              borderRadius: 28,
+              backgroundColor: isCameraOff ? Colors.error : 'rgba(255, 255, 255, 0.2)',
+            }}
+            activeOpacity={0.7}
+          >
+            <Ionicons
+              name={isCameraOff ? 'videocam-off' : 'videocam'}
+              size={26}
+              color={Colors.white}
+            />
+          </TouchableOpacity>
+        )}
+
+        {!isVideoCall && (
+          <TouchableOpacity
+            onPress={handleUpgradeToVideo}
+            className="items-center justify-center"
+            style={{
+              width: 56,
+              height: 56,
+              borderRadius: 28,
+              backgroundColor: isUpgradingToVideo ? Colors.error : 'rgba(255, 255, 255, 0.2)',
+            }}
+            activeOpacity={0.7}
+            disabled={isUpgradingToVideo}
+          >
+            <Ionicons
+              name="videocam"
+              size={26}
+              color={Colors.white}
+            />
+          </TouchableOpacity>
+        )}
+
+        {/* Speaker button */}
+        <TouchableOpacity
+          onPress={handleToggleSpeaker}
+          className="items-center justify-center"
+          style={{
+            width: 56,
+            height: 56,
+            borderRadius: 28,
+            backgroundColor: isSpeakerOn ? Colors.cta : 'rgba(255, 255, 255, 0.2)',
+          }}
+          activeOpacity={0.7}
+        >
+          <Ionicons
+            name={isSpeakerOn ? 'volume-high' : 'volume-medium'}
+            size={26}
+            color={Colors.white}
+          />
+        </TouchableOpacity>
+
+        {/* End call button */}
+        <TouchableOpacity
+          onPress={handleEndCall}
+          className="items-center justify-center"
+          style={{
+            width: 56,
+            height: 56,
+            borderRadius: 28,
+            backgroundColor: Colors.error,
+          }}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="call" size={26} color={Colors.white} style={{ transform: [{ rotate: '135deg' }] }} />
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
