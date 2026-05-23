@@ -9,16 +9,16 @@
       "distribution": "internal",
       "env": {
         "EXPO_USE_COMMUNITY_AUTOLINKING": "0",
-        "EXPO_PUBLIC_API_BASE_URL": "https://q30tn1d8-8080.asse.devtunnels.ms",
-        "EXPO_PUBLIC_WS_URL": "wss://q30tn1d8-8080.asse.devtunnels.ms/ws-raw"
+        "EXPO_PUBLIC_API_BASE_URL": "https://api.chatly.io.vn",
+        "EXPO_PUBLIC_WS_URL": "wss://api.chatly.io.vn/ws-raw"
       }
     },
     "preview": {
       "distribution": "internal",
       "env": {
         "EXPO_USE_COMMUNITY_AUTOLINKING": "0",
-        "EXPO_PUBLIC_API_BASE_URL": "https://q30tn1d8-8080.asse.devtunnels.ms",
-        "EXPO_PUBLIC_WS_URL": "wss://q30tn1d8-8080.asse.devtunnels.ms/ws-raw"
+        "EXPO_PUBLIC_API_BASE_URL": "https://api.chatly.io.vn",
+        "EXPO_PUBLIC_WS_URL": "wss://api.chatly.io.vn/ws-raw"
       },
       "android": {
         "buildType": "apk" 
@@ -28,8 +28,8 @@
       "autoIncrement": true,
       "env": {
         "EXPO_USE_COMMUNITY_AUTOLINKING": "0",
-        "EXPO_PUBLIC_API_BASE_URL": "https://q30tn1d8-8080.asse.devtunnels.ms",
-        "EXPO_PUBLIC_WS_URL": "wss://q30tn1d8-8080.asse.devtunnels.ms/ws-raw"
+        "EXPO_PUBLIC_API_BASE_URL": "https://api.chatly.io.vn",
+        "EXPO_PUBLIC_WS_URL": "wss://api.chatly.io.vn/ws-raw"
       },
       "android": {
         "buildType": "apk"

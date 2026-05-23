@@ -23,11 +23,22 @@ function splitUrls(value: string | undefined): string[] {
     .filter(Boolean);
 }
 
+function getEnvOrDefault(value: string | undefined, fallback: string): string {
+  const normalized = value?.trim();
+  return normalized ? normalized : fallback;
+}
+
 function buildIceServers() {
   const stunUrls = splitUrls(process.env.EXPO_PUBLIC_WEBRTC_STUN_URLS);
   const turnUrls = splitUrls(process.env.EXPO_PUBLIC_WEBRTC_TURN_URLS);
-  const username = process.env.EXPO_PUBLIC_WEBRTC_TURN_USERNAME ?? DEFAULT_TURN_USERNAME;
-  const credential = process.env.EXPO_PUBLIC_WEBRTC_TURN_CREDENTIAL ?? DEFAULT_TURN_CREDENTIAL;
+  const username = getEnvOrDefault(
+    process.env.EXPO_PUBLIC_WEBRTC_TURN_USERNAME,
+    DEFAULT_TURN_USERNAME,
+  );
+  const credential = getEnvOrDefault(
+    process.env.EXPO_PUBLIC_WEBRTC_TURN_CREDENTIAL,
+    DEFAULT_TURN_CREDENTIAL,
+  );
 
   return [
     { urls: stunUrls.length > 0 ? stunUrls : DEFAULT_STUN_URLS },
