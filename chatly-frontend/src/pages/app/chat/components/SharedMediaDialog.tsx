@@ -22,6 +22,13 @@ const TAB_TITLES: Record<ActiveTab, string> = {
 const PAGE_SIZE = 20;
 const URL_REGEX = /(https?:\/\/[^\s<>"]+)/g;
 
+function isSharedMediaType(fileType?: string): boolean {
+    if (!fileType || fileType === "image/gif") {
+        return false;
+    }
+    return fileType.startsWith("image/") || fileType.startsWith("video/");
+}
+
 interface SharedMediaDialogProps {
     conversationId: string;
     open: boolean;
@@ -54,7 +61,8 @@ export function SharedMediaDialog({
         setLoadingMedia(true);
         try {
             const result = await fileService.getByConversation(conversationId, "image", page, PAGE_SIZE);
-            setMedia((prev) => append ? [...prev, ...result] : result);
+            const mediaFiles = result.filter((file) => isSharedMediaType(file.fileType));
+            setMedia((prev) => append ? [...prev, ...mediaFiles] : mediaFiles);
             setHasMoreMedia(result.length === PAGE_SIZE);
             setMediaPage(page);
         } catch { /* silent */ }
