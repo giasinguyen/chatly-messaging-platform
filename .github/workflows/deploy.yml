@@ -154,8 +154,11 @@ jobs:
               echo "Agent not rebuilt, skipping pull"
             fi
 
+            echo "=== Removing any stale/conflicting containers ==="
+            sudo docker rm -f chatly-backend chatly-ai-agent 2>/dev/null || true
+
             echo "=== Restarting backend & agent (no rebuild) ==="
-            sudo docker compose up -d --no-build backend ai-agent
+            sudo docker compose up -d --no-build --force-recreate --remove-orphans backend ai-agent
 
             echo "=== Waiting 15s for services to initialize ==="
             sleep 15
