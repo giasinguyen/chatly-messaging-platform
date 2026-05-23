@@ -54,7 +54,10 @@ export function NotificationBanner() {
 
   const handlePress = () => {
     if (bannerNotification.type === 'NEW_MESSAGE' && bannerNotification.referenceId) {
-      router.push(`/chat/${bannerNotification.referenceId}`);
+      router.push({
+        pathname: '/chat/[id]',
+        params: { id: bannerNotification.referenceId, returnTo: 'chats' },
+      });
     } else if (bannerNotification.type === 'FRIEND_REQUEST') {
       router.push('/(tabs)/contacts');
     }

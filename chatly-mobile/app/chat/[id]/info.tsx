@@ -34,6 +34,7 @@ import { useConversationStore } from '@/store/conversation.store';
 import { useConversationPrefsStore } from '@/store/conversationPrefs.store';
 import { isConvMuted } from '@/store/conversationPrefs.store';
 import { useNotificationStore } from '@/store/notification.store';
+import { useThemeStore } from '@/store/theme.store';
 import { Colors } from '@/constants/theme';
 import { Avatar } from '@/components/ui/Avatar';
 import type { GroupMemberResponse, GroupRole, PendingJoinResponse, GroupReminderResponse, GroupNoteResponse } from '@/types/group';
@@ -44,6 +45,7 @@ export default function GroupInfoScreen() {
   const { id: conversationId } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  useThemeStore((state) => state.isDarkMode);
   const user = useAuthStore((s) => s.user);
   
   const conversations = useConversationStore((s) => s.conversations);
@@ -602,7 +604,7 @@ export default function GroupInfoScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: Colors.bg }}>
       {/* Header */}
-      <View style={{ paddingTop: insets.top, backgroundColor: Colors.white, borderBottomWidth: 0.5, borderBottomColor: Colors.borderLight }}>
+      <View style={{ paddingTop: insets.top, backgroundColor: Colors.bgCard, borderBottomWidth: 0.5, borderBottomColor: Colors.borderLight }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12 }}>
           <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
             <Ionicons name="chevron-back" size={24} color={Colors.text} />
@@ -616,7 +618,7 @@ export default function GroupInfoScreen() {
 
       <ScrollView contentContainerStyle={{ paddingBottom: Math.max(40, insets.bottom + 16) }} keyboardShouldPersistTaps="handled">
         {/* ── Profile card ── */}
-        <View style={{ alignItems: 'center', paddingTop: 28, paddingBottom: 20, backgroundColor: Colors.white, marginBottom: 8 }}>
+        <View style={{ alignItems: 'center', paddingTop: 28, paddingBottom: 20, backgroundColor: Colors.bgCard, marginBottom: 8 }}>
           <TouchableOpacity
             onPress={isGroup && canManage ? handlePickAvatar : undefined}
             disabled={!isGroup || !canManage}
@@ -699,7 +701,7 @@ export default function GroupInfoScreen() {
 
         {/* ── DM settings rows ── */}
         {!isGroup && (
-          <View style={{ backgroundColor: Colors.white, marginBottom: 8 }}>
+          <View style={{ backgroundColor: Colors.bgCard, marginBottom: 8 }}>
             <TouchableOpacity
               onPress={handleSetNickname}
               style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, height: 54, borderBottomWidth: 0.5, borderBottomColor: Colors.borderLight }}
@@ -716,7 +718,7 @@ export default function GroupInfoScreen() {
         )}
 
         {/* ── Media (Ảnh, file, link) ── */}
-        <View style={{ backgroundColor: Colors.white, marginBottom: 8 }}>
+        <View style={{ backgroundColor: Colors.bgCard, marginBottom: 8 }}>
           <TouchableOpacity
             onPress={() => router.push(`/chat/${conversationId}/shared-media`)}
             style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, height: 54 }}
@@ -728,7 +730,7 @@ export default function GroupInfoScreen() {
         </View>
 
         {mediaFiles.length > 0 && (
-          <View style={{ backgroundColor: Colors.white, padding: 16, marginBottom: 8 }}>
+          <View style={{ backgroundColor: Colors.bgCard, padding: 16, marginBottom: 8 }}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
               <Text style={{ fontWeight: '600', fontSize: 15, color: Colors.text }}>
                 Media ({mediaFiles.length})
@@ -769,7 +771,7 @@ export default function GroupInfoScreen() {
 
         {/* ── Files ── */}
         {docFiles.length > 0 && (
-          <View style={{ backgroundColor: Colors.white, padding: 16, marginBottom: 8 }}>
+          <View style={{ backgroundColor: Colors.bgCard, padding: 16, marginBottom: 8 }}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
               <Text style={{ fontWeight: '600', fontSize: 15, color: Colors.text }}>
                 Files ({docFiles.length})
@@ -812,7 +814,7 @@ export default function GroupInfoScreen() {
 
         {/* ── Group: Members ── */}
         {isGroup && (
-          <View style={{ backgroundColor: Colors.white, marginBottom: 8 }}>
+          <View style={{ backgroundColor: Colors.bgCard, marginBottom: 8 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12 }}>
               <Text style={{ fontWeight: '600', fontSize: 15, color: Colors.text }}>
                 Members ({members.length})
@@ -863,7 +865,7 @@ export default function GroupInfoScreen() {
         )}
         {/* ── Group: Invite Link + Settings ── */}
         {isGroup && (
-          <View style={{ backgroundColor: Colors.white, marginBottom: 8 }}>
+          <View style={{ backgroundColor: Colors.bgCard, marginBottom: 8 }}>
             {/* Invite Link */}
             <TouchableOpacity
               onPress={inviteLink ? handleCopyInviteLink : fetchInviteLink}
@@ -931,7 +933,7 @@ export default function GroupInfoScreen() {
 
         {/* ── Group: Pending Requests (OWNER only) ── */}
         {isGroup && currentUserRole === 'OWNER' && pendingRequests.length > 0 && (
-          <View style={{ backgroundColor: Colors.white, marginBottom: 8 }}>
+          <View style={{ backgroundColor: Colors.bgCard, marginBottom: 8 }}>
             <View style={{ paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 0.5, borderBottomColor: Colors.borderLight }}>
               <Text style={{ fontWeight: '600', fontSize: 15, color: Colors.text }}>
                 Pending requests ({pendingRequests.length})
@@ -966,7 +968,7 @@ export default function GroupInfoScreen() {
 
         {/* ── Group: Bulletin Board (Reminders + Notes) ── */}
         {isGroup && (
-          <View style={{ backgroundColor: Colors.white, marginBottom: 8 }}>
+          <View style={{ backgroundColor: Colors.bgCard, marginBottom: 8 }}>
             <View style={{ paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 0.5, borderBottomColor: Colors.borderLight }}>
               <Text style={{ fontWeight: '600', fontSize: 15, color: Colors.text }}>Bulletin board</Text>
             </View>
@@ -990,7 +992,7 @@ export default function GroupInfoScreen() {
         )}
 
         {/* ── Settings: Pin & Mute ── */}
-        <View style={{ backgroundColor: Colors.white, marginBottom: 8 }}>
+        <View style={{ backgroundColor: Colors.bgCard, marginBottom: 8 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, height: 54, borderBottomWidth: 0.5, borderBottomColor: Colors.borderLight }}>
             <Ionicons name="pin-outline" size={22} color={Colors.textMuted} style={{ marginRight: 14 }} />
             <Text style={{ flex: 1, fontSize: 15, color: Colors.text }}>Pin conversation</Text>
@@ -1025,7 +1027,7 @@ export default function GroupInfoScreen() {
         {isGroup && currentUserRole === 'OWNER' && (
           <TouchableOpacity
             onPress={handleDissolveGroup}
-            style={{ backgroundColor: Colors.white, paddingVertical: 16, alignItems: 'center', marginBottom: 4 }}
+            style={{ backgroundColor: Colors.bgCard, paddingVertical: 16, alignItems: 'center', marginBottom: 4 }}
           >
             <Text style={{ color: Colors.error, fontSize: 16, fontWeight: '600' }}>Dissolve group</Text>
           </TouchableOpacity>
@@ -1035,7 +1037,7 @@ export default function GroupInfoScreen() {
         {isGroup && (
           <TouchableOpacity
             onPress={handleLeaveGroup}
-            style={{ backgroundColor: Colors.white, paddingVertical: 16, alignItems: 'center', marginBottom: 8 }}
+            style={{ backgroundColor: Colors.bgCard, paddingVertical: 16, alignItems: 'center', marginBottom: 8 }}
           >
             <Text style={{ color: Colors.error, fontSize: 16, fontWeight: '600' }}>Leave group</Text>
           </TouchableOpacity>
@@ -1045,12 +1047,12 @@ export default function GroupInfoScreen() {
       {/* Add Member Modal */}
       <Modal visible={addModalVisible} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setAddModalVisible(false)}>
         <View className="flex-1" style={{ backgroundColor: Colors.bg }}>
-          <View className="flex-row items-center justify-between px-4" style={{ height: 60, backgroundColor: Colors.white, borderBottomWidth: 0.5, borderBottomColor: Colors.borderLight }}>
+          <View className="flex-row items-center justify-between px-4" style={{ height: 60, backgroundColor: Colors.bgCard, borderBottomWidth: 0.5, borderBottomColor: Colors.borderLight }}>
             <TouchableOpacity onPress={() => setAddModalVisible(false)}><Text style={{ color: Colors.text, fontSize: 16 }}>Cancel</Text></TouchableOpacity>
             <Text style={{ fontSize: 18, fontWeight: 'bold' }}>Add members</Text>
             <View style={{ width: 40 }} />
           </View>
-          <View className="p-3" style={{ backgroundColor: Colors.white }}>
+          <View className="p-3" style={{ backgroundColor: Colors.bgCard }}>
              <TextInput 
                placeholder="Search..." 
                value={searchQuery}
@@ -1069,7 +1071,7 @@ export default function GroupInfoScreen() {
                    onPress={() => handleAddMember(contactUser)}
                    disabled={addingMember}
                    className="flex-row items-center px-4 py-3" 
-                   style={{ backgroundColor: Colors.white, borderBottomWidth: 0.5, borderBottomColor: Colors.borderLight }}
+                   style={{ backgroundColor: Colors.bgCard, borderBottomWidth: 0.5, borderBottomColor: Colors.borderLight }}
                  >
                    <Avatar uri={contactUser.avatarUrl} name={contactUser.displayName} size={40} />
                    <View className="ml-3 flex-1">
@@ -1091,7 +1093,7 @@ export default function GroupInfoScreen() {
         onRequestClose={() => setMuteModalVisible(false)}
       >
         <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}>
-          <View style={{ backgroundColor: Colors.white, borderTopLeftRadius: 16, borderTopRightRadius: 16, paddingBottom: insets.bottom }}>
+          <View style={{ backgroundColor: Colors.bgCard, borderTopLeftRadius: 16, borderTopRightRadius: 16, paddingBottom: insets.bottom }}>
             {/* Header */}
             <View style={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 12, borderBottomWidth: 0.5, borderBottomColor: Colors.borderLight }}>
               <Text style={{ fontSize: 18, fontWeight: '700', color: Colors.text, textAlign: 'center' }}>
@@ -1152,7 +1154,7 @@ export default function GroupInfoScreen() {
       {/* Reminders Modal */}
       <Modal visible={remindersVisible} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setRemindersVisible(false)}>
         <View style={{ flex: 1, backgroundColor: Colors.bg }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, height: 60, backgroundColor: Colors.white, borderBottomWidth: 0.5, borderBottomColor: Colors.borderLight }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, height: 60, backgroundColor: Colors.bgCard, borderBottomWidth: 0.5, borderBottomColor: Colors.borderLight }}>
             <TouchableOpacity onPress={() => setRemindersVisible(false)}>
               <Text style={{ color: Colors.text, fontSize: 16 }}>Close</Text>
             </TouchableOpacity>
@@ -1187,7 +1189,7 @@ export default function GroupInfoScreen() {
               return (
                 <View
                   style={{
-                    backgroundColor: Colors.white,
+                    backgroundColor: Colors.bgCard,
                     borderRadius: 12,
                     marginBottom: 10,
                     overflow: 'hidden',
@@ -1254,7 +1256,7 @@ export default function GroupInfoScreen() {
       {/* Notes Modal */}
       <Modal visible={notesVisible} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setNotesVisible(false)}>
         <View style={{ flex: 1, backgroundColor: Colors.bg }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, height: 60, backgroundColor: Colors.white, borderBottomWidth: 0.5, borderBottomColor: Colors.borderLight }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, height: 60, backgroundColor: Colors.bgCard, borderBottomWidth: 0.5, borderBottomColor: Colors.borderLight }}>
             <TouchableOpacity onPress={() => setNotesVisible(false)}>
               <Text style={{ color: Colors.text, fontSize: 16 }}>Close</Text>
             </TouchableOpacity>
@@ -1274,7 +1276,7 @@ export default function GroupInfoScreen() {
               </View>
             )}
             renderItem={({ item }) => (
-              <View style={{ backgroundColor: Colors.white, borderRadius: 10, padding: 14, marginBottom: 8, borderLeftWidth: item.pinned ? 3 : 0, borderLeftColor: Colors.cta }}>
+              <View style={{ backgroundColor: Colors.bgCard, borderRadius: 10, padding: 14, marginBottom: 8, borderLeftWidth: item.pinned ? 3 : 0, borderLeftColor: Colors.cta }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
                   {item.pinned && <Ionicons name="pin" size={14} color={Colors.cta} style={{ marginRight: 4 }} />}
                   <Text style={{ flex: 1, fontSize: 15, fontWeight: '600', color: Colors.text }}>{item.title}</Text>

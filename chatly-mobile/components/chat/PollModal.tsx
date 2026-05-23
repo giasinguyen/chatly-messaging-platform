@@ -78,7 +78,7 @@ export function PollModal({ visible, onClose, onSend }: PollModalProps) {
       <Pressable className="flex-1 justify-end bg-black/30" onPress={handleClose}>
         <Pressable
           className="rounded-t-2xl pt-3 pb-9 px-5"
-          style={{ backgroundColor: Colors.white, maxHeight: '88%' }}
+          style={{ backgroundColor: Colors.bgCard, maxHeight: '88%' }}
           onPress={() => {}}
         >
           {/* Handle bar */}

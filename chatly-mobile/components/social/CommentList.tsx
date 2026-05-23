@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { CommentItem } from './CommentItem';
+import { Colors } from '@/constants/theme';
 import type { PostComment, ReactionType } from '@/types/post';
 
 interface CommentListProps {
@@ -110,7 +111,7 @@ export function CommentList({
   if (comments.length === 0) {
     return (
       <View className="py-4">
-        <Text className="text-sm text-[#6E6E73]">No comments yet. Be the first to comment!</Text>
+        <Text className="text-sm" style={{ color: Colors.textMuted }}>No comments yet. Be the first to comment!</Text>
       </View>
     );
   }
@@ -140,7 +141,7 @@ export function CommentList({
           className="mb-3 py-2"
           activeOpacity={0.7}
         >
-          <Text className="text-sm font-semibold text-[#6E6E73]">Hide older comments</Text>
+          <Text className="text-sm font-semibold" style={{ color: Colors.textMuted }}>Hide older comments</Text>
         </TouchableOpacity>
       )}
     </View>

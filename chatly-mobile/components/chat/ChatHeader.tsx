@@ -21,6 +21,7 @@ interface ChatHeaderProps {
   conversationId?: string;
   receiverId?: string;
   onToggleSearch?: () => void;
+  onBack?: () => void;
   onPressInfo?: () => void;
   onAskAi?: () => void;
 }
@@ -34,6 +35,7 @@ export function ChatHeader({
   conversationId,
   receiverId,
   onToggleSearch,
+  onBack,
   onPressInfo,
   onAskAi,
 }: ChatHeaderProps) {
@@ -80,7 +82,7 @@ export function ChatHeader({
     <View
       style={{
         paddingTop: insets.top,
-        backgroundColor: Colors.white,
+        backgroundColor: Colors.bgCard,
         borderBottomWidth: 0.5,
         borderBottomColor: Colors.borderLight,
       }}
@@ -88,7 +90,7 @@ export function ChatHeader({
       <View className="flex-row items-center px-2 py-2">
         {/* Back button */}
         <TouchableOpacity
-          onPress={() => router.back()}
+          onPress={onBack ?? (() => router.back())}
           className="items-center justify-center"
           style={{ width: 40, height: 40 }}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
@@ -216,7 +218,7 @@ export function ChatHeader({
           onPress={() => setCallSheetVisible(false)}
         >
           <Pressable
-            style={{ backgroundColor: Colors.white, borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingBottom: 32, paddingTop: 16 }}
+            style={{ backgroundColor: Colors.bgCard, borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingBottom: 32, paddingTop: 16 }}
             onPress={(e) => e.stopPropagation()}
           >
             <View

@@ -44,7 +44,7 @@ export function ProfileHeader({
   onMessage,
 }: ProfileHeaderProps) {
   return (
-    <View className="border-b border-[#E5E5EA] px-4 pb-5 pt-4">
+    <View className="border-b px-4 pb-5 pt-4" style={{ backgroundColor: Colors.bgCard, borderBottomColor: Colors.borderLight }}>
       <View className="flex-row items-center">
         <Avatar uri={profile.avatarUrl} name={profile.displayName} size={84} />
         <View className="ml-5 flex-1 flex-row justify-around">
@@ -54,10 +54,10 @@ export function ProfileHeader({
       </View>
 
       <View className="mt-4">
-        <Text className="text-base font-bold text-[#1D1D1F]">{profile.displayName}</Text>
-        <Text className="mt-0.5 text-sm text-[#6E6E73]">@{profile.username}</Text>
+        <Text className="text-base font-bold" style={{ color: Colors.text }}>{profile.displayName}</Text>
+        <Text className="mt-0.5 text-sm" style={{ color: Colors.textMuted }}>@{profile.username}</Text>
         {profile.bio ? (
-          <Text className="mt-2 text-sm leading-5 text-[#1D1D1F]">{profile.bio}</Text>
+          <Text className="mt-2 text-sm leading-5" style={{ color: Colors.text }}>{profile.bio}</Text>
         ) : null}
       </View>
 
@@ -81,16 +81,17 @@ export function ProfileHeader({
           <TouchableOpacity
             onPress={onMessage}
             disabled={isActionLoading}
-            className="h-10 flex-1 flex-row items-center justify-center rounded-lg border border-[#D1D1D6] px-3 active:opacity-75">
+            className="h-10 flex-1 flex-row items-center justify-center rounded-lg border px-3 active:opacity-75"
+            style={{ borderColor: Colors.borderLight }}>
             <Ionicons name="chatbubble-outline" size={16} color={Colors.text} />
-            <Text className="ml-1.5 text-sm font-semibold text-[#1D1D1F]">Message</Text>
+            <Text className="ml-1.5 text-sm font-semibold" style={{ color: Colors.text }}>Message</Text>
           </TouchableOpacity>
         ) : null}
       </View>
 
-      <View className="mt-5 flex-row items-center border-t border-[#E5E5EA] pt-4">
+      <View className="mt-5 flex-row items-center border-t pt-4" style={{ borderTopColor: Colors.borderLight }}>
         <Ionicons name="grid-outline" size={18} color={Colors.text} />
-        <Text className="ml-2 text-sm font-semibold text-[#1D1D1F]">Posts</Text>
+        <Text className="ml-2 text-sm font-semibold" style={{ color: Colors.text }}>Posts</Text>
       </View>
     </View>
   );
@@ -99,8 +100,8 @@ export function ProfileHeader({
 function ProfileStat({ count, label }: { count: number; label: string }) {
   return (
     <View className="items-center">
-      <Text className="text-lg font-bold text-[#1D1D1F]">{count}</Text>
-      <Text className="text-xs text-[#6E6E73]">{label}</Text>
+      <Text className="text-lg font-bold" style={{ color: Colors.text }}>{count}</Text>
+      <Text className="text-xs" style={{ color: Colors.textMuted }}>{label}</Text>
     </View>
   );
 }

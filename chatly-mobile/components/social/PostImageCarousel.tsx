@@ -34,8 +34,7 @@ export function PostImageCarousel({ images, onDoubleTap, onPressImage }: PostIma
           width: '100%',
           aspectRatio: FALLBACK_ASPECT_RATIO,
           backgroundColor: '#F5F5F7',
-        }}
-      >
+        }}>
         <Image
           source={FALLBACK_MEDIA_SOURCE}
           contentFit="cover"
@@ -53,8 +52,7 @@ export function PostImageCarousel({ images, onDoubleTap, onPressImage }: PostIma
     return (
       <View
         {...panHandlers}
-        style={{ width: '100%', aspectRatio: frameAspectRatio, backgroundColor: '#F5F5F7' }}
-      >
+        style={{ width: '100%', aspectRatio: frameAspectRatio, backgroundColor: '#F5F5F7' }}>
         <Image
           source={imageSource}
           contentFit={failedImages[imageUrl] ? 'cover' : 'contain'}
@@ -74,8 +72,7 @@ export function PostImageCarousel({ images, onDoubleTap, onPressImage }: PostIma
             justifyContent: 'center',
             opacity: heartOpacity,
             transform: [{ scale: heartScale }],
-          }}
-        >
+          }}>
           <Ionicons name="heart" size={96} color="rgba(255,255,255,0.95)" />
         </Animated.View>
       </View>
@@ -96,12 +93,11 @@ export function PostImageCarousel({ images, onDoubleTap, onPressImage }: PostIma
         aspectRatio: frameAspectRatio,
         position: 'relative',
         backgroundColor: '#F5F5F7',
-      }}
-    >
+      }}>
       {/* Main Image */}
       <Image
         source={currentImageSource}
-        contentFit={failedImages[currentImage] ? 'cover' : 'contain'}
+        contentFit="cover"
         transition={200}
         style={{ width: '100%', height: '100%' }}
         onError={failedImages[currentImage] ? undefined : () => handleImageError(currentImage)}
@@ -120,8 +116,7 @@ export function PostImageCarousel({ images, onDoubleTap, onPressImage }: PostIma
           opacity: heartOpacity,
           transform: [{ scale: heartScale }],
           zIndex: 20,
-        }}
-      >
+        }}>
         <Ionicons name="heart" size={96} color="rgba(255,255,255,0.95)" />
       </Animated.View>
 
@@ -134,15 +129,13 @@ export function PostImageCarousel({ images, onDoubleTap, onPressImage }: PostIma
             top: '50%',
             transform: [{ translateY: -20 }],
             zIndex: 10,
-          }}
-        >
+          }}>
           <View
             style={{
               backgroundColor: 'rgba(0, 0, 0, 0.4)',
               borderRadius: 20,
               padding: 8,
-            }}
-          >
+            }}>
             <Ionicons name="chevron-back" size={24} color="white" />
           </View>
         </View>
@@ -157,15 +150,13 @@ export function PostImageCarousel({ images, onDoubleTap, onPressImage }: PostIma
             top: '50%',
             transform: [{ translateY: -20 }],
             zIndex: 10,
-          }}
-        >
+          }}>
           <View
             style={{
               backgroundColor: 'rgba(0, 0, 0, 0.4)',
               borderRadius: 20,
               padding: 8,
-            }}
-          >
+            }}>
             <Ionicons name="chevron-forward" size={24} color="white" />
           </View>
         </View>
@@ -183,8 +174,7 @@ export function PostImageCarousel({ images, onDoubleTap, onPressImage }: PostIma
             paddingVertical: 4,
             borderRadius: 6,
             zIndex: 10,
-          }}
-        >
+          }}>
           <Text style={{ color: 'white', fontSize: 12, fontWeight: '500' }}>
             {currentIndex + 1} / {normalizedImages.length}
           </Text>
@@ -203,8 +193,7 @@ export function PostImageCarousel({ images, onDoubleTap, onPressImage }: PostIma
             justifyContent: 'center',
             gap: 6,
             zIndex: 10,
-          }}
-        >
+          }}>
           {normalizedImages.map((_, idx) => (
             <View
               key={`dot-${idx}`}
@@ -212,7 +201,8 @@ export function PostImageCarousel({ images, onDoubleTap, onPressImage }: PostIma
                 width: idx === currentIndex ? 8 : 6,
                 height: 6,
                 borderRadius: 3,
-                backgroundColor: idx === currentIndex ? 'rgba(255, 255, 255, 1)' : 'rgba(255, 255, 255, 0.5)',
+                backgroundColor:
+                  idx === currentIndex ? 'rgba(255, 255, 255, 1)' : 'rgba(255, 255, 255, 0.5)',
               }}
             />
           ))}

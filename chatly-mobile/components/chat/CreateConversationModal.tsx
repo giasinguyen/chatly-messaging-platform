@@ -84,7 +84,7 @@ export function CreateConversationModal({ visible, onClose }: CreateConversation
     );
     if (existing) {
       onClose();
-      router.push(`/chat/${existing.id}`);
+      router.push({ pathname: '/chat/[id]', params: { id: existing.id, returnTo: 'chats' } });
       return;
     }
 
@@ -95,7 +95,7 @@ export function CreateConversationModal({ visible, onClose }: CreateConversation
         participantIds: [contactUser.id],
       });
       onClose();
-      router.push(`/chat/${res.result.id}`);
+      router.push({ pathname: '/chat/[id]', params: { id: res.result.id, returnTo: 'chats' } });
     } catch (error: any) {
       Alert.alert('Error', error?.response?.data?.message || 'Could not create conversation.');
     } finally {
@@ -121,7 +121,7 @@ export function CreateConversationModal({ visible, onClose }: CreateConversation
         name: groupName.trim(),
       });
       onClose();
-      router.push(`/chat/${res.result.id}`);
+      router.push({ pathname: '/chat/[id]', params: { id: res.result.id, returnTo: 'chats' } });
     } catch (error: any) {
       Alert.alert('Error', error?.response?.data?.message || 'Could not create group.');
     } finally {
@@ -193,7 +193,7 @@ export function CreateConversationModal({ visible, onClose }: CreateConversation
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         {/* Header */}
-        <View style={{ backgroundColor: Colors.white, borderBottomWidth: 0.5, borderBottomColor: Colors.borderLight }}>
+        <View style={{ backgroundColor: Colors.bgCard, borderBottomWidth: 0.5, borderBottomColor: Colors.borderLight }}>
           <View className="flex-row items-center justify-between px-4 py-3 pt-6">
             <TouchableOpacity onPress={onClose} disabled={submitting}>
               <Text style={{ color: Colors.cta, fontSize: 16 }}>Cancel</Text>
@@ -243,7 +243,7 @@ export function CreateConversationModal({ visible, onClose }: CreateConversation
         </View>
 
         {activeTab === 'group' && (
-          <View className="px-4 py-3" style={{ backgroundColor: Colors.white, borderBottomWidth: 0.5, borderBottomColor: Colors.borderLight }}>
+          <View className="px-4 py-3" style={{ backgroundColor: Colors.bgCard, borderBottomWidth: 0.5, borderBottomColor: Colors.borderLight }}>
             <TextInput
               placeholder="Group name..."
               placeholderTextColor={Colors.textLight}
@@ -267,7 +267,7 @@ export function CreateConversationModal({ visible, onClose }: CreateConversation
         )}
 
         {/* Search */}
-        <View className="px-4 py-2" style={{ backgroundColor: Colors.white }}>
+        <View className="px-4 py-2" style={{ backgroundColor: Colors.bgCard }}>
           <View className="flex-row items-center rounded-lg px-3" style={{ backgroundColor: Colors.bg, height: 40 }}>
             <Ionicons name="search" size={18} color={Colors.textLight} />
             <TextInput

@@ -23,7 +23,8 @@ export function ProfilePostTile({ post, onPress }: ProfilePostTileProps) {
   return (
     <TouchableOpacity
       onPress={onPress}
-      className="aspect-square w-1/3 border border-white bg-[#F2F2F7] active:opacity-80">
+      className="aspect-square w-1/3 border active:opacity-80"
+      style={{ backgroundColor: Colors.bgCard, borderColor: Colors.bg }}>
       {hasMedia ? (
         <Image
           source={{ uri: coverUrl }}
@@ -35,7 +36,7 @@ export function ProfilePostTile({ post, onPress }: ProfilePostTileProps) {
       ) : (
         <View className="h-full w-full items-center justify-center px-2">
           <Ionicons name="chatbox-ellipses-outline" size={20} color={Colors.textLight} />
-          <Text className="mt-1 text-center text-xs text-[#6E6E73]" numberOfLines={3}>
+          <Text className="mt-1 text-center text-xs" style={{ color: Colors.textMuted }} numberOfLines={3}>
             {post.content || 'Open post'}
           </Text>
         </View>

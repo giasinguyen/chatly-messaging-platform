@@ -107,7 +107,7 @@ export function ReminderModal({ visible, conversationId, onClose }: ReminderModa
         onPress={handleClose}>
         <Pressable
           style={{
-            backgroundColor: Colors.white,
+            backgroundColor: Colors.bgCard,
             borderTopLeftRadius: 20,
             borderTopRightRadius: 20,
             paddingTop: 12,

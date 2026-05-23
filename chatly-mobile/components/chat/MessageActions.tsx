@@ -94,7 +94,7 @@ export function MessageActions({
       <Pressable className="flex-1 justify-end" style={{ backgroundColor: Colors.overlay }} onPress={onClose}>
         <Pressable
           className="rounded-t-3xl pb-8 pt-4"
-          style={{ backgroundColor: Colors.white }}
+          style={{ backgroundColor: Colors.bgCard }}
           onPress={(e) => e.stopPropagation()}
         >
           {/* Handle */}

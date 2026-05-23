@@ -174,7 +174,12 @@ export function CommentInput({
   const canSubmit = (content.trim().length > 0 || selectedImages.length > 0) && !isLoading;
 
   return (
-    <View className={`border-t border-gray-200 bg-white px-3 py-3 ${isReply ? 'bg-gray-50' : ''}`}>
+    <View
+      className="border-t px-3 py-3"
+      style={{
+        backgroundColor: isReply ? Colors.bg : Colors.bgCard,
+        borderTopColor: Colors.borderLight,
+      }}>
       {/* Selected Images Preview */}
       {selectedImages.length > 0 && (
         <View className="mb-2 flex-row flex-wrap gap-2">
@@ -209,7 +214,9 @@ export function CommentInput({
         ) : null}
 
       <View className="flex-row items-center gap-2">
-        <View className="flex-1 flex-row items-center rounded-full border border-gray-300 bg-gray-50 px-3 py-2">
+        <View
+          className="flex-1 flex-row items-center rounded-full border px-3 py-2"
+          style={{ backgroundColor: Colors.bg, borderColor: Colors.borderLight }}>
           <TextInput
             ref={inputRef}
             value={content}
@@ -219,7 +226,6 @@ export function CommentInput({
             placeholder={placeholder}
             placeholderTextColor={Colors.textLight}
             multiline
-            maxHeight={100}
             editable={!isLoading}
             style={{
               flex: 1,
@@ -258,7 +264,7 @@ export function CommentInput({
           disabled={!canSubmit}
           className="rounded-full p-2"
           style={{
-            backgroundColor: canSubmit ? '#0071E3' : '#D5D5D7',
+            backgroundColor: canSubmit ? Colors.cta : Colors.borderLight,
           }}
           activeOpacity={0.7}
         >
@@ -269,7 +275,8 @@ export function CommentInput({
         {(isReply || isEditing) && onCancel && (
           <TouchableOpacity
             onPress={onCancel}
-            className="rounded-full bg-gray-300 p-2"
+            className="rounded-full p-2"
+            style={{ backgroundColor: Colors.borderLight }}
             activeOpacity={0.7}
             disabled={isLoading}
           >

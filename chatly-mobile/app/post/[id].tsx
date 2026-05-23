@@ -10,6 +10,7 @@ import { Avatar } from '@/components/ui/Avatar';
 import { UserQuickProfileDialog } from '@/components/profile/UserQuickProfileDialog';
 import usePostAiChatStarter from '@/hooks/useStartPostAiChat';
 import { Colors } from '@/constants/theme';
+import { useThemeStore } from '@/store/theme.store';
 import type { Post, PostComment, ReactionType } from '@/types/post';
 import { countCommentBranch, removeCommentBranch } from '@/utils/commentTree';
 import { getApiErrorMessage } from '@/utils/errorHandler';
@@ -20,6 +21,7 @@ import { formatRelativeTime } from '@/utils/socialFormat';
 export default function PostDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  useThemeStore((state) => state.isDarkMode);
   const { isStartingAiChat, startPostAiChat } = usePostAiChatStarter();
 
   const [post, setPost] = useState<Post | null>(null);
@@ -221,17 +223,19 @@ export default function PostDetailScreen() {
   }, [loadComments]);
 
   return (
-    <View className="flex-1 bg-[#F5F5F7]">
+    <View className="flex-1" style={{ backgroundColor: Colors.bg }}>
       <Stack.Screen options={{ headerShown: false }} />
 
-      <View className="flex-row items-center border-b border-[#E5E5EA] bg-white px-4 py-3">
+      <View
+        className="flex-row items-center border-b px-4 py-3"
+        style={{ backgroundColor: Colors.bgCard, borderBottomColor: Colors.borderLight }}>
         <TouchableOpacity
           onPress={() => router.back()}
           className="rounded-full p-1.5"
           activeOpacity={0.75}>
           <Ionicons name="chevron-back" size={24} color={Colors.text} />
         </TouchableOpacity>
-        <Text className="ml-2 text-lg font-semibold text-[#1D1D1F]">Post</Text>
+        <Text className="ml-2 text-lg font-semibold" style={{ color: Colors.text }}>Post</Text>
       </View>
 
       {isLoading ? (
@@ -240,8 +244,8 @@ export default function PostDetailScreen() {
         </View>
       ) : errorMessage ? (
         <View className="flex-1 items-center justify-center px-8">
-          <Text className="text-base font-semibold text-[#1D1D1F]">Could not load post</Text>
-          <Text className="mt-1 text-center text-sm text-[#6E6E73]">{errorMessage}</Text>
+          <Text className="text-base font-semibold" style={{ color: Colors.text }}>Could not load post</Text>
+          <Text className="mt-1 text-center text-sm" style={{ color: Colors.textMuted }}>{errorMessage}</Text>
           <TouchableOpacity
             className="mt-4 rounded-full bg-[#0A7AFF] px-4 py-2 active:opacity-85"
             onPress={() => void loadPost()}>
@@ -261,16 +265,17 @@ export default function PostDetailScreen() {
                 size={40}
               />
               <View className="ml-2.5">
-                <Text className="text-sm font-semibold text-[#1D1D1F]">
+                <Text className="text-sm font-semibold" style={{ color: Colors.text }}>
                   {post.authorDisplayName ?? post.authorUsername ?? 'Unknown user'}
                 </Text>
-                <Text className="text-xs text-[#6E6E73]">{formatRelativeTime(post.createdAt)}</Text>
+                <Text className="text-xs" style={{ color: Colors.textMuted }}>{formatRelativeTime(post.createdAt)}</Text>
               </View>
             </TouchableOpacity>
 
             <TouchableOpacity
               onPress={() => void startPostAiChat(id)}
-              className="ml-3 h-10 w-10 items-center justify-center rounded-full bg-[#EEF5FF]"
+              className="ml-3 h-10 w-10 items-center justify-center rounded-full"
+              style={{ backgroundColor: Colors.ctaLight }}
               activeOpacity={0.78}
               disabled={isStartingAiChat}>
               {isStartingAiChat ? (
@@ -282,7 +287,7 @@ export default function PostDetailScreen() {
           </View>
 
           {post.content?.trim() ? (
-            <MentionText content={post.content} style={{ marginTop: 12, fontSize: 16, lineHeight: 24, color: '#1D1D1F' }} />
+            <MentionText content={post.content} style={{ marginTop: 12, fontSize: 16, lineHeight: 24, color: Colors.text }} />
           ) : null}
 
           <PostMediaGallery mediaUrls={post.mediaUrls} />
@@ -290,8 +295,8 @@ export default function PostDetailScreen() {
           {post.hashtags.length > 0 && (
             <View className="mt-4 flex-row flex-wrap">
               {post.hashtags.map((tag) => (
-                <View key={tag} className="mb-2 mr-2 rounded-full bg-[#EEF5FF] px-3 py-1.5">
-                  <Text className="text-xs font-semibold text-[#0A7AFF]">#{tag}</Text>
+                <View key={tag} className="mb-2 mr-2 rounded-full px-3 py-1.5" style={{ backgroundColor: Colors.ctaLight }}>
+                  <Text className="text-xs font-semibold" style={{ color: Colors.cta }}>#{tag}</Text>
                 </View>
               ))}
             </View>
@@ -307,11 +312,15 @@ export default function PostDetailScreen() {
             onLikeComment={handleLikeComment}
             onUnlikeComment={handleUnlikeComment}
             onDeleteComment={handleDeleteComment}
+            onAddComment={(content, mediaUrls, mentionIds) =>
+              void handleSubmitComment(post.id, content, mediaUrls, undefined, mentionIds)
+            }
+            isSubmittingComment={isSubmittingComment}
           />
         </ScrollView>
       ) : (
         <View className="flex-1 items-center justify-center px-8">
-          <Text className="text-base font-semibold text-[#1D1D1F]">Post not found</Text>
+          <Text className="text-base font-semibold" style={{ color: Colors.text }}>Post not found</Text>
         </View>
       )}
 

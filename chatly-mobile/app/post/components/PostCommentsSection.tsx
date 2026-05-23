@@ -1,5 +1,6 @@
 import { ActivityIndicator, Text, TouchableOpacity, View } from 'react-native';
 import { CommentList } from '@/components/social/CommentList';
+import { CommentInput } from '@/components/social/CommentInput';
 import { Colors } from '@/constants/theme';
 import type { PostComment, ReactionType } from '@/types/post';
 
@@ -13,6 +14,8 @@ interface PostCommentsSectionProps {
   onLikeComment: (commentId: string, reactionType: ReactionType) => void;
   onUnlikeComment: (commentId: string) => void;
   onDeleteComment: (commentId: string) => void;
+  onAddComment: (content: string, mediaUrls?: string[], mentionIds?: string[]) => void;
+  isSubmittingComment: boolean;
 }
 
 export function PostCommentsSection({
@@ -25,11 +28,13 @@ export function PostCommentsSection({
   onLikeComment,
   onUnlikeComment,
   onDeleteComment,
+  onAddComment,
+  isSubmittingComment,
 }: PostCommentsSectionProps) {
   return (
-    <View className="mt-6 rounded-2xl bg-white px-3 py-3">
+    <View className="mt-6 rounded-2xl px-3 py-3" style={{ backgroundColor: Colors.bgCard }}>
       <View className="mb-3 flex-row items-center justify-between">
-        <Text className="text-base font-semibold text-[#1D1D1F]">Comments ({commentCount})</Text>
+        <Text className="text-base font-semibold" style={{ color: Colors.text }}>Comments ({commentCount})</Text>
         {commentsError && (
           <TouchableOpacity onPress={onRetry} activeOpacity={0.75}>
             <Text className="text-sm font-semibold text-[#0A7AFF]">Retry</Text>
@@ -42,7 +47,7 @@ export function PostCommentsSection({
           <ActivityIndicator size="small" color={Colors.cta} />
         </View>
       ) : commentsError ? (
-        <Text className="mb-3 text-sm text-[#6E6E73]">{commentsError}</Text>
+        <Text className="mb-3 text-sm" style={{ color: Colors.textMuted }}>{commentsError}</Text>
       ) : (
         <CommentList
           comments={comments}
@@ -54,13 +59,14 @@ export function PostCommentsSection({
         />
       )}
 
-      <TouchableOpacity
-        className="mt-3 rounded-xl border border-[#E5E5EA] bg-[#FAFAFB] px-3 py-3"
-        activeOpacity={0.8}
-        onPress={onOpenComments}
-      >
-        <Text className="text-sm text-[#6E6E73]">Write a comment...</Text>
-      </TouchableOpacity>
+      <View
+        className="mt-3 overflow-hidden rounded-xl border"
+        style={{ backgroundColor: Colors.bgCard, borderColor: Colors.borderLight }}>
+        <CommentInput
+          isLoading={isSubmittingComment}
+          onSubmit={(content, mediaUrls, mentionIds) => onAddComment(content, mediaUrls, mentionIds)}
+        />
+      </View>
     </View>
   );
 }

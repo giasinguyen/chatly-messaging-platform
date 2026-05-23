@@ -23,11 +23,13 @@ import { Colors } from '@/constants/theme';
 import { useNotificationStore } from '@/store/notification.store';
 import { useConversationPrefsStore } from '@/store/conversationPrefs.store';
 import { isConvMuted } from '@/store/conversationPrefs.store';
+import { useThemeStore } from '@/store/theme.store';
 import type { ConversationResponse } from '@/types/conversation';
 import type { UserResponse } from '@/types/auth';
 
 export default function ChatsScreen() {
   const router = useRouter();
+  useThemeStore((state) => state.isDarkMode);
   const insets = useSafeAreaInsets();
   const user = useAuthStore((s) => s.user);
   const { conversations, fetchConversations, removeConversation, loading } = useConversationStore();
@@ -124,7 +126,7 @@ export default function ChatsScreen() {
   });
 
   const handleConversationPress = (conversation: ConversationResponse) => {
-    router.push(`/chat/${conversation.id}`);
+    router.push({ pathname: '/chat/[id]', params: { id: conversation.id, returnTo: 'chats' } });
   };
 
   const handleDeleteConversation = useCallback((conversation: ConversationResponse) => {
@@ -159,7 +161,7 @@ export default function ChatsScreen() {
       <View
         style={{
           paddingTop: insets.top,
-          backgroundColor: Colors.white,
+          backgroundColor: Colors.bgCard,
           borderBottomWidth: 0.5,
           borderBottomColor: Colors.borderLight,
         }}

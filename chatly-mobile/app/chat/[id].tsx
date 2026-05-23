@@ -38,6 +38,7 @@ import { useContactStore } from '@/store/contact.store';
 import { useChatSocket } from '@/hooks/useChatSocket';
 import { useCallContext } from '@/contexts/CallContext';
 import { useCallStore } from '@/store/call.store';
+import { useThemeStore } from '@/store/theme.store';
 import { usePresenceSocket } from '@/hooks/usePresenceSocket';
 import { Colors } from '@/constants/theme';
 import { formatDateSeparator, isRichTextHtml, richTextToPlainText } from '@/utils/format';
@@ -68,9 +69,11 @@ export default function ChatScreen() {
     id: conversationId,
     prefill,
     prefill_token,
-  } = useLocalSearchParams<{ id: string; prefill?: string; prefill_token?: string }>();
+    returnTo,
+  } = useLocalSearchParams<{ id: string; prefill?: string; prefill_token?: string; returnTo?: string }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  useThemeStore((state) => state.isDarkMode);
   const user = useAuthStore((s) => s.user);
   const flatListRef = useRef<FlatList>(null);
   // Guard: don't trigger loadMore until the initial page has fully loaded
@@ -535,7 +538,7 @@ export default function ChatScreen() {
     setActionsVisible(false);
     try {
       const res = await agentService.createSession({
-        title: conversation?.name,
+        title: conversation?.name ?? undefined,
         context_conversation_id: conversationId,
       });
       const sessionId = res.id;
@@ -552,7 +555,7 @@ export default function ChatScreen() {
     if (!conversationId) return;
     try {
       const res = await agentService.createSession({
-        title: conversation?.name,
+        title: conversation?.name ?? undefined,
         context_conversation_id: conversationId,
       });
       const sessionId = res.id;
@@ -880,6 +883,30 @@ export default function ChatScreen() {
     [displayData]
   );
 
+  const handleBack = useCallback(() => {
+    if (returnTo === 'contacts') {
+      router.replace('/(tabs)/contacts');
+      return;
+    }
+    if (returnTo === 'assistant') {
+      router.replace('/(tabs)/assistant');
+      return;
+    }
+    if (returnTo === 'notifications') {
+      router.replace('/notifications');
+      return;
+    }
+    if (returnTo === 'chats') {
+      router.replace('/(tabs)/chats');
+      return;
+    }
+    if (router.canGoBack()) {
+      router.back();
+      return;
+    }
+    router.replace('/(tabs)/chats');
+  }, [returnTo, router]);
+
   // Resolve chat header info
   const isGroup = conversation?.type === 'GROUP';
   let chatName = conversation?.name ?? 'Conversation';
@@ -897,7 +924,7 @@ export default function ChatScreen() {
     <KeyboardAvoidingView
       className="flex-1"
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      style={{ backgroundColor: Colors.white }}>
+      style={{ backgroundColor: Colors.bg }}>
       {/* Header */}
       <ChatHeader
         name={chatName}
@@ -907,6 +934,7 @@ export default function ChatScreen() {
         isOnline={!isGroup && otherUserOnline}
         conversationId={conversationId}
         receiverId={otherUserId ?? undefined}
+        onBack={handleBack}
         onToggleSearch={() => {
           setShowSearch((prev) => !prev);
           if (showSearch) {
@@ -1064,7 +1092,7 @@ export default function ChatScreen() {
             style={{
               paddingHorizontal: 16,
               paddingVertical: 14,
-              backgroundColor: Colors.white,
+              backgroundColor: Colors.bgCard,
               borderTopWidth: 0.5,
               borderTopColor: Colors.borderLight,
               flexDirection: 'row',
@@ -1201,7 +1229,7 @@ export default function ChatScreen() {
           onPress={() => setEditModalVisible(false)}>
           <Pressable
             style={{
-              backgroundColor: Colors.white,
+              backgroundColor: Colors.bgCard,
               borderRadius: 16,
               padding: 14,
               maxHeight: '75%',
@@ -1266,7 +1294,7 @@ export default function ChatScreen() {
           style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' }}
           onPress={() => setShowPinnedList(false)}>
           <Pressable
-            style={{ backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '70%' }}
+            style={{ backgroundColor: Colors.bgCard, borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '70%' }}
             onPress={() => {}}>
             {/* Header */}
             <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 0.5, borderBottomColor: Colors.borderLight }}>
@@ -1339,7 +1367,7 @@ export default function ChatScreen() {
           onPress={() => setShowMentionModal(false)}>
           <Pressable
             style={{
-              backgroundColor: '#fff',
+              backgroundColor: Colors.bgCard,
               borderRadius: 20,
               width: 280,
               overflow: 'hidden',
@@ -1400,7 +1428,7 @@ export default function ChatScreen() {
                     <View
                       style={{
                         borderTopWidth: 0.5,
-                        borderTopColor: 'rgba(0,0,0,0.08)',
+                        borderTopColor: Colors.borderLight,
                         paddingVertical: 12,
                         paddingHorizontal: 20,
                       }}>
@@ -1488,7 +1516,7 @@ export default function ChatScreen() {
                       onPress={() => setShowMentionModal(false)}
                       style={{
                         borderTopWidth: 0.5,
-                        borderTopColor: 'rgba(0,0,0,0.08)',
+                        borderTopColor: Colors.borderLight,
                         paddingVertical: 12,
                         alignItems: 'center',
                       }}>

@@ -23,11 +23,13 @@ import { Colors } from '@/constants/theme';
 import { socketService } from '@/services/socket.service';
 import { useAuthStore } from '@/store/auth.store';
 import { useNotificationStore } from '@/store/notification.store';
+import { useThemeStore } from '@/store/theme.store';
 import type { Post } from '@/types/post';
 import type { StoryGroup } from '@/types/story';
 
 export default function HomeTabScreen() {
   const router = useRouter();
+  useThemeStore((state) => state.isDarkMode);
   const listRef = useRef<FlatList<Post>>(null);
   const userId = useAuthStore((state) => state.user?.id);
   const socialUnreadCount = useNotificationStore((state) => state.socialUnreadCount);
@@ -215,11 +217,13 @@ export default function HomeTabScreen() {
   );
 
   return (
-    <View className="flex-1 bg-[#F5F5F7]">
+    <View className="flex-1" style={{ backgroundColor: Colors.bg }}>
       {isLoading && posts.length === 0 ? (
         <View className="flex-1 items-center justify-center">
           <ActivityIndicator size="large" color={Colors.cta} />
-          <Text className="mt-2 text-sm text-[#6E6E73]">Loading posts...</Text>
+          <Text className="mt-2 text-sm" style={{ color: Colors.textMuted }}>
+            Loading posts...
+          </Text>
         </View>
       ) : (
         <FlatList
