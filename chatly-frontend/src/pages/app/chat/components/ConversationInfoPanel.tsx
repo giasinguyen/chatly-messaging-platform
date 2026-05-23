@@ -99,7 +99,27 @@ function isSharedMediaType(fileType?: string): boolean {
     if (!fileType || fileType === "image/gif") {
         return false;
     }
-    return fileType.startsWith("image/") || fileType.startsWith("video/");
+    return fileType.startsWith("image/");
+}
+
+function isStickerOrGifAsset(
+    fileType?: string,
+    fileName?: string,
+    url?: string,
+): boolean {
+    const normalizedType = (fileType ?? "").toLowerCase();
+    const normalizedName = (fileName ?? "").toLowerCase();
+    const normalizedUrl = (url ?? "").toLowerCase();
+
+    if (normalizedType === "image/gif") {
+        return true;
+    }
+
+    if (normalizedName.endsWith(".gif")) {
+        return true;
+    }
+
+    return normalizedUrl.includes("/sticker") || normalizedUrl.includes("/gif");
 }
 
 function messageToMediaFiles(message: Message): FileUploadResponse[] {
@@ -113,6 +133,10 @@ function messageToMediaFiles(message: Message): FileUploadResponse[] {
 }
 
 function messageToDocFiles(message: Message): FileUploadResponse[] {
+    if (isGifOrStickerMessage(message)) {
+        return [];
+    }
+
     return message.attachments
         .filter((attachment) => {
             const type = attachment.type ?? "";
@@ -120,6 +144,7 @@ function messageToDocFiles(message: Message): FileUploadResponse[] {
                 && !type.startsWith("image/")
                 && !type.startsWith("video/")
                 && !type.startsWith("audio/")
+                && !isStickerOrGifAsset(type, attachment.name, attachment.url)
                 && attachment.kind !== "POST_PREVIEW"
                 && attachment.kind !== "REEL_PREVIEW"
                 && attachment.kind !== "STORY_REPLY";
@@ -253,8 +278,13 @@ export function ConversationInfoPanel({
                     messageService.search(conversation.id, "http", 0, 50).catch(() => ({ result: [] })),
                 ]);
                 if (!cancelled) {
-                        setMediaFiles(images.filter((file) => isSharedMediaType(file.fileType)));
-                    setDocFiles(docs);
+                    setMediaFiles(images.filter((file) => isSharedMediaType(file.fileType)));
+                    setDocFiles(
+                        docs.filter((file) =>
+                            !isStickerOrGifAsset(file.fileType, file.fileName, file.url)
+                            && !isSharedMediaType(file.fileType),
+                        ),
+                    );
                     const extracted: { url: string; domain: string }[] = [];
                     for (const msg of linkMsgs.result) {
                         if (msg.type === "GIF" || msg.type === "STICKER") continue;

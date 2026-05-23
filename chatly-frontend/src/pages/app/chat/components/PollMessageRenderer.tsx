@@ -29,7 +29,7 @@ export function PollMessageRenderer({
     const allVoterIds = [...new Set(Object.values(poll.votes ?? {}).flat())];
 
     return (
-        <div className="w-80 rounded-2xl shadow-sm overflow-hidden border border-border/50 bg-background dark:bg-zinc-900">
+        <div className="w-80 rounded-2xl shadow-sm border border-border/50 bg-background dark:bg-zinc-900">
             <div className="px-4 py-3 flex items-center gap-2 bg-brand/10 border-b border-brand/20">
                 <BarChart3 size={16} className="text-brand shrink-0" />
                 <span className="text-sm font-semibold text-foreground flex-1">
@@ -56,7 +56,7 @@ export function PollMessageRenderer({
                             disabled={isClosed}
                             onClick={() => !isClosed && onVotePoll?.(msg.id, idx)}
                             className={cn(
-                                "relative w-full text-left rounded-lg px-3 py-2 text-sm transition-all overflow-hidden border",
+                                "relative w-full text-left rounded-lg px-3 py-2 text-sm transition-all border",
                                 isClosed
                                     ? "opacity-70 cursor-default border-border/30"
                                     : isVoted
