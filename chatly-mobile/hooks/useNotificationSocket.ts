@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { usePathname } from 'expo-router';
+import { usePathname, router } from 'expo-router';
+import { Alert } from 'react-native';
 import { socketService } from '@/services/socket.service';
 import { useAuthStore } from '@/store/auth.store';
 import { useNotificationStore } from '@/store/notification.store';
@@ -49,9 +50,18 @@ export function useNotificationSocket() {
                                event.notification.referenceId === currentChatId;
 
           // Update conversation list real-time
-          if (event.notification.type === 'NEW_MESSAGE') {
-            if (__DEV__) console.log('Triggering handleIncomingMessage for conv:', event.notification.referenceId);
-            handleIncomingMessage(event.notification);
+          if (event.notification.type === 'NEW_MESSAGE' || event.notification.type === 'GROUP_INVITE' || event.notification.type === 'GROUP_LEAVE') {
+            if (event.notification.type === 'NEW_MESSAGE') {
+              if (__DEV__) console.log('Triggering handleIncomingMessage for conv:', event.notification.referenceId);
+              handleIncomingMessage(event.notification);
+            } else {
+              if (__DEV__) console.log('Triggering conversation fetch for event:', event.notification.type);
+              useConversationStore.getState().fetchConversations();
+              if (event.notification.type === 'GROUP_LEAVE' && event.notification.referenceId === currentChatId) {
+                Alert.alert('Group Update', 'You have been removed from this group.');
+                router.replace('/(tabs)/chats');
+              }
+            }
           }
 
           // Trigger pending contacts refresh on friend request

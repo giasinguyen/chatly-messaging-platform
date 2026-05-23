@@ -59,7 +59,7 @@ export const useCallStore = create<CallState>((set) => ({
   remoteParticipant: null,
   participants: [],
   isMuted: false,
-  isCameraOff: false,
+  isCameraOff: true,
   callDuration: 0,
 
   // Group initial state
@@ -98,7 +98,7 @@ export const useCallStore = create<CallState>((set) => ({
       isGroupCall: false,
       groupParticipantInfo: {},
       isMuted: false,
-      isCameraOff: false,
+      isCameraOff: true,
       callDuration: 0,
     }),
 

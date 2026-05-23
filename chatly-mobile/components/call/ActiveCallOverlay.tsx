@@ -340,13 +340,13 @@ export function ActiveCallOverlay() {
               width: 56,
               height: 56,
               borderRadius: 28,
-              backgroundColor: isUpgradingToVideo ? Colors.error : 'rgba(255, 255, 255, 0.2)',
+              backgroundColor: Colors.error,
             }}
             activeOpacity={0.7}
             disabled={isUpgradingToVideo}
           >
             <Ionicons
-              name="videocam"
+              name="videocam-off"
               size={26}
               color={Colors.white}
             />
