@@ -994,13 +994,15 @@ function MemberRow({
             onRoleMenuOpenChange(false);
         };
 
-        window.addEventListener("resize", updateRoleMenuPosition);
-        window.addEventListener("scroll", updateRoleMenuPosition, true);
+        const handleViewportChange = () => updateRoleMenuPosition();
+
+        window.addEventListener("resize", handleViewportChange);
+        window.addEventListener("scroll", handleViewportChange, true);
         document.addEventListener("mousedown", handlePointerDown);
 
         return () => {
-            window.removeEventListener("resize", updateRoleMenuPosition);
-            window.removeEventListener("scroll", updateRoleMenuPosition, true);
+            window.removeEventListener("resize", handleViewportChange);
+            window.removeEventListener("scroll", handleViewportChange, true);
             document.removeEventListener("mousedown", handlePointerDown);
         };
     }, [isRoleMenuOpen, onRoleMenuOpenChange, updateRoleMenuPosition]);
