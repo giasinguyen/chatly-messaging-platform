@@ -35,9 +35,11 @@ import { ForwardToChatModal } from '@/components/assistant/ForwardToChatModal';
 import { AssistantQuickChips } from '@/components/assistant/AssistantQuickChips';
 import { useConversationStore } from '@/store/conversation.store';
 import { useAuthStore } from '@/store/auth.store';
+import { useThemeStore } from '@/store/theme.store';
 
 export default function AssistantScreen() {
   const router = useRouter();
+  useThemeStore((state) => state.isDarkMode);
   const insets = useSafeAreaInsets();
   const flatListRef = useRef<FlatList<AgentMessage>>(null);
 
@@ -202,7 +204,15 @@ export default function AssistantScreen() {
       const token = Date.now().toString();
       setForwardModalVisible(false);
       setSelectedMessage(null);
-      router.push(`/chat/${conversationId}?prefill=${encoded}&prefill_token=${token}`);
+      router.push({
+        pathname: '/chat/[id]',
+        params: {
+          id: conversationId,
+          prefill: encoded,
+          prefill_token: token,
+          returnTo: 'assistant',
+        },
+      });
     },
     [selectedMessage, router],
   );

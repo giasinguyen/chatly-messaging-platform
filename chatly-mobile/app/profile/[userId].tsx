@@ -14,6 +14,7 @@ import { userService } from '@/services/user.service';
 import { useAuthStore } from '@/store/auth.store';
 import { useContactStore } from '@/store/contact.store';
 import { useConversationStore } from '@/store/conversation.store';
+import { useThemeStore } from '@/store/theme.store';
 import type { UserResponse } from '@/types/auth';
 import type { ContactResponse } from '@/types/contact';
 import type { Post } from '@/types/post';
@@ -37,6 +38,7 @@ export default function UserProfileScreen() {
   const { userId } = useLocalSearchParams<{ userId: string }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  useThemeStore((state) => state.isDarkMode);
   const currentUser = useAuthStore((state) => state.user);
   const invalidateContacts = useContactStore((state) => state.invalidate);
   const conversations = useConversationStore((state) => state.conversations);
@@ -162,8 +164,8 @@ export default function UserProfileScreen() {
   if (isLoading) {
     return (
       <View
-        className="flex-1 items-center justify-center bg-white"
-        style={{ paddingTop: insets.top }}>
+        className="flex-1 items-center justify-center"
+        style={{ backgroundColor: Colors.bg, paddingTop: insets.top }}>
         <ActivityIndicator size="large" color={Colors.cta} />
       </View>
     );
@@ -171,11 +173,11 @@ export default function UserProfileScreen() {
 
   if (!profile || errorMessage) {
     return (
-      <View className="flex-1 bg-white px-5" style={{ paddingTop: insets.top }}>
+      <View className="flex-1 px-5" style={{ backgroundColor: Colors.bg, paddingTop: insets.top }}>
         <ProfileNav onBack={handleBack} title="Profile" />
         <View className="flex-1 items-center justify-center">
-          <Text className="text-base font-semibold text-[#1D1D1F]">Profile not found</Text>
-          <Text className="mt-1 text-center text-sm text-[#6E6E73]">
+          <Text className="text-base font-semibold" style={{ color: Colors.text }}>Profile not found</Text>
+          <Text className="mt-1 text-center text-sm" style={{ color: Colors.textMuted }}>
             {errorMessage ?? 'This profile is unavailable.'}
           </Text>
           <TouchableOpacity
@@ -189,7 +191,7 @@ export default function UserProfileScreen() {
   }
 
   return (
-    <View className="flex-1 bg-white" style={{ paddingTop: insets.top }}>
+    <View className="flex-1" style={{ backgroundColor: Colors.bg, paddingTop: insets.top }}>
       <ProfileNav onBack={handleBack} title={profile.username} />
       <FlatList
         data={posts}
@@ -214,7 +216,7 @@ export default function UserProfileScreen() {
         ListEmptyComponent={
           <View className="items-center px-6 py-14">
             <Ionicons name="grid-outline" size={34} color={Colors.textLight} />
-            <Text className="mt-3 text-sm font-medium text-[#6E6E73]">No posts yet</Text>
+            <Text className="mt-3 text-sm font-medium" style={{ color: Colors.textMuted }}>No posts yet</Text>
           </View>
         }
         showsVerticalScrollIndicator={false}
@@ -225,11 +227,11 @@ export default function UserProfileScreen() {
 
 function ProfileNav({ onBack, title }: { onBack: () => void; title: string }) {
   return (
-    <View className="flex-row items-center border-b border-[#E5E5EA] px-4 py-3">
+    <View className="flex-row items-center border-b px-4 py-3" style={{ backgroundColor: Colors.bgCard, borderBottomColor: Colors.borderLight }}>
       <TouchableOpacity onPress={onBack} className="p-1 active:opacity-75">
         <Ionicons name="chevron-back" size={24} color={Colors.text} />
       </TouchableOpacity>
-      <Text className="ml-2 flex-1 text-base font-bold text-[#1D1D1F]" numberOfLines={1}>
+      <Text className="ml-2 flex-1 text-base font-bold" style={{ color: Colors.text }} numberOfLines={1}>
         {title}
       </Text>
     </View>

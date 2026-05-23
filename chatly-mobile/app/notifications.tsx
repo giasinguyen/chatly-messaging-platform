@@ -88,13 +88,13 @@ export default function NotificationsScreen() {
     }
 
     if (notification.type === 'NEW_MESSAGE' && notification.referenceId) {
-      router.push(`/chat/${notification.referenceId}`);
+      router.push({ pathname: '/chat/[id]', params: { id: notification.referenceId, returnTo: 'notifications' } });
     } else if (notification.type === 'FRIEND_REQUEST') {
       router.push('/(tabs)/contacts');
     } else if (notification.type === 'GROUP_JOIN_REQUEST' && notification.referenceId) {
       router.push(`/chat/${notification.referenceId}/pending-requests`);
     } else if (notification.type === 'MEMBER_JOINED' && notification.referenceId) {
-      router.push(`/chat/${notification.referenceId}`);
+      router.push({ pathname: '/chat/[id]', params: { id: notification.referenceId, returnTo: 'notifications' } });
     }
   };
 

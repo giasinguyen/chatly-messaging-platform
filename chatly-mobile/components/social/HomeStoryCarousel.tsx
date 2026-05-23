@@ -25,7 +25,9 @@ export function HomeStoryCarousel({
   onPressStoryGroup,
 }: HomeStoryCarouselProps) {
   return (
-    <View className="border-b border-[#E5E5EA] bg-white py-3">
+    <View
+      className="border-b py-3"
+      style={{ backgroundColor: Colors.bgCard, borderBottomColor: Colors.borderLight }}>
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -36,10 +38,14 @@ export function HomeStoryCarousel({
           activeOpacity={0.85}
           className="items-center"
         >
-          <View className="h-[76px] w-[76px] items-center justify-center rounded-full border border-[#D2D2D7] bg-[#F5F5F7]">
+          <View
+            className="h-[76px] w-[76px] items-center justify-center rounded-full border"
+            style={{ backgroundColor: Colors.bg, borderColor: Colors.border }}>
             <Ionicons name="add" size={32} color={Colors.cta} />
           </View>
-          <Text className="mt-2 max-w-[76px] text-center text-xs font-medium text-[#1D1D1F]">
+          <Text
+            className="mt-2 max-w-[76px] text-center text-xs font-medium"
+            style={{ color: Colors.text }}>
             Your story
           </Text>
         </TouchableOpacity>
@@ -66,7 +72,9 @@ export function HomeStoryCarousel({
                       padding: 2,
                     }}
                   >
-                    <View className="h-full w-full items-center justify-center rounded-full bg-white p-[2px]">
+                    <View
+                      className="h-full w-full items-center justify-center rounded-full p-[2px]"
+                      style={{ backgroundColor: Colors.bgCard }}>
                       {group.user.avatarUrl ? (
                         <Image
                           source={{ uri: group.user.avatarUrl }}
@@ -85,8 +93,8 @@ export function HomeStoryCarousel({
                   </View>
                   <Text
                     numberOfLines={1}
-                    className="mt-2 max-w-[76px] text-center text-xs font-medium text-[#1D1D1F]"
-                  >
+                    className="mt-2 max-w-[76px] text-center text-xs font-medium"
+                    style={{ color: Colors.text }}>
                     {group.user.displayName ?? group.user.username}
                   </Text>
                 </TouchableOpacity>
@@ -95,7 +103,9 @@ export function HomeStoryCarousel({
           : stories.map((story) => (
               <TouchableOpacity key={story.id} activeOpacity={0.85} className="items-center">
                 <View className="h-[76px] w-[76px] items-center justify-center rounded-full bg-[#F9CE34] p-[2px]">
-                  <View className="h-full w-full items-center justify-center rounded-full bg-white p-[2px]">
+                  <View
+                    className="h-full w-full items-center justify-center rounded-full p-[2px]"
+                    style={{ backgroundColor: Colors.bgCard }}>
                     <Image
                       source={{ uri: story.avatarUrl }}
                       contentFit="cover"
@@ -106,8 +116,8 @@ export function HomeStoryCarousel({
                 </View>
                 <Text
                   numberOfLines={1}
-                  className="mt-2 max-w-[76px] text-center text-xs font-medium text-[#1D1D1F]"
-                >
+                  className="mt-2 max-w-[76px] text-center text-xs font-medium"
+                  style={{ color: Colors.text }}>
                   {story.name}
                 </Text>
               </TouchableOpacity>

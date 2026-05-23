@@ -218,7 +218,15 @@ export default function AssistantChatScreen() {
       setForwardModalVisible(false);
       setSelectedMessage(null);
       setMessageActionsVisible(false);
-      router.push(`/chat/${conversationId}?prefill=${encoded}&prefill_token=${token}`);
+      router.push({
+        pathname: '/chat/[id]',
+        params: {
+          id: conversationId,
+          prefill: encoded,
+          prefill_token: token,
+          returnTo: 'assistant',
+        },
+      });
     },
     [selectedMessage, router],
   );

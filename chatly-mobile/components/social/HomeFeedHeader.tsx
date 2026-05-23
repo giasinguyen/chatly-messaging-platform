@@ -28,7 +28,10 @@ export function HomeFeedHeader({
 }: HomeFeedHeaderProps) {
   return (
     <View>
-      <SafeAreaView edges={['top']} className="border-b border-[#E5E5EA] bg-white px-4 pb-3">
+      <SafeAreaView
+        edges={['top']}
+        className="border-b px-4 pb-3"
+        style={{ backgroundColor: Colors.bgCard, borderBottomColor: Colors.borderLight }}>
         <View className="relative h-10 flex-row items-center justify-center">
           <TouchableOpacity
             onPress={onCreatePost}
@@ -37,7 +40,9 @@ export function HomeFeedHeader({
             <Ionicons name="add" size={28} color={Colors.text} />
           </TouchableOpacity>
 
-          <Text className="text-3xl font-bold text-[#1D1D1F]">Chatly</Text>
+          <Text className="text-3xl font-bold" style={{ color: Colors.text }}>
+            Chatly
+          </Text>
 
           <View className="absolute right-0 flex-row items-center">
             <TouchableOpacity
@@ -46,7 +51,10 @@ export function HomeFeedHeader({
               activeOpacity={0.75}>
               <Ionicons name="notifications-outline" size={25} color={Colors.text} />
               {hasUnreadNotifications ? (
-                <View className="absolute right-1 top-1 h-2.5 w-2.5 rounded-full border-2 border-white bg-[#FF3B30]" />
+                <View
+                  className="absolute right-1 top-1 h-2.5 w-2.5 rounded-full border-2 bg-[#FF3B30]"
+                  style={{ borderColor: Colors.bgCard }}
+                />
               ) : null}
             </TouchableOpacity>
 

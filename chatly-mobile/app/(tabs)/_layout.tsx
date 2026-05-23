@@ -3,9 +3,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/theme';
 import { useNotificationStore } from '@/store/notification.store';
 import { CustomAiIcon } from '@/components/ui/CustomAiIcon';
+import { useThemeStore } from '@/store/theme.store';
 
 export default function TabLayout() {
   const chatUnreadCount = useNotificationStore((s) => s.chatUnreadCount);
+  useThemeStore((s) => s.isDarkMode);
 
   return (
     <Tabs
@@ -14,7 +16,7 @@ export default function TabLayout() {
         tabBarActiveTintColor: Colors.cta,
         tabBarInactiveTintColor: Colors.textMuted,
         tabBarStyle: {
-          backgroundColor: Colors.white,
+          backgroundColor: Colors.bgCard,
           borderTopColor: Colors.borderLight,
           borderTopWidth: 0.5,
           paddingBottom: 4,

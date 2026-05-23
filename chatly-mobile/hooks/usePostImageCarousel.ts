@@ -1,9 +1,14 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, PanResponder } from 'react-native';
 import { Image } from 'expo-image';
 import { normalizeMediaUrl } from '@/utils/mediaUrl';
 
 export const FALLBACK_ASPECT_RATIO = 1;
+const DOUBLE_TAP_GAP_MS = 280;
+const SWIPE_VELOCITY_THRESHOLD = 0.5;
+const TAP_VELOCITY_THRESHOLD = 0.2;
+const DOUBLE_TAP_DELAY_MS = 420;
+const HEART_FADE_DURATION_MS = 220;
 
 interface UsePostImageCarouselParams {
   images: string[];
@@ -11,7 +16,11 @@ interface UsePostImageCarouselParams {
   onPressImage?: (index: number) => void;
 }
 
-export function usePostImageCarousel({ images, onDoubleTap, onPressImage }: UsePostImageCarouselParams) {
+export function usePostImageCarousel({
+  images,
+  onDoubleTap,
+  onPressImage,
+}: UsePostImageCarouselParams) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [imageAspectRatios, setImageAspectRatios] = useState<Record<string, number>>({});
   const [failedImages, setFailedImages] = useState<Record<string, boolean>>({});
@@ -23,10 +32,10 @@ export function usePostImageCarousel({ images, onDoubleTap, onPressImage }: UseP
 
   const normalizedImages = useMemo(
     () => images.map((uri) => normalizeMediaUrl(uri)).filter((uri): uri is string => Boolean(uri)),
-    [images],
+    [images]
   );
 
-  const triggerDoubleTap = () => {
+  const triggerDoubleTap = useCallback(() => {
     if (tapTimeoutRef.current) {
       clearTimeout(tapTimeoutRef.current);
       tapTimeoutRef.current = null;
@@ -42,30 +51,31 @@ export function usePostImageCarousel({ images, onDoubleTap, onPressImage }: UseP
         useNativeDriver: true,
       }),
       Animated.sequence([
-        Animated.delay(420),
+        Animated.delay(DOUBLE_TAP_DELAY_MS),
         Animated.timing(heartOpacity, {
           toValue: 0,
-          duration: 220,
+          duration: HEART_FADE_DURATION_MS,
           useNativeDriver: true,
         }),
       ]),
     ]).start();
     onDoubleTap?.();
-  };
+  }, [heartOpacity, heartScale, onDoubleTap]);
 
   const panResponder = useMemo(
     () =>
       PanResponder.create({
         onStartShouldSetPanResponder: () => normalizedImages.length > 1 || Boolean(onDoubleTap),
         onMoveShouldSetPanResponder: (_, gestureState) =>
-          Math.abs(gestureState.dx) > 8 && Math.abs(gestureState.dy) < 12 && normalizedImages.length > 1,
+          Math.abs(gestureState.dx) > 8 &&
+          Math.abs(gestureState.dy) < 12 &&
+          normalizedImages.length > 1,
         onPanResponderRelease: (evt, { vx }) => {
           const idx = currentIndexRef.current;
           const now = Date.now();
-          const tapGapMs = 280;
 
-          if (Math.abs(vx) < 0.2) {
-            if (now - lastTapRef.current <= tapGapMs) {
+          if (Math.abs(vx) < TAP_VELOCITY_THRESHOLD) {
+            if (now - lastTapRef.current <= DOUBLE_TAP_GAP_MS) {
               lastTapRef.current = 0;
               triggerDoubleTap();
               return;
@@ -78,7 +88,7 @@ export function usePostImageCarousel({ images, onDoubleTap, onPressImage }: UseP
             tapTimeoutRef.current = setTimeout(() => {
               tapTimeoutRef.current = null;
               onPressImage?.(idx);
-            }, tapGapMs);
+            }, DOUBLE_TAP_GAP_MS);
             return;
           }
 
@@ -87,14 +97,14 @@ export function usePostImageCarousel({ images, onDoubleTap, onPressImage }: UseP
             tapTimeoutRef.current = null;
           }
 
-          if (vx > 0.5 && idx > 0) {
+          if (vx > SWIPE_VELOCITY_THRESHOLD && idx > 0) {
             setCurrentIndex((value) => Math.max(0, value - 1));
-          } else if (vx < -0.5 && idx < normalizedImages.length - 1) {
+          } else if (vx < -SWIPE_VELOCITY_THRESHOLD && idx < normalizedImages.length - 1) {
             setCurrentIndex((value) => Math.min(normalizedImages.length - 1, value + 1));
           }
         },
       }),
-    [normalizedImages.length, onDoubleTap, onPressImage, heartOpacity, heartScale],
+    [normalizedImages.length, onDoubleTap, onPressImage, triggerDoubleTap]
   );
 
   useEffect(() => {
@@ -117,7 +127,7 @@ export function usePostImageCarousel({ images, onDoubleTap, onPressImage }: UseP
     let isMounted = true;
 
     setImageAspectRatios({});
-    if (normalizedImages.length !== 1) {
+    if (normalizedImages.length === 0) {
       return undefined;
     }
 
@@ -152,10 +162,8 @@ export function usePostImageCarousel({ images, onDoubleTap, onPressImage }: UseP
     };
   }, []);
 
-  const frameAspectRatio =
-    normalizedImages.length === 1
-      ? Math.min(...Object.values(imageAspectRatios), FALLBACK_ASPECT_RATIO)
-      : FALLBACK_ASPECT_RATIO;
+  const baseImageAspectRatio = imageAspectRatios[normalizedImages[0]];
+  const frameAspectRatio = baseImageAspectRatio ?? FALLBACK_ASPECT_RATIO;
 
   const handleImageError = (uri: string) => {
     setFailedImages((prev) => ({ ...prev, [uri]: true }));
