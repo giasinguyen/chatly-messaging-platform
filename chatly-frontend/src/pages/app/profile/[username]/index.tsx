@@ -35,6 +35,7 @@ export default function UsernameProfilePage() {
         showReportUserDialog,
         friends,
         loadingFriends,
+        friendListMessage,
         isSubmittingUserReport,
         isOwnProfile,
         contactStatus,
@@ -209,11 +210,6 @@ export default function UsernameProfilePage() {
                             />
                         ))}
 
-                    {activeTab === "tagged" && (
-                        <div className="py-10 text-center text-muted-foreground">
-                            Tagged posts coming soon.
-                        </div>
-                    )}
                 </div>
             </div>
 
@@ -247,6 +243,7 @@ export default function UsernameProfilePage() {
                 onShowFriendsModalChange={setShowFriendsModal}
                 friendCount={friendCount}
                 loadingFriends={loadingFriends}
+                friendListMessage={friendListMessage}
                 friends={friends}
                 targetUserId={targetUserId}
                 showReportUserDialog={showReportUserDialog}

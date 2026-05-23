@@ -94,7 +94,10 @@ export function PrivacySettings() {
                                 onToggle={() => void handleTogglePrivacy("showOnlineStatus")}
                             />
                         </SettingRow>
-                        <SettingRow label="Show friend list on profile">
+                        <SettingRow
+                            label="Allow others to view my friend list"
+                            description="When off, people who open your profile will see that your friend list is private."
+                        >
                             <SettingSwitch
                                 checked={showFriendList}
                                 onToggle={() => void handleTogglePrivacy("showFriendList")}

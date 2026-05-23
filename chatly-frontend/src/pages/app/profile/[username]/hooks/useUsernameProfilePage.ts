@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import axios from "axios";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import { HOME_FEED_PAGE_SIZE } from "@/constants/feed";
@@ -45,6 +46,7 @@ export function useUsernameProfilePage() {
     const [showFriendsModal, setShowFriendsModal] = useState(false);
     const [friends, setFriends] = useState<ContactResponse[]>([]);
     const [loadingFriends, setLoadingFriends] = useState(false);
+    const [friendListMessage, setFriendListMessage] = useState<string | null>(null);
     const [showReportUserDialog, setShowReportUserDialog] = useState(false);
     const [isSubmittingUserReport, setIsSubmittingUserReport] = useState(false);
 
@@ -315,18 +317,27 @@ export function useUsernameProfilePage() {
         if (!targetUserId) return;
 
         setShowFriendsModal(true);
-        if (friends.length > 0) return;
+        setFriendListMessage(null);
+        setFriends([]);
 
         setLoadingFriends(true);
         try {
             const response = await contactService.getFriendsForUser(targetUserId);
             setFriends(response.result ?? []);
-        } catch {
-            toast.error("Could not load friends list");
+        } catch (error: unknown) {
+            setFriends([]);
+            const message = axios.isAxiosError(error)
+                ? error.response?.data?.message
+                : null;
+            setFriendListMessage(
+                message === "This user has hidden their friend list"
+                    ? "This user does not allow others to view their friend list."
+                    : "Could not load this friend list.",
+            );
         } finally {
             setLoadingFriends(false);
         }
-    }, [targetUserId, friends.length]);
+    }, [targetUserId]);
 
     const handleLoadSaved = useCallback(async () => {
         if (savedPosts.length > 0) return;
@@ -378,6 +389,7 @@ export function useUsernameProfilePage() {
         showReportUserDialog,
         friends,
         loadingFriends,
+        friendListMessage,
         isSubmittingUserReport,
         isOwnProfile,
         contactStatus,

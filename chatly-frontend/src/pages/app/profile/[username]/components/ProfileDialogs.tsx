@@ -34,6 +34,7 @@ interface ProfileDialogsProps {
     onShowFriendsModalChange: (open: boolean) => void;
     friendCount: number;
     loadingFriends: boolean;
+    friendListMessage: string | null;
     friends: ContactResponse[];
     targetUserId: string | null;
     showReportUserDialog: boolean;
@@ -54,6 +55,7 @@ export function ProfileDialogs({
     onShowFriendsModalChange,
     friendCount,
     loadingFriends,
+    friendListMessage,
     friends,
     targetUserId,
     showReportUserDialog,
@@ -145,6 +147,16 @@ export function ProfileDialogs({
                         {loadingFriends ? (
                             <div className="flex justify-center py-6">
                                 <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                            </div>
+                        ) : friendListMessage ? (
+                            <div className="flex flex-col items-center gap-2 py-8 text-center">
+                                <Users className="h-8 w-8 text-muted-foreground" />
+                                <p className="text-sm font-medium text-foreground">
+                                    Friend list is private
+                                </p>
+                                <p className="max-w-xs text-sm text-muted-foreground">
+                                    {friendListMessage}
+                                </p>
                             </div>
                         ) : friends.length === 0 ? (
                             <p className="py-6 text-center text-sm text-muted-foreground">
