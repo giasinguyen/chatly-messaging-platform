@@ -8,7 +8,7 @@ import { DashboardKpiCard } from "@/components/admin/DashboardKpiCard";
 import { SuspendUserDialog } from "@/components/admin/SuspendUserDialog";
 import { adminService } from "@/services/admin.service";
 import type { UserResponse } from "@/types/auth";
-import { Activity, Calendar, ExternalLink, Filter, Loader2, Mail, Phone, Plus, Search, ShieldAlert, ShieldCheck, Users } from "lucide-react";
+import { Activity, Calendar, Crown, ExternalLink, Filter, Loader2, Mail, Phone, Plus, Search, ShieldAlert, ShieldCheck, Users } from "lucide-react";
 import { toast } from "sonner";
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50];
@@ -178,6 +178,29 @@ export default function UsersPage() {
     setTotalElements((current) => current + 1);
   };
 
+  const handleSetRole = async (user: UserResponse, role: "USER" | "ADMIN") => {
+    setUpdatingUserId(user.id);
+    try {
+      const response = await adminService.setUserRole(user.id, role);
+      if (response.code === 1000) {
+        toast.success(`Role updated to ${role}`);
+        setUsers((current) =>
+          current.map((u) => (u.id === user.id ? { ...u, role } : u))
+        );
+        setSelectedUser((current) =>
+          current?.id === user.id ? { ...current, role } : current
+        );
+      } else {
+        toast.error(response.message || "Failed to update role");
+      }
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Failed to update role";
+      toast.error(message);
+    } finally {
+      setUpdatingUserId(null);
+    }
+  };
+
   return (
     <div className="space-y-6 animate-fade-in text-slate-800">
       <div className="grid grid-cols-1 gap-5 md:grid-cols-4">
@@ -269,6 +292,7 @@ export default function UsersPage() {
                   <th className="px-5 py-4 text-xs font-bold uppercase text-slate-400">Contact</th>
                   <th className="px-5 py-4 text-xs font-bold uppercase text-slate-400">Registered</th>
                   <th className="px-5 py-4 text-xs font-bold uppercase text-slate-400">Status</th>
+                  <th className="px-5 py-4 text-xs font-bold uppercase text-slate-400">Role</th>
                   <th className="px-5 py-4 text-right text-xs font-bold uppercase text-slate-400">Action</th>
                 </tr>
               </thead>
@@ -300,6 +324,12 @@ export default function UsersPage() {
                         {user.suspended ? "SUSPENDED" : user.status || "OFFLINE"}
                       </span>
                     </td>
+                    <td className="px-5 py-4">
+                      <span className={`inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-[10px] font-bold ${user.role === "ADMIN" ? "border-amber-200 bg-amber-50 text-amber-700" : "border-slate-200 bg-slate-50 text-slate-500"}`}>
+                        {user.role === "ADMIN" && <Crown size={10} />}
+                        {user.role || "USER"}
+                      </span>
+                    </td>
                     <td className="px-5 py-4 text-right">
                       <div className="flex items-center justify-end gap-1.5">
                         <button
@@ -309,6 +339,20 @@ export default function UsersPage() {
                           title="View profile"
                         >
                           <ExternalLink size={16} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            handleSetRole(user, user.role === "ADMIN" ? "USER" : "ADMIN");
+                          }}
+                          disabled={updatingUserId === user.id}
+                          className="rounded-xl border border-slate-200 p-2 text-slate-400 hover:bg-amber-50 hover:text-amber-600 disabled:opacity-50"
+                          title={user.role === "ADMIN" ? "Demote to User" : "Promote to Admin"}
+                        >
+                          {updatingUserId === user.id
+                            ? <Loader2 size={16} className="animate-spin" />
+                            : <Crown size={16} className={user.role === "ADMIN" ? "text-amber-500" : ""} />}
                         </button>
                         <button
                           type="button"
@@ -333,7 +377,7 @@ export default function UsersPage() {
                   </tr>
                 ))}
                 {users.length === 0 && (
-                  <tr><td colSpan={5} className="px-5 py-12 text-center text-sm text-slate-400">No users found</td></tr>
+                  <tr><td colSpan={6} className="px-5 py-12 text-center text-sm text-slate-400">No users found</td></tr>
                 )}
               </tbody>
             </table>
