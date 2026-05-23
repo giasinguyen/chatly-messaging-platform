@@ -18,6 +18,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.UUID;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
 
 @Service
 @RequiredArgsConstructor
@@ -122,7 +125,12 @@ public class UserService {
             user.setPhone(request.getPhone());
         }
         if (request.getDob() != null) {
-            user.setDob(request.getDob());
+            String dobStr = request.getDob();
+            if (dobStr.contains("T")) {
+                user.setDob(Instant.parse(dobStr));
+            } else {
+                user.setDob(LocalDate.parse(dobStr).atStartOfDay(ZoneOffset.UTC).toInstant());
+            }
         }
         if (request.getBio() != null) {
             user.setBio(request.getBio());

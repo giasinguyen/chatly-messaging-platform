@@ -1,5 +1,6 @@
 import * as z from "zod";
 import {
+    DISPLAY_NAME_ALLOWED_REGEX,
     DISPLAY_NAME_INVALID_MESSAGE,
     USERNAME_ALLOWED_REGEX,
     USERNAME_INVALID_MESSAGE,
@@ -21,8 +22,9 @@ export const registerSchema = z.object({
         ),
     displayName: z
         .string()
-        .min(3, "Display name must be at least 3 characters")
-        .regex(USERNAME_ALLOWED_REGEX, DISPLAY_NAME_INVALID_MESSAGE),
+        .min(1, "Display name cannot be empty")
+        .max(50, "Display name must be at most 50 characters")
+        .regex(DISPLAY_NAME_ALLOWED_REGEX, DISPLAY_NAME_INVALID_MESSAGE),
     username: z
         .string()
         .min(3, "Username must be at least 3 characters")
