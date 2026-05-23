@@ -8,6 +8,7 @@ const DashboardPage = lazy(() => import("@/pages/admin/dashboard"));
 const UsersPage = lazy(() => import("@/pages/admin/users"));
 const PostsPage = lazy(() => import("@/pages/admin/posts"));
 const ReportsPage = lazy(() => import("@/pages/admin/reports"));
+const UserReportsPage = lazy(() => import("@/pages/admin/reports/users"));
 const EngagementPage = lazy(() => import("@/pages/admin/engagement"));
 const CreatorsPage = lazy(() => import("@/pages/admin/creators"));
 const HashtagsPage = lazy(() => import("@/pages/admin/hashtags"));
@@ -34,7 +35,9 @@ export const adminRoutes: RouteObject[] = [
             { path: "dashboard", element: <DashboardPage /> },
             { path: "users", element: <UsersPage /> },
             { path: "posts", element: <PostsPage /> },
-            { path: "reports", element: <ReportsPage /> },
+            { path: "reports", element: <Navigate to="/admin/reports/posts" replace /> },
+            { path: "reports/posts", element: <ReportsPage /> },
+            { path: "reports/users", element: <UserReportsPage /> },
             { path: "engagement", element: <EngagementPage /> },
             { path: "creators", element: <CreatorsPage /> },
             { path: "hashtags", element: <HashtagsPage /> },
