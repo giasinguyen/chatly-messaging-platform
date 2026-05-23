@@ -44,7 +44,7 @@ export function ReelSlide({
 
     return (
         <section className="flex h-full w-full snap-center items-center justify-center bg-black px-4 py-5">
-            <div className="relative h-full max-h-[820px] w-full max-w-[460px] overflow-hidden rounded-lg bg-zinc-950 shadow-2xl">
+            <div className="relative h-full max-h-205 w-full max-w-115 overflow-hidden rounded-lg bg-zinc-950 shadow-2xl">
                 <video
                     ref={videoRef}
                     src={reel.videoUrl}

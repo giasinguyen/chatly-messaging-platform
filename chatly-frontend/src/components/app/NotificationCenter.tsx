@@ -84,7 +84,6 @@ export function NotificationCenter() {
                 body: event.notification.content ?? "You have a new notification",
                 icon: "/favicon.ico",
             });
-            const redirectUrl = getRedirectUrl(event.notification);
             const redirectUrl = resolveNotificationRoute(event.notification);
             browserNotif.onclick = () => {
                 window.focus();
