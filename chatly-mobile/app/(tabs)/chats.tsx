@@ -20,9 +20,7 @@ import { useConversationStore } from '@/store/conversation.store';
 import { useAuthStore } from '@/store/auth.store';
 import { usePresenceSocket } from '@/hooks/usePresenceSocket';
 import { Colors } from '@/constants/theme';
-import { useNotificationStore } from '@/store/notification.store';
-import { useConversationPrefsStore } from '@/store/conversationPrefs.store';
-import { isConvMuted } from '@/store/conversationPrefs.store';
+import { isConvMuted, useConversationPrefsStore } from '@/store/conversationPrefs.store';
 import { useThemeStore } from '@/store/theme.store';
 import type { ConversationResponse } from '@/types/conversation';
 import type { UserResponse } from '@/types/auth';
@@ -55,19 +53,6 @@ export default function ChatsScreen() {
     },
   });
 
-  const loadData = useCallback(async () => {
-    try {
-      await fetchConversations();
-
-      // Collect unique participant IDs to fetch their names (using the updated conversations from store)
-      // Note: We need to access the store's latest state or wait for fetchConversations to finish.
-      // Since fetchConversations is async and updates the store, we might need a small delay or refetch logic.
-      // Better: Fetch users once on mount.
-    } catch (error) {
-      console.error('Failed to load chats data:', error);
-    }
-  }, [fetchConversations]);
-
   const loadParticipants = useCallback(async () => {
     try {
       const usersRes = await userService.getAll();
@@ -95,10 +80,11 @@ export default function ChatsScreen() {
     setRefreshing(false);
   }, [fetchConversations, loadParticipants]);
 
-  const chatUnreadCount = useNotificationStore((s) => s.chatUnreadCount);
   const { prefs, hydrate } = useConversationPrefsStore();
 
-  useEffect(() => { hydrate(); }, []);
+  useEffect(() => {
+    hydrate();
+  }, [hydrate]);
 
   // Filter conversations by search query, then sort pinned first
   const filtered = (() => {
@@ -107,7 +93,7 @@ export default function ChatsScreen() {
           const q = searchQuery.toLowerCase();
           if (c.name?.toLowerCase().includes(q)) return true;
           return c.participantIds.some((id) =>
-            participantMap[id]?.displayName?.toLowerCase().includes(q),
+            participantMap[id]?.displayName?.toLowerCase().includes(q)
           );
         })
       : conversations;
@@ -129,14 +115,14 @@ export default function ChatsScreen() {
     router.push({ pathname: '/chat/[id]', params: { id: conversation.id, returnTo: 'chats' } });
   };
 
-  const handleDeleteConversation = useCallback((conversation: ConversationResponse) => {
-    const name = conversation.type === 'PRIVATE'
-      ? (participantMap[conversation.participantIds.find((id) => id !== user?.id) ?? '']?.displayName ?? 'this conversation')
-      : (conversation.name ?? 'this group');
-    Alert.alert(
-      'Delete Conversation',
-      `Are you sure you want to delete "${name}"?`,
-      [
+  const handleDeleteConversation = useCallback(
+    (conversation: ConversationResponse) => {
+      const name =
+        conversation.type === 'PRIVATE'
+          ? (participantMap[conversation.participantIds.find((id) => id !== user?.id) ?? '']
+              ?.displayName ?? 'this conversation')
+          : (conversation.name ?? 'this group');
+      Alert.alert('Delete Conversation', `Are you sure you want to delete "${name}"?`, [
         { text: 'Cancel', style: 'cancel' },
         {
           text: 'Delete',
@@ -151,9 +137,10 @@ export default function ChatsScreen() {
             }
           },
         },
-      ],
-    );
-  }, [participantMap, removeConversation, user?.id]);
+      ]);
+    },
+    [participantMap, removeConversation, user?.id]
+  );
 
   return (
     <View className="flex-1" style={{ backgroundColor: Colors.bg }}>
@@ -164,26 +151,13 @@ export default function ChatsScreen() {
           backgroundColor: Colors.bgCard,
           borderBottomWidth: 0.5,
           borderBottomColor: Colors.borderLight,
-        }}
-      >
+        }}>
         <View className="flex-row items-center justify-between px-4 py-3">
           <Text className="text-2xl font-bold" style={{ color: Colors.text }}>
             Messages
           </Text>
           <View className="flex-row items-center">
-            <TouchableOpacity 
-              onPress={() => router.push({ pathname: '/notifications', params: { scope: 'chat' } })}
-              className="mr-2 p-2 relative"
-            >
-              <Ionicons name="notifications-outline" size={24} color={Colors.text} />
-              {chatUnreadCount > 0 && (
-                <View 
-                  className="absolute top-1.5 right-1.5 w-2.5 h-2.5 rounded-full border-2 border-white"
-                  style={{ backgroundColor: Colors.error }}
-                />
-              )}
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => setIsModalVisible(true)} className="p-2 mr-1">
+            <TouchableOpacity onPress={() => setIsModalVisible(true)} className="mr-1 p-2">
               <Ionicons name="add-circle-outline" size={26} color={Colors.cta} />
             </TouchableOpacity>
             <TouchableOpacity onPress={() => fetchConversations()} className="p-2">
@@ -199,8 +173,7 @@ export default function ChatsScreen() {
             style={{
               backgroundColor: Colors.bg,
               height: 38,
-            }}
-          >
+            }}>
             <Ionicons name="search-outline" size={18} color={Colors.textMuted} />
             <TextInput
               className="ml-2 flex-1 text-sm"
@@ -257,9 +230,7 @@ export default function ChatsScreen() {
                 {searchQuery ? 'No conversations found' : 'No messages yet'}
               </Text>
               <Text className="mt-1 text-sm" style={{ color: Colors.textLight }}>
-                {searchQuery
-                  ? 'Try another keyword'
-                  : 'Start a new conversation!'}
+                {searchQuery ? 'Try another keyword' : 'Start a new conversation!'}
               </Text>
             </View>
           }
@@ -268,10 +239,7 @@ export default function ChatsScreen() {
         />
       )}
 
-      <CreateConversationModal
-        visible={isModalVisible}
-        onClose={() => setIsModalVisible(false)}
-      />
+      <CreateConversationModal visible={isModalVisible} onClose={() => setIsModalVisible(false)} />
     </View>
   );
 }

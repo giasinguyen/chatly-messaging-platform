@@ -42,10 +42,13 @@ class SocketService {
       };
 
       client.onStompError = (frame) => {
+        console.error('[SocketService] STOMP Error:', frame.headers['message']);
         reject(new Error(frame.headers['message']));
       };
 
-      client.onWebSocketClose = () => undefined;
+      client.onWebSocketClose = (evt) => {
+        console.warn('[SocketService] WebSocket Closed:', evt);
+      };
 
       client.activate();
       this.client = client;

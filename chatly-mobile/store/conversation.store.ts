@@ -64,21 +64,16 @@ export const useConversationStore = create<ConversationState>((set, get) => ({
   handleIncomingMessage: (notification) => {
     const state = get();
     const convId = notification.referenceId;
-    console.log('--- STORE: handleIncomingMessage ---');
-    console.log('Target Conv ID:', convId);
-    console.log('Current Active Chat ID:', state.activeConversationId);
-    
+
     if (!convId) return;
 
     const existingConv = state.conversations.find((c) => c.id === convId);
-    
+
     if (!existingConv) {
-      console.log('Conversation not found in local state, triggering FULL REFRESH...');
       state.fetchConversations();
       return;
     }
 
-    console.log('Existing conversation found, updating locally');
     const lastMsg: LastMessage = {
       senderId: notification.senderId || '',
       content: notification.content || '',
@@ -95,10 +90,7 @@ export const useConversationStore = create<ConversationState>((set, get) => ({
     };
 
     set({
-      conversations: [
-        updatedConv,
-        ...state.conversations.filter((c) => c.id !== convId),
-      ],
+      conversations: [updatedConv, ...state.conversations.filter((c) => c.id !== convId)],
     });
   },
 
@@ -109,7 +101,6 @@ export const useConversationStore = create<ConversationState>((set, get) => ({
 
   setActiveConversation: (id) =>
     set((state) => {
-      console.log('--- STORE: setActiveConversation ---', id);
       if (id) {
         return {
           activeConversationId: id,

@@ -7,6 +7,7 @@ import {
     Home,
     Compass,
     Clapperboard,
+    LayoutDashboard,
 } from "lucide-react";
 import { CustomAiIcon } from "@/components/customize/CustomAiIcon";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -217,6 +218,38 @@ export function Sidebar({ user }: SidebarProps) {
             </div>
 
             <div className="flex flex-col items-center gap-2 w-full">
+                {/* Admin Dashboard button — visible only to ADMIN users */}
+                {user?.role === "ADMIN" && (
+                    <NavLink
+                        to="/admin/dashboard"
+                        title="Admin Dashboard"
+                        className={({ isActive }) =>
+                            cn(
+                                "w-full flex justify-center py-3 relative transition-colors",
+                                isActive
+                                    ? "bg-black/20"
+                                    : "hover:bg-black/10 text-white/70",
+                            )
+                        }
+                    >
+                        {({ isActive }) => (
+                            <>
+                                {isActive && (
+                                    <div className="absolute left-0 top-0 bottom-0 w-1 bg-amber-400 rounded-r-full" />
+                                )}
+                                <LayoutDashboard
+                                    className={cn(
+                                        "h-6 w-6 transition-colors",
+                                        isActive
+                                            ? "text-amber-300"
+                                            : "text-white/70",
+                                    )}
+                                />
+                            </>
+                        )}
+                    </NavLink>
+                )}
+
                 <NavLink
                     to="/settings"
                     className={({ isActive }) =>

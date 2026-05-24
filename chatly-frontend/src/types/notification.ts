@@ -5,6 +5,7 @@ export type NotificationType =
     | "FRIEND_REQUEST"
     | "FRIEND_ACCEPTED"
     | "GROUP_INVITE"
+    | "GROUP_LEAVE"
     | "GROUP_JOIN_REQUEST"
     | "MEMBER_JOINED"
     | "CALL_MISSED"
@@ -18,8 +19,6 @@ export type NotificationType =
     | "STORY_REPLIED"
     | "SYSTEM";
 
-export type NotificationTargetType = "NONE" | "CHAT" | "POST" | "USER";
-
 export type NotificationScope = "ALL" | "CHAT" | "SOCIAL";
 
 export interface Notification {
@@ -30,7 +29,6 @@ export interface Notification {
     senderAvatar?: string | null;
     receiverId: string;
     referenceId: string | null;
-    targetType?: NotificationTargetType | null;
     content: string | null;
     read: boolean;
     createdAt: string;
@@ -40,3 +38,4 @@ export interface NotificationEvent {
     notification: Notification;
     unreadCount: number;
 }
+

@@ -67,6 +67,10 @@ public class PresenceEventListener {
             session.getParticipants().remove(userId);
 
             boolean callEnded = session.getParticipants().size() <= 1;
+            java.util.Map<String, Object> leavePayload = new java.util.HashMap<>();
+            leavePayload.put("callEnded", callEnded);
+            leavePayload.put("activeParticipantCount", session.getParticipants().size());
+
             if (callEnded) {
                 LocalDateTime now = LocalDateTime.now();
                 session.setEndedAt(now);
@@ -101,17 +105,18 @@ public class PresenceEventListener {
                                                         .type(com.chatly.model.enums.SignalType.GROUP_LEAVE)
                                                         .callId(session.getCallId())
                                                         .senderId(leavingUserId)
+                                                        .payload(leavePayload)
                                                         .build();
                                         messagingTemplate.convertAndSendToUser(id, "/queue/calls", leaveSignal);
                                     }));
                 } else {
-                    final long dur = durationSeconds;
                     session.getParticipants().forEach(remainingId -> {
                         com.chatly.dto.request.CallSignalMessage leaveSignal =
                                 com.chatly.dto.request.CallSignalMessage.builder()
                                         .type(com.chatly.model.enums.SignalType.GROUP_LEAVE)
                                         .callId(session.getCallId())
                                         .senderId(userId)
+                                        .payload(leavePayload)
                                         .build();
                         messagingTemplate.convertAndSendToUser(remainingId, "/queue/calls", leaveSignal);
                     });
@@ -139,6 +144,7 @@ public class PresenceEventListener {
                                 .type(com.chatly.model.enums.SignalType.GROUP_LEAVE)
                                 .callId(session.getCallId())
                                 .senderId(userId)
+                                .payload(leavePayload)
                                 .build();
                 session.getParticipants().forEach(remainingId ->
                         messagingTemplate.convertAndSendToUser(remainingId, "/queue/calls", leaveSignal));

@@ -213,7 +213,7 @@ export function GroupManagementPanel({
             (frame) => {
                 try {
                     const event = JSON.parse(frame.body);
-                    if (event.action === "ROLE_UPDATED") {
+                    if (event.action === "ROLE_UPDATED" || event.action === "GROUP_UPDATE") {
                         fetchMembers();
                     }
                 } catch { /* ignore */ }

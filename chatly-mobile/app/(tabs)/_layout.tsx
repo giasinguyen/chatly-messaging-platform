@@ -1,12 +1,10 @@
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/theme';
-import { useNotificationStore } from '@/store/notification.store';
 import { CustomAiIcon } from '@/components/ui/CustomAiIcon';
 import { useThemeStore } from '@/store/theme.store';
 
 export default function TabLayout() {
-  const chatUnreadCount = useNotificationStore((s) => s.chatUnreadCount);
   useThemeStore((s) => s.isDarkMode);
 
   return (
@@ -26,8 +24,7 @@ export default function TabLayout() {
           fontSize: 11,
           fontWeight: '500',
         },
-      }}
-    >
+      }}>
       <Tabs.Screen
         name="home"
         options={{
@@ -44,10 +41,6 @@ export default function TabLayout() {
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="chatbubbles-outline" size={size} color={color} />
           ),
-          tabBarBadge: chatUnreadCount > 0 ? chatUnreadCount : undefined,
-          tabBarBadgeStyle: {
-            backgroundColor: Colors.error,
-          },
         }}
       />
       <Tabs.Screen
@@ -63,9 +56,7 @@ export default function TabLayout() {
         name="assistant"
         options={{
           title: 'Assistant',
-          tabBarIcon: ({ color, size }) => (
-            <CustomAiIcon size={size} color={color} />
-          ),
+          tabBarIcon: ({ color, size }) => <CustomAiIcon size={size} color={color} />,
         }}
       />
       <Tabs.Screen

@@ -22,6 +22,7 @@ import com.chatly.exception.ErrorCode;
 import com.chatly.mapper.UserMapper;
 import com.chatly.model.enums.ClientPlatform;
 import com.chatly.model.enums.QrLoginStatus;
+import com.chatly.model.enums.Role;
 import com.chatly.model.postgres.EmailVerificationOtp;
 import com.chatly.model.postgres.User;
 import com.chatly.model.postgres.QrLoginToken;
@@ -394,7 +395,7 @@ public class AuthService {
     private AuthResponse buildTokenResponse(User user, UUID sessionId) {
         String uid = user.getId().toString();
         String sid = sessionId.toString();
-        String role = user.getRole().name();
+        String role = user.getRole() != null ? user.getRole().name() : Role.USER.name();
         String token = jwtProvider.generateAccessToken(uid, sid, role);
         String refreshToken = jwtProvider.generateRefreshToken(uid, sid, role);
         UserResponse userResponse = userMapper.toResponse(user);
