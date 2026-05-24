@@ -49,6 +49,7 @@ public class WebSecurityConfig {
             "/api/auth/verify-email",
             "/api/auth/qr/generate",
             "/api/auth/qr/status/**",
+            "/ws",
             "/ws/**",
             "/ws-raw",
             "/ws-raw/**",

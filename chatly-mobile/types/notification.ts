@@ -2,6 +2,7 @@ export type NotificationType =
   | 'NEW_MESSAGE'
   | 'FRIEND_REQUEST'
   | 'GROUP_INVITE'
+  | 'GROUP_LEAVE'
   | 'GROUP_JOIN_REQUEST'
   | 'MEMBER_JOINED'
   | 'MENTION'

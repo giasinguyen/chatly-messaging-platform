@@ -35,6 +35,7 @@ export function useCallSocket(groupSignalRef?: GroupSignalRef) {
 
       const receiverId = activeCall.participants.find((id) => id !== user.id);
       if (receiverId) {
+        console.log(`[CallSocket] Sending ICE candidate to ${receiverId}`);
         socketService.publish('/app/call.ice-candidate', {
           type: 'ICE_CANDIDATE',
           callId: activeCall.callId,
@@ -45,6 +46,7 @@ export function useCallSocket(groupSignalRef?: GroupSignalRef) {
       }
     },
     onConnectionStateChange: (state) => {
+      console.log(`[CallSocket] WebRTC connection state: ${state}`);
       // Only treat 'failed' as a hard error — 'disconnected' can be transient during renegotiation
       if (state === 'failed') {
         console.warn('WebRTC connection failed');
@@ -168,6 +170,7 @@ export function useCallSocket(groupSignalRef?: GroupSignalRef) {
         case 'ICE_CANDIDATE': {
           const payload = signal.payload as { candidate: RTCIceCandidateInit };
           if (payload.candidate) {
+            console.log(`[CallSocket] Received ICE candidate from ${signal.senderId}`);
             webrtcRef.current.addIceCandidate(payload.candidate);
           }
           break;

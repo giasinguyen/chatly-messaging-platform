@@ -124,6 +124,8 @@ public class GroupService {
             // Don't fail if system message fails
         }
 
+        broadcastGroupUpdate(conversation.getId(), conversationMapper.toResponse(conversation));
+
         return toMemberResponse(member);
     }
 
@@ -182,6 +184,16 @@ public class GroupService {
         } catch (Exception e) {
             // Don't fail if system message fails
         }
+
+        notificationService.createAndPush(
+                NotificationType.GROUP_LEAVE,
+                isSelfLeave ? null : requesterId,
+                targetUserId,
+                isSelfLeave ? "You left the group" : "You were removed from the group",
+                conversationId
+        );
+
+        broadcastGroupUpdate(conversation.getId(), conversationMapper.toResponse(conversation));
     }
 
     /**

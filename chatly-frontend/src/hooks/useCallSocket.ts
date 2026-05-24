@@ -128,6 +128,7 @@ export function useCallSocket(groupSignalRef?: React.MutableRefObject<((signal: 
             const client = socketService.getClient();
             if (!client?.connected) return;
 
+            console.log(`[CallSocket] Sending ICE candidate to ${receiverId}`);
             client.publish({
                 destination: "/app/call.ice-candidate",
                 body: JSON.stringify({
@@ -205,6 +206,7 @@ export function useCallSocket(groupSignalRef?: React.MutableRefObject<((signal: 
                 case "ICE_CANDIDATE": {
                     const payload = signal.payload as { candidate: RTCIceCandidateInit };
                     if (payload.candidate) {
+                        console.log(`[CallSocket] Received ICE candidate from ${signal.senderId}`);
                         webrtcRef.current.addIceCandidate(payload.candidate);
                     }
                     break;

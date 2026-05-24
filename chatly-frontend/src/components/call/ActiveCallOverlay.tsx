@@ -205,9 +205,12 @@ export function ActiveCallOverlay({
     if (callStatus !== "ONGOING" || !activeCall) return null;
 
     const hasLocalVideoTrack = Boolean(
-        localStream?.getVideoTracks().some((track) => track.readyState === "live"),
+        localStream?.getVideoTracks().some((track) => track.enabled && track.readyState !== "ended"),
     );
-    const isVideoCall = activeCall.type === "VIDEO" || hasLocalVideoTrack;
+    const hasRemoteVideoTrack = Boolean(
+        remoteStream?.getVideoTracks().some((track) => track.enabled && track.readyState !== "ended"),
+    );
+    const isVideoCall = activeCall.type === "VIDEO" || hasLocalVideoTrack || hasRemoteVideoTrack;
 
     // Hidden audio element — plays remote stream for both voice and video calls
     const remoteAudioEl = (

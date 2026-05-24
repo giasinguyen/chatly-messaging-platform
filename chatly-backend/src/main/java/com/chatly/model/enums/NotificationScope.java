@@ -9,6 +9,7 @@ public enum NotificationScope {
             NotificationType.NEW_MESSAGE,
             NotificationType.MENTION,
             NotificationType.GROUP_INVITE,
+            NotificationType.GROUP_LEAVE,
             NotificationType.GROUP_JOIN_REQUEST,
             NotificationType.MEMBER_JOINED,
             NotificationType.CALL_MISSED
