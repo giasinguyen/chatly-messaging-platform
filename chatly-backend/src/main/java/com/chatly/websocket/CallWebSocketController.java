@@ -6,8 +6,10 @@ import com.chatly.model.enums.CallType;
 import com.chatly.model.enums.SignalType;
 import com.chatly.model.mongo.CallSession;
 import com.chatly.model.mongo.Conversation;
+import com.chatly.model.postgres.User;
 import com.chatly.repository.mongo.CallSessionRepository;
 import com.chatly.repository.mongo.ConversationRepository;
+import com.chatly.repository.postgres.UserRepository;
 import com.chatly.service.MessageService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -20,8 +22,10 @@ import org.springframework.stereotype.Controller;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 @Controller
 @RequiredArgsConstructor
@@ -30,6 +34,7 @@ public class CallWebSocketController {
 
     private final CallSessionRepository callSessionRepository;
     private final ConversationRepository conversationRepository;
+    private final UserRepository userRepository;
     private final SimpMessagingTemplate messagingTemplate;
     private final MessageService messageService;
 
@@ -293,6 +298,8 @@ public class CallWebSocketController {
                 messagingTemplate.convertAndSendToUser(senderId, "/queue/calls", expiredSignal);
                 return;
             }
+            List<String> existingParticipants = new ArrayList<>(session.getParticipants());
+
             // Add joiner to active participants list.
             if (!session.getParticipants().contains(senderId)) {
                 session.getParticipants().add(senderId);
@@ -305,6 +312,19 @@ public class CallWebSocketController {
 
             log.info("Participant {} joined group call {}. Active: {}",
                     senderId, signal.getCallId(), session.getParticipants().size());
+
+            existingParticipants.stream()
+                    .filter(id -> !id.equals(senderId))
+                    .forEach(id -> messagingTemplate.convertAndSendToUser(
+                            senderId,
+                            "/queue/calls",
+                            CallSignalMessage.builder()
+                                    .type(SignalType.GROUP_JOIN)
+                                    .callId(signal.getCallId())
+                                    .senderId(id)
+                                    .payload(buildParticipantPayload(id))
+                                    .build()
+                    ));
 
             // Notify other ACTIVE participants to create offers for the new joiner.
             session.getParticipants().stream()
@@ -403,5 +423,20 @@ public class CallWebSocketController {
             // Point-to-point relay: GROUP_OFFER, GROUP_ANSWER, ICE candidates
             messagingTemplate.convertAndSendToUser(signal.getReceiverId(), "/queue/calls", signal);
         }
+    }
+
+    private Map<String, Object> buildParticipantPayload(String userId) {
+        Map<String, Object> payload = new HashMap<>();
+        userRepository.findById(UUID.fromString(userId))
+                .ifPresentOrElse(
+                        user -> putParticipantPayload(payload, user),
+                        () -> payload.put("displayName", userId)
+                );
+        return payload;
+    }
+
+    private void putParticipantPayload(Map<String, Object> payload, User user) {
+        payload.put("displayName", user.getDisplayName());
+        payload.put("avatarUrl", user.getAvatarUrl());
     }
 }

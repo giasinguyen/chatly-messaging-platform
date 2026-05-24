@@ -136,13 +136,6 @@ export function useGroupCallSocket() {
           }
 
           removeGroupParticipant(leavingId);
-
-          const remaining = Object.keys(useCallStore.getState().groupParticipantInfo);
-          if (remaining.length === 0) {
-            stopRingtone();
-            groupAgoraCallRef.current.leaveCall();
-            endCallStore();
-          }
           break;
         }
 
@@ -178,6 +171,10 @@ export function useGroupCallSocket() {
       if (!user) return;
 
       try {
+        if (!socketService.isConnected()) {
+          throw new Error('Signaling is disconnected. Please retry.');
+        }
+
         setRemoteParticipant({ name: groupName, avatar: null });
         const callId = generateCallId();
         const { hasLocalVideoTrack } = await groupAgoraCallRef.current.joinCall({
@@ -201,7 +198,7 @@ export function useGroupCallSocket() {
         startGroupCall(session);
         setCallStatus('RINGING');
 
-        socketService.publish('/app/call.group.initiate', {
+        const isPublished = socketService.publish('/app/call.group.initiate', {
           type: 'GROUP_INITIATE',
           callId,
           senderId: user.id,
@@ -217,6 +214,10 @@ export function useGroupCallSocket() {
             inviteeIds: inviteeIds ?? [],
           },
         });
+
+        if (!isPublished) {
+          throw new Error('Signaling is disconnected. Please retry.');
+        }
       } catch (error) {
         console.error('Failed to initiate group call:', error);
         groupAgoraCallRef.current.leaveCall();
@@ -259,6 +260,10 @@ export function useGroupCallSocket() {
       }
 
       try {
+        if (!socketService.isConnected()) {
+          throw new Error('Signaling is disconnected. Please retry.');
+        }
+
         stopRingtone();
         const { hasLocalVideoTrack } = await groupAgoraCallRef.current.joinCall({
           conversationId: incoming.conversationId,
@@ -291,7 +296,7 @@ export function useGroupCallSocket() {
           avatar: incoming.initiatorAvatar,
         });
 
-        socketService.publish('/app/call.group.join', {
+        const isPublished = socketService.publish('/app/call.group.join', {
           type: 'GROUP_JOIN',
           callId: incoming.callId,
           senderId: user.id,
@@ -300,6 +305,10 @@ export function useGroupCallSocket() {
             avatarUrl: user.avatarUrl ?? null,
           },
         });
+
+        if (!isPublished) {
+          throw new Error('Signaling is disconnected. Please retry.');
+        }
       } catch (error) {
         console.error('Failed to join group call:', error);
         groupAgoraCallRef.current.leaveCall();

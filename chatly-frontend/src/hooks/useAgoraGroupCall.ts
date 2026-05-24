@@ -231,12 +231,14 @@ export function useAgoraGroupCall() {
         const localVideoTrack = localVideoTrackRef.current;
 
         if (localAudioTrack) {
+            void localAudioTrack.setEnabled(false).catch(() => undefined);
             localAudioTrack.stop();
             localAudioTrack.close();
             localAudioTrackRef.current = null;
         }
 
         if (localVideoTrack) {
+            void localVideoTrack.setEnabled(false).catch(() => undefined);
             localVideoTrack.stop();
             localVideoTrack.close();
             localVideoTrackRef.current = null;
