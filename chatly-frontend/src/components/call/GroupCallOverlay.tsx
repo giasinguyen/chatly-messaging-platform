@@ -132,8 +132,6 @@ export function GroupCallOverlay({
     const [isSpeakerOn, setIsSpeakerOn] = useState(true);
     const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-    // Remote audio elements for all peers
-    const audioRefs = useRef<Map<string, HTMLAudioElement>>(new Map());
 
     // Call duration timer
     useEffect(() => {
@@ -148,47 +146,6 @@ export function GroupCallOverlay({
         };
     }, [callStatus, isGroupCall, incrementDuration]);
 
-    // Attach audio streams for remote peers
-    useEffect(() => {
-        Object.entries(groupRemoteStreams).forEach(([peerId, stream]) => {
-            if (stream.getAudioTracks().length === 0) return;
-
-            let audio = audioRefs.current.get(peerId);
-            if (!audio) {
-                audio = document.createElement("audio");
-                audio.autoplay = true;
-                audio.setAttribute("playsinline", "true");
-                audio.style.display = "none";
-                document.body.appendChild(audio);
-                audioRefs.current.set(peerId, audio);
-            }
-            if (audio.srcObject !== stream) {
-                audio.srcObject = stream;
-                audio.play().catch(() => {});
-            }
-        });
-
-        // Remove audio elements for peers that left
-        audioRefs.current.forEach((audio, peerId) => {
-            if (!groupRemoteStreams[peerId]) {
-                audio.srcObject = null;
-                audio.remove();
-                audioRefs.current.delete(peerId);
-            }
-        });
-    }, [groupRemoteStreams]);
-
-    // Cleanup audio elements on unmount
-    useEffect(() => {
-        const currentAudioRefs = audioRefs.current;
-        return () => {
-            currentAudioRefs.forEach((audio) => {
-                audio.srcObject = null;
-                audio.remove();
-            });
-            currentAudioRefs.clear();
-        };
-    }, []);
 
     if (
         (callStatus !== "ONGOING" && callStatus !== "RINGING") ||
@@ -202,8 +159,8 @@ export function GroupCallOverlay({
         ([peerId, info]) => ({
             peerId,
             stream:
-                groupRemoteStreams[peerId] ??
                 groupRemoteStreams[buildAgoraUidKey(peerId)] ??
+                groupRemoteStreams[peerId] ??
                 null,
             name: info.name,
             avatar: info.avatar,
@@ -213,8 +170,14 @@ export function GroupCallOverlay({
         knownStreamKeys.add(peerId);
         knownStreamKeys.add(buildAgoraUidKey(peerId));
     });
+    // Only show unknown peers that have a live video track (audio-only peers are
+    // rendered by Agora internally and don't need a separate tile).
     const unknownRemotePeers = Object.entries(groupRemoteStreams)
-        .filter(([streamKey]) => !knownStreamKeys.has(streamKey))
+        .filter(
+            ([streamKey, stream]) =>
+                !knownStreamKeys.has(streamKey) &&
+                stream.getVideoTracks().some((t) => t.readyState === "live"),
+        )
         .map(([streamKey, stream], index) => ({
             peerId: `agora-${streamKey}`,
             stream,
@@ -263,9 +226,6 @@ export function GroupCallOverlay({
         setIsSpeakerOn((prev) => {
             const next = !prev;
             onToggleSpeaker?.(next);
-            audioRefs.current.forEach((audio) => {
-                audio.muted = !next;
-            });
             return next;
         });
     };

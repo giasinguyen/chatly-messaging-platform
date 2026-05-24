@@ -47,9 +47,13 @@ export function useAgoraGroupCall() {
 
     const syncRemoteStream = useCallback((uid: string): void => {
         const trackSet = remoteTracksRef.current.get(uid);
-        const tracks = [trackSet?.video?.getMediaStreamTrack()].filter(
-            (track): track is MediaStreamTrack => Boolean(track),
-        );
+        const tracks: MediaStreamTrack[] = [];
+
+        const videoTrack = trackSet?.video?.getMediaStreamTrack();
+        if (videoTrack) tracks.push(videoTrack);
+
+        const audioTrack = trackSet?.audio?.getMediaStreamTrack();
+        if (audioTrack) tracks.push(audioTrack);
 
         setRemoteStreams((current) => {
             const next = { ...current };
@@ -248,6 +252,7 @@ export function useAgoraGroupCall() {
 
         if (client) {
             void client.leave().catch(() => undefined);
+            clientRef.current = null;
         }
     }, []);
 

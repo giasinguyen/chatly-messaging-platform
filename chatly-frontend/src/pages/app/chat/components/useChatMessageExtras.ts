@@ -176,12 +176,17 @@ export function useChatMessageExtras({
                 }
                 initiatorId = ringingMsg.senderId;
             }
+
+            const initiatorInfo = participantDirectory[initiatorId];
+            const initiatorName = initiatorInfo?.displayName ?? "Group member";
+            const initiatorAvatar = initiatorInfo?.avatarUrl ?? null;
+
             useCallStore.getState().setIncomingGroupCall({
                 callId,
                 conversationId: id,
                 initiatorId,
-                initiatorName: "Unknown",
-                initiatorAvatar: null,
+                initiatorName,
+                initiatorAvatar,
                 groupName: conversation.name ?? "Group",
                 groupAvatarUrl: conversation.avatarUrl ?? null,
                 type: callType,
@@ -191,7 +196,7 @@ export function useChatMessageExtras({
             useCallStore.getState().setCallStatus("RINGING");
             joinGroupCall(true);
         },
-        [messages, id, conversation, joinGroupCall],
+        [messages, id, conversation, participantDirectory, joinGroupCall],
     );
 
     const handleOpenSenderProfile = useCallback(
