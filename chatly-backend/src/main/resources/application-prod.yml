@@ -59,7 +59,7 @@ app:
     verification:
       expiration-minutes: ${APP_AUTH_VERIFICATION_EXPIRATION_MINUTES:15}
       resend-cooldown-seconds: ${APP_AUTH_VERIFICATION_RESEND_COOLDOWN_SECONDS:60}
-    verification-link-base-url: ${APP_AUTH_VERIFICATION_LINK_BASE_URL:https://api.chatly.app/api/auth/verify-email}
+    verification-link-base-url: ${APP_AUTH_VERIFICATION_LINK_BASE_URL:https://api.chatly.io.vn/api/auth/verify-email}
   mail:
     from: ${APP_MAIL_FROM:${SPRING_MAIL_USERNAME}}
   mcp:

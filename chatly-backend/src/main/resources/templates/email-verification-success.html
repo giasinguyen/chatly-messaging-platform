@@ -3,13 +3,93 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Email verified</title>
+    <title>Email Verified — Chatly</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+        }
+        .card {
+            background: #ffffff;
+            border-radius: 20px;
+            padding: 48px 40px;
+            max-width: 480px;
+            width: 100%;
+            text-align: center;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+        }
+        .icon-wrap {
+            width: 80px;
+            height: 80px;
+            background: linear-gradient(135deg, #22c55e, #16a34a);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 28px;
+        }
+        .icon-wrap svg { width: 40px; height: 40px; }
+        .logo {
+            font-size: 22px;
+            font-weight: 700;
+            color: #6366f1;
+            letter-spacing: -0.5px;
+            margin-bottom: 24px;
+        }
+        h1 {
+            font-size: 24px;
+            font-weight: 700;
+            color: #111827;
+            margin-bottom: 12px;
+        }
+        .desc {
+            font-size: 15px;
+            color: #6b7280;
+            line-height: 1.6;
+            margin-bottom: 32px;
+        }
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: #f0fdf4;
+            color: #16a34a;
+            border: 1px solid #bbf7d0;
+            border-radius: 100px;
+            padding: 6px 16px;
+            font-size: 13px;
+            font-weight: 600;
+            margin-bottom: 32px;
+        }
+        .close-note {
+            font-size: 13px;
+            color: #9ca3af;
+        }
+    </style>
 </head>
-<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #111827; background: #f3f4f6;">
-<div style="max-width: 560px; margin: 48px auto; padding: 24px; background: #ffffff; border-radius: 10px;">
-    <h2 style="color: #16a34a; margin-bottom: 12px;">Email verified successfully</h2>
-    <p style="margin: 0 0 16px;">Your account is now verified. You can return to Chatly and log in.</p>
-    <p style="font-size: 14px; color: #6b7280;">You can close this tab now.</p>
-</div>
+<body>
+    <div class="card">
+        <div class="logo">Chatly</div>
+        <div class="icon-wrap">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"/>
+            </svg>
+        </div>
+        <h1>Email Verified!</h1>
+        <p class="desc">Your account is now fully activated.<br>You can return to Chatly and start chatting.</p>
+        <div class="badge">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+            </svg>
+            Account activated
+        </div>
+        <p class="close-note">You can safely close this tab now.</p>
+    </div>
 </body>
 </html>
