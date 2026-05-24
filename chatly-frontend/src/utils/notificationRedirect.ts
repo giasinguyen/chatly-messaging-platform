@@ -29,17 +29,6 @@ export function resolveNotificationRoute(notification: Notification): string {
         return "/";
     }
 
-    switch (notification.targetType) {
-        case "POST":
-            return `/post/${extractPostId(referenceId)}`;
-        case "CHAT":
-            return `/chat/${referenceId}`;
-        case "USER":
-            return `/u/${referenceId}`;
-        default:
-            break;
-    }
-
     if (
         notification.type === "POST_LIKED"
         || notification.type === "POST_COMMENTED"
