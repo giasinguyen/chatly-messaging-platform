@@ -1,31 +1,23 @@
-import { Alert, View, Text, TouchableOpacity } from 'react-native';
+import {
+  Alert,
+  StyleSheet,
+  View,
+  Text,
+  TouchableOpacity,
+} from 'react-native';
 import { useEffect, useRef, useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { setAudioModeAsync } from 'expo-audio';
-
-let RTCView: any;
-try {
-  RTCView = require('react-native-webrtc').RTCView;
-} catch (e) {
-  RTCView = View; // fallback for Expo Go
-}
-
 import { Avatar } from '@/components/ui/Avatar';
 import { Colors } from '@/constants/theme';
 import { useCallStore } from '@/store/call.store';
 import { useCallContext } from '@/contexts/CallContext';
+import { AgoraVideoView } from '@/components/call/AgoraVideoView';
 
 function formatDuration(seconds: number): string {
   const mins = Math.floor(seconds / 60);
   const secs = seconds % 60;
   return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-}
-
-function getStreamUrl(stream: MediaStream): string {
-  if ('toURL' in stream && typeof (stream as { toURL?: unknown }).toURL === 'function') {
-    return (stream as MediaStream & { toURL: () => string }).toURL();
-  }
-  return '';
 }
 
 export function ActiveCallOverlay() {
@@ -41,13 +33,22 @@ export function ActiveCallOverlay() {
     incrementDuration,
   } = useCallStore();
 
-  const { endCall, localStream, remoteStream, remoteStreamKey, toggleCamera, upgradeToVideo } = useCallContext();
+  const {
+    endCall,
+    agoraLocalUid,
+    agoraRemoteUid,
+    agoraHasLocalVideo,
+    agoraHasRemoteVideo,
+    agoraRemoteVideoKey,
+    toggleMute,
+    toggleCamera,
+    upgradeToVideo,
+  } = useCallContext();
   const [isExpanded, setIsExpanded] = useState(false);
   const [isSpeakerOn, setIsSpeakerOn] = useState(false);
   const [isUpgradingToVideo, setIsUpgradingToVideo] = useState(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Activate audio session when call starts
   useEffect(() => {
     if (callStatus !== 'ONGOING' || !activeCall) return;
 
@@ -63,7 +64,6 @@ export function ActiveCallOverlay() {
     }).catch(console.error);
 
     return () => {
-      // Reset to normal media mode after call ends
       setAudioModeAsync({
         allowsRecording: false,
         playsInSilentMode: false,
@@ -74,7 +74,6 @@ export function ActiveCallOverlay() {
     };
   }, [callStatus, activeCall]);
 
-  // Timer for call duration
   useEffect(() => {
     if (callStatus === 'ONGOING') {
       timerRef.current = setInterval(() => {
@@ -90,23 +89,15 @@ export function ActiveCallOverlay() {
     };
   }, [callStatus, incrementDuration]);
 
-  // Don't show if no active call
   if (callStatus !== 'ONGOING' || !activeCall) return null;
 
-  const hasLocalVideoTrack = Boolean(
-    localStream?.getVideoTracks().some((track) => track.enabled && track.readyState !== 'ended'),
-  );
-  const hasRemoteVideoTrack = Boolean(
-    remoteStream?.getVideoTracks().some((track) => track.enabled && track.readyState !== 'ended'),
-  );
-  const isVideoCall = activeCall.type === 'VIDEO' || hasLocalVideoTrack || hasRemoteVideoTrack;
+  const isVideoCall = activeCall.type === 'VIDEO' || agoraHasLocalVideo || agoraHasRemoteVideo;
+  const shouldRenderAgoraRemoteVideo = isVideoCall && agoraRemoteUid !== null;
+  const shouldRenderAgoraLocalVideo = isVideoCall && agoraHasLocalVideo && agoraLocalUid !== null;
 
   const handleToggleMute = () => {
     const newMuted = !isMuted;
-    // Toggle audio track on stream directly
-    localStream?.getAudioTracks().forEach((track) => {
-      track.enabled = !newMuted;
-    });
+    toggleMute(newMuted);
     toggleMuteStore();
   };
 
@@ -123,12 +114,7 @@ export function ActiveCallOverlay() {
   };
 
   const handleToggleCamera = async () => {
-    const hasLiveLocalVideoTrack = Boolean(
-      localStream?.getVideoTracks().some((track) => track.readyState === 'live'),
-    );
-
-    // If this side has no video sender yet, enabling camera requires renegotiation.
-    if (isCameraOff && !hasLiveLocalVideoTrack) {
+    if (isCameraOff && !agoraHasLocalVideo) {
       try {
         await upgradeToVideo();
       } catch (error) {
@@ -181,27 +167,16 @@ export function ActiveCallOverlay() {
           shadowOpacity: 0.3,
           shadowRadius: 8,
           elevation: 10,
-        }}
-      >
-        {/* Thumbnail video or avatar */}
-        {isVideoCall && hasRemoteVideoTrack && remoteStream ? (
-          <RTCView
-            key={remoteStreamKey}
-            streamURL={getStreamUrl(remoteStream)}
-            style={{ flex: 1 }}
-            objectFit="cover"
-          />
+        }}>
+        {shouldRenderAgoraRemoteVideo ? (
+          <AgoraVideoView key={agoraRemoteVideoKey} uid={agoraRemoteUid ?? 0} className="flex-1" />
         ) : (
           <View className="flex-1 items-center justify-center">
             <Ionicons name="call" size={28} color={Colors.online} />
           </View>
         )}
 
-        {/* Call duration */}
-        <View
-          className="items-center py-1"
-          style={{ backgroundColor: Colors.online }}
-        >
+        <View className="items-center py-1" style={{ backgroundColor: Colors.online }}>
           <Text className="text-xs font-medium" style={{ color: Colors.white }}>
             {formatDuration(callDuration)}
           </Text>
@@ -221,16 +196,10 @@ export function ActiveCallOverlay() {
         bottom: 0,
         zIndex: 50,
         backgroundColor: Colors.bgDark,
-      }}
-    >
-      {/* Video remote stream (full screen background) */}
-      {isVideoCall && hasRemoteVideoTrack && remoteStream ? (
-        <RTCView
-          key={remoteStreamKey}
-          streamURL={getStreamUrl(remoteStream)}
-          style={{ flex: 1 }}
-          objectFit="cover"
-        />
+      }}>
+      {/* Remote video (full screen background) */}
+      {shouldRenderAgoraRemoteVideo ? (
+        <AgoraVideoView key={agoraRemoteVideoKey} uid={agoraRemoteUid ?? 0} className="flex-1" />
       ) : (
         <View className="flex-1 items-center justify-center">
           <Avatar
@@ -238,14 +207,14 @@ export function ActiveCallOverlay() {
             name={remoteParticipant?.name ?? 'User'}
             size={100}
           />
-          <Text className="text-lg font-semibold mt-4" style={{ color: Colors.white }}>
+          <Text className="mt-4 text-lg font-semibold" style={{ color: Colors.white }}>
             {remoteParticipant?.name ?? 'Voice call'}
           </Text>
         </View>
       )}
 
-      {/* Video local stream (picture-in-picture) */}
-      {isVideoCall && hasLocalVideoTrack && localStream && (
+      {/* Local video (picture-in-picture) */}
+      {shouldRenderAgoraLocalVideo && (
         <View
           style={{
             position: 'absolute',
@@ -257,22 +226,18 @@ export function ActiveCallOverlay() {
             overflow: 'hidden',
             borderWidth: 2,
             borderColor: Colors.white,
-          }}
-        >
-          <RTCView
-            streamURL={getStreamUrl(localStream)}
-            style={{ flex: 1 }}
-            objectFit="cover"
-            mirror
+          }}>
+          <AgoraVideoView
+            uid={agoraLocalUid ?? 0}
+            isLocal
+            zOrderMediaOverlay
+            className="flex-1"
           />
         </View>
       )}
 
-      {/* Thời gian cuộc gọi */}
-      <View
-        style={{ position: 'absolute', top: 60, left: 0, right: 0 }}
-        className="items-center"
-      >
+      {/* Call duration */}
+      <View style={{ position: 'absolute', top: 60, left: 0, right: 0 }} className="items-center">
         <Text className="text-base font-medium" style={{ color: Colors.white }}>
           {formatDuration(callDuration)}
         </Text>
@@ -282,16 +247,12 @@ export function ActiveCallOverlay() {
       <TouchableOpacity
         onPress={() => setIsExpanded(false)}
         style={{ position: 'absolute', top: 56, left: 16 }}
-        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-      >
+        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
         <Ionicons name="chevron-down" size={28} color={Colors.white} />
       </TouchableOpacity>
 
       {/* Controls bar */}
-      <View
-        className="flex-row items-center justify-center pb-12 pt-6"
-        style={{ gap: 24, backgroundColor: 'rgba(0, 0, 0, 0.5)' }}
-      >
+      <View className="flex-row items-center justify-center pb-12 pt-6" style={styles.controlsBar}>
         {/* Mute/unmute mic button */}
         <TouchableOpacity
           onPress={handleToggleMute}
@@ -302,13 +263,8 @@ export function ActiveCallOverlay() {
             borderRadius: 28,
             backgroundColor: isMuted ? Colors.error : 'rgba(255, 255, 255, 0.2)',
           }}
-          activeOpacity={0.7}
-        >
-          <Ionicons
-            name={isMuted ? 'mic-off' : 'mic'}
-            size={26}
-            color={Colors.white}
-          />
+          activeOpacity={0.7}>
+          <Ionicons name={isMuted ? 'mic-off' : 'mic'} size={26} color={Colors.white} />
         </TouchableOpacity>
 
         {/* Camera button (only in video call) */}
@@ -322,8 +278,7 @@ export function ActiveCallOverlay() {
               borderRadius: 28,
               backgroundColor: isCameraOff ? Colors.error : 'rgba(255, 255, 255, 0.2)',
             }}
-            activeOpacity={0.7}
-          >
+            activeOpacity={0.7}>
             <Ionicons
               name={isCameraOff ? 'videocam-off' : 'videocam'}
               size={26}
@@ -343,13 +298,8 @@ export function ActiveCallOverlay() {
               backgroundColor: Colors.error,
             }}
             activeOpacity={0.7}
-            disabled={isUpgradingToVideo}
-          >
-            <Ionicons
-              name="videocam-off"
-              size={26}
-              color={Colors.white}
-            />
+            disabled={isUpgradingToVideo}>
+            <Ionicons name="videocam-off" size={26} color={Colors.white} />
           </TouchableOpacity>
         )}
 
@@ -363,8 +313,7 @@ export function ActiveCallOverlay() {
             borderRadius: 28,
             backgroundColor: isSpeakerOn ? Colors.cta : 'rgba(255, 255, 255, 0.2)',
           }}
-          activeOpacity={0.7}
-        >
+          activeOpacity={0.7}>
           <Ionicons
             name={isSpeakerOn ? 'volume-high' : 'volume-medium'}
             size={26}
@@ -382,11 +331,26 @@ export function ActiveCallOverlay() {
             borderRadius: 28,
             backgroundColor: Colors.error,
           }}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="call" size={26} color={Colors.white} style={{ transform: [{ rotate: '135deg' }] }} />
+          activeOpacity={0.7}>
+          <Ionicons
+            name="call"
+            size={26}
+            color={Colors.white}
+            style={{ transform: [{ rotate: '135deg' }] }}
+          />
         </TouchableOpacity>
       </View>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  controlsBar: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    gap: 24,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+});

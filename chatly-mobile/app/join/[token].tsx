@@ -52,7 +52,6 @@ export default function JoinByInviteScreen() {
     setStatus('joining');
     try {
       const res = await groupService.joinByInviteLink(token);
-      setConversationId(res.result.conversationId);
       if (res.result.role === null || res.result.role === undefined) {
         setStatus('pending');
       } else {
@@ -69,7 +68,7 @@ export default function JoinByInviteScreen() {
     if (conversationId) {
       router.replace(`/chat/${conversationId}`);
     } else {
-      router.replace('/(tabs)');
+      router.replace('/');
     }
   };
 
@@ -152,7 +151,7 @@ export default function JoinByInviteScreen() {
         </Text>
         <TouchableOpacity
           className="mt-6 w-full rounded-xl bg-blue-500 py-3"
-          onPress={() => router.replace('/(tabs)')}
+          onPress={() => router.replace('/')}
         >
           <Text className="text-center text-white font-semibold">Go to chats</Text>
         </TouchableOpacity>
@@ -167,7 +166,7 @@ export default function JoinByInviteScreen() {
       <Text className="mt-2 text-sm text-gray-500 text-center">{errorMsg}</Text>
       <TouchableOpacity
         className="mt-6 w-full rounded-xl bg-blue-500 py-3"
-        onPress={() => router.replace('/(tabs)')}
+        onPress={() => router.replace('/')}
       >
         <Text className="text-center text-white font-semibold">Go to chats</Text>
       </TouchableOpacity>
