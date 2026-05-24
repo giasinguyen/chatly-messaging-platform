@@ -100,12 +100,13 @@ public class MessageTools {
             + "Use this when responding to @AI mentions in group chats instead of sendTextMessage.")
     public MessageResponse sendAiMessage(
             @ToolParam(description = "Group conversation id") String conversationId,
-            @ToolParam(description = "AI response content") String content
+            @ToolParam(description = "AI response content") String content,
+            @ToolParam(description = "Optional image URLs to attach to the AI message", required = false) List<String> imageUrls
     ) {
         String userId = McpToolBase.getCurrentUserId();
-        log.info("MCP tool invoked: send_ai_message conversationId={} requester={}", conversationId, userId);
+        log.info("MCP tool invoked: send_ai_message conversationId={} requester={} imageCount={}", conversationId, userId, imageUrls != null ? imageUrls.size() : 0);
         try {
-            return messageService.sendAiMessage(userId, conversationId, content);
+            return messageService.sendAiMessage(userId, conversationId, content, imageUrls);
         } catch (AppException ex) {
             throw McpToolBase.toToolException(ex);
         }

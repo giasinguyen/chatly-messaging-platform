@@ -481,10 +481,18 @@ class ChatService:
             context_conversation_id=conversation_id,
         )
 
+        generated_attachments: list[dict[str, Any]] = []
+        image_tools = self._build_image_tools(
+            user_id,
+            session_id,
+            generated_attachments,
+        )
+
         # Assemble MCP tools (full set — MentionAgent partitions internally).
         tools: list[BaseTool] = []
         if self._tool_service:
             tools = await self._tool_service.assemble_tools(user_id, [], False)
+        tools.extend(image_tools)
         logger.info(
             "Social mention assist assembled tools: count=%d names=%s",
             len(tools),
@@ -498,6 +506,7 @@ class ChatService:
             llm=self._llm,
             tools=tools,
             conversation_id=conversation_id,
+            generated_attachments=generated_attachments,
         )
 
         await self._message_repo.create_message(session_id, "user", content)
@@ -531,9 +540,17 @@ class ChatService:
             f"Mentioned comment ID: `{comment_id}`.\n"
         )
 
+        generated_attachments: list[dict[str, Any]] = []
+        image_tools = self._build_image_tools(
+            user_id,
+            session_id,
+            generated_attachments,
+        )
+
         tools: list[BaseTool] = []
         if self._tool_service:
-            tools = await self._tool_service.assemble_tools(user_id, [], False)
+            tools = await self._tool_service.assemble_tools(user_id, [], True)
+        tools.extend(image_tools)
         logger.info(
             "Social post-command assist assembled tools: count=%d names=%s",
             len(tools),
@@ -543,7 +560,11 @@ class ChatService:
         if self._llm is None:
             raise ValueError("LLM is required for SocialAgent")
 
-        agent = SocialAgent(llm=self._llm, tools=tools)
+        agent = SocialAgent(
+            llm=self._llm,
+            tools=tools,
+            generated_attachments=generated_attachments,
+        )
 
         await self._message_repo.create_message(session_id, "user", content)
         response_text = await agent.run_mention_in_comment(
@@ -579,14 +600,26 @@ class ChatService:
             "The user intentionally posted an AI command.\n"
         )
 
+        generated_attachments: list[dict[str, Any]] = []
+        image_tools = self._build_image_tools(
+            user_id,
+            session_id,
+            generated_attachments,
+        )
+
         tools: list[BaseTool] = []
         if self._tool_service:
-            tools = await self._tool_service.assemble_tools(user_id, [], False)
+            tools = await self._tool_service.assemble_tools(user_id, [], True)
+        tools.extend(image_tools)
 
         if self._llm is None:
             raise ValueError("LLM is required for SocialAgent")
 
-        agent = SocialAgent(llm=self._llm, tools=tools)
+        agent = SocialAgent(
+            llm=self._llm,
+            tools=tools,
+            generated_attachments=generated_attachments,
+        )
 
         await self._message_repo.create_message(session_id, "user", command_content)
         response_text = await agent.run_post_command(

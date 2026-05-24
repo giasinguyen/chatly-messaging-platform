@@ -8,6 +8,8 @@ import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.ai.tool.annotation.ToolParam;
 import org.springframework.stereotype.Component;
 
+import java.util.List;
+
 /**
  * MCP tools exposing social post data and AI comment creation to the agent.
  *
@@ -52,12 +54,13 @@ public class SocialPostTools {
             @ToolParam(description = "The post ID to comment on") String postId,
             @ToolParam(description = "The comment text to publish") String content,
             @ToolParam(description = "Trigger type: MENTION_IN_COMMENT or POST_COMMAND") String triggerType,
-            @ToolParam(description = "Optional parent comment ID if this is a reply; omit for top-level comment", required = false) String parentCommentId
+            @ToolParam(description = "Optional parent comment ID if this is a reply; omit for top-level comment", required = false) String parentCommentId,
+            @ToolParam(description = "Optional list of image URLs to attach to this AI comment", required = false) List<String> mediaUrls
     ) {
-        log.info("MCP tool invoked: createAiPostComment postId={} triggerType={} parentCommentId={}", postId, triggerType, parentCommentId);
+        log.info("MCP tool invoked: createAiPostComment postId={} triggerType={} parentCommentId={} mediaCount={}", postId, triggerType, parentCommentId, mediaUrls != null ? mediaUrls.size() : 0);
         try {
             String resolvedParentId = (parentCommentId == null || parentCommentId.isBlank()) ? null : parentCommentId;
-            postService.addAiComment(postId, content, resolvedParentId, triggerType);
+            postService.addAiComment(postId, content, resolvedParentId, triggerType, mediaUrls);
             return "AI comment published successfully on post " + postId;
         } catch (AppException ex) {
             throw McpToolBase.toToolException(ex);

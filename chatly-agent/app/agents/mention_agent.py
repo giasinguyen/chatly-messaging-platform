@@ -50,9 +50,13 @@ class MentionAgent:
         llm: ChatGroq,
         tools: list[BaseTool],
         conversation_id: str,
+        generated_attachments: list[dict[str, Any]] | None = None,
     ) -> None:
         self._conversation_id = conversation_id
         self._llm = llm
+        self._generated_attachments = (
+            generated_attachments if generated_attachments is not None else []
+        )
 
         partition = partition_mention_tools(tools)
         self._send_tool = partition.delivery_tool
@@ -106,15 +110,19 @@ class MentionAgent:
         # ── Phase 2: Deterministic delivery ─────────────────────────────
         if self._send_tool is not None:
             try:
-                await self._send_tool.ainvoke(
-                    {
-                        "conversationId": self._conversation_id,
-                        "content": ai_text,
-                    }
-                )
+                payload = {
+                    "conversationId": self._conversation_id,
+                    "content": ai_text,
+                }
+                image_urls = self._collect_generated_image_urls()
+                if image_urls:
+                    payload["imageUrls"] = image_urls
+
+                await self._send_tool.ainvoke(payload)
                 logger.info(
-                    "MentionAgent delivered response to conversation=%s",
+                    "MentionAgent delivered response to conversation=%s image_count=%d",
                     self._conversation_id,
+                    len(image_urls),
                 )
             except Exception:
                 logger.exception(
@@ -129,3 +137,14 @@ class MentionAgent:
             )
 
         return ai_text
+
+    def _collect_generated_image_urls(self) -> list[str]:
+        urls: list[str] = []
+        seen: set[str] = set()
+        for item in self._generated_attachments:
+            url = str(item.get("url") or "").strip()
+            if not url or url in seen:
+                continue
+            seen.add(url)
+            urls.append(url)
+        return urls
