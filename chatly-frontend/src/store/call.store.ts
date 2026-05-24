@@ -1,11 +1,18 @@
 import { create } from "zustand";
-import type { CallStatus, CallSession, IncomingCall, IncomingGroupCall, GroupParticipantInfo, Participant } from "@/types/call";
+import type {
+    CallStatus,
+    CallSession,
+    IncomingCall,
+    IncomingGroupCall,
+    GroupParticipantInfo,
+    Participant,
+} from "@/types/call";
 
 type CallStoreStatus = CallStatus | "IDLE";
 
 export interface OutgoingCallTarget {
     name: string;
-    avatarUrl?: string;
+    avatarUrl?: string | null;
     type: "VOICE" | "VIDEO";
 }
 
@@ -50,9 +57,16 @@ interface CallState {
     // Group call actions
     setIncomingGroupCall: (call: IncomingGroupCall | null) => void;
     startGroupCall: (session: CallSession) => void;
-    setGroupParticipantInfo: (userId: string, info: GroupParticipantInfo) => void;
+    setGroupParticipantInfo: (
+        userId: string,
+        info: GroupParticipantInfo,
+    ) => void;
     removeGroupParticipant: (userId: string) => void;
-    setGroupCallRealtimeState: (callId: string, ended: boolean, activeParticipantCount: number) => void;
+    setGroupCallRealtimeState: (
+        callId: string,
+        ended: boolean,
+        activeParticipantCount: number,
+    ) => void;
 }
 
 export const useCallStore = create<CallState>((set) => ({
@@ -141,7 +155,10 @@ export const useCallStore = create<CallState>((set) => ({
 
     setGroupParticipantInfo: (userId, info) =>
         set((state) => ({
-            groupParticipantInfo: { ...state.groupParticipantInfo, [userId]: info },
+            groupParticipantInfo: {
+                ...state.groupParticipantInfo,
+                [userId]: info,
+            },
         })),
 
     removeGroupParticipant: (userId) =>

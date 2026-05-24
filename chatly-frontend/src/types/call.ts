@@ -1,6 +1,12 @@
 export type CallType = "VOICE" | "VIDEO";
+export type CallMediaProvider = "AGORA" | "WEBRTC";
 
-export type CallStatus = "RINGING" | "ONGOING" | "ENDED" | "MISSED" | "REJECTED";
+export type CallStatus =
+    | "RINGING"
+    | "ONGOING"
+    | "ENDED"
+    | "MISSED"
+    | "REJECTED";
 
 export type SignalType =
     | "OFFER"
@@ -44,6 +50,19 @@ export interface CallSession {
     endedAt?: string;
 }
 
+export interface AgoraTokenRequest {
+    conversationId: string;
+    callId: string;
+}
+
+export interface AgoraTokenResponse {
+    appId: string;
+    channelName: string;
+    uid: number;
+    token: string | null;
+    expiresInSeconds: number;
+}
+
 export interface Participant {
     userId: string;
     displayName: string;
@@ -54,10 +73,12 @@ export interface Participant {
 
 export interface IncomingCall {
     callId: string;
+    conversationId: string;
     callerId: string;
     callerName: string;
-    callerAvatar: string;
+    callerAvatar: string | null;
     type: CallType;
+    mediaProvider?: CallMediaProvider;
 }
 
 export interface IncomingGroupCall {

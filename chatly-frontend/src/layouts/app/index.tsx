@@ -24,6 +24,7 @@ function AppLayoutInner() {
         endCall,
         localStream,
         remoteStream,
+        toggleMute,
         upgradeToVideo,
         toggleCamera,
         incomingVideoUpgradeRequest,
@@ -66,7 +67,11 @@ function AppLayoutInner() {
                             initial={{ x: "-100%" }}
                             animate={{ x: 0 }}
                             exit={{ x: "-100%" }}
-                            transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                            transition={{
+                                type: "spring",
+                                stiffness: 300,
+                                damping: 30,
+                            }}
                             className="fixed top-0 bottom-0 left-0 z-50 md:hidden flex shadow-2xl"
                         >
                             <Sidebar user={user} />
@@ -81,7 +86,11 @@ function AppLayoutInner() {
 
             {/* Incoming 1-1 call screen */}
             <CallScreen
-                visible={!!incomingCall && callStatus === "RINGING" && !incomingGroupCall}
+                visible={
+                    !!incomingCall &&
+                    callStatus === "RINGING" &&
+                    !incomingGroupCall
+                }
                 incomingCall={incomingCall}
                 onAccept={() => answerCall(true)}
                 onReject={() => answerCall(false)}
@@ -96,19 +105,23 @@ function AppLayoutInner() {
             />
 
             {/* Outgoing call screen (caller ringing / rejected) */}
-            <OutgoingCallScreen onCancel={isGroupCall ? leaveGroupCall : endCall} />
+            <OutgoingCallScreen
+                onCancel={isGroupCall ? leaveGroupCall : endCall}
+            />
 
             {/* Active group call overlay — shows for both initiator (RINGING) and joined participants (ONGOING) */}
-            {isGroupCall && !incomingGroupCall && (callStatus === "ONGOING" || callStatus === "RINGING") && (
-                <GroupCallOverlay
-                    groupLocalStream={groupLocalStream}
-                    groupRemoteStreams={groupRemoteStreams}
-                    onLeave={leaveGroupCall}
-                    onToggleMute={groupToggleMute}
-                    onToggleCamera={groupToggleCamera}
-                    onUpgradeToVideo={upgradeGroupCallToVideo}
-                />
-            )}
+            {isGroupCall &&
+                !incomingGroupCall &&
+                (callStatus === "ONGOING" || callStatus === "RINGING") && (
+                    <GroupCallOverlay
+                        groupLocalStream={groupLocalStream}
+                        groupRemoteStreams={groupRemoteStreams}
+                        onLeave={leaveGroupCall}
+                        onToggleMute={groupToggleMute}
+                        onToggleCamera={groupToggleCamera}
+                        onUpgradeToVideo={upgradeGroupCallToVideo}
+                    />
+                )}
 
             {/* Active 1-1 call overlay */}
             {callStatus === "ONGOING" && !isGroupCall && (
@@ -116,21 +129,35 @@ function AppLayoutInner() {
                     localStream={localStream}
                     remoteStream={remoteStream}
                     onEndCall={endCall}
+                    onToggleMute={toggleMute}
                     onToggleCamera={toggleCamera}
                     onUpgradeToVideo={upgradeToVideo}
                 />
             )}
 
             <VideoUpgradeRequestDialog
-                visible={!!incomingVideoUpgradeRequest && callStatus === "ONGOING" && !isGroupCall}
-                requesterName={incomingVideoUpgradeRequest?.requesterName ?? "Peer"}
+                visible={
+                    !!incomingVideoUpgradeRequest &&
+                    callStatus === "ONGOING" &&
+                    !isGroupCall
+                }
+                requesterName={
+                    incomingVideoUpgradeRequest?.requesterName ?? "Peer"
+                }
                 onAccept={() => respondToVideoUpgradeRequest(true)}
                 onDecline={() => respondToVideoUpgradeRequest(false)}
             />
 
             <GroupVideoUpgradeRequestDialog
-                visible={!!incomingGroupVideoUpgradeRequest && callStatus === "ONGOING" && isGroupCall}
-                requesterName={incomingGroupVideoUpgradeRequest?.requesterName ?? "A participant"}
+                visible={
+                    !!incomingGroupVideoUpgradeRequest &&
+                    callStatus === "ONGOING" &&
+                    isGroupCall
+                }
+                requesterName={
+                    incomingGroupVideoUpgradeRequest?.requesterName ??
+                    "A participant"
+                }
                 onAccept={() => respondToGroupVideoUpgradeRequest(true)}
                 onDecline={() => respondToGroupVideoUpgradeRequest(false)}
             />
@@ -145,4 +172,3 @@ export default function AppLayout() {
         </CallSocketProvider>
     );
 }
-
