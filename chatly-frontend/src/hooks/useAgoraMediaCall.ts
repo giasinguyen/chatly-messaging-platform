@@ -127,6 +127,23 @@ export function useAgoraMediaCall() {
         [syncLocalStream],
     );
 
+    const closeLocalVideoTrack = useCallback(
+        async (client: IAgoraRTCClient | null): Promise<void> => {
+            const localVideoTrack = localVideoTrackRef.current;
+            if (!localVideoTrack) return;
+
+            if (client?.connectionState === "CONNECTED") {
+                await client.unpublish(localVideoTrack).catch(() => undefined);
+            }
+
+            localVideoTrack.stop();
+            localVideoTrack.close();
+            localVideoTrackRef.current = null;
+            syncLocalStream();
+        },
+        [syncLocalStream],
+    );
+
     const joinCall = useCallback(
         async ({
             conversationId,
@@ -206,11 +223,9 @@ export function useAgoraMediaCall() {
             return enableVideo();
         }
 
-        const nextEnabled = !localVideoTrack.enabled;
-        await localVideoTrack.setEnabled(nextEnabled);
-        syncLocalStream();
-        return nextEnabled;
-    }, [enableVideo, syncLocalStream]);
+        await closeLocalVideoTrack(clientRef.current);
+        return false;
+    }, [closeLocalVideoTrack, enableVideo]);
 
     useEffect(() => {
         return () => {
