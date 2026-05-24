@@ -50,6 +50,7 @@ public class WebSecurityConfig {
             "/api/auth/qr/generate",
             "/api/auth/qr/status/**",
             "/ws/**",
+            "/ws-raw",
             "/ws-raw/**",
             "/ws-test.html",
             "/chatroom-test.html",
