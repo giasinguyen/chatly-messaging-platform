@@ -14,4 +14,6 @@ public interface CallSessionRepository extends MongoRepository<CallSession, Stri
     Optional<CallSession> findByCallId(String callId);
 
     List<CallSession> findByParticipantsContainingAndStatusIn(String participantId, List<CallStatus> statuses);
+
+    List<CallSession> findByIsGroupTrueAndParticipantsContainingAndStatusIn(String participantId, List<CallStatus> statuses);
 }

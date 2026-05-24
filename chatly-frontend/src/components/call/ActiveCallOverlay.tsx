@@ -23,6 +23,7 @@ interface ActiveCallOverlayProps {
     localStream: MediaStream | null;
     remoteStream: MediaStream | null;
     onEndCall: () => void;
+    onToggleMute?: (muted: boolean) => void;
     onToggleCamera?: () => Promise<void>;
     onUpgradeToVideo?: () => Promise<{ hasLocalVideoTrack: boolean }>;
 }
@@ -31,6 +32,7 @@ export function ActiveCallOverlay({
     localStream,
     remoteStream,
     onEndCall,
+    onToggleMute,
     onToggleCamera,
     onUpgradeToVideo,
 }: ActiveCallOverlayProps) {
@@ -88,8 +90,10 @@ export function ActiveCallOverlay({
     // Peer name and avatar:
     // - Caller (outgoing): use outgoingCallTarget
     // - Callee (incoming): use incomingCall (callerName/callerAvatar)
-    const peerName = outgoingCallTarget?.name ?? incomingCall?.callerName ?? "User";
-    const peerAvatar = outgoingCallTarget?.avatarUrl ?? incomingCall?.callerAvatar ?? null;
+    const peerName =
+        outgoingCallTarget?.name ?? incomingCall?.callerName ?? "User";
+    const peerAvatar =
+        outgoingCallTarget?.avatarUrl ?? incomingCall?.callerAvatar ?? null;
     const peerInitial = peerName.charAt(0).toUpperCase();
 
     const attachLocalVideoRef = useCallback(
@@ -131,15 +135,23 @@ export function ActiveCallOverlay({
     useEffect(() => {
         if (remoteAudioRef.current && callStatus === "ONGOING") {
             remoteAudioRef.current.play().catch((err) => {
-                console.warn("Audio autoplay failed (likely browser policy), user can click speaker to unmute:", err);
+                console.warn(
+                    "Audio autoplay failed (likely browser policy), user can click speaker to unmute:",
+                    err,
+                );
             });
         }
     }, [remoteStream, callStatus]);
 
     // Fix mute: toggle audio tracks on localStream directly (reliable)
     const handleToggleMute = () => {
-        if (localStream) {
-            localStream.getAudioTracks().forEach((t) => { t.enabled = !t.enabled; });
+        const nextMuted = !isMuted;
+        if (onToggleMute) {
+            onToggleMute(nextMuted);
+        } else if (localStream) {
+            localStream.getAudioTracks().forEach((t) => {
+                t.enabled = !t.enabled;
+            });
         }
         toggleMute();
     };
@@ -150,7 +162,9 @@ export function ActiveCallOverlay({
             await onToggleCamera();
         } else {
             // fallback: just toggle enabled state
-            localStream?.getVideoTracks().forEach((t) => { t.enabled = !t.enabled; });
+            localStream?.getVideoTracks().forEach((t) => {
+                t.enabled = !t.enabled;
+            });
             toggleCamera();
         }
     };
@@ -170,12 +184,17 @@ export function ActiveCallOverlay({
         try {
             const result = await onUpgradeToVideo?.();
             if (result?.hasLocalVideoTrack === false) {
-                toast.success("No local camera detected. Upgraded to video call with camera off");
+                toast.success(
+                    "No local camera detected. Upgraded to video call with camera off",
+                );
                 return;
             }
             toast.success("Camera enabled, upgrading to video call");
         } catch (error) {
-            const message = error instanceof Error ? error.message : "Failed to upgrade to video call";
+            const message =
+                error instanceof Error
+                    ? error.message
+                    : "Failed to upgrade to video call";
             console.error("Upgrade to video error:", error);
             toast.error(message);
         }
@@ -205,16 +224,28 @@ export function ActiveCallOverlay({
     if (callStatus !== "ONGOING" || !activeCall) return null;
 
     const hasLocalVideoTrack = Boolean(
-        localStream?.getVideoTracks().some((track) => track.enabled && track.readyState !== "ended"),
+        localStream
+            ?.getVideoTracks()
+            .some((track) => track.enabled && track.readyState !== "ended"),
     );
     const hasRemoteVideoTrack = Boolean(
-        remoteStream?.getVideoTracks().some((track) => track.enabled && track.readyState !== "ended"),
+        remoteStream
+            ?.getVideoTracks()
+            .some((track) => track.enabled && track.readyState !== "ended"),
     );
-    const isVideoCall = activeCall.type === "VIDEO" || hasLocalVideoTrack || hasRemoteVideoTrack;
+    const isVideoCall =
+        activeCall.type === "VIDEO" ||
+        hasLocalVideoTrack ||
+        hasRemoteVideoTrack;
 
     // Hidden audio element — plays remote stream for both voice and video calls
     const remoteAudioEl = (
-        <audio ref={remoteAudioRef} autoPlay playsInline style={{ display: "none" }} />
+        <audio
+            ref={remoteAudioRef}
+            autoPlay
+            playsInline
+            style={{ display: "none" }}
+        />
     );
 
     // Expanded mode (full screen)
@@ -225,7 +256,7 @@ export function ActiveCallOverlay({
                 {/* Video area */}
                 <div className="relative h-full w-full min-h-0">
                     {/* Remote video */}
-                    {isVideoCall && remoteStream ? (
+                    {isVideoCall && hasRemoteVideoTrack ? (
                         <video
                             ref={attachRemoteVideoRef}
                             autoPlay
@@ -236,10 +267,16 @@ export function ActiveCallOverlay({
                     ) : (
                         <div className="flex h-full w-full flex-col items-center justify-center gap-4 bg-gray-800">
                             {peerAvatar ? (
-                                <img src={peerAvatar} alt={peerName} className="h-24 w-24 rounded-full object-cover" />
+                                <img
+                                    src={peerAvatar}
+                                    alt={peerName}
+                                    className="h-24 w-24 rounded-full object-cover"
+                                />
                             ) : (
                                 <div className="flex h-24 w-24 items-center justify-center rounded-full bg-gray-600">
-                                    <span className="text-3xl font-bold">{peerInitial}</span>
+                                    <span className="text-3xl font-bold">
+                                        {peerInitial}
+                                    </span>
                                 </div>
                             )}
                             <p className="text-lg font-semibold">{peerName}</p>
@@ -286,7 +323,9 @@ export function ActiveCallOverlay({
                         <button
                             onClick={handleToggleMute}
                             className={`flex h-12 w-12 items-center justify-center rounded-full transition-colors ${
-                                isMuted ? "bg-red-500 hover:bg-red-600" : "bg-white/20 hover:bg-white/30"
+                                isMuted
+                                    ? "bg-red-500 hover:bg-red-600"
+                                    : "bg-white/20 hover:bg-white/30"
                             }`}
                         >
                             {isMuted ? <MicOff size={22} /> : <Mic size={22} />}
@@ -296,10 +335,16 @@ export function ActiveCallOverlay({
                             <button
                                 onClick={handleToggleCamera}
                                 className={`flex h-12 w-12 items-center justify-center rounded-full transition-colors ${
-                                    isCameraOff ? "bg-red-500 hover:bg-red-600" : "bg-white/20 hover:bg-white/30"
+                                    isCameraOff
+                                        ? "bg-red-500 hover:bg-red-600"
+                                        : "bg-white/20 hover:bg-white/30"
                                 }`}
                             >
-                                {isCameraOff ? <VideoOff size={22} /> : <Video size={22} />}
+                                {isCameraOff ? (
+                                    <VideoOff size={22} />
+                                ) : (
+                                    <Video size={22} />
+                                )}
                             </button>
                         )}
 
@@ -307,7 +352,11 @@ export function ActiveCallOverlay({
                             onClick={handleToggleSpeaker}
                             className="flex h-12 w-12 items-center justify-center rounded-full bg-white/20 transition-colors hover:bg-white/30"
                         >
-                            {isSpeakerOn ? <Volume2 size={22} /> : <VolumeX size={22} />}
+                            {isSpeakerOn ? (
+                                <Volume2 size={22} />
+                            ) : (
+                                <VolumeX size={22} />
+                            )}
                         </button>
 
                         {!isVideoCall && onUpgradeToVideo && (
@@ -338,7 +387,7 @@ export function ActiveCallOverlay({
             {remoteAudioEl}
             {/* Video or avatar */}
             <div className="relative">
-                {isVideoCall && remoteStream ? (
+                {isVideoCall && hasRemoteVideoTrack ? (
                     <video
                         ref={attachRemoteVideoRef}
                         autoPlay
@@ -349,26 +398,40 @@ export function ActiveCallOverlay({
                 ) : (
                     <div className="flex aspect-video w-full flex-col items-center justify-center gap-2 bg-gray-800">
                         {peerAvatar ? (
-                            <img src={peerAvatar} alt={peerName} className="h-14 w-14 rounded-full object-cover" />
+                            <img
+                                src={peerAvatar}
+                                alt={peerName}
+                                className="h-14 w-14 rounded-full object-cover"
+                            />
                         ) : (
                             <div className="flex h-14 w-14 items-center justify-center rounded-full bg-gray-600">
-                                <span className="text-xl font-bold">{peerInitial}</span>
+                                <span className="text-xl font-bold">
+                                    {peerInitial}
+                                </span>
                             </div>
                         )}
-                        <p className="text-xs font-medium text-gray-300">{peerName}</p>
+                        <p className="text-xs font-medium text-gray-300">
+                            {peerName}
+                        </p>
                     </div>
                 )}
 
                 {/* Local video PiP */}
                 {isVideoCall && (
                     <div className="absolute bottom-2 right-2 overflow-hidden rounded-lg">
-                        <video
-                            ref={attachLocalVideoRef}
-                            autoPlay
-                            playsInline
-                            muted
-                            className="h-auto w-20 bg-gray-700 object-cover"
-                        />
+                        {hasLocalVideoTrack ? (
+                            <video
+                                ref={attachLocalVideoRef}
+                                autoPlay
+                                playsInline
+                                muted
+                                className="h-auto w-20 bg-gray-700 object-cover"
+                            />
+                        ) : (
+                            <div className="flex aspect-video w-20 items-center justify-center bg-gray-800 text-gray-300">
+                                <VideoOff size={16} />
+                            </div>
+                        )}
                     </div>
                 )}
             </div>
@@ -376,7 +439,9 @@ export function ActiveCallOverlay({
             {/* Call info */}
             <div className="px-3 pt-2">
                 <p className="text-sm font-semibold truncate">{peerName}</p>
-                <p className="text-xs text-gray-400">{formatDuration(callDuration)}</p>
+                <p className="text-xs text-gray-400">
+                    {formatDuration(callDuration)}
+                </p>
             </div>
 
             {/* Controls bar */}
@@ -409,7 +474,11 @@ export function ActiveCallOverlay({
                     onClick={handleToggleSpeaker}
                     className="rounded-lg p-1.5 transition-colors hover:bg-white/10"
                 >
-                    {isSpeakerOn ? <Volume2 size={18} /> : <VolumeX size={18} />}
+                    {isSpeakerOn ? (
+                        <Volume2 size={18} />
+                    ) : (
+                        <VolumeX size={18} />
+                    )}
                 </button>
 
                 {!isVideoCall && onUpgradeToVideo && (

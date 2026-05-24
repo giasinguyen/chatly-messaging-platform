@@ -18,7 +18,7 @@
 | WebSocket | @stomp/stompjs |
 | Media | expo-image, expo-audio, expo-video, expo-image-picker |
 | Notifications | expo-notifications |
-| Video calls | react-native-webrtc |
+| Video calls | react-native-agora (Agora RTC) |
 | Animations | react-native-reanimated 4 |
 
 ---
@@ -137,11 +137,12 @@ Same Zustand rules as `chatly-frontend`. Stores are **not shared** between mobil
 
 ---
 
-## 10. WebRTC (react-native-webrtc)
+## 10. Agora (react-native-agora)
 
-- All WebRTC logic is isolated in `hooks/useWebRTC.ts` and `contexts/CallContext.tsx`.
-- Clean up peer connections and media streams in the hook's cleanup function — memory leaks here crash the app.
-- Do not initialize WebRTC until the user explicitly starts a call.
+- All call media is handled exclusively via Agora RTC — there is no WebRTC peer-to-peer signaling.
+- Agora logic is isolated in `hooks/useAgoraMediaCall.ts` (1:1 calls) and `hooks/useAgoraGroupCall.ts` (group calls).
+- STOMP WebSocket is used only for call signaling (initiate, answer, end, upgrade) — not for SDP or ICE.
+- Clean up Agora engine resources in the hook's cleanup function to prevent memory leaks.
 
 ---
 
@@ -366,7 +367,7 @@ try {
 | 7 | Don't exceed 300 lines per component file | Split into smaller pieces |
 | 8 | Don't hardcode API URLs | Use environment variables via `process.env.EXPO_PUBLIC_*` |
 | 9 | Don't use Vietnamese in code or comments | English only (i18n files excepted) |
-| 10 | Don't initialize WebRTC eagerly | Wait for explicit call start |
+| 10 | Don't initialize Agora engine eagerly | Wait for explicit call start |
 | 11 | Don't re-request permissions on every mount | Store status in Zustand |
 | 12 | Don't use `React.FC<Props>` | Use plain function with typed props |
 

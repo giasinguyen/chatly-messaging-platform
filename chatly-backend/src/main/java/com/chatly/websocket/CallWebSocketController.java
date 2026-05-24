@@ -242,6 +242,7 @@ public class CallWebSocketController {
                 .participants(activeParticipants)
                 .type(callType)
                 .status(CallStatus.RINGING)
+                .isGroup(true)
                 .startedAt(LocalDateTime.now())
                 .build();
         callSessionRepository.save(session);

@@ -8,7 +8,7 @@ import { CustomAiIcon } from '@/components/ui/CustomAiIcon';
 import { Colors } from '@/constants/theme';
 import { useCallContext } from '@/contexts/CallContext';
 import { useCallStore } from '@/store/call.store';
-import { IS_WEBRTC_CALL_ENABLED } from '@/constants/runtime';
+import { IS_CALL_ENABLED } from '@/constants/runtime';
 import { GroupCallMemberPicker } from '@/components/call/GroupCallMemberPicker';
 import type { CallType } from '@/types/call';
 
@@ -142,7 +142,7 @@ export function ChatHeader({
               className="mx-1 p-2"
               disabled={callDisabled}
               onPress={() => {
-                if (!IS_WEBRTC_CALL_ENABLED) {
+                if (!IS_CALL_ENABLED) {
                   showCallUnavailableAlert();
                   return;
                 }
@@ -155,7 +155,7 @@ export function ChatHeader({
               className="mx-1 p-2"
               disabled={callDisabled}
               onPress={() => {
-                if (!IS_WEBRTC_CALL_ENABLED) {
+                if (!IS_CALL_ENABLED) {
                   showCallUnavailableAlert();
                   return;
                 }
@@ -173,7 +173,7 @@ export function ChatHeader({
             className="mx-1"
             disabled={callDisabled}
             onPress={() => {
-              if (!IS_WEBRTC_CALL_ENABLED) {
+              if (!IS_CALL_ENABLED) {
                 showCallUnavailableAlert();
                 return;
               }

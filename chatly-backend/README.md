@@ -532,8 +532,6 @@ Supported storage providers:
 - `LocalStorageProvider` when `storage.provider=local`
 - `S3StorageProvider` when `storage.provider=s3`
 
-Indexable MIME types for agent RAG:
-
 - `application/pdf`
 - Microsoft Word and Excel MIME types
 - `text/plain`

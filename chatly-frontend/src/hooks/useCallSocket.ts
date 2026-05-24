@@ -3,42 +3,52 @@ import type React from "react";
 import { socketService } from "@/services/socket.service";
 import { useAuthStore } from "@/store/auth.store";
 import { useCallStore } from "@/store/call.store";
-import { useWebRTC } from "@/hooks/useWebRTC";
-import type { CallType, CallSignal, CallSession } from "@/types/call";
+import { useAgoraMediaCall } from "@/hooks/useAgoraMediaCall";
+import type {
+    CallType,
+    CallSignal,
+    CallSession,
+    CallMediaProvider,
+} from "@/types/call";
 
 function generateCallId(): string {
     return `call_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
 }
 
 /**
- * Hook for handling WebRTC signaling via STOMP WebSocket.
+ * Hook for handling call signaling via STOMP WebSocket.
  * Subscribes to /user/queue/calls to receive call signals.
  */
-export function useCallSocket(groupSignalRef?: React.MutableRefObject<((signal: CallSignal) => void) | null>) {
+export function useCallSocket(
+    groupSignalRef?: React.MutableRefObject<
+        ((signal: CallSignal) => void) | null
+    >,
+) {
     const user = useAuthStore((s) => s.user);
     const {
         setIncomingCall,
         setCallStatus,
         setOutgoingCallTarget,
-        setPendingOffer,
         setCameraOff,
         startCall,
         endCall: endCallStore,
         upgradeCall,
     } = useCallStore();
 
-    const webrtc = useWebRTC();
-    const webrtcRef = useRef(webrtc);
-    webrtcRef.current = webrtc;
+    const agoraMediaCall = useAgoraMediaCall();
+    const agoraMediaCallRef = useRef(agoraMediaCall);
+    agoraMediaCallRef.current = agoraMediaCall;
 
     // Ringtone for incoming calls
     const ringtoneRef = useRef<HTMLAudioElement | null>(null);
 
     const playRingtone = useCallback(() => {
         if (ringtoneRef.current) return; // already playing
-        const audio = new Audio('/sounds/call-sound.mp3');
+        const audio = new Audio("/sounds/call-sound.mp3");
         audio.loop = true;
-        audio.play().catch(() => { /* autoplay may be blocked */ });
+        audio.play().catch(() => {
+            /* autoplay may be blocked */
+        });
         ringtoneRef.current = audio;
     }, []);
 
@@ -54,14 +64,17 @@ export function useCallSocket(groupSignalRef?: React.MutableRefObject<((signal: 
         timeoutId: ReturnType<typeof window.setTimeout>;
     } | null>(null);
 
-    const resolvePendingVideoUpgradeDecision = useCallback((accepted: boolean) => {
-        const pending = pendingVideoUpgradeDecisionRef.current;
-        if (!pending) return;
+    const resolvePendingVideoUpgradeDecision = useCallback(
+        (accepted: boolean) => {
+            const pending = pendingVideoUpgradeDecisionRef.current;
+            if (!pending) return;
 
-        window.clearTimeout(pending.timeoutId);
-        pendingVideoUpgradeDecisionRef.current = null;
-        pending.resolve(accepted);
-    }, []);
+            window.clearTimeout(pending.timeoutId);
+            pendingVideoUpgradeDecisionRef.current = null;
+            pending.resolve(accepted);
+        },
+        [],
+    );
 
     const waitForVideoUpgradeDecision = useCallback((): Promise<boolean> => {
         if (pendingVideoUpgradeDecisionRef.current) {
@@ -71,7 +84,11 @@ export function useCallSocket(groupSignalRef?: React.MutableRefObject<((signal: 
         return new Promise<boolean>((resolve, reject) => {
             const timeoutId = window.setTimeout(() => {
                 pendingVideoUpgradeDecisionRef.current = null;
-                reject(new Error("Peer did not respond to the video call request."));
+                reject(
+                    new Error(
+                        "Peer did not respond to the video call request.",
+                    ),
+                );
             }, 20000);
 
             pendingVideoUpgradeDecisionRef.current = {
@@ -81,83 +98,54 @@ export function useCallSocket(groupSignalRef?: React.MutableRefObject<((signal: 
         });
     }, []);
 
-    const pendingIncomingVideoUpgradeRequesterIdRef = useRef<string | null>(null);
-    const [incomingVideoUpgradeRequest, setIncomingVideoUpgradeRequest] = useState<{
-        requesterName: string;
-    } | null>(null);
+    const pendingIncomingVideoUpgradeRequesterIdRef = useRef<string | null>(
+        null,
+    );
+    const [incomingVideoUpgradeRequest, setIncomingVideoUpgradeRequest] =
+        useState<{
+            requesterName: string;
+        } | null>(null);
 
-    const respondToVideoUpgradeRequest = useCallback((accept: boolean) => {
-        const activeCall = useCallStore.getState().activeCall;
-        const client = socketService.getClient();
-        if (!activeCall || !client?.connected || !user) {
+    const respondToVideoUpgradeRequest = useCallback(
+        async (accept: boolean) => {
+            const activeCall = useCallStore.getState().activeCall;
+            const client = socketService.getClient();
+            if (!activeCall || !client?.connected || !user) {
+                setIncomingVideoUpgradeRequest(null);
+                pendingIncomingVideoUpgradeRequesterIdRef.current = null;
+                return;
+            }
+
+            if (accept) {
+                const hasLocalVideoTrack =
+                    await agoraMediaCallRef.current.enableVideo();
+                setCameraOff(!hasLocalVideoTrack);
+                upgradeCall();
+            }
+
+            const receiverId =
+                pendingIncomingVideoUpgradeRequesterIdRef.current ??
+                activeCall.participants.find((id) => id !== user.id);
+
+            if (receiverId) {
+                client.publish({
+                    destination: "/app/call.renegotiate",
+                    body: JSON.stringify({
+                        type: accept
+                            ? "VIDEO_UPGRADE_ACCEPT"
+                            : "VIDEO_UPGRADE_REJECT",
+                        callId: activeCall.callId,
+                        senderId: user.id,
+                        receiverId,
+                    }),
+                });
+            }
+
             setIncomingVideoUpgradeRequest(null);
             pendingIncomingVideoUpgradeRequesterIdRef.current = null;
-            return;
-        }
-
-        const receiverId = pendingIncomingVideoUpgradeRequesterIdRef.current
-            ?? activeCall.participants.find((id) => id !== user.id);
-
-        if (receiverId) {
-            client.publish({
-                destination: "/app/call.renegotiate",
-                body: JSON.stringify({
-                    type: accept ? "VIDEO_UPGRADE_ACCEPT" : "VIDEO_UPGRADE_REJECT",
-                    callId: activeCall.callId,
-                    senderId: user.id,
-                    receiverId,
-                }),
-            });
-        }
-
-        setIncomingVideoUpgradeRequest(null);
-        pendingIncomingVideoUpgradeRequesterIdRef.current = null;
-    }, [user]);
-
-    // Offer SDP stored in Zustand store for persistence across re-renders
-
-    // Send ICE candidate to peer via STOMP
-    const sendIceCandidate = useCallback(
-        (candidate: RTCIceCandidate) => {
-            const activeCall = useCallStore.getState().activeCall;
-            if (!activeCall || !user) return;
-
-            const receiverId = activeCall.participants.find((id) => id !== user.id);
-            if (!receiverId) return;
-
-            const client = socketService.getClient();
-            if (!client?.connected) return;
-
-            console.log(`[CallSocket] Sending ICE candidate to ${receiverId}`);
-            client.publish({
-                destination: "/app/call.ice-candidate",
-                body: JSON.stringify({
-                    type: "ICE_CANDIDATE",
-                    callId: activeCall.callId,
-                    senderId: user.id,
-                    receiverId,
-                    payload: { candidate: candidate.toJSON() },
-                }),
-            });
         },
-        [user],
+        [setCameraOff, upgradeCall, user],
     );
-
-    // Assign callbacks for WebRTC
-    useEffect(() => {
-        webrtcRef.current.callbacksRef.current = {
-            onIceCandidate: sendIceCandidate,
-            onConnectionStateChange: (state) => {
-                console.log("[CallSocket] connection state:", state);
-                // Only end call on permanent failure — "disconnected" is temporary and can self-heal
-                if (state === "failed" || state === "closed") {
-                    console.warn("[CallSocket] Permanent connection failure, ending call:", state);
-                    handleEndCall();
-                }
-            },
-        };
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [sendIceCandidate]);
 
     // Handle incoming signal from server
     const handleSignal = useCallback(
@@ -167,17 +155,20 @@ export function useCallSocket(groupSignalRef?: React.MutableRefObject<((signal: 
                     // Incoming call
                     const payload = signal.payload as {
                         callerName: string;
-                        callerAvatar: string;
+                        callerAvatar: string | null;
                         callType: CallType;
-                        offer: RTCSessionDescriptionInit;
+                        conversationId: string;
+                        mediaProvider?: CallMediaProvider;
                     };
-                    setPendingOffer(payload.offer);
+                    const mediaProvider = payload.mediaProvider ?? "AGORA";
                     setIncomingCall({
                         callId: signal.callId,
+                        conversationId: payload.conversationId,
                         callerId: signal.senderId,
                         callerName: payload.callerName,
                         callerAvatar: payload.callerAvatar,
                         type: payload.callType,
+                        mediaProvider,
                     });
                     setCallStatus("RINGING");
                     playRingtone();
@@ -187,15 +178,29 @@ export function useCallSocket(groupSignalRef?: React.MutableRefObject<((signal: 
                 case "ANSWER": {
                     const payload = signal.payload as {
                         accepted: boolean;
-                        sdp?: RTCSessionDescriptionInit;
                     };
-                    if (payload.accepted && payload.sdp) {
-                        // Peer accepted the call
-                        webrtcRef.current.handleRemoteDescription(payload.sdp);
-                        setCallStatus("ONGOING");
+                    if (payload.accepted) {
+                        const activeCall = useCallStore.getState().activeCall;
+                        if (activeCall) {
+                            try {
+                                const result =
+                                    await agoraMediaCallRef.current.joinCall({
+                                        conversationId:
+                                            activeCall.conversationId,
+                                        callId: activeCall.callId,
+                                        type: activeCall.type,
+                                    });
+                                setCameraOff(!result.hasLocalVideoTrack);
+                                setCallStatus("ONGOING");
+                                stopRingtone();
+                            } catch {
+                                endCallStore();
+                            }
+                            break;
+                        }
                     } else {
                         // Peer rejected the call
-                        webrtcRef.current.cleanup();
+                        agoraMediaCallRef.current.leaveCall();
                         setCallStatus("REJECTED");
                         setTimeout(() => endCallStore(), 2000);
                     }
@@ -203,18 +208,9 @@ export function useCallSocket(groupSignalRef?: React.MutableRefObject<((signal: 
                     break;
                 }
 
-                case "ICE_CANDIDATE": {
-                    const payload = signal.payload as { candidate: RTCIceCandidateInit };
-                    if (payload.candidate) {
-                        console.log(`[CallSocket] Received ICE candidate from ${signal.senderId}`);
-                        webrtcRef.current.addIceCandidate(payload.candidate);
-                    }
-                    break;
-                }
-
                 case "END": {
                     // Peer ended the call
-                    webrtcRef.current.cleanup();
+                    agoraMediaCallRef.current.leaveCall();
                     stopRingtone();
                     resolvePendingVideoUpgradeDecision(false);
                     setIncomingVideoUpgradeRequest(null);
@@ -225,15 +221,21 @@ export function useCallSocket(groupSignalRef?: React.MutableRefObject<((signal: 
                 }
 
                 case "VIDEO_UPGRADE_REQUEST": {
-                    const payload = signal.payload as { requesterName?: unknown } | undefined;
-                    const fallbackRequesterName = useCallStore.getState().outgoingCallTarget?.name
-                        ?? useCallStore.getState().incomingCall?.callerName
-                        ?? "Peer";
-                    const requesterName = typeof payload?.requesterName === "string" && payload.requesterName.trim().length > 0
-                        ? payload.requesterName
-                        : fallbackRequesterName;
+                    const payload = signal.payload as
+                        | { requesterName?: unknown }
+                        | undefined;
+                    const fallbackRequesterName =
+                        useCallStore.getState().outgoingCallTarget?.name ??
+                        useCallStore.getState().incomingCall?.callerName ??
+                        "Peer";
+                    const requesterName =
+                        typeof payload?.requesterName === "string" &&
+                        payload.requesterName.trim().length > 0
+                            ? payload.requesterName
+                            : fallbackRequesterName;
 
-                    pendingIncomingVideoUpgradeRequesterIdRef.current = signal.senderId;
+                    pendingIncomingVideoUpgradeRequesterIdRef.current =
+                        signal.senderId;
                     setIncomingVideoUpgradeRequest({ requesterName });
                     break;
                 }
@@ -248,44 +250,6 @@ export function useCallSocket(groupSignalRef?: React.MutableRefObject<((signal: 
                     break;
                 }
 
-                case "RENEGOTIATE_OFFER": {
-                    // Remote is upgrading the call (e.g. voice → video)
-                    // Receiver should switch to video layout to see peer, but keep own camera off.
-                    setCameraOff(true);
-                    upgradeCall();
-
-                    const renoPayload = signal.payload as { sdp: RTCSessionDescriptionInit };
-                    await webrtcRef.current.handleRemoteDescription(renoPayload.sdp);
-                    const answer = await webrtcRef.current.createAnswer();
-
-                    const client = socketService.getClient();
-                    const activeCall = useCallStore.getState().activeCall;
-                    if (client?.connected && activeCall && user) {
-                        const receiverId = activeCall.participants.find((id) => id !== user.id);
-                        if (receiverId) {
-                            client.publish({
-                                destination: "/app/call.renegotiate",
-                                body: JSON.stringify({
-                                    type: "RENEGOTIATE_ANSWER",
-                                    callId: activeCall.callId,
-                                    senderId: user.id,
-                                    receiverId,
-                                    payload: { sdp: answer },
-                                }),
-                            });
-                        }
-                    }
-                    break;
-                }
-
-                case "RENEGOTIATE_ANSWER": {
-                    // Remote accepted our upgrade offer
-                    const renoPayload = signal.payload as { sdp: RTCSessionDescriptionInit };
-                    await webrtcRef.current.handleRemoteDescription(renoPayload.sdp);
-                    upgradeCall();
-                    break;
-                }
-
                 default:
                     console.warn("Unknown call signal type:", signal.type);
             }
@@ -294,9 +258,7 @@ export function useCallSocket(groupSignalRef?: React.MutableRefObject<((signal: 
             setIncomingCall,
             setCallStatus,
             endCallStore,
-            setPendingOffer,
             setCameraOff,
-            upgradeCall,
             playRingtone,
             stopRingtone,
             resolvePendingVideoUpgradeDecision,
@@ -317,23 +279,24 @@ export function useCallSocket(groupSignalRef?: React.MutableRefObject<((signal: 
             const client = socketService.getClient();
             if (!client?.connected) return;
 
-            subscription = client.subscribe(
-                `/user/queue/calls`,
-                (message) => {
-                    const signal = JSON.parse(message.body) as CallSignal;
-                    if (signal.type.startsWith("GROUP_") || (signal.type === "ICE_CANDIDATE" && useCallStore.getState().isGroupCall)) {
-                        groupSignalRef?.current?.(signal);
-                        return;
-                    }
+            subscription = client.subscribe(`/user/queue/calls`, (message) => {
+                const signal = JSON.parse(message.body) as CallSignal;
+                if (
+                    signal.type.startsWith("GROUP_") ||
+                    (signal.type === "ICE_CANDIDATE" &&
+                        useCallStore.getState().isGroupCall)
+                ) {
+                    groupSignalRef?.current?.(signal);
+                    return;
+                }
 
-                    // Some brokers can echo signaling back to sender; ignore our own 1-1 signals.
-                    if (user && signal.senderId === user.id) {
-                        return;
-                    }
+                // Some brokers can echo signaling back to sender; ignore our own 1-1 signals.
+                if (user && signal.senderId === user.id) {
+                    return;
+                }
 
-                    handleSignal(signal);
-                },
-            );
+                handleSignal(signal);
+            });
         });
 
         return () => {
@@ -342,9 +305,15 @@ export function useCallSocket(groupSignalRef?: React.MutableRefObject<((signal: 
         };
     }, [user, handleSignal, groupSignalRef]);
 
-    // Initiate a call (caller sends offer)
+    // Initiate a call.
     const initiateCall = useCallback(
-        async (receiverId: string, conversationId: string, type: CallType, calleeName?: string, calleeAvatar?: string) => {
+        async (
+            receiverId: string,
+            conversationId: string,
+            type: CallType,
+            calleeName?: string,
+            calleeAvatar?: string | null,
+        ) => {
             if (!user) return;
 
             const client = socketService.getClient();
@@ -358,8 +327,7 @@ export function useCallSocket(groupSignalRef?: React.MutableRefObject<((signal: 
                     type,
                 });
 
-                // startCall BEFORE initLocalStream so activeCall is set
-                // before ICE candidates start firing
+                // startCall before signaling so the active call is ready.
                 const callId = generateCallId();
                 const session: CallSession = {
                     callId,
@@ -372,9 +340,6 @@ export function useCallSocket(groupSignalRef?: React.MutableRefObject<((signal: 
                 startCall(session);
                 setCallStatus("RINGING"); // override 'ONGOING' from startCall back to RINGING
 
-                await webrtcRef.current.initLocalStream(type);
-                const offer = await webrtcRef.current.createOffer();
-
                 // Send INITIATE signal via STOMP
                 client.publish({
                     destination: "/app/call.initiate",
@@ -385,19 +350,18 @@ export function useCallSocket(groupSignalRef?: React.MutableRefObject<((signal: 
                         receiverId,
                         payload: {
                             callerName: user.displayName,
-                            callerAvatar: user.avatarUrl ?? "",
+                            callerAvatar: user.avatarUrl ?? null,
                             callType: type,
                             conversationId,
-                            offer,
+                            mediaProvider: "AGORA",
                         },
                     }),
                 });
-            } catch (error) {
-                console.error("Failed to initiate call:", error);
+            } catch {
                 endCallStore();
             }
         },
-        [user, setCallStatus, setOutgoingCallTarget, setPendingOffer, startCall, endCallStore],
+        [user, setCallStatus, setOutgoingCallTarget, startCall, endCallStore],
     );
 
     // Answer a call (accept or reject)
@@ -414,11 +378,10 @@ export function useCallSocket(groupSignalRef?: React.MutableRefObject<((signal: 
             if (accept) {
                 try {
                     stopRingtone();
-                    // startCall BEFORE initLocalStream so activeCall is set
-                    // before ICE candidates start firing
+                    // startCall before signaling so the active call is ready.
                     const session: CallSession = {
                         callId: incoming.callId,
-                        conversationId: "",
+                        conversationId: incoming.conversationId,
                         initiatorId: incoming.callerId,
                         participants: [incoming.callerId, user.id],
                         type: incoming.type,
@@ -426,23 +389,13 @@ export function useCallSocket(groupSignalRef?: React.MutableRefObject<((signal: 
                         startedAt: new Date().toISOString(),
                     };
                     startCall(session);
+                    const result = await agoraMediaCallRef.current.joinCall({
+                        conversationId: incoming.conversationId,
+                        callId: incoming.callId,
+                        type: incoming.type,
+                    });
+                    setCameraOff(!result.hasLocalVideoTrack);
 
-                    await webrtcRef.current.initLocalStream(incoming.type);
-
-                    const pendingOffer = useCallStore.getState().pendingOffer;
-                    if (!pendingOffer) {
-                        console.error("No pending offer found");
-                        endCallStore();
-                        return;
-                    }
-
-                    // Set remote description (offer) before creating answer
-                    await webrtcRef.current.handleRemoteDescription(pendingOffer);
-                    setPendingOffer(null);
-
-                    const answer = await webrtcRef.current.createAnswer();
-
-                    // Send accept answer
                     client.publish({
                         destination: "/app/call.answer",
                         body: JSON.stringify({
@@ -450,19 +403,19 @@ export function useCallSocket(groupSignalRef?: React.MutableRefObject<((signal: 
                             callId: incoming.callId,
                             senderId: user.id,
                             receiverId: incoming.callerId,
-                            payload: { accepted: true, sdp: answer },
+                            payload: { accepted: true },
                         }),
                     });
+
                     // incomingCall kept — ActiveCallOverlay uses callerName
-                } catch (error) {
-                    console.error("Failed to answer call:", error);
+                } catch {
                     endCallStore(); // endCallStore auto-resets incomingCall
                     return;
                 }
             } else {
                 // Reject the call
+                agoraMediaCallRef.current.leaveCall();
                 stopRingtone();
-                setPendingOffer(null);
 
                 client.publish({
                     destination: "/app/call.answer",
@@ -480,17 +433,28 @@ export function useCallSocket(groupSignalRef?: React.MutableRefObject<((signal: 
                 setTimeout(() => endCallStore(), 1000);
             }
         },
-        [user, setIncomingCall, setCallStatus, setPendingOffer, startCall, endCallStore, stopRingtone],
+        [
+            user,
+            setIncomingCall,
+            setCallStatus,
+            setCameraOff,
+            startCall,
+            endCallStore,
+            stopRingtone,
+        ],
     );
 
     // End an ongoing call
-    const handleEndCall = useCallback(() => {        if (!user) return;
+    const handleEndCall = useCallback(() => {
+        if (!user) return;
 
         const client = socketService.getClient();
         const activeCall = useCallStore.getState().activeCall;
 
         if (activeCall && client?.connected) {
-            const receiverId = activeCall.participants.find((id) => id !== user.id);
+            const receiverId = activeCall.participants.find(
+                (id) => id !== user.id,
+            );
             if (receiverId) {
                 client.publish({
                     destination: "/app/call.end",
@@ -507,26 +471,36 @@ export function useCallSocket(groupSignalRef?: React.MutableRefObject<((signal: 
         resolvePendingVideoUpgradeDecision(false);
         setIncomingVideoUpgradeRequest(null);
         pendingIncomingVideoUpgradeRequesterIdRef.current = null;
-        webrtcRef.current.cleanup();
+        agoraMediaCallRef.current.leaveCall();
         setCallStatus("ENDED");
         setTimeout(() => endCallStore(), 1500);
     }, [user, setCallStatus, endCallStore, resolvePendingVideoUpgradeDecision]);
 
-    // Wrap toggleCamera: ties WebRTC track changes to store state
+    // Keep store camera state in sync with Agora.
     const handleToggleCamera = useCallback(async (): Promise<void> => {
-        const cameraOn = await webrtcRef.current.toggleCamera();
-        useCallStore.getState().setCameraOff(!cameraOn);
+        const activeCall = useCallStore.getState().activeCall;
+        if (activeCall?.type === "VIDEO") {
+            const cameraOn = await agoraMediaCallRef.current.toggleCamera();
+            useCallStore.getState().setCameraOff(!cameraOn);
+            return;
+        }
     }, []);
 
-    // Upgrade an active voice call to video (sends RENEGOTIATE_OFFER to peer)
-    const upgradeToVideo = useCallback(async (): Promise<{ hasLocalVideoTrack: boolean }> => {
+    // Upgrade an active voice call to video.
+    const upgradeToVideo = useCallback(async (): Promise<{
+        hasLocalVideoTrack: boolean;
+    }> => {
         if (!user) throw new Error("Unable to request video call upgrade.");
 
         const activeCall = useCallStore.getState().activeCall;
         if (!activeCall) throw new Error("No active call to upgrade");
+        if (activeCall.type === "VIDEO") {
+            return { hasLocalVideoTrack: true };
+        }
 
         const receiverId = activeCall.participants.find((id) => id !== user.id);
-        if (!receiverId) throw new Error("Cannot identify the peer for upgrade request.");
+        if (!receiverId)
+            throw new Error("Cannot identify the peer for upgrade request.");
 
         const requestingClient = socketService.getClient();
         if (!requestingClient?.connected) {
@@ -552,25 +526,10 @@ export function useCallSocket(groupSignalRef?: React.MutableRefObject<((signal: 
                 throw new Error("Peer declined the video call request.");
             }
 
-            const { offer, hasLocalVideoTrack } = await webrtcRef.current.upgradeToVideo();
+            const hasLocalVideoTrack =
+                await agoraMediaCallRef.current.enableVideo();
             setCameraOff(!hasLocalVideoTrack);
-            // Switch local UI to video immediately instead of waiting for round-trip signaling.
             upgradeCall();
-
-            // Best-effort signaling: if socket/user is unavailable, keep local preview on.
-            const client = socketService.getClient();
-            if (!client?.connected) return { hasLocalVideoTrack };
-
-            client.publish({
-                destination: "/app/call.renegotiate",
-                body: JSON.stringify({
-                    type: "RENEGOTIATE_OFFER",
-                    callId: activeCall.callId,
-                    senderId: user.id,
-                    receiverId,
-                    payload: { sdp: offer },
-                }),
-            });
 
             return { hasLocalVideoTrack };
         } catch (error) {
@@ -579,6 +538,10 @@ export function useCallSocket(groupSignalRef?: React.MutableRefObject<((signal: 
         }
     }, [user, setCameraOff, upgradeCall, waitForVideoUpgradeDecision]);
 
+    const handleToggleMute = useCallback((muted: boolean): void => {
+        agoraMediaCallRef.current.toggleMute(muted);
+    }, []);
+
     return {
         initiateCall,
         answerCall,
@@ -586,11 +549,9 @@ export function useCallSocket(groupSignalRef?: React.MutableRefObject<((signal: 
         upgradeToVideo,
         incomingVideoUpgradeRequest,
         respondToVideoUpgradeRequest,
-        localStream: webrtc.localStream,
-        remoteStream: webrtc.remoteStream,
-        localVideoRef: webrtc.localVideoRef,
-        remoteVideoRef: webrtc.remoteVideoRef,
-        toggleMute: webrtc.toggleMute,
+        localStream: agoraMediaCall.localStream,
+        remoteStream: agoraMediaCall.remoteStream,
+        toggleMute: handleToggleMute,
         toggleCamera: handleToggleCamera,
     };
 }

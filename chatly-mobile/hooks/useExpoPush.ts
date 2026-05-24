@@ -35,8 +35,8 @@ if (!isExpoGo) {
 export function useExpoPush() {
   const { isAuthenticated, user } = useAuthStore();
   const router = useRouter();
-  const notificationListener = useRef<any>();
-  const responseListener = useRef<any>();
+  const notificationListener = useRef<any>(null);
+  const responseListener = useRef<any>(null);
 
   useEffect(() => {
     if (!isAuthenticated || !user || isExpoGo || !Notifications) return;

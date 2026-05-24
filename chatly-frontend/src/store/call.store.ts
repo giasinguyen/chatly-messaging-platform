@@ -1,11 +1,18 @@
 import { create } from "zustand";
-import type { CallStatus, CallSession, IncomingCall, IncomingGroupCall, GroupParticipantInfo, Participant } from "@/types/call";
+import type {
+    CallStatus,
+    CallSession,
+    IncomingCall,
+    IncomingGroupCall,
+    GroupParticipantInfo,
+    Participant,
+} from "@/types/call";
 
 type CallStoreStatus = CallStatus | "IDLE";
 
 export interface OutgoingCallTarget {
     name: string;
-    avatarUrl?: string;
+    avatarUrl?: string | null;
     type: "VOICE" | "VIDEO";
 }
 
@@ -21,7 +28,6 @@ interface CallState {
     incomingCall: IncomingCall | null;
     activeCall: CallSession | null;
     outgoingCallTarget: OutgoingCallTarget | null;
-    pendingOffer: RTCSessionDescriptionInit | null;
     participants: Participant[];
     isMuted: boolean;
     isCameraOff: boolean;
@@ -37,7 +43,6 @@ interface CallState {
     setIncomingCall: (call: IncomingCall | null) => void;
     setCallStatus: (status: CallStoreStatus) => void;
     setOutgoingCallTarget: (target: OutgoingCallTarget | null) => void;
-    setPendingOffer: (offer: RTCSessionDescriptionInit | null) => void;
     startCall: (session: CallSession) => void;
     endCall: () => void;
     toggleMute: () => void;
@@ -50,9 +55,16 @@ interface CallState {
     // Group call actions
     setIncomingGroupCall: (call: IncomingGroupCall | null) => void;
     startGroupCall: (session: CallSession) => void;
-    setGroupParticipantInfo: (userId: string, info: GroupParticipantInfo) => void;
+    setGroupParticipantInfo: (
+        userId: string,
+        info: GroupParticipantInfo,
+    ) => void;
     removeGroupParticipant: (userId: string) => void;
-    setGroupCallRealtimeState: (callId: string, ended: boolean, activeParticipantCount: number) => void;
+    setGroupCallRealtimeState: (
+        callId: string,
+        ended: boolean,
+        activeParticipantCount: number,
+    ) => void;
 }
 
 export const useCallStore = create<CallState>((set) => ({
@@ -61,7 +73,6 @@ export const useCallStore = create<CallState>((set) => ({
     incomingCall: null,
     activeCall: null,
     outgoingCallTarget: null,
-    pendingOffer: null,
     participants: [],
     isMuted: false,
     isCameraOff: false,
@@ -78,8 +89,6 @@ export const useCallStore = create<CallState>((set) => ({
     setCallStatus: (status) => set({ callStatus: status }),
 
     setOutgoingCallTarget: (target) => set({ outgoingCallTarget: target }),
-
-    setPendingOffer: (offer) => set({ pendingOffer: offer }),
 
     startCall: (session) =>
         set({
@@ -98,7 +107,6 @@ export const useCallStore = create<CallState>((set) => ({
             incomingGroupCall: null,
             activeCall: null,
             outgoingCallTarget: null,
-            pendingOffer: null,
             participants: [],
             isGroupCall: false,
             groupParticipantInfo: {},
@@ -141,7 +149,10 @@ export const useCallStore = create<CallState>((set) => ({
 
     setGroupParticipantInfo: (userId, info) =>
         set((state) => ({
-            groupParticipantInfo: { ...state.groupParticipantInfo, [userId]: info },
+            groupParticipantInfo: {
+                ...state.groupParticipantInfo,
+                [userId]: info,
+            },
         })),
 
     removeGroupParticipant: (userId) =>

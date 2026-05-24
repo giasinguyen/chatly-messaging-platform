@@ -47,6 +47,7 @@ import type { Message, ChatEvent, Attachment, Poll } from '@/types/message';
 import type { ConversationResponse } from '@/types/conversation';
 import type { UserResponse } from '@/types/auth';
 import type { ContactResponse } from '@/types/contact';
+import type { CallMediaProvider } from '@/types/call';
 
 const PAGE_SIZE = 20;
 const ENDED_CALL_STATUSES = new Set(['ENDED', 'MISSED', 'REJECTED']);
@@ -55,6 +56,7 @@ interface CallMessagePayload {
   callId?: string;
   status?: string;
   callType?: string;
+  mediaProvider?: CallMediaProvider;
 }
 
 function parseCallMessagePayload(rawContent: string): CallMessagePayload | null {
@@ -777,10 +779,12 @@ export default function ChatScreen() {
 
       let callType: 'VOICE' | 'VIDEO' = 'VOICE';
       let initiatorId = '';
+      let mediaProvider: CallMediaProvider = 'AGORA';
 
       if (fallbackCallMessage) {
         const payload = parseCallMessagePayload(fallbackCallMessage.content);
         callType = payload?.callType === 'VIDEO' ? 'VIDEO' : 'VOICE';
+        mediaProvider = payload?.mediaProvider ?? 'AGORA';
         initiatorId = fallbackCallMessage.senderId;
       }
 
@@ -795,6 +799,7 @@ export default function ChatScreen() {
         groupName: conversation.name ?? 'Group',
         groupAvatarUrl: conversation.avatarUrl ?? null,
         type: callType,
+        mediaProvider,
         participantCount: 0,
       });
 
