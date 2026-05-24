@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { usePathname, router } from 'expo-router';
 import { Alert } from 'react-native';
-import { socketService } from '@/services/socket.service';
+import { isSocketAuthError, socketService } from '@/services/socket.service';
 import { useAuthStore } from '@/store/auth.store';
 import { useNotificationStore } from '@/store/notification.store';
 import { useConversationStore } from '@/store/conversation.store';
@@ -76,7 +76,11 @@ export function useNotificationSocket() {
       });
     };
 
-    setup().catch(console.error);
+    setup().catch((error: unknown) => {
+      if (!isSocketAuthError(error)) {
+        console.error(error);
+      }
+    });
 
     return () => {
       isMounted = false;

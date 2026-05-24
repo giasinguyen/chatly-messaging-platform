@@ -31,19 +31,18 @@ public class WebSocketAuthInterceptor implements HandshakeInterceptor {
             WebSocketHandler wsHandler,
             Map<String, Object> attributes) {
 
-        log.info("WebSocket handshake attempt: URI={}", request.getURI());
+        log.info("WebSocket handshake attempt: path={}", request.getURI().getPath());
         String token = extractToken(request);
 
-        if (StringUtils.hasText(token)
-            && passwordChangeTokenValidator.isTokenValidAgainstPasswordChange(token)
-            && sessionTokenValidator.isSessionTokenAcceptable(token)) {
+        String rejectReason = getRejectReason(token);
+        if (rejectReason == null) {
             String userId = jwtProvider.getUserIdFromToken(token);
             attributes.put("userId", userId);
             log.info("WebSocket handshake ACCEPTED for userId={}", userId);
             return true;
         }
 
-        log.warn("WebSocket handshake REJECTED: invalid or missing token");
+        log.warn("WebSocket handshake REJECTED: reason={}", rejectReason);
         return false;
     }
 
@@ -74,5 +73,27 @@ public class WebSocketAuthInterceptor implements HandshakeInterceptor {
         }
 
         return null;
+    }
+
+    private String getRejectReason(String token) {
+        if (!StringUtils.hasText(token)) {
+            return "missing_token";
+        }
+
+        try {
+            if (!jwtProvider.validateToken(token)) {
+                return "invalid_token";
+            }
+            if (!passwordChangeTokenValidator.isTokenValidAgainstPasswordChange(token)) {
+                return "password_changed";
+            }
+            if (!sessionTokenValidator.isSessionTokenAcceptable(token)) {
+                return "session_revoked_or_missing";
+            }
+            return null;
+        } catch (Exception ex) {
+            log.warn("WebSocket token validation failed: {}", ex.getClass().getSimpleName());
+            return "token_validation_error";
+        }
     }
 }
