@@ -197,7 +197,8 @@ export function GroupCallOverlay({
     )
         return null;
 
-    const remotePeers = Object.entries(groupParticipantInfo).map(
+    const knownStreamKeys = new Set<string>();
+    const knownRemotePeers = Object.entries(groupParticipantInfo).map(
         ([peerId, info]) => ({
             peerId,
             stream:
@@ -208,6 +209,19 @@ export function GroupCallOverlay({
             avatar: info.avatar,
         }),
     );
+    knownRemotePeers.forEach(({ peerId }) => {
+        knownStreamKeys.add(peerId);
+        knownStreamKeys.add(buildAgoraUidKey(peerId));
+    });
+    const unknownRemotePeers = Object.entries(groupRemoteStreams)
+        .filter(([streamKey]) => !knownStreamKeys.has(streamKey))
+        .map(([streamKey, stream], index) => ({
+            peerId: `agora-${streamKey}`,
+            stream,
+            name: `Participant ${knownRemotePeers.length + index + 1}`,
+            avatar: null,
+        }));
+    const remotePeers = [...knownRemotePeers, ...unknownRemotePeers];
 
     const totalParticipants = remotePeers.length + 1;
     const gridCols =
