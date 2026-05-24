@@ -330,24 +330,6 @@ export function useGroupCallSocket() {
                     }
 
                     removeGroupParticipant(leavingId);
-
-                    // Auto-end call when no remote peers remain
-                    const remainingPeerCount = Object.keys(
-                        useCallStore.getState().groupParticipantInfo,
-                    ).filter((peerId) => peerId !== leavingId).length;
-                    if (remainingPeerCount === 0) {
-                        cancelPendingGroupVideoUpgradeDecision(
-                            "Group call ended before video upgrade completed.",
-                        );
-                        pendingIncomingGroupVideoUpgradeRequesterIdRef.current =
-                            null;
-                        setIncomingGroupVideoUpgradeRequest(null);
-                        shouldAutoEnableCameraForRequesterRef.current.clear();
-                        stopRingtone();
-                        groupAgoraCallRef.current.leaveCall();
-                        setCallStatus("ENDED");
-                        setTimeout(() => endCallStore(), 1500);
-                    }
                     break;
                 }
 
