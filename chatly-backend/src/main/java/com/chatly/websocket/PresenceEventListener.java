@@ -59,7 +59,7 @@ public class PresenceEventListener {
      */
     private void cleanUpGroupCallsOnDisconnect(String userId) {
         List<CallSession> activeSessions = callSessionRepository
-                .findByParticipantsContainingAndStatusIn(
+                .findByIsGroupTrueAndParticipantsContainingAndStatusIn(
                         userId, List.of(CallStatus.RINGING, CallStatus.ONGOING));
 
         for (CallSession session : activeSessions) {
