@@ -34,7 +34,9 @@ export interface ChatPrivateProfileContentProps {
     currentUserId: string | undefined;
     sendingContact: boolean;
     blockActionLoading: boolean;
+    reportUserSubmitting: boolean;
     onAddFriend: () => void;
+    onReportUser: () => void;
     onRequestBlockAction: (action: "block" | "unblock") => void;
     onClose: () => void;
 }
@@ -50,7 +52,9 @@ export const ChatPrivateProfileContent = memo(function ChatPrivateProfileContent
     currentUserId,
     sendingContact,
     blockActionLoading,
+    reportUserSubmitting,
     onAddFriend,
+    onReportUser,
     onRequestBlockAction,
     onClose,
 }: ChatPrivateProfileContentProps) {
@@ -194,6 +198,17 @@ export const ChatPrivateProfileContent = memo(function ChatPrivateProfileContent
                             Block user
                         </Button>
                     )}
+                {profileUser.id !== currentUserId && (
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={onReportUser}
+                        disabled={reportUserSubmitting}
+                        className="w-full sm:w-auto"
+                    >
+                        {reportUserSubmitting ? "Reporting..." : "Report user"}
+                    </Button>
+                )}
                 {profileUser.id && profileUser.id !== currentUserId && (
                     <Button
                         variant="outline"

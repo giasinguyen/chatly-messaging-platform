@@ -7,7 +7,26 @@ import {
     PinOff,
     X as XIcon,
 } from "lucide-react";
+import { toMessagePreviewText } from "./richTextMessage.utils";
 import type { Message } from "@/types/message";
+
+function getPinnedPreview(message: Message): string {
+    if (message.type === "POLL") {
+        return `Poll: ${message.poll?.question ?? ""}`;
+    }
+
+    const plainText = toMessagePreviewText(message.content ?? "");
+    if (plainText) {
+        return plainText;
+    }
+
+    if (message.attachments?.length) {
+        const firstAttachment = message.attachments[0];
+        return firstAttachment.name ?? "Attachment";
+    }
+
+    return "Message";
+}
 
 interface PinnedBannerProps {
     pinnedMessages: Message[];
@@ -31,9 +50,7 @@ export const PinnedMessagesBanner = memo(function PinnedMessagesBanner({
     if (pinnedMessages.length === 0) return null;
     const current = pinnedMessages[currentPinnedIdx];
     if (!current) return null;
-    const preview =
-        current.content ??
-        (current.type === "POLL" ? `Poll: ${current.poll?.question}` : "[attachment]");
+    const preview = getPinnedPreview(current);
 
     return (
         <div className="flex items-center gap-2 px-3 py-2 border-b border-border/60 bg-muted/35 shrink-0">

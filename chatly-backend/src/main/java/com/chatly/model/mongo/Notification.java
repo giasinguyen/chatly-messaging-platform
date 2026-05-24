@@ -1,6 +1,7 @@
 package com.chatly.model.mongo;
 
 import com.chatly.model.enums.NotificationType;
+import com.chatly.model.enums.NotificationTargetType;
 import lombok.*;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.Id;
@@ -33,6 +34,9 @@ public class Notification {
 
     /** Contextual ID: conversationId for NEW_MESSAGE, senderId for FRIEND_REQUEST, conversationId for GROUP_INVITE */
     private String referenceId;
+
+    @Builder.Default
+    private NotificationTargetType targetType = NotificationTargetType.NONE;
 
     private String content;
 

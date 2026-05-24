@@ -14,7 +14,6 @@ import { useNotificationSocket } from '@/hooks/useNotificationSocket';
 import { useExpoPush } from '@/hooks/useExpoPush';
 import { CallSocketProvider, useCallContext } from '@/contexts/CallContext';
 import { useCallStore } from '@/store/call.store';
-import { NotificationBanner } from '@/components/ui/NotificationBanner';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { View, ActivityIndicator } from 'react-native';
 import { Colors } from '@/constants/theme';
@@ -104,7 +103,7 @@ function AuthGateInner({ children }: { children: React.ReactNode }) {
           setScopedUnreadCount('chat', chat.result);
           setScopedUnreadCount('social', social.result);
         })
-        .catch(err => console.error('Failed to fetch unread count', err));
+        .catch((err) => console.error('Failed to fetch unread count', err));
     }
   }, [isAuthenticated, hydrated, setScopedUnreadCount]);
 
@@ -124,7 +123,13 @@ function AuthGateInner({ children }: { children: React.ReactNode }) {
   // Show loading while hydrating
   if (!hydrated) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.bg }}>
+      <View
+        style={{
+          flex: 1,
+          justifyContent: 'center',
+          alignItems: 'center',
+          backgroundColor: Colors.bg,
+        }}>
         <ActivityIndicator size="large" color={Colors.cta} />
       </View>
     );
@@ -132,37 +137,50 @@ function AuthGateInner({ children }: { children: React.ReactNode }) {
 
   return (
     <>
-      <NotificationBanner />
       {children}
 
       {/* Incoming 1-1 call screen */}
-      {IS_CALL_ENABLED && CallScreenComponent && incomingCall && callStatus === 'RINGING' && !incomingGroupCall && (
-        <CallScreenComponent
-          visible
-          incomingCall={incomingCall}
-          onAccept={() => answerCallAction(true)}
-          onReject={() => answerCallAction(false)}
-        />
-      )}
+      {IS_CALL_ENABLED &&
+        CallScreenComponent &&
+        incomingCall &&
+        callStatus === 'RINGING' &&
+        !incomingGroupCall && (
+          <CallScreenComponent
+            visible
+            incomingCall={incomingCall}
+            onAccept={() => answerCallAction(true)}
+            onReject={() => answerCallAction(false)}
+          />
+        )}
 
       {/* Incoming group call screen (receiver side) */}
-      {IS_CALL_ENABLED && GroupCallScreenComponent && incomingGroupCall && callStatus === 'RINGING' && (
-        <GroupCallScreenComponent
-          visible
-          incomingGroupCall={incomingGroupCall}
-          onJoin={() => joinGroupCall(true)}
-          onDecline={() => joinGroupCall(false)}
-        />
-      )}
+      {IS_CALL_ENABLED &&
+        GroupCallScreenComponent &&
+        incomingGroupCall &&
+        callStatus === 'RINGING' && (
+          <GroupCallScreenComponent
+            visible
+            incomingGroupCall={incomingGroupCall}
+            onJoin={() => joinGroupCall(true)}
+            onDecline={() => joinGroupCall(false)}
+          />
+        )}
 
       {/* Outgoing 1-1 call screen (caller side only) */}
       {IS_CALL_ENABLED && OutgoingCallScreenComponent ? <OutgoingCallScreenComponent /> : null}
 
       {/* Active group call overlay — also covers initiator RINGING state */}
-      {IS_CALL_ENABLED && GroupCallOverlayComponent && isGroupCall && !incomingGroupCall && (callStatus === 'ONGOING' || callStatus === 'RINGING') && <GroupCallOverlayComponent />}
+      {IS_CALL_ENABLED &&
+        GroupCallOverlayComponent &&
+        isGroupCall &&
+        !incomingGroupCall &&
+        (callStatus === 'ONGOING' || callStatus === 'RINGING') && <GroupCallOverlayComponent />}
 
       {/* Active 1-1 call overlay */}
-      {IS_CALL_ENABLED && ActiveCallOverlayComponent && callStatus === 'ONGOING' && !isGroupCall && <ActiveCallOverlayComponent />}
+      {IS_CALL_ENABLED &&
+        ActiveCallOverlayComponent &&
+        callStatus === 'ONGOING' &&
+        !isGroupCall && <ActiveCallOverlayComponent />}
     </>
   );
 }

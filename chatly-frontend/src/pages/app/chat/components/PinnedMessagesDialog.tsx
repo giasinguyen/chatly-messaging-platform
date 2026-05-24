@@ -11,6 +11,7 @@ import {
 import { Loader2, Pin, FileText, Image as ImageIcon } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { toMessagePreviewText } from "./richTextMessage.utils";
 import type { Message } from "@/types/message";
 
 interface PinnedMessagesDialogProps {
@@ -60,12 +61,24 @@ export function PinnedMessagesDialog({
     };
 
     const getPreview = (msg: Message): string => {
-        if (msg.content) return msg.content.length > 120 ? msg.content.slice(0, 120) + "..." : msg.content;
         if (msg.poll) return "📊 " + msg.poll.question;
+
+        const previewText = toMessagePreviewText(msg.content ?? "");
+        if (previewText) {
+            return previewText.length > 120
+                ? previewText.slice(0, 120) + "..."
+                : previewText;
+        }
+
         if (msg.attachments?.length) {
             const att = msg.attachments[0];
-            if (att.type?.startsWith("image/")) return "🖼️ Image";
-            return "📎 " + (att.name ?? "Attachment");
+            if (att.name) {
+                return att.name;
+            }
+            if (att.type?.startsWith("image/")) {
+                return "Image";
+            }
+            return "Attachment";
         }
         return "Message";
     };

@@ -1,7 +1,7 @@
 import { createContext, useContext } from 'react';
 import { useCallSocket } from '@/hooks/useCallSocket';
 import { useGroupCallSocket } from '@/hooks/useGroupCallSocket';
-import { IS_CALL_ENABLED } from '@/constants/runtime';
+import { IS_CALL_SIGNALING_ENABLED } from '@/constants/runtime';
 
 type CallSocketReturn = ReturnType<typeof useCallSocket>;
 type GroupCallSocketReturn = ReturnType<typeof useGroupCallSocket>;
@@ -29,7 +29,7 @@ const disabledCallContextValue = {
 } as unknown as CallContextValue;
 
 export function CallSocketProvider({ children }: { children: React.ReactNode }) {
-  if (!IS_CALL_ENABLED) {
+  if (!IS_CALL_SIGNALING_ENABLED) {
     return <CallContext.Provider value={disabledCallContextValue}>{children}</CallContext.Provider>;
   }
 

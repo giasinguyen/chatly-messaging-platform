@@ -27,13 +27,14 @@ interface NotificationIcon {
 
 function parseNotificationScope(scopeParam: string | string[] | undefined): NotificationScope {
   const scope = Array.isArray(scopeParam) ? scopeParam[0] : scopeParam;
-  return scope === 'chat' || scope === 'social' ? scope : 'all';
+  return scope === 'social' ? scope : 'all';
 }
 
 export default function NotificationsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { scope: scopeParam } = useLocalSearchParams<{ scope?: string | string[] }>();
+  const requestedScope = Array.isArray(scopeParam) ? scopeParam[0] : scopeParam;
   const scope = parseNotificationScope(scopeParam);
   const [notifications, setLocalNotifications] = useState<NotificationResponse[]>([]);
   const [loading, setLoading] = useState(true);
@@ -42,10 +43,14 @@ export default function NotificationsScreen() {
   const markScopeAsRead = useNotificationStore((s) => s.markScopeAsRead);
 
   const fetchNotifications = useCallback(async () => {
+    if (requestedScope === 'chat') return;
+
     try {
       const response = await notificationService.getNotifications(0, 50, scope);
       await notificationService.markAllAsRead(scope);
-      setLocalNotifications(response.result.map((notification) => ({ ...notification, read: true })));
+      setLocalNotifications(
+        response.result.map((notification) => ({ ...notification, read: true }))
+      );
       markScopeAsRead(scope);
     } catch (error: unknown) {
       console.error('Failed to fetch notifications', error);
@@ -53,11 +58,16 @@ export default function NotificationsScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [markScopeAsRead, scope]);
+  }, [markScopeAsRead, requestedScope, scope]);
 
   useEffect(() => {
+    if (requestedScope === 'chat') {
+      router.replace('/(tabs)/chats');
+      return;
+    }
+
     fetchNotifications();
-  }, [fetchNotifications]);
+  }, [fetchNotifications, requestedScope, router]);
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -67,7 +77,7 @@ export default function NotificationsScreen() {
   const handleMarkAllRead = async () => {
     try {
       await notificationService.markAllAsRead(scope);
-      setLocalNotifications(notifications.map(n => ({ ...n, read: true })));
+      setLocalNotifications(notifications.map((n) => ({ ...n, read: true })));
       markScopeAsRead(scope);
     } catch (error: unknown) {
       console.error(error);
@@ -78,9 +88,9 @@ export default function NotificationsScreen() {
     if (!notification.read) {
       try {
         await notificationService.markAsRead(notification.id);
-        setLocalNotifications(notifications.map(n => 
-          n.id === notification.id ? { ...n, read: true } : n
-        ));
+        setLocalNotifications(
+          notifications.map((n) => (n.id === notification.id ? { ...n, read: true } : n))
+        );
         markNotificationAsRead(notification.id);
       } catch (error: unknown) {
         console.error(error);
@@ -88,41 +98,56 @@ export default function NotificationsScreen() {
     }
 
     if (notification.type === 'NEW_MESSAGE' && notification.referenceId) {
-      router.push({ pathname: '/chat/[id]', params: { id: notification.referenceId, returnTo: 'notifications' } });
+      router.push({
+        pathname: '/chat/[id]',
+        params: { id: notification.referenceId, returnTo: 'notifications' },
+      });
     } else if (notification.type === 'FRIEND_REQUEST') {
       router.push('/(tabs)/contacts');
     } else if (notification.type === 'GROUP_JOIN_REQUEST' && notification.referenceId) {
       router.push(`/chat/${notification.referenceId}/pending-requests`);
     } else if (notification.type === 'MEMBER_JOINED' && notification.referenceId) {
-      router.push({ pathname: '/chat/[id]', params: { id: notification.referenceId, returnTo: 'notifications' } });
+      router.push({
+        pathname: '/chat/[id]',
+        params: { id: notification.referenceId, returnTo: 'notifications' },
+      });
     }
   };
 
   const getIcon = (type: NotificationType): NotificationIcon => {
     switch (type) {
-      case 'NEW_MESSAGE': return { name: 'chatbubble-ellipses', color: Colors.cta };
-      case 'FRIEND_REQUEST': return { name: 'person-add', color: '#4CAF50' };
-      case 'GROUP_JOIN_REQUEST': return { name: 'person-add', color: '#FF9800' };
-      case 'MEMBER_JOINED': return { name: 'people', color: '#2196F3' };
-      case 'CALL_MISSED': return { name: 'call', color: '#F44336' };
-      case 'POST_LIKED': return { name: 'heart', color: '#FF3B30' };
-      case 'POST_COMMENTED': return { name: 'chatbubble', color: Colors.cta };
-      case 'COMMENT_REPLIED': return { name: 'chatbubbles', color: Colors.cta };
-      case 'POST_SHARED': return { name: 'paper-plane', color: '#34C759' };
-      case 'POST_MENTION': return { name: 'at', color: '#AF52DE' };
-      case 'STORY_VIEWED': return { name: 'eye', color: '#5856D6' };
-      case 'STORY_REACTED': return { name: 'happy', color: '#FF9500' };
-      case 'STORY_REPLIED': return { name: 'return-down-back', color: Colors.cta };
-      default: return { name: 'notifications', color: Colors.textMuted };
+      case 'NEW_MESSAGE':
+        return { name: 'chatbubble-ellipses', color: Colors.cta };
+      case 'FRIEND_REQUEST':
+        return { name: 'person-add', color: '#4CAF50' };
+      case 'GROUP_JOIN_REQUEST':
+        return { name: 'person-add', color: '#FF9800' };
+      case 'MEMBER_JOINED':
+        return { name: 'people', color: '#2196F3' };
+      case 'CALL_MISSED':
+        return { name: 'call', color: '#F44336' };
+      case 'POST_LIKED':
+        return { name: 'heart', color: '#FF3B30' };
+      case 'POST_COMMENTED':
+        return { name: 'chatbubble', color: Colors.cta };
+      case 'COMMENT_REPLIED':
+        return { name: 'chatbubbles', color: Colors.cta };
+      case 'POST_SHARED':
+        return { name: 'paper-plane', color: '#34C759' };
+      case 'POST_MENTION':
+        return { name: 'at', color: '#AF52DE' };
+      case 'STORY_VIEWED':
+        return { name: 'eye', color: '#5856D6' };
+      case 'STORY_REACTED':
+        return { name: 'happy', color: '#FF9500' };
+      case 'STORY_REPLIED':
+        return { name: 'return-down-back', color: Colors.cta };
+      default:
+        return { name: 'notifications', color: Colors.textMuted };
     }
   };
 
-  const title =
-    scope === 'social'
-      ? 'Feed notifications'
-      : scope === 'chat'
-        ? 'Chat notifications'
-        : 'Notifications';
+  const title = scope === 'social' ? 'Feed notifications' : 'Notifications';
 
   const handleBack = () => {
     if (scope === 'social') {
@@ -141,12 +166,20 @@ export default function NotificationsScreen() {
   return (
     <View className="flex-1" style={{ backgroundColor: Colors.bg }}>
       {/* Header */}
-      <View style={{ paddingTop: insets.top, backgroundColor: Colors.white, borderBottomWidth: 0.5, borderBottomColor: Colors.borderLight }}>
+      <View
+        style={{
+          paddingTop: insets.top,
+          backgroundColor: Colors.white,
+          borderBottomWidth: 0.5,
+          borderBottomColor: Colors.borderLight,
+        }}>
         <View className="flex-row items-center px-4 py-3">
           <TouchableOpacity onPress={handleBack} className="p-1">
             <Ionicons name="chevron-back" size={26} color={Colors.text} />
           </TouchableOpacity>
-          <Text className="flex-1 text-center text-lg font-bold" style={{ color: Colors.text }}>{title}</Text>
+          <Text className="flex-1 text-center text-lg font-bold" style={{ color: Colors.text }}>
+            {title}
+          </Text>
           <TouchableOpacity onPress={handleMarkAllRead}>
             <Text style={{ color: Colors.cta, fontWeight: '500' }}>Mark all read</Text>
           </TouchableOpacity>
@@ -161,7 +194,9 @@ export default function NotificationsScreen() {
         <FlatList
           data={notifications}
           keyExtractor={(item) => item.id}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.cta} />}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.cta} />
+          }
           renderItem={({ item }) => {
             const icon = getIcon(item.type);
             return (
@@ -172,29 +207,42 @@ export default function NotificationsScreen() {
                   backgroundColor: item.read ? Colors.white : '#F0F7FF',
                   borderBottomWidth: 0.5,
                   borderBottomColor: Colors.borderLight,
-                }}
-              >
+                }}>
                 <View className="relative">
                   <Avatar uri={item.senderAvatar} name={item.senderName || 'User'} size={48} />
-                  <View 
-                    className="absolute -bottom-1 -right-1 rounded-full p-1" 
-                    style={{ backgroundColor: Colors.white, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 2, elevation: 2 }}
-                  >
+                  <View
+                    className="absolute -bottom-1 -right-1 rounded-full p-1"
+                    style={{
+                      backgroundColor: Colors.white,
+                      shadowColor: '#000',
+                      shadowOpacity: 0.1,
+                      shadowRadius: 2,
+                      elevation: 2,
+                    }}>
                     <Ionicons name={icon.name} size={12} color={icon.color} />
                   </View>
                 </View>
-                
+
                 <View className="ml-3 flex-1">
-                  <View className="flex-row justify-between items-start">
-                    <Text className={`flex-1 text-sm ${item.read ? 'font-normal' : 'font-bold'}`} style={{ color: Colors.text }}>
+                  <View className="flex-row items-start justify-between">
+                    <Text
+                      className={`flex-1 text-sm ${item.read ? 'font-normal' : 'font-bold'}`}
+                      style={{ color: Colors.text }}>
                       {item.content}
                     </Text>
                     {!item.read && (
-                      <View className="w-2 h-2 rounded-full mt-1.5 ml-1" style={{ backgroundColor: Colors.cta }} />
+                      <View
+                        className="ml-1 mt-1.5 h-2 w-2 rounded-full"
+                        style={{ backgroundColor: Colors.cta }}
+                      />
                     )}
                   </View>
-                  <Text className="text-xs mt-1" style={{ color: Colors.textMuted }}>
-                    {new Date(item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} • {new Date(item.createdAt).toLocaleDateString()}
+                  <Text className="mt-1 text-xs" style={{ color: Colors.textMuted }}>
+                    {new Date(item.createdAt).toLocaleTimeString([], {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}{' '}
+                    • {new Date(item.createdAt).toLocaleDateString()}
                   </Text>
                 </View>
               </TouchableOpacity>
@@ -203,7 +251,9 @@ export default function NotificationsScreen() {
           ListEmptyComponent={
             <View className="flex-1 items-center justify-center pt-20">
               <Ionicons name="notifications-off-outline" size={64} color={Colors.borderLight} />
-              <Text className="mt-4 text-base" style={{ color: Colors.textMuted }}>No notifications yet</Text>
+              <Text className="mt-4 text-base" style={{ color: Colors.textMuted }}>
+                No notifications yet
+              </Text>
             </View>
           }
         />

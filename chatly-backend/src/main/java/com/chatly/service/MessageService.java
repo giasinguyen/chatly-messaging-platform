@@ -90,6 +90,16 @@ public class MessageService {
             if (otherId != null && contactService.isBlocked(UUID.fromString(senderId), UUID.fromString(otherId))) {
                 throw new AppException(ErrorCode.CONTACT_BLOCKED);
             }
+
+            // Suspension guard: reject if recipient account is suspended
+            if (otherId != null) {
+                boolean recipientSuspended = userRepository.findById(UUID.fromString(otherId))
+                        .map(user -> user.isSuspended())
+                        .orElse(false);
+                if (recipientSuspended) {
+                    throw new AppException(ErrorCode.CONTACT_SUSPENDED);
+                }
+            }
         }
 
         Message message = Message.builder()
@@ -126,25 +136,6 @@ public class MessageService {
                 && Boolean.TRUE.equals(conversation.getAiProactiveEnabled())
                 && isQuestion(request.getContent())) {
             scheduleUnansweredCheck(conversation.getId(), savedMessage.getId(), senderId);
-        }
-
-        // Auto-reply when the recipient account is suspended (PRIVATE conversations only)
-        if (otherId != null) {
-            final String suspendedUserId = otherId;
-            userRepository.findById(UUID.fromString(otherId)).ifPresent(otherUser -> {
-                if (otherUser.isSuspended()) {
-                    Message autoReply = Message.builder()
-                            .conversationId(conversation.getId())
-                            .senderId(suspendedUserId)
-                            .content("This account is currently suspended and cannot respond. " +
-                                     "Please contact our support team for further assistance.")
-                            .type(MessageType.SYSTEM)
-                            .attachments(new ArrayList<>())
-                            .mentions(new ArrayList<>())
-                            .build();
-                    persistAndBroadcast(conversation, autoReply, suspendedUserId);
-                }
-            });
         }
 
         return messageMapper.toResponse(savedMessage);
@@ -663,21 +654,35 @@ public class MessageService {
                         if (content.contains("VIDEO")) return "🎥 Cuộc gọi video";
                         return "📞 Cuộc gọi thoại";
                 }
+
+            switch (message.getType()) {
+                case GIF:
+                    return "[GIF]";
+                case STICKER:
+                    return "[Sticker]";
+                case IMAGE:
+                    return "[Image]";
+                case FILE:
+                    return "[File]";
+                case VIDEO:
+                    return "[Video]";
+                case AUDIO:
+                    return "[Audio]";
+                case LOCATION:
+                    return "[Location]";
+                case AGENT:
+                    return "[AI Response]";
+                default:
+                    break;
+            }
+
                 if (message.getContent() != null && !message.getContent().isBlank()) {
                         return message.getContent().length() > 100
                                         ? message.getContent().substring(0, 100) + "..."
                                         : message.getContent();
                 }
 
-                return switch (message.getType()) {
-                        case IMAGE -> "[Image]";
-                        case FILE -> "[File]";
-                        case VIDEO -> "[Video]";
-                        case AUDIO -> "[Audio]";
-                        case LOCATION -> "[Location]";
-                        case AGENT -> "[AI Response]";
-                        default -> "[Message]";
-                };
+            return "[Message]";
         }
 
         /**

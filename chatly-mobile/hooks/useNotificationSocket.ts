@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { usePathname, router } from 'expo-router';
 import { Alert } from 'react-native';
@@ -6,7 +6,6 @@ import { socketService } from '@/services/socket.service';
 import { useAuthStore } from '@/store/auth.store';
 import { useNotificationStore } from '@/store/notification.store';
 import { useConversationStore } from '@/store/conversation.store';
-import { useConversationPrefsStore, isConvMuted } from '@/store/conversationPrefs.store';
 import { useContactStore } from '@/store/contact.store';
 import type { NotificationEvent } from '@/types/notification';
 
@@ -16,8 +15,11 @@ import type { NotificationEvent } from '@/types/notification';
 export function useNotificationSocket() {
   const user = useAuthStore((s) => s.user);
   const pathname = usePathname();
-  const { addNotification, setUnreadCount, showBanner } = useNotificationStore();
+  const pathnameRef = useRef(pathname);
+  const { addNotification, setUnreadCount } = useNotificationStore();
   const handleIncomingMessage = useConversationStore((s) => s.handleIncomingMessage);
+
+  pathnameRef.current = pathname;
 
   useEffect(() => {
     if (!user) return;
@@ -32,32 +34,30 @@ export function useNotificationSocket() {
       await socketService.connect(token);
       if (!isMounted) return;
 
-      const sub = socketService.subscribe('/user/queue/notifications', (payload) => {
-        if (__DEV__) console.log('--- NOTIFICATION RECEIVED ---');
+      cleanupFn = socketService.subscribeOnConnect('/user/queue/notifications', (payload) => {
         const event = JSON.parse(payload.body) as NotificationEvent;
-        if (__DEV__) console.log('Event type:', event.notification?.type);
-        if (__DEV__) console.log('Reference ID (Conv ID):', event.notification?.referenceId);
-        
+
         if (event.notification) {
-          if (__DEV__) console.log('Adding notification to store:', event.notification.id);
           addNotification(event.notification);
 
-          // Logic to show banner only if NOT in the conversation mentioned
-          const isChatScene = pathname.startsWith('/chat/');
-          const currentChatId = isChatScene ? pathname.split('/').pop() : null;
-          
-          const isAtThisChat = event.notification.type === 'NEW_MESSAGE' && 
-                               event.notification.referenceId === currentChatId;
+          const currentPathname = pathnameRef.current;
+          const isChatScene = currentPathname.startsWith('/chat/');
+          const currentChatId = isChatScene ? currentPathname.split('/').pop() : null;
 
           // Update conversation list real-time
-          if (event.notification.type === 'NEW_MESSAGE' || event.notification.type === 'GROUP_INVITE' || event.notification.type === 'GROUP_LEAVE') {
+          if (
+            event.notification.type === 'NEW_MESSAGE' ||
+            event.notification.type === 'GROUP_INVITE' ||
+            event.notification.type === 'GROUP_LEAVE'
+          ) {
             if (event.notification.type === 'NEW_MESSAGE') {
-              if (__DEV__) console.log('Triggering handleIncomingMessage for conv:', event.notification.referenceId);
               handleIncomingMessage(event.notification);
             } else {
-              if (__DEV__) console.log('Triggering conversation fetch for event:', event.notification.type);
               useConversationStore.getState().fetchConversations();
-              if (event.notification.type === 'GROUP_LEAVE' && event.notification.referenceId === currentChatId) {
+              if (
+                event.notification.type === 'GROUP_LEAVE' &&
+                event.notification.referenceId === currentChatId
+              ) {
                 Alert.alert('Group Update', 'You have been removed from this group.');
                 router.replace('/(tabs)/chats');
               }
@@ -68,27 +68,12 @@ export function useNotificationSocket() {
           if (event.notification.type === 'FRIEND_REQUEST') {
             useContactStore.getState().triggerPendingRefresh();
           }
-
-          if (!isAtThisChat) {
-            const convPrefs = useConversationPrefsStore.getState().prefs[event.notification.referenceId ?? ''] ?? {};
-            if (!isConvMuted(convPrefs)) {
-              if (__DEV__) console.log('Showing in-app banner');
-              showBanner(event.notification);
-            } else {
-              if (__DEV__) console.log('Conversation is muted, skipping banner');
-            }
-          } else {
-            if (__DEV__) console.log('User is in this chat, skipping banner');
-          }
         }
 
         if (typeof event.unreadCount === 'number') {
-          if (__DEV__) console.log('Updating global unread count to:', event.unreadCount);
           setUnreadCount(event.unreadCount);
         }
       });
-
-      cleanupFn = () => sub?.unsubscribe();
     };
 
     setup().catch(console.error);
@@ -97,5 +82,5 @@ export function useNotificationSocket() {
       isMounted = false;
       cleanupFn?.();
     };
-  }, [user, pathname, setUnreadCount, addNotification, handleIncomingMessage, showBanner]);
+  }, [user, setUnreadCount, addNotification, handleIncomingMessage]);
 }

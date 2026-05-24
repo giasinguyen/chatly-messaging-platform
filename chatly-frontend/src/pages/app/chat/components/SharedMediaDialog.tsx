@@ -26,7 +26,27 @@ function isSharedMediaType(fileType?: string): boolean {
     if (!fileType || fileType === "image/gif") {
         return false;
     }
-    return fileType.startsWith("image/") || fileType.startsWith("video/");
+    return fileType.startsWith("image/");
+}
+
+function isStickerOrGifAsset(
+    fileType?: string,
+    fileName?: string,
+    url?: string,
+): boolean {
+    const normalizedType = (fileType ?? "").toLowerCase();
+    const normalizedName = (fileName ?? "").toLowerCase();
+    const normalizedUrl = (url ?? "").toLowerCase();
+
+    if (normalizedType === "image/gif") {
+        return true;
+    }
+
+    if (normalizedName.endsWith(".gif")) {
+        return true;
+    }
+
+    return normalizedUrl.includes("/sticker") || normalizedUrl.includes("/gif");
 }
 
 interface SharedMediaDialogProps {
@@ -73,7 +93,11 @@ export function SharedMediaDialog({
         setLoadingFiles(true);
         try {
             const result = await fileService.getByConversation(conversationId, "file", page, PAGE_SIZE);
-            setFiles((prev) => append ? [...prev, ...result] : result);
+            const filtered = result.filter((file) =>
+                !isStickerOrGifAsset(file.fileType, file.fileName, file.url)
+                && !isSharedMediaType(file.fileType),
+            );
+            setFiles((prev) => append ? [...prev, ...filtered] : filtered);
             setHasMoreFiles(result.length === PAGE_SIZE);
             setFilesPage(page);
         } catch { /* silent */ }
