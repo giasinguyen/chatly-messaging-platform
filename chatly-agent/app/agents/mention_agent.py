@@ -8,6 +8,7 @@ Architecture:
 This removes the dependency on the LLM deciding to call sendAiMessage —
 the delivery is handled structurally by the graph.
 """
+
 import logging
 from typing import Any
 
@@ -34,7 +35,7 @@ MENTION_SYSTEM_PROMPT = (
     "- getUserInfo / getMyProfile — user profiles\n"
     "- listGroupNotes — shared group notes\n\n"
     "**Actions:**\n"
-    "- createGroupPoll — create a poll (pass `options` as a list of strings, e.g. [\"A\", \"B\"])\n"
+    '- createGroupPoll — create a poll (pass `options` as a list of strings, e.g. ["A", "B"])\n'
     "- createGroupReminder / listGroupReminders — manage reminders (always list first to avoid duplicates)\n\n"
     "Use context tools first when you need background info, then perform actions as requested.\n\n"
     "{session_context}"
@@ -85,10 +86,14 @@ class MentionAgent:
                 research_tools.append(tool)
 
         if self._send_tool is None:
-            logger.warning("sendAiMessage tool not found — agent will not be able to post responses")
+            logger.warning(
+                "sendAiMessage tool not found — agent will not be able to post responses"
+            )
 
         # ReAct graph for research only — no checkpointer, no HITL.
-        self._graph = create_react_agent(llm, research_tools) if research_tools else None
+        self._graph = (
+            create_react_agent(llm, research_tools) if research_tools else None
+        )
 
     async def run(
         self,
@@ -122,15 +127,21 @@ class MentionAgent:
         else:
             # No research tools — call LLM directly.
             result = await self._llm.ainvoke(msgs)
-            ai_text = str(result.content) if result.content else "Sorry, I couldn't generate a response."
+            ai_text = (
+                str(result.content)
+                if result.content
+                else "Sorry, I couldn't generate a response."
+            )
 
         # ── Phase 2: Deterministic delivery ─────────────────────────────
         if self._send_tool is not None:
             try:
-                await self._send_tool.ainvoke({
-                    "conversationId": self._conversation_id,
-                    "content": ai_text,
-                })
+                await self._send_tool.ainvoke(
+                    {
+                        "conversationId": self._conversation_id,
+                        "content": ai_text,
+                    }
+                )
                 logger.info(
                     "MentionAgent delivered response to conversation=%s",
                     self._conversation_id,

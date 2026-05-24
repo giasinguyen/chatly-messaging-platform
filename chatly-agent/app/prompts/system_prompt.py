@@ -60,8 +60,7 @@ Always respond in the same language the user writes in. If the user switches lan
 """
 
 UNIFIED_AGENT_SYSTEM_TEMPLATE = (
-    CHATLY_SYSTEM_PROMPT
-    + "\n\n## Current Session\n"
+    CHATLY_SYSTEM_PROMPT + "\n\n## Current Session\n"
     "The current user's ID is: {user_id}\n"
     "When the user asks about their own profile or account (e.g. 'who am I', 'my info', 'my contacts'), "
     "use the appropriate tool with their exact user ID shown above — never substitute a placeholder."

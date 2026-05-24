@@ -9,6 +9,7 @@ Endpoints in this router are split into two groups:
 * ``/mcp/defaults``   — read-only view of the built-in system MCP servers
   (currently: chatly-backend).  No auth or write operations are available here.
 """
+
 import logging
 
 from fastapi import APIRouter, Depends, Response, status
@@ -37,6 +38,7 @@ router = APIRouter(prefix="/mcp", tags=["mcp"])
 # ──────────────────────────────────────────────────────────────────────────────
 # User-owned (custom) MCP servers
 # ──────────────────────────────────────────────────────────────────────────────
+
 
 @router.post(
     "/servers",
@@ -89,7 +91,10 @@ async def list_servers(
     response_model=MCPServerResponse,
     summary="Get MCP server",
     description="Return details for one MCP server owned by the current user.",
-    responses={401: {"description": "Unauthorized"}, 404: {"description": "Server not found"}},
+    responses={
+        401: {"description": "Unauthorized"},
+        404: {"description": "Server not found"},
+    },
 )
 async def get_server(
     server_id: str,
@@ -106,7 +111,10 @@ async def get_server(
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Delete MCP server",
     description="Remove an MCP server configuration owned by the current user.",
-    responses={401: {"description": "Unauthorized"}, 404: {"description": "Server not found"}},
+    responses={
+        401: {"description": "Unauthorized"},
+        404: {"description": "Server not found"},
+    },
 )
 async def delete_server(
     server_id: str,
@@ -123,7 +131,10 @@ async def delete_server(
     response_model=MCPServerResponse,
     summary="Toggle MCP server",
     description="Enable or disable an MCP server. Disabled servers are skipped during tool assembly.",
-    responses={401: {"description": "Unauthorized"}, 404: {"description": "Server not found"}},
+    responses={
+        401: {"description": "Unauthorized"},
+        404: {"description": "Server not found"},
+    },
 )
 async def toggle_server(
     server_id: str,
@@ -167,6 +178,7 @@ async def list_server_tools(
 # ──────────────────────────────────────────────────────────────────────────────
 # System default MCP servers (read-only)
 # ──────────────────────────────────────────────────────────────────────────────
+
 
 @router.get(
     "/defaults",

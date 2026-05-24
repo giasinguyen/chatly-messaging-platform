@@ -31,7 +31,9 @@ def test_health_ready_returns_ready_when_all_ok() -> None:
 def test_health_ready_returns_degraded_when_mongo_fails() -> None:
     with patch("app.routers.health.get_client") as mock_get_client:
         mock_mongo = AsyncMock()
-        mock_mongo.admin.command = AsyncMock(side_effect=Exception("connection refused"))
+        mock_mongo.admin.command = AsyncMock(
+            side_effect=Exception("connection refused")
+        )
         mock_get_client.return_value = mock_mongo
 
         response = client.get("/health/ready")

@@ -267,7 +267,6 @@ agent-server/
 ├── tests/
 │   ├── unit/                # Isolated unit tests
 │   └── integration/         # End-to-end API tests
-├── mcp-servers/             # Sample MCP server implementations (Math, Text)
 ├── Dockerfile
 ├── pyproject.toml
 ├── Makefile

@@ -4,6 +4,7 @@ Verifies that sendTextMessage is excluded from the research tool list so the
 LLM cannot post a duplicate TEXT message before the deterministic sendAiMessage
 call at the end of the flow.
 """
+
 from unittest.mock import MagicMock
 
 import pytest
@@ -80,9 +81,12 @@ def test_regular_tools_remain_in_research_tools() -> None:
 
 
 @pytest.mark.asyncio
-async def test_missing_send_ai_message_tool_logs_warning(caplog: pytest.LogCaptureFixture) -> None:
+async def test_missing_send_ai_message_tool_logs_warning(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
     """If sendAiMessage is absent, agent should warn but not raise."""
     import logging
+
     with caplog.at_level(logging.WARNING, logger="app.agents.mention_agent"):
         agent = _build_agent(["readRecentMessages"])
     assert agent._send_tool is None

@@ -3,7 +3,13 @@ import logging
 from collections.abc import AsyncIterator
 from typing import Any
 
-from langchain_core.messages import AIMessageChunk, AIMessage, BaseMessage, HumanMessage, ToolMessage
+from langchain_core.messages import (
+    AIMessageChunk,
+    AIMessage,
+    BaseMessage,
+    HumanMessage,
+    ToolMessage,
+)
 from langchain_core.tools import BaseTool
 from langchain_groq import ChatGroq
 from minio import Minio
@@ -125,10 +131,13 @@ class ChatService:
                 raise ValueError("LLM is required for unified agent")
             all_tools = list(tools)
             if has_context:
-                all_tools.append(create_retriever_tool(
-                    self._vector_service, session_id,
-                    conversation_id=context_conversation_id,
-                ))
+                all_tools.append(
+                    create_retriever_tool(
+                        self._vector_service,
+                        session_id,
+                        conversation_id=context_conversation_id,
+                    )
+                )
             all_tools.extend(merged_extra)
             logger.info(
                 "Agent selected: UnifiedAgent (tools=%d has_context=%s) user_id=%s session_id=%s",
@@ -137,7 +146,9 @@ class ChatService:
                 user_id,
                 session_id,
             )
-            return UnifiedAgent(llm=self._llm, tools=all_tools, checkpointer=self._checkpointer)
+            return UnifiedAgent(
+                llm=self._llm, tools=all_tools, checkpointer=self._checkpointer
+            )
 
         logger.info(
             "Agent selected: ChatbotAgent (no tools, no context) user_id=%s session_id=%s",
@@ -294,11 +305,18 @@ class ChatService:
         history = self._to_langchain_history(rows)
 
         generated_attachments: list[dict[str, Any]] = []
-        image_tools = self._build_image_tools(user_id, session_id, generated_attachments)
+        image_tools = self._build_image_tools(
+            user_id, session_id, generated_attachments
+        )
         session_context, agent = await asyncio.gather(
-            self._build_session_context(user_id, session_id, context_conversation_id=conv_id),
+            self._build_session_context(
+                user_id, session_id, context_conversation_id=conv_id
+            ),
             self._select_agent(
-                user_id, session_id, request.mcp_server_ids, request.use_web_search,
+                user_id,
+                session_id,
+                request.mcp_server_ids,
+                request.use_web_search,
                 extra_tools=image_tools,
                 context_conversation_id=conv_id,
             ),
@@ -348,11 +366,18 @@ class ChatService:
         history = self._to_langchain_history(rows)
 
         generated_attachments: list[dict[str, Any]] = []
-        image_tools = self._build_image_tools(user_id, session_id, generated_attachments)
+        image_tools = self._build_image_tools(
+            user_id, session_id, generated_attachments
+        )
         session_context, agent = await asyncio.gather(
-            self._build_session_context(user_id, session_id, context_conversation_id=conv_id),
+            self._build_session_context(
+                user_id, session_id, context_conversation_id=conv_id
+            ),
             self._select_agent(
-                user_id, session_id, request.mcp_server_ids, request.use_web_search,
+                user_id,
+                session_id,
+                request.mcp_server_ids,
+                request.use_web_search,
                 extra_tools=image_tools,
                 context_conversation_id=conv_id,
             ),
@@ -392,7 +417,11 @@ class ChatService:
                 elif kind == "on_tool_start":
                     tool_name = event.get("name", "")
                     raw_input = event["data"].get("input", {})
-                    tool_input = raw_input if isinstance(raw_input, dict) else {"input": str(raw_input)}
+                    tool_input = (
+                        raw_input
+                        if isinstance(raw_input, dict)
+                        else {"input": str(raw_input)}
+                    )
                     yield tool_start_event(tool_name, tool_input)
                 elif kind == "on_tool_end":
                     tool_name = event.get("name", "")
@@ -407,7 +436,9 @@ class ChatService:
             logger.exception(
                 "Streaming error for user_id=%s session_id=%s", user_id, session_id
             )
-            err_message, err_code, err_category, retryable = self._classify_stream_error(exc)
+            err_message, err_code, err_category, retryable = (
+                self._classify_stream_error(exc)
+            )
             yield error_event(
                 message=err_message,
                 code=err_code,
@@ -422,7 +453,9 @@ class ChatService:
             full_content[0],
             attachments=generated_attachments or None,
         )
-        yield done_event(agent_type, str(assistant["id"]), generated_attachments or None)
+        yield done_event(
+            agent_type, str(assistant["id"]), generated_attachments or None
+        )
 
     # ── Group @AI Mention ────────────────────────────────────────────
 
@@ -443,7 +476,9 @@ class ChatService:
         history = self._to_langchain_history(rows)
 
         session_context = await self._build_session_context(
-            user_id, session_id, context_conversation_id=conversation_id,
+            user_id,
+            session_id,
+            context_conversation_id=conversation_id,
         )
 
         # Assemble MCP tools (full set — MentionAgent partitions internally).

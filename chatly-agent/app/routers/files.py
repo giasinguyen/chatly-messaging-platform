@@ -49,7 +49,10 @@ async def upload_file(
     response_model=FileListResponse,
     summary="List files",
     description="List all files uploaded to a session.",
-    responses={401: {"description": "Unauthorized"}, 404: {"description": "Session not found"}},
+    responses={
+        401: {"description": "Unauthorized"},
+        404: {"description": "Session not found"},
+    },
 )
 async def list_files(
     session_id: str,
@@ -67,7 +70,10 @@ async def list_files(
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Delete file",
     description="Delete a file and all associated vector chunks.",
-    responses={401: {"description": "Unauthorized"}, 404: {"description": "File not found"}},
+    responses={
+        401: {"description": "Unauthorized"},
+        404: {"description": "File not found"},
+    },
 )
 async def delete_file(
     session_id: str,
@@ -113,7 +119,9 @@ async def download_file(
     try:
         response = minio.get_object(str(bucket), object_key)
     except Exception as exc:
-        raise HTTPException(status_code=404, detail="File not found in storage") from exc
+        raise HTTPException(
+            status_code=404, detail="File not found in storage"
+        ) from exc
 
     return StreamingResponse(
         response,

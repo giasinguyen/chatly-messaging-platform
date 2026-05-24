@@ -38,7 +38,7 @@ async def invoke_chat(
     summary="Invoke agent (SSE streaming)",
     description=(
         "Send a message and receive the response as a stream of Server-Sent Events. "
-        "Format: `data: {\"token\": \"...\"}\\n\\n`, terminated by `data: [DONE]\\n\\n`."
+        'Format: `data: {"token": "..."}\\n\\n`, terminated by `data: [DONE]\\n\\n`.'
     ),
     responses={
         401: {"description": "Missing or invalid API key"},

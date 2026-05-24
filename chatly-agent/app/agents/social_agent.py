@@ -42,6 +42,7 @@ def _is_publish_comment_tool(tool: BaseTool) -> bool:
     description = (getattr(tool, "description", "") or "").lower()
     return "ai-generated comment" in description and "social post" in description
 
+
 SOCIAL_MENTION_SYSTEM_PROMPT = (
     "You are **Chatly AI**, responding to a user who mentioned @ai in a post comment thread.\n"
     "You are embedded in the Chatly social platform. Your role is to help users with questions,"
@@ -120,7 +121,9 @@ class SocialAgent:
         else:
             logger.info("SocialAgent publish tool resolved: %s", self._send_tool.name)
 
-        self._graph = create_react_agent(llm, research_tools) if research_tools else None
+        self._graph = (
+            create_react_agent(llm, research_tools) if research_tools else None
+        )
 
     async def run_mention_in_comment(
         self,
@@ -192,7 +195,11 @@ class SocialAgent:
         user_message: str,
         history: list[Any] | None,
     ) -> str:
-        messages = [system_message, *(history or []), HumanMessage(content=user_message)]
+        messages = [
+            system_message,
+            *(history or []),
+            HumanMessage(content=user_message),
+        ]
 
         if self._graph is not None:
             result = await self._graph.ainvoke(
@@ -200,7 +207,11 @@ class SocialAgent:
                 config={"configurable": {"thread_id": "social"}},
             )
             for message in reversed(result["messages"]):
-                if isinstance(message, AIMessage) and message.content and not message.tool_calls:
+                if (
+                    isinstance(message, AIMessage)
+                    and message.content
+                    and not message.tool_calls
+                ):
                     return str(message.content)
             return "Sorry, I could not generate a response."
 
@@ -218,7 +229,9 @@ class SocialAgent:
         trigger_type: str,
     ) -> None:
         if self._send_tool is None:
-            logger.error("No createAiPostComment tool available - generated content is not published")
+            logger.error(
+                "No createAiPostComment tool available - generated content is not published"
+            )
             return
 
         payload: dict[str, Any] = {

@@ -1,4 +1,5 @@
 """Image generation tools using HuggingFace APIs (text-to-image and sticker)."""
+
 import asyncio
 import io
 import json
