@@ -186,6 +186,7 @@ export function useChatMessageExtras({
                 groupAvatarUrl: conversation.avatarUrl ?? null,
                 type: callType,
                 participantCount: 0,
+                mediaProvider: "AGORA",
             });
             useCallStore.getState().setCallStatus("RINGING");
             joinGroupCall(true);

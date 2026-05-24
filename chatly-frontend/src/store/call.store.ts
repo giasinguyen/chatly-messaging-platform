@@ -28,7 +28,6 @@ interface CallState {
     incomingCall: IncomingCall | null;
     activeCall: CallSession | null;
     outgoingCallTarget: OutgoingCallTarget | null;
-    pendingOffer: RTCSessionDescriptionInit | null;
     participants: Participant[];
     isMuted: boolean;
     isCameraOff: boolean;
@@ -44,7 +43,6 @@ interface CallState {
     setIncomingCall: (call: IncomingCall | null) => void;
     setCallStatus: (status: CallStoreStatus) => void;
     setOutgoingCallTarget: (target: OutgoingCallTarget | null) => void;
-    setPendingOffer: (offer: RTCSessionDescriptionInit | null) => void;
     startCall: (session: CallSession) => void;
     endCall: () => void;
     toggleMute: () => void;
@@ -75,7 +73,6 @@ export const useCallStore = create<CallState>((set) => ({
     incomingCall: null,
     activeCall: null,
     outgoingCallTarget: null,
-    pendingOffer: null,
     participants: [],
     isMuted: false,
     isCameraOff: false,
@@ -92,8 +89,6 @@ export const useCallStore = create<CallState>((set) => ({
     setCallStatus: (status) => set({ callStatus: status }),
 
     setOutgoingCallTarget: (target) => set({ outgoingCallTarget: target }),
-
-    setPendingOffer: (offer) => set({ pendingOffer: offer }),
 
     startCall: (session) =>
         set({
@@ -112,7 +107,6 @@ export const useCallStore = create<CallState>((set) => ({
             incomingGroupCall: null,
             activeCall: null,
             outgoingCallTarget: null,
-            pendingOffer: null,
             participants: [],
             isGroupCall: false,
             groupParticipantInfo: {},
