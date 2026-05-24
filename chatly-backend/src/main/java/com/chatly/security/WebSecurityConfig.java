@@ -99,10 +99,14 @@ public class WebSecurityConfig {
         // Native mobile clients (okhttp) send Origin: http://localhost which does not match
         // the web allowed origins, so we permit any origin here and rely on the
         // WebSocketAuthInterceptor to validate the token.
+        // allowedOriginPatterns("*") + allowCredentials(true): Spring reflects the actual
+        // request Origin instead of "*", satisfying browsers that use withCredentials:true
+        // (SockJS XHR polling) while also allowing native mobile clients.
         CorsConfiguration wsConfig = new CorsConfiguration();
         wsConfig.setAllowedOriginPatterns(List.of("*"));
         wsConfig.setAllowedMethods(List.of("GET"));
         wsConfig.setAllowedHeaders(List.of("*"));
+        wsConfig.setAllowCredentials(true);
 
         // REST API endpoints: strict origin list from config.
         CorsConfiguration apiConfig = new CorsConfiguration();
