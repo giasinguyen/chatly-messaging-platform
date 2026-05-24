@@ -36,4 +36,3 @@ async def readiness() -> dict[str, str]:
 
     overall = "ready" if all(v == "ok" for v in checks.values()) else "degraded"
     return {"status": overall, **checks}
-

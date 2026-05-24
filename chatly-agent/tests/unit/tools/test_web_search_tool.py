@@ -1,4 +1,5 @@
 """Unit tests for web_search_tool factory and availability helper."""
+
 from unittest.mock import patch
 
 import pytest

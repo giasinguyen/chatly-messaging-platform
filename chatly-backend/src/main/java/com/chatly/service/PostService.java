@@ -357,10 +357,13 @@ public class PostService {
         return toCommentResponse(comment, commenter, userId);
     }
 
-    public PostCommentResponse addAiComment(String postId, String content, String parentCommentId, String triggerType) {
+    public PostCommentResponse addAiComment(String postId, String content, String parentCommentId, String triggerType, List<String> mediaUrls) {
         Post post = findPost(postId);
 
-        if (content == null || content.isBlank()) {
+        List<String> safeMediaUrls = mediaUrls != null ? new ArrayList<>(mediaUrls) : new ArrayList<>();
+        String safeContent = content != null ? content : "";
+
+        if (safeContent.isBlank() && safeMediaUrls.isEmpty()) {
             throw new AppException(ErrorCode.INVALID_KEY);
         }
         if (parentCommentId != null && post.getComments().stream().noneMatch(c -> c.getId().equals(parentCommentId))) {
@@ -370,9 +373,10 @@ public class PostService {
         PostComment comment = PostComment.builder()
                 .id(UUID.randomUUID().toString())
                 .userId(aiBotUserId)
-                .content(content)
+                .content(safeContent)
                 .createdAt(Instant.now())
                 .parentCommentId(parentCommentId)
+                .mediaUrls(safeMediaUrls)
                 .isAiGenerated(true)
                 .triggerType(triggerType)
                 .build();

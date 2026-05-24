@@ -17,7 +17,18 @@ from app.repositories.file_repo import FileRepository
 from app.services.session_service import SessionService
 from app.services.vector_service import VectorService
 
-SUPPORTED_EXTENSIONS: set[str] = {"txt", "md", "pdf", "docx", "csv", "json", "jpeg", "jpg", "png", "webp"}
+SUPPORTED_EXTENSIONS: set[str] = {
+    "txt",
+    "md",
+    "pdf",
+    "docx",
+    "csv",
+    "json",
+    "jpeg",
+    "jpg",
+    "png",
+    "webp",
+}
 IMAGE_EXTENSIONS: set[str] = {"jpeg", "jpg", "png", "webp"}
 MAX_FILES_PER_SESSION = 4
 EMBED_BATCH_SIZE = 16
@@ -180,7 +191,9 @@ class FileService:
         files = await self._file_repo.find_by_session(session_id)
         return [item for item in files if item.get("user_id") == user_id]
 
-    async def get_file(self, user_id: str, session_id: str, file_id: str) -> dict[str, Any]:
+    async def get_file(
+        self, user_id: str, session_id: str, file_id: str
+    ) -> dict[str, Any]:
         """Return metadata for one file owned by the user in the given session."""
         row = await self._file_repo.find_by_user_and_id(user_id, file_id)
         if row is None or str(row.get("session_id")) != session_id:

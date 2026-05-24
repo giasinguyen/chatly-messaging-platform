@@ -1,4 +1,4 @@
-# Architecture — agent-server
+# Architecture — Chatly Agent
 
 ---
 
@@ -6,15 +6,16 @@
 
 1. [System Overview](#1-system-overview)
 2. [Component Architecture](#2-component-architecture)
-3. [Request Lifecycle](#3-request-lifecycle)
-4. [Agent Routing Logic](#4-agent-routing-logic)
-5. [File Upload & RAG Pipeline](#5-file-upload--rag-pipeline)
-6. [MCP Tool Integration](#6-mcp-tool-integration)
-7. [LangGraph State Machines](#7-langgraph-state-machines)
-8. [Database Design](#8-database-design)
-9. [Security Model](#9-security-model)
-10. [Infrastructure](#10-infrastructure)
-11. [Layer Responsibilities](#11-layer-responsibilities)
+3. [Request Lifecycles](#3-request-lifecycles)
+4. [Agent Routing](#4-agent-routing)
+5. [Agents](#5-agents)
+6. [RAG and File Indexing](#6-rag-and-file-indexing)
+7. [MCP Integration](#7-mcp-integration)
+8. [Streaming Events](#8-streaming-events)
+9. [Database Design](#9-database-design)
+10. [Security Model](#10-security-model)
+11. [Infrastructure](#11-infrastructure)
+12. [Layer Responsibilities](#12-layer-responsibilities)
 
 ---
 
@@ -22,45 +23,43 @@
 
 ```mermaid
 graph TB
-    Client["Client (chatly-backend)"] 
+    Backend["chatly-backend"]
 
-    subgraph agent-server ["agent-server (FastAPI)"]
-        Auth["API Key Auth\n(X-API-Key + X-User-Id)"]
-        Router["API Router"]
-        Service["Service Layer"]
-
-        subgraph Agents["Agent Layer (LangGraph)"]
-            CB["ChatbotAgent"]
-            UA["UnifiedAgent\n(ReAct — tools + RAG + Image Gen)"]
-        end
-
-        Embed["HuggingFace Embeddings\n(BAAI/bge-base-en-v1.5)"]
+    subgraph Agent["chatly-agent FastAPI"]
+        Auth["API key auth<br/>X-API-Key"]
+        UserCtx["User context<br/>X-User-Id or request body"]
+        Routers["Routers"]
+        Services["Services"]
+        Agents["Agents<br/>Chatbot, Unified, Mention, Social"]
+        Tools["Tools<br/>RAG, MCP, Web, Image"]
     end
 
-    Groq["Groq API\n(LLaMA 3.3 70B)"]
-    HF["HuggingFace\nInference & Gradio APIs"]
-    Tavily["Tavily\nWeb Search"]
-    MCP["External MCP Servers\n(JSON-RPC 2.0 over HTTP/SSE)"]
+    Groq["Groq LLM"]
+    HF["HuggingFace<br/>Embeddings and Image APIs"]
+    Tavily["Tavily"]
+    UserMCP["User MCP servers<br/>HTTP JSON-RPC"]
+    BackendMCP["chatly-backend MCP<br/>SSE"]
 
-    subgraph Infra["Infrastructure"]
-        Mongo["MongoDB\n(sessions, messages, files, chunks, mcp_servers)"]
-        Qdrant["Qdrant\n(vector embeddings)"]
-        MinIO["MinIO / S3\n(file binaries)"]
+    subgraph Data["Data stores"]
+        Mongo["MongoDB<br/>sessions, messages, files, chunks, MCP configs, checkpoints"]
+        Qdrant["Qdrant<br/>chunk vectors"]
+        Storage["MinIO-compatible storage or AWS S3<br/>file binaries"]
     end
 
-    Client -->|"X-API-Key header"| Auth
-    Auth --> Router
-    Router --> Service
-    Service --> Agents
-    Agents -->|"LLM calls"| Groq
-    Service -->|"embed queries"| HF
-    Service -->|"tool calls"| Tavily
-    Service -->|"tool calls"| MCP
-    Agents -->|"image gen / stickers"| HF
-    Service --> Mongo
-    Service --> Qdrant
-    Service --> MinIO
+    Backend --> Auth --> UserCtx --> Routers --> Services
+    Services --> Agents
+    Services --> Tools
+    Agents --> Groq
+    Tools --> HF
+    Tools --> Tavily
+    Tools --> UserMCP
+    Tools --> BackendMCP
+    Services --> Mongo
+    Services --> Qdrant
+    Services --> Storage
 ```
+
+`chatly-agent` is not a public client-facing service. It receives calls from `chatly-backend`, persists AI sessions and messages, invokes LLMs and tools, and returns or publishes AI-generated results.
 
 ---
 
@@ -68,35 +67,42 @@ graph TB
 
 ```mermaid
 graph LR
-    subgraph Routers ["Routers (HTTP only)"]
-        R_Sessions["sessions.py"]
-        R_Chat["chat.py"]
-        R_Files["files.py"]
-        R_MCP["mcp.py"]
-        R_Health["health.py"]
+    subgraph Routers["app/routers"]
+        Sessions["sessions.py"]
+        Chat["chat.py"]
+        Files["files.py"]
+        MCPRouter["mcp.py"]
+        Internal["internal.py"]
+        Health["health.py"]
     end
 
-    subgraph Services ["Services (Business Logic)"]
+    subgraph Services["app/services"]
         SessionSvc["SessionService"]
         ChatSvc["ChatService"]
         FileSvc["FileService"]
         VectorSvc["VectorService"]
         MCPSvc["MCPService"]
-        ToolSvc["ToolService"]
         SystemMCPSvc["SystemMCPService"]
+        ToolSvc["ToolService"]
+        BriefingSvc["BriefingService"]
     end
 
-    subgraph AgentLayer ["Agents + Graphs"]
+    subgraph AgentLayer["app/agents and app/graphs"]
         ChatbotAgent["ChatbotAgent"]
-        UnifiedAgent["UnifiedAgent\n(create_react_agent)"]
-        ChatbotGraph["chatbot_graph\nSTART → llm_node → END"]
-        RetrieverTool["retriever_tool\nsearch_documents()"]
-        MCPTool["mcp_tool"]
-        WebSearchTool["web_search_tool"]
-        ImageGenTool["image_gen_tool\ngenerate_image()\ngenerate_sticker()"]
+        UnifiedAgent["UnifiedAgent"]
+        MentionAgent["MentionAgent"]
+        SocialAgent["SocialAgent"]
+        ChatbotGraph["chatbot_graph"]
     end
 
-    subgraph Repos ["Repositories (Data Access)"]
+    subgraph ToolLayer["app/tools"]
+        Retriever["search_documents"]
+        MCPTool["dynamic MCP tools"]
+        WebSearch["Tavily web search"]
+        ImageTools["image generation tools"]
+    end
+
+    subgraph Repos["app/repositories"]
         SessionRepo["SessionRepository"]
         MessageRepo["MessageRepository"]
         FileRepo["FileRepository"]
@@ -105,223 +111,278 @@ graph LR
         QdrantRepo["QdrantRepository"]
     end
 
-    subgraph DBClients ["DB Clients (Singletons)"]
-        MongoClient["Motor AsyncIOMotorClient\napp/db/mongo.py"]
-        QdrantClient["AsyncQdrantClient\napp/db/qdrant.py"]
-        StorageClient["Minio Client\napp/storage/minio.py"]
+    subgraph Clients["app/db and app/storage"]
+        Motor["Motor MongoDB client"]
+        Checkpointer["MongoDBSaver checkpointer"]
+        QdrantClient["AsyncQdrantClient"]
+        StorageClient["Minio client"]
     end
 
     Routers --> Services
-    Services --> AgentLayer
-    Services --> Repos
-    AgentLayer --> ChatbotAgent & UnifiedAgent
+    ChatSvc --> ChatbotAgent
+    ChatSvc --> UnifiedAgent
+    ChatSvc --> MentionAgent
+    ChatSvc --> SocialAgent
     ChatbotAgent --> ChatbotGraph
-    UnifiedAgent --> RetrieverTool & MCPTool & WebSearchTool & ImageGenTool
-    Repos --> DBClients
+    UnifiedAgent --> ToolLayer
+    MentionAgent --> ToolLayer
+    SocialAgent --> ToolLayer
+    Services --> Repos
+    Repos --> Clients
 ```
 
 ---
 
-## 3. Request Lifecycle
+## 3. Request Lifecycles
 
-### Blocking Chat Request
+### Blocking Chat
 
 ```mermaid
 sequenceDiagram
-    participant C as chatly-backend
-    participant MW as Middleware
-    participant R as Router
+    participant B as chatly-backend
+    participant R as chat.py
     participant CS as ChatService
     participant SS as SessionService
-    participant A as Agent (selected)
-    participant LLM as Groq API
-    participant DB as MongoDB
+    participant MR as MessageRepository
+    participant A as Selected Agent
+    participant LLM as Groq
 
-    C->>MW: POST /sessions/{id}/chat + X-API-Key + X-User-Id
-    MW->>MW: verify_api_key() → resolved user_id
-    MW->>R: Forward authenticated request
-    R->>CS: chat(user_id, session_id, request)
-    CS->>SS: verify session ownership
-    SS->>DB: find_by_user_and_id()
-    DB-->>SS: session doc
-    SS-->>CS: confirmed
-    CS->>DB: MessageRepository.find_by_session()
-    DB-->>CS: history messages
-    CS->>CS: _select_agent() → ChatbotAgent or UnifiedAgent
-    CS->>DB: MessageRepository.create_message(role=user)
+    B->>R: POST /sessions/{id}/chat + X-API-Key + X-User-Id
+    R->>CS: chat(user_id, session_id, ChatRequest)
+    CS->>SS: get_session(user_id, session_id)
+    SS-->>CS: session with optional context_conversation_id
+    CS->>MR: find_by_session(session_id)
+    MR-->>CS: persisted history
+    CS->>CS: build system/session context and select agent
+    CS->>MR: create user message with optional attachments
     CS->>A: ainvoke(ChatInput)
-    A->>LLM: ChatGroq.ainvoke(messages)
-    LLM-->>A: AIMessage
-    A-->>CS: ChatOutput(content, session_id, agent_type)
-    CS->>DB: MessageRepository.create_message(role=assistant)
+    A->>LLM: invoke
+    LLM-->>A: final assistant message
+    A-->>CS: ChatOutput
+    CS->>MR: create assistant message with generated attachments
     CS-->>R: ChatResponse
-    R-->>C: 200 {"content": "...", "message_id": "...", "agent_type": "..."}
+    R-->>B: 200 response
 ```
 
-### SSE Streaming Request
+### Streaming Chat
 
 ```mermaid
 sequenceDiagram
-    participant C as Client
+    participant B as chatly-backend
     participant CS as ChatService
-    participant A as Agent
-    participant LLM as Groq API
-    participant DB as MongoDB
+    participant A as Selected Agent
+    participant Tool as Tool
+    participant MR as MessageRepository
 
-    C->>CS: POST /sessions/{id}/chat/stream
-    CS->>DB: persist user message
-    CS->>A: astream(ChatInput)
-    loop Token streaming
-        A->>LLM: stream chunk
-        LLM-->>A: AIMessageChunk
-        A-->>CS: token string
-        CS-->>C: data: {"token": "..."}\n\n
+    B->>CS: POST /sessions/{id}/chat/stream
+    CS->>MR: persist user message
+    CS->>A: astream_events(ChatInput)
+    loop LangGraph events
+        A-->>CS: on_chat_model_stream
+        CS-->>B: SSE token event
+        A-->>CS: on_tool_start
+        CS-->>B: SSE tool_start event
+        A->>Tool: call tool
+        Tool-->>A: result
+        A-->>CS: on_tool_end
+        CS-->>B: SSE tool_end event
     end
-    CS->>DB: persist full assistant message
-    CS-->>C: data: {"done": true, "agent_type": "..."}\n\n
+    CS->>MR: persist full assistant message
+    CS-->>B: SSE done event
+```
+
+### Internal Background Triggers
+
+```mermaid
+sequenceDiagram
+    participant B as chatly-backend
+    participant R as internal.py
+    participant SS as SessionService
+    participant BG as BackgroundTasks
+    participant CS as ChatService
+    participant A as MentionAgent or SocialAgent
+    participant MCP as chatly-backend MCP
+
+    B->>R: POST /internal/assist or /internal/social/*
+    R->>R: verify X-API-Key
+    R->>SS: find_or_create_for_conversation()
+    SS-->>R: session_id
+    R->>BG: schedule agent task
+    R-->>B: 202 Accepted
+    BG->>CS: run_group_assist or run_social_*()
+    CS->>A: generate response using research tools
+    A->>MCP: deterministic publish tool call
 ```
 
 ---
 
-## 4. Agent Routing Logic
+## 4. Agent Routing
 
-`ChatService._select_agent()` automatically picks the right agent based on request context:
+`ChatService._select_agent()` decides only for interactive `/sessions/{id}/chat` requests.
 
 ```mermaid
 flowchart TD
-    Start([Chat Request])
-    AssembleTools["assemble_tools()\nMCP + web search tools"]
-    CheckImageGen{"Image Gen available?\n(HF API Key set)"}
-    CheckHasContext{"VectorService.has_context\n(session has files?)"}
-    BuildRetriever["create_retriever_tool()\nsession-scoped Qdrant search"]
-    BuildImageTools["create_image_gen_tools()\ngenerate_image + sticker"]
-    CheckNeedUnified{"tools list non-empty\nOR has_context\nOR Image Gen enabled?"}
-    UnifiedAgent["UnifiedAgent\n(create_react_agent\n+ all tools)"]
-    ChatbotAgent["ChatbotAgent\n(conversation graph)"]
+    Start["Chat request"]
+    Tools["ToolService.assemble_tools<br/>system MCP + requested user MCP + optional Tavily"]
+    Context["VectorService.has_context<br/>session chunks or linked conversation chunks"]
+    Images["Build image tools when available"]
+    NeedUnified{"Any tools, context, or image tools?"}
+    Unified["UnifiedAgent<br/>ReAct graph"]
+    Chatbot["ChatbotAgent<br/>plain conversation"]
 
-    Start --> AssembleTools --> CheckImageGen
-    CheckImageGen -->|Yes| BuildImageTools
-    CheckImageGen -->|No| CheckHasContext
-    BuildImageTools --> CheckHasContext
-    CheckHasContext -->|Yes| BuildRetriever
-    CheckHasContext -->|No| CheckNeedUnified
-    BuildRetriever --> CheckNeedUnified
-    CheckNeedUnified -->|Yes| UnifiedAgent
-    CheckNeedUnified -->|No| ChatbotAgent
+    Start --> Tools --> Context --> Images --> NeedUnified
+    NeedUnified -->|Yes| Unified
+    NeedUnified -->|No| Chatbot
 ```
 
-Priority: **UnifiedAgent (tools + RAG + Image Gen combined) > ChatbotAgent**
+`UnifiedAgent` receives the complete per-request tool list:
 
-The `UnifiedAgent` can handle tools, context, and image generation simultaneously — everything is exposed as LangChain tools in a single ReAct loop.
+- System backend MCP tools when `CHATLY_BACKEND_MCP_URL` is configured.
+- User MCP tools requested by `mcp_server_ids`.
+- Tavily web search when `use_web_search=true` and configured.
+- `search_documents` when session or linked conversation chunks exist.
+- Image tools when the image generation integration is available.
 
 ---
 
-## 5. File Upload & RAG Pipeline
+## 5. Agents
+
+### ChatbotAgent
+
+Plain conversational agent. It prepends `CHATLY_SYSTEM_PROMPT`, injects MongoDB message history, and invokes a simple LangGraph chatbot graph.
+
+```mermaid
+stateDiagram-v2
+    [*] --> llm_node
+    llm_node --> [*]
+```
+
+### UnifiedAgent
+
+General ReAct agent for interactive chat with tools and RAG. A fresh graph is created per request so tool availability cannot leak across requests.
+
+```mermaid
+stateDiagram-v2
+    [*] --> agent
+    agent --> tools : tool calls
+    tools --> agent : tool results
+    agent --> [*] : final AIMessage
+```
+
+It uses `UNIFIED_AGENT_SYSTEM_PROMPT` formatted with `user_id` and runtime `session_context`. MongoDBSaver checkpointing is enabled outside `APP_ENV=test`.
+
+### MentionAgent
+
+Handles group `@AI` mentions from `/internal/assist`.
+
+- Uses research/context MCP tools in a ReAct loop.
+- Removes `sendAiMessage` from the LLM tool loop.
+- Calls `sendAiMessage` programmatically after final text generation.
+- Excludes `sendTextMessage` to avoid duplicate group posts.
+
+### SocialAgent
+
+Handles `/internal/social/mention-comment` and `/internal/social/post-command`.
+
+- Uses research tools when available.
+- Detects the `createAiPostComment` publish tool by schema/description.
+- Publishes the final AI reply programmatically.
+
+### BriefingService Flow
+
+`BriefingService` creates a temporary "Daily Briefing" session and streams a prompt through `ChatService`. The agent is expected to call backend MCP tools such as `getMyConversations`, `readRecentMessages`, `listGroupReminders`, and `sendTextMessage`.
+
+---
+
+## 6. RAG and File Indexing
+
+### Session File Upload
 
 ```mermaid
 flowchart LR
-    Upload["POST /files\nmultipart upload"]
-    Validate["Validate\n• session ownership\n• file count ≤ 4\n• size ≤ 5 MB\n• supported type"]
-    Branch{Is image?}
-    Extract["Extract Text\n• PDF → pypdf\n• DOCX → python-docx\n• TXT/MD/CSV/JSON → raw"]
-    Split["Chunk Text\nRecursiveCharacterTextSplitter\nsize=1000 overlap=200"]
-    Embed["Embed Chunks\nHuggingFace Inference API\nBAAI/bge-base-en-v1.5\nbatch size=16"]
-    StoreMeta["Store Metadata\nFileRepository → MongoDB.files"]
-    StoreChunks["Store Chunk Text\nChunkRepository → MongoDB.chunks"]
-    StoreVectors["Index Vectors\nQdrantRepository → Qdrant\ncollection: agent_server_chunks\ndistance: Cosine"]
-    StoreBinary["Store Binary\nMinIO / S3\nkey: user_id/session_id/uuid/filename"]
+    Upload["POST /sessions/{id}/files"]
+    Validate["Validate ownership, extension, count <= 4, size"]
+    IsImage{"Image extension?"}
+    StoreImage["Store object and metadata only"]
+    Extract["Extract text<br/>PDF, DOCX, TXT, MD, CSV, JSON"]
+    Split["RecursiveCharacterTextSplitter"]
+    Embed["HuggingFace embeddings<br/>batched"]
+    StoreObj["Store original object"]
+    FileMeta["files collection"]
+    Chunks["chunks collection"]
+    Vectors["Qdrant vectors"]
 
-    Upload --> Validate --> Branch
-    Branch -->|No| Extract --> Split --> Embed --> StoreMeta
-    Branch -->|Yes| StoreMeta
-    Embed --> StoreChunks
-    Embed --> StoreVectors
-    StoreMeta --> StoreBinary
+    Upload --> Validate --> IsImage
+    IsImage -->|Yes| StoreImage --> FileMeta
+    IsImage -->|No| Extract --> Split --> Embed --> StoreObj --> FileMeta
+    Embed --> Chunks
+    Embed --> Vectors
 ```
+
+Supported extensions are `txt`, `md`, `pdf`, `docx`, `csv`, `json`, `jpeg`, `jpg`, `png`, and `webp`. Text-like files are embedded. Images are stored as attachments only.
+
+### Conversation File Indexing
+
+`POST /internal/index-file` is used when `chatly-backend` uploads a file to a group conversation. The agent downloads the backend-provided file URL, extracts and embeds text, stores metadata with `conversation_id` and `backend_file_id`, and indexes vectors scoped to that conversation.
+
+When a chat session has `context_conversation_id`, `VectorService.similarity_search()` searches both:
+
+- session-scoped chunks
+- conversation-scoped chunks
 
 ---
 
-## 6. MCP Tool Integration
+## 7. MCP Integration
 
-```mermaid
-sequenceDiagram
-    participant U as User
-    participant API as agent-server
-    participant MCPS as MCPService
-    participant MCPC as MCPClient
-    participant Ext as External MCP Server
-    participant DB as MongoDB
+### User-Owned MCP Servers
 
-    U->>API: POST /mcp/servers {name, url, transport, headers}
-    API->>MCPC: list_tools(url, transport)
-    MCPC->>Ext: tools/list (HTTP POST or SSE)
-    Ext-->>MCPC: [tool definitions]
-    MCPC-->>MCPS: tool list
-    MCPS->>DB: MCPRepository.create()
-    DB-->>API: server record
-    API-->>U: 201 MCPServerResponse
+User MCP servers are stored in MongoDB and managed through `/mcp/servers/**`. Registration verifies connectivity by calling `tools/list`.
 
-    U->>API: POST /sessions/{id}/chat {mcp_server_ids: ["srv1"]}
-    API->>MCPS: get_tools_for_servers(user_id, ["srv1"])
-    MCPS->>DB: find_active_by_ids()
-    DB-->>MCPS: [server docs]
-    MCPS->>Ext: tools/list (live fetch)
-    Ext-->>MCPS: tool definitions
-    MCPS-->>API: tool info + server metadata
-    API->>API: build UnifiedAgent with dynamic MCP tools
-    API->>Ext: call_tool() via MCPClient (during ReAct loop)
-    Ext-->>API: tool result
-    API-->>U: final answer
+Default transport is HTTP JSON-RPC 2.0:
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "tools/list",
+  "params": {}
+}
 ```
+
+Tool calls use `tools/call` with `{ "name": "...", "arguments": {...} }`.
+
+### System Backend MCP
+
+`SystemMCPService` configures `chatly-backend` from `CHATLY_BACKEND_MCP_URL`. It is not stored in MongoDB and is not returned by `/mcp/servers`; callers can inspect it through `/mcp/defaults`.
+
+System MCP uses SSE transport and forwards:
+
+```http
+X-Internal-API-Key: <INTERNAL_API_KEY>
+X-User-Id: <current user id>
+```
+
+System MCP also exposes resources. `chatly-agent` reads `chatly://skills/*` resources, concatenates them into runtime skill context, and caches them for 5 minutes.
 
 ---
 
-## 7. LangGraph State Machines
+## 8. Streaming Events
 
-### Chatbot Graph
+`app/models/stream.py` defines the SSE contract:
 
-```mermaid
-stateDiagram-v2
-    [*] --> llm_node : {messages: [...history, HumanMessage]}
-    llm_node --> [*] : {messages: [AIMessage]}
+| Type | Data |
+|---|---|
+| `token` | `{ "content": string }` |
+| `tool_start` | `{ "tool": string, "input": object }` |
+| `tool_end` | `{ "tool": string, "output": string }` |
+| `error` | `{ "message": string, "code": string?, "category": string?, "retryable": boolean? }` |
+| `done` | `{ "agent_type": string, "message_id": string, "attachments": array? }` |
 
-    note right of llm_node
-        ChatGroq.ainvoke(all messages)
-        Checkpointer: MemorySaver (keyed by session_id)
-    end note
-```
-
-Used by `ChatbotAgent` — pure conversation with no external tools.
-
-### UnifiedAgent (create_react_agent)
-
-```mermaid
-stateDiagram-v2
-    [*] --> agent : {messages: [HumanMessage]}
-    agent --> tools : tool_calls in AIMessage
-    tools --> agent : ToolMessages (results)
-    agent --> [*] : final AIMessage (no tool calls)
-
-    note right of agent
-        LangGraph prebuilt create_react_agent
-        LLM decides which tools to call
-        Loops until final answer
-    end note
-
-    note right of tools
-        Any combination of:
-        • search_documents (Qdrant retriever)
-        • generate_image / generate_sticker
-        • mcp_tool (external MCP servers)
-        • web_search_tool (Tavily)
-    end note
-```
-
-Each `UnifiedAgent` instance is built fresh per request by `_select_agent()` and receives only the tools relevant to that request.
+Errors are classified into model rate limit, timeout, provider error, and internal agent error categories before being emitted to clients.
 
 ---
 
-## 8. Database Design
+## 9. Database Design
 
 ### MongoDB Collections
 
@@ -331,13 +392,14 @@ erDiagram
         ObjectId _id PK
         string user_id
         string title
+        string context_conversation_id
         datetime created_at
         datetime updated_at
     }
 
     messages {
         ObjectId _id PK
-        string session_id FK
+        string session_id
         string role
         string content
         list attachments
@@ -346,22 +408,24 @@ erDiagram
 
     files {
         ObjectId _id PK
-        string session_id FK
+        string session_id
+        string conversation_id
         string user_id
+        string backend_file_id
         string filename
         string mime_type
         int size_bytes
         string minio_bucket
         string object_key
         string etag
-        string source
         datetime created_at
     }
 
     chunks {
         ObjectId _id PK
-        string session_id FK
-        string file_id FK
+        string file_id
+        string session_id
+        string conversation_id
         string user_id
         string content
         int chunk_index
@@ -372,91 +436,116 @@ erDiagram
         string user_id
         string name
         string url
-        string transport
         dict headers
+        string transport
         bool is_active
         datetime created_at
         datetime updated_at
     }
 
-    sessions ||--o{ messages : "contains"
-    sessions ||--o{ files : "has"
-    files ||--o{ chunks : "split into"
+    sessions ||--o{ messages : contains
+    sessions ||--o{ files : owns
+    files ||--o{ chunks : split_into
 ```
 
-### Qdrant Collection (`agent_server_chunks`)
+`MongoDBSaver` also stores LangGraph checkpoint documents in the configured MongoDB database.
 
-| Field | Type | Description |
-|---|---|---|
-| vector | float\[768\] | BAAI/bge-base-en-v1.5 embedding, Cosine distance |
-| `session_id` | string (payload) | Used for filtered search |
-| `file_id` | string (payload) | Used for deletion by file |
-| `user_id` | string (payload) | Owner reference |
-| `content` | string (payload) | Raw chunk text returned to LLM |
-| `chunk_index` | int (payload) | Position within original file |
-| `filename` | string (payload) | Source filename for citations |
+### Qdrant Collection
 
-### Object Storage Bucket (`uploads`)
+Default collection: `agent_server_chunks`.
 
-Object key pattern: `{user_id}/{session_id}/{uuid4 or 'generated'}/{filename}`
+| Payload | Description |
+|---|---|
+| `session_id` | Session scope for regular uploads. |
+| `conversation_id` | Conversation scope for backend-indexed group files. |
+| `file_id` | File metadata ID. |
+| `user_id` | Owner or uploader ID. |
+| `content` | Raw chunk text. |
+| `chunk_index` | Position in source file. |
+| `filename` | Source filename. |
+
+Vector size defaults to `768` and should match `HF_EMBEDDING_MODEL`.
+
+### Object Storage
+
+Session uploads use:
+
+```text
+{user_id}/{session_id}/{uuid4}/{filename}
+```
+
+Conversation-indexed files use:
+
+```text
+conversations/{conversation_id}/{uuid4}/{filename}
+```
 
 ---
 
-## 9. Security Model
+## 10. Security Model
 
 ```mermaid
 flowchart TD
-    Request["HTTP Request"]
-    RID["RequestIDMiddleware\nStamp X-Request-ID"]
-    CORS["CORSMiddleware\nCheck Origin"]
-    Route["Route Handler"]
-    Protected{Protected\nroute?}
-    APIKey["verify_api_key()\nConstant-time compare\nX-API-Key header"]
-    UserID["Extract X-User-Id header\n(forwarded by chatly-backend)"]
-    Ownership["Service-level\nownership check\nuser_id == doc.user_id"]
-    Business["Business Logic"]
-    Public["Public Handler\n(health)"]
+    Request["HTTP request"]
+    RID["RequestIDMiddleware"]
+    Route["Router"]
+    Protected{"Protected endpoint?"}
+    Verify["verify_api_key<br/>constant-time compare"]
+    UserHeader["X-User-Id dependency<br/>for public protected endpoints"]
+    BodyUser["User ID from body<br/>for internal triggers"]
+    Ownership["Service-level ownership checks"]
+    Work["Business logic"]
+    Health["Health handler"]
 
-    Request --> RID --> CORS --> Route
-    Route --> Protected
-    Protected -->|Yes| APIKey --> UserID --> Ownership --> Business
-    Protected -->|No| Public
+    Request --> RID --> Route --> Protected
+    Protected -->|No| Health
+    Protected -->|Yes| Verify
+    Verify --> UserHeader --> Ownership --> Work
+    Verify --> BodyUser --> Work
 ```
+
+Public protected endpoints use `get_request_context()`, which validates `X-API-Key` and extracts `X-User-Id`. Internal routes use router-level `verify_api_key` and request bodies supplied by `chatly-backend`.
+
+Sensitive values must come from environment variables. Logs must not include JWTs, API keys, message content, emails, or phone numbers.
 
 ---
 
-## 10. Infrastructure
+## 11. Infrastructure
+
+Current `docker-compose.yml` defines:
 
 ```mermaid
 graph TB
-    subgraph DockerNetwork ["Docker Network: agent-net"]
-        App["app\nFastAPI :8000\nDepends on: mongodb, qdrant, minio"]
-        Mongo["mongodb\nmongo:7\nPort: 27017\nVolume: mongo_data"]
-        Qdrant["qdrant\nqdrant/qdrant:latest\nPort: 6333 HTTP, 6334 gRPC\nVolume: qdrant_data"]
-        MinIO["minio\nminio/minio:latest\nPort: 9000 API, 9001 Console\nVolume: minio_data"]
-        MinIOInit["minio-init\nminio/mc\nOne-shot: create uploads bucket"]
+    subgraph Net["agent-net"]
+        App["app<br/>FastAPI :8000"]
+        Mongo["mongodb<br/>host :27018 -> container :27017"]
+        Qdrant["qdrant<br/>:6333 HTTP, :6334 gRPC"]
     end
 
-    Client -->|":8000"| App
     App --> Mongo
     App --> Qdrant
-    App --> MinIO
-    MinIOInit --> MinIO
 ```
+
+Object storage is external to the current Compose stack:
+
+- `STORAGE_PROVIDER=minio` expects a reachable MinIO endpoint.
+- `STORAGE_PROVIDER=s3` expects AWS S3 credentials and a pre-created bucket.
+
+During application startup, the lifespan hook pings MongoDB, checks Qdrant, ensures the object storage bucket for MinIO mode, and initializes the LangGraph MongoDB checkpointer unless `APP_ENV=test`.
 
 ---
 
-## 11. Layer Responsibilities
+## 12. Layer Responsibilities
 
 | Layer | Location | Responsibility | Forbidden |
 |---|---|---|---|
-| **Routers** | `app/routers/` | HTTP request/response, status codes, DI injection | Business logic, DB calls |
-| **Services** | `app/services/` | Business logic, orchestration, ownership checks | Direct DB/Motor calls |
-| **Repositories** | `app/repositories/` | All MongoDB and Qdrant I/O | Business logic |
-| **Agents** | `app/agents/` | LangGraph invocation, token streaming | Direct DB calls |
-| **Graphs** | `app/graphs/` | LangGraph state machine definitions | Side effects outside state |
-| **DB clients** | `app/db/` | Motor and Qdrant singleton clients | Business logic |
-| **Storage** | `app/storage/` | MinIO / S3 singleton client | Business logic |
-| **Models** | `app/models/` | Pydantic schemas for API I/O | Logic |
-| **Utils** | `app/utils/` | LLM factory, embedder factory | Stateful operations |
-| **Tools** | `app/tools/` | External tool implementations (Retriever, MCP, Web, Image Gen) | Business logic |
+| Routers | `app/routers/` | HTTP I/O, dependency injection, status codes | Business logic, direct database access |
+| Services | `app/services/` | Orchestration, ownership checks, agent selection, workflows | Direct Motor queries |
+| Repositories | `app/repositories/` | MongoDB and Qdrant data access | Agent orchestration |
+| Agents | `app/agents/` | Prompt assembly, LangGraph invocation, deterministic publish steps | Direct database access |
+| Graphs | `app/graphs/` | LangGraph state definitions | HTTP or persistence concerns |
+| Tools | `app/tools/` | LangChain tool wrappers for RAG, MCP, web search, image generation | Session ownership decisions |
+| DB clients | `app/db/` | Singleton MongoDB, Qdrant, and checkpointer clients | Business logic |
+| Storage | `app/storage/` | MinIO/S3-compatible client and bucket helpers | File extraction or indexing |
+| Models | `app/models/` | Pydantic schemas and SSE event formatting | Persistence logic |
+| Utils | `app/utils/` | LLM, embeddings, and security helpers | Stateful workflows |

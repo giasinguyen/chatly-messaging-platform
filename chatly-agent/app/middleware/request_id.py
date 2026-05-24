@@ -1,4 +1,5 @@
 """Middleware that stamps every request with a unique X-Request-ID header."""
+
 import uuid
 
 from starlette.middleware.base import BaseHTTPMiddleware

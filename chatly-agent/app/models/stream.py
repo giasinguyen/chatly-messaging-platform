@@ -13,6 +13,7 @@ Event types:
                                                       retryable?: bool}
     done       — stream is complete              data: {agent_type, message_id}
 """
+
 import json
 from typing import Any
 

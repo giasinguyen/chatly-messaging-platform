@@ -1,4 +1,5 @@
 """Factory for the Tavily web search LangChain tool."""
+
 import os
 
 from langchain_tavily import TavilySearch

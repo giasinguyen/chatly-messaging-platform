@@ -106,7 +106,9 @@ def _build_service() -> ChatService:
 async def test_stream_chat_maps_provider_error_to_structured_sse_event() -> None:
     service = _build_service()
     service._chatbot_agent.astream_events = MagicMock(
-        return_value=_raise_in_stream(Exception("upstream provider error: 503 Service Unavailable"))
+        return_value=_raise_in_stream(
+            Exception("upstream provider error: 503 Service Unavailable")
+        )
     )
 
     chunks = [
