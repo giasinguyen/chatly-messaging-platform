@@ -1,6 +1,6 @@
 import { useEffect, useCallback, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { socketService } from '@/services/socket.service';
+import { isSocketAuthError, socketService } from '@/services/socket.service';
 import { messageService } from '@/services/message.service';
 import { useAuthStore } from '@/store/auth.store';
 import type { Message, ChatEvent, Attachment, Poll, LocationPayload } from '@/types/message';
@@ -69,7 +69,11 @@ export function useChatSocket({ conversationId, onEvent, onTyping, onRead }: Use
       cleanupFns = [unsubscribeEvents, unsubscribeTyping, unsubscribeRead];
     };
 
-    setup().catch(console.error);
+    setup().catch((error: unknown) => {
+      if (!isSocketAuthError(error)) {
+        console.error(error);
+      }
+    });
 
     return () => {
       isMounted = false;
