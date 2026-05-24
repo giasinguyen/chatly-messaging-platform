@@ -3,8 +3,8 @@
 from unittest.mock import MagicMock
 
 import pytest
-from pydantic import BaseModel
 from langchain_core.tools import BaseTool
+from pydantic import BaseModel
 
 import app.agents.social_agent as social_agent_module
 from app.agents.social_agent import SocialAgent
@@ -17,7 +17,6 @@ def _make_tool(
     tool.name = name
     tool.description = description
     if args_fields:
-        attrs = {field: (str, ...) for field in args_fields}
         tool.args_schema = type(
             f"{name}Args",
             (BaseModel,),

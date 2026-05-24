@@ -10,10 +10,11 @@ from unittest.mock import MagicMock
 import pytest
 from langchain_core.tools import BaseTool
 
+import app.agents.mention_agent as mention_agent_module
 from app.agents.mention_agent import (
-    MentionAgent,
     SEND_AI_MESSAGE_TOOL_NAME,
     SEND_TEXT_MESSAGE_TOOL_NAME,
+    MentionAgent,
 )
 
 
@@ -27,6 +28,22 @@ def _build_agent(tool_names: list[str]) -> MentionAgent:
     tools = [_make_tool(n) for n in tool_names]
     llm = MagicMock()
     return MentionAgent(llm=llm, tools=tools, conversation_id="conv-1")
+
+
+@pytest.fixture(autouse=True)
+def _mock_create_react_agent(monkeypatch: pytest.MonkeyPatch) -> None:
+    class _ToolNode:
+        def __init__(self, tools: list[BaseTool]) -> None:
+            self.tools_by_name = {tool.name: tool for tool in tools}
+
+    class _FakeGraph:
+        def __init__(self, tools: list[BaseTool]) -> None:
+            self.nodes = {"tool_node": _ToolNode(tools)}
+
+    def _fake_factory(_llm: MagicMock, tools: list[BaseTool]) -> _FakeGraph:
+        return _FakeGraph(tools)
+
+    monkeypatch.setattr(mention_agent_module, "create_react_agent", _fake_factory)
 
 
 def _research_tool_names(agent: MentionAgent) -> list[str]:
@@ -57,7 +74,7 @@ def test_send_text_message_is_excluded_from_research_tools() -> None:
 
 
 def test_send_ai_message_is_excluded_from_research_tools() -> None:
-    """sendAiMessage must NOT appear in the ReAct research tool list (delivery is deterministic)."""
+    """sendAiMessage must be excluded from the research tool list."""
     agent = _build_agent(
         ["readRecentMessages", SEND_TEXT_MESSAGE_TOOL_NAME, SEND_AI_MESSAGE_TOOL_NAME]
     )
