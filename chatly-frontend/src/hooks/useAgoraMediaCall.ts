@@ -200,6 +200,7 @@ export function useAgoraMediaCall() {
 
         if (client) {
             void client.leave().catch(() => undefined);
+            clientRef.current = null;
         }
     }, []);
 
