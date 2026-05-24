@@ -5,6 +5,7 @@ import jakarta.servlet.DispatcherType;
 import jakarta.servlet.http.HttpServletResponse;
 
 import java.util.Arrays;
+import java.util.List;
 import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Value;
@@ -94,12 +95,22 @@ public class WebSecurityConfig {
 
     @Bean
     public UrlBasedCorsConfigurationSource corsConfigurationSource() {
-        CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOriginPatterns(Arrays.stream(allowedOrigins.split(","))
+        // WebSocket endpoints: auth is JWT-based (query param), not cookie-based.
+        // Native mobile clients (okhttp) send Origin: http://localhost which does not match
+        // the web allowed origins, so we permit any origin here and rely on the
+        // WebSocketAuthInterceptor to validate the token.
+        CorsConfiguration wsConfig = new CorsConfiguration();
+        wsConfig.setAllowedOriginPatterns(List.of("*"));
+        wsConfig.setAllowedMethods(List.of("GET"));
+        wsConfig.setAllowedHeaders(List.of("*"));
+
+        // REST API endpoints: strict origin list from config.
+        CorsConfiguration apiConfig = new CorsConfiguration();
+        apiConfig.setAllowedOriginPatterns(Arrays.stream(allowedOrigins.split(","))
                 .map(String::trim)
                 .collect(Collectors.toList()));
-        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        configuration.setAllowedHeaders(Arrays.asList(
+        apiConfig.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+        apiConfig.setAllowedHeaders(Arrays.asList(
             "Authorization",
             "Content-Type",
             "Accept",
@@ -109,11 +120,17 @@ public class WebSecurityConfig {
             "X-Client-Platform",
             "X-Device-Label"
         ));
-        configuration.setAllowCredentials(true);
-        configuration.setMaxAge(3600L);
+        apiConfig.setAllowCredentials(true);
+        apiConfig.setMaxAge(3600L);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/**", configuration);
+        // WebSocket paths must be registered first (UrlBasedCorsConfigurationSource
+        // returns the first matching pattern in insertion order).
+        source.registerCorsConfiguration("/ws", wsConfig);
+        source.registerCorsConfiguration("/ws/**", wsConfig);
+        source.registerCorsConfiguration("/ws-raw", wsConfig);
+        source.registerCorsConfiguration("/ws-raw/**", wsConfig);
+        source.registerCorsConfiguration("/**", apiConfig);
         return source;
     }
 
