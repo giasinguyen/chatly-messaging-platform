@@ -23,8 +23,10 @@ from app.routers.internal import router as internal_router
 from app.routers.mcp import router as mcp_router
 from app.routers.sessions import router as sessions_router
 from app.storage.minio import ensure_bucket_exists, get_bucket_name, get_storage_client
+from app.utils.langsmith import configure_langsmith
 
 setup_logging(settings.log_level)
+configure_langsmith()
 
 
 @asynccontextmanager
