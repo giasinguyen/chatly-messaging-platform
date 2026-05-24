@@ -1,4 +1,4 @@
-import { View, Text, TouchableOpacity, Modal } from 'react-native';
+import { Alert, View, Text, TouchableOpacity, Modal } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, {
   useSharedValue,
@@ -10,6 +10,7 @@ import Animated, {
 import { useEffect } from 'react';
 import { Avatar } from '@/components/ui/Avatar';
 import { Colors } from '@/constants/theme';
+import { IS_WEBRTC_CALL_ENABLED } from '@/constants/runtime';
 import type { IncomingCall } from '@/types/call';
 
 interface CallScreenProps {
@@ -29,12 +30,12 @@ export function CallScreen({ visible, incomingCall, onAccept, onReject }: CallSc
       pulseScale.value = withRepeat(
         withTiming(1.6, { duration: 1200, easing: Easing.out(Easing.ease) }),
         -1,
-        true,
+        true
       );
       pulseOpacity.value = withRepeat(
         withTiming(0, { duration: 1200, easing: Easing.out(Easing.ease) }),
         -1,
-        true,
+        true
       );
     } else {
       pulseScale.value = 1;
@@ -47,22 +48,27 @@ export function CallScreen({ visible, incomingCall, onAccept, onReject }: CallSc
     opacity: pulseOpacity.value,
   }));
 
-  const callLabel =
-    incomingCall.type === 'VIDEO' ? 'Video call...' : 'Calling...';
+  const callLabel = incomingCall.type === 'VIDEO' ? 'Video call...' : 'Calling...';
+
+  const handleAccept = () => {
+    if (!IS_WEBRTC_CALL_ENABLED) {
+      Alert.alert(
+        'Call unavailable in Expo Go',
+        'Calling is only available in a development build. Please build the app to use voice/video calls.'
+      );
+      return;
+    }
+
+    onAccept();
+  };
 
   return (
-    <Modal
-      visible={visible}
-      animationType="fade"
-      transparent
-      statusBarTranslucent
-    >
+    <Modal visible={visible} animationType="fade" transparent statusBarTranslucent>
       <View
         className="flex-1 items-center justify-center"
-        style={{ backgroundColor: 'rgba(0, 0, 0, 0.85)' }}
-      >
+        style={{ backgroundColor: 'rgba(0, 0, 0, 0.85)' }}>
         {/* Caller info */}
-        <View className="items-center mb-12">
+        <View className="mb-12 items-center">
           {/* Pulsing circle */}
           <View className="items-center justify-center" style={{ width: 140, height: 140 }}>
             <Animated.View
@@ -78,23 +84,13 @@ export function CallScreen({ visible, incomingCall, onAccept, onReject }: CallSc
                 pulseStyle,
               ]}
             />
-            <Avatar
-              uri={incomingCall.callerAvatar}
-              name={incomingCall.callerName}
-              size={100}
-            />
+            <Avatar uri={incomingCall.callerAvatar} name={incomingCall.callerName} size={100} />
           </View>
 
-          <Text
-            className="text-2xl font-bold mt-6"
-            style={{ color: Colors.white }}
-          >
+          <Text className="mt-6 text-2xl font-bold" style={{ color: Colors.white }}>
             {incomingCall.callerName}
           </Text>
-          <Text
-            className="text-base mt-2"
-            style={{ color: Colors.textLight }}
-          >
+          <Text className="mt-2 text-base" style={{ color: Colors.textLight }}>
             {callLabel}
           </Text>
         </View>
@@ -112,11 +108,10 @@ export function CallScreen({ visible, incomingCall, onAccept, onReject }: CallSc
                 borderRadius: 35,
                 backgroundColor: Colors.error,
               }}
-              activeOpacity={0.7}
-            >
+              activeOpacity={0.7}>
               <Ionicons name="close" size={36} color={Colors.white} />
             </TouchableOpacity>
-            <Text className="text-sm mt-2" style={{ color: Colors.textLight }}>
+            <Text className="mt-2 text-sm" style={{ color: Colors.textLight }}>
               Decline
             </Text>
           </View>
@@ -124,7 +119,7 @@ export function CallScreen({ visible, incomingCall, onAccept, onReject }: CallSc
           {/* Accept button (green) */}
           <View className="items-center">
             <TouchableOpacity
-              onPress={onAccept}
+              onPress={handleAccept}
               className="items-center justify-center"
               style={{
                 width: 70,
@@ -132,15 +127,14 @@ export function CallScreen({ visible, incomingCall, onAccept, onReject }: CallSc
                 borderRadius: 35,
                 backgroundColor: Colors.online,
               }}
-              activeOpacity={0.7}
-            >
+              activeOpacity={0.7}>
               <Ionicons
                 name={incomingCall.type === 'VIDEO' ? 'videocam' : 'call'}
                 size={32}
                 color={Colors.white}
               />
             </TouchableOpacity>
-            <Text className="text-sm mt-2" style={{ color: Colors.textLight }}>
+            <Text className="mt-2 text-sm" style={{ color: Colors.textLight }}>
               Accept
             </Text>
           </View>

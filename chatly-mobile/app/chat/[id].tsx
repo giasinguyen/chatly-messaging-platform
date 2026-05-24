@@ -39,6 +39,7 @@ import { useChatSocket } from '@/hooks/useChatSocket';
 import { useCallContext } from '@/contexts/CallContext';
 import { useCallStore } from '@/store/call.store';
 import { useThemeStore } from '@/store/theme.store';
+import { useNotificationStore } from '@/store/notification.store';
 import { usePresenceSocket } from '@/hooks/usePresenceSocket';
 import { Colors } from '@/constants/theme';
 import { formatDateSeparator, isRichTextHtml, richTextToPlainText } from '@/utils/format';
@@ -70,7 +71,12 @@ export default function ChatScreen() {
     prefill,
     prefill_token,
     returnTo,
-  } = useLocalSearchParams<{ id: string; prefill?: string; prefill_token?: string; returnTo?: string }>();
+  } = useLocalSearchParams<{
+    id: string;
+    prefill?: string;
+    prefill_token?: string;
+    returnTo?: string;
+  }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   useThemeStore((state) => state.isDarkMode);
@@ -147,7 +153,7 @@ export default function ChatScreen() {
 
   const messages = useMemo(
     () => messagesByConversation[conversationId ?? ''] ?? [],
-    [conversationId, messagesByConversation],
+    [conversationId, messagesByConversation]
   );
   const endedGroupCallIds = useMemo(() => {
     const endedCallIds = new Set<string>();
@@ -219,7 +225,9 @@ export default function ChatScreen() {
                 return prev.filter((m) => m.id !== event.message.id);
               }
               if (exists) {
-                return prev.map((m) => (m.id === event.message.id ? { ...m, ...event.message } : m));
+                return prev.map((m) =>
+                  m.id === event.message.id ? { ...m, ...event.message } : m
+                );
               }
               return prev;
             });
@@ -309,12 +317,14 @@ export default function ChatScreen() {
   sendSeenRef.current = sendSeen;
 
   const { setActiveConversation } = useConversationStore();
+  const removeNotificationByReference = useNotificationStore((s) => s.removeByTypeAndReference);
 
   // Fetch conversation details
   useEffect(() => {
     if (!conversationId) return;
 
     setActiveConversation(conversationId);
+    removeNotificationByReference('NEW_MESSAGE', conversationId);
 
     const fetchDetails = async () => {
       try {
@@ -353,7 +363,7 @@ export default function ChatScreen() {
     return () => {
       setActiveConversation(null);
     };
-  }, [conversationId, setActiveConversation]);
+  }, [conversationId, setActiveConversation, removeNotificationByReference]);
 
   // Fetch initial messages
   useEffect(() => {
@@ -384,7 +394,7 @@ export default function ChatScreen() {
     };
 
     fetchMessages();
-  }, [conversationId, setMessages, setLoadingMessages, setPage, setHasMore]);
+  }, [conversationId, setMessages, setLoadingMessages, setPage, setHasMore, user?.id]);
 
   // Fetch pinned messages
   useEffect(() => {
@@ -450,7 +460,7 @@ export default function ChatScreen() {
       messageType?: string,
       priority?: 'IMPORTANT' | 'URGENT',
       poll?: Poll,
-      location?: any,
+      location?: any
     ) => {
       if (!conversationId || !user) return;
       const replyToId = replyingTo?.id ?? null;
@@ -475,7 +485,15 @@ export default function ChatScreen() {
       };
 
       // Try WebSocket first
-      const sent = wsSendMessage(text, replyToId, attachments, messageType, priority, location, poll);
+      const sent = wsSendMessage(
+        text,
+        replyToId,
+        attachments,
+        messageType,
+        priority,
+        location,
+        poll
+      );
       if (sent) {
         updateConversation(conversationId, { lastMessage: optimisticLastMsg });
         setReplyingTo(null);
@@ -506,7 +524,7 @@ export default function ChatScreen() {
           },
         });
         setReplyingTo(null);
-      } catch (error) {
+      } catch {
         Alert.alert('Error', 'Could not send message. Please try again.');
       }
     },
@@ -571,7 +589,9 @@ export default function ChatScreen() {
     const initialIsRich = isRichTextHtml(selectedMessage.content);
     setEditMode(initialIsRich ? 'editor' : 'plain');
     setEditRichDraft(initialIsRich ? selectedMessage.content : '');
-    setEditPlainDraft(initialIsRich ? richTextToPlainText(selectedMessage.content) : selectedMessage.content);
+    setEditPlainDraft(
+      initialIsRich ? richTextToPlainText(selectedMessage.content) : selectedMessage.content
+    );
     setEditModalVisible(true);
   }, [selectedMessage, conversationId]);
 
@@ -593,8 +613,10 @@ export default function ChatScreen() {
         typeof error === 'object' &&
         error !== null &&
         'response' in error &&
-        typeof (error as { response?: { data?: { message?: string } } }).response?.data?.message === 'string'
-          ? (error as { response?: { data?: { message?: string } } }).response?.data?.message ?? 'Could not edit message.'
+        typeof (error as { response?: { data?: { message?: string } } }).response?.data?.message ===
+          'string'
+          ? ((error as { response?: { data?: { message?: string } } }).response?.data?.message ??
+            'Could not edit message.')
           : 'Could not edit message.';
       Alert.alert('Error', msg);
     }
@@ -745,8 +767,9 @@ export default function ChatScreen() {
         return status === 'RINGING' || status === 'ONGOING';
       });
 
-      const fallbackCallMessage = activeCallMessage
-        ?? messages.find((message) => {
+      const fallbackCallMessage =
+        activeCallMessage ??
+        messages.find((message) => {
           if (message.type !== 'CALL') return false;
           const payload = parseCallMessagePayload(message.content);
           return payload?.callId === callId;
@@ -850,7 +873,7 @@ export default function ChatScreen() {
   }, [messages]);
 
   const displayData = useMemo(() => {
-    const items: Array<{ type: 'date'; label: string } | { type: 'message'; data: Message }> = [];
+    const items: ({ type: 'date'; label: string } | { type: 'message'; data: Message })[] = [];
 
     for (let i = 0; i < messages.length; i++) {
       const msg = messages[i];
@@ -893,7 +916,7 @@ export default function ChatScreen() {
       return;
     }
     if (returnTo === 'notifications') {
-      router.replace('/notifications');
+      router.replace('/(tabs)/chats');
       return;
     }
     if (returnTo === 'chats') {
@@ -1005,7 +1028,8 @@ export default function ChatScreen() {
               const isMe = msg.senderId === user?.id && msg.type !== 'AGENT';
               const isAgent = msg.type === 'AGENT';
               const sender = participantMap[msg.senderId];
-              const agentSenderName = isAgent && sender ? `${sender.displayName} + AI` : sender?.displayName;
+              const agentSenderName =
+                isAgent && sender ? `${sender.displayName} + AI` : sender?.displayName;
               const isHighlighted = highlightedMessageId === msg.id;
               return (
                 <View
@@ -1295,15 +1319,37 @@ export default function ChatScreen() {
           style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' }}
           onPress={() => setShowPinnedList(false)}>
           <Pressable
-            style={{ backgroundColor: Colors.bgCard, borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '70%' }}
+            style={{
+              backgroundColor: Colors.bgCard,
+              borderTopLeftRadius: 20,
+              borderTopRightRadius: 20,
+              maxHeight: '70%',
+            }}
             onPress={() => {}}>
             {/* Header */}
-            <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 0.5, borderBottomColor: Colors.borderLight }}>
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                paddingHorizontal: 16,
+                paddingVertical: 14,
+                borderBottomWidth: 0.5,
+                borderBottomColor: Colors.borderLight,
+              }}>
               <Ionicons name="pin" size={16} color="#F59E0B" />
-              <Text style={{ flex: 1, marginLeft: 8, fontSize: 15, fontWeight: '700', color: Colors.text }}>
+              <Text
+                style={{
+                  flex: 1,
+                  marginLeft: 8,
+                  fontSize: 15,
+                  fontWeight: '700',
+                  color: Colors.text,
+                }}>
                 Pinned Messages ({pinnedMessages.length})
               </Text>
-              <TouchableOpacity onPress={() => setShowPinnedList(false)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <TouchableOpacity
+                onPress={() => setShowPinnedList(false)}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                 <Ionicons name="close" size={22} color={Colors.textMuted} />
               </TouchableOpacity>
             </View>
@@ -1317,20 +1363,31 @@ export default function ChatScreen() {
                 const senderName = sender?.displayName ?? 'Unknown';
                 const msgPreview =
                   msg.content ||
-                  (msg.type === 'POLL' ? `Poll: ${msg.poll?.question}` : `[${msg.type?.toLowerCase()}]`);
+                  (msg.type === 'POLL'
+                    ? `Poll: ${msg.poll?.question}`
+                    : `[${msg.type?.toLowerCase()}]`);
                 return (
                   <TouchableOpacity
-                    style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12 }}
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      paddingHorizontal: 16,
+                      paddingVertical: 12,
+                    }}
                     activeOpacity={0.7}
                     onPress={() => {
                       setShowPinnedList(false);
                       handleNavigateToMessage(msg.id);
                     }}>
                     <View style={{ flex: 1 }}>
-                      <Text style={{ fontSize: 12, fontWeight: '600', color: Colors.cta }} numberOfLines={1}>
+                      <Text
+                        style={{ fontSize: 12, fontWeight: '600', color: Colors.cta }}
+                        numberOfLines={1}>
                         {senderName}
                       </Text>
-                      <Text style={{ fontSize: 13, color: Colors.text, marginTop: 2 }} numberOfLines={2}>
+                      <Text
+                        style={{ fontSize: 13, color: Colors.text, marginTop: 2 }}
+                        numberOfLines={2}>
                         {msgPreview}
                       </Text>
                     </View>
@@ -1346,7 +1403,11 @@ export default function ChatScreen() {
                   </TouchableOpacity>
                 );
               }}
-              ItemSeparatorComponent={() => <View style={{ height: 0.5, backgroundColor: Colors.borderLight, marginHorizontal: 16 }} />}
+              ItemSeparatorComponent={() => (
+                <View
+                  style={{ height: 0.5, backgroundColor: Colors.borderLight, marginHorizontal: 16 }}
+                />
+              )}
             />
           </Pressable>
         </Pressable>
