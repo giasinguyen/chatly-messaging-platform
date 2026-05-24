@@ -135,6 +135,7 @@ export interface ChatUser {
     displayName: string;
     username: string;
     avatarUrl?: string;
+    suspended?: boolean;
     phone?: string;
     dob?: string;
     role?: "USER" | "ADMIN";

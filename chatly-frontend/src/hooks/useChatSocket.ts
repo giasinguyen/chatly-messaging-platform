@@ -13,6 +13,7 @@ interface UseChatSocketProps {
     onEvent: (event: ChatEvent) => void;
     onTyping: (data: TypingData) => void;
     onRead: (message: Message) => void;
+    onError?: (error: { code?: number; message?: string }) => void;
 }
 
 export function useChatSocket({
@@ -20,15 +21,18 @@ export function useChatSocket({
     onEvent,
     onTyping,
     onRead,
+    onError,
 }: UseChatSocketProps) {
     const { user } = useAuthStore();
 
     const onEventRef = useRef(onEvent);
     const onTypingRef = useRef(onTyping);
     const onReadRef = useRef(onRead);
+    const onErrorRef = useRef(onError);
     onEventRef.current = onEvent;
     onTypingRef.current = onTyping;
     onReadRef.current = onRead;
+    onErrorRef.current = onError;
 
     useEffect(() => {
         if (!conversationId || !user) return;
@@ -71,10 +75,23 @@ export function useChatSocket({
                 }
             );
 
+            const errorSub = client.subscribe("/user/queue/errors", (payload) => {
+                try {
+                    const errorPayload = JSON.parse(payload.body) as {
+                        code?: number;
+                        message?: string;
+                    };
+                    onErrorRef.current?.(errorPayload);
+                } catch {
+                    onErrorRef.current?.({ message: "Failed to send message" });
+                }
+            });
+
             return () => {
                 eventSub.unsubscribe();
                 typingSub.unsubscribe();
                 readSub.unsubscribe();
+                errorSub.unsubscribe();
             };
         };
 

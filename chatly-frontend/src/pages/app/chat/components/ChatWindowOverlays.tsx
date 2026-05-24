@@ -94,6 +94,17 @@ export const BlockedConversationBanner = memo(function BlockedConversationBanner
     );
 });
 
+export const SuspendedConversationBanner = memo(function SuspendedConversationBanner() {
+    return (
+        <div className="border-t border-border bg-background px-6 py-4 flex items-center gap-3">
+            <ShieldOff size={17} className="shrink-0 text-destructive" />
+            <p className="flex-1 text-sm text-muted-foreground">
+                This user has been banned and cannot receive messages.
+            </p>
+        </div>
+    );
+});
+
 interface BlockConfirmDialogProps {
     action: "block" | "unblock" | null;
     loading: boolean;

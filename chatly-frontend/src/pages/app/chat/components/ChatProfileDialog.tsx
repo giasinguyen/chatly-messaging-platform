@@ -22,12 +22,14 @@ export interface ChatProfileDialogProps {
     currentUserId: string | undefined;
     sendingContact: boolean;
     blockActionLoading: boolean;
+    reportUserSubmitting: boolean;
     isEditingGroup: boolean;
     groupNameDraft: string;
     groupAvatarDraft: string;
     groupAvatarUploading: boolean;
     groupProfileSaving: boolean;
     onAddFriend: () => void;
+    onReportUser: () => void;
     onRequestBlockAction: (action: "block" | "unblock") => void;
     onToggleEditing: () => void;
     onChangeGroupName: (value: string) => void;
@@ -54,12 +56,14 @@ export const ChatProfileDialog = memo(function ChatProfileDialog({
     currentUserId,
     sendingContact,
     blockActionLoading,
+    reportUserSubmitting,
     isEditingGroup,
     groupNameDraft,
     groupAvatarDraft,
     groupAvatarUploading,
     groupProfileSaving,
     onAddFriend,
+    onReportUser,
     onRequestBlockAction,
     onToggleEditing,
     onChangeGroupName,
@@ -90,7 +94,9 @@ export const ChatProfileDialog = memo(function ChatProfileDialog({
                         currentUserId={currentUserId}
                         sendingContact={sendingContact}
                         blockActionLoading={blockActionLoading}
+                        reportUserSubmitting={reportUserSubmitting}
                         onAddFriend={onAddFriend}
+                        onReportUser={onReportUser}
                         onRequestBlockAction={onRequestBlockAction}
                         onClose={() => onOpenChange(false)}
                     />

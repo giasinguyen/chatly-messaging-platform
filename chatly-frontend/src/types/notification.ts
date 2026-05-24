@@ -38,3 +38,4 @@ export interface NotificationEvent {
     notification: Notification;
     unreadCount: number;
 }
+

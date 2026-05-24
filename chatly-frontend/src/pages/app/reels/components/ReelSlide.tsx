@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import type { ReactNode } from "react";
-import { Eye, Heart, MessageCircle, Share2 } from "lucide-react";
+import { Eye, Flag, Heart, MessageCircle, Share2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
@@ -14,6 +14,8 @@ interface ReelSlideProps {
     onToggleLike: (reel: Reel) => void;
     onOpenComments: (reel: Reel) => void;
     onShare: (reel: Reel) => void;
+    onOpenAuthorProfile: (reel: Reel) => void;
+    onReport: (reel: Reel) => void;
 }
 
 export function ReelSlide({
@@ -23,6 +25,8 @@ export function ReelSlide({
     onToggleLike,
     onOpenComments,
     onShare,
+    onOpenAuthorProfile,
+    onReport,
 }: ReelSlideProps) {
     const videoRef = useRef<HTMLVideoElement>(null);
     const authorLabel = reel.authorDisplayName ?? reel.authorUsername ?? "Chatly user";
@@ -40,7 +44,7 @@ export function ReelSlide({
 
     return (
         <section className="flex h-full w-full snap-center items-center justify-center bg-black px-4 py-5">
-            <div className="relative h-full max-h-[820px] w-full max-w-[460px] overflow-hidden rounded-lg bg-zinc-950 shadow-2xl">
+            <div className="relative h-full max-h-205 w-full max-w-115 overflow-hidden rounded-lg bg-zinc-950 shadow-2xl">
                 <video
                     ref={videoRef}
                     src={reel.videoUrl}
@@ -78,10 +82,18 @@ export function ReelSlide({
                     >
                         <Share2 className="h-6 w-6" />
                     </ActionButton>
+                    <ActionButton label="Report" disabled={isBusy} onClick={() => onReport(reel)}>
+                        <Flag className="h-6 w-6" />
+                    </ActionButton>
                 </div>
 
                 <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-linear-to-t from-black/80 via-black/30 to-transparent p-5 pr-20 text-white">
-                    <div className="flex items-center gap-3">
+                    <button
+                        type="button"
+                        disabled={!reel.authorUsername}
+                        onClick={() => onOpenAuthorProfile(reel)}
+                        className="pointer-events-auto flex w-full items-center gap-3 text-left disabled:cursor-not-allowed disabled:opacity-70"
+                    >
                         <Avatar className="h-10 w-10 border border-white/30">
                             <AvatarImage src={reel.authorAvatarUrl} className="object-cover" />
                             <AvatarFallback className="bg-white/20 text-white">
@@ -92,7 +104,7 @@ export function ReelSlide({
                             <p className="truncate text-sm font-semibold">{authorLabel}</p>
                             <p className="text-xs text-white/70">{formatPrivacy(reel.visibility)}</p>
                         </div>
-                    </div>
+                    </button>
 
                     {reel.caption && (
                         <p className="mt-3 line-clamp-3 text-sm leading-5 text-white/95">
