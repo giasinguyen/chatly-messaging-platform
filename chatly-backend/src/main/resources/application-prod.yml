@@ -71,6 +71,10 @@ app:
       base-url: ${JAMENDO_BASE_URL:https://api.jamendo.com/v3.0}
   reels:
     max-video-size-mb: ${REEL_MAX_VIDEO_SIZE_MB:20}
+  agora:
+    app-id: ${AGORA_APP_ID}
+    app-certificate: ${AGORA_APP_CERTIFICATE:}
+    token-ttl-seconds: ${AGORA_TOKEN_TTL_SECONDS:3600}
 
 agent:
   base-url: ${AGENT_BASE_URL:http://chatly-agent:8000}

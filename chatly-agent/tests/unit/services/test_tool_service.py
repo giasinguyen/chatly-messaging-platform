@@ -1,4 +1,5 @@
 """Unit tests for ToolService — MCP + web search tool assembly."""
+
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -42,8 +43,10 @@ async def test_assemble_tools_returns_mcp_tools_when_ids_given() -> None:
 async def test_assemble_tools_returns_web_search_when_flag_set() -> None:
     service = ToolService(mcp_service=None)
 
-    with patch("app.services.tool_service.web_search_available", return_value=True), \
-         patch("app.services.tool_service.create_web_search_tool") as mock_create:
+    with (
+        patch("app.services.tool_service.web_search_available", return_value=True),
+        patch("app.services.tool_service.create_web_search_tool") as mock_create,
+    ):
         fake_tool = MagicMock(spec=BaseTool)
         fake_tool.name = "tavily_search_results_json"
         mock_create.return_value = fake_tool
@@ -66,8 +69,10 @@ async def test_assemble_tools_combines_mcp_and_web_search() -> None:
 
     service = ToolService(mcp_service=mcp_service)
 
-    with patch("app.services.tool_service.web_search_available", return_value=True), \
-         patch("app.services.tool_service.create_web_search_tool") as mock_create:
+    with (
+        patch("app.services.tool_service.web_search_available", return_value=True),
+        patch("app.services.tool_service.create_web_search_tool") as mock_create,
+    ):
         fake_web_tool = MagicMock(spec=BaseTool)
         fake_web_tool.name = "tavily_search_results_json"
         mock_create.return_value = fake_web_tool

@@ -114,8 +114,14 @@ async def test_stream_chat_yields_sse_and_persists_full_response() -> None:
     token_chunks = [c for c in chunks if '"type": "token"' in c]
     done_chunks = [c for c in chunks if '"type": "done"' in c]
     assert len(token_chunks) == 2
-    assert json.loads(token_chunks[0].removeprefix("data: ").strip())["data"]["content"] == "Hel"
-    assert json.loads(token_chunks[1].removeprefix("data: ").strip())["data"]["content"] == "lo"
+    assert (
+        json.loads(token_chunks[0].removeprefix("data: ").strip())["data"]["content"]
+        == "Hel"
+    )
+    assert (
+        json.loads(token_chunks[1].removeprefix("data: ").strip())["data"]["content"]
+        == "lo"
+    )
     assert len(done_chunks) == 1
     done_data = json.loads(done_chunks[0].removeprefix("data: ").strip())
     assert done_data["data"]["message_id"] == "m-assistant"
@@ -147,7 +153,9 @@ async def test_chat_uses_unified_agent_when_context_exists() -> None:
         agent_type="unified",
     )
 
-    with patch("app.services.chat_service.UnifiedAgent", return_value=fake_unified_agent):
+    with patch(
+        "app.services.chat_service.UnifiedAgent", return_value=fake_unified_agent
+    ):
         service = ChatService(
             session_service=session_service,
             message_repo=message_repo,
@@ -191,7 +199,9 @@ async def test_chat_uses_unified_agent_when_mcp_server_ids_provided() -> None:
         agent_type="unified",
     )
 
-    with patch("app.services.chat_service.UnifiedAgent", return_value=fake_unified_agent):
+    with patch(
+        "app.services.chat_service.UnifiedAgent", return_value=fake_unified_agent
+    ):
         service = ChatService(
             session_service=session_service,
             message_repo=message_repo,
@@ -212,7 +222,9 @@ async def test_chat_uses_unified_agent_when_mcp_server_ids_provided() -> None:
 
 
 @pytest.mark.asyncio
-async def test_chat_falls_back_to_unified_when_tool_service_returns_no_tools_but_has_context() -> None:
+async def test_chat_falls_back_to_unified_when_tool_service_returns_no_tools_but_has_context() -> (
+    None
+):
     """If tool_service returns no tools but session has context → UnifiedAgent with retriever."""
     session_service = AsyncMock()
     message_repo = AsyncMock()
@@ -231,7 +243,9 @@ async def test_chat_falls_back_to_unified_when_tool_service_returns_no_tools_but
         agent_type="unified",
     )
 
-    with patch("app.services.chat_service.UnifiedAgent", return_value=fake_unified_agent):
+    with patch(
+        "app.services.chat_service.UnifiedAgent", return_value=fake_unified_agent
+    ):
         service = ChatService(
             session_service=session_service,
             message_repo=message_repo,
@@ -273,7 +287,9 @@ async def test_chat_uses_unified_agent_when_use_web_search_is_true() -> None:
         agent_type="unified",
     )
 
-    with patch("app.services.chat_service.UnifiedAgent", return_value=fake_unified_agent):
+    with patch(
+        "app.services.chat_service.UnifiedAgent", return_value=fake_unified_agent
+    ):
         service = ChatService(
             session_service=session_service,
             message_repo=message_repo,
@@ -344,7 +360,9 @@ async def test_chat_falls_back_to_rag_when_tool_service_returns_no_tools() -> No
 
     vector_service = AsyncMock(has_context=AsyncMock(return_value=True))
     tool_service = AsyncMock(spec=ToolService)
-    tool_service.assemble_tools = AsyncMock(return_value=[])  # empty → falls back to context check
+    tool_service.assemble_tools = AsyncMock(
+        return_value=[]
+    )  # empty → falls back to context check
 
     fake_unified_agent = AsyncMock()
     fake_unified_agent.agent_type = "unified"
@@ -354,7 +372,9 @@ async def test_chat_falls_back_to_rag_when_tool_service_returns_no_tools() -> No
         agent_type="unified",
     )
 
-    with patch("app.services.chat_service.UnifiedAgent", return_value=fake_unified_agent):
+    with patch(
+        "app.services.chat_service.UnifiedAgent", return_value=fake_unified_agent
+    ):
         service = ChatService(
             session_service=session_service,
             message_repo=message_repo,
@@ -414,9 +434,7 @@ async def test_chat_uses_tool_agent_when_use_web_search_is_true() -> None:
 
     assert response.content == "web reply"
     chatbot_agent.ainvoke.assert_not_called()
-    tool_service.assemble_tools.assert_awaited_once_with(
-        "user-1", [], True
-    )
+    tool_service.assemble_tools.assert_awaited_once_with("user-1", [], True)
 
 
 @pytest.mark.asyncio

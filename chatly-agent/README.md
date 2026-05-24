@@ -1,21 +1,25 @@
-# agent-server
+# Chatly Agent
 
-A production-ready FastAPI backend for multi-agent AI chat with RAG, tool-calling, image generation, file uploads, MCP server integration, and streaming — powered by Groq (LLaMA 3.3), LangGraph, MongoDB, Qdrant, and MinIO.
+FastAPI service for Chatly's AI workflows. It provides interactive chat, session-scoped RAG over uploaded files, MCP tool calling, image generation tools, group `@AI` assistance, social post/comment AI replies, daily briefings, and internal file indexing for group conversations.
+
+The service is internal to the Chatly platform. `chatly-backend` is the only public caller and forwards authenticated user context through headers.
 
 ---
 
 ## Features
 
-- **Internal API Key Authentication** — all endpoints protected by `X-API-Key` + `X-User-Id` headers forwarded by `chatly-backend`.
-- **Session Management** — multi-session chat with per-session history in MongoDB.
-- **Two Agent Modes** — automatic routing between `ChatbotAgent` (conversation) and `UnifiedAgent` (RAG + tool-calling + image generation).
-- **File Upload & RAG** — PDF, DOCX, TXT, MD, CSV, JSON → chunked → embedded → vector search via a `search_documents` retriever tool.
-- **Image Generation** — generate images from text (`FLUX.1-schnell`) and turn photos into stickers (`FLUX.2-Klein`) using HuggingFace APIs.
-- **MCP Server Integration** — connect any JSON-RPC 2.0 MCP server (SSE or HTTP), expose its tools to the agent.
-- **Web Search** — Tavily integration, opt-in per request.
-- **SSE Streaming** — real-time token streaming via Server-Sent Events.
-- **Rate Limiting** — per-endpoint limits via SlowAPI.
-- **Request Tracing** — `X-Request-ID` on every request/response.
+- **Internal authentication** with `X-API-Key` and `X-User-Id`.
+- **Session management** with MongoDB-backed sessions and message history.
+- **Agent routing** between `ChatbotAgent` for plain conversation and `UnifiedAgent` for tools, RAG, and image generation.
+- **Dedicated background agents** for group `@AI` mentions and social feed AI replies.
+- **Session and conversation RAG** using text extraction, chunking, HuggingFace embeddings, and Qdrant search.
+- **File storage** through MinIO-compatible local storage or AWS S3.
+- **MCP integration** for user-registered JSON-RPC MCP servers and a system `chatly-backend` MCP server.
+- **System MCP skill context** fetched from `chatly://skills/*` resources and cached in-process.
+- **Web search** through Tavily when requested.
+- **Image tools** for generated images and stickers when HuggingFace image dependencies are configured.
+- **SSE streaming** with token, tool, error, and done events.
+- **Request tracing** with `X-Request-ID`.
 
 ---
 
@@ -23,255 +27,275 @@ A production-ready FastAPI backend for multi-agent AI chat with RAG, tool-callin
 
 | Layer | Technology |
 |---|---|
-| API | FastAPI 0.111+, Uvicorn |
-| AI / Agents | LangGraph 0.2+, LangChain 0.2+, Groq (LLaMA 3.3 70B) |
-| Embeddings | HuggingFace Inference API (`BAAI/bge-base-en-v1.5`, 768-dim) |
-| Image Gen | HuggingFace (`FLUX.1-schnell`, `FLUX.2-Klein`), Pillow, Gradio Client |
+| API | FastAPI, Uvicorn |
+| Agents | LangGraph, LangChain, Groq `ChatGroq` |
+| Checkpointing | `langgraph-checkpoint-mongodb` with PyMongo |
+| Embeddings | HuggingFace Inference API, default `BAAI/bge-base-en-v1.5` |
 | Vector DB | Qdrant |
-| Document DB | MongoDB (Motor async driver) |
-| File Storage | MinIO (S3-compatible) or AWS S3 |
+| Document DB | MongoDB with Motor |
+| File Storage | MinIO-compatible client or AWS S3 |
+| MCP | `mcp` SDK for SSE transport, raw JSON-RPC 2.0 for HTTP transport |
 | Web Search | Tavily |
+| Image Generation | HuggingFace, Pillow, Gradio Client |
 | Package Manager | `uv` |
-| Testing | pytest, pytest-asyncio, mongomock-motor, respx |
-| Linting | ruff, mypy |
+| Testing | pytest, pytest-asyncio, pytest-cov, mongomock-motor, respx |
+| Quality | Ruff, mypy |
 
 ---
 
 ## Prerequisites
 
 - Python 3.12+
-- [`uv`](https://docs.astral.sh/uv/) — `pip install uv`
-- Docker + Docker Compose
+- `uv`
+- Docker and Docker Compose
+- Groq API key
+- MongoDB, Qdrant, and object storage access
 
 ---
 
-## Quick Start (Docker)
+## Quick Start
+
+From the monorepo root:
 
 ```bash
-# 1. Clone the repository
-git clone <repo-url>
-cd agent-server
-
-# 2. Create your environment file
+cd chatly-agent
 cp .env.example .env
-# Edit .env — set GROQ_API_KEY and INTERNAL_API_KEY at minimum
-
-# 3. Start all infrastructure services + app
-docker compose up -d --build
-
-# 4. Verify
-curl http://localhost:8000/health/
-# {"status": "ok"}
+uv sync --dev
+docker compose up -d mongodb qdrant
+make run
 ```
 
-The Docker Compose stack starts:
+The development server runs at `http://localhost:8000`.
 
-| Service | URL | Description |
+Before starting the app, configure object storage in `.env`. The startup hook checks storage in MinIO mode, so `MINIO_ENDPOINT` must point to a running MinIO instance or `STORAGE_PROVIDER=s3` must point to a valid S3 bucket.
+
+Verify liveness:
+
+```bash
+curl http://localhost:8000/health/
+```
+
+The current `docker-compose.yml` starts MongoDB, Qdrant, and the app. It does not start a local MinIO container.
+
+---
+
+## Docker Compose Services
+
+| Service | URL | Notes |
 |---|---|---|
 | `app` | `http://localhost:8000` | FastAPI application |
-| `mongodb` | `localhost:27017` | MongoDB 7 |
-| `qdrant` | `http://localhost:6333` | Qdrant vector DB |
-| `minio` | `http://localhost:9000` | MinIO object storage |
-| `minio-console` | `http://localhost:9001` | MinIO web console |
-
----
-
-## Local Development
-
-```bash
-# Install dependencies
-uv sync --dev
-
-# Copy and configure environment
-cp .env.example .env
-
-# Start infrastructure (MongoDB, Qdrant, MinIO)
-docker compose up -d mongodb qdrant minio minio-init
-
-# Run the development server
-make run
-# or: uv run uvicorn app.main:app --reload --port 8000
-```
+| `mongodb` | `localhost:27018` | Container port `27017`, mapped to host `27018` |
+| `qdrant` | `http://localhost:6333` | HTTP API, gRPC on `6334` |
 
 ---
 
 ## Environment Variables
 
-Copy `.env.example` to `.env` and configure:
+Copy `.env.example` to `.env` and configure the values needed for your workflow.
 
 ```bash
-# Groq (required)
 GROQ_API_KEY=gsk_...
 GROQ_MODEL=llama-3.3-70b-versatile
 
-# MongoDB (required)
-MONGODB_URI=mongodb://localhost:27017/
+MONGODB_URI=mongodb://localhost:27018
 MONGODB_DB_NAME=agent_server
 
-# Qdrant (required)
 QDRANT_URL=http://localhost:6333
-QDRANT_API_KEY=                         # leave empty for local
+QDRANT_API_KEY=
+QDRANT_COLLECTION_NAME=agent_server_chunks
+QDRANT_VECTOR_SIZE=768
 
-# HuggingFace Inference API (required for file upload / RAG / Image Gen)
 HUGGINGFACE_API_KEY=hf_...
 HF_EMBEDDING_MODEL=BAAI/bge-base-en-v1.5
 
-# Storage (required for file upload)
-STORAGE_PROVIDER=minio                  # "minio" or "s3"
+STORAGE_PROVIDER=minio
 MINIO_ENDPOINT=localhost:9000
 MINIO_ACCESS_KEY=minioadmin
 MINIO_SECRET_KEY=minioadmin
 MINIO_SECURE=false
 MINIO_BUCKET_NAME=uploads
 
-# Internal API key (required — shared secret with chatly-backend)
-INTERNAL_API_KEY=change-me-use-a-long-random-string
+# Used when STORAGE_PROVIDER=s3
+STORAGE_ACCESS_KEY=
+STORAGE_SECRET_KEY=
+STORAGE_BUCKET=uploads
+STORAGE_REGION=ap-southeast-1
 
-# Tavily web search (optional)
-TAVILY_API_KEY=tvly-...
+INTERNAL_API_KEY=change-me-use-a-long-random-string-min-32-chars
+TAVILY_API_KEY=tvly-dev-...
+CHATLY_BACKEND_MCP_URL=http://chatly-backend:8080/api/ai/mcp/sse
 
-# App
 APP_ENV=development
 LOG_LEVEL=INFO
-CORS_ORIGINS=["http://localhost:3000"]
 MAX_FILE_SIZE_MB=5
+CHUNK_SIZE=1000
+CHUNK_OVERLAP=200
 ```
+
+`CHATLY_BACKEND_MCP_URL` enables built-in backend tools. Leave it empty to run without system MCP tools.
+
+---
+
+## Authentication
+
+Protected public endpoints require:
+
+```http
+X-API-Key: <INTERNAL_API_KEY>
+X-User-Id: <user_id>
+```
+
+Internal trigger endpoints under `/internal/**` require `X-API-Key`. Their request body supplies the user or conversation identifiers needed for background work.
 
 ---
 
 ## API Reference
 
-Interactive docs available at `http://localhost:8000/docs` when the server is running.
-
-All protected endpoints require two headers forwarded by `chatly-backend`:
-
-```
-X-API-Key: <INTERNAL_API_KEY>
-X-User-Id: <user_id>
-```
+Interactive OpenAPI docs are available at `http://localhost:8000/docs`.
 
 ### Sessions
 
 | Method | Endpoint | Description |
 |---|---|---|
-| `POST` | `/sessions` | Create a new chat session |
-| `GET` | `/sessions` | List all sessions for current user |
-| `GET` | `/sessions/{id}` | Get session details |
-| `DELETE` | `/sessions/{id}` | Delete session and all its messages |
-| `PATCH` | `/sessions/{id}` | Rename session |
-| `GET` | `/sessions/{id}/messages` | Get full message history |
+| `POST` | `/sessions` | Create a session. Optional `context_conversation_id` links it to a Chatly conversation. |
+| `GET` | `/sessions` | List sessions for the current user. |
+| `GET` | `/sessions/{session_id}` | Get one session. |
+| `PATCH` | `/sessions/{session_id}` | Rename a session. |
+| `DELETE` | `/sessions/{session_id}` | Delete a session, its messages, files, chunks, and vectors. |
+| `GET` | `/sessions/{session_id}/messages` | Return message history. |
 
 ### Chat
 
 | Method | Endpoint | Description |
 |---|---|---|
-| `POST` | `/sessions/{id}/chat` | Send message, get response (blocking) |
-| `POST` | `/sessions/{id}/chat/stream` | Send message, stream response (SSE) |
+| `POST` | `/sessions/{session_id}/chat` | Send one message and receive the full response. |
+| `POST` | `/sessions/{session_id}/chat/stream` | Send one message and receive SSE events. |
 
-**Chat request body:**
+Request body:
 
 ```json
 {
-  "message": "Explain LangGraph in simple terms",
+  "message": "Summarize this file",
   "use_web_search": false,
   "mcp_server_ids": [],
   "file_ids": []
 }
 ```
 
-Agent selection is **automatic**:
-- MCP server IDs provided **or** `use_web_search=true` → `UnifiedAgent` with tool set.
-- Session has uploaded files → `UnifiedAgent` with `search_documents` retriever tool.
-- Image generation tools are automatically enabled if `HUGGINGFACE_API_KEY` is set.
-- No files and no tools → `ChatbotAgent`.
-
-**Blocking response:**
+Blocking response:
 
 ```json
 {
-  "content": "LangGraph is ...",
+  "content": "Here is the summary...",
   "session_id": "...",
   "message_id": "...",
-  "agent_type": "chatbot"
+  "agent_type": "unified"
 }
 ```
 
-**SSE stream format:**
+SSE frames use this shape:
 
-```
-data: {"token": "Lang"}\n\n
-data: {"token": "Graph"}\n\n
-data: {"done": true, "agent_type": "unified"}
+```text
+data: {"type":"token","data":{"content":"Hello"}}
+
+data: {"type":"tool_start","data":{"tool":"search_documents","input":{"query":"..."}}}
+
+data: {"type":"tool_end","data":{"tool":"search_documents","output":"..."}}
+
+data: {"type":"error","data":{"message":"Model request timed out.","code":"MODEL_TIMEOUT","category":"timeout","retryable":true}}
+
+data: {"type":"done","data":{"agent_type":"unified","message_id":"...","attachments":[...]}}
 ```
 
 ### Files
 
 | Method | Endpoint | Description |
 |---|---|---|
-| `POST` | `/sessions/{id}/files` | Upload file (PDF, DOCX, TXT, MD, CSV, JSON, PNG, JPEG, WEBP — max 5 MB) |
-| `GET` | `/sessions/{id}/files` | List files in session |
-| `DELETE` | `/sessions/{id}/files/{file_id}` | Delete file + vectors |
-| `GET` | `/sessions/{id}/files/{file_id}/content` | Download/Stream raw file content |
+| `POST` | `/sessions/{session_id}/files` | Upload one file. Supported extensions: `txt`, `md`, `pdf`, `docx`, `csv`, `json`, `jpeg`, `jpg`, `png`, `webp`. |
+| `GET` | `/sessions/{session_id}/files` | List files in a session. |
+| `GET` | `/sessions/{session_id}/files/{file_id}/content` | Stream stored file bytes. |
+| `DELETE` | `/sessions/{session_id}/files/{file_id}` | Delete file metadata, chunks, object storage data, and vectors. |
 
-### MCP Servers
+Text files are indexed for RAG. Images are stored and exposed to the agent as file metadata but are not embedded as text chunks.
+
+### MCP
 
 | Method | Endpoint | Description |
 |---|---|---|
-| `POST` | `/mcp/servers` | Register an MCP server (SSE or HTTP) |
-| `GET` | `/mcp/servers` | List user-registered MCP servers |
-| `GET` | `/mcp/servers/{id}` | Get MCP server details |
-| `DELETE` | `/mcp/servers/{id}` | Delete MCP server |
-| `PATCH` | `/mcp/servers/{id}/toggle` | Enable/disable MCP server |
-| `GET` | `/mcp/servers/{id}/tools` | List tools from MCP server (live) |
-| `GET` | `/mcp/defaults` | List built-in system MCP servers |
+| `POST` | `/mcp/servers` | Register a user-owned MCP server after live connectivity verification. |
+| `GET` | `/mcp/servers` | List user-owned MCP servers. System defaults are excluded. |
+| `GET` | `/mcp/servers/{server_id}` | Get one user-owned MCP server. |
+| `PATCH` | `/mcp/servers/{server_id}/toggle` | Enable or disable a server. |
+| `DELETE` | `/mcp/servers/{server_id}` | Delete a server. |
+| `GET` | `/mcp/servers/{server_id}/tools` | Live-fetch a registered server's tools. |
+| `GET` | `/mcp/defaults` | List configured system MCP servers such as `chatly-backend`. |
+
+Custom MCP servers use HTTP JSON-RPC by default. The system backend MCP uses SSE transport with `X-Internal-API-Key` and `X-User-Id`.
+
+### Internal Triggers
+
+These routes are called by `chatly-backend` only and return `202 Accepted` quickly while background work continues.
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `POST` | `/internal/assist` | Trigger group `@AI` assistance and publish with `sendAiMessage`. |
+| `POST` | `/internal/social/mention-comment` | Trigger an AI reply to a social comment mention. |
+| `POST` | `/internal/social/post-command` | Trigger an AI reply for a social post command. |
+| `POST` | `/internal/briefing` | Trigger a user's daily briefing flow. |
+| `POST` | `/internal/index-file` | Index a backend-hosted group conversation file into conversation-scoped RAG. |
 
 ### Health
 
 | Method | Endpoint | Description |
 |---|---|---|
-| `GET` | `/health/` | Liveness check |
-| `GET` | `/health/ready` | Readiness check (pings MongoDB) |
+| `GET` | `/health/` | Liveness check. |
+| `GET` | `/health/ready` | MongoDB readiness check. |
+
+---
+
+## Agent Behavior
+
+`ChatService` chooses the agent per request:
+
+- `UnifiedAgent` is used when there are MCP tools, web search, uploaded/session context, conversation context files, or image generation tools.
+- `ChatbotAgent` is used for plain conversation without tools or indexed context.
+- `MentionAgent` handles group `@AI` triggers and programmatically calls `sendAiMessage`.
+- `SocialAgent` handles social post/comment flows and programmatically calls `createAiPostComment`.
+
+System MCP tools are assembled automatically when `CHATLY_BACKEND_MCP_URL` is configured. User MCP tools are added only when requested by `mcp_server_ids`. Tavily web search is added only when `use_web_search=true` and `TAVILY_API_KEY` is configured.
 
 ---
 
 ## Project Structure
 
-```
-agent-server/
+```text
+chatly-agent/
 ├── app/
-│   ├── main.py              # FastAPI entry point, lifespan, middleware
-│   ├── config.py            # pydantic-settings (all env vars)
-│   ├── dependencies.py      # FastAPI Depends() factories
-│   ├── exceptions.py        # Custom exception hierarchy
-│   ├── agents/
-│   │   ├── chatbot_agent.py # Conversational agent (LangGraph chatbot graph)
-│   │   └── unified_agent.py # ReAct agent for tools + RAG (create_react_agent)
-│   ├── graphs/
-│   │   ├── chatbot_graph.py # START → llm_node → END
-│   │   └── nodes/
-│   │       └── llm_node.py
-│   ├── tools/
-│   │   ├── retriever_tool.py # search_documents — session-scoped Qdrant retrieval
-│   │   ├── mcp_tool.py       # Dynamic wrapper for MCP tools
-│   │   ├── web_search_tool.py # Tavily search tool
-│   │   └── image_gen_tool.py # generate_image and generate_sticker tools
-│   ├── routers/             # HTTP handlers (thin layer only)
-│   ├── services/            # Business logic (Chat, File, MCP, Session, etc.)
-│   ├── repositories/        # MongoDB + Qdrant data access
-│   ├── models/              # Pydantic request/response schemas
-│   ├── middleware/          # RequestID tracking
-│   ├── db/                  # Motor + Qdrant client singletons
-│   ├── storage/             # MinIO / S3 client singleton
-│   ├── prompts/             # LangChain prompt templates
-│   └── utils/               # LLM factory, embeddings, security
+│   ├── main.py                 # FastAPI entry point, lifespan, middleware, exception handlers
+│   ├── config.py               # pydantic-settings configuration
+│   ├── dependencies.py         # FastAPI dependency factories
+│   ├── exceptions.py           # Domain exception types
+│   ├── agents/                 # ChatbotAgent, UnifiedAgent, MentionAgent, SocialAgent
+│   ├── db/                     # MongoDB, Qdrant, and LangGraph checkpointer singletons
+│   ├── graphs/                 # Chatbot LangGraph graph
+│   ├── middleware/             # Request ID middleware
+│   ├── models/                 # Pydantic API and internal schemas
+│   ├── prompts/                # System prompts
+│   ├── repositories/           # MongoDB and Qdrant data access
+│   ├── routers/                # HTTP route handlers
+│   ├── services/               # Business logic and orchestration
+│   ├── storage/                # MinIO/S3-compatible storage client
+│   ├── tools/                  # Retriever, MCP, web search, and image tools
+│   └── utils/                  # LLM, embeddings, and security helpers
 ├── tests/
-│   ├── unit/                # Isolated unit tests
-│   └── integration/         # End-to-end API tests
-├── mcp-servers/             # Sample MCP server implementations (Math, Text)
+│   ├── fixtures/
+│   ├── integration/
+│   └── unit/
 ├── Dockerfile
-├── pyproject.toml
+├── docker-compose.yml
 ├── Makefile
-└── AGENTS.md                # Coding conventions & TDD workflow
+├── pyproject.toml
+└── AGENTS.md
 ```
 
 ---
@@ -280,14 +304,14 @@ agent-server/
 
 ```bash
 make run          # Start dev server with hot reload
-make test         # Run unit tests
-make test-cov     # Run tests with coverage report
-make lint         # ruff check + mypy
-make format       # Auto-fix ruff formatting issues
+make test         # Run tests
+make test-cov     # Run tests with coverage
+make lint         # ruff check, ruff format check, mypy
+make format       # ruff format and auto-fix
 ```
 
 ---
 
 ## Architecture
 
-See [ARCHITECTURE.md](ARCHITECTURE.md) for a detailed breakdown of system design, component diagrams, data flow, and database schema.
+See [ARCHITECTURE.md](ARCHITECTURE.md) for request lifecycles, agent routing, RAG, MCP, storage, and database details.

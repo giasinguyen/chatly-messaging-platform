@@ -39,6 +39,10 @@ public class CallSession {
     @Builder.Default
     private CallStatus status = CallStatus.RINGING;
 
+    /** True for group calls (3+ participants); false for 1:1 calls. */
+    @Builder.Default
+    private boolean isGroup = false;
+
     private LocalDateTime startedAt;
 
     private LocalDateTime endedAt;

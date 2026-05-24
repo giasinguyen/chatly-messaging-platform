@@ -24,7 +24,9 @@ class ChunkRepository(BaseRepository[dict[str, Any]]):
 
     async def count_by_conversation(self, conversation_id: str) -> int:
         """Count chunks indexed under a conversation scope."""
-        return int(await self._col.count_documents({"conversation_id": conversation_id}))
+        return int(
+            await self._col.count_documents({"conversation_id": conversation_id})
+        )
 
     async def delete_by_file(self, file_id: str) -> int:
         """Delete all chunks for a file id and return deleted count."""

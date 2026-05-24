@@ -1,4 +1,5 @@
 """Daily briefing generation for the proactive push trigger (Phase 5)."""
+
 import logging
 from typing import Any
 
@@ -58,4 +59,6 @@ class BriefingService:
             ):
                 pass
         except Exception:
-            logger.exception("Briefing failed user_id=%s session_id=%s", user_id, session_id)
+            logger.exception(
+                "Briefing failed user_id=%s session_id=%s", user_id, session_id
+            )

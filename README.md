@@ -411,6 +411,7 @@ Base URL: `http://localhost:8080`
 | **Music**         | `GET /api/music/search`                                                                                                                                                                                                                        |
 | **AI Agent**      | `POST /api/ai/sessions` · `POST /api/ai/sessions/{id}/chat` · `POST /api/ai/sessions/{id}/chat/stream` (SSE)                                                                                                                                   |
 | **Calls**         | `GET /api/calls/history` · `GET /api/calls/{callId}`                                                                                                                                                                                           |
+| **Call RTC**      | `POST /api/calls/agora-token`                                                                                                                                                                                                                  |
 | **Health**        | `GET /api/health`                                                                                                                                                                                                                              |
 
 > Full request/response examples: `chatly-backend/docs/Chatly API.postman_collection.json`
@@ -447,6 +448,9 @@ Base URL: `http://localhost:8080`
 | `app.cors.allowed-origins`    | `http://localhost:3000`                   | Allowed CORS origins             |
 | `app.music.jamendo.client-id` | —                                         | Jamendo API client ID (optional) |
 | `app.reels.max-video-size-mb` | `20`                                      | Maximum Reel upload size in MB   |
+| `app.agora.app-id`            | —                                         | Agora RTC App ID                 |
+| `app.agora.app-certificate`   | —                                         | Agora RTC App Certificate        |
+| `app.agora.token-ttl-seconds` | `3600`                                    | Agora RTC token TTL              |
 
 ### AI Agent (`.env`)
 

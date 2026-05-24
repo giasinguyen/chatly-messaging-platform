@@ -436,6 +436,7 @@ The agent is an internal service. Authentication is via `X-Internal-API-Key` hea
 | `/api/conversations/**` | backend | Conversation management |
 | `/api/messages/**` | backend | Message CRUD |
 | `/api/groups/**` | backend | Group management |
+| `/api/calls/**` | backend | Call history and RTC token issuance |
 | `/api/health` | backend | Health check |
 | `/api/posts/saved` | backend | List posts saved by the authenticated user |
 | `/api/posts/{postId}/share` | backend | Increment post share count after sharing into chat |

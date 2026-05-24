@@ -3,13 +3,19 @@
 All routes here are protected by the X-API-Key header (same key used for
 MCP SSE endpoints).  They are never exposed to end-users directly.
 """
+
 import asyncio
 import logging
 
 from fastapi import APIRouter, BackgroundTasks, Depends, status
 from pydantic import BaseModel, Field
 
-from app.dependencies import get_briefing_service, get_chat_service, get_file_service, get_session_service
+from app.dependencies import (
+    get_briefing_service,
+    get_chat_service,
+    get_file_service,
+    get_session_service,
+)
 from app.services.briefing_service import BriefingService
 from app.services.chat_service import ChatService
 from app.services.file_service import FileService
@@ -34,7 +40,12 @@ class AssistRequest(BaseModel):
 
     user_id: str = Field(..., description="ID of the user who mentioned @AI")
     conversation_id: str = Field(..., description="Group conversation ID")
-    content: str = Field(..., min_length=1, max_length=8192, description="Message that triggered the mention")
+    content: str = Field(
+        ...,
+        min_length=1,
+        max_length=8192,
+        description="Message that triggered the mention",
+    )
 
 
 class AssistResponse(BaseModel):
@@ -50,10 +61,18 @@ class SocialMentionRequest(BaseModel):
     user_id: str = Field(..., description="User who mentioned AI in comment")
     post_id: str = Field(..., description="Target post ID")
     comment_id: str = Field(..., description="Comment ID containing AI mention")
-    content: str = Field(..., min_length=1, max_length=8192, description="Trigger comment content")
-    mention_command: str = Field(default="@ai", description="Mention keyword used by user")
-    post_context: str = Field(default="", description="Optional post context prepared by backend")
-    thread_context: str = Field(default="", description="Optional comment thread context prepared by backend")
+    content: str = Field(
+        ..., min_length=1, max_length=8192, description="Trigger comment content"
+    )
+    mention_command: str = Field(
+        default="@ai", description="Mention keyword used by user"
+    )
+    post_context: str = Field(
+        default="", description="Optional post context prepared by backend"
+    )
+    thread_context: str = Field(
+        default="", description="Optional comment thread context prepared by backend"
+    )
 
 
 class SocialPostCommandRequest(BaseModel):
@@ -61,9 +80,15 @@ class SocialPostCommandRequest(BaseModel):
 
     user_id: str = Field(..., description="User who posted AI command")
     post_id: str = Field(..., description="Target post ID")
-    command_content: str = Field(..., min_length=1, max_length=8192, description="Post command content")
-    post_context: str = Field(default="", description="Optional post context prepared by backend")
-    thread_context: str = Field(default="", description="Optional extra context prepared by backend")
+    command_content: str = Field(
+        ..., min_length=1, max_length=8192, description="Post command content"
+    )
+    post_context: str = Field(
+        default="", description="Optional post context prepared by backend"
+    )
+    thread_context: str = Field(
+        default="", description="Optional extra context prepared by backend"
+    )
 
 
 async def _run_assist(
@@ -302,9 +327,15 @@ async def trigger_briefing(
 class IndexFileRequest(BaseModel):
     """Payload sent by the backend FileUploadService when an indexable file is uploaded."""
 
-    conversation_id: str = Field(..., description="Group conversation that owns the file")
-    file_id: str = Field(..., description="Backend-generated file ID (for deduplication)")
-    file_url: str = Field(..., description="Accessible download URL of the uploaded file")
+    conversation_id: str = Field(
+        ..., description="Group conversation that owns the file"
+    )
+    file_id: str = Field(
+        ..., description="Backend-generated file ID (for deduplication)"
+    )
+    file_url: str = Field(
+        ..., description="Accessible download URL of the uploaded file"
+    )
     filename: str = Field(..., description="Original filename including extension")
     mime_type: str = Field(..., description="MIME type of the file")
     uploaded_by: str = Field(..., description="User ID who uploaded the file")
@@ -336,4 +367,3 @@ async def index_file(
         backend_file_id=payload.file_id,
     )
     return {"accepted": True}
-

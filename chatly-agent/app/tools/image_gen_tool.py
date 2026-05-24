@@ -1,4 +1,5 @@
 """Image generation tools using HuggingFace APIs (text-to-image and sticker)."""
+
 import asyncio
 import io
 import json
@@ -8,6 +9,7 @@ import tempfile
 import uuid
 from contextlib import suppress
 from datetime import UTC, datetime
+from datetime import timedelta
 from typing import Any
 
 import PIL.Image
@@ -27,6 +29,7 @@ _RATE_LIMIT_MSG = (
     "HuggingFace rate limit reached — the free-tier quota has been exceeded. "
     "Please wait a few minutes and try again."
 )
+_DEFAULT_IMAGE_URL_EXPIRY = timedelta(days=7)
 
 
 def image_gen_available() -> bool:
@@ -91,11 +94,17 @@ def create_image_gen_tools(
                 "created_at": datetime.now(UTC),
             }
         )
+        public_url: str = minio_client.presigned_get_object(
+            bucket_name,
+            object_key,
+            expires=_DEFAULT_IMAGE_URL_EXPIRY,
+        )
         attachment: dict[str, Any] = {
             "file_id": str(metadata["id"]),
             "filename": filename,
             "content_type": content_type,
             "size": len(image_bytes),
+            "url": public_url,
         }
         generated_attachments.append(attachment)
         return attachment

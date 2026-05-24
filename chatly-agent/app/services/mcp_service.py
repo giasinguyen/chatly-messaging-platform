@@ -1,4 +1,5 @@
 """MCP client (SSE transport) and MCP server management service."""
+
 import asyncio
 import logging
 from datetime import UTC, datetime
@@ -270,9 +271,7 @@ class MCPClient:
                     await session.initialize()
                     result = await session.read_resource(AnyUrl(uri))
                     return "\n".join(
-                        c.text
-                        for c in result.contents
-                        if hasattr(c, "text") and c.text
+                        c.text for c in result.contents if hasattr(c, "text") and c.text
                     )
         except MCPConnectionError:
             raise
@@ -371,13 +370,15 @@ class MCPService:
             try:
                 tools = await client.list_tools()
                 for tool in tools:
-                    all_tools.append({
-                        **tool,
-                        "server_id": record["id"],
-                        "server_url": record["url"],
-                        "server_headers": record.get("headers", {}),
-                        "server_transport": record.get("transport", "http"),
-                    })
+                    all_tools.append(
+                        {
+                            **tool,
+                            "server_id": record["id"],
+                            "server_url": record["url"],
+                            "server_headers": record.get("headers", {}),
+                            "server_transport": record.get("transport", "http"),
+                        }
+                    )
             except MCPConnectionError:
                 logger.warning(
                     "Skipping unreachable MCP server %s (%s)",

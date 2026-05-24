@@ -108,7 +108,9 @@ public enum ErrorCode {
     NOT_FOLLOWING(2203, "You are not following this user", HttpStatus.NOT_FOUND),
     CANNOT_FOLLOW_SELF(2207, "You cannot follow yourself", HttpStatus.BAD_REQUEST),
     FOLLOW_ACTION_BLOCKED(2208, "Follow action is blocked due to privacy restrictions", HttpStatus.FORBIDDEN),
-    FRIEND_LIST_HIDDEN(2209, "This user has hidden their friend list", HttpStatus.FORBIDDEN);
+    FRIEND_LIST_HIDDEN(2209, "This user has hidden their friend list", HttpStatus.FORBIDDEN),
+
+    AGORA_NOT_CONFIGURED(2300, "Agora is not configured", HttpStatus.SERVICE_UNAVAILABLE);
 
     private final int code;
     private final String message;

@@ -1,1239 +1,626 @@
-# agents.md — agent-server
+# AGENTS.md — Chatly Agent
 
-> **Mục đích chính:** Quy tắc coding convention & TDD workflow cho dự án `agent-server`.
-> Đây là nguồn sự thật duy nhất (single source of truth) cho cách viết code trong dự án.
+> Module-specific coding guide for `chatly-agent`.
+> Read the root `AGENTS.md` first. This file adds rules for the Python/FastAPI/LangGraph agent service.
 
 ---
 
 ## Table of Contents
 
-1. [Tech Stack & Versions](#1-tech-stack--versions)
-2. [Cấu trúc thư mục](#2-cấu-trúc-thư-mục)
-3. [Coding Conventions](#3-coding-conventions)
-4. [TDD Workflow](#4-tdd-workflow)
-5. [DRY Principles](#5-dry-principles)
+1. [Scope](#1-scope)
+2. [Tech Stack](#2-tech-stack)
+3. [Project Layout](#3-project-layout)
+4. [Architecture Rules](#4-architecture-rules)
+5. [Coding Conventions](#5-coding-conventions)
 6. [Agent Patterns](#6-agent-patterns)
-7. [LangGraph Node Conventions](#7-langgraph-node-conventions)
-8. [MongoDB Conventions](#8-mongodb-conventions)
-9. [FastAPI Conventions](#9-fastapi-conventions)
-10. [Error Handling](#10-error-handling)
-11. [Linting & Formatting](#11-linting--formatting)
-12. [Checklist trước khi commit](#12-checklist-trước-khi-commit)
+7. [LangGraph Patterns](#7-langgraph-patterns)
+8. [FastAPI Patterns](#8-fastapi-patterns)
+9. [Persistence and Storage](#9-persistence-and-storage)
+10. [MCP and Tools](#10-mcp-and-tools)
+11. [Error Handling](#11-error-handling)
+12. [Testing](#12-testing)
+13. [Linting and Commands](#13-linting-and-commands)
+14. [Pre-Commit Checklist](#14-pre-commit-checklist)
 
 ---
 
-## 1. Tech Stack & Versions
+## 1. Scope
 
-| Thư viện | Version tối thiểu | Ghi chú |
-|---|---|---|
-| Python | 3.12+ | Required |
-| `uv` | latest | Package manager duy nhất — không dùng pip trực tiếp |
-| `fastapi` | 0.111+ | Web framework |
-| `langgraph` | 0.2+ | Agent state machine |
-| `langchain` | 0.2+ | Chains, prompts, tools |
-| `langserve` | 0.2+ | Expose runnable qua HTTP |
-| `langchain-groq` | latest | Groq LLM integration |
-| `langchain-huggingface` | latest | Hugging Face Inference API embeddings |
-| `huggingface-hub` | latest | Hugging Face API auth + transport |
-| `motor` | 3.x | MongoDB async driver |
-| `pymongo` | 4.x | MongoDB sync utils, ObjectId |
-| `minio` | latest | S3-compatible object storage client (file binary) |
-| `pydantic` | v2 | Validation — KHÔNG dùng v1 |
-| `pytest` | 8.x | Testing |
-| `pytest-asyncio` | 0.23+ | Async test support |
-| `mongomock-motor` | latest | In-memory MongoDB cho unit tests |
-| `ruff` | latest | Linting + formatting |
-| `mypy` | 1.x | Static type check |
+`chatly-agent` owns AI workflows for the Chatly platform:
 
-> **Tại sao Motor?** Motor là async wrapper chính thức của PyMongo, tương thích hoàn toàn với `asyncio` và FastAPI. Không dùng `beanie` hay `odmantic` để giữ dependency tối giản.
+- Interactive chat with plain conversation, RAG, tools, image generation, and SSE streaming.
+- Session and message persistence for AI conversations.
+- File ingestion, text extraction, chunking, embeddings, and Qdrant indexing.
+- User-owned MCP server registration and tool wrapping.
+- System MCP integration with `chatly-backend`.
+- Group `@AI` mention handling, social AI replies, daily briefings, and internal conversation file indexing.
+
+`chatly-agent` does not own user authentication, main chat storage, WebSocket delivery, or public client APIs. Those belong to `chatly-backend`.
 
 ---
 
-## 2. Cấu trúc thư mục
+## 2. Tech Stack
 
-```
-agent-server/
-├── pyproject.toml
-├── uv.lock
-├── .env.example
-├── Makefile
-├── AGENTS.md                   # file này
-│
+| Area | Technology |
+|---|---|
+| Runtime | Python 3.12+ |
+| Package manager | `uv` |
+| API | FastAPI, Uvicorn |
+| Settings | `pydantic-settings` |
+| Agents | LangGraph, LangChain, Groq `ChatGroq` |
+| Checkpointing | `langgraph-checkpoint-mongodb` |
+| Database | MongoDB with Motor async driver |
+| Vector store | Qdrant |
+| Object storage | MinIO-compatible client or AWS S3 |
+| Embeddings | HuggingFace Inference API |
+| Web search | Tavily |
+| Image tools | HuggingFace, Pillow, Gradio Client |
+| MCP | `mcp` SDK for SSE, raw JSON-RPC 2.0 over HTTP |
+| Tests | pytest, pytest-asyncio, pytest-cov, mongomock-motor, respx |
+| Quality | Ruff, mypy |
+
+Use `uv` for dependency management. Do not install or run project dependencies with raw `pip` commands unless explicitly debugging an environment issue.
+
+---
+
+## 3. Project Layout
+
+```text
+chatly-agent/
 ├── app/
-│   ├── main.py                 # FastAPI entry point
-│   ├── config.py               # pydantic BaseSettings
-│   ├── dependencies.py         # FastAPI DI — tất cả Depends() ở đây
-│   ├── exceptions.py           # Custom exception classes
-│   │
-│   ├── agents/
-│   │   ├── base.py             # AbstractBaseAgent
-│   │   ├── chatbot_agent.py    # Conversational Chatbot
-│   │   └── unified_agent.py    # ReAct agent (tools + RAG via create_react_agent)
-│   │
-│   ├── graphs/
-│   │   ├── chatbot_graph.py
-│   │   └── nodes/              # Mỗi node là một module riêng
-│   │       └── llm_node.py
-│   │
-│   ├── tools/
-│   │   ├── retriever_tool.py   # search_documents — session-scoped Qdrant retrieval
-│   │   ├── web_search_tool.py
-│   │   └── mcp_tool.py
-│   │
-│   ├── routers/
-│   │   ├── chat.py
-│   │   ├── files.py
-│   │   ├── mcp.py
-│   │   ├── sessions.py
-│   │   └── health.py
-│   │
-│   ├── services/
-│   │   ├── chat_service.py
-│   │   ├── file_service.py
-│   │   ├── mcp_service.py
-│   │   ├── session_service.py
-│   │   ├── tool_service.py
-│   │   └── vector_service.py
-│   │
-├── repositories/
-│   ├── base.py             # Generic BaseRepository[T]
-│   ├── session_repo.py
-│   ├── message_repo.py
-│   ├── file_repo.py
-│   ├── chunk_repo.py
-│   └── mcp_repo.py
-│   │
-│   ├── db/
-│   │   ├── __init__.py
-│   │   ├── mongo.py            # Motor client singleton + collection getters
-│   │
-│   ├── storage/
-│   │   ├── __init__.py
-│   │   └── minio.py            # MinIO client singleton + object helpers
-│   │
-│   ├── models/                 # Pydantic schemas (request/response)
-│   │   ├── chat.py
-│   │   ├── context.py
-│   │   ├── document.py
-│   │   ├── mcp.py
-│   │   └── session.py
-│   │
-│   ├── prompts/                # LangChain prompt templates
-│   │   └── chatbot.py
-│   │
-│   └── utils/
-│       ├── llm.py              # LLM factory
-│       ├── embeddings.py       # Embedding helpers
-│       └── security.py         # API key verification
-│
-└── tests/
-    ├── conftest.py             # Shared fixtures
-    ├── unit/
-    │   ├── agents/
-    │   │   ├── test_chatbot_agent.py
-    │   │   └── test_unified_agent.py
-    │   ├── graphs/
-    │   │   └── test_chatbot_graph.py
-    │   ├── services/
-    │   └── repositories/
-    └── integration/
-        ├── test_chat_api.py
-        ├── test_files_api.py
-        └── test_sessions_api.py
+│   ├── main.py                 # FastAPI app, lifespan, middleware, exception handlers
+│   ├── config.py               # Settings loaded from environment variables
+│   ├── dependencies.py         # FastAPI dependency factories
+│   ├── exceptions.py           # Domain exceptions
+│   ├── logging_config.py       # Logging setup
+│   ├── agents/                 # ChatbotAgent, UnifiedAgent, MentionAgent, SocialAgent
+│   ├── db/                     # MongoDB, Qdrant, and LangGraph checkpointer clients
+│   ├── graphs/                 # Custom LangGraph graph builders
+│   ├── middleware/             # Request ID middleware
+│   ├── models/                 # Pydantic request/response/internal schemas
+│   ├── prompts/                # System prompts
+│   ├── repositories/           # MongoDB and Qdrant data access
+│   ├── routers/                # HTTP route handlers
+│   ├── services/               # Business workflows and orchestration
+│   ├── storage/                # MinIO/S3-compatible storage client
+│   ├── tools/                  # LangChain tool factories
+│   └── utils/                  # LLM, embeddings, security helpers
+├── tests/
+│   ├── fixtures/
+│   ├── integration/
+│   └── unit/
+├── ARCHITECTURE.md
+├── README.md
+├── Makefile
+├── pyproject.toml
+└── uv.lock
 ```
 
-**Quy tắc cấu trúc:**
-- Mỗi `app/x/y.py` phải có file test tương ứng `tests/unit/x/test_y.py`
-- Không để business logic trong `routers/` — chỉ có HTTP handling
-- Không để DB query trong `services/` — chỉ có business logic
-- `repositories/` là layer duy nhất được phép gọi Motor client trực tiếp
-- `db/mongo.py` là nơi duy nhất khởi tạo `AsyncIOMotorClient`
+Placement rules:
+
+- Put HTTP request/response code in `app/routers/`.
+- Put business orchestration in `app/services/`.
+- Put MongoDB and Qdrant I/O in `app/repositories/`.
+- Put LangGraph and LLM invocation in `app/agents/` and `app/graphs/`.
+- Put reusable LangChain tool factories in `app/tools/`.
+- Put Pydantic schemas in `app/models/`.
+- Put shared client factories in `app/db/`, `app/storage/`, and `app/utils/`.
 
 ---
 
-## 3. Coding Conventions
+## 4. Architecture Rules
 
-### 3.1 Python Style
+### 4.1 Layer Boundaries
 
-```python
-# ✅ ĐÚNG — type hints đầy đủ, return type rõ ràng
-async def get_session(session_id: str) -> Session | None:
-    """Lấy session theo ID. Trả None nếu không tồn tại."""
-    return await self._repo.find_by_id(session_id)
-
-
-# ❌ SAI — thiếu type hints, không có docstring
-async def get_session(session_id):
-    return await self._repo.find_by_id(session_id)
-```
-
-**Bắt buộc:**
-- Type hints cho **mọi** function signature (param + return)
-- Docstring ngắn cho mọi public function/class/method
-- `async/await` cho mọi I/O (DB, HTTP, LLM calls)
-- Không dùng `print()` — dùng `logging.getLogger(__name__)`
-
-### 3.2 Naming
-
-```python
-# Classes → PascalCase
-class RagAgent(BaseAgent): ...
-class MessageRepository(BaseRepository[dict]): ...
-
-# Functions / methods → snake_case
-async def retrieve_documents(query: str) -> list[Document]: ...
-async def build_rag_graph() -> CompiledGraph: ...
-
-# Constants → UPPER_SNAKE_CASE (đặt ở đầu module)
-MAX_TOKENS: int = 4096
-DEFAULT_MODEL: str = "llama-3.3-70b-versatile"
-TOP_K_DOCUMENTS: int = 5
-
-# Private helpers → _single_underscore
-def _format_context(docs: list[Document]) -> str: ...
-def _build_system_prompt(persona: str) -> str: ...
-
-# Type aliases → PascalCase, đặt sau imports
-SessionId = str
-EmbeddingVector = list[float]
-DocumentList = list[dict]
-MongoId = str   # string representation của ObjectId
-```
-
-### 3.3 MongoDB ObjectId Convention
-
-MongoDB dùng `ObjectId` thay vì UUID. Cần serialize/deserialize nhất quán:
-
-```python
-# app/db/mongo.py
-from bson import ObjectId
-
-
-def to_str_id(doc: dict) -> dict:
-    """Chuyển _id ObjectId → string 'id' cho response."""
-    if doc and "_id" in doc:
-        doc["id"] = str(doc.pop("_id"))
-    return doc
-
-
-def to_object_id(id_str: str) -> ObjectId:
-    """Parse string sang ObjectId. Raise ValueError nếu invalid."""
-    try:
-        return ObjectId(id_str)
-    except Exception as e:
-        raise ValueError(f"Invalid id: {id_str}") from e
-```
-
-**Quy tắc:**
-- Lưu vào MongoDB: dùng `ObjectId` (native)
-- Trả ra API: dùng `str` (serialized)
-- Nhận từ API: dùng `str`, convert bằng `to_object_id()` trong repository
-- Không bao giờ expose `_id` raw ra ngoài repository layer
-
-### 3.4 Function Size & Responsibility
-
-```python
-# ✅ ĐÚNG — mỗi function 1 việc, ≤ 20 dòng
-async def embed_query(query: str) -> EmbeddingVector:
-    """Embed câu hỏi thành vector."""
-    return await self._embedder.aembed_query(query)
-
-async def search_similar_docs(
-    embedding: EmbeddingVector,
-    session_id: str,
-    top_k: int = TOP_K_DOCUMENTS,
-) -> DocumentList:
-    """Tìm documents tương đồng trong MongoDB vector index."""
-    return await self._vector_service.similarity_search(embedding, session_id, top_k)
-
-
-# ❌ SAI — quá nhiều responsibility trong 1 function
-async def process_query(query, session_id, history=None, stream=False, top_k=5):
-    embedding = ...
-    docs = ...
-    prompt = ...
-    response = ...
-    await save_to_db(...)
-    return response
-```
-
-### 3.5 Imports
-
-```python
-# Thứ tự: stdlib → third-party → internal
-# Dùng absolute imports trong app/
-
-# stdlib
-import logging
-from typing import AsyncIterator
-from abc import ABC, abstractmethod
-
-# third-party
-from bson import ObjectId
-from fastapi import Depends, HTTPException
-from langchain_groq import ChatGroq
-from langgraph.graph import StateGraph, END
-from motor.motor_asyncio import AsyncIOMotorDatabase
-
-# internal
-from app.config import settings
-from app.models.chat import ChatInput, ChatOutput
-from app.repositories.base import BaseRepository
-```
-
-### 3.6 Pydantic Models
-
-```python
-# app/models/chat.py
-from pydantic import BaseModel, Field
-import uuid
-
-
-class ChatInput(BaseModel):
-    message: str = Field(..., min_length=1, max_length=8192)
-    session_id: str
-    use_web_search: bool = False
-    mcp_server_ids: list[str] = []
-
-    model_config = {"frozen": True}  # immutable — không mutate input
-
-
-class ChatOutput(BaseModel):
-    content: str
-    session_id: str
-    agent_type: str
-
-
-class ChatResponse(BaseModel):
-    content: str
-    session_id: str
-    message_id: str
-    agent_type: str
-```
-
----
-
-## 4. TDD Workflow
-
-### 4.1 Quy trình bắt buộc: Red → Green → Refactor
-
-```
-1. RED    → Viết test mô tả behavior mong muốn. Chạy → thấy FAIL (đỏ).
-2. GREEN  → Viết code tối thiểu nhất để test pass. Chạy → thấy PASS (xanh).
-3. REFACTOR → Cải thiện code (DRY, naming, structure). Test phải vẫn xanh.
-```
-
-> **Không được phép** viết implementation trước khi có test cho nó.
-
-### 4.2 Test Naming Convention
-
-```python
-# Pattern: test_<behavior>_when_<condition>
-def test_invoke_returns_answer_when_docs_found(): ...
-def test_invoke_raises_error_when_session_not_found(): ...
-def test_retrieve_returns_empty_list_when_no_match(): ...
-def test_stream_yields_tokens_when_llm_responds(): ...
-def test_find_by_id_returns_none_when_invalid_object_id(): ...
-```
-
-### 4.3 Test Structure — Arrange / Act / Assert
-
-```python
-# tests/unit/agents/test_unified_agent.py
-import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
-from langchain_core.tools import tool
-from app.agents.unified_agent import UnifiedAgent
-from app.models.chat import ChatInput
-
-
-@pytest.fixture
-def chat_input() -> ChatInput:
-    return ChatInput(message="What is LangGraph?", session_id="507f1f77bcf86cd799439011")
-
-
-@pytest.fixture
-def mock_tool():
-    @tool
-    async def dummy_tool(query: str) -> str:
-        """A dummy tool for testing."""
-        return "result"
-    return dummy_tool
-
-
-@pytest.fixture
-def unified_agent(mock_llm, mock_tool) -> UnifiedAgent:
-    with patch("app.agents.unified_agent.create_react_agent") as mock_create:
-        mock_graph = MagicMock()
-        mock_create.return_value = mock_graph
-        agent = UnifiedAgent(llm=mock_llm, tools=[mock_tool])
-        agent._graph = mock_graph
-        return agent
-
-
-class TestUnifiedAgentInvoke:
-    """Nhóm tests theo method/behavior, không theo input."""
-
-    async def test_invoke_returns_answer(
-        self, unified_agent: UnifiedAgent, chat_input: ChatInput
-    ) -> None:
-        # Arrange
-        from langchain_core.messages import AIMessage
-        unified_agent._graph.ainvoke = AsyncMock(
-            return_value={"messages": [AIMessage(content="LangGraph answer")]}
-        )
-
-        # Act
-        result = await unified_agent.ainvoke(chat_input)
-
-        # Assert
-        assert result.content == "LangGraph answer"
-        assert result.agent_type == "unified"
-
-    async def test_invoke_raises_value_error_when_empty_message(self) -> None:
-        with pytest.raises(ValueError):
-            ChatInput(message="", session_id="507f1f77bcf86cd799439011")
-```
-
-### 4.4 conftest.py — Shared Fixtures
-
-```python
-# tests/conftest.py
-import pytest
-from unittest.mock import AsyncMock, MagicMock
-from langchain_groq import ChatGroq
-from langchain_core.messages import AIMessage
-from mongomock_motor import AsyncMongoMockClient
-
-
-@pytest.fixture
-def mock_llm() -> AsyncMock:
-    """Mock ChatGroq trả về response cố định."""
-    llm = AsyncMock(spec=ChatGroq)
-    llm.ainvoke.return_value = AIMessage(content="mocked response")
-    llm.astream.return_value = _async_iter(["mock", "ed", " response"])
-    return llm
-
-
-@pytest.fixture
-def mock_vector_service() -> AsyncMock:
-    """Mock vector service với docs giả."""
-    service = AsyncMock()
-    service.similarity_search.return_value = [
-        {"content": "LangGraph is a library for building stateful agents.", "score": 0.95}
-    ]
-    service.has_context.return_value = True
-    return service
-
-
-@pytest.fixture
-def mock_mongo_db():
-    """In-memory MongoDB dùng mongomock-motor."""
-    client = AsyncMongoMockClient()
-    return client["agent_server_test"]
-
-
-@pytest.fixture
-def mock_jwt_user() -> dict:
-    """User dict giả lập sau khi JWT decode."""
-    return {"id": "507f1f77bcf86cd799439011", "email": "test@example.com"}
-
-
-async def _async_iter(items: list[str]):
-    """Helper tạo async iterator từ list."""
-    for item in items:
-        yield item
-```
-
-### 4.5 Pytest Configuration
-
-```toml
-# pyproject.toml
-[tool.pytest.ini_options]
-asyncio_mode = "auto"
-testpaths = ["tests"]
-addopts = "-v --tb=short -q"
-
-[tool.coverage.run]
-source = ["app"]
-omit = ["app/main.py", "app/config.py"]
-
-[tool.coverage.report]
-fail_under = 80
-show_missing = true
-```
-
-### 4.6 Quy tắc Test — Được phép & Không được phép
-
-| | Quy tắc | Lý do |
+| Layer | May do | Must not do |
 |---|---|---|
-| ✅ | Mock external dependencies (LLM, MongoDB, HTTP) | Isolate unit under test |
-| ✅ | Dùng `mongomock-motor` cho repository tests | Test logic DB mà không cần server thật |
-| ✅ | Test behavior, không test implementation | Refactor không làm vỡ test |
-| ✅ | Một `assert` chính mỗi test | Test rõ ràng, dễ debug khi fail |
-| ✅ | Dùng `pytest.fixture` cho setup tái sử dụng | DRY trong tests |
-| ✅ | Dùng `pytest.mark.parametrize` cho nhiều inputs | Tránh copy-paste tests |
-| ❌ | Mock internal modules của app | Test trở nên giòn |
-| ❌ | Test nhiều behaviors trong 1 test | Khó biết thứ gì fail |
-| ❌ | Hardcode ObjectId string magic values | Dùng fixture hoặc `str(ObjectId())` |
-| ❌ | Skip test mà không có lý do rõ ràng | `@pytest.mark.skip(reason="...")` nếu cần |
+| Routers | Validate HTTP shape, inject dependencies, return HTTP responses | Business logic, direct database calls |
+| Services | Orchestrate use cases, enforce ownership, select agents, coordinate repositories | Direct Motor queries |
+| Repositories | Query MongoDB/Qdrant and serialize persistence documents | Business workflows, LLM calls |
+| Agents | Build prompts/messages, invoke LangGraph/LLM, perform deterministic publish steps | Direct database calls |
+| Tools | Wrap external capabilities as LangChain tools | Session ownership decisions |
+| DB/storage clients | Create singleton clients and low-level helpers | Business logic |
 
-### 4.7 Parametrize Example
+### 4.2 Internal Service Boundary
 
-```python
-@pytest.mark.parametrize("message", [
-    "Hello",
-    "What is your name?",
-    "Tell me about Python",
-])
-async def test_invoke_calls_llm_once_regardless_of_message(
-    chatbot_agent: ChatbotAgent,
-    message: str,
-) -> None:
-    input = ChatInput(message=message, session_id="507f1f77bcf86cd799439011")
-    await chatbot_agent.ainvoke(input)
-    chatbot_agent._llm.ainvoke.assert_called_once()
+`chatly-agent` is called by `chatly-backend`, not by frontend or mobile clients. Public protected endpoints use:
+
+```http
+X-API-Key: <INTERNAL_API_KEY>
+X-User-Id: <user_id>
 ```
+
+Internal trigger endpoints under `/internal/**` use `X-API-Key` and receive user/conversation IDs in the request body.
+
+### 4.3 Configuration
+
+- All secrets must come from environment variables.
+- `.env.example` must contain placeholders only.
+- Settings belong in `app/config.py`.
+- Do not add global configuration reads throughout the codebase if dependency injection is already available.
 
 ---
 
-## 5. DRY Principles
+## 5. Coding Conventions
 
-### 5.1 Base Agent — không repeat interface
+### 5.1 Python Style
+
+- Use Python 3.12 syntax.
+- Type every function signature, including return types.
+- Prefer `collections.abc` imports for collection protocols such as `AsyncIterator`.
+- Use `async`/`await` for DB, HTTP, storage, and LLM I/O.
+- Use `logging.getLogger(__name__)`; never commit `print()`.
+- Keep service functions and agent methods around 50 lines or less. Extract helpers when a workflow grows.
+- Comments should explain why something is non-obvious, not restate what the code says.
 
 ```python
-# app/agents/base.py
-from abc import ABC, abstractmethod
-from typing import AsyncIterator
-from app.models.chat import ChatInput, ChatOutput
-
-
-class BaseAgent(ABC):
-    """
-    Interface chung cho tất cả agents.
-    Mọi agent PHẢI kế thừa class này.
-    """
-
-    @abstractmethod
-    async def ainvoke(self, input: ChatInput) -> ChatOutput:
-        """Gọi agent, chờ kết quả đầy đủ."""
-        ...
-
-    @abstractmethod
-    async def astream(self, input: ChatInput) -> AsyncIterator[str]:
-        """Gọi agent, stream từng token."""
-        ...
-
-    def _build_run_config(self, session_id: str) -> dict:
-        """Shared LangGraph run config — không override trừ khi cần."""
-        return {"configurable": {"thread_id": session_id}}
+async def get_session(user_id: str, session_id: str) -> dict[str, object]:
+    """Return one owned session or raise SessionNotFoundError."""
+    session = await self._session_repo.find_by_user_and_id(user_id, session_id)
+    if session is None:
+        raise SessionNotFoundError("Session not found")
+    return session
 ```
 
-### 5.2 Base Repository — không repeat CRUD
+### 5.2 Naming
+
+| Artifact | Convention | Example |
+|---|---|---|
+| Classes | `PascalCase` | `ChatService`, `UnifiedAgent` |
+| Functions and methods | `snake_case` | `stream_chat`, `get_live_tools` |
+| Variables | `snake_case` | `session_id`, `generated_attachments` |
+| Constants | `UPPER_SNAKE_CASE` | `MAX_FILES_PER_SESSION` |
+| Private helpers | `_single_leading_underscore` | `_select_agent` |
+| Files | `snake_case.py` | `tool_service.py` |
+| Tests | `test_snake_case.py` | `test_chat_api.py` |
+
+Boolean names must use `is_`, `has_`, `can_`, or `should_` when practical.
+
+### 5.3 Imports
+
+Order imports as standard library, third-party, then internal modules. Use absolute imports from `app`.
 
 ```python
-# app/repositories/base.py
-from typing import Generic, TypeVar
-from bson import ObjectId
-from motor.motor_asyncio import AsyncIOMotorCollection
-from app.db.mongo import to_str_id, to_object_id
+import logging
+from collections.abc import AsyncIterator
+from typing import Any
 
-T = TypeVar("T")
+from fastapi import Depends
+from langchain_core.tools import BaseTool
 
-
-class BaseRepository(Generic[T]):
-    """
-    CRUD operations dùng chung cho MongoDB.
-    Subclass chỉ override khi cần logic đặc biệt.
-    """
-
-    def __init__(self, collection: AsyncIOMotorCollection) -> None:
-        self._col = collection
-
-    async def find_by_id(self, id: str) -> dict | None:
-        """Tìm document theo id string, trả None nếu không tồn tại."""
-        doc = await self._col.find_one({"_id": to_object_id(id)})
-        return to_str_id(doc) if doc else None
-
-    async def create(self, data: dict) -> dict:
-        """Insert document, trả về document với id đã được stringify."""
-        result = await self._col.insert_one(data)
-        data["_id"] = result.inserted_id
-        return to_str_id(data)
-
-    async def delete_by_id(self, id: str) -> bool:
-        """Xoá document theo id. Trả True nếu xoá thành công."""
-        result = await self._col.delete_one({"_id": to_object_id(id)})
-        return result.deleted_count > 0
-
-    async def update_by_id(self, id: str, update: dict) -> dict | None:
-        """Update document theo id, trả về document sau update."""
-        await self._col.update_one(
-            {"_id": to_object_id(id)},
-            {"$set": update},
-        )
-        return await self.find_by_id(id)
+from app.models.chat import ChatInput
+from app.services.vector_service import VectorService
 ```
 
-### 5.3 MongoDB Client — singleton, không tạo nhiều connection
+### 5.4 Pydantic Models
+
+- Request and response schemas live in `app/models/`.
+- Use `Field(default_factory=list)` for list defaults.
+- Keep internal agent input/output schemas separate from HTTP schemas when their responsibilities differ.
+- Use `model_config = {"frozen": True}` for immutable internal input models when mutation is not intended.
 
 ```python
-# app/db/mongo.py
-from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
-from bson import ObjectId
-from app.config import settings
+class ChatRequest(BaseModel):
+    """Incoming chat payload for one turn."""
 
-_client: AsyncIOMotorClient | None = None
-
-
-def get_client() -> AsyncIOMotorClient:
-    """Trả về MongoDB client singleton."""
-    global _client
-    if _client is None:
-        _client = AsyncIOMotorClient(
-            settings.mongodb_uri,
-            serverSelectionTimeoutMS=5000,
-        )
-    return _client
-
-
-def get_db() -> AsyncIOMotorDatabase:
-    """Trả về database instance."""
-    return get_client()[settings.mongodb_db_name]
-
-
-async def close_client() -> None:
-    """Gọi khi app shutdown."""
-    global _client
-    if _client:
-        _client.close()
-        _client = None
-
-
-def to_str_id(doc: dict) -> dict:
-    """Chuyển _id ObjectId → string id."""
-    if doc and "_id" in doc:
-        doc["id"] = str(doc.pop("_id"))
-    return doc
-
-
-def to_object_id(id_str: str) -> ObjectId:
-    """Parse string sang ObjectId."""
-    try:
-        return ObjectId(id_str)
-    except Exception as e:
-        raise ValueError(f"Invalid id format: {id_str}") from e
-```
-
-### 5.4 LLM Factory — không tạo instance lặp lại
-
-```python
-# app/utils/llm.py
-from functools import lru_cache
-from langchain_groq import ChatGroq
-from app.config import settings
-
-
-@lru_cache(maxsize=4)
-def get_llm(
-    model: str = settings.groq_model,
-    temperature: float = 0.0,
-) -> ChatGroq:
-    """Singleton per (model, temperature) — tái sử dụng thay vì tạo mới mỗi request."""
-    return ChatGroq(
-        model=model,
-        api_key=settings.groq_api_key,
-        temperature=temperature,
-    )
-```
-
-### 5.5 FastAPI Dependencies — không repeat DI logic
-
-```python
-# app/dependencies.py
-from motor.motor_asyncio import AsyncIOMotorDatabase
-from app.db.mongo import get_db
-from app.utils.llm import get_llm
-from app.repositories.session_repo import SessionRepository
-from app.repositories.message_repo import MessageRepository
-from app.services.session_service import SessionService
-
-
-def get_database() -> AsyncIOMotorDatabase:
-    """Database dependency — inject vào tất cả repositories."""
-    return get_db()
-
-
-def get_session_service(
-    db: AsyncIOMotorDatabase = Depends(get_database),
-) -> SessionService:
-    session_repo = SessionRepository(db["sessions"])
-    message_repo = MessageRepository(db["messages"])
-    return SessionService(session_repo, message_repo)
-
-# Tương tự cho các services khác
+    message: str = Field(..., min_length=1, max_length=8192)
+    use_web_search: bool = False
+    mcp_server_ids: list[str] = Field(default_factory=list)
+    file_ids: list[str] = Field(default_factory=list)
 ```
 
 ---
 
 ## 6. Agent Patterns
 
-### 6.1 Conversational Chatbot
+### 6.1 BaseAgent Contract
+
+Interactive agents implement `BaseAgent` from `app/agents/base.py`.
 
 ```python
-# app/agents/chatbot_agent.py
-import logging
-from typing import AsyncIterator
-from langchain_groq import ChatGroq
-from app.agents.base import BaseAgent
-from app.graphs.chatbot_graph import build_chatbot_graph
-from app.models.chat import ChatInput, ChatOutput
+class BaseAgent(ABC):
+    """Contract that every interactive agent must fulfill."""
 
-logger = logging.getLogger(__name__)
+    agent_type: str
 
+    @abstractmethod
+    async def ainvoke(
+        self,
+        input: ChatInput,
+        config: dict[str, Any] | None = None,
+    ) -> ChatOutput:
+        """Run a full agent turn and return the final response."""
+        ...
 
-class ChatbotAgent(BaseAgent):
-    """Conversational agent với memory per session."""
-
-    def __init__(self, llm: ChatGroq) -> None:
-        self._graph = build_chatbot_graph(llm)
-        self.agent_type: str = "chatbot"
-
-    async def ainvoke(self, input: ChatInput) -> ChatOutput:
-        config = self._build_run_config(input.session_id)
-        result = await self._graph.ainvoke(
-            {"messages": [("human", input.message)]},
-            config=config,
-        )
-        return ChatOutput(
-            content=result["messages"][-1].content,
-            session_id=input.session_id,
-            agent_type=self.agent_type,
-        )
-
-    async def astream(self, input: ChatInput) -> AsyncIterator[str]:
-        config = self._build_run_config(input.session_id)
-        async for chunk in self._llm.astream(
-            [*history, ("human", input.message)]
-        ):
-            if chunk.content:
-                yield chunk.content
+    @abstractmethod
+    async def astream_events(
+        self,
+        input: ChatInput,
+        config: dict[str, Any],
+    ) -> AsyncIterator[dict[str, Any]]:
+        """Yield LangGraph v2 stream events."""
+        ...
 ```
 
-### 6.2 UnifiedAgent (ReAct — Tools + RAG)
+Do not introduce a separate `astream()` token-only contract. `ChatService.stream_chat()` consumes LangGraph event streams so it can emit token, tool, error, and done SSE frames.
 
-```python
-# app/agents/unified_agent.py
-import logging
-from typing import AsyncIterator
-from langchain_groq import ChatGroq
-from langchain_core.tools import BaseTool
-from langchain_core.messages import AIMessageChunk
-from langgraph.prebuilt import create_react_agent
-from langgraph.checkpoint.memory import MemorySaver
-from app.agents.base import BaseAgent
-from app.models.chat import ChatInput, ChatOutput
+### 6.2 ChatbotAgent
 
-logger = logging.getLogger(__name__)
+Use `ChatbotAgent` for plain conversation without tools or indexed context.
 
+- Prepend `CHATLY_SYSTEM_PROMPT`.
+- Inject persisted message history from MongoDB.
+- Use `build_chatbot_graph()` for blocking calls.
+- Stream directly from the LLM as `on_chat_model_stream`-compatible events.
 
-class UnifiedAgent(BaseAgent):
-    """ReAct agent — handles any combination of MCP tools, web search, and RAG."""
+### 6.3 UnifiedAgent
 
-    def __init__(self, llm: ChatGroq, tools: list[BaseTool]) -> None:
-        self._graph = create_react_agent(llm, tools, checkpointer=MemorySaver())
-        self.agent_type: str = "unified"
+Use `UnifiedAgent` for interactive requests with tools, RAG, web search, or image generation.
 
-    async def ainvoke(self, input: ChatInput) -> ChatOutput:
-        config = self._build_run_config(input.session_id)
-        result = await self._graph.ainvoke(
-            {"messages": [("human", input.message)]},
-            config=config,
-        )
-        return ChatOutput(
-            content=result["messages"][-1].content,
-            session_id=input.session_id,
-            agent_type=self.agent_type,
-        )
+- Build a fresh ReAct graph per request.
+- Pass only the tools relevant to that request.
+- Inject `UNIFIED_AGENT_SYSTEM_PROMPT` with `user_id` and runtime `session_context`.
+- Use MongoDBSaver checkpointing outside test mode.
 
-    async def astream(self, input: ChatInput) -> AsyncIterator[str]:
-        config = self._build_run_config(input.session_id)
-        async for chunk in self._graph.astream(
-            {"messages": [("human", input.message)]},
-            config=config,
-            stream_mode="values",
-        ):
-            msg = chunk["messages"][-1]
-            if isinstance(msg, AIMessageChunk) and msg.content:
-                yield msg.content
-```
+### 6.4 MentionAgent
 
-### 6.3 Retriever Tool — RAG as a LangChain tool
+Use `MentionAgent` for `/internal/assist`.
 
-```python
-# app/tools/retriever_tool.py
-from langchain_core.tools import tool
-from app.services.vector_service import VectorService
+- It handles group `@AI` mention flows.
+- It may use research/context MCP tools in a ReAct loop.
+- It removes `sendAiMessage` from the LLM tool loop and calls it programmatically after text generation.
+- It excludes `sendTextMessage` to avoid duplicate group messages.
 
+### 6.5 SocialAgent
 
-def create_retriever_tool(vector_service: VectorService, session_id: str):
-    """Factory — returns a session-scoped @tool for Qdrant similarity search."""
+Use `SocialAgent` for `/internal/social/mention-comment` and `/internal/social/post-command`.
 
-    @tool
-    async def search_documents(query: str) -> str:
-        """Search uploaded documents for relevant context."""
-        results = await vector_service.similarity_search(query, session_id)
-        if not results:
-            return "No relevant documents found."
-        return "\n\n".join(r["content"] for r in results)
+- It may use research tools in a ReAct loop.
+- It resolves the publish tool for `createAiPostComment`.
+- It programmatically publishes the final reply after generation.
 
-    return search_documents
-```
+### 6.6 Agent Selection
 
-The `search_documents` tool is created fresh per request and passed to `UnifiedAgent` when the session has uploaded files. It runs inside the ReAct loop alongside MCP and web search tools with no separate graph needed.
+`ChatService._select_agent()` chooses between `ChatbotAgent` and `UnifiedAgent` for interactive chat:
+
+- Use `UnifiedAgent` when tools are available, session/conversation vector context exists, or image generation tools are available.
+- Use `ChatbotAgent` only when the request has no tools and no indexed context.
+
+System MCP tools are included automatically when `CHATLY_BACKEND_MCP_URL` is configured. User MCP tools are included only for requested `mcp_server_ids`. Tavily is included only when `use_web_search=True` and configured.
 
 ---
 
-## 7. LangGraph Node Conventions
+## 7. LangGraph Patterns
 
-### 7.1 Node là pure async function
+### 7.1 Custom Graphs
 
-```python
-# ✅ Node nhận state, trả dict update — không có side effects ngoài state
-from app.graphs.chatbot_graph import ChatbotState
-from langchain_groq import ChatGroq
-
-
-async def llm_node(state: ChatbotState, llm: ChatGroq) -> dict:
-    """Invoke LLM with full message history."""
-    response = await llm.ainvoke(state["messages"])
-    return {"messages": [response]}
-```
-
-### 7.2 State Definition
+Custom graph builders belong in `app/graphs/`. Keep graph nodes small, async when they perform I/O, and free of persistence side effects.
 
 ```python
-# app/graphs/chatbot_graph.py
-from typing import TypedDict, Annotated
-from langgraph.graph.message import add_messages
-from langchain_core.messages import BaseMessage
-
-
 class ChatbotState(TypedDict):
+    """State for the chatbot graph."""
+
     messages: Annotated[list[BaseMessage], add_messages]
 ```
 
-The `UnifiedAgent` uses `create_react_agent` which manages its own internal state — no custom `TypedDict` needed.
-
-### 7.3 Graph Builder Pattern
-
 ```python
-from functools import partial
-from langgraph.graph import StateGraph, END
-from langgraph.checkpoint.memory import MemorySaver
-
-
 def build_chatbot_graph(llm: ChatGroq) -> CompiledStateGraph:
-    """Factory — gọi một lần khi app khởi động."""
+    """Build the simple chatbot graph."""
     graph = StateGraph(ChatbotState)
     graph.add_node("llm", partial(llm_node, llm=llm))
     graph.set_entry_point("llm")
     graph.add_edge("llm", END)
-    return graph.compile(checkpointer=MemorySaver())
+    return graph.compile()
 ```
+
+### 7.2 ReAct Graphs
+
+Use `langgraph.prebuilt.create_react_agent` for tool-capable agents. Do not hand-roll ReAct loops unless the workflow needs deterministic steps that the graph cannot express cleanly.
+
+### 7.3 Streaming
+
+Agents should yield LangGraph v2 style events from `astream_events()`. `ChatService` is responsible for translating these events to the SSE wire format in `app/models/stream.py`.
 
 ---
 
-## 8. MongoDB Conventions
+## 8. FastAPI Patterns
 
-### 8.1 Phân chia Collections
+### 8.1 Routers
 
-| Collection | Mô tả | Managed by |
-|---|---|---|
-| `sessions` | Chat sessions per user | `SessionRepository` |
-| `messages` | Messages per session | `MessageRepository` |
-| `files` | Uploaded file metadata | `FileRepository` |
-| `chunks` | Document chunks + embedding vectors | `ChunkRepository` |
-| `mcp_servers` | MCP server configs per user | `MCPRepository` |
-| MinIO bucket (`uploads`) | Raw file binary storage | `app/storage/minio.py` |
+Routers must stay thin:
 
-### 8.2 Auth — Internal API Key
-
-Không dùng JWT. Auth được implement bằng shared secret giữa `chatly-backend` và `agent-server`:
+- Accept path/body/query parameters.
+- Resolve dependencies with `Depends`.
+- Map local validation errors to HTTP exceptions when appropriate.
+- Return Pydantic response models or `StreamingResponse`.
+- Delegate workflows to services.
 
 ```python
-# app/utils/security.py
-import hmac
-from app.config import settings
-
-
-def verify_api_key(api_key: str) -> bool:
-    """Constant-time comparison để tránh timing attacks."""
-    return hmac.compare_digest(api_key, settings.internal_api_key)
-```
-
-`chatly-backend` forward `X-User-Id` header sau khi đã xác thực user. `agent-server` tin tưởng giá trị này sau khi API key được verify.
-
-### 8.3 Repository — layer duy nhất gọi Motor trực tiếp
-
-```python
-# app/repositories/message_repo.py
-from datetime import datetime, timezone
-from motor.motor_asyncio import AsyncIOMotorCollection
-from app.repositories.base import BaseRepository
-from app.db.mongo import to_str_id, to_object_id
-
-
-class MessageRepository(BaseRepository[dict]):
-    def __init__(self, collection: AsyncIOMotorCollection) -> None:
-        super().__init__(collection)
-
-    async def find_by_session(self, session_id: str) -> list[dict]:
-        """Lấy tất cả messages của session, sorted by created_at ASC."""
-        cursor = self._col.find(
-            {"session_id": session_id}
-        ).sort("created_at", 1)
-        return [to_str_id(doc) async for doc in cursor]
-
-    async def create_message(
-        self,
-        session_id: str,
-        role: str,
-        content: str,
-    ) -> dict:
-        """Insert một message mới vào collection."""
-        doc = {
-            "session_id": session_id,
-            "role": role,
-            "content": content,
-            "created_at": datetime.now(timezone.utc),
-        }
-        return await self.create(doc)
-```
-
-### 8.5 MongoDB Atlas Vector Search
-
-Dùng MongoDB Atlas Vector Search index thay pgvector:
-
-```python
-# app/repositories/chunk_repo.py
-from motor.motor_asyncio import AsyncIOMotorCollection
-from app.repositories.base import BaseRepository
-from app.db.mongo import to_str_id
-
-
-class ChunkRepository(BaseRepository[dict]):
-    def __init__(self, collection: AsyncIOMotorCollection) -> None:
-        super().__init__(collection)
-
-    async def vector_search(
-        self,
-        embedding: list[float],
-        session_id: str,
-        top_k: int = 5,
-        threshold: float = 0.5,
-    ) -> list[dict]:
-        """
-        MongoDB Atlas Vector Search ($vectorSearch aggregation).
-        Index name: 'chunk_embedding_index' (tạo ở Atlas UI hoặc API).
-        Embedding model: BAAI/bge-base-en-v1.5 (Hugging Face Inference API, 768 dims).
-        """
-        pipeline = [
-            {
-                "$vectorSearch": {
-                    "index": "chunk_embedding_index",
-                    "path": "embedding",
-                    "queryVector": embedding,
-                    "numCandidates": top_k * 10,
-                    "limit": top_k,
-                    "filter": {"session_id": session_id},
-                }
-            },
-            {
-                "$addFields": {
-                    "score": {"$meta": "vectorSearchScore"}
-                }
-            },
-            {
-                "$match": {"score": {"$gte": threshold}}
-            },
-            {
-                "$project": {"embedding": 0}  # không trả embedding vector về
-            },
-        ]
-        cursor = self._col.aggregate(pipeline)
-        return [to_str_id(doc) async for doc in cursor]
-
-    async def count_by_session(self, session_id: str) -> int:
-        """Đếm số chunks của session — dùng để check has_context."""
-        return await self._col.count_documents({"session_id": session_id})
-```
-
-### 8.6 MinIO cho File Storage
-
-```python
-# app/storage/minio.py
-from functools import lru_cache
-
-from minio import Minio
-
-from app.config import settings
-
-
-@lru_cache(maxsize=1)
-def get_minio_client() -> Minio:
-    """Trả về MinIO client singleton cho file binary storage."""
-    return Minio(
-        endpoint=settings.minio_endpoint,
-        access_key=settings.minio_access_key,
-        secret_key=settings.minio_secret_key,
-        secure=settings.minio_secure,
-    )
-```
-
-### 8.7 Không gọi Motor từ Agent hay Service
-
-```python
-# ❌ SAI — agent gọi MongoDB trực tiếp
-class RagAgent:
-    async def ainvoke(self, input: ChatInput) -> ChatOutput:
-        docs = await self._db["chunks"].find({}).to_list(10)
-        ...
-
-# ✅ ĐÚNG — agent → service → repository → Motor
-class RagAgent:
-    def __init__(self, vector_service: VectorService) -> None:
-        self._vector_service = vector_service
-
-    async def ainvoke(self, input: ChatInput) -> ChatOutput:
-        docs = await self._vector_service.similarity_search(
-            query=input.message,
-            session_id=input.session_id,
-        )
-        ...
-```
-
----
-
-## 9. FastAPI Conventions
-
-### 9.1 Router chỉ làm HTTP handling
-
-```python
-# app/routers/chat.py
-import logging
-from fastapi import APIRouter, Depends
-from fastapi.responses import StreamingResponse
-from app.models.chat import ChatInput, ChatOutput
-from app.services.chat_service import ChatService
-from app.dependencies import get_chat_service
-from app.middleware.auth import get_current_user
-
-logger = logging.getLogger(__name__)
-router = APIRouter(prefix="/sessions/{session_id}", tags=["chat"])
-
-
-@router.post("/chat", response_model=ChatOutput)
-async def invoke_agent(
+@router.post("/chat", response_model=ChatResponse)
+async def invoke_chat(
     session_id: str,
-    input: ChatInput,
-    current_user: dict = Depends(get_current_user),
-    service: ChatService = Depends(get_chat_service),
-) -> ChatOutput:
-    """Gọi agent, trả kết quả đầy đủ."""
+    payload: ChatRequest,
+    ctx: RequestContext = Depends(get_request_context),  # noqa: B008
+    service: ChatService = Depends(get_chat_service),  # noqa: B008
+) -> ChatResponse:
+    """Run one chat turn and return full response."""
     return await service.chat(
-        user_id=current_user["id"],
+        user_id=ctx.user_id,
         session_id=session_id,
-        request=input,
-    )
-
-
-@router.post("/chat/stream")
-async def stream_agent(
-    session_id: str,
-    input: ChatInput,
-    current_user: dict = Depends(get_current_user),
-    service: ChatService = Depends(get_chat_service),
-) -> StreamingResponse:
-    """Gọi agent, stream từng token qua SSE."""
-    return StreamingResponse(
-        service.stream_chat(user_id=current_user["id"], session_id=session_id, request=input),
-        media_type="text/event-stream",
+        request=payload,
     )
 ```
 
-### 9.2 App Lifespan — khởi tạo và đóng MongoDB connection
+### 8.2 Dependencies
 
-```python
-# app/main.py
-from contextlib import asynccontextmanager
-from fastapi import FastAPI
-from app.db.mongo import get_client, close_client
+All dependency factories belong in `app/dependencies.py`.
 
+- Build repositories from `get_database()`.
+- Build services from repositories and other services.
+- Build agents and utility clients through existing factory functions.
+- Use `get_request_context()` for protected public endpoints.
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    # Startup: ping MongoDB để verify connection
-    client = get_client()
-    await client.admin.command("ping")
-    yield
-    # Shutdown: đóng connection pool
-    await close_client()
+### 8.3 Application Lifespan
 
+`app/main.py` owns startup/shutdown checks:
 
-app = FastAPI(title="agent-server", version="1.0.0", lifespan=lifespan)
-```
+- Ping MongoDB.
+- Check Qdrant availability.
+- Ensure the MinIO bucket exists when using MinIO storage.
+- Initialize and close the LangGraph MongoDB checkpointer outside test mode.
+- Close MongoDB and Qdrant clients on shutdown.
+
+Do not create ad hoc database clients in routers, services, or agents.
 
 ---
 
-## 10. Error Handling
+## 9. Persistence and Storage
 
-### 10.1 Custom Exceptions
+### 9.1 MongoDB Collections
+
+| Collection | Purpose | Repository |
+|---|---|---|
+| `sessions` | AI chat sessions | `SessionRepository` |
+| `messages` | Messages and attachments per session | `MessageRepository` |
+| `files` | Uploaded or indexed file metadata | `FileRepository` |
+| `chunks` | Extracted text chunks | `ChunkRepository` |
+| `mcp_servers` | User-owned MCP server configs | `MCPRepository` |
+
+LangGraph checkpoints are also stored in MongoDB through `MongoDBSaver`.
+
+### 9.2 ObjectId Serialization
+
+- MongoDB stores native `_id` values.
+- Repositories return serialized `id` strings.
+- Do not expose raw `_id` outside repositories.
+- Convert inbound ID strings with `to_object_id()` in repository code.
 
 ```python
-# app/exceptions.py
+def to_str_id(doc: dict[str, Any]) -> dict[str, Any]:
+    """Convert MongoDB _id to public id."""
+    if doc and "_id" in doc:
+        doc["id"] = str(doc.pop("_id"))
+    return doc
+```
 
+### 9.3 Qdrant
 
+Qdrant stores embeddings for chunks. Use `QdrantRepository` for vector I/O.
+
+- Session uploads are scoped by `session_id`.
+- Backend-indexed group files may also be scoped by `conversation_id`.
+- `VectorService.similarity_search()` may search both scopes when a session has `context_conversation_id`.
+
+Do not use MongoDB Atlas Vector Search in this module.
+
+### 9.4 File Storage
+
+Use `app/storage/minio.py` for both local MinIO-compatible storage and AWS S3.
+
+- `STORAGE_PROVIDER=minio` uses `MINIO_*` settings.
+- `STORAGE_PROVIDER=s3` uses `STORAGE_*` settings.
+- S3 buckets should be provisioned outside the application.
+- MinIO buckets may be created by `ensure_bucket_exists()`.
+
+### 9.5 File Processing
+
+`FileService` owns upload, validation, extraction, chunking, embedding, storage, and cleanup.
+
+- Supported extensions: `txt`, `md`, `pdf`, `docx`, `csv`, `json`, `jpeg`, `jpg`, `png`, `webp`.
+- Text files are extracted, chunked, embedded, and indexed.
+- Images are stored as attachments and metadata, not embedded as text.
+- Keep maximum file count and batch-size constants at module level.
+
+---
+
+## 10. MCP and Tools
+
+### 10.1 ToolService
+
+`ToolService` assembles tools in this order:
+
+1. System MCP tools from `chatly-backend`, when configured.
+2. User-owned MCP tools requested by `mcp_server_ids`.
+3. Tavily web search when requested and configured.
+
+`ChatService` appends RAG and image generation tools separately.
+
+### 10.2 User-Owned MCP Servers
+
+User servers are stored in `mcp_servers`.
+
+- Default transport is raw HTTP JSON-RPC 2.0.
+- Registration must verify connectivity with `tools/list`.
+- Disabled servers are skipped.
+- Unreachable requested servers are skipped with a warning so one bad tool server does not break the whole chat request.
+
+### 10.3 System MCP
+
+`SystemMCPService` reads `CHATLY_BACKEND_MCP_URL`.
+
+- System MCP uses SSE transport.
+- It forwards `X-Internal-API-Key` and `X-User-Id`.
+- It is never stored in MongoDB.
+- `/mcp/defaults` exposes configured system server metadata.
+- Skill resources under `chatly://skills/*` are fetched and cached for runtime prompt context.
+
+### 10.4 Tool Factories
+
+Tool factories live in `app/tools/` and should return LangChain `BaseTool` instances or decorated tools.
+
+- `retriever_tool.py` creates `search_documents`.
+- `mcp_tool.py` wraps dynamic MCP tools.
+- `web_search_tool.py` creates Tavily search tools.
+- `image_gen_tool.py` creates image and sticker generation tools.
+
+Tools must not perform session ownership checks. Services must enforce ownership before constructing tool context.
+
+---
+
+## 11. Error Handling
+
+### 11.1 Exceptions
+
+Use domain exceptions from `app/exceptions.py` for expected service-level failures.
+
+```python
 class AgentServerError(Exception):
-    """Base exception."""
+    """Base exception for chatly-agent."""
 
 
 class SessionNotFoundError(AgentServerError):
-    """Session không tồn tại hoặc không thuộc về user."""
+    """Session does not exist or is not owned by the user."""
 
 
 class MCPConnectionError(AgentServerError):
-    """Không kết nối được tới MCP server."""
-
-
-class MCPServerNotFoundError(AgentServerError):
-    """MCP server không tồn tại hoặc không thuộc về user."""
-
-
-class FileProcessingError(AgentServerError):
-    """Lỗi khi xử lý file upload."""
+    """MCP server could not be reached or returned an invalid response."""
 ```
 
-### 10.2 Exception → HTTP Mapping
+### 11.2 HTTP Mapping
 
-```python
-# app/main.py
-@app.exception_handler(SessionNotFoundError)
-async def session_not_found_handler(request, exc):
-    return JSONResponse(status_code=404, content={"detail": str(exc)})
+Global exception handlers live in `app/main.py`.
 
-@app.exception_handler(MCPConnectionError)
-async def mcp_connection_handler(request, exc):
-    return JSONResponse(status_code=400, content={"detail": str(exc)})
+- `SessionNotFoundError` maps to `404`.
+- `MCPConnectionError` maps to `400`.
+- `MCPServerNotFoundError` maps to `404`.
+- Unknown exceptions are logged and returned as `500` with a generic message.
 
-@app.exception_handler(MCPServerNotFoundError)
-async def mcp_server_not_found_handler(request, exc):
-    return JSONResponse(status_code=404, content={"detail": str(exc)})
+Routers may map local `ValueError` cases to `HTTPException` when the service intentionally raises them for request validation.
 
-@app.exception_handler(ValueError)
-async def value_error_handler(request, exc):
-    return JSONResponse(status_code=422, content={"detail": str(exc)})
-```
+### 11.3 Streaming Errors
 
-### 10.3 Wrap External Calls
+`ChatService.stream_chat()` must classify model/runtime errors and emit an SSE `error` event instead of leaking provider exception text. Keep the client payload stable:
 
-```python
-import groq
-
-
-async def _call_llm(self, messages: list) -> str:
-    try:
-        response = await self._llm.ainvoke(messages)
-        return response.content
-    except groq.APIError as e:
-        raise AgentServerError(f"LLM call failed: {e}") from e
+```json
+{
+  "type": "error",
+  "data": {
+    "message": "Model request timed out. Please try again.",
+    "code": "MODEL_TIMEOUT",
+    "category": "timeout",
+    "retryable": true
+  }
+}
 ```
 
 ---
 
-## 11. Linting & Formatting
+## 12. Testing
 
-### 11.1 Ruff Config
+### 12.1 Requirements
 
-```toml
-[tool.ruff]
-line-length = 88
-target-version = "py312"
+- Add or update unit tests for every changed service or agent behavior.
+- Add integration tests for new or changed router endpoints.
+- Mock external providers in unit tests: Groq, HuggingFace, Tavily, MCP servers, S3/MinIO, Qdrant, and HTTP calls.
+- Use `mongomock-motor` for repository-focused MongoDB tests when practical.
+- Prefer behavior tests over implementation tests.
 
-[tool.ruff.lint]
-select = ["E", "F", "I", "UP", "B", "SIM", "ANN"]
-ignore = ["ANN101", "ANN102"]
+### 12.2 Naming
 
-[tool.ruff.lint.isort]
-known-first-party = ["app"]
+Use:
+
+```text
+test_<behavior>_when_<condition>
 ```
 
-### 11.2 Mypy Config
+Examples:
 
-```toml
-[tool.mypy]
-python_version = "3.12"
-strict = true
-plugins = ["pydantic.mypy"]
-ignore_missing_imports = true
-
-[[tool.mypy.overrides]]
-module = "tests.*"
-disallow_untyped_defs = false
+```python
+async def test_stream_chat_emits_error_when_model_times_out() -> None: ...
+async def test_register_server_raises_when_mcp_unreachable() -> None: ...
+async def test_similarity_search_includes_conversation_scope_when_present() -> None: ...
 ```
 
-### 11.3 Makefile
+### 12.3 Structure
 
-```makefile
-.PHONY: lint format test test-cov run
+Use Arrange / Act / Assert. Keep one primary behavior per test.
 
-lint:
-	uv run ruff check app tests
-	uv run ruff format --check app tests
-	uv run mypy app
+```python
+async def test_chat_returns_unified_agent_when_context_exists(
+    chat_service: ChatService,
+) -> None:
+    # Arrange
+    request = ChatRequest(message="Summarize the uploaded file")
 
-format:
-	uv run ruff format app tests
-	uv run ruff check --fix app tests
+    # Act
+    response = await chat_service.chat(
+        user_id="user-1",
+        session_id="session-1",
+        request=request,
+    )
 
-test:
-	uv run pytest tests/unit -v
-
-test-integration:
-	uv run pytest tests/integration -v
-
-test-cov:
-	uv run pytest --cov=app --cov-report=term-missing --cov-report=html
-
-run:
-	uv run uvicorn app.main:app --reload --port 8000
+    # Assert
+    assert response.agent_type == "unified"
 ```
+
+### 12.4 Fixtures
+
+Shared fixtures belong in `tests/conftest.py`. Keep fixtures explicit and typed when possible. Do not hide major behavior inside overly broad fixtures.
+
+### 12.5 Coverage
+
+The configured coverage threshold is 80%. If a change touches core workflows such as chat routing, file ingestion, MCP, or streaming, add focused tests even if coverage already passes.
 
 ---
 
-## 12. Checklist trước khi commit
+## 13. Linting and Commands
+
+Use the Makefile:
 
 ```bash
-make format      # auto-fix
-make lint        # không có warning
-make test-cov    # coverage ≥ 80%
+make run          # Start dev server with hot reload
+make test         # Run tests
+make test-cov     # Run tests with coverage
+make lint         # Ruff check, Ruff format check, mypy
+make format       # Ruff format and auto-fix
 ```
 
-**Code review checklist:**
+Current quality configuration lives in `pyproject.toml`:
 
-- [ ] Test viết trước implementation (TDD — Red trước Green)
-- [ ] Type hints đầy đủ cho tất cả function signatures
-- [ ] Không có logic bị duplicate (DRY)
-- [ ] External calls (LLM, MongoDB, HTTP) đều được mock trong unit tests
-- [ ] Custom exceptions thay vì `raise Exception(...)`
-- [ ] Không có `print()` — chỉ dùng `logging`
-- [ ] Không có hardcoded credentials, connection strings, hay magic numbers
-- [ ] Docstring cho tất cả public functions/classes
-- [ ] `repositories/` là layer duy nhất gọi Motor client trực tiếp
-- [ ] `db/mongo.py` là nơi duy nhất tạo `AsyncIOMotorClient`
-- [ ] `to_str_id()` được gọi trước khi trả document ra ngoài repository
-- [ ] Auth dependency đã được áp dụng cho tất cả protected routes
+- Ruff line length: 88.
+- Ruff selected rule groups: `E`, `F`, `I`, `UP`, `B`, `SIM`, `ANN`.
+- Mypy strict mode is enabled.
+- Tests use `pytest` with `asyncio_mode = "auto"`.
+
+Run the smallest relevant test command while iterating, then run broader checks before handing off substantial changes.
 
 ---
 
-> **Nguyên tắc cốt lõi:** Viết code như thể người maintain sau bạn không biết context gì — vì thường đó chính là bạn, 6 tháng sau.
+## 14. Pre-Commit Checklist
+
+Before committing changes in `chatly-agent`:
+
+- [ ] All code, comments, docstrings, commit text, and docs are in English.
+- [ ] No secrets, tokens, emails, phone numbers, or message contents are logged.
+- [ ] All public/protected routes use the correct API key dependency.
+- [ ] Routers remain thin and do not call repositories directly.
+- [ ] Services do not call Motor directly.
+- [ ] Agents do not call databases directly.
+- [ ] New constants are named and placed at module level.
+- [ ] New or changed services and agents have focused tests.
+- [ ] New or changed router endpoints have integration coverage.
+- [ ] `make lint` passes or known failures are documented.
+- [ ] `make test` or the relevant subset passes.
+- [ ] `README.md` and `ARCHITECTURE.md` are updated when behavior, endpoints, environment variables, storage, MCP contracts, or agent workflows change.
+
+Core principle: keep the service boring at the boundaries and explicit in the workflows. Future maintainers should be able to trace a request from router to service to repository or agent without guessing.

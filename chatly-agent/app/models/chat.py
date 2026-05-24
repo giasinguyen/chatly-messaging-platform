@@ -46,5 +46,3 @@ class ChatOutput(BaseModel):
     content: str
     session_id: str
     agent_type: str
-
-

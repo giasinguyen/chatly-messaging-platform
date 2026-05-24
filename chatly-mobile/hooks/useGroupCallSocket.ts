@@ -2,16 +2,21 @@ import { useCallback, useRef } from 'react';
 import { socketService } from '@/services/socket.service';
 import { useAuthStore } from '@/store/auth.store';
 import { useCallStore } from '@/store/call.store';
-import { useGroupWebRTC } from '@/hooks/useGroupWebRTC';
-import type { CallType, CallSignal, CallSession, IncomingGroupCall } from '@/types/call';
+import { useAgoraGroupCall } from '@/hooks/useAgoraGroupCall';
+import type {
+  CallType,
+  CallSignal,
+  CallSession,
+  IncomingGroupCall,
+} from '@/types/call';
 
 /**
- * Manages group call signaling via STOMP WebSocket using full-mesh WebRTC topology.
- * Every participant creates a peer connection to every other participant.
+ * Manages group call signaling via STOMP WebSocket using Agora as the media provider.
  * Subscribes to /user/queue/calls and processes GROUP_* signal types.
  */
 export function useGroupCallSocket() {
   const user = useAuthStore((s) => s.user);
+  const activeGroupCall = useCallStore((s) => s.activeCall);
   const {
     setCallStatus,
     setIncomingGroupCall,
@@ -25,66 +30,12 @@ export function useGroupCallSocket() {
     setGroupCallRealtimeState,
   } = useCallStore();
 
-  // Ringtone is best-effort — no-op when sound asset is unavailable.
   const playRingtone = useCallback(() => {}, []);
   const stopRingtone = useCallback(() => {}, []);
 
-  const groupWebRTC = useGroupWebRTC({
-    onIceCandidate: (peerId, candidate) => {
-      const activeCall = useCallStore.getState().activeCall;
-      if (!activeCall || !user) return;
-      socketService.publish('/app/call.group.signal', {
-        type: 'ICE_CANDIDATE',
-        callId: activeCall.callId,
-        senderId: user.id,
-        receiverId: peerId,
-        payload: { candidate },
-      });
-    },
-    onPeerConnectionFailed: (peerId) => {
-      console.warn(`[GroupCallSocket] Peer connection failed for ${peerId}`);
-    },
-  });
-
-  const groupWebRTCRef = useRef(groupWebRTC);
-  groupWebRTCRef.current = groupWebRTC;
-
-  const pendingGroupVideoUpgradeDecisionRef = useRef<{
-    remainingPeerIds: Set<string>;
-    resolve: () => void;
-    reject: (error: Error) => void;
-    timeoutId: ReturnType<typeof setTimeout>;
-  } | null>(null);
-
-  const shouldAutoEnableCameraForRequesterRef = useRef<Set<string>>(new Set());
-
-  const cancelPendingGroupVideoUpgradeDecision = useCallback((message: string) => {
-    const pending = pendingGroupVideoUpgradeDecisionRef.current;
-    if (!pending) return;
-
-    clearTimeout(pending.timeoutId);
-    pendingGroupVideoUpgradeDecisionRef.current = null;
-    pending.reject(new Error(message));
-  }, []);
-
-  const resolveGroupVideoUpgradeDecision = useCallback((peerId: string, accepted: boolean) => {
-    const pending = pendingGroupVideoUpgradeDecisionRef.current;
-    if (!pending || !pending.remainingPeerIds.has(peerId)) return;
-
-    if (!accepted) {
-      clearTimeout(pending.timeoutId);
-      pendingGroupVideoUpgradeDecisionRef.current = null;
-      pending.reject(new Error('A participant declined the video call request.'));
-      return;
-    }
-
-    pending.remainingPeerIds.delete(peerId);
-    if (pending.remainingPeerIds.size === 0) {
-      clearTimeout(pending.timeoutId);
-      pendingGroupVideoUpgradeDecisionRef.current = null;
-      pending.resolve();
-    }
-  }, []);
+  const groupAgoraCall = useAgoraGroupCall();
+  const groupAgoraCallRef = useRef(groupAgoraCall);
+  groupAgoraCallRef.current = groupAgoraCall;
 
   const handleSignalRef = useRef<((signal: CallSignal) => void) | null>(null);
 
@@ -111,6 +62,7 @@ export function useGroupCallSocket() {
             groupName: p.groupName,
             groupAvatarUrl: p.groupAvatarUrl ?? null,
             type: p.callType,
+            mediaProvider: 'AGORA',
             participantCount: p.participantCount,
           };
           setGroupCallRealtimeState(signal.callId, false, 1);
@@ -132,147 +84,11 @@ export function useGroupCallSocket() {
           const knownRemoteCount = Object.keys(useCallStore.getState().groupParticipantInfo).length;
           setGroupCallRealtimeState(signal.callId, false, Math.max(2, knownRemoteCount + 1));
 
-          // Initiator transitions RINGING → ONGOING when first peer joins
           const currentStatus = useCallStore.getState().callStatus;
           if (currentStatus === 'RINGING') {
             stopRingtone();
             setCallStatus('ONGOING');
             setRemoteParticipant(null);
-          }
-
-          const activeCall = useCallStore.getState().activeCall;
-          if (!activeCall) break;
-
-          groupWebRTCRef.current
-            .createOfferForPeer(newPeerId)
-            .then((offer) => {
-              socketService.publish('/app/call.group.signal', {
-                type: 'GROUP_OFFER',
-                callId: activeCall.callId,
-                senderId: user!.id,
-                receiverId: newPeerId,
-                payload: {
-                  offer,
-                  displayName: user!.displayName,
-                  avatarUrl: user!.avatarUrl ?? null,
-                },
-              });
-            })
-            .catch(console.error);
-          break;
-        }
-
-        case 'GROUP_OFFER': {
-          const peerId = signal.senderId;
-          const p = signal.payload as { offer: RTCSessionDescriptionInit; displayName?: string; avatarUrl?: string | null };
-          const activeCall = useCallStore.getState().activeCall;
-          if (!activeCall || !user) break;
-
-          // Register peer info sent alongside the offer
-          if (p.displayName) {
-            setGroupParticipantInfo(peerId, {
-              name: p.displayName,
-              avatar: p.avatarUrl ?? null,
-            });
-          }
-
-          groupWebRTCRef.current.handleOfferFromPeer(peerId, p.offer).then((answer) => {
-            socketService.publish('/app/call.group.signal', {
-              type: 'GROUP_ANSWER',
-              callId: activeCall.callId,
-              senderId: user!.id,
-              receiverId: peerId,
-              payload: { answer },
-            });
-          }).catch(console.error);
-          break;
-        }
-
-        case 'GROUP_VIDEO_UPGRADE_REQUEST': {
-          const activeCall = useCallStore.getState().activeCall;
-          if (!activeCall || !user || signal.senderId === user.id) break;
-
-          // Keep backward compatibility with older clients that still send consent requests.
-          // New flow skips consent and renegotiates directly.
-          socketService.publish('/app/call.group.signal', {
-            type: 'GROUP_VIDEO_UPGRADE_ACCEPT',
-            callId: activeCall.callId,
-            senderId: user.id,
-            receiverId: signal.senderId,
-          });
-          break;
-        }
-
-        case 'GROUP_VIDEO_UPGRADE_ACCEPT': {
-          resolveGroupVideoUpgradeDecision(signal.senderId, true);
-          break;
-        }
-
-        case 'GROUP_VIDEO_UPGRADE_REJECT': {
-          resolveGroupVideoUpgradeDecision(signal.senderId, false);
-          break;
-        }
-
-        case 'GROUP_RENEGOTIATE_OFFER': {
-          const activeCall = useCallStore.getState().activeCall;
-          if (!activeCall || !user) break;
-
-          const payload = signal.payload as { offer: RTCSessionDescriptionInit };
-          const shouldAutoEnable = shouldAutoEnableCameraForRequesterRef.current.has(signal.senderId);
-          shouldAutoEnableCameraForRequesterRef.current.delete(signal.senderId);
-
-          const prepareLocalVideo = shouldAutoEnable
-            ? groupWebRTCRef.current
-              .enableLocalVideoTrack()
-              .then((enabled) => {
-                setCameraOff(!enabled);
-              })
-              .catch((error: unknown) => {
-                console.warn('Unable to auto-enable camera after accepting group upgrade:', error);
-                setCameraOff(true);
-              })
-            : Promise.resolve();
-
-          prepareLocalVideo
-            .then(() => {
-              upgradeCall();
-              if (!shouldAutoEnable) {
-                setCameraOff(true);
-              }
-              return groupWebRTCRef.current.handleOfferFromPeer(signal.senderId, payload.offer);
-            })
-            .then((answer) => {
-              socketService.publish('/app/call.group.signal', {
-                type: 'GROUP_RENEGOTIATE_ANSWER',
-                callId: activeCall.callId,
-                senderId: user.id,
-                receiverId: signal.senderId,
-                payload: { answer },
-              });
-            })
-            .catch(console.error);
-          break;
-        }
-
-        case 'GROUP_RENEGOTIATE_ANSWER': {
-          const payload = signal.payload as { answer: RTCSessionDescriptionInit };
-          groupWebRTCRef.current.handleAnswerFromPeer(signal.senderId, payload.answer).catch(console.error);
-          break;
-        }
-
-        case 'GROUP_ANSWER': {
-          const peerId = signal.senderId;
-          const p = signal.payload as { answer: RTCSessionDescriptionInit };
-          groupWebRTCRef.current.handleAnswerFromPeer(peerId, p.answer).catch(console.error);
-          break;
-        }
-
-        case 'ICE_CANDIDATE': {
-          // Group ICE candidate (routed when isGroupCall is true)
-          if (!useCallStore.getState().isGroupCall) break;
-          const p = signal.payload as { candidate: RTCIceCandidateInit };
-          if (p.candidate) {
-            groupWebRTCRef.current.addIceCandidateForPeer(signal.senderId, p.candidate).catch(console.error);
           }
           break;
         }
@@ -280,36 +96,37 @@ export function useGroupCallSocket() {
         case 'GROUP_LEAVE': {
           const leavingId = signal.senderId;
 
-          const leavePayload = signal.payload as {
-            callEnded?: unknown;
-            activeParticipantCount?: unknown;
-          } | undefined;
+          const leavePayload = signal.payload as
+            | {
+                callEnded?: unknown;
+                activeParticipantCount?: unknown;
+              }
+            | undefined;
 
           const isCallEnded = leavePayload?.callEnded === true || leavingId === 'system';
-          const activeParticipantCount = typeof leavePayload?.activeParticipantCount === 'number'
-            ? leavePayload.activeParticipantCount
-            : (isCallEnded ? 0 : Math.max(1, Object.keys(useCallStore.getState().groupParticipantInfo).length));
+          const activeParticipantCount =
+            typeof leavePayload?.activeParticipantCount === 'number'
+              ? leavePayload.activeParticipantCount
+              : isCallEnded
+                ? 0
+                : Math.max(1, Object.keys(useCallStore.getState().groupParticipantInfo).length);
 
           setGroupCallRealtimeState(signal.callId, isCallEnded, activeParticipantCount);
-
-          if (pendingGroupVideoUpgradeDecisionRef.current?.remainingPeerIds.has(leavingId)) {
-            cancelPendingGroupVideoUpgradeDecision('A participant left before responding to the video call request.');
-          }
 
           if (isCallEnded) {
             const currentIncoming = useCallStore.getState().incomingGroupCall;
             const activeCall = useCallStore.getState().activeCall;
-            if ((currentIncoming && currentIncoming.callId === signal.callId) || (activeCall && activeCall.callId === signal.callId)) {
+            if (
+              (currentIncoming && currentIncoming.callId === signal.callId) ||
+              (activeCall && activeCall.callId === signal.callId)
+            ) {
               stopRingtone();
-              groupWebRTCRef.current.endAll();
+              groupAgoraCallRef.current.leaveCall();
               endCallStore();
             }
-            shouldAutoEnableCameraForRequesterRef.current.clear();
             break;
           }
 
-          // If we haven't joined yet (still on the incoming call screen), the call was
-          // cancelled by the initiator before we answered — just dismiss the overlay.
           const currentIncoming = useCallStore.getState().incomingGroupCall;
           const currentStatus = useCallStore.getState().callStatus;
           if (currentIncoming && currentStatus === 'RINGING') {
@@ -318,16 +135,12 @@ export function useGroupCallSocket() {
             break;
           }
 
-          groupWebRTCRef.current.removePeer(leavingId);
           removeGroupParticipant(leavingId);
 
-          // Auto-end when no remote peers remain (only current user left)
           const remaining = Object.keys(useCallStore.getState().groupParticipantInfo);
           if (remaining.length === 0) {
-            cancelPendingGroupVideoUpgradeDecision('Group call ended before video upgrade completed.');
-            shouldAutoEnableCameraForRequesterRef.current.clear();
             stopRingtone();
-            groupWebRTCRef.current.endAll();
+            groupAgoraCallRef.current.leaveCall();
             endCallStore();
           }
           break;
@@ -348,11 +161,7 @@ export function useGroupCallSocket() {
       endCallStore,
       playRingtone,
       stopRingtone,
-      setCameraOff,
-      upgradeCall,
-      resolveGroupVideoUpgradeDecision,
-      cancelPendingGroupVideoUpgradeDecision,
-    ],
+    ]
   );
 
   handleSignalRef.current = handleSignal;
@@ -364,15 +173,20 @@ export function useGroupCallSocket() {
       groupName: string,
       participantCount: number,
       inviteeIds?: string[],
-      groupAvatarUrl?: string | null,
+      groupAvatarUrl?: string | null
     ) => {
       if (!user) return;
 
       try {
         setRemoteParticipant({ name: groupName, avatar: null });
-        await groupWebRTCRef.current.initLocalStream(type);
-
         const callId = generateCallId();
+        const { hasLocalVideoTrack } = await groupAgoraCallRef.current.joinCall({
+          conversationId,
+          callId,
+          type,
+        });
+        setCameraOff(!hasLocalVideoTrack);
+
         const session: CallSession = {
           callId,
           conversationId,
@@ -381,6 +195,7 @@ export function useGroupCallSocket() {
           type,
           status: 'RINGING',
           isGroup: true,
+          mediaProvider: 'AGORA',
         };
         setGroupCallRealtimeState(callId, false, 1);
         startGroupCall(session);
@@ -393,6 +208,7 @@ export function useGroupCallSocket() {
           payload: {
             conversationId,
             callType: type,
+            mediaProvider: 'AGORA',
             initiatorName: user.displayName,
             initiatorAvatar: user.avatarUrl ?? null,
             groupName,
@@ -403,11 +219,21 @@ export function useGroupCallSocket() {
         });
       } catch (error) {
         console.error('Failed to initiate group call:', error);
+        groupAgoraCallRef.current.leaveCall();
         stopRingtone();
         endCallStore();
       }
     },
-    [user, setCallStatus, setRemoteParticipant, startGroupCall, endCallStore, stopRingtone, setGroupCallRealtimeState],
+    [
+      user,
+      setCallStatus,
+      setRemoteParticipant,
+      startGroupCall,
+      endCallStore,
+      stopRingtone,
+      setGroupCallRealtimeState,
+      setCameraOff,
+    ]
   );
 
   const joinGroupCall = useCallback(
@@ -434,7 +260,12 @@ export function useGroupCallSocket() {
 
       try {
         stopRingtone();
-        await groupWebRTCRef.current.initLocalStream(incoming.type);
+        const { hasLocalVideoTrack } = await groupAgoraCallRef.current.joinCall({
+          conversationId: incoming.conversationId,
+          callId: incoming.callId,
+          type: incoming.type,
+        });
+        setCameraOff(!hasLocalVideoTrack);
 
         const session: CallSession = {
           callId: incoming.callId,
@@ -444,13 +275,17 @@ export function useGroupCallSocket() {
           type: incoming.type,
           status: 'ONGOING',
           isGroup: true,
+          mediaProvider: 'AGORA',
           startedAt: new Date().toISOString(),
         };
         startGroupCall(session);
-        setGroupCallRealtimeState(incoming.callId, false, Math.max(2, Object.keys(useCallStore.getState().groupParticipantInfo).length + 1));
+        setGroupCallRealtimeState(
+          incoming.callId,
+          false,
+          Math.max(2, Object.keys(useCallStore.getState().groupParticipantInfo).length + 1)
+        );
         setIncomingGroupCall(null);
 
-        // Register initiator info
         setGroupParticipantInfo(incoming.initiatorId, {
           name: incoming.initiatorName,
           avatar: incoming.initiatorAvatar,
@@ -467,10 +302,21 @@ export function useGroupCallSocket() {
         });
       } catch (error) {
         console.error('Failed to join group call:', error);
+        groupAgoraCallRef.current.leaveCall();
         endCallStore();
       }
     },
-    [user, setCallStatus, setIncomingGroupCall, startGroupCall, setGroupParticipantInfo, endCallStore, stopRingtone, setGroupCallRealtimeState],
+    [
+      user,
+      setCallStatus,
+      setIncomingGroupCall,
+      startGroupCall,
+      setGroupParticipantInfo,
+      endCallStore,
+      stopRingtone,
+      setGroupCallRealtimeState,
+      setCameraOff,
+    ]
   );
 
   const leaveGroupCall = useCallback(() => {
@@ -485,12 +331,10 @@ export function useGroupCallSocket() {
       });
     }
 
-    cancelPendingGroupVideoUpgradeDecision('You left the group call before video upgrade completed.');
-    shouldAutoEnableCameraForRequesterRef.current.clear();
     stopRingtone();
-    groupWebRTCRef.current.endAll();
+    groupAgoraCallRef.current.leaveCall();
     endCallStore();
-  }, [user, endCallStore, stopRingtone, cancelPendingGroupVideoUpgradeDecision]);
+  }, [user, endCallStore, stopRingtone]);
 
   const upgradeGroupCallToVideo = useCallback(async (): Promise<void> => {
     if (!user) throw new Error('Unable to upgrade group call: user not found.');
@@ -504,30 +348,41 @@ export function useGroupCallSocket() {
       throw new Error('Signaling is disconnected. Please retry.');
     }
 
-    const peerIds = Object.keys(useCallStore.getState().groupParticipantInfo)
-      .filter((peerId) => peerId !== user.id);
-
-    const isAlreadyVideoCall = activeCall.type === 'VIDEO';
-
-    const hasLocalVideoTrack = await groupWebRTCRef.current.enableLocalVideoTrack();
+    const hasLocalVideoTrack = await groupAgoraCallRef.current.enableVideo();
     setCameraOff(!hasLocalVideoTrack);
-    if (!isAlreadyVideoCall) {
+    if (activeCall.type !== 'VIDEO') {
       upgradeCall();
     }
-
-    await Promise.all(
-      peerIds.map(async (peerId) => {
-        const offer = await groupWebRTCRef.current.createOfferForPeer(peerId);
-        socketService.publish('/app/call.group.signal', {
-          type: 'GROUP_RENEGOTIATE_OFFER',
-          callId: activeCall.callId,
-          senderId: user.id,
-          receiverId: peerId,
-          payload: { offer },
-        });
-      }),
-    );
   }, [user, setCameraOff, upgradeCall]);
+
+  const isAgoraGroupCall =
+    activeGroupCall?.isGroup === true && activeGroupCall.mediaProvider === 'AGORA';
+
+  const groupToggleMute = useCallback(
+    (muted: boolean): void => {
+      groupAgoraCallRef.current.toggleMute(muted);
+    },
+    []
+  );
+
+  const groupToggleCamera = useCallback(
+    (cameraOff: boolean): void => {
+      groupAgoraCallRef.current
+        .toggleCamera(cameraOff)
+        .then((cameraOn) => useCallStore.getState().setCameraOff(!cameraOn))
+        .catch(console.error);
+    },
+    []
+  );
+
+  const groupToggleSpeaker = useCallback(
+    (enabled: boolean): void => {
+      if (isAgoraGroupCall) {
+        groupAgoraCallRef.current.toggleSpeaker(enabled);
+      }
+    },
+    [isAgoraGroupCall]
+  );
 
   return {
     initiateGroupCall,
@@ -535,10 +390,16 @@ export function useGroupCallSocket() {
     leaveGroupCall,
     upgradeGroupCallToVideo,
     handleGroupSignal: handleSignalRef,
-    groupLocalStream: groupWebRTC.localStream,
-    groupRemoteStreams: groupWebRTC.remoteStreams,
-    groupToggleMute: groupWebRTC.toggleMute,
-    groupToggleCamera: groupWebRTC.toggleCamera,
+    groupLocalStream: null,
+    groupRemoteStreams: {},
+    groupAgoraLocalUid: groupAgoraCall.localUid,
+    groupAgoraHasLocalVideo: groupAgoraCall.hasLocalVideo,
+    groupAgoraRemoteUids: groupAgoraCall.remoteUids,
+    groupAgoraRemoteVideoUids: groupAgoraCall.remoteVideoUids,
+    groupAgoraRemoteVideoKey: groupAgoraCall.remoteVideoKey,
+    groupToggleMute,
+    groupToggleCamera,
+    groupToggleSpeaker,
   };
 }
 

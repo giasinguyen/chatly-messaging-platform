@@ -45,18 +45,20 @@ class FileRepository(BaseRepository[dict[str, Any]]):
     ) -> list[dict[str, Any]]:
         """Return file rows that belong to the session and match the given IDs."""
         object_ids = [to_object_id(fid) for fid in file_ids]
-        cursor = self._col.find(
-            {"session_id": session_id, "_id": {"$in": object_ids}}
-        )
+        cursor = self._col.find({"session_id": session_id, "_id": {"$in": object_ids}})
         rows = [to_str_id(doc) async for doc in cursor]
         return cast(list[dict[str, Any]], rows)
 
     async def find_by_conversation(self, conversation_id: str) -> list[dict[str, Any]]:
         """Return file metadata rows for a conversation-scoped upload."""
-        cursor = self._col.find({"conversation_id": conversation_id}).sort("created_at", 1)
+        cursor = self._col.find({"conversation_id": conversation_id}).sort(
+            "created_at", 1
+        )
         rows = [to_str_id(doc) async for doc in cursor]
         return cast(list[dict[str, Any]], rows)
 
     async def count_by_conversation(self, conversation_id: str) -> int:
         """Count files indexed under a conversation scope."""
-        return int(await self._col.count_documents({"conversation_id": conversation_id}))
+        return int(
+            await self._col.count_documents({"conversation_id": conversation_id})
+        )

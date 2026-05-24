@@ -9,6 +9,7 @@ Current system MCPs:
   Authenticated with X-Internal-API-Key + X-User-Id so every tool call
   runs in the context of the requesting user.
 """
+
 import asyncio
 import logging
 import time
@@ -150,7 +151,10 @@ class SystemMCPService:
                 return cached[0]
 
             content = await self._fetch_skill_resources(user_id)
-            _skill_cache[_SKILL_CACHE_KEY] = (content, time.monotonic() + _SKILL_CACHE_TTL_S)
+            _skill_cache[_SKILL_CACHE_KEY] = (
+                content,
+                time.monotonic() + _SKILL_CACHE_TTL_S,
+            )
             logger.info(
                 "Skill resource cache refreshed (%d chars, TTL=%.0fs)",
                 len(content),

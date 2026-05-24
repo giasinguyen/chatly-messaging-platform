@@ -1,4 +1,5 @@
 """Unit tests for UnifiedAgent."""
+
 from collections.abc import AsyncIterator
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -11,8 +12,14 @@ from app.models.chat import ChatInput
 
 
 async def _iter_events() -> AsyncIterator[dict]:
-    yield {"event": "on_chat_model_stream", "data": {"chunk": AIMessageChunk(content="Hel")}}
-    yield {"event": "on_chat_model_stream", "data": {"chunk": AIMessageChunk(content="lo")}}
+    yield {
+        "event": "on_chat_model_stream",
+        "data": {"chunk": AIMessageChunk(content="Hel")},
+    }
+    yield {
+        "event": "on_chat_model_stream",
+        "data": {"chunk": AIMessageChunk(content="lo")},
+    }
 
 
 @pytest.mark.asyncio
@@ -27,7 +34,9 @@ async def test_ainvoke_returns_chat_output() -> None:
         llm = AsyncMock()
         agent = UnifiedAgent(llm=llm, tools=[fake_tool])
         result = await agent.ainvoke(
-            ChatInput(message="hi", session_id="session-1", user_id="user-1", history=[])
+            ChatInput(
+                message="hi", session_id="session-1", user_id="user-1", history=[]
+            )
         )
 
     assert result.content == "unified reply"
@@ -48,7 +57,9 @@ async def test_astream_events_delegates_to_graph() -> None:
         events = [
             event
             async for event in agent.astream_events(
-                ChatInput(message="hi", session_id="session-1", user_id="user-1", history=[]),
+                ChatInput(
+                    message="hi", session_id="session-1", user_id="user-1", history=[]
+                ),
                 config={"configurable": {"thread_id": "session-1"}},
             )
         ]

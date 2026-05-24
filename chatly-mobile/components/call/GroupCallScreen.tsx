@@ -10,7 +10,7 @@ import Animated, {
 import { useEffect } from 'react';
 import { Avatar } from '@/components/ui/Avatar';
 import { Colors } from '@/constants/theme';
-import { IS_WEBRTC_CALL_ENABLED } from '@/constants/runtime';
+import { IS_CALL_ENABLED } from '@/constants/runtime';
 import type { IncomingGroupCall } from '@/types/call';
 
 interface GroupCallScreenProps {
@@ -55,7 +55,7 @@ export function GroupCallScreen({
   const callLabel = incomingGroupCall.type === 'VIDEO' ? 'Group video call' : 'Group voice call';
 
   const handleJoin = () => {
-    if (!IS_WEBRTC_CALL_ENABLED) {
+    if (!IS_CALL_ENABLED) {
       Alert.alert(
         'Call unavailable in Expo Go',
         'Calling is only available in a development build. Please build the app to use voice/video calls.'
