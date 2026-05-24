@@ -8,7 +8,7 @@ import { useFonts } from 'expo-font';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useAuthStore } from '@/store/auth.store';
 import { setupAxiosInterceptors } from '@/lib/axiosClient';
-import { socketService } from '@/services/socket.service';
+import { isSocketAuthError, socketService } from '@/services/socket.service';
 import { usePresenceSocket, PresenceEvent } from '@/hooks/usePresenceSocket';
 import { useNotificationSocket } from '@/hooks/useNotificationSocket';
 import { useExpoPush } from '@/hooks/useExpoPush';
@@ -66,7 +66,13 @@ function AuthGateInner({ children }: { children: React.ReactNode }) {
 
     if (isAuthenticated) {
       AsyncStorage.getItem('access_token').then((token) => {
-        if (token) socketService.connect(token).catch(console.error);
+        if (token) {
+          socketService.connect(token).catch((error: unknown) => {
+            if (!isSocketAuthError(error)) {
+              console.error(error);
+            }
+          });
+        }
       });
     } else {
       socketService.disconnect();

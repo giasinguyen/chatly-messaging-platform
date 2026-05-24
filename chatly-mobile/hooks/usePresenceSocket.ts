@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { socketService } from '@/services/socket.service';
+import { isSocketAuthError, socketService } from '@/services/socket.service';
 import { useAuthStore } from '@/store/auth.store';
 
 export interface PresenceEvent {
@@ -42,7 +42,11 @@ export function usePresenceSocket({ onPresenceChange }: UsePresenceSocketProps) 
       cleanupFn = () => sub?.unsubscribe();
     };
 
-    setup().catch(console.error);
+    setup().catch((error: unknown) => {
+      if (!isSocketAuthError(error)) {
+        console.error(error);
+      }
+    });
 
     return () => {
       isMounted = false;

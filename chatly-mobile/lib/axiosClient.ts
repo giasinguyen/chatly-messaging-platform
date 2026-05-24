@@ -46,14 +46,14 @@ export function setupAxiosInterceptors(opts: {
 // Shared refresh promise to prevent concurrent refresh calls
 let refreshPromise: Promise<string> | null = null;
 
-const performRefreshToken = async (): Promise<string> => {
+export const refreshAccessToken = async (): Promise<string> => {
   try {
     const refreshToken = await AsyncStorage.getItem('refresh_token');
 
     const response = await axios.post<ApiResponse<AuthResponse>>(
       `${API_BASE_URL}/api/auth/refresh`,
       { refreshToken },
-      { headers: buildCommonHeaders() },
+      { headers: buildCommonHeaders() }
     );
 
     const payload = response.data.result;
@@ -96,7 +96,7 @@ axiosClient.interceptors.request.use(
     }
     return config;
   },
-  (error) => Promise.reject(error),
+  (error) => Promise.reject(error)
 );
 
 // Response interceptor: handle 401 with token refresh
@@ -111,7 +111,7 @@ axiosClient.interceptors.response.use(
     const isUnauthorized = status === 401 || status === 403;
 
     console.error(
-      `AXIOS ERROR: [${status || 'NETWORK'}] [${originalRequest?.method?.toUpperCase()}] [${originalRequest?.url}] - ${error.message}`,
+      `AXIOS ERROR: [${status || 'NETWORK'}] [${originalRequest?.method?.toUpperCase()}] [${originalRequest?.url}] - ${error.message}`
     );
     if (!status && error.message === 'Network Error') {
       console.warn('Network Error detected. Check Dev Tunnel status and URL:', API_BASE_URL);
@@ -131,7 +131,7 @@ axiosClient.interceptors.response.use(
     originalRequest._retry = true;
 
     if (!refreshPromise) {
-      refreshPromise = performRefreshToken().finally(() => {
+      refreshPromise = refreshAccessToken().finally(() => {
         refreshPromise = null;
       });
     }
@@ -145,7 +145,7 @@ axiosClient.interceptors.response.use(
     } catch {
       return Promise.reject(error);
     }
-  },
+  }
 );
 
 export default axiosClient;
