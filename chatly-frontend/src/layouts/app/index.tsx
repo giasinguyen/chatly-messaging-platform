@@ -38,6 +38,7 @@ function AppLayoutInner() {
         groupRemoteStreams,
         groupToggleMute,
         groupToggleCamera,
+        groupToggleSpeaker,
     } = useCallContext();
     const incomingCall = useCallStore((s) => s.incomingCall);
     const incomingGroupCall = useCallStore((s) => s.incomingGroupCall);
@@ -119,6 +120,7 @@ function AppLayoutInner() {
                         onLeave={leaveGroupCall}
                         onToggleMute={groupToggleMute}
                         onToggleCamera={groupToggleCamera}
+                        onToggleSpeaker={groupToggleSpeaker}
                         onUpgradeToVideo={upgradeGroupCallToVideo}
                     />
                 )}

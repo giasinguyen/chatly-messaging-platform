@@ -46,6 +46,7 @@ export interface CallSession {
     type: CallType;
     status: CallStatus;
     isGroup?: boolean;
+    mediaProvider?: CallMediaProvider;
     startedAt?: string;
     endedAt?: string;
 }
@@ -91,6 +92,7 @@ export interface IncomingGroupCall {
     groupAvatarUrl: string | null;
     type: CallType;
     participantCount: number;
+    mediaProvider?: CallMediaProvider;
 }
 
 export interface GroupParticipantInfo {

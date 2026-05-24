@@ -12,6 +12,7 @@ import {
     Minimize2,
 } from "lucide-react";
 import { useCallStore } from "@/store/call.store";
+import { buildAgoraUidKey } from "@/utils/call/agoraUid";
 
 function formatDuration(seconds: number): string {
     const mins = Math.floor(seconds / 60);
@@ -25,6 +26,7 @@ interface GroupCallOverlayProps {
     onLeave: () => void;
     onToggleMute: (muted: boolean) => void;
     onToggleCamera: (cameraOff: boolean) => void;
+    onToggleSpeaker?: (enabled: boolean) => void;
     onUpgradeToVideo?: () => Promise<void>;
 }
 
@@ -84,7 +86,9 @@ function ParticipantTile({
                         />
                     ) : (
                         <div className="flex h-14 w-14 items-center justify-center rounded-full bg-gray-600">
-                            <span className="text-xl font-bold text-white">{initial}</span>
+                            <span className="text-xl font-bold text-white">
+                                {initial}
+                            </span>
                         </div>
                     )}
                     <p className="text-xs font-medium text-white truncate max-w-full">
@@ -94,7 +98,9 @@ function ParticipantTile({
             )}
             {/* Name badge */}
             <div className="absolute bottom-1 left-1 rounded bg-black/50 px-1.5 py-0.5">
-                <span className="text-[10px] text-white">{isLocal ? "You" : name}</span>
+                <span className="text-[10px] text-white">
+                    {isLocal ? "You" : name}
+                </span>
             </div>
         </div>
     );
@@ -106,6 +112,7 @@ export function GroupCallOverlay({
     onLeave,
     onToggleMute,
     onToggleCamera,
+    onToggleSpeaker,
     onUpgradeToVideo,
 }: GroupCallOverlayProps) {
     const {
@@ -144,6 +151,8 @@ export function GroupCallOverlay({
     // Attach audio streams for remote peers
     useEffect(() => {
         Object.entries(groupRemoteStreams).forEach(([peerId, stream]) => {
+            if (stream.getAudioTracks().length === 0) return;
+
             let audio = audioRefs.current.get(peerId);
             if (!audio) {
                 audio = document.createElement("audio");
@@ -171,26 +180,38 @@ export function GroupCallOverlay({
 
     // Cleanup audio elements on unmount
     useEffect(() => {
+        const currentAudioRefs = audioRefs.current;
         return () => {
-            audioRefs.current.forEach((audio) => {
+            currentAudioRefs.forEach((audio) => {
                 audio.srcObject = null;
                 audio.remove();
             });
-            audioRefs.current.clear();
+            currentAudioRefs.clear();
         };
     }, []);
 
-    if ((callStatus !== "ONGOING" && callStatus !== "RINGING") || !activeCall || !isGroupCall) return null;
+    if (
+        (callStatus !== "ONGOING" && callStatus !== "RINGING") ||
+        !activeCall ||
+        !isGroupCall
+    )
+        return null;
 
-    const remotePeers = Object.entries(groupParticipantInfo).map(([peerId, info]) => ({
-        peerId,
-        stream: groupRemoteStreams[peerId] ?? null,
-        name: info.name,
-        avatar: info.avatar,
-    }));
+    const remotePeers = Object.entries(groupParticipantInfo).map(
+        ([peerId, info]) => ({
+            peerId,
+            stream:
+                groupRemoteStreams[peerId] ??
+                groupRemoteStreams[buildAgoraUidKey(peerId)] ??
+                null,
+            name: info.name,
+            avatar: info.avatar,
+        }),
+    );
 
     const totalParticipants = remotePeers.length + 1;
-    const gridCols = totalParticipants <= 1 ? 1 : totalParticipants <= 4 ? 2 : 3;
+    const gridCols =
+        totalParticipants <= 1 ? 1 : totalParticipants <= 4 ? 2 : 3;
     const gridRows = Math.ceil(totalParticipants / gridCols);
 
     const handleToggleMute = () => {
@@ -202,16 +223,19 @@ export function GroupCallOverlay({
     const handleToggleCamera = async () => {
         const nextCameraOff = !isCameraOff;
         const hasLocalVideoTrack = Boolean(
-            groupLocalStream?.getVideoTracks().some((track) => track.readyState === "live"),
+            groupLocalStream
+                ?.getVideoTracks()
+                .some((track) => track.readyState === "live"),
         );
 
         if (!nextCameraOff && !hasLocalVideoTrack && onUpgradeToVideo) {
             try {
                 await onUpgradeToVideo();
             } catch (error) {
-                const message = error instanceof Error
-                    ? error.message
-                    : "Failed to upgrade group call to video.";
+                const message =
+                    error instanceof Error
+                        ? error.message
+                        : "Failed to upgrade group call to video.";
                 toast.error(message);
             }
             return;
@@ -224,6 +248,7 @@ export function GroupCallOverlay({
     const handleToggleSpeaker = () => {
         setIsSpeakerOn((prev) => {
             const next = !prev;
+            onToggleSpeaker?.(next);
             audioRefs.current.forEach((audio) => {
                 audio.muted = !next;
             });
@@ -231,7 +256,8 @@ export function GroupCallOverlay({
         });
     };
 
-    const durationText = remotePeers.length === 0 ? "Waiting..." : formatDuration(callDuration);
+    const durationText =
+        remotePeers.length === 0 ? "Waiting..." : formatDuration(callDuration);
 
     // Expanded mode (full screen)
     if (isExpanded) {
@@ -244,7 +270,8 @@ export function GroupCallOverlay({
                     </span>
                     <div className="flex items-center gap-3">
                         <span className="text-sm text-gray-400">
-                            {totalParticipants} participant{totalParticipants !== 1 ? "s" : ""}
+                            {totalParticipants} participant
+                            {totalParticipants !== 1 ? "s" : ""}
                         </span>
                         <button
                             onClick={() => setIsExpanded(false)}
@@ -285,7 +312,9 @@ export function GroupCallOverlay({
                 {remotePeers.length === 0 && (
                     <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
                         <div className="animate-ping mb-3 h-3 w-3 rounded-full bg-white/50" />
-                        <p className="text-sm text-gray-300">Waiting for others to join...</p>
+                        <p className="text-sm text-gray-300">
+                            Waiting for others to join...
+                        </p>
                     </div>
                 )}
 
@@ -294,7 +323,9 @@ export function GroupCallOverlay({
                     <button
                         onClick={handleToggleMute}
                         className={`flex h-12 w-12 items-center justify-center rounded-full transition-colors ${
-                            isMuted ? "bg-red-500 hover:bg-red-600" : "bg-white/20 hover:bg-white/30"
+                            isMuted
+                                ? "bg-red-500 hover:bg-red-600"
+                                : "bg-white/20 hover:bg-white/30"
                         }`}
                     >
                         {isMuted ? <MicOff size={22} /> : <Mic size={22} />}
@@ -303,17 +334,27 @@ export function GroupCallOverlay({
                     <button
                         onClick={handleToggleCamera}
                         className={`flex h-12 w-12 items-center justify-center rounded-full transition-colors ${
-                            isCameraOff ? "bg-red-500 hover:bg-red-600" : "bg-white/20 hover:bg-white/30"
+                            isCameraOff
+                                ? "bg-red-500 hover:bg-red-600"
+                                : "bg-white/20 hover:bg-white/30"
                         }`}
                     >
-                        {isCameraOff ? <VideoOff size={22} /> : <Video size={22} />}
+                        {isCameraOff ? (
+                            <VideoOff size={22} />
+                        ) : (
+                            <Video size={22} />
+                        )}
                     </button>
 
                     <button
                         onClick={handleToggleSpeaker}
                         className="flex h-12 w-12 items-center justify-center rounded-full bg-white/20 transition-colors hover:bg-white/30"
                     >
-                        {isSpeakerOn ? <Volume2 size={22} /> : <VolumeX size={22} />}
+                        {isSpeakerOn ? (
+                            <Volume2 size={22} />
+                        ) : (
+                            <VolumeX size={22} />
+                        )}
                     </button>
 
                     <button
@@ -335,18 +376,32 @@ export function GroupCallOverlay({
                 <div className="flex aspect-video w-full flex-col items-center justify-center gap-2 bg-gray-800">
                     {remotePeers.length > 0 ? (
                         <div className="flex items-center -space-x-2">
-                            {remotePeers.slice(0, 3).map(({ peerId, name, avatar }) => (
-                                avatar ? (
-                                    <img key={peerId} src={avatar} alt={name} className="h-10 w-10 rounded-full border-2 border-gray-800 object-cover" />
-                                ) : (
-                                    <div key={peerId} className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-gray-800 bg-gray-600">
-                                        <span className="text-sm font-bold">{name.charAt(0).toUpperCase()}</span>
-                                    </div>
-                                )
-                            ))}
+                            {remotePeers
+                                .slice(0, 3)
+                                .map(({ peerId, name, avatar }) =>
+                                    avatar ? (
+                                        <img
+                                            key={peerId}
+                                            src={avatar}
+                                            alt={name}
+                                            className="h-10 w-10 rounded-full border-2 border-gray-800 object-cover"
+                                        />
+                                    ) : (
+                                        <div
+                                            key={peerId}
+                                            className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-gray-800 bg-gray-600"
+                                        >
+                                            <span className="text-sm font-bold">
+                                                {name.charAt(0).toUpperCase()}
+                                            </span>
+                                        </div>
+                                    ),
+                                )}
                             {remotePeers.length > 3 && (
                                 <div className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-gray-800 bg-gray-600">
-                                    <span className="text-xs font-bold">+{remotePeers.length - 3}</span>
+                                    <span className="text-xs font-bold">
+                                        +{remotePeers.length - 3}
+                                    </span>
                                 </div>
                             )}
                         </div>
@@ -363,7 +418,8 @@ export function GroupCallOverlay({
             <div className="px-3 pt-2">
                 <p className="text-sm font-semibold truncate">Group call</p>
                 <p className="text-xs text-gray-400">
-                    {durationText} &bull; {totalParticipants} participant{totalParticipants !== 1 ? "s" : ""}
+                    {durationText} &bull; {totalParticipants} participant
+                    {totalParticipants !== 1 ? "s" : ""}
                 </p>
             </div>
 
@@ -373,21 +429,33 @@ export function GroupCallOverlay({
                     onClick={handleToggleMute}
                     className="rounded-lg p-1.5 transition-colors hover:bg-white/10"
                 >
-                    {isMuted ? <MicOff size={18} className="text-red-400" /> : <Mic size={18} />}
+                    {isMuted ? (
+                        <MicOff size={18} className="text-red-400" />
+                    ) : (
+                        <Mic size={18} />
+                    )}
                 </button>
 
                 <button
                     onClick={handleToggleCamera}
                     className="rounded-lg p-1.5 transition-colors hover:bg-white/10"
                 >
-                    {isCameraOff ? <VideoOff size={18} className="text-red-400" /> : <Video size={18} />}
+                    {isCameraOff ? (
+                        <VideoOff size={18} className="text-red-400" />
+                    ) : (
+                        <Video size={18} />
+                    )}
                 </button>
 
                 <button
                     onClick={handleToggleSpeaker}
                     className="rounded-lg p-1.5 transition-colors hover:bg-white/10"
                 >
-                    {isSpeakerOn ? <Volume2 size={18} /> : <VolumeX size={18} />}
+                    {isSpeakerOn ? (
+                        <Volume2 size={18} />
+                    ) : (
+                        <VolumeX size={18} />
+                    )}
                 </button>
 
                 <button
