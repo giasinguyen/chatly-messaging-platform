@@ -1,4 +1,5 @@
 """Tool assembly service — aggregates MCP tools and web search per request."""
+
 import logging
 from typing import Any
 
@@ -51,7 +52,9 @@ class ToolService:
 
         # ── User-registered MCP tools ──────────────────────────────────────────
         if self._mcp_service and mcp_server_ids:
-            user_infos = await self._mcp_service.get_tools_for_servers(user_id, mcp_server_ids)
+            user_infos = await self._mcp_service.get_tools_for_servers(
+                user_id, mcp_server_ids
+            )
             all_mcp_infos.extend(user_infos)
 
         # Build LangChain tools — share one MCPClient per unique server URL.
@@ -64,9 +67,7 @@ class ToolService:
                     headers=info.get("server_headers", {}),
                     transport=info.get("server_transport", "http"),
                 )
-            tools.append(
-                create_mcp_tool(info, call_tool=clients[server_url].call_tool)
-            )
+            tools.append(create_mcp_tool(info, call_tool=clients[server_url].call_tool))
 
         # ── Web search tool ────────────────────────────────────────────────────
         if use_web_search:

@@ -44,6 +44,12 @@ class Settings(BaseSettings):
     # URL of the chatly-backend MCP endpoint.  Empty string = disabled.
     chatly_backend_mcp_url: str = ""
 
+    # ─── LangSmith (optional) ─────────────────────────────────────────────────
+    langsmith_tracing: bool = False
+    langsmith_endpoint: str = "https://api.smith.langchain.com"
+    langsmith_api_key: str = ""
+    langsmith_project: str = "chatly-agent"
+
     app_env: str = "development"
     log_level: str = "INFO"
     internal_api_key: str  # required, no default — must be set in .env

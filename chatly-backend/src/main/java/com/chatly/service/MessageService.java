@@ -565,15 +565,37 @@ public class MessageService {
      * Stops the AI typing indicator and does NOT re-trigger AI processing.
      */
     public MessageResponse sendAiMessage(String onBehalfOfUserId, String conversationId, String content) {
+        return sendAiMessage(onBehalfOfUserId, conversationId, content, List.of());
+    }
+
+    public MessageResponse sendAiMessage(String onBehalfOfUserId, String conversationId, String content, List<String> imageUrls) {
         Conversation conversation = getConversationForParticipant(conversationId, onBehalfOfUserId);
 
         broadcastAiTyping(conversationId, false);
 
+        List<Attachment> attachments = new ArrayList<>();
+        if (imageUrls != null && !imageUrls.isEmpty()) {
+            int imageCounter = 1;
+            for (String url : imageUrls) {
+                if (url == null || url.isBlank()) {
+                    continue;
+                }
+                attachments.add(Attachment.builder()
+                        .kind("image")
+                        .name("ai-image-" + imageCounter + ".png")
+                        .url(url)
+                        .type("image/png")
+                        .build());
+                imageCounter++;
+            }
+        }
+
         Message message = Message.builder()
                 .conversationId(conversationId)
                 .senderId(onBehalfOfUserId)
-                .content(content)
+                .content(content != null ? content : "")
                 .type(MessageType.AGENT)
+                .attachments(attachments)
                 .build();
 
         Message savedMessage = persistAndBroadcast(conversation, message, onBehalfOfUserId);

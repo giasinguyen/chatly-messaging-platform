@@ -8,6 +8,7 @@ Architecture:
 This removes the dependency on the LLM deciding to call sendAiMessage —
 the delivery is handled structurally by the graph.
 """
+
 import logging
 from typing import Any
 
@@ -16,39 +17,22 @@ from langchain_core.tools import BaseTool
 from langchain_groq import ChatGroq
 from langgraph.prebuilt import create_react_agent
 
+from app.agents.tool_selection import (
+    SEND_AI_MESSAGE_TOOL_NAME,
+    SEND_TEXT_MESSAGE_TOOL_NAME,
+    partition_mention_tools,
+)
+from app.prompts.mention_prompt import MENTION_SYSTEM_PROMPT
+
 logger = logging.getLogger(__name__)
 
-SEND_AI_MESSAGE_TOOL_NAME = "sendAiMessage"
-SEND_TEXT_MESSAGE_TOOL_NAME = "sendTextMessage"
+MENTION_FALLBACK_RESPONSE = "Sorry, I couldn't generate a response."
 
-MENTION_SYSTEM_PROMPT = (
-    "You are Chatly AI, responding to an @AI mention in a group conversation.\n"
-    "The current user's ID is: {user_id}.\n"
-    "The group conversation ID is: {conversation_id}.\n\n"
-    "## Available Tools\n"
-    "You have a full set of tools at your disposal. Use them as needed:\n\n"
-    "**Context & Research:**\n"
-    "- readRecentMessages / readMessagesByTimeRange / searchMessages — read conversation history\n"
-    "- getGroupInfo / getGroupMembers — group metadata and member list\n"
-    "- getConversationInfo / getMyConversations — conversation details\n"
-    "- getUserInfo / getMyProfile — user profiles\n"
-    "- listGroupNotes — shared group notes\n\n"
-    "**Actions:**\n"
-    "- createGroupPoll — create a poll (pass `options` as a list of strings, e.g. [\"A\", \"B\"])\n"
-    "- createGroupReminder / listGroupReminders — manage reminders (always list first to avoid duplicates)\n\n"
-    "Use context tools first when you need background info, then perform actions as requested.\n\n"
-    "{session_context}"
-    "## Response Rules\n"
-    "- Be helpful, direct, and concise.\n"
-    "- Reply in the same language the user writes in.\n"
-    "- Convert technical tool fields into natural language. Do not show raw IDs or raw timestamps unless asked.\n"
-    "- Prefer member display names and conversation names over IDs.\n"
-    "- If summarizing unread activity, describe message types clearly (text, call event, attachment) with readable time.\n"
-    "- Do not fabricate facts, URLs, or citations.\n"
-    "- Your final text output will be automatically posted to the group — just write normally.\n"
-    "- If you already performed an action (created a poll, set a reminder, etc.), "
-    "briefly confirm what you did in your text response.\n"
-)
+__all__ = [
+    "MentionAgent",
+    "SEND_AI_MESSAGE_TOOL_NAME",
+    "SEND_TEXT_MESSAGE_TOOL_NAME",
+]
 
 
 class MentionAgent:
@@ -66,29 +50,26 @@ class MentionAgent:
         llm: ChatGroq,
         tools: list[BaseTool],
         conversation_id: str,
+        generated_attachments: list[dict[str, Any]] | None = None,
     ) -> None:
         self._conversation_id = conversation_id
         self._llm = llm
+        self._generated_attachments = (
+            generated_attachments if generated_attachments is not None else []
+        )
 
-        # Partition: pull both send tools out — sendAiMessage is used for final
-        # delivery, sendTextMessage must not be available to the ReAct loop to
-        # prevent the LLM from posting a duplicate TEXT message before the
-        # deterministic sendAiMessage call at the end.
-        self._send_tool: BaseTool | None = None
-        research_tools: list[BaseTool] = []
-        for tool in tools:
-            if tool.name == SEND_AI_MESSAGE_TOOL_NAME:
-                self._send_tool = tool
-            elif tool.name == SEND_TEXT_MESSAGE_TOOL_NAME:
-                pass  # excluded — delivery is handled via sendAiMessage
-            else:
-                research_tools.append(tool)
+        partition = partition_mention_tools(tools)
+        self._send_tool = partition.delivery_tool
 
         if self._send_tool is None:
-            logger.warning("sendAiMessage tool not found — agent will not be able to post responses")
+            logger.warning("sendAiMessage tool not found - agent cannot post responses")
 
         # ReAct graph for research only — no checkpointer, no HITL.
-        self._graph = create_react_agent(llm, research_tools) if research_tools else None
+        self._graph = (
+            create_react_agent(llm, partition.research_tools)
+            if partition.research_tools
+            else None
+        )
 
     async def run(
         self,
@@ -118,22 +99,30 @@ class MentionAgent:
                     ai_text = str(m.content)
                     break
             if not ai_text:
-                ai_text = "Sorry, I couldn't generate a response."
+                ai_text = MENTION_FALLBACK_RESPONSE
         else:
             # No research tools — call LLM directly.
             result = await self._llm.ainvoke(msgs)
-            ai_text = str(result.content) if result.content else "Sorry, I couldn't generate a response."
+            ai_text = (
+                str(result.content) if result.content else MENTION_FALLBACK_RESPONSE
+            )
 
         # ── Phase 2: Deterministic delivery ─────────────────────────────
         if self._send_tool is not None:
             try:
-                await self._send_tool.ainvoke({
+                payload = {
                     "conversationId": self._conversation_id,
                     "content": ai_text,
-                })
+                }
+                image_urls = self._collect_generated_image_urls()
+                if image_urls:
+                    payload["imageUrls"] = image_urls
+
+                await self._send_tool.ainvoke(payload)
                 logger.info(
-                    "MentionAgent delivered response to conversation=%s",
+                    "MentionAgent delivered response to conversation=%s image_count=%d",
                     self._conversation_id,
+                    len(image_urls),
                 )
             except Exception:
                 logger.exception(
@@ -142,8 +131,20 @@ class MentionAgent:
                 )
         else:
             logger.error(
-                "No sendAiMessage tool available — response discarded for conversation=%s",
+                "No sendAiMessage tool available - response discarded "
+                "for conversation=%s",
                 self._conversation_id,
             )
 
         return ai_text
+
+    def _collect_generated_image_urls(self) -> list[str]:
+        urls: list[str] = []
+        seen: set[str] = set()
+        for item in self._generated_attachments:
+            url = str(item.get("url") or "").strip()
+            if not url or url in seen:
+                continue
+            seen.add(url)
+            urls.append(url)
+        return urls

@@ -6,6 +6,7 @@ The async ``aput``/``aget`` methods on MongoDBSaver run the underlying
 sync operations in a thread-pool executor, making them safe to call from
 async request handlers.
 """
+
 import logging
 
 from langgraph.checkpoint.mongodb import MongoDBSaver

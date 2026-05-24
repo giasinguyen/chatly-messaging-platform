@@ -59,7 +59,10 @@ async def list_sessions(
     response_model=SessionResponse,
     summary="Get session",
     description="Return one session. Returns 404 if not found or not owned.",
-    responses={401: {"description": "Unauthorized"}, 404: {"description": "Session not found"}},
+    responses={
+        401: {"description": "Unauthorized"},
+        404: {"description": "Session not found"},
+    },
 )
 async def get_session(
     session_id: str,
@@ -76,7 +79,10 @@ async def get_session(
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Delete session",
     description="Delete a session and all its messages, files, and vectors. Returns 404 if not found or not owned.",
-    responses={401: {"description": "Unauthorized"}, 404: {"description": "Session not found"}},
+    responses={
+        401: {"description": "Unauthorized"},
+        404: {"description": "Session not found"},
+    },
 )
 async def delete_session(
     session_id: str,
@@ -99,7 +105,10 @@ async def delete_session(
     response_model=SessionResponse,
     summary="Rename session",
     description="Update the title of a session.",
-    responses={401: {"description": "Unauthorized"}, 404: {"description": "Session not found"}},
+    responses={
+        401: {"description": "Unauthorized"},
+        404: {"description": "Session not found"},
+    },
 )
 async def rename_session(
     session_id: str,
@@ -117,7 +126,10 @@ async def rename_session(
     response_model=MessageHistory,
     summary="Get message history",
     description="Return all messages in a session, sorted oldest first.",
-    responses={401: {"description": "Unauthorized"}, 404: {"description": "Session not found"}},
+    responses={
+        401: {"description": "Unauthorized"},
+        404: {"description": "Session not found"},
+    },
 )
 async def get_history(
     session_id: str,

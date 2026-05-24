@@ -128,9 +128,11 @@ def get_chat_service(
 ) -> ChatService:
     """Build chat service dependency."""
     from app.config import settings
+
     checkpointer = None
     if settings.app_env != "test":
         from app.db.checkpointer import get_checkpointer
+
         checkpointer = get_checkpointer()
     return ChatService(
         session_service=session_service,

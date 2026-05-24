@@ -36,7 +36,9 @@ async def test_ainvoke_returns_chat_output(monkeypatch: pytest.MonkeyPatch) -> N
 
 
 @pytest.mark.asyncio
-async def test_astream_events_yields_token_events(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_astream_events_yields_token_events(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     graph = AsyncMock()
 
     def _build_graph(_: AsyncMock) -> AsyncMock:
@@ -51,7 +53,9 @@ async def test_astream_events_yields_token_events(monkeypatch: pytest.MonkeyPatc
     events = [
         event
         async for event in agent.astream_events(
-            ChatInput(message="hi", session_id="session-1", user_id="user-1", history=[]),
+            ChatInput(
+                message="hi", session_id="session-1", user_id="user-1", history=[]
+            ),
             config={"configurable": {"thread_id": "session-1"}},
         )
     ]

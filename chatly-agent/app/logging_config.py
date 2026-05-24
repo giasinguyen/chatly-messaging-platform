@@ -1,4 +1,5 @@
 """Structured JSON logging configuration."""
+
 import logging
 import traceback
 from datetime import UTC, datetime

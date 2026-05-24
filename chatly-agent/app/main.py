@@ -23,9 +23,10 @@ from app.routers.internal import router as internal_router
 from app.routers.mcp import router as mcp_router
 from app.routers.sessions import router as sessions_router
 from app.storage.minio import ensure_bucket_exists, get_bucket_name, get_storage_client
+from app.utils.langsmith import configure_langsmith
 
 setup_logging(settings.log_level)
-
+configure_langsmith()
 
 
 @asynccontextmanager
@@ -39,11 +40,13 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         await qdrant_client.get_collections()
         ensure_bucket_exists(get_storage_client(), get_bucket_name())
         from app.db.checkpointer import get_checkpointer
+
         get_checkpointer()
     yield
     await close_client()
     await close_qdrant_client()
     from app.db.checkpointer import close_checkpointer
+
     close_checkpointer()
 
 
@@ -106,6 +109,7 @@ async def unhandled_exception_handler(
 ) -> JSONResponse:
     """Catch-all handler — logs the full traceback so silent 500s are visible."""
     import logging as _logging
+
     _logging.getLogger(__name__).exception(
         "Unhandled exception on %s %s", request.method, request.url.path
     )

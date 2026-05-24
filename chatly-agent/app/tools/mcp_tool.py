@@ -1,4 +1,5 @@
 """Dynamic LangChain tool wrapper for MCP server tools."""
+
 from collections.abc import Callable, Coroutine
 from typing import Any, Optional
 
@@ -19,7 +20,8 @@ def _resolve_python_type(prop_schema: dict[str, Any]) -> type:
     json_type = prop_schema.get("type", "string")
     if json_type == "array":
         items_type = _JSON_SCHEMA_TYPE_MAP.get(
-            prop_schema.get("items", {}).get("type", "string"), str,
+            prop_schema.get("items", {}).get("type", "string"),
+            str,
         )
         return list[items_type]  # type: ignore[valid-type]
     return _JSON_SCHEMA_TYPE_MAP.get(json_type, str)

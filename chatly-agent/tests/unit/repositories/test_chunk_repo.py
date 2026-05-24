@@ -57,5 +57,3 @@ async def test_count_by_session_returns_zero_when_empty(
 ) -> None:
     count = await chunk_repo.count_by_session("missing-session")
     assert count == 0
-
-
