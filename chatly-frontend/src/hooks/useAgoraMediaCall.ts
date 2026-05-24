@@ -18,6 +18,17 @@ interface JoinAgoraCallParams {
 
 type AgoraMediaType = "audio" | "video" | "datachannel";
 type RemoteTrack = IRemoteAudioTrack | IRemoteVideoTrack;
+type LocalTrack = ILocalAudioTrack | ILocalVideoTrack;
+
+function stopLocalTrack(track: LocalTrack): void {
+    try {
+        track.getMediaStreamTrack().stop();
+        track.stop();
+        track.close();
+    } catch {
+        // Track may already be released by the browser or Agora.
+    }
+}
 
 export function useAgoraMediaCall() {
     const clientRef = useRef<IAgoraRTCClient | null>(null);
@@ -136,8 +147,7 @@ export function useAgoraMediaCall() {
                 await client.unpublish(localVideoTrack).catch(() => undefined);
             }
 
-            localVideoTrack.stop();
-            localVideoTrack.close();
+            stopLocalTrack(localVideoTrack);
             localVideoTrackRef.current = null;
             syncLocalStream();
         },
@@ -180,22 +190,22 @@ export function useAgoraMediaCall() {
         const client = clientRef.current;
         const localAudioTrack = localAudioTrackRef.current;
         const localVideoTrack = localVideoTrackRef.current;
+        const localTracks = [localAudioTrack, localVideoTrack].filter(
+            (track): track is LocalTrack => track !== null,
+        );
 
-        if (localAudioTrack) {
-            localAudioTrack.stop();
-            localAudioTrack.close();
-            localAudioTrackRef.current = null;
+        localAudioTrackRef.current = null;
+        localVideoTrackRef.current = null;
+        setLocalStream(null);
+
+        if (client?.connectionState === "CONNECTED" && localTracks.length > 0) {
+            void client.unpublish(localTracks).catch(() => undefined);
         }
 
-        if (localVideoTrack) {
-            localVideoTrack.stop();
-            localVideoTrack.close();
-            localVideoTrackRef.current = null;
-        }
+        localTracks.forEach(stopLocalTrack);
 
         remoteTracksRef.current.forEach((track) => track.stop());
         remoteTracksRef.current.clear();
-        setLocalStream(null);
         setRemoteStream(null);
 
         if (client) {
