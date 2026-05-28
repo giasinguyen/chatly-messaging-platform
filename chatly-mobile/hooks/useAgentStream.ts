@@ -1,5 +1,6 @@
 import { useRef, useCallback } from 'react';
 import { Alert } from 'react-native';
+import i18n from '@/lib/i18n';
 import { agentService } from '@/services/agent.service';
 import { useChatbotStore } from '@/store/chatbot.store';
 import type {
@@ -71,8 +72,8 @@ export function useAgentStream(sessionId?: string) {
       useChatbotStore.getState().setToolCalls([]);
     } else if (event.type === 'error') {
       const errData = event.data as unknown as ErrorEventData;
-      const errMessage = errData.message ?? 'AI response error';
-      Alert.alert('Error', errMessage);
+      const errMessage = errData.message ?? i18n.t('assistant.ai_response_error');
+      Alert.alert(i18n.t('common.error'), errMessage);
       useChatbotStore.getState().setStreamingContent('');
       useChatbotStore.getState().appendMessage(sid, {
         id: `error-${Date.now()}`,
@@ -182,7 +183,7 @@ export function useAgentStream(sessionId?: string) {
     try {
       const response = await agentService.chatStream(sid, payload, controller.signal);
       if (!response.ok) {
-        let userMessage = 'AI service is temporarily unavailable. Please try again.';
+        let userMessage = i18n.t('assistant.service_unavailable');
         try {
           const body = await response.json() as { message?: string };
           if (body.message) userMessage = body.message;
@@ -202,8 +203,9 @@ export function useAgentStream(sessionId?: string) {
       if (isAbort) {
         useChatbotStore.getState().setStreamingStatus('idle');
       } else {
-        const message = err instanceof Error ? err.message : 'Could not receive response from AI';
-        Alert.alert('Error', message);
+        const message =
+          err instanceof Error ? err.message : i18n.t('assistant.receive_failed');
+        Alert.alert(i18n.t('common.error'), message);
         useChatbotStore.getState().setStreamingContent('');
         useChatbotStore.getState().appendMessage(sid, {
           id: `error-${Date.now()}`,
