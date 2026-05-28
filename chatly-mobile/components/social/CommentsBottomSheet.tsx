@@ -11,6 +11,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import { CommentList } from './CommentList';
 import { CommentInput } from './CommentInput';
@@ -125,7 +126,9 @@ export function CommentsBottomSheet({
 
         {/* Header */}
         <View className="flex-row items-center justify-between border-b px-4 py-3" style={{ borderBottomColor: Colors.borderLight }}>
-          <Text className="text-lg font-semibold" style={{ color: Colors.text }}>Comments</Text>
+          <Text className="text-lg font-semibold" style={{ color: Colors.text }}>
+            {t('post.comments')}
+          </Text>
           <TouchableOpacity onPress={onClose} className="p-1" activeOpacity={0.7}>
             <Ionicons name="close" size={24} color={Colors.text} />
           </TouchableOpacity>
@@ -173,9 +176,11 @@ export function CommentsBottomSheet({
               ) : (
                 <View className="items-center py-8">
                   <Ionicons name="chatbubble-outline" size={48} color={Colors.textMuted} />
-                  <Text className="mt-3 text-sm" style={{ color: Colors.textMuted }}>No comments yet</Text>
+                  <Text className="mt-3 text-sm" style={{ color: Colors.textMuted }}>
+                    {t('post.no_comments_title')}
+                  </Text>
                   <Text className="mt-1 text-center text-xs" style={{ color: Colors.textMuted }}>
-                    Be the first to comment!
+                    {t('post.be_first_comment')}
                   </Text>
                 </View>
               )}
@@ -207,7 +212,13 @@ export function CommentsBottomSheet({
               setReplyToId(null);
               setReplyToUsername(null);
             }}
-            placeholder={editingCommentId ? 'Edit comment...' : replyToId ? 'Reply...' : 'Add a comment...'}
+            placeholder={
+              editingCommentId
+                ? t('post.edit_comment_placeholder')
+                : replyToId
+                  ? t('post.reply_placeholder')
+                  : t('post.add_comment_placeholder')
+            }
           />
         </KeyboardAvoidingView>
       </Animated.View>

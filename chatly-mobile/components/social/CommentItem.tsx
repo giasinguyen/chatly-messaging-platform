@@ -25,14 +25,21 @@ interface CommentItemProps {
   showRepliesButton?: boolean;
 }
 
-function formatRelativeTime(createdAt: string, justNowLabel: string): string {
+function formatRelativeTime(
+  createdAt: string,
+  translate: (key: string, options?: { count: number }) => string,
+): string {
   const diffMinutes = Math.floor((Date.now() - new Date(createdAt).getTime()) / 60000);
-  if (diffMinutes < 1) return justNowLabel;
-  if (diffMinutes < 60) return `${diffMinutes}m`;
+  if (diffMinutes < 1) return translate('common.just_now');
+  if (diffMinutes < 60) {
+    return translate('notifications.time_m_ago', { count: diffMinutes });
+  }
   const diffHours = Math.floor(diffMinutes / 60);
-  if (diffHours < 24) return `${diffHours}h`;
+  if (diffHours < 24) {
+    return translate('notifications.time_h_ago', { count: diffHours });
+  }
   const diffDays = Math.floor(diffHours / 24);
-  return `${diffDays}d`;
+  return translate('notifications.time_d_ago', { count: diffDays });
 }
 
 export function CommentItem({
@@ -101,7 +108,7 @@ export function CommentItem({
 
             <View className="flex-row items-center gap-1">
               <Text style={{ fontSize: 11, color: Colors.textMuted }}>
-                {formatRelativeTime(comment.createdAt, t('common.just_now'))}
+                {formatRelativeTime(comment.createdAt, t)}
               </Text>
 
               {hasMenuActions ? (

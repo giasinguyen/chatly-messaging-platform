@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -77,6 +78,7 @@ export function PostCardBody({
   onOpenComments,
   onSharePost,
 }: PostCardBodyProps) {
+  const { t } = useTranslation();
   const router = useRouter();
   useThemeStore((state) => state.isDarkMode);
   const currentUserId = useAuthStore((state) => state.user?.id);
@@ -131,7 +133,7 @@ export function PostCardBody({
             {authorName}{' '}
           </Text>
         ) : null}
-        <MentionText content={post.content || 'No caption'} />
+        <MentionText content={post.content || t('post.no_caption')} />
       </Text>
 
       {hasLongCaption && (
@@ -139,7 +141,7 @@ export function PostCardBody({
           onPress={() => setIsCaptionExpanded((current) => !current)}
           activeOpacity={0.7}>
           <Text className="mt-1 text-sm font-semibold text-[#0071E3]">
-            {isCaptionExpanded ? 'Hide' : 'View more'}
+            {isCaptionExpanded ? t('post.caption_hide') : t('post.caption_view_more')}
           </Text>
         </TouchableOpacity>
       )}
@@ -263,7 +265,7 @@ export function PostCardBody({
           {post.commentCount > 0 && (
             <TouchableOpacity onPress={() => setShowComments(true)} activeOpacity={0.7}>
               <Text className="mt-1 text-sm" style={{ color: Colors.textMuted }}>
-                View all {formatCompactCount(post.commentCount)} comments
+                {t('post.view_all_comments', { count: post.commentCount })}
               </Text>
             </TouchableOpacity>
           )}
