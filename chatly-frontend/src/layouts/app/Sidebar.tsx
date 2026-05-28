@@ -15,6 +15,7 @@ import {
 import { CustomAiIcon } from "@/components/customize/CustomAiIcon";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { NavLink, useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import type { UserResponse } from "@/types/auth";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/store/auth.store";
@@ -42,6 +43,7 @@ interface SidebarProps {
 }
 
 export function Sidebar({ user, forceExpanded = false }: SidebarProps) {
+    const { t } = useTranslation();
     const clearAuth = useAuthStore((s) => s.clearAuth);
     const navigate = useNavigate();
     const sidebarCollapsed = useUiStore((s) => s.sidebarCollapsed);
@@ -61,19 +63,19 @@ export function Sidebar({ user, forceExpanded = false }: SidebarProps) {
         } finally {
             socketService.disconnect();
             clearAuth();
-            toast.success("Logged out successfully");
+            toast.success(t("logout.success"));
             navigate("/auth/login");
         }
     };
 
     const navItems = [
-        { to: "/home", icon: Home, label: "Home", badge: 0 },
-        { to: "/explore", icon: Compass, label: "Explore", badge: 0 },
-        { to: "/reels", icon: Clapperboard, label: "Reels", badge: 0 },
-        { to: "/chat", icon: MessageCircle, label: "Messages", badge: msgUnreadCount },
-        { to: "/contact", icon: Users, label: "Contacts", badge: 0 },
-        { to: "/chatbot", icon: CustomAiIcon, label: "AI Chat", badge: 0, highlight: true },
-        { to: "/cloud", icon: Cloud, label: "Cloud", badge: 0 },
+        { to: "/home", icon: Home, label: t("nav.home"), badge: 0 },
+        { to: "/explore", icon: Compass, label: t("nav.explore"), badge: 0 },
+        { to: "/reels", icon: Clapperboard, label: t("nav.reels"), badge: 0 },
+        { to: "/chat", icon: MessageCircle, label: t("nav.messages"), badge: msgUnreadCount },
+        { to: "/contact", icon: Users, label: t("nav.contacts"), badge: 0 },
+        { to: "/chatbot", icon: CustomAiIcon, label: t("nav.ai_chat"), badge: 0, highlight: true },
+        { to: "/cloud", icon: Cloud, label: t("nav.cloud"), badge: 0 },
     ];
 
     const getLinkClass = (isActive: boolean, highlight?: boolean) =>
@@ -100,7 +102,7 @@ export function Sidebar({ user, forceExpanded = false }: SidebarProps) {
             <button
                 onClick={toggleSidebarCollapsed}
                 className="absolute top-1/2 -translate-y-1/2 -right-[18px] z-30 flex items-center justify-center h-9 w-9 rounded-full bg-white dark:bg-[#2c2d3a] hover:bg-[#e2dfff]/60 dark:hover:bg-[#3f4153] text-[#1a146b] dark:text-white border border-slate-200 dark:border-slate-700/80 shadow-md hover:scale-105 transition-all duration-200 cursor-pointer"
-                title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+                title={collapsed ? t("nav.expand_sidebar") : t("nav.collapse_sidebar")}
             >
                 {collapsed ? <ChevronRight className="h-5 w-5" /> : <ChevronLeft className="h-5 w-5" />}
             </button>
@@ -173,7 +175,7 @@ export function Sidebar({ user, forceExpanded = false }: SidebarProps) {
                 {user?.role === "ADMIN" && (
                     <NavLink
                         to="/admin/dashboard"
-                        title="Admin Dashboard"
+                        title={t("nav.admin_dashboard")}
                         className={({ isActive }) =>
                             cn(
                                 "relative flex items-center rounded-xl transition-all duration-200 text-sm font-medium",
@@ -190,7 +192,7 @@ export function Sidebar({ user, forceExpanded = false }: SidebarProps) {
                                     <div className="absolute left-[-16px] w-1 h-6 rounded-full bg-amber-400" />
                                 )}
                                 <LayoutDashboard className="h-5 w-5" />
-                                {!collapsed && <span className="font-inter text-sm">Dashboard</span>}
+                                {!collapsed && <span className="font-inter text-sm">{t("nav.dashboard")}</span>}
                             </>
                         )}
                     </NavLink>
@@ -199,7 +201,7 @@ export function Sidebar({ user, forceExpanded = false }: SidebarProps) {
                 {/* Profile link */}
                 <NavLink
                     to={`/u/${user?.username || "profile"}`}
-                    title="Profile"
+                    title={t("nav.profile")}
                     className={({ isActive }) => getLinkClass(isActive)}
                 >
                     {({ isActive }) => (
@@ -214,18 +216,18 @@ export function Sidebar({ user, forceExpanded = false }: SidebarProps) {
                                 </Avatar>
                                 <span className="absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full border border-white bg-green-500 z-10" />
                             </div>
-                            {!collapsed && <span className="font-inter text-sm flex-grow">Profile</span>}
+                            {!collapsed && <span className="font-inter text-sm flex-grow">{t("nav.profile")}</span>}
                         </>
                     )}
                 </NavLink>
 
                 {/* Settings */}
-                <NavLink to="/settings" title="Settings" className={({ isActive }) => getLinkClass(isActive)}>
+                <NavLink to="/settings" title={t("nav.settings")} className={({ isActive }) => getLinkClass(isActive)}>
                     {({ isActive }) => (
                         <>
                             {isActive && <div className="iv-nav-active-marker" />}
                             <Settings className="h-5 w-5" />
-                            {!collapsed && <span className="font-inter text-sm">Settings</span>}
+                            {!collapsed && <span className="font-inter text-sm">{t("nav.settings")}</span>}
                         </>
                     )}
                 </NavLink>
@@ -233,14 +235,14 @@ export function Sidebar({ user, forceExpanded = false }: SidebarProps) {
                 {/* Logout */}
                 <button
                     onClick={() => setShowLogoutDialog(true)}
-                    title="Logout"
+                    title={t("nav.logout")}
                     className={cn(
                         "w-full relative flex items-center rounded-xl transition-all duration-200 text-sm font-medium text-slate-500 dark:text-slate-400 hover:text-red-500 hover:bg-red-50/50 dark:hover:bg-red-900/10 group cursor-pointer",
                         collapsed ? "justify-center p-2.5" : "gap-3 p-2.5"
                     )}
                 >
                     <LogOut className="h-5 w-5 transition-colors group-hover:scale-110" />
-                    {!collapsed && <span className="font-inter text-sm">Logout</span>}
+                    {!collapsed && <span className="font-inter text-sm">{t("nav.logout")}</span>}
                 </button>
 
                 {/* Create Post CTA */}
@@ -255,13 +257,13 @@ export function Sidebar({ user, forceExpanded = false }: SidebarProps) {
                     {collapsed ? (
                         <button
                             className="w-10 h-10 mx-auto flex items-center justify-center bg-[#1a146b] dark:bg-indigo-600 text-white rounded-full shadow-md hover:-translate-y-0.5 transition-transform duration-200 cursor-pointer"
-                            title="Create Post"
+                            title={t("nav.create_post")}
                         >
                             <PlusCircle className="h-5 w-5" />
                         </button>
                     ) : (
                         <button className="w-full bg-[#1a146b] dark:bg-indigo-600 text-white py-3 px-6 rounded-full text-xs font-semibold tracking-wider uppercase shadow-md hover:-translate-y-0.5 transition-transform duration-200 cursor-pointer">
-                            Create Post
+                            {t("nav.create_post")}
                         </button>
                     )}
                 </NavLink>
@@ -274,18 +276,18 @@ export function Sidebar({ user, forceExpanded = false }: SidebarProps) {
                         <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-red-100 dark:bg-red-950">
                             <LogOut className="h-6 w-6 text-red-500" />
                         </div>
-                        <AlertDialogTitle className="text-lg">Logout?</AlertDialogTitle>
+                        <AlertDialogTitle className="text-lg">{t("logout.title")}</AlertDialogTitle>
                         <AlertDialogDescription className="text-sm text-muted-foreground">
-                            You will need to log in again to use Chatly. Proceed to log out?
+                            {t("logout.description")}
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter className="flex-row justify-center gap-3 sm:justify-center">
-                        <AlertDialogCancel className="flex-1 rounded-xl">Cancel</AlertDialogCancel>
+                        <AlertDialogCancel className="flex-1 rounded-xl">{t("common.cancel")}</AlertDialogCancel>
                         <AlertDialogAction
                             onClick={handleLogout}
                             className="flex-1 rounded-xl bg-red-500 text-white hover:bg-red-600"
                         >
-                            Logout
+                            {t("nav.logout")}
                         </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>

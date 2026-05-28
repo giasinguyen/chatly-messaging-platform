@@ -15,6 +15,8 @@ import {
     Check,
     ShieldOff,
 } from "lucide-react";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -68,27 +70,24 @@ import { useNotificationStore } from "@/store/notification.store";
 import { useUiStore } from "@/store/ui.store";
 import { useContactStore } from "@/store/contact.store";
 
-function formatZaloTime(dateString: string) {
+function formatZaloTime(dateString: string, t: TFunction) {
     const date = new Date(dateString);
     const now = new Date();
     const diffMs = now.getTime() - date.getTime();
 
-    // Calculate day difference based on current date, not 24h interval
-    // So "Yesterday" works even if it's only 1 hour ago but past midnight
-    // But simpler:
     const diffMins = Math.floor(diffMs / (1000 * 60));
     const diffHours = Math.floor(diffMins / 60);
     const diffDays = Math.floor(diffHours / 24);
 
     if (diffMins < 60) {
-        if (diffMins <= 0) return "Just now";
-        return `${diffMins} min`;
+        if (diffMins <= 0) return t("common.just_now");
+        return `${diffMins} ${t("chat.minute_short")}`;
     }
     if (diffHours < 24) {
-        return `${diffHours} hour`;
+        return `${diffHours} ${t("chat.hour_short")}`;
     }
     if (diffDays < 7) {
-        return `${diffDays} day`;
+        return `${diffDays} ${t("chat.day_short")}`;
     }
 
     const day = date.getDate().toString().padStart(2, "0");
@@ -139,7 +138,7 @@ function truncatePreview(text: string): string {
     return `${normalizedText.slice(0, PREVIEW_MAX_LENGTH).trimEnd()}...`;
 }
 
-function formatCallPreview(content: string): string {
+function formatCallPreview(content: string, t: TFunction): string {
     try {
         const callData = JSON.parse(content) as {
             status?: string;
@@ -149,31 +148,32 @@ function formatCallPreview(content: string): string {
             callData.status === "MISSED" || callData.status === "REJECTED";
         const isVideo = callData.callType === "VIDEO";
         if (isMissed) {
-            return isVideo ? "📵 Missed video call" : "📵 Missed audio call";
+            return isVideo ? t("chat.missed_video_call") : t("chat.missed_audio_call");
         }
-        return isVideo ? "🎥 Video call" : "📞 Audio call";
+        return isVideo ? t("chat.video_call") : t("chat.audio_call");
     } catch {
-        return "📞 Call";
+        return t("chat.call_generic");
     }
 }
 
 function formatLastMessagePreview(
     lastMessage: ConversationResponse["lastMessage"],
+    t: TFunction,
 ): string {
     if (!lastMessage) {
-        return "No messages yet";
+        return t("chat.no_messages_yet");
     }
 
-    if (lastMessage.type === "IMAGE") return "📷 Photo";
+    if (lastMessage.type === "IMAGE") return t("chat.last_message_photo");
     if (lastMessage.type === "FILE")
-        return `📎 ${stripHtmlToText(lastMessage.content) || "File"}`;
-    if (lastMessage.type === "STICKER") return "🎭 Sticker";
-    if (lastMessage.type === "VCARD") return "📇 Contact card";
-    if (lastMessage.type === "GIF") return "🎬 GIF";
-    if (lastMessage.type === "CALL") return formatCallPreview(lastMessage.content);
+        return `📎 ${stripHtmlToText(lastMessage.content) || t("chat.file_fallback")}`;
+    if (lastMessage.type === "STICKER") return `🎭 ${t("chat.last_message_sticker")}`;
+    if (lastMessage.type === "VCARD") return t("chat.contact_card");
+    if (lastMessage.type === "GIF") return `🎬 ${t("chat.last_message_gif")}`;
+    if (lastMessage.type === "CALL") return formatCallPreview(lastMessage.content, t);
 
     const text = truncatePreview(getFirstMeaningfulChunk(lastMessage.content));
-    return text || "Message";
+    return text || t("chat.message_fallback");
 }
 
 function upsertConversation(
@@ -190,6 +190,7 @@ function upsertConversation(
 }
 
 export const ChatList = forwardRef(function ChatListComponent(_, ref) {
+    const { t } = useTranslation();
     const { user: currentUser } = useAuthStore();
     const navigate = useNavigate();
     const { id: activeId } = useParams<{ id: string }>();
@@ -298,7 +299,7 @@ export const ChatList = forwardRef(function ChatListComponent(_, ref) {
                             event.notification.type === "GROUP_LEAVE" &&
                             event.notification.referenceId === activeId
                         ) {
-                            toast.error("You have been removed from the group");
+                            toast.error(t("chat.removed_from_group"));
                             navigate("/chat");
                         }
                     }
@@ -314,7 +315,7 @@ export const ChatList = forwardRef(function ChatListComponent(_, ref) {
             disposed = true;
             cleanupPromise.then((cleanup) => cleanup?.());
         };
-    }, [addNotification, currentUser?.id, refreshConversations, activeId, navigate]);
+    }, [addNotification, currentUser?.id, refreshConversations, activeId, navigate, t]);
 
     // Notifications keep previews fresh when the list subscription misses a message.
     useEffect(() => {
@@ -482,10 +483,10 @@ export const ChatList = forwardRef(function ChatListComponent(_, ref) {
         try {
             await conversationService.delete(id);
             setConversations((prev) => prev.filter((c) => c.id !== id));
-            toast.success("Conversation deleted");
+            toast.success(t("chat.conv_deleted"));
         } catch (error) {
             console.error("Delete conversation error:", error);
-            toast.error("Could not delete conversation. Please try again.");
+            toast.error(t("chat.delete_conv_failed"));
         }
     };
 
@@ -533,21 +534,21 @@ export const ChatList = forwardRef(function ChatListComponent(_, ref) {
                         onClick={() => {
                             const pinnedCount = Object.values(convPrefs).filter((p) => p.isPinned).length;
                             if (!isPinned && pinnedCount >= 5) {
-                                toast.warning("You can only pin up to 5 conversations");
+                                toast.warning(t("chat.pin_limit_warning"));
                                 return;
                             }
                             storeSetPin(conv.id, !isPinned);
-                            toast.success(isPinned ? "Conversation unpinned" : "Conversation pinned");
+                            toast.success(isPinned ? t("chat.conv_unpinned") : t("chat.conv_pinned"));
                         }}
                     >
                         <Pin className="mr-2 h-4 w-4" />
-                        <span>{isPinned ? "Unpin" : "Pin"}</span>
+                        <span>{isPinned ? t("chat.unpin") : t("chat.pin")}</span>
                     </Item>
 
                     <Sub>
                         <SubTrigger>
                             <Tags className="mr-2 h-4 w-4" />
-                            <span>Category</span>
+                            <span>{t("chat.category")}</span>
                         </SubTrigger>
                         <SubContent className="w-48">
                             {(Object.entries(CATEGORY_META) as [ConversationCategory, { label: string; color: string }][]).map(
@@ -577,18 +578,18 @@ export const ChatList = forwardRef(function ChatListComponent(_, ref) {
                     <Item
                         onClick={() => {
                             storeSetMute(conv.id, !isMuted);
-                            toast.success(isMuted ? "Notifications turned on" : "Notifications silenced");
+                            toast.success(isMuted ? t("chat.notifications_on") : t("chat.notifications_silenced"));
                         }}
                     >
                         <BellOff className="mr-2 h-4 w-4" />
-                        <span>{isMuted ? "Turn on notifications" : "Silence notifications"}</span>
+                        <span>{isMuted ? t("chat.turn_on_notifications") : t("chat.silence_notifications")}</span>
                     </Item>
 
                     <Separator />
 
                     <Item disabled>
                         <Flag className="mr-2 h-4 w-4" />
-                        <span>Report</span>
+                        <span>{t("chat.report")}</span>
                     </Item>
 
                     <Item
@@ -599,7 +600,7 @@ export const ChatList = forwardRef(function ChatListComponent(_, ref) {
                         }}
                     >
                         <Trash2 className="mr-2 h-4 w-4" />
-                        <span>Delete conversation</span>
+                        <span>{t("chat.delete_conversation")}</span>
                     </Item>
                 </>
             );
@@ -687,16 +688,16 @@ export const ChatList = forwardRef(function ChatListComponent(_, ref) {
                                                     <TooltipTrigger asChild>
                                                         <ShieldOff size={13} className="text-destructive/60 shrink-0" />
                                                     </TooltipTrigger>
-                                                    <TooltipContent side="top" className="text-xs px-2 py-1">
-                                                        Blocked
-                                                    </TooltipContent>
+                                                                    <TooltipContent side="top" className="text-xs px-2 py-1">
+                                                                        {t("chat.blocked_label")}
+                                                                    </TooltipContent>
                                                 </Tooltip>
                                             </TooltipProvider>
                                         )}
                                     </div>
                                     {conv.updatedAt && (
                                         <span className="text-[12px] text-muted-foreground/80 whitespace-nowrap ml-2">
-                                            {formatZaloTime(conv.updatedAt)}
+                                            {formatZaloTime(conv.updatedAt, t)}
                                         </span>
                                     )}
                                 </div>
@@ -706,14 +707,15 @@ export const ChatList = forwardRef(function ChatListComponent(_, ref) {
                                             <>
                                                 {conv.lastMessage.senderId ===
                                                     currentUser?.id && (
-                                                    <span>You: </span>
+                                                    <span>{t("chat.you_prefix")} </span>
                                                 )}
                                                 {formatLastMessagePreview(
                                                     conv.lastMessage,
+                                                    t,
                                                 )}
                                             </>
                                         ) : (
-                                            "No messages yet"
+                                            t("chat.no_messages_yet")
                                         )}
                                     </span>
                                     {unreadCount > 0 && (
@@ -731,7 +733,7 @@ export const ChatList = forwardRef(function ChatListComponent(_, ref) {
                                 <button
                                     className="absolute right-3 top-1/2 -translate-y-1/2 h-7 w-7 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 hover:bg-muted/60 transition-opacity focus:outline-none focus:opacity-100"
                                     onClick={(e) => e.preventDefault()}
-                                    title="Options"
+                                    title={t("chat.options")}
                                 >
                                     <MoreHorizontal size={15} />
                                 </button>
@@ -759,14 +761,14 @@ export const ChatList = forwardRef(function ChatListComponent(_, ref) {
                         variant="ghost"
                         size="icon"
                         className="md:hidden h-8 w-8 rounded-full shrink-0 -ml-2"
-                        title="Open menu"
+                        title={t("chat.open_menu")}
                     >
                         <Menu size={18} />
                     </Button>
                     <div className="relative flex-1">
                         <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                         <Input
-                            placeholder="Search"
+                            placeholder={t("chat.search_placeholder")}
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                             className="h-8 pl-8 bg-muted/30 border-border/40 focus-visible:ring-1 focus-visible:ring-[#1a146b] focus-visible:border-[#1a146b] rounded-full text-sm"
@@ -778,7 +780,7 @@ export const ChatList = forwardRef(function ChatListComponent(_, ref) {
                             variant="ghost"
                             size="icon"
                             className="h-8 w-8 rounded-full"
-                            title="Add friends"
+                            title={t("chat.add_friends")}
                         >
                             <UserPlus size={16} />
                         </Button>
@@ -787,7 +789,7 @@ export const ChatList = forwardRef(function ChatListComponent(_, ref) {
                             variant="ghost"
                             size="icon"
                             className="h-8 w-8 rounded-full"
-                            title="Create Group"
+                            title={t("chat.create_group")}
                         >
                             <UsersRound size={16} />
                         </Button>
@@ -810,11 +812,10 @@ export const ChatList = forwardRef(function ChatListComponent(_, ref) {
                                         />
                                     </div>
                                     <p className="text-[14px] font-medium text-foreground/70">
-                                        No conversations yet
+                                        {t("chat.no_conversations_yet")}
                                     </p>
                                     <p className="text-[12px] text-center max-w-[200px] text-muted-foreground/80">
-                                        Search for friends or create a group to
-                                        start chatting.
+                                        {t("chat.no_conversations_hint")}
                                     </p>
                                 </div>
                             ) : (

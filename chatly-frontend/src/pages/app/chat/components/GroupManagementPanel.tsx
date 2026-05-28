@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef, useLayoutEffect } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
+import { Trans, useTranslation } from "react-i18next";
 import { groupService } from "@/services/group.service";
 import { conversationService } from "@/services/conversation.service";
 import { fileService } from "@/services/file.service";
@@ -94,6 +95,7 @@ const ROLE_MENU_HEADER_HEIGHT = 34;
 const ROLE_MENU_ITEM_HEIGHT = 34;
 
 function RoleBadge({ role }: { role: GroupRole }) {
+    const { t } = useTranslation();
     const cfg = ROLE_CONFIG[role];
     return (
         <span
@@ -103,7 +105,7 @@ function RoleBadge({ role }: { role: GroupRole }) {
             )}
         >
             {cfg.icon}
-            {cfg.label}
+            {t(`chat.group_panel.${role.toLowerCase()}`)}
         </span>
     );
 }
@@ -120,6 +122,7 @@ export function GroupManagementPanel({
     onGroupUpdated,
     defaultTab = "members",
 }: GroupManagementPanelProps) {
+    const { t } = useTranslation();
     const navigate = useNavigate();
     const { user: currentUser } = useAuthStore();
     const { notifications, removeByTypeAndReference } = useNotificationStore();
@@ -184,7 +187,7 @@ export function GroupManagementPanel({
             const res = await groupService.getMembers(conversationId);
             setMembers(res.result ?? []);
         } catch {
-            toast.error("Failed to load member list");
+            toast.error(t("chat.group_panel.load_members_failed"));
         } finally {
             setLoading(false);
         }
@@ -233,9 +236,9 @@ export function GroupManagementPanel({
         try {
             const res = await fileService.upload(file);
             setGroupAvatar(res.url);
-            toast.success("Image uploaded");
+            toast.success(t("chat.group_panel.image_uploaded"));
         } catch {
-            toast.error("Failed to upload image");
+            toast.error(t("chat.group_panel.image_upload_failed"));
         } finally {
             setAvatarUploading(false);
             if (avatarInputRef.current) avatarInputRef.current.value = "";
@@ -251,10 +254,10 @@ export function GroupManagementPanel({
         if (!removingMember) return;
         try {
             await groupService.removeMember(conversationId, removingMember.userId);
-            toast.success(`Removed ${removingMember.displayName} from group`);
+            toast.success(t("chat.group_panel.member_removed", { name: removingMember.displayName }));
             fetchMembers();
         } catch {
-            toast.error("Failed to remove member");
+            toast.error(t("chat.group_panel.remove_member_failed"));
         } finally {
             setRemovingMember(null);
         }
@@ -263,17 +266,17 @@ export function GroupManagementPanel({
     const handleUpdateRole = async (userId: string, role: GroupRole) => {
         try {
             await groupService.updateRole(conversationId, userId, { role });
-            toast.success("Role updated");
+            toast.success(t("chat.group_panel.role_updated"));
             setRoleMenuOpenFor(null);
             fetchMembers();
         } catch {
-            toast.error("Failed to update role");
+            toast.error(t("chat.group_panel.role_update_failed"));
         }
     };
 
     const handleSaveSettings = async () => {
         if (!groupName.trim()) {
-            toast.error("Group name cannot be empty");
+            toast.error(t("chat.group_panel.group_name_empty"));
             return;
         }
         setSettingsSaving(true);
@@ -285,10 +288,10 @@ export function GroupManagementPanel({
                 requireApproval,
                 aiProactiveEnabled,
             });
-            toast.success("Group info saved");
+            toast.success(t("chat.group_panel.info_saved"));
             onGroupUpdated?.(groupName.trim(), groupAvatar.trim() || undefined);
         } catch {
-            toast.error("Failed to update group");
+            toast.error(t("chat.group_panel.update_failed"));
         } finally {
             setSettingsSaving(false);
         }
@@ -300,10 +303,10 @@ export function GroupManagementPanel({
             await conversationService.delete(conversationId);
             setDissolveOpen(false);
             onOpenChange(false);
-            toast.success("Group has been dissolved");
+            toast.success(t("chat.group_panel.dissolved"));
             navigate("/chat");
         } catch {
-            toast.error("Could not dissolve group");
+            toast.error(t("chat.group_panel.dissolve_failed"));
         } finally {
             setDissolving(false);
         }
@@ -328,7 +331,7 @@ export function GroupManagementPanel({
                 setInviteLink(`${import.meta.env.VITE_WEB_BASE_URL || window.location.origin}/join/${data.inviteToken}`);
             }
         } catch {
-            toast.error("Failed to create invite link");
+            toast.error(t("chat.group_panel.create_invite_failed"));
         } finally {
             setInviteLinkLoading(false);
         }
@@ -343,9 +346,9 @@ export function GroupManagementPanel({
                 setInviteToken(data.inviteToken);
                 setInviteLink(`${import.meta.env.VITE_WEB_BASE_URL || window.location.origin}/join/${data.inviteToken}`);
             }
-            toast.success("Invite link reset");
+            toast.success(t("chat.group_panel.invite_reset"));
         } catch {
-            toast.error("Failed to reset invite link");
+            toast.error(t("chat.group_panel.invite_reset_failed"));
         } finally {
             setInviteLinkLoading(false);
         }
@@ -354,7 +357,7 @@ export function GroupManagementPanel({
     const handleCopyInviteLink = () => {
         if (inviteLink) {
             navigator.clipboard.writeText(inviteLink);
-            toast.success("Invite link copied");
+            toast.success(t("chat.group_panel.invite_copied"));
         }
     };
 
@@ -375,23 +378,23 @@ export function GroupManagementPanel({
     const handleApprovePending = async (userId: string) => {
         try {
             await groupService.approvePendingRequest(conversationId, userId);
-            toast.success("Request approved");
+            toast.success(t("chat.group_panel.request_approved"));
             removeByTypeAndReference("GROUP_JOIN_REQUEST", conversationId);
             fetchPendingRequests();
             fetchMembers();
         } catch {
-            toast.error("Failed to approve request");
+            toast.error(t("chat.group_panel.request_approve_failed"));
         }
     };
 
     const handleRejectPending = async (userId: string) => {
         try {
             await groupService.rejectPendingRequest(conversationId, userId);
-            toast.success("Request rejected");
+            toast.success(t("chat.group_panel.request_rejected"));
             removeByTypeAndReference("GROUP_JOIN_REQUEST", conversationId);
             fetchPendingRequests();
         } catch {
-            toast.error("Failed to reject request");
+            toast.error(t("chat.group_panel.request_reject_failed"));
         }
     };
 
@@ -426,10 +429,10 @@ export function GroupManagementPanel({
                         <div className="flex h-7 w-7 items-center justify-center rounded-full bg-brand/10 text-brand">
                             <Users size={15} />
                         </div>
-                        Group Management
+                        {t("chat.group_panel.title")}
                     </DialogTitle>
                     <p className="text-xs text-muted-foreground mt-0.5">
-                        {loading ? "Loading..." : `${members.length} members`}
+                        {loading ? t("common.loading") : t("chat.members_count", { count: members.length })}
                     </p>
                 </DialogHeader>
 
@@ -438,12 +441,12 @@ export function GroupManagementPanel({
                         <TabsList className="h-9 w-full bg-muted/50">
                             <TabsTrigger value="members" className="flex-1 gap-1.5 text-xs">
                                 <Users size={13} />
-                                Members
+                                {t("chat.group_panel.members_tab")}
                             </TabsTrigger>
                             {isOwnerOrAdmin && (
                                 <TabsTrigger value="settings" className="flex-1 gap-1.5 text-xs relative">
                                     <Settings size={13} />
-                                    Group Settings
+                                    {t("chat.group_settings")}
                                     {pendingRequests.length > 0 && (
                                         <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-bold text-destructive-foreground">
                                             {pendingRequests.length}
@@ -467,7 +470,7 @@ export function GroupManagementPanel({
                                     className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
                                 />
                                 <Input
-                                    placeholder="Search members..."
+                                    placeholder={t("chat.group_panel_search_members")}
                                     value={memberSearch}
                                     onChange={(e) => setMemberSearch(e.target.value)}
                                     className="h-8 pl-8 text-sm bg-muted/40 border-transparent focus-visible:border-brand/50 focus-visible:ring-1 focus-visible:ring-brand/30"
@@ -481,7 +484,7 @@ export function GroupManagementPanel({
                                     onClick={() => setShowAddMembersDialog(true)}
                                 >
                                     <UserPlus size={13} />
-                                    Add
+                                    {t("common.add")}
                                 </Button>
                             )}
                         </div>
@@ -495,7 +498,7 @@ export function GroupManagementPanel({
                             ) : filteredMembers.length === 0 ? (
                                 <div className="flex flex-col items-center gap-2 py-10 text-muted-foreground">
                                     <Users size={24} className="opacity-30" />
-                                    <p className="text-xs">No members found</p>
+                                    <p className="text-xs">{t("chat.no_members_found")}</p>
                                 </div>
                             ) : (
                                 <div className="space-y-px">
@@ -531,19 +534,19 @@ export function GroupManagementPanel({
                             <div className="space-y-4 pt-3">
                                 <div className="space-y-1.5">
                                     <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                                        Group Name
+                                        {t("chat.group_name")}
                                     </label>
                                     <Input
                                         value={groupName}
                                         onChange={(e) => setGroupName(e.target.value)}
-                                        placeholder="Enter group name..."
+                                        placeholder={t("chat.group_name_placeholder")}
                                         className="h-9 text-sm"
                                     />
                                 </div>
 
                                 <div className="space-y-1.5">
                                     <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                                        Group Avatar
+                                        {t("chat.group_avatar")}
                                     </label>
                                     <div className="flex items-center gap-3">
                                         <Avatar className="h-14 w-14 shrink-0">
@@ -573,7 +576,7 @@ export function GroupManagementPanel({
                                                 ) : (
                                                     <Upload size={12} />
                                                 )}
-                                                {avatarUploading ? "Loading..." : "Select image"}
+                                                {avatarUploading ? t("common.loading") : t("chat.select_image")}
                                             </Button>
                                             {groupAvatar && (
                                                 <Button
@@ -584,7 +587,7 @@ export function GroupManagementPanel({
                                                     className="h-8 text-xs gap-1.5 text-muted-foreground hover:text-destructive"
                                                 >
                                                     <X size={12} />
-                                                    Remove image
+                                                    {t("chat.remove_image")}
                                                 </Button>
                                             )}
                                         </div>
@@ -596,7 +599,7 @@ export function GroupManagementPanel({
                                 {/* ── Invite link section ── */}
                                 <div className="space-y-2">
                                     <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
-                                        <LinkIcon size={12} /> Group Invite Link
+                                        <LinkIcon size={12} /> {t("chat.group_invite_link")}
                                     </label>
                                     {inviteLink ? (
                                         <div className="space-y-2">
@@ -611,7 +614,7 @@ export function GroupManagementPanel({
                                                     variant="outline"
                                                     className="h-8 w-8 shrink-0"
                                                     onClick={handleCopyInviteLink}
-                                                    title="Copy link"
+                                                    title={t("chat.copy_link")}
                                                 >
                                                     <Copy size={13} />
                                                 </Button>
@@ -620,7 +623,7 @@ export function GroupManagementPanel({
                                                     variant="outline"
                                                     className="h-8 w-8 shrink-0"
                                                     onClick={() => setShowQrDialog(true)}
-                                                    title="QR Code"
+                                                    title={t("chat.group_panel.qr_code")}
                                                 >
                                                     <QrCode size={13} />
                                                 </Button>
@@ -634,7 +637,7 @@ export function GroupManagementPanel({
                                                     disabled={inviteLinkLoading}
                                                 >
                                                     <RefreshCw size={11} />
-                                                    Reset link
+                                                    {t("chat.group_panel.reset_link")}
                                                 </Button>
                                             )}
                                         </div>
@@ -651,7 +654,7 @@ export function GroupManagementPanel({
                                             ) : (
                                                 <LinkIcon size={12} />
                                             )}
-                                            Create invite link
+                                            {t("chat.group_panel.create_invite_link")}
                                         </Button>
                                     )}
                                 </div>
@@ -662,10 +665,10 @@ export function GroupManagementPanel({
                                 <div className="flex items-center justify-between gap-3 rounded-lg border border-border/50 bg-muted/20 px-3 py-2.5">
                                     <div className="flex-1 min-w-0">
                                         <p className="text-sm font-medium text-foreground">
-                                            Allow members to update info
+                                            {t("chat.group_panel.allow_members_update")}
                                         </p>
                                         <p className="mt-1 text-xs text-muted-foreground">
-                                            If enabled, all members can change group name and avatar
+                                            {t("chat.group_panel.allow_members_update_desc")}
                                         </p>
                                     </div>
                                     <button
@@ -688,10 +691,10 @@ export function GroupManagementPanel({
                                 <div className="flex items-center justify-between gap-3 rounded-lg border border-border/50 bg-muted/20 px-3 py-2.5">
                                     <div className="flex-1 min-w-0">
                                         <p className="text-sm font-medium text-foreground">
-                                            Approve new members
+                                            {t("chat.group_panel.approve_new_members")}
                                         </p>
                                         <p className="mt-1 text-xs text-muted-foreground">
-                                            Require owner approval before adding new members
+                                            {t("chat.group_panel.approve_new_members_desc")}
                                         </p>
                                     </div>
                                     <button
@@ -714,10 +717,10 @@ export function GroupManagementPanel({
                                 <div className="flex items-center justify-between gap-3 rounded-lg border border-border/50 bg-muted/20 px-3 py-2.5">
                                     <div className="flex-1 min-w-0">
                                         <p className="text-sm font-medium text-foreground">
-                                            AI proactive assistant
+                                            {t("chat.group_panel.ai_proactive")}
                                         </p>
                                         <p className="mt-1 text-xs text-muted-foreground">
-                                            Let AI suggest answers to unanswered questions in this group
+                                            {t("chat.group_panel.ai_proactive_desc")}
                                         </p>
                                     </div>
                                     <button
@@ -745,7 +748,7 @@ export function GroupManagementPanel({
                                         <Separator />
                                         <div className="space-y-2">
                                             <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
-                                                <UserCheck size={12} /> Pending requests ({pendingRequests.length})
+                                                <UserCheck size={12} /> {t("chat.group_panel.pending_requests", { count: pendingRequests.length })}
                                             </label>
                                             <div className="space-y-1">
                                                 {pendingRequests.map((req) => (
@@ -774,7 +777,7 @@ export function GroupManagementPanel({
                                                                 variant="ghost"
                                                                 className="h-7 w-7 text-green-600 hover:text-green-700 hover:bg-green-50"
                                                                 onClick={() => handleApprovePending(req.userId)}
-                                                                title="Approve"
+                                                                title={t("chat.group_panel.approve")}
                                                             >
                                                                 <UserCheck size={14} />
                                                             </Button>
@@ -783,7 +786,7 @@ export function GroupManagementPanel({
                                                                 variant="ghost"
                                                                 className="h-7 w-7 text-destructive hover:text-destructive/90 hover:bg-destructive/10"
                                                                 onClick={() => handleRejectPending(req.userId)}
-                                                                title="Reject"
+                                                                title={t("chat.group_panel.reject")}
                                                             >
                                                                 <UserX size={14} />
                                                             </Button>
@@ -808,7 +811,7 @@ export function GroupManagementPanel({
                                     ) : (
                                         <Save size={13} />
                                     )}
-                                    Save changes
+                                    {t("chat.group_panel.save_changes")}
                                 </Button>
 
                                 {myRole === "OWNER" && (
@@ -816,7 +819,7 @@ export function GroupManagementPanel({
                                         <Separator />
                                         <div className="space-y-2">
                                             <label className="text-xs font-medium uppercase tracking-wide text-destructive flex items-center gap-1.5">
-                                                <AlertTriangle size={12} /> Danger Zone
+                                                <AlertTriangle size={12} /> {t("chat.group_panel.danger_zone")}
                                             </label>
                                             <Button
                                                 variant="destructive"
@@ -825,7 +828,7 @@ export function GroupManagementPanel({
                                                 onClick={() => setDissolveOpen(true)}
                                             >
                                                 <AlertTriangle size={13} />
-                                                Dissolve Group
+                                                {t("chat.group_panel.dissolve_group")}
                                             </Button>
                                         </div>
                                     </>
@@ -842,17 +845,21 @@ export function GroupManagementPanel({
         <Dialog open={!!removingMember} onOpenChange={(o) => !o && setRemovingMember(null)}>
             <DialogContent className="sm:max-w-sm">
                 <DialogHeader>
-                    <DialogTitle>Remove Member</DialogTitle>
+                    <DialogTitle>{t("chat.group_panel.remove_member_title")}</DialogTitle>
                     <DialogDescription>
-                        Are you sure you want to remove <strong>{removingMember?.displayName}</strong> from the group?
+                        <Trans
+                            i18nKey="chat.group_panel.remove_member_desc"
+                            values={{ name: removingMember?.displayName ?? "" }}
+                            components={{ strong: <strong /> }}
+                        />
                     </DialogDescription>
                 </DialogHeader>
                 <DialogFooter className="gap-2 sm:gap-0">
                     <Button variant="outline" size="sm" onClick={() => setRemovingMember(null)}>
-                        Cancel
+                        {t("common.cancel")}
                     </Button>
                     <Button variant="destructive" size="sm" onClick={confirmRemoveMember}>
-                        Remove
+                        {t("chat.group_panel.remove")}
                     </Button>
                 </DialogFooter>
             </DialogContent>
@@ -864,19 +871,19 @@ export function GroupManagementPanel({
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2 text-destructive">
                         <AlertTriangle size={16} />
-                        Dissolve Group
+                        {t("chat.group_panel.dissolve_confirm_title")}
                     </DialogTitle>
                     <DialogDescription>
-                        This will permanently delete the group, all messages, and remove all members. This action cannot be undone.
+                        {t("chat.group_panel.dissolve_confirm_desc")}
                     </DialogDescription>
                 </DialogHeader>
                 <DialogFooter className="gap-2 sm:gap-0">
                     <Button variant="outline" size="sm" onClick={() => setDissolveOpen(false)} disabled={dissolving}>
-                        Cancel
+                        {t("common.cancel")}
                     </Button>
                     <Button variant="destructive" size="sm" onClick={handleDissolveGroup} disabled={dissolving}>
                         {dissolving ? <Loader2 size={13} className="animate-spin" /> : <AlertTriangle size={13} />}
-                        Dissolve
+                        {dissolving ? t("chat.group_panel.dissolving") : t("chat.group_panel.dissolve_group")}
                     </Button>
                 </DialogFooter>
             </DialogContent>
@@ -886,7 +893,7 @@ export function GroupManagementPanel({
         <Dialog open={showQrDialog} onOpenChange={setShowQrDialog}>
             <DialogContent className="sm:max-w-xs">
                 <DialogHeader>
-                    <DialogTitle className="text-center">Group Invite QR Code</DialogTitle>
+                    <DialogTitle className="text-center">{t("chat.group_panel.qr_dialog_title")}</DialogTitle>
                 </DialogHeader>
                 <div className="flex flex-col items-center gap-4 py-4">
                     {inviteLink && (
@@ -895,7 +902,7 @@ export function GroupManagementPanel({
                         </div>
                     )}
                     <p className="text-xs text-muted-foreground text-center">
-                        Scan QR code to join group
+                        {t("chat.group_panel.qr_dialog_desc")}
                     </p>
                 </div>
             </DialogContent>
@@ -935,6 +942,7 @@ function MemberRow({
     onUpdateRole,
     onRemove,
 }: MemberRowProps) {
+    const { t } = useTranslation();
     const isRoleMenuOpen = roleMenuOpenFor === member.userId;
     const availableRoles: GroupRole[] =
         myRole === "OWNER" ? ["OWNER", "ADMIN", "MEMBER"] : ["ADMIN", "MEMBER"];
@@ -1033,7 +1041,7 @@ function MemberRow({
                         <AdminBadge className="size-3.5" />
                     )}
                     {isCurrentUser && (
-                        <span className="text-[10px] text-muted-foreground">(You)</span>
+                        <span className="text-[10px] text-muted-foreground">{t("chat.group_panel.you_label")}</span>
                     )}
                     <RoleBadge role={member.role} />
                 </div>
@@ -1054,7 +1062,7 @@ function MemberRow({
                         variant="ghost"
                         size="icon"
                         className="h-7 w-7 text-muted-foreground hover:text-foreground"
-                        title="Change role"
+                        title={t("chat.group_panel.change_role_title")}
                         onClick={(event) => {
                             if (!isRoleMenuOpen) {
                                 updateRoleMenuPosition(event.currentTarget);
@@ -1078,7 +1086,7 @@ function MemberRow({
                             >
                                 <div className="px-2 py-1.5">
                                     <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                                        Update role
+                                        {t("chat.group_panel.change_role_title")}
                                     </p>
                                 </div>
                                 <div className="divide-y divide-border/50">
@@ -1097,7 +1105,7 @@ function MemberRow({
                                             )}
                                         >
                                             {ROLE_CONFIG[role].icon}
-                                            {ROLE_CONFIG[role].label}
+                                            {t(`chat.group_panel.${role.toLowerCase()}`)}
                                             {member.role === role && (
                                                 <Check size={10} className="ml-auto" />
                                             )}
@@ -1113,7 +1121,7 @@ function MemberRow({
                         variant="ghost"
                         size="icon"
                         className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                        title="Remove from group"
+                        title={t("chat.group_panel.remove_from_group")}
                         onClick={onRemove}
                     >
                         <UserMinus size={13} />

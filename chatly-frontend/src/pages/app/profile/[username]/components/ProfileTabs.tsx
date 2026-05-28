@@ -1,4 +1,5 @@
 import { AtSign, Bookmark, Clapperboard, Grid } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 import type { ProfileTab } from "./profile.types";
 
@@ -9,12 +10,13 @@ interface ProfileTabsProps {
 }
 
 export function ProfileTabs({ activeTab, isOwnProfile, onChange }: ProfileTabsProps) {
+    const { t } = useTranslation();
     const tabs = [
-        { id: "posts" as const, label: "Posts", icon: <Grid className="h-4 w-4" /> },
-        { id: "reels" as const, label: "Reels", icon: <Clapperboard className="h-4 w-4" /> },
-        { id: "tagged" as const, label: "Tagged", icon: <AtSign className="h-4 w-4" /> },
+        { id: "posts" as const, labelKey: "profile.posts", icon: <Grid className="h-4 w-4" /> },
+        { id: "reels" as const, labelKey: "profile.reels", icon: <Clapperboard className="h-4 w-4" /> },
+        { id: "tagged" as const, labelKey: "profile.tagged", icon: <AtSign className="h-4 w-4" /> },
         ...(isOwnProfile
-            ? [{ id: "saved" as const, label: "Saved", icon: <Bookmark className="h-4 w-4" /> }]
+            ? [{ id: "saved" as const, labelKey: "profile.tab_saved", icon: <Bookmark className="h-4 w-4" /> }]
             : []),
     ];
 
@@ -34,7 +36,7 @@ export function ProfileTabs({ activeTab, isOwnProfile, onChange }: ProfileTabsPr
                         )}
                     >
                         {tab.icon}
-                        {tab.label}
+                        {t(tab.labelKey)}
                     </button>
                 ))}
             </nav>

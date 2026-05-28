@@ -17,6 +17,7 @@ import {
     useState,
 } from "react";
 import { useBlocker } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -81,18 +82,19 @@ function mapUserToForm(user?: UserResponse | null): ProfileFormData {
     };
 }
 
-function formatJoinedAt(createdAt?: string) {
+function formatJoinedAt(createdAt: string | undefined, locale: string) {
     if (!createdAt) return "-";
     const date = new Date(createdAt);
     if (Number.isNaN(date.getTime())) return "-";
 
-    return new Intl.DateTimeFormat("en-US", {
+    return new Intl.DateTimeFormat(locale, {
         month: "long",
         year: "numeric",
     }).format(date);
 }
 
 export default function ProfilePage() {
+    const { t, i18n } = useTranslation();
     const user = useAuthStore((s) => s.user);
     const updateUser = useAuthStore((s) => s.updateUser);
 
@@ -133,8 +135,8 @@ export default function ProfilePage() {
         return true;
     });
 
-    const joinedAt = formatJoinedAt(user?.createdAt);
-    const fullName = form.displayName || user?.displayName || "User";
+    const joinedAt = formatJoinedAt(user?.createdAt, i18n.language);
+    const fullName = form.displayName || user?.displayName || t("profile.user_fallback");
     const userInitial = fullName.charAt(0).toUpperCase() || "U";
 
     const onConfirmLeave = () => {
@@ -165,7 +167,7 @@ export default function ProfilePage() {
         const timeoutId = window.setTimeout(() => {
             if (!active) return;
             setLoading(false);
-            toast.error("Profile loading took too long, please try again");
+            toast.error(t("profile.load_timeout"));
         }, 12000);
 
         const loadProfile = async () => {
@@ -185,7 +187,7 @@ export default function ProfilePage() {
                     setForm(fallback);
                     setInitialForm(fallback);
                 }
-                toast.error("Could not load profile information");
+                toast.error(t("profile.load_failed"));
             } finally {
                 window.clearTimeout(timeoutId);
                 if (active) setLoading(false);
@@ -198,7 +200,7 @@ export default function ProfilePage() {
             active = false;
             window.clearTimeout(timeoutId);
         };
-    }, [updateUser]);
+    }, [updateUser, t]);
 
     const onInputChange =
         (field: keyof ProfileFormData) =>
@@ -216,7 +218,7 @@ export default function ProfilePage() {
         if (!file) return;
 
         if (!file.type.startsWith("image/")) {
-            toast.error("Please select a valid image file");
+            toast.error(t("profile.select_valid_image"));
             return;
         }
 
@@ -232,7 +234,7 @@ export default function ProfilePage() {
             }
         };
         reader.onerror = () => {
-            toast.error("Could not read image file");
+            toast.error(t("profile.read_image_failed"));
         };
         reader.readAsDataURL(file);
     };
@@ -243,7 +245,7 @@ export default function ProfilePage() {
 
     const onSave = async () => {
         if (!user?.id) {
-            toast.error("Could not identify current user");
+            toast.error(t("profile.user_unknown"));
             return;
         }
 
@@ -251,7 +253,7 @@ export default function ProfilePage() {
         const trimmedUsername = form.username.trim();
 
         if (!trimmedDisplayName || !trimmedUsername) {
-            toast.error("Display name and username cannot be empty");
+            toast.error(t("profile.fields_required"));
             return;
         }
 
@@ -277,7 +279,7 @@ export default function ProfilePage() {
                     avatarUrl = uploaded.url;
                     setSelectedAvatarFile(null);
                 } catch {
-                    toast.error("Could not upload image, please try again");
+                    toast.error(t("profile.upload_avatar_failed"));
                     return;
                 } finally {
                     setUploadingAvatar(false);
@@ -298,9 +300,9 @@ export default function ProfilePage() {
             const nextForm = mapUserToForm(response.result);
             setForm(nextForm);
             setInitialForm(nextForm);
-            toast.success("Profile saved successfully");
+            toast.success(t("profile.save_success"));
         } catch (error) {
-            toast.error("Failed to save profile. Please try again");
+            toast.error(t("profile.save_failed"));
         } finally {
             setSaving(false);
         }
@@ -311,7 +313,7 @@ export default function ProfilePage() {
             <div className="flex h-full w-full items-center justify-center bg-background">
                 <div className="flex items-center gap-2 text-muted-foreground">
                     <Loader2 className="h-5 w-5 animate-spin" />
-                    <span className="text-sm">Loading profile...</span>
+                    <span className="text-sm">{t("profile.loading")}</span>
                 </div>
             </div>
         );
@@ -339,7 +341,7 @@ export default function ProfilePage() {
                                 <button
                                     type="button"
                                     className="absolute -bottom-1 -right-1 rounded-full border border-white bg-[#1a146b] p-2 text-white shadow-md transition hover:scale-105 hover:bg-[#312e81] disabled:opacity-60 disabled:cursor-not-allowed"
-                                    aria-label="Change avatar"
+                                    aria-label={t("profile.change_avatar")}
                                     onClick={onPickAvatar}
                                     disabled={uploadingAvatar || saving}
                                 >
@@ -367,10 +369,10 @@ export default function ProfilePage() {
                             </div>
 
                             <p className="text-sm font-medium text-muted-foreground">
-                                @{form.username || "username"}
+                                @{form.username || t("profile.username_fallback")}
                             </p>
                             <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground md:text-base">
-                                {form.bio || "You haven't updated your bio yet."}
+                                {form.bio || t("profile.no_bio")}
                             </p>
                         </div>
 
@@ -380,7 +382,7 @@ export default function ProfilePage() {
                                 onClick={onReset}
                                 disabled={!isDirty || saving}
                             >
-                                Undo
+                                {t("profile.undo")}
                             </Button>
                             <Button
                                 className="gap-2 bg-[#1a146b] text-white hover:bg-[#312e81]"
@@ -390,12 +392,12 @@ export default function ProfilePage() {
                                 {saving ? (
                                     <>
                                         <Loader2 className="h-4 w-4 animate-spin" />
-                                        Saving...
+                                        {t("profile.saving")}
                                     </>
                                 ) : (
                                     <>
                                         <Edit3 size={16} />
-                                        Save changes
+                                        {t("profile.save_changes")}
                                     </>
                                 )}
                             </Button>
@@ -406,48 +408,48 @@ export default function ProfilePage() {
                 <section className="grid gap-4 md:grid-cols-2">
                     <article className="rounded-2xl border border-border bg-card p-5 iv-shadow-sm dark:border-[#312e81]/20 dark:shadow-[0_16px_45px_-32px_rgba(99,102,241,0.4)] md:p-6">
                         <h2 className="mb-4 text-base font-semibold text-foreground md:text-lg">
-                            Contact Information
+                            {t("profile.contact_info_title")}
                         </h2>
 
                         <div className="space-y-4">
                             <div className="space-y-2">
-                                <Label htmlFor="display-name">Display Name</Label>
+                                <Label htmlFor="display-name">{t("profile.display_name")}</Label>
                                 <Input
                                     id="display-name"
                                     value={form.displayName}
                                     onChange={onInputChange("displayName")}
-                                    placeholder="Enter display name"
+                                    placeholder={t("profile.display_name_placeholder")}
                                 />
                             </div>
 
                             <div className="space-y-2">
-                                <Label htmlFor="username">Username</Label>
+                                <Label htmlFor="username">{t("profile.username")}</Label>
                                 <Input
                                     id="username"
                                     value={form.username}
                                     onChange={onInputChange("username")}
-                                    placeholder="Enter username"
+                                    placeholder={t("profile.username_placeholder")}
                                 />
                             </div>
 
                             <div className="space-y-2">
-                                <Label htmlFor="email">Email</Label>
+                                <Label htmlFor="email">{t("profile.email")}</Label>
                                 <Input
                                     id="email"
                                     type="email"
                                     value={form.email}
                                     onChange={onInputChange("email")}
-                                    placeholder="you@chatly.vn"
+                                    placeholder={t("profile.email_placeholder")}
                                 />
                             </div>
 
                             <div className="space-y-2">
-                                <Label htmlFor="phone">Phone number</Label>
+                                <Label htmlFor="phone">{t("profile.phone")}</Label>
                                 <Input
                                     id="phone"
                                     value={form.phone}
                                     onChange={onInputChange("phone")}
-                                    placeholder="+84..."
+                                    placeholder={t("profile.phone_placeholder")}
                                 />
                             </div>
                         </div>
@@ -455,12 +457,12 @@ export default function ProfilePage() {
 
                     <article className="rounded-2xl border border-border bg-card p-5 iv-shadow-sm dark:border-[#312e81]/20 dark:shadow-[0_16px_45px_-32px_rgba(99,102,241,0.4)] md:p-6">
                         <h2 className="mb-4 text-base font-semibold text-foreground md:text-lg">
-                            Account Status
+                            {t("profile.account_status_title")}
                         </h2>
 
                         <div className="space-y-4">
                             <div className="space-y-2">
-                                <Label htmlFor="dob">Date of birth</Label>
+                                <Label htmlFor="dob">{t("profile.dob")}</Label>
                                 <Input
                                     id="dob"
                                     type="date"
@@ -470,28 +472,28 @@ export default function ProfilePage() {
                             </div>
 
                             <div className="space-y-2">
-                                <Label htmlFor="bio">Bio</Label>
+                                <Label htmlFor="bio">{t("profile.bio_label")}</Label>
                                 <Textarea
                                     id="bio"
                                     value={form.bio}
                                     onChange={onInputChange("bio")}
-                                    placeholder="Short intro about yourself"
+                                    placeholder={t("profile.bio_placeholder")}
                                     className="min-h-28"
                                 />
                             </div>
 
-                            <InfoRow icon={Mail} label="Email" value={form.email || "-"} />
-                            <InfoRow icon={Phone} label="Phone" value={form.phone || "-"} />
-                            <InfoRow icon={MapPin} label="Username" value={form.username || "-"} />
-                            <InfoRow icon={CalendarDays} label="Joined on" value={joinedAt} />
+                            <InfoRow icon={Mail} label={t("profile.email")} value={form.email || "-"} />
+                            <InfoRow icon={Phone} label={t("profile.phone")} value={form.phone || "-"} />
+                            <InfoRow icon={MapPin} label={t("profile.username")} value={form.username || "-"} />
+                            <InfoRow icon={CalendarDays} label={t("profile.joined_on")} value={joinedAt} />
 
                             <div className="flex items-center justify-between rounded-xl bg-muted/60 px-4 py-3 dark:bg-muted/40">
                                 <div className="flex items-center gap-3 text-foreground">
                                     <ShieldCheck className="text-[#1a146b]" size={18} />
-                                    <span className="text-sm font-medium">Account Status</span>
+                                    <span className="text-sm font-medium">{t("profile.account_status")}</span>
                                 </div>
                                 <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-500/20 dark:text-emerald-300 dark:hover:bg-emerald-500/20">
-                                    {user?.status || "Active"}
+                                    {user?.status || t("profile.status_active")}
                                 </Badge>
                             </div>
                         </div>
@@ -503,9 +505,9 @@ export default function ProfilePage() {
         <Dialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
                 <DialogContent showCloseButton={false}>
                     <DialogHeader>
-                        <DialogTitle>Leave page?</DialogTitle>
+                        <DialogTitle>{t("profile.leave_page")}</DialogTitle>
                         <DialogDescription>
-                            You have unsaved changes. If you leave, these changes will be lost.
+                            {t("profile.leave_warning")}
                         </DialogDescription>
                     </DialogHeader>
                     <DialogFooter>
@@ -513,13 +515,13 @@ export default function ProfilePage() {
                             variant="outline"
                             onClick={onCancelLeave}
                         >
-                            Cancel
+                            {t("common.cancel")}
                         </Button>
                         <Button
                             variant="destructive"
                             onClick={onConfirmLeave}
                         >
-                            Leave
+                            {t("profile.leave_button")}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

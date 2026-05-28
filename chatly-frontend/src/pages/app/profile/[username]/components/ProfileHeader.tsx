@@ -10,6 +10,7 @@ import {
     UserPlus,
     X,
 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -77,6 +78,7 @@ export function ProfileHeader({
     suspended = false,
     role,
 }: ProfileHeaderProps) {
+    const { t } = useTranslation();
     return (
         <section className="mb-10 grid gap-6 border-b border-border pb-10 sm:grid-cols-[10rem_minmax(0,1fr)] sm:gap-10 lg:grid-cols-[12rem_minmax(0,1fr)] lg:px-10">
             <div
@@ -108,17 +110,17 @@ export function ProfileHeader({
                     {role === "ADMIN" && <AdminBadge className="size-5" />}
                     {direction === "I_BLOCKED" && (
                         <Badge variant="destructive" className="gap-1">
-                            <Ban className="size-3" /> Blocked
+                            <Ban className="size-3" /> {t("profile.blocked_badge")}
                         </Badge>
                     )}
                     {suspended && !isOwnProfile && (
                         <Badge variant="destructive" className="gap-1 bg-red-100 text-red-700 border-red-200">
-                            <ShieldAlert className="size-3" /> Account Suspended
+                            <ShieldAlert className="size-3" /> {t("profile.account_suspended_badge")}
                         </Badge>
                     )}
                     {isLimited && direction !== "I_BLOCKED" && (
                         <Badge variant="secondary" className="gap-1 bg-amber-100 text-amber-700">
-                            <ShieldOff className="size-3" /> Limited
+                            <ShieldOff className="size-3" /> {t("profile.limited_badge")}
                         </Badge>
                     )}
                     {contactStatus === "ACCEPTED" && !direction && (
@@ -149,7 +151,7 @@ export function ProfileHeader({
                             onClick={() => onSetConfirmDialog("unblock")}
                             disabled={actionLoading}
                         >
-                            <Unlock className="mr-2 size-4" /> Unblock
+                            <Unlock className="mr-2 size-4" /> {t("profile.unblock")}
                         </Button>
                     ) : (
                         <div className="grid min-w-0 flex-1 gap-2 sm:grid-cols-2">
@@ -164,14 +166,14 @@ export function ProfileHeader({
                             ) : theySentRequest ? (
                                 <div className="grid gap-2 sm:grid-cols-2">
                                     <Button onClick={onAcceptRequest} disabled={actionLoading}>
-                                        <Check className="mr-2 size-4" /> Accept
+                                        <Check className="mr-2 size-4" /> {t("profile.accept")}
                                     </Button>
                                     <Button
                                         variant="outline"
                                         onClick={onCancelRequest}
                                         disabled={actionLoading}
                                     >
-                                        <X className="mr-2 size-4" /> Decline
+                                        <X className="mr-2 size-4" /> {t("profile.decline")}
                                     </Button>
                                 </div>
                             ) : iSentRequest ? (
@@ -180,7 +182,7 @@ export function ProfileHeader({
                                     onClick={onCancelRequest}
                                     disabled={actionLoading}
                                 >
-                                    <X className="mr-2 size-4" /> Cancel request
+                                    <X className="mr-2 size-4" /> {t("profile.cancel_request")}
                                 </Button>
                             ) : (
                                 <Button onClick={onSendFriendRequest} disabled={actionLoading}>
@@ -189,11 +191,11 @@ export function ProfileHeader({
                                     ) : (
                                         <UserPlus className="mr-2 size-4" />
                                     )}
-                                    Add friend
+                                    {t("profile.add_friend")}
                                 </Button>
                             )}
                             <Button onClick={onMessage} disabled={actionLoading}>
-                                <MessageCircle className="mr-2 size-4" /> Message
+                                <MessageCircle className="mr-2 size-4" /> {t("profile.message")}
                             </Button>
                         </div>
                     ))}

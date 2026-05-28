@@ -1,5 +1,6 @@
 import { memo, useRef, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { ChatHeader } from "./ChatHeader";
 import { MessageList } from "./MessageList";
 import { ChatInput, type ChatInputRef } from "./ChatInput";
@@ -27,6 +28,7 @@ interface ChatWindowProps {
 }
 
 export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) => {
+    const { t } = useTranslation();
     const navigate = useNavigate();
     const location = useLocation();
     const chatInputRef = useRef<ChatInputRef>(null);
@@ -67,14 +69,14 @@ export const ChatWindow = memo(({ id, onConversationUpdated }: ChatWindowProps) 
 
     const replyingSenderName =
         s.replyingTo?.senderId === currentUser?.id
-            ? "You"
+            ? t("common.you")
             : (s.participantDirectory[s.replyingTo?.senderId ?? ""]?.displayName ??
               participant.displayName)
                   .split(" ")
                   .slice(-1)[0];
 
     const typingDisplayName = typingUserId === AI_TYPING_USER_ID
-        ? "AI"
+        ? t("chat.ai_short")
         : typingUserId
             ? (s.participantDirectory[typingUserId]?.displayName ?? participant.displayName)
                   .split(" ")

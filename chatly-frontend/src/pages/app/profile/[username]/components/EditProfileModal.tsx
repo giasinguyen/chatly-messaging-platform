@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import {
     Dialog,
@@ -16,6 +17,7 @@ interface EditProfileModalProps {
 }
 
 export function EditProfileModal({ username }: EditProfileModalProps) {
+    const { t } = useTranslation();
     const navigate = useNavigate();
     const [open, setOpen] = useState(false);
 
@@ -31,21 +33,21 @@ export function EditProfileModal({ username }: EditProfileModalProps) {
                     type="button"
                     className="rounded-lg bg-muted px-4 py-2 font-semibold text-foreground transition-colors hover:bg-muted/80"
                 >
-                    Edit Profile
+                    {t("profile.edit_profile")}
                 </button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-md">
                 <DialogHeader>
-                    <DialogTitle>Open profile editor</DialogTitle>
+                    <DialogTitle>{t("profile.open_editor_title")}</DialogTitle>
                     <DialogDescription>
-                        You will be redirected to the profile edit page.
+                        {t("profile.open_editor_desc")}
                     </DialogDescription>
                 </DialogHeader>
                 <DialogFooter>
                     <Button variant="outline" onClick={() => setOpen(false)}>
-                        Cancel
+                        {t("common.cancel")}
                     </Button>
-                    <Button onClick={handleContinue}>Continue</Button>
+                    <Button onClick={handleContinue}>{t("profile.continue")}</Button>
                 </DialogFooter>
             </DialogContent>
         </Dialog>

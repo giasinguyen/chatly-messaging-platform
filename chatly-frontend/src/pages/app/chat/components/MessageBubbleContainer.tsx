@@ -10,7 +10,7 @@ import { MessageBubbleBody } from "./MessageBubbleBody";
 import { MessageBubbleActions } from "./MessageBubbleActions";
 import { MessageSeenIndicator } from "./MessageSeenIndicator";
 import { MessageContextMenu } from "./MessageContextMenu";
-import { isLastInGroup, shouldShowAvatar } from "./messageList.utils";
+import { isImageCaptionMessage, isLastInGroup, shouldShowAvatar } from "./messageList.utils";
 
 interface MessageBubbleContainerProps {
     msg: Message;
@@ -123,7 +123,6 @@ export function MessageBubbleContainer(props: MessageBubbleContainerProps) {
     const isPoll = msg.type === "POLL";
     const showAvatar = shouldShowAvatar(messages, index);
     const lastInGroup = isLastInGroup(messages, index);
-
     const bubble = (
         <div
             data-message-id={msg.id}
@@ -223,6 +222,7 @@ export function MessageBubbleContainer(props: MessageBubbleContainerProps) {
                         onClosePoll={onClosePoll}
                         onAddFriend={onAddFriend}
                         onOpenImage={onOpenImage}
+                        showInlineMetadata={isImageCaptionMessage(msg)}
                     />
 
                     {!msg.recalled && !isBeingEdited && (
@@ -265,7 +265,7 @@ export function MessageBubbleContainer(props: MessageBubbleContainerProps) {
                     </div>
                 )}
 
-                {lastInGroup && (
+                {lastInGroup && !isImageCaptionMessage(msg) && (
                     <div
                         className={cn(
                             "flex items-center gap-1 mt-1 opacity-0 group-hover:opacity-100 transition-opacity px-1",

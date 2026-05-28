@@ -2,6 +2,7 @@ import { Plus } from "lucide-react";
 import { useAuthStore } from "@/store/auth.store";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 import { AdminBadge } from "@/components/customize/AdminBadge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -27,6 +28,7 @@ import { HomeLeftSidebar } from "@/pages/app/home/components/HomeLeftSidebar";
 import { HomeRightSidebar } from "@/pages/app/home/components/HomeRightSidebar";
 
 export default function HomePage() {
+    const { t } = useTranslation();
     const { user } = useAuthStore();
     const navigate = useNavigate();
     const [showOptionsModal, setShowOptionsModal] = useState(false);
@@ -190,8 +192,8 @@ export default function HomePage() {
 
     return (
         <SocialErrorBoundary
-            title="Home feed is unavailable"
-            message="This social feed failed to render. Try again."
+            title={t("home.feed_unavailable_title")}
+            message={t("home.feed_unavailable_message")}
         >
             <div className="w-full h-full overflow-y-auto bg-background relative hide-scrollbar">
                 <div className="flex w-full justify-center">
@@ -213,7 +215,7 @@ export default function HomePage() {
                                         </div>
                                     </div>
                                     <span className="text-sm text-muted-foreground truncate w-16 text-center">
-                                        News
+                                        {t("home.news")}
                                     </span>
                                 </div>
 
@@ -261,7 +263,7 @@ export default function HomePage() {
                                             >
                                                 <span className="truncate">
                                                     {group.user?.id === user?.id
-                                                        ? "Your story"
+                                                        ? t("home.your_story")
                                                         : group.user?.displayName}
                                                 </span>
                                                 {group.user?.role === "ADMIN" && (

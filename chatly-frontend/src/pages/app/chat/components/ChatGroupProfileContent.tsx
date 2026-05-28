@@ -1,5 +1,6 @@
 import { memo, useRef } from "react";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 import {
     Copy,
     Loader2,
@@ -56,20 +57,21 @@ export const ChatGroupProfileContent = memo(function ChatGroupProfileContent({
     onOpenGroupPanel,
     onLeaveGroup,
 }: ChatGroupProfileContentProps) {
+    const { t } = useTranslation();
     const avatarInputRef = useRef<HTMLInputElement>(null);
 
     const handleCopyLink = async () => {
         try {
             await navigator.clipboard.writeText(inviteLink);
-            toast.success("Group link copied");
+            toast.success(t("chat.group_link_copied"));
         } catch {
-            toast.error("Could not copy link");
+            toast.error(t("chat.group_link_copy_failed"));
         }
     };
 
     const handleCancelEdit = () => {
         onChangeName(
-            participant.displayName || conversation.name || "Chat group",
+            participant.displayName || conversation.name || t("chat.fallback_group_name"),
         );
         onChangeAvatarDraft(
             participant.avatarUrl || conversation.avatarUrl || "",
@@ -80,9 +82,9 @@ export const ChatGroupProfileContent = memo(function ChatGroupProfileContent({
     return (
         <>
             <DialogHeader>
-                <DialogTitle>Group Information</DialogTitle>
+                <DialogTitle>{t("chat.group_information")}</DialogTitle>
                 <DialogDescription>
-                    Manage group info and members.
+                    {t("chat.group_information_desc")}
                 </DialogDescription>
             </DialogHeader>
 
@@ -112,7 +114,7 @@ export const ChatGroupProfileContent = memo(function ChatGroupProfileContent({
                                     <Input
                                         value={groupNameDraft}
                                         onChange={(e) => onChangeName(e.target.value)}
-                                        placeholder="Group Name"
+                                        placeholder={t("chat.group_name_placeholder")}
                                         className="h-8"
                                     />
                                 ) : (
@@ -121,7 +123,7 @@ export const ChatGroupProfileContent = memo(function ChatGroupProfileContent({
                                     </p>
                                 )}
                                 <p className="text-xs text-muted-foreground">
-                                    Group Chat • {groupMembers.length} members
+                                    {t("chat.group_chat_label")} • {t("chat.members_count", { count: groupMembers.length })}
                                 </p>
                             </div>
                         </div>
@@ -154,14 +156,14 @@ export const ChatGroupProfileContent = memo(function ChatGroupProfileContent({
                                 {groupAvatarUploading ? (
                                     <>
                                         <Loader2 size={14} className="mr-2 animate-spin" />
-                                        Uploading image...
+                                        {t("chat.uploading_image")}
                                     </>
                                 ) : (
                                     <>
                                         <Upload size={14} className="mr-2" />
                                         {groupAvatarDraft
-                                            ? "Change avatar"
-                                            : "Select avatar"}
+                                            ? t("chat.change_avatar")
+                                            : t("chat.select_avatar")}
                                     </>
                                 )}
                             </Button>
@@ -172,7 +174,7 @@ export const ChatGroupProfileContent = memo(function ChatGroupProfileContent({
                                     disabled={groupProfileSaving}
                                     onClick={handleCancelEdit}
                                 >
-                                    Cancel
+                                    {t("common.cancel")}
                                 </Button>
                                 <Button
                                     size="sm"
@@ -182,10 +184,10 @@ export const ChatGroupProfileContent = memo(function ChatGroupProfileContent({
                                     {groupProfileSaving ? (
                                         <>
                                             <Loader2 size={14} className="mr-1 animate-spin" />
-                                            Saving...
+                                            {t("chat.saving")}
                                         </>
                                     ) : (
-                                        "Save"
+                                        t("chat.save")
                                     )}
                                 </Button>
                             </div>
@@ -195,7 +197,7 @@ export const ChatGroupProfileContent = memo(function ChatGroupProfileContent({
 
                 <div className="rounded-lg border border-border bg-muted/20 p-3 space-y-3">
                     <p className="text-sm font-semibold text-foreground">
-                        Members ({groupMembers.length})
+                        {t("chat.members_label", { count: groupMembers.length })}
                     </p>
                     <div className="flex items-center -space-x-2">
                         {groupMembers.slice(0, 6).map((member) => (
@@ -220,7 +222,7 @@ export const ChatGroupProfileContent = memo(function ChatGroupProfileContent({
 
                 <div className="rounded-lg border border-border bg-muted/20 p-3">
                     <p className="text-sm font-medium text-foreground">
-                        Group Join Link
+                        {t("chat.group_join_link")}
                     </p>
                     <div className="mt-2 flex items-center gap-2">
                         <a
@@ -249,7 +251,7 @@ export const ChatGroupProfileContent = memo(function ChatGroupProfileContent({
                         onClick={onOpenGroupPanel}
                     >
                         <Settings className="mr-2 h-4 w-4" />
-                        Group management
+                        {t("chat.group_management")}
                     </Button>
                     <Button
                         variant="ghost"
@@ -257,7 +259,7 @@ export const ChatGroupProfileContent = memo(function ChatGroupProfileContent({
                         onClick={onLeaveGroup}
                     >
                         <LogOut className="mr-2 h-4 w-4" />
-                        Leave group
+                        {t("chat.leave_group")}
                     </Button>
                 </div>
             </div>

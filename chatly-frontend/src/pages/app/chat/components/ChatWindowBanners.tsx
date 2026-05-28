@@ -7,12 +7,14 @@ import {
     PinOff,
     X as XIcon,
 } from "lucide-react";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { toMessagePreviewText } from "./richTextMessage.utils";
 import type { Message } from "@/types/message";
 
-function getPinnedPreview(message: Message): string {
+function getPinnedPreview(message: Message, t: TFunction): string {
     if (message.type === "POLL") {
-        return `Poll: ${message.poll?.question ?? ""}`;
+        return t("chat.poll_prefix", { question: message.poll?.question ?? "" });
     }
 
     const plainText = toMessagePreviewText(message.content ?? "");
@@ -22,10 +24,10 @@ function getPinnedPreview(message: Message): string {
 
     if (message.attachments?.length) {
         const firstAttachment = message.attachments[0];
-        return firstAttachment.name ?? "Attachment";
+        return firstAttachment.name ?? t("chat.attachment_fallback");
     }
 
-    return "Message";
+    return t("chat.message_short_fallback");
 }
 
 interface PinnedBannerProps {
@@ -47,10 +49,11 @@ export const PinnedMessagesBanner = memo(function PinnedMessagesBanner({
     onUnpin,
     onShowAll,
 }: PinnedBannerProps) {
+    const { t } = useTranslation();
     if (pinnedMessages.length === 0) return null;
     const current = pinnedMessages[currentPinnedIdx];
     if (!current) return null;
-    const preview = getPinnedPreview(current);
+    const preview = getPinnedPreview(current, t);
 
     return (
         <div className="flex items-center gap-2 px-3 py-2 border-b border-border/60 bg-muted/35 shrink-0">
@@ -63,7 +66,9 @@ export const PinnedMessagesBanner = memo(function PinnedMessagesBanner({
                 onClick={() => onHighlight(current.id)}
             >
                 <div className="text-[11px] font-semibold text-brand/90">
-                    Pinned {pinnedMessages.length > 1 ? `(${pinnedMessages.length})` : ""}
+                    {pinnedMessages.length > 1
+                        ? t("chat.pinned_count", { count: pinnedMessages.length })
+                        : t("chat.pinned_label")}
                 </div>
                 <p className="truncate text-xs text-muted-foreground hover:text-foreground transition-colors">
                     {preview}
@@ -92,7 +97,7 @@ export const PinnedMessagesBanner = memo(function PinnedMessagesBanner({
             )}
             <button
                 type="button"
-                title="Unpin"
+                title={t("chat.unpin")}
                 onClick={() => onUnpin(current.id)}
                 className="p-1 rounded-full hover:bg-accent text-muted-foreground hover:text-foreground transition-colors shrink-0"
             >
@@ -100,11 +105,11 @@ export const PinnedMessagesBanner = memo(function PinnedMessagesBanner({
             </button>
             <button
                 type="button"
-                title="See all pinned"
+                title={t("chat.see_all_pinned")}
                 onClick={onShowAll}
                 className="inline-flex items-center rounded-full border border-border/60 bg-background/70 px-2 py-1 text-[11px] font-medium text-brand hover:bg-accent transition-colors shrink-0"
             >
-                All
+                {t("chat.all")}
             </button>
         </div>
     );
@@ -121,6 +126,7 @@ export const ActivePollBanner = memo(function ActivePollBanner({
     onHighlight,
     onDismiss,
 }: PollBannerProps) {
+    const { t } = useTranslation();
     return (
         <div className="flex items-center gap-2 px-3 py-2 border-b border-border/60 bg-brand/5 text-sm shrink-0">
             <div className="flex h-5 w-5 items-center justify-center rounded-full bg-brand/15 text-brand shrink-0">
@@ -131,7 +137,7 @@ export const ActivePollBanner = memo(function ActivePollBanner({
                 className="flex-1 text-left min-w-0"
                 onClick={() => onHighlight(activePoll.id)}
             >
-                <div className="text-[11px] font-semibold text-brand">Active Poll</div>
+                <div className="text-[11px] font-semibold text-brand">{t("chat.active_poll")}</div>
                 <p className="truncate text-xs text-muted-foreground hover:text-foreground transition-colors">
                     {activePoll.poll?.question}
                 </p>
@@ -141,11 +147,11 @@ export const ActivePollBanner = memo(function ActivePollBanner({
                 onClick={() => onHighlight(activePoll.id)}
                 className="inline-flex items-center rounded-full border border-brand/25 bg-background/80 px-2 py-1 text-[11px] text-brand hover:bg-brand/10 transition-colors shrink-0 font-medium"
             >
-                Vote
+                {t("chat.vote")}
             </button>
             <button
                 type="button"
-                title="Dismiss"
+                title={t("chat.dismiss")}
                 onClick={() => onDismiss(activePoll.id)}
                 className="p-1 rounded-full text-muted-foreground hover:bg-accent hover:text-foreground transition-colors shrink-0"
             >

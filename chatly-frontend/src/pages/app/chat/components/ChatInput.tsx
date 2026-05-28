@@ -24,6 +24,7 @@ import {
     PencilLine,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 import Picker from "@emoji-mart/react";
 import data from "@emoji-mart/data";
 import { Input } from "@/components/ui/input";
@@ -103,6 +104,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
     currentUserId,
     isAiProactiveEnabled = false,
 }, ref) => {
+    const { t } = useTranslation();
     const { user } = useAuthStore();
     const [content, setContent] = useState("");
     const [inputMode, setInputMode] = useState<"plain" | "editor">("plain");
@@ -781,7 +783,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
                         size="icon"
                         className="h-9 w-9 shrink-0 text-muted-foreground hover:text-foreground"
                         onClick={() => imageInputRef.current?.click()}
-                        title="Send image/video"
+                        title={t("chat.send_image_video", { defaultValue: "Send image/video" })}
                     >
                         <ImagePlus size={18} />
                     </Button>
@@ -792,7 +794,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
                         size="icon"
                         className="h-9 w-9 shrink-0 text-muted-foreground hover:text-foreground"
                         onClick={() => fileInputRef.current?.click()}
-                        title="Attach file"
+                        title={t("chat.attach_file", { defaultValue: "Attach file" })}
                     >
                         <Paperclip size={18} />
                     </Button>
@@ -815,7 +817,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
                                     setShowEmojiPicker((prev) => !prev);
                                 }
                             }}
-                            title="Emoji / GIF / Sticker"
+                            title={t("chat.emoji_gif_sticker", { defaultValue: "Emoji / GIF / Sticker" })}
                         >
                             <Smile size={18} />
                         </Button>
@@ -876,7 +878,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
                                     "text-muted-foreground hover:text-foreground",
                             )}
                             onClick={() => setShowPriorityMenu((prev) => !prev)}
-                            title="More options"
+                            title={t("common.more")}
                         >
                             <MoreHorizontal size={18} />
                         </Button>
@@ -1068,7 +1070,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
                         {inputMode === "plain" ? (
                             <Input
                                 ref={inputRef}
-                                placeholder="Type a message. Use @ to mention"
+                                placeholder={t("chat.type_message_placeholder")}
                                 value={content}
                                 onChange={(e) =>
                                     handleContentChange(e.target.value)
@@ -1101,7 +1103,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
                             type="button"
                             onClick={handleStartRecording}
                             className="h-10 w-10 shrink-0 bg-[#1a146b] text-white hover:bg-[#312e81] rounded-full p-0 transition-all active:scale-95"
-                            title="Record voice message"
+                            title={t("chat.record_voice", { defaultValue: "Record voice message" })}
                         >
                             <Mic size={18} />
                         </Button>
@@ -1116,7 +1118,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
                             ) : (
                                 <SendHorizontal size={18} className="mr-2" />
                             )}
-                            <span className="font-medium text-sm">Send</span>
+                            <span className="font-medium text-sm">{t("chat.send_button")}</span>
                         </Button>
                     )}
                 </div>

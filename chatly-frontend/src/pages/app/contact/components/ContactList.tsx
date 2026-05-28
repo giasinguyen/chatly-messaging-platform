@@ -1,4 +1,5 @@
 import { useState } from "react";
+import type { ComponentType } from "react";
 import {
     Search,
     UserPlus,
@@ -6,6 +7,7 @@ import {
     UserCircle,
     UserMinus,
 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
@@ -20,25 +22,31 @@ interface ContactListProps {
     onTabChange: (tab: ContactTab) => void;
 }
 
+interface ContactCategory {
+    id: ContactTab;
+    label: string;
+    icon: ComponentType<{ className?: string }>;
+}
+
 export function ContactList({ activeTab, onTabChange }: ContactListProps) {
+    const { t } = useTranslation();
     const navigate = useNavigate();
     const [isAddFriendOpen, setIsAddFriendOpen] = useState(false);
     const [isCreateGroupOpen, setIsCreateGroupOpen] = useState(false);
 
-    const categories: { id: ContactTab; label: string; icon: any }[] = [
-        { id: "friends", label: "Friends list", icon: UserCircle },
-        { id: "requests", label: "Friend requests", icon: UserPlus },
-        { id: "blocked", label: "Blocked", icon: UserMinus },
+    const categories: ContactCategory[] = [
+        { id: "friends", label: t("contact.friends_list"), icon: UserCircle },
+        { id: "requests", label: t("contact.requests"), icon: UserPlus },
+        { id: "blocked", label: t("contact.blocked"), icon: UserMinus },
     ];
 
     return (
         <aside className="w-[340px] flex flex-col border-r border-border bg-card shrink-0 z-10">
-            {/* Search Header */}
             <div className="px-4 py-4 flex items-center gap-2 border-b border-border/50">
                 <div className="relative flex-1">
                     <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
-                        placeholder="Search"
+                        placeholder={t("common.search")}
                         className="h-8 pl-8 bg-muted/50 border-transparent focus-visible:ring-1 focus-visible:ring-brand focus-visible:border-brand rounded-full text-sm"
                     />
                 </div>
@@ -48,7 +56,7 @@ export function ContactList({ activeTab, onTabChange }: ContactListProps) {
                         variant="ghost"
                         size="icon"
                         className="h-8 w-8 rounded-full"
-                        title="Add friend"
+                        title={t("contact.add_friend_title")}
                     >
                         <UserPlus size={16} />
                     </Button>
@@ -57,14 +65,13 @@ export function ContactList({ activeTab, onTabChange }: ContactListProps) {
                         size="icon"
                         className="h-8 w-8 rounded-full"
                         onClick={() => setIsCreateGroupOpen(true)}
-                        title="Create a group chat"
+                        title={t("contact.create_group_chat")}
                     >
                         <UsersRound size={16} />
                     </Button>
                 </div>
             </div>
 
-            {/* Contact Categories */}
             <div className="flex-1 overflow-hidden">
                 <ScrollArea className="h-full">
                     <div className="flex flex-col py-2 px-2 gap-1">

@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import type { Post } from "@/types/post";
 
@@ -28,6 +29,7 @@ export function ExploreResultsGrid({
     onRetry,
     renderCard,
 }: ExploreResultsGridProps) {
+    const { t } = useTranslation();
     return (
         <div>
             {isLoading && posts.length === 0 ? (
@@ -37,28 +39,28 @@ export function ExploreResultsGrid({
             ) : error && posts.length === 0 ? (
                 <div className="col-span-3 rounded-2xl border border-dashed border-border bg-card/60 px-6 py-12 text-center">
                     <p className="text-sm font-semibold text-foreground">
-                        Could not load explore posts
+                        {t("explore.load_failed_title")}
                     </p>
                     <p className="mt-1 text-sm text-muted-foreground">{error}</p>
                     <Button variant="outline" className="mt-4" onClick={onRetry}>
-                        Try again
+                        {t("explore.try_again")}
                     </Button>
                 </div>
             ) : posts.length === 0 ? (
                 <div className="col-span-3 rounded-2xl border border-dashed border-border bg-card/60 px-6 py-12 text-center">
                     <p className="text-sm font-semibold text-foreground">
                         {isSearchActive
-                            ? `No results for "${searchQuery}"`
+                            ? t("explore.no_results_query", { query: searchQuery })
                             : isHashtagActive
-                              ? `No posts found for #${activeHashtag}`
-                              : "No posts to explore right now"}
+                              ? t("explore.no_results_hashtag", { hashtag: activeHashtag })
+                              : t("explore.no_posts")}
                     </p>
                     <p className="mt-1 text-sm text-muted-foreground">
                         {isSearchActive
-                            ? "Try different keywords or remove filters."
+                            ? t("explore.no_results_query_hint")
                             : isHashtagActive
-                              ? "Try another hashtag from trending topics."
-                              : "Check back later for fresh community content."}
+                              ? t("explore.no_results_hashtag_hint")
+                              : t("explore.no_posts_hint")}
                     </p>
                 </div>
             ) : (
@@ -79,7 +81,7 @@ export function ExploreResultsGrid({
                         disabled={isLoading}
                         className="rounded-2xl px-8"
                     >
-                        {isLoading ? "Loading..." : "Load more"}
+                        {isLoading ? t("explore.loading") : t("explore.load_more")}
                     </Button>
                 </div>
             )}

@@ -1,4 +1,5 @@
 import { Hash, Loader2 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 
 interface ExploreTrendingSidebarProps {
@@ -14,21 +15,22 @@ export function ExploreTrendingSidebar({
     selectedHashtag,
     onSelect,
 }: ExploreTrendingSidebarProps) {
+    const { t } = useTranslation();
     return (
         <aside className="hidden h-fit rounded-2xl border border-border bg-card/70 p-4 lg:block iv-shadow-sm">
             <div className="mb-3 flex items-center gap-2">
                 <Hash className="h-4 w-4 text-[#1a146b]" />
-                <h2 className="text-sm font-semibold text-foreground">Trending Hashtags</h2>
+                <h2 className="text-sm font-semibold text-foreground">{t("explore.sidebar_title")}</h2>
             </div>
 
             {loading ? (
                 <div className="flex items-center gap-2 py-2 text-sm text-muted-foreground">
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    Loading trends...
+                    {t("home.trending_loading")}
                 </div>
             ) : hashtags.length === 0 ? (
                 <p className="py-2 text-sm text-muted-foreground">
-                    Trending topics are not available yet.
+                    {t("explore.no_trending")}
                 </p>
             ) : (
                 <div className="flex flex-wrap gap-2">
