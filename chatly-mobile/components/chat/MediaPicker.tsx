@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { Image as ExpoImage } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { Colors } from '@/constants/theme';
 import {
   fetchGifTrending,
@@ -59,6 +60,7 @@ export function MediaPicker({
   onSelect,
   onClose,
 }: MediaPickerProps) {
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<PickerTab>(initialTab);
   const [query, setQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
@@ -238,7 +240,7 @@ export function MediaPicker({
             <Text
               className="text-[13px] font-semibold"
               style={{ color: activeTab === 'emoji' ? Colors.cta : Colors.textMuted }}>
-              Emoji
+              {t('chat.media_picker.emoji')}
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -251,7 +253,7 @@ export function MediaPicker({
             <Text
               className="text-[13px] font-semibold"
               style={{ color: activeTab === 'gif' ? Colors.cta : Colors.textMuted }}>
-              GIF
+              {t('chat.media_picker.gif')}
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -264,7 +266,7 @@ export function MediaPicker({
             <Text
               className="text-[13px] font-semibold"
               style={{ color: activeTab === 'sticker' ? Colors.cta : Colors.textMuted }}>
-              Sticker
+              {t('chat.media_picker.sticker')}
             </Text>
           </TouchableOpacity>
         </View>
@@ -295,7 +297,7 @@ export function MediaPicker({
         {/* REQUIRED: placeholder must be "Search KLIPY" per KLIPY attribution guidelines */}
         <TextInput
           ref={searchInputRef}
-          placeholder="Search KLIPY"
+          placeholder={t('chat.media_picker.search_klipy')}
           placeholderTextColor={Colors.textLight}
           onChangeText={handleSearchChange}
           style={{
@@ -377,7 +379,9 @@ export function MediaPicker({
           ListEmptyComponent={
             !loading ? (
               <View className="items-center justify-center py-8">
-                <Text style={{ fontSize: 13, color: Colors.textMuted }}>No results found</Text>
+                <Text style={{ fontSize: 13, color: Colors.textMuted }}>
+                  {t('chat.media_picker.no_results')}
+                </Text>
               </View>
             ) : null
           }
@@ -396,7 +400,9 @@ export function MediaPicker({
         <View
           className="items-center py-1.5"
           style={{ borderTopWidth: 0.5, borderTopColor: Colors.borderLight }}>
-          <Text style={{ fontSize: 10, color: Colors.textLight }}>Powered by KLIPY</Text>
+          <Text style={{ fontSize: 10, color: Colors.textLight }}>
+            {t('chat.media_picker.powered_by_klipy')}
+          </Text>
         </View>
       )}
     </KeyboardAvoidingView>

@@ -11,6 +11,7 @@ import {
   Switch,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { Colors } from '@/constants/theme';
 import type { Poll } from '@/types/message';
 
@@ -24,6 +25,7 @@ interface PollModalProps {
 }
 
 export function PollModal({ visible, onClose, onSend }: PollModalProps) {
+  const { t } = useTranslation();
   const [question, setQuestion] = useState('');
   const [options, setOptions] = useState(['', '']);
   const [multipleChoice, setMultipleChoice] = useState(false);
@@ -54,12 +56,12 @@ export function PollModal({ visible, onClose, onSend }: PollModalProps) {
 
   const handleSend = () => {
     if (!question.trim()) {
-      Alert.alert('Error', 'Question cannot be empty');
+      Alert.alert(t('common.error'), t('chat.poll_modal.question_empty'));
       return;
     }
     const validOptions = options.map((o) => o.trim()).filter(Boolean);
     if (validOptions.length < MIN_OPTIONS) {
-      Alert.alert('Error', 'At least 2 valid options are required');
+      Alert.alert(t('common.error'), t('chat.poll_modal.min_options'));
       return;
     }
     onSend({
@@ -96,7 +98,7 @@ export function PollModal({ visible, onClose, onSend }: PollModalProps) {
                 <Ionicons name="bar-chart-outline" size={20} color="#0284c7" />
               </View>
               <Text className="text-[17px] font-semibold" style={{ color: Colors.text }}>
-                Create a poll
+                {t('chat.poll_modal.title')}
               </Text>
               <TouchableOpacity onPress={handleClose} className="ml-auto p-1">
                 <Ionicons name="close" size={22} color={Colors.textMuted} />
@@ -105,12 +107,13 @@ export function PollModal({ visible, onClose, onSend }: PollModalProps) {
 
             {/* Question */}
             <Text className="text-[13px] font-medium mb-1.5" style={{ color: Colors.text }}>
-              Question <Text style={{ color: Colors.error }}>*</Text>
+              {t('chat.poll_modal.question_label')}{' '}
+              <Text style={{ color: Colors.error }}>*</Text>
             </Text>
             <TextInput
               value={question}
               onChangeText={setQuestion}
-              placeholder="Enter your poll question..."
+              placeholder={t('chat.poll_modal.question_placeholder')}
               placeholderTextColor={Colors.textLight}
               className="border rounded-[10px] px-3 py-2.5 text-sm mb-4"
               style={{ borderColor: Colors.borderLight, color: Colors.text }}
@@ -118,14 +121,14 @@ export function PollModal({ visible, onClose, onSend }: PollModalProps) {
 
             {/* Options */}
             <Text className="text-[13px] font-medium mb-2" style={{ color: Colors.text }}>
-              Options
+              {t('chat.poll_modal.options_label')}
             </Text>
             {options.map((opt, idx) => (
               <View key={idx} className="flex-row items-center mb-2 gap-2">
                 <TextInput
                   value={opt}
                   onChangeText={(val) => updateOption(idx, val)}
-                  placeholder={`Option ${idx + 1}...`}
+                  placeholder={t('chat.poll_modal.option_placeholder', { n: idx + 1 })}
                   placeholderTextColor={Colors.textLight}
                   className="flex-1 border rounded-[10px] px-3 py-2 text-sm"
                   style={{ borderColor: Colors.borderLight, color: Colors.text }}
@@ -145,7 +148,7 @@ export function PollModal({ visible, onClose, onSend }: PollModalProps) {
               >
                 <Ionicons name="add-circle-outline" size={18} color={Colors.cta} />
                 <Text className="text-[13px] font-medium" style={{ color: Colors.cta }}>
-                  Add more options
+                  {t('chat.poll_modal.add_option')}
                 </Text>
               </TouchableOpacity>
             )}
@@ -156,7 +159,7 @@ export function PollModal({ visible, onClose, onSend }: PollModalProps) {
               style={{ borderTopColor: Colors.borderLight }}
             >
               <Text className="flex-1 text-sm" style={{ color: Colors.text }}>
-                Allow multiple choices
+                {t('chat.poll_modal.multiple_choice')}
               </Text>
               <Switch
                 value={multipleChoice}
@@ -171,7 +174,7 @@ export function PollModal({ visible, onClose, onSend }: PollModalProps) {
               style={{ borderTopColor: Colors.borderLight }}
             >
               <Text className="flex-1 text-sm" style={{ color: Colors.text }}>
-                Anonymous voting
+                {t('chat.poll_modal.anonymous_voting')}
               </Text>
               <Switch
                 value={anonymous}
@@ -189,7 +192,7 @@ export function PollModal({ visible, onClose, onSend }: PollModalProps) {
                 style={{ backgroundColor: Colors.bg }}
               >
                 <Text className="text-[15px] font-medium" style={{ color: Colors.textMuted }}>
-                  Cancel
+                  {t('common.cancel')}
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
@@ -197,7 +200,7 @@ export function PollModal({ visible, onClose, onSend }: PollModalProps) {
                 className="flex-[2] py-3 rounded-xl items-center bg-sky-600"
               >
                 <Text className="text-[15px] font-semibold text-white">
-                  Create poll
+                  {t('chat.poll_modal.create_poll')}
                 </Text>
               </TouchableOpacity>
             </View>

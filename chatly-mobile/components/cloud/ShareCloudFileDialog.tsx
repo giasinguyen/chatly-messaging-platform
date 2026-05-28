@@ -13,6 +13,7 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { Colors } from '@/constants/theme';
 import { CloudFilePreview } from '@/components/cloud/CloudFilePreview';
 import { ShareTargetRow } from '@/components/social/ShareTargetRow';
@@ -41,6 +42,7 @@ function toTargetKey(kind: ShareTargetKind, id: string): string {
 }
 
 export function ShareCloudFileDialog({ file, visible, onClose }: ShareCloudFileDialogProps) {
+  const { t } = useTranslation();
   const currentUser = useAuthStore((state) => state.user);
   const { friends, privateConversations, groupConversations, isLoadingTargets } = useShareTargets(
     visible,
@@ -68,11 +70,11 @@ export function ShareCloudFileDialog({ file, visible, onClose }: ShareCloudFileD
       ...groupConversations.map((conversation) => ({
         key: toTargetKey('GROUP', conversation.id),
         title: conversation.name,
-        subtitle: 'Group chat',
+        subtitle: t('post.share_dialog.group_chat'),
         avatarUrl: conversation.avatarUrl,
       })),
     ],
-    [friends, groupConversations]
+    [friends, groupConversations, t]
   );
 
   const filteredTargets = useMemo(() => {
@@ -96,12 +98,12 @@ export function ShareCloudFileDialog({ file, visible, onClose }: ShareCloudFileD
     if (!file) return;
 
     if (!currentUser?.id) {
-      Alert.alert('Error', 'You need to sign in to share files.');
+      Alert.alert(t('common.error'), t('cloud.share_dialog.sign_in_required'));
       return;
     }
 
     if (selectedTargetKeys.length === 0) {
-      Alert.alert('Error', 'Select at least one friend or group.');
+      Alert.alert(t('common.error'), t('cloud.share_dialog.select_target'));
       return;
     }
 
@@ -132,7 +134,9 @@ export function ShareCloudFileDialog({ file, visible, onClose }: ShareCloudFileD
           });
 
           if (createdConversationResponse.code !== 1000 || !createdConversationResponse.result) {
-            throw new Error(createdConversationResponse.message ?? 'Unable to open conversation.');
+            throw new Error(
+              createdConversationResponse.message ?? t('post.share_dialog.open_conversation_failed'),
+            );
           }
 
           return createdConversationResponse.result.id;
@@ -156,15 +160,16 @@ export function ShareCloudFileDialog({ file, visible, onClose }: ShareCloudFileD
           });
 
           if (response.code !== 1000 || !response.result) {
-            throw new Error(response.message ?? 'Could not share file.');
+            throw new Error(response.message ?? t('cloud.share_dialog.share_failed'));
           }
         })
       );
-      Alert.alert('Shared', 'The file was shared successfully.');
+      Alert.alert(t('mobile.common.shared'), t('cloud.share_dialog.share_success'));
       onClose();
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'Could not share file.';
-      Alert.alert('Error', message);
+      const message =
+        error instanceof Error ? error.message : t('cloud.share_dialog.share_failed');
+      Alert.alert(t('common.error'), message);
     } finally {
       setIsSharing(false);
     }
@@ -192,9 +197,9 @@ export function ShareCloudFileDialog({ file, visible, onClose }: ShareCloudFileD
 
           <View className="mb-4 flex-row items-start justify-between gap-4">
             <View className="flex-1">
-              <Text className="text-xl font-bold text-[#1D1D1F]">Share cloud file</Text>
+              <Text className="text-xl font-bold text-[#1D1D1F]">{t('cloud.share_dialog.title')}</Text>
               <Text className="mt-1 text-sm leading-5 text-[#6E6E73]">
-                Choose friends or groups to receive this uploaded file.
+                {t('cloud.share_dialog.subtitle')}
               </Text>
             </View>
             <TouchableOpacity
@@ -213,7 +218,7 @@ export function ShareCloudFileDialog({ file, visible, onClose }: ShareCloudFileD
             <TextInput
               value={searchQuery}
               onChangeText={setSearchQuery}
-              placeholder="Search friends or groups"
+              placeholder={t('cloud.share_dialog.search_placeholder')}
               placeholderTextColor={Colors.textLight}
               className="ml-2 h-12 flex-1 text-sm text-[#1D1D1F]"
             />
@@ -222,7 +227,9 @@ export function ShareCloudFileDialog({ file, visible, onClose }: ShareCloudFileD
           {isLoadingTargets ? (
             <View className="items-center justify-center py-12">
               <ActivityIndicator size="small" color={Colors.cta} />
-              <Text className="mt-2 text-sm text-[#6E6E73]">Loading friends and groups...</Text>
+              <Text className="mt-2 text-sm text-[#6E6E73]">
+                {t('cloud.share_dialog.loading_targets')}
+              </Text>
             </View>
           ) : (
             <FlatList
@@ -231,7 +238,7 @@ export function ShareCloudFileDialog({ file, visible, onClose }: ShareCloudFileD
               style={{ maxHeight: 320 }}
               ListEmptyComponent={
                 <View className="items-center py-10">
-                  <Text className="text-sm text-[#6E6E73]">No friends or groups found.</Text>
+                  <Text className="text-sm text-[#6E6E73]">{t('cloud.share_dialog.no_targets')}</Text>
                 </View>
               }
               renderItem={({ item }) => (
@@ -252,7 +259,7 @@ export function ShareCloudFileDialog({ file, visible, onClose }: ShareCloudFileD
               disabled={isSharing}
               className="h-12 flex-1 items-center justify-center rounded-2xl border border-[#D1D1D6] bg-white"
               activeOpacity={0.8}>
-              <Text className="text-sm font-semibold text-[#1D1D1F]">Cancel</Text>
+              <Text className="text-sm font-semibold text-[#1D1D1F]">{t('common.cancel')}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               onPress={handleShare}
@@ -263,7 +270,9 @@ export function ShareCloudFileDialog({ file, visible, onClose }: ShareCloudFileD
               activeOpacity={0.8}>
               {isSharing ? <ActivityIndicator color="#FFFFFF" /> : null}
               <Text className="ml-2 text-sm font-semibold text-white">
-                Share{selectedTargetKeys.length > 0 ? ` (${selectedTargetKeys.length})` : ''}
+                {selectedTargetKeys.length > 0
+                  ? t('mobile.reels.share_with_count', { count: selectedTargetKeys.length })
+                  : t('common.share')}
               </Text>
             </TouchableOpacity>
           </View>

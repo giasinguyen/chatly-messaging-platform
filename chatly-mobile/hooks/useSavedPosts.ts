@@ -4,6 +4,7 @@ import { SAVED_POSTS_PAGE_SIZE } from '@/constants/feed';
 import { postService } from '@/services/post.service';
 import type { Post, PostComment, PostReactionSummary, ReportPostRequest } from '@/types/post';
 import { getApiErrorMessage } from '@/utils/errorHandler';
+import i18n from '@/lib/i18n';
 
 type SavedLoadMode = 'initial' | 'refresh' | 'append';
 
@@ -23,7 +24,7 @@ export function useSavedPosts() {
   const [commentsByPostId, setCommentsByPostId] = useState<Record<string, PostComment[]>>({});
 
   const showError = useCallback((error: unknown, fallback: string) => {
-    Alert.alert('Error', getApiErrorMessage(error, fallback));
+    Alert.alert(i18n.t('common.error'), getApiErrorMessage(error, fallback));
   }, []);
 
   const updatePost = useCallback((postId: string, updates: Partial<Post>) => {
@@ -51,7 +52,7 @@ export function useSavedPosts() {
       setErrorMessage(null);
       const response = await postService.getSavedPosts(targetPage, SAVED_POSTS_PAGE_SIZE);
       if (response.code !== 1000 || !response.result) {
-        throw new Error(response.message ?? 'Could not load saved posts.');
+        throw new Error(response.message ?? i18n.t('settings.saved_posts.load_failed'));
       }
 
       setPosts((current) =>

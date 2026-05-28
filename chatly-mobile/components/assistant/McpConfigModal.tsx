@@ -14,6 +14,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '@/constants/theme';
 import { mcpService } from '@/services/mcp.service';
@@ -25,6 +26,7 @@ interface Props {
 }
 
 export function McpConfigModal({ visible, onClose }: Props) {
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const [servers, setServers] = useState<McpServer[]>([]);
   const [loading, setLoading] = useState(true);
@@ -64,7 +66,7 @@ export function McpConfigModal({ visible, onClose }: Props) {
       const updated = await mcpService.toggle(server.id, !server.is_active);
       setServers((prev) => prev.map((s) => (s.id === updated.id ? updated : s)));
     } catch {
-      Alert.alert('Error', 'Could not change status');
+      Alert.alert(t('common.error'), t('assistant.mcp.toggle_failed'));
     }
   };
 

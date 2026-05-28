@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useAuthStore } from '@/store/auth.store';
 import { Alert, Text, TouchableOpacity, View, ScrollView } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -24,9 +25,9 @@ interface CommentItemProps {
   showRepliesButton?: boolean;
 }
 
-function formatRelativeTime(createdAt: string): string {
+function formatRelativeTime(createdAt: string, justNowLabel: string): string {
   const diffMinutes = Math.floor((Date.now() - new Date(createdAt).getTime()) / 60000);
-  if (diffMinutes < 1) return 'just now';
+  if (diffMinutes < 1) return justNowLabel;
   if (diffMinutes < 60) return `${diffMinutes}m`;
   const diffHours = Math.floor(diffMinutes / 60);
   if (diffHours < 24) return `${diffHours}h`;
@@ -46,11 +47,13 @@ export function CommentItem({
   onShowReplies,
   showRepliesButton = false,
 }: CommentItemProps) {
+  const { t } = useTranslation();
   const router = useRouter();
   const [showMenu, setShowMenu] = useState(false);
   const [showQuickProfile, setShowQuickProfile] = useState(false);
   const currentUser = useAuthStore((s) => s.user);
-  const authorName = comment.userDisplayName ?? comment.userUsername ?? 'Unknown user';
+  const authorName =
+    comment.userDisplayName ?? comment.userUsername ?? t('post.comment.unknown_user');
   const avatarUrl = comment.userAvatarUrl;
   const userReaction = comment.reactions?.find((r) => r.reactedByMe);
   const leftPadding = level > 0 ? level * 16 : 0;
@@ -63,12 +66,15 @@ export function CommentItem({
   const handleCopyComment = async () => {
     const text = comment.content.trim();
     if (!text) {
-      Alert.alert('Nothing to copy', 'This comment does not contain text.');
+      Alert.alert(
+        t('post.comment.nothing_to_copy'),
+        t('post.comment.no_text_to_copy'),
+      );
       return;
     }
 
     await Clipboard.setStringAsync(text);
-    Alert.alert('Copied', 'Comment copied to clipboard.');
+    Alert.alert(t('common.copied'), t('post.comment.copied_to_clipboard'));
     setShowMenu(false);
   };
 
@@ -95,7 +101,7 @@ export function CommentItem({
 
             <View className="flex-row items-center gap-1">
               <Text style={{ fontSize: 11, color: Colors.textMuted }}>
-                {formatRelativeTime(comment.createdAt)}
+                {formatRelativeTime(comment.createdAt, t('common.just_now'))}
               </Text>
 
               {hasMenuActions ? (
@@ -151,7 +157,9 @@ export function CommentItem({
               onPress={() => onReply?.(comment.id, comment.userUsername)}
               className="flex-row items-center gap-1"
               activeOpacity={0.7}>
-              <Text style={{ fontSize: 11, fontWeight: '700', color: Colors.textMuted }}>Reply</Text>
+              <Text style={{ fontSize: 11, fontWeight: '700', color: Colors.textMuted }}>
+                {t('mobile.reels.reply')}
+              </Text>
             </TouchableOpacity>
           </View>
 
@@ -162,7 +170,9 @@ export function CommentItem({
               className="mt-2 py-1"
               activeOpacity={0.7}>
               <Text style={{ fontSize: 11, fontWeight: '700', color: '#0071E3' }}>
-                View {replyCount} {replyCount === 1 ? 'reply' : 'replies'}
+                {replyCount === 1
+                  ? t('post.comment.view_reply_one', { count: replyCount })
+                  : t('post.comment.view_replies_other', { count: replyCount })}
               </Text>
             </TouchableOpacity>
           )}
@@ -191,7 +201,7 @@ export function CommentItem({
                     activeOpacity={0.7}>
                     <Ionicons name="trash-outline" size={14} color="#FF3B30" />
                     <Text style={{ fontSize: 14, fontWeight: '600', color: '#FF3B30' }}>
-                      Delete
+                      {t('common.delete')}
                     </Text>
                   </TouchableOpacity>
 
@@ -213,7 +223,7 @@ export function CommentItem({
                       activeOpacity={0.7}>
                       <Ionicons name="pencil-outline" size={14} color={Colors.text} />
                       <Text style={{ fontSize: 14, fontWeight: '600', color: Colors.text }}>
-                        Edit
+                        {t('common.edit')}
                       </Text>
                     </TouchableOpacity>
                   ) : null}
@@ -231,7 +241,9 @@ export function CommentItem({
                 }}
                 activeOpacity={0.7}>
                 <Ionicons name="copy-outline" size={14} color={Colors.text} />
-                <Text style={{ fontSize: 14, fontWeight: '600', color: Colors.text }}>Copy</Text>
+                <Text style={{ fontSize: 14, fontWeight: '600', color: Colors.text }}>
+                  {t('common.copy')}
+                </Text>
               </TouchableOpacity>
             </View>
           )}
