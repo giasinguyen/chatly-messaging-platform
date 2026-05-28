@@ -1,4 +1,4 @@
-import { MessageCircle, UserPlus, UserRound } from "lucide-react";
+import { MessageCircle, UserPlus } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { AdminBadge } from "@/components/customize/AdminBadge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
