@@ -1,5 +1,6 @@
 import { useEffect, useCallback, useRef } from 'react';
 import { Alert } from 'react-native';
+import i18n from '@/lib/i18n';
 import { socketService } from '@/services/socket.service';
 import { useAuthStore } from '@/store/auth.store';
 import { useCallStore } from '@/store/call.store';
@@ -137,7 +138,7 @@ export function useCallSocket(groupSignalRef?: GroupSignalRef) {
                 .catch((error: unknown) => {
                   const message =
                     error instanceof Error ? error.message : 'Unable to join the call.';
-                  Alert.alert('Call Error', message);
+                  Alert.alert(i18n.t('call.error_title'), message);
                   endCallStore();
                 });
             }
