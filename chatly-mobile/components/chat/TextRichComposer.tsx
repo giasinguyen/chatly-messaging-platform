@@ -1,4 +1,5 @@
 import { forwardRef, useImperativeHandle, useMemo, useRef } from 'react';
+import type { ReactNode } from 'react';
 import { Keyboard, View, Text, TextInput, TouchableOpacity } from 'react-native';
 import {
   RichEditor,
@@ -22,6 +23,7 @@ interface TextRichComposerProps {
   showToolbar?: boolean;
   showModeToggle?: boolean;
   editorKey?: string;
+  plainRightAccessory?: ReactNode;
 }
 
 export interface TextRichComposerRef {
@@ -41,6 +43,7 @@ export const TextRichComposer = forwardRef<TextRichComposerRef, TextRichComposer
   showToolbar = true,
   showModeToggle = true,
   editorKey = 'default',
+  plainRightAccessory,
 }, ref) {
   const editorRef = useRef<RichEditor>(null);
   const plainInputRef = useRef<TextInput>(null);
@@ -117,6 +120,7 @@ export const TextRichComposer = forwardRef<TextRichComposerRef, TextRichComposer
             backgroundColor: Colors.bgCard,
             minHeight,
             paddingHorizontal: 14,
+            paddingRight: plainRightAccessory ? 44 : 14,
             justifyContent: 'center',
           }}>
           <TextInput
@@ -134,6 +138,18 @@ export const TextRichComposer = forwardRef<TextRichComposerRef, TextRichComposer
               maxHeight: 120,
             }}
           />
+          {plainRightAccessory && (
+            <View
+              style={{
+                position: 'absolute',
+                right: 6,
+                top: 0,
+                bottom: 0,
+                justifyContent: 'center',
+              }}>
+              {plainRightAccessory}
+            </View>
+          )}
         </View>
       ) : (
         <View

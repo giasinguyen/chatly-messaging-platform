@@ -5,8 +5,6 @@ import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import * as Location from 'expo-location';
-import EmojiPicker from 'rn-emoji-keyboard';
-import type { EmojiType } from 'rn-emoji-keyboard';
 import { Colors } from '@/constants/theme';
 import { fileService } from '@/services/file.service';
 import { getDisplayUrl, type KlipyItem } from '@/services/klipy.service';
@@ -95,9 +93,8 @@ export function ChatInput({
   const [text, setText] = useState('');
   const [richHtml, setRichHtml] = useState('');
   const [isTyping, setIsTyping] = useState(false);
-  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([]);
-  const [activePicker, setActivePicker] = useState<'gif' | 'sticker' | null>(null);
+  const [activePicker, setActivePicker] = useState<'emoji' | 'gif' | 'sticker' | null>(null);
   const [showOptionsSheet, setShowOptionsSheet] = useState(false);
   const [selectedPriority, setSelectedPriority] = useState<'IMPORTANT' | 'URGENT' | null>(null);
   const [showReminderModal, setShowReminderModal] = useState(false);
@@ -258,8 +255,8 @@ export function ChatInput({
     Keyboard.dismiss();
   };
 
-  const handleEmojiPick = (emoji: EmojiType) => {
-    setText((prev) => prev + emoji.emoji);
+  const handleEmojiPick = (emoji: string) => {
+    setText((prev) => prev + emoji);
   };
 
   const handleMediaSelect = (item: KlipyItem) => {
@@ -506,6 +503,7 @@ export function ChatInput({
         <MediaPicker
           initialTab={activePicker}
           customerId={user.id}
+          onEmojiSelect={handleEmojiPick}
           onSelect={handleMediaSelect}
           onClose={() => setActivePicker(null)}
         />
@@ -655,14 +653,6 @@ export function ChatInput({
           <Ionicons name="attach-outline" size={24} color={Colors.cta} />
         </TouchableOpacity>
 
-        {/* Emoji picker button */}
-        <TouchableOpacity
-          onPress={() => setShowEmojiPicker(true)}
-          className="items-center justify-center pb-1"
-          style={{ width: 36, height: 36 }}>
-          <Ionicons name="happy-outline" size={24} color={Colors.cta} />
-        </TouchableOpacity>
-
         {/* 3-dot options button */}
         <TouchableOpacity
           onPress={() => setShowOptionsSheet(true)}
@@ -697,11 +687,23 @@ export function ChatInput({
             onPlainTextChange={handleChangeText}
             richHtml={richHtml}
             onRichHtmlChange={setRichHtml}
-            placeholder="Type a message..."
+            placeholder="Type..."
             minHeight={44}
             showToolbar={composerMode === 'editor'}
             showModeToggle={false}
             editorKey={`chat-input-composer-${editorInstanceKey}`}
+            plainRightAccessory={
+              <TouchableOpacity
+                onPress={() => setActivePicker((current) => (current ? null : 'emoji'))}
+                className="items-center justify-center rounded-full"
+                style={{ width: 32, height: 32 }}>
+                <Ionicons
+                  name="happy-outline"
+                  size={22}
+                  color={activePicker ? Colors.cta : Colors.textMuted}
+                />
+              </TouchableOpacity>
+            }
           />
         </View>
 
@@ -725,14 +727,6 @@ export function ChatInput({
         )}
       </View>
       )}
-
-      <EmojiPicker
-        onEmojiSelected={handleEmojiPick}
-        open={showEmojiPicker}
-        onClose={() => setShowEmojiPicker(false)}
-        enableSearchBar
-        enableRecentlyUsed
-      />
 
       {/* Reminder Modal */}
       {conversationId && (
@@ -851,83 +845,6 @@ export function ChatInput({
                 }}
               />
             </View>
-
-            {/* GIF picker */}
-            <TouchableOpacity
-              onPress={() => {
-                setShowOptionsSheet(false);
-                setActivePicker((p) => (p === 'gif' ? null : 'gif'));
-                setShowEmojiPicker(false);
-              }}
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                paddingHorizontal: 20,
-                paddingVertical: 14,
-                backgroundColor: activePicker === 'gif' ? '#f0f9ff' : 'transparent',
-              }}>
-              <View
-                style={{
-                  width: 36,
-                  height: 36,
-                  borderRadius: 18,
-                  backgroundColor: '#e0f2fe',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  marginRight: 14,
-                }}>
-                <Ionicons name="film-outline" size={20} color="#0284c7" />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: 15, fontWeight: '500', color: Colors.text }}>GIF</Text>
-                <Text style={{ fontSize: 12, color: Colors.textMuted, marginTop: 1 }}>
-                  Send GIF
-                </Text>
-              </View>
-            </TouchableOpacity>
-
-            {/* Sticker picker */}
-            <TouchableOpacity
-              onPress={() => {
-                setShowOptionsSheet(false);
-                setActivePicker((p) => (p === 'sticker' ? null : 'sticker'));
-                setShowEmojiPicker(false);
-              }}
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                paddingHorizontal: 20,
-                paddingVertical: 14,
-                backgroundColor: activePicker === 'sticker' ? '#fdf4ff' : 'transparent',
-              }}>
-              <View
-                style={{
-                  width: 36,
-                  height: 36,
-                  borderRadius: 18,
-                  backgroundColor: '#f3e8ff',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  marginRight: 14,
-                }}>
-                <Ionicons name="flower-outline" size={20} color="#9333ea" />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: 15, fontWeight: '500', color: Colors.text }}>Sticker</Text>
-                <Text style={{ fontSize: 12, color: Colors.textMuted, marginTop: 1 }}>
-                  Send stickers
-                </Text>
-              </View>
-            </TouchableOpacity>
-
-            <View
-              style={{
-                height: 1,
-                backgroundColor: Colors.borderLight,
-                marginHorizontal: 20,
-                marginVertical: 4,
-              }}
-            />
 
             {/* Input mode options */}
             <TouchableOpacity
