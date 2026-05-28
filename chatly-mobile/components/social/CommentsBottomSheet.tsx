@@ -57,6 +57,7 @@ export function CommentsBottomSheet({
   onEditComment,
   isSubmittingComment = false,
 }: CommentsBottomSheetProps) {
+  const { t } = useTranslation();
   const [scrollPosition, setScrollPosition] = useState(0);
   const [replyToId, setReplyToId] = useState<string | null>(null);
   const [replyToUsername, setReplyToUsername] = useState<string | null>(null);
