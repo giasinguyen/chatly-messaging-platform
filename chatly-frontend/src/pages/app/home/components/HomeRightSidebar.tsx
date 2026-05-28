@@ -123,7 +123,7 @@ export function HomeRightSidebar({
     };
 
     return (
-        <aside className="sticky top-0 hidden h-screen w-100 shrink-0 overflow-y-auto pt-8 pr-8 pl-6 xl:block hide-scrollbar">
+        <aside className="sticky top-0 hidden h-screen w-100 shrink-0 overflow-x-hidden overflow-y-auto pt-8 pr-8 pl-6 xl:block hide-scrollbar">
             <div className="mb-8 flex items-center justify-between rounded-2xl border border-border bg-card p-4 iv-shadow-sm">
                 <div
                     className="flex cursor-pointer items-center gap-3"
@@ -164,15 +164,14 @@ export function HomeRightSidebar({
                 </div>
             </div>
 
-            {suggestions.length > 0 && (
-                <>
-                    <div className="mb-4">
-                        <h3 className="font-semibold text-muted-foreground">
-                            {t("home.people_you_may_know")}
-                        </h3>
-                    </div>
+            <div className="mb-4">
+                <h3 className="font-semibold text-muted-foreground">
+                    {t("home.people_you_may_know")}
+                </h3>
+            </div>
 
-                    <div className="space-y-2 rounded-2xl border border-border bg-card/70 p-3 iv-shadow-sm">
+            {suggestions.length > 0 ? (
+                <div className="space-y-2 rounded-2xl border border-border bg-card/70 p-3 iv-shadow-sm">
                         {suggestions.map((suggestion) => {
                             const hasRequested = Boolean(
                                 requestIdsBySuggestionId[suggestion.id],
@@ -251,8 +250,11 @@ export function HomeRightSidebar({
                                 </div>
                             );
                         })}
-                    </div>
-                </>
+                </div>
+            ) : (
+                <div className="rounded-2xl border border-border bg-card/70 px-4 py-6 text-center text-sm text-muted-foreground iv-shadow-sm">
+                    {t("home.suggestions_empty")}
+                </div>
             )}
 
             <HomeFriendsPanel

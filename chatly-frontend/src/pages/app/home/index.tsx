@@ -199,7 +199,7 @@ export default function HomePage() {
                 <div className="flex w-full justify-center">
                     <HomeLeftSidebar />
                     {/* Central Feed Area */}
-                    <div className="w-full max-w-2xl px-4 py-10 flex flex-col gap-10 pb-32">
+                    <div className="min-w-0 w-full max-w-2xl shrink px-4 py-10 flex flex-col gap-10 pb-32">
                         {/* Stories Carousel */}
                         <div className="w-full relative">
                             <div className="flex gap-4 overflow-x-auto hide-scrollbar pb-3 pt-1 snap-x">

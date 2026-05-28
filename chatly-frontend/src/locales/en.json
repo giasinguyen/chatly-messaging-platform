@@ -242,6 +242,16 @@
             "shortcut_search": "Search conversation",
             "shortcut_mute": "Mute/Unmute conversation",
             "shortcut_panel": "Open shortcut panel"
+        },
+        "saved_posts": {
+            "title": "Saved posts",
+            "description": "Posts you bookmarked are collected here.",
+            "unavailable_title": "Saved posts are unavailable",
+            "unavailable_message": "This section failed to render. Try again.",
+            "load_failed": "Could not load saved posts",
+            "empty_title": "No saved posts yet",
+            "empty_hint": "Save posts from your feed to find them here later.",
+            "load_more": "Load more"
         }
     },
     "chat": {
@@ -918,7 +928,8 @@
         "no_posts_yet": "No posts yet",
         "no_posts_hint": "Create a post or check back after following more people.",
         "feed_load_failed": "Could not load feed",
-        "all_caught_up": "You are all caught up."
+        "all_caught_up": "You are all caught up.",
+        "suggestions_empty": "No friend suggestions right now. Add friends from Explore or Contacts."
     },
     "notifications": {
         "title": "Notifications",

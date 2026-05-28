@@ -242,6 +242,16 @@
             "shortcut_search": "Tìm kiếm cuộc trò chuyện",
             "shortcut_mute": "Bật/Tắt thông báo cuộc trò chuyện",
             "shortcut_panel": "Mở bảng phím tắt"
+        },
+        "saved_posts": {
+            "title": "Bài đã lưu",
+            "description": "Các bài viết bạn đã lưu được tập hợp tại đây.",
+            "unavailable_title": "Không thể hiển thị bài đã lưu",
+            "unavailable_message": "Phần này gặp lỗi khi tải. Vui lòng thử lại.",
+            "load_failed": "Không thể tải bài đã lưu",
+            "empty_title": "Chưa có bài đã lưu",
+            "empty_hint": "Lưu bài viết từ bảng tin để xem lại tại đây sau.",
+            "load_more": "Tải thêm"
         }
     },
     "chat": {
@@ -918,7 +928,8 @@
         "no_posts_yet": "Chưa có bài viết nào",
         "no_posts_hint": "Tạo bài viết hoặc theo dõi thêm bạn bè để xem nội dung mới.",
         "feed_load_failed": "Không thể tải bảng tin",
-        "all_caught_up": "Bạn đã xem hết bài viết mới."
+        "all_caught_up": "Bạn đã xem hết bài viết mới.",
+        "suggestions_empty": "Chưa có gợi ý bạn bè. Hãy thêm bạn từ Khám phá hoặc Danh bạ."
     },
     "notifications": {
         "title": "Thông báo",

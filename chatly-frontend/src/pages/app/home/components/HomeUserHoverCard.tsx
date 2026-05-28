@@ -34,7 +34,7 @@ export function HomeUserHoverCard({
 }: HomeUserHoverCardProps) {
     const { t } = useTranslation();
     return (
-        <div className="pointer-events-none absolute top-full left-0 z-50 w-80 pt-2 opacity-0 transition-all duration-150 group-hover:pointer-events-auto group-hover:opacity-100">
+        <div className="absolute inset-x-0 top-full z-50 mt-1 hidden group-hover:block">
             <div className="rounded-xl border border-border bg-popover p-3 text-popover-foreground shadow-2xl">
                 <div className="flex items-center gap-3">
                     <Avatar className="size-16 shrink-0">
@@ -68,7 +68,6 @@ export function HomeUserHoverCard({
                         className="h-9 rounded-lg"
                         onClick={onViewProfile}
                     >
-                        <UserRound className="mr-2 size-4" />
                         {t("home.view_profile")}
                     </Button>
 
