@@ -32,7 +32,7 @@ import {
     Bot,
     FileText
 } from "lucide-react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import Picker from "@emoji-mart/react";
 import data from "@emoji-mart/data";
@@ -102,6 +102,7 @@ import {
 import { SharePostDialog } from "./SharePostDialog";
 import { ReportPostDialog } from "./ReportPostDialog";
 import { MediaUploadZone } from "./MediaUploadZone";
+import { LinkifiedPostText } from "./LinkifiedPostText";
 import { ImageLightbox } from "@/pages/app/chat/components/ImageLightbox";
 import type { LightboxImage } from "@/pages/app/chat/components/messageList.utils";
 
@@ -151,39 +152,6 @@ function formatRelativeTime(value: string): string {
 
     const diffDays = Math.floor(diffHours / 24);
     return `${diffDays}d ago`;
-}
-
-function renderMentionText(text: string) {
-    const tokens = text.split(/(@AI|@[A-Za-z0-9_.-]+)/g);
-    return tokens.map((token, index) => {
-        const isMention = /^(@AI|@[A-Za-z0-9_.-]+)$/.test(token);
-        if (!isMention) {
-            return <span key={`${token}-${index}`}>{token}</span>;
-        }
-        if (token.toLowerCase() === "@ai") {
-            return (
-                <span
-                    key={`${token}-${index}`}
-                    className="font-medium text-indigo-600 dark:text-indigo-400"
-                >
-                    {token}
-                </span>
-            );
-        }
-
-        const username = token.slice(1);
-
-        return (
-            <Link
-                key={`${token}-${index}`}
-                to={`/u/${username}`}
-                className="font-medium text-indigo-600 dark:text-indigo-400"
-                onClick={(event) => event.stopPropagation()}
-            >
-                {token}
-            </Link>
-        );
-    });
 }
 
 function escapeRegExp(value: string): string {
@@ -512,7 +480,7 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
                                 )}
                                 {comment.content && (
                                     <p className="mt-1 text-sm text-foreground whitespace-pre-wrap">
-                                        {renderMentionText(comment.content)}
+                                        <LinkifiedPostText text={comment.content} />
                                     </p>
                                 )}
                                 {comment.mediaUrls.length > 0 && (
@@ -1469,13 +1437,13 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
                     <div className="px-5 py-2">
                         <p
                             className={cn(
-                                "whitespace-pre-wrap text-sm leading-relaxed text-foreground",
+                                "whitespace-pre-wrap break-words text-sm leading-relaxed text-foreground",
                                 isPostContentCollapsible &&
                                     !isPostContentExpanded &&
                                     "line-clamp-6",
                             )}
                         >
-                            {renderMentionText(renderedPostContent)}
+                            <LinkifiedPostText text={renderedPostContent} />
                         </p>
                         {isPostContentCollapsible && (
                             <button
@@ -1974,8 +1942,8 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
                                         </div>
 
                                         {renderedPostContent && (
-                                            <p className="whitespace-pre-wrap pt-3 text-sm leading-relaxed text-foreground">
-                                                {renderMentionText(renderedPostContent)}
+                                            <p className="whitespace-pre-wrap break-words pt-3 text-sm leading-relaxed text-foreground">
+                                                <LinkifiedPostText text={renderedPostContent} />
                                             </p>
                                         )}
 
@@ -2039,8 +2007,8 @@ function PostCardBase({ post, onPostUpdate, onPostRemove }: PostCardProps) {
                                         </div>
 
                                         {renderedPostContent && (
-                                            <p className="whitespace-pre-wrap py-3 text-sm leading-relaxed text-foreground">
-                                                {renderMentionText(renderedPostContent)}
+                                            <p className="whitespace-pre-wrap break-words py-3 text-sm leading-relaxed text-foreground">
+                                                <LinkifiedPostText text={renderedPostContent} />
                                             </p>
                                         )}
 

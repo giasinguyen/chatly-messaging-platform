@@ -27,10 +27,12 @@ import {
 } from '@/services/klipy.service';
 
 type MediaTab = 'gif' | 'sticker';
+type PickerTab = 'emoji' | MediaTab;
 
 interface MediaPickerProps {
-  initialTab?: MediaTab;
+  initialTab?: PickerTab;
   customerId: string;
+  onEmojiSelect?: (emoji: string) => void;
   onSelect: (item: KlipyItem) => void;
   onClose: () => void;
 }
@@ -38,15 +40,26 @@ interface MediaPickerProps {
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const GIF_COLUMNS = 3;
 const STICKER_COLUMNS = 4;
+const EMOJI_COLUMNS = 8;
 const GRID_GAP = 4;
+const QUICK_EMOJIS = [
+  '😀', '😃', '😄', '😁', '😆', '😅', '😂', '🤣',
+  '😊', '😇', '🙂', '🙃', '😉', '😍', '😘', '😋',
+  '😎', '🤩', '🥳', '😏', '😒', '😔', '😢', '😭',
+  '😤', '😡', '🤯', '😳', '🥺', '😱', '😴', '🤤',
+  '👍', '👎', '👏', '🙌', '🙏', '💪', '🤝', '👌',
+  '❤️', '🧡', '💛', '💚', '💙', '💜', '💕', '💔',
+  '🔥', '✨', '🎉', '🎂', '⭐', '🌟', '💯', '✅',
+];
 
 export function MediaPicker({
-  initialTab = 'gif',
+  initialTab = 'emoji',
   customerId,
+  onEmojiSelect,
   onSelect,
   onClose,
 }: MediaPickerProps) {
-  const [activeTab, setActiveTab] = useState<MediaTab>(initialTab);
+  const [activeTab, setActiveTab] = useState<PickerTab>(initialTab);
   const [query, setQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [items, setItems] = useState<KlipyItem[]>([]);
@@ -57,11 +70,12 @@ export function MediaPicker({
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const searchInputRef = useRef<TextInput>(null);
 
-  const numColumns = activeTab === 'gif' ? GIF_COLUMNS : STICKER_COLUMNS;
+  const numColumns =
+    activeTab === 'emoji' ? EMOJI_COLUMNS : activeTab === 'gif' ? GIF_COLUMNS : STICKER_COLUMNS;
   const itemSize = (SCREEN_WIDTH - GRID_GAP * (numColumns + 1)) / numColumns;
 
   // ── Tab switch ────────────────────────────────────────────────────────────
-  const switchTab = (tab: MediaTab) => {
+  const switchTab = (tab: PickerTab) => {
     setActiveTab(tab);
     setQuery('');
     setActiveCategory(null);
@@ -72,6 +86,10 @@ export function MediaPicker({
 
   // ── Categories ────────────────────────────────────────────────────────────
   useEffect(() => {
+    if (activeTab === 'emoji') {
+      setCategories([]);
+      return;
+    }
     (activeTab === 'gif' ? fetchGifCategories() : fetchStickerCategories())
       .then(setCategories)
       .catch(() => setCategories([]));
@@ -105,13 +123,18 @@ export function MediaPicker({
   );
 
   useEffect(() => {
+    if (activeTab === 'emoji') {
+      setItems([]);
+      setHasNext(false);
+      return;
+    }
     loadItems(query, activeCategory, 1, activeTab);
     setPage(1);
   }, [activeTab, query, activeCategory, loadItems]);
 
   // ── Load more (infinite scroll) ───────────────────────────────────────────
   const handleLoadMore = useCallback(() => {
-    if (loading || !hasNext) return;
+    if (activeTab === 'emoji' || loading || !hasNext) return;
     const nextPage = page + 1;
     setPage(nextPage);
     loadItems(query, activeCategory, nextPage, activeTab, true);
@@ -134,7 +157,9 @@ export function MediaPicker({
   // ── Item select + share tracking ──────────────────────────────────────────
   const handleSelect = useCallback(
     (item: KlipyItem) => {
-      triggerShare(activeTab, item.slug, customerId, query);
+      if (activeTab !== 'emoji') {
+        triggerShare(activeTab, item.slug, customerId, query);
+      }
       onSelect(item);
     },
     [activeTab, customerId, query, onSelect]
@@ -168,6 +193,23 @@ export function MediaPicker({
     [activeTab, itemSize, handleSelect]
   );
 
+  const renderEmojiItem = useCallback(
+    ({ item }: { item: string }) => (
+      <TouchableOpacity
+        activeOpacity={0.7}
+        onPress={() => onEmojiSelect?.(item)}
+        style={{
+          width: itemSize,
+          height: itemSize,
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}>
+        <Text style={{ fontSize: 28 }}>{item}</Text>
+      </TouchableOpacity>
+    ),
+    [itemSize, onEmojiSelect]
+  );
+
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -186,6 +228,19 @@ export function MediaPicker({
           backgroundColor: Colors.bg,
         }}>
         <View className="flex-1 flex-row">
+          <TouchableOpacity
+            onPress={() => switchTab('emoji')}
+            className="px-4 py-2.5"
+            style={{
+              borderBottomWidth: 2.5,
+              borderBottomColor: activeTab === 'emoji' ? Colors.cta : 'transparent',
+            }}>
+            <Text
+              className="text-[13px] font-semibold"
+              style={{ color: activeTab === 'emoji' ? Colors.cta : Colors.textMuted }}>
+              Emoji
+            </Text>
+          </TouchableOpacity>
           <TouchableOpacity
             onPress={() => switchTab('gif')}
             className="px-4 py-2.5"
@@ -228,6 +283,7 @@ export function MediaPicker({
       </View>
 
       {/* ── Search ── */}
+      {activeTab !== 'emoji' && (
       <View
         className="flex-row items-center px-3 py-2"
         style={{
@@ -253,9 +309,10 @@ export function MediaPicker({
           }}
         />
       </View>
+      )}
 
       {/* ── Category chips ── */}
-      {categories.length > 0 && !query && (
+      {activeTab !== 'emoji' && categories.length > 0 && !query && (
         <FlatList
           horizontal
           data={categories.slice(0, 14)}
@@ -296,38 +353,52 @@ export function MediaPicker({
       )}
 
       {/* ── Content grid ── */}
-      <FlatList
-        data={items}
-        keyExtractor={(item) => String(item.id)}
-        renderItem={renderItem}
-        numColumns={numColumns}
-        key={`grid-${numColumns}`}
-        contentContainerStyle={{ padding: GRID_GAP / 2 }}
-        onEndReached={handleLoadMore}
-        onEndReachedThreshold={0.3}
-        showsVerticalScrollIndicator={false}
-        ListEmptyComponent={
-          !loading ? (
-            <View className="items-center justify-center py-8">
-              <Text style={{ fontSize: 13, color: Colors.textMuted }}>No results found</Text>
-            </View>
-          ) : null
-        }
-        ListFooterComponent={
-          loading ? (
-            <View className="items-center py-4">
-              <ActivityIndicator size="small" color={Colors.cta} />
-            </View>
-          ) : null
-        }
-      />
+      {activeTab === 'emoji' ? (
+        <FlatList
+          data={QUICK_EMOJIS}
+          keyExtractor={(item) => item}
+          renderItem={renderEmojiItem}
+          numColumns={EMOJI_COLUMNS}
+          key="grid-emoji"
+          contentContainerStyle={{ padding: GRID_GAP / 2 }}
+          showsVerticalScrollIndicator={false}
+        />
+      ) : (
+        <FlatList
+          data={items}
+          keyExtractor={(item) => String(item.id)}
+          renderItem={renderItem}
+          numColumns={numColumns}
+          key={`grid-${numColumns}`}
+          contentContainerStyle={{ padding: GRID_GAP / 2 }}
+          onEndReached={handleLoadMore}
+          onEndReachedThreshold={0.3}
+          showsVerticalScrollIndicator={false}
+          ListEmptyComponent={
+            !loading ? (
+              <View className="items-center justify-center py-8">
+                <Text style={{ fontSize: 13, color: Colors.textMuted }}>No results found</Text>
+              </View>
+            ) : null
+          }
+          ListFooterComponent={
+            loading ? (
+              <View className="items-center py-4">
+                <ActivityIndicator size="small" color={Colors.cta} />
+              </View>
+            ) : null
+          }
+        />
+      )}
 
       {/* ── Attribution (REQUIRED) ── */}
-      <View
-        className="items-center py-1.5"
-        style={{ borderTopWidth: 0.5, borderTopColor: Colors.borderLight }}>
-        <Text style={{ fontSize: 10, color: Colors.textLight }}>Powered by KLIPY</Text>
-      </View>
+      {activeTab !== 'emoji' && (
+        <View
+          className="items-center py-1.5"
+          style={{ borderTopWidth: 0.5, borderTopColor: Colors.borderLight }}>
+          <Text style={{ fontSize: 10, color: Colors.textLight }}>Powered by KLIPY</Text>
+        </View>
+      )}
     </KeyboardAvoidingView>
   );
 }
