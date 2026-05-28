@@ -19,6 +19,7 @@ import { conversationService } from '@/services/conversation.service';
 import { messageService } from '@/services/message.service';
 import { postService } from '@/services/post.service';
 import { useAuthStore } from '@/store/auth.store';
+import { useMessageStore } from '@/store/message.store';
 import type { Attachment } from '@/types/message';
 import type { Post } from '@/types/post';
 import { PostSharePreview } from './PostSharePreview';
@@ -162,17 +163,22 @@ export function SharePostDialog({ post, visible, onClose, onShared }: SharePostD
         ]),
       ];
 
+      const { addMessage } = useMessageStore.getState();
+
       await Promise.all(
         targetConversationIds.map(async (conversationId) => {
           const response = await messageService.send({
             conversationId,
-            content: 'Shared a post',
+            content: '',
             attachments: [previewAttachment],
           });
 
           if (response.code !== 1000 || !response.result) {
             throw new Error(response.message ?? 'Could not share post.');
           }
+
+          // Add message to store immediately with attachment data from API response
+          addMessage(conversationId, response.result);
         }),
       );
 

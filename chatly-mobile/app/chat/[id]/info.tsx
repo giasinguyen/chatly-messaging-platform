@@ -31,13 +31,19 @@ import { fileService, type FileUploadResponse } from '@/services/file.service';
 import { userService } from '@/services/user.service';
 import { useAuthStore } from '@/store/auth.store';
 import { useConversationStore } from '@/store/conversation.store';
-import { useConversationPrefsStore } from '@/store/conversationPrefs.store';
-import { isConvMuted } from '@/store/conversationPrefs.store';
+import { isConvMuted, useConversationPrefsStore } from '@/store/conversationPrefs.store';
 import { useNotificationStore } from '@/store/notification.store';
 import { useThemeStore } from '@/store/theme.store';
+import { buildWebJoinLink } from '@/lib/webConfig';
 import { Colors } from '@/constants/theme';
 import { Avatar } from '@/components/ui/Avatar';
-import type { GroupMemberResponse, GroupRole, PendingJoinResponse, GroupReminderResponse, GroupNoteResponse } from '@/types/group';
+import type {
+  GroupMemberResponse,
+  GroupRole,
+  PendingJoinResponse,
+  GroupReminderResponse,
+  GroupNoteResponse,
+} from '@/types/group';
 import type { ContactResponse } from '@/types/contact';
 import type { UserResponse } from '@/types/auth';
 
@@ -47,7 +53,7 @@ export default function GroupInfoScreen() {
   const insets = useSafeAreaInsets();
   useThemeStore((state) => state.isDarkMode);
   const user = useAuthStore((s) => s.user);
-  
+
   const conversations = useConversationStore((s) => s.conversations);
   const setConversations = useConversationStore((s) => s.setConversations);
   const conversation = conversations.find((c) => c.id === conversationId);
@@ -62,11 +68,12 @@ export default function GroupInfoScreen() {
   const muteUntilLabel = !isEffMuted
     ? ''
     : muteUntil == null
-    ? 'Until turned back on'
-    : `Until ${new Date(muteUntil).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}`;
+      ? 'Until turned back on'
+      : `Until ${new Date(muteUntil).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}`;
 
-  useEffect(() => { hydrate(); }, []);
-
+  useEffect(() => {
+    hydrate();
+  }, []);
 
   const [members, setMembers] = useState<GroupMemberResponse[]>([]);
   const [loading, setLoading] = useState(false);
@@ -107,7 +114,9 @@ export default function GroupInfoScreen() {
   const [requireApproval, setRequireApproval] = useState(conversation?.requireApproval ?? false);
 
   // AI proactive
-  const [aiProactiveEnabled, setAiProactiveEnabled] = useState(conversation?.aiProactiveEnabled ?? false);
+  const [aiProactiveEnabled, setAiProactiveEnabled] = useState(
+    conversation?.aiProactiveEnabled ?? false
+  );
 
   // Reminders & notes
   const [reminders, setReminders] = useState<GroupReminderResponse[]>([]);
@@ -137,7 +146,8 @@ export default function GroupInfoScreen() {
     if (isGroup || !conversation || !user) return;
     const otherId = conversation.participantIds.find((id) => id !== user.id);
     if (!otherId) return;
-    userService.getById(otherId)
+    userService
+      .getById(otherId)
       .then((res) => setOtherUser(res.result))
       .catch(console.error);
   }, [isGroup, conversation, user]);
@@ -169,31 +179,42 @@ export default function GroupInfoScreen() {
   const notifications = useNotificationStore((s) => s.notifications);
   const removeByTypeAndReference = useNotificationStore((s) => s.removeByTypeAndReference);
   const joinRequestCount = useMemo(
-    () => notifications.filter((n) => n.type === 'GROUP_JOIN_REQUEST' && n.referenceId === conversationId).length,
-    [notifications, conversationId],
+    () =>
+      notifications.filter(
+        (n) => n.type === 'GROUP_JOIN_REQUEST' && n.referenceId === conversationId
+      ).length,
+    [notifications, conversationId]
   );
   useEffect(() => {
     if (canManage) fetchPendingRequests();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [joinRequestCount, canManage]);
 
   const handleChangeName = () => {
     if (!canManage) return;
-    Alert.prompt('Change Group Name', 'Enter new name', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Save',
-        onPress: async (newName?: string) => {
-          if (!newName || !newName.trim()) return;
-          try {
-            const res = await groupService.updateGroup(conversationId, { name: newName.trim() });
-            setConversations(conversations.map((c) => (c.id === conversationId ? res.result : c)));
-          } catch (e: any) {
-            Alert.alert('Error', e?.response?.data?.message || 'Could not change name.');
-          }
+    Alert.prompt(
+      'Change Group Name',
+      'Enter new name',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Save',
+          onPress: async (newName?: string) => {
+            if (!newName || !newName.trim()) return;
+            try {
+              const res = await groupService.updateGroup(conversationId, { name: newName.trim() });
+              setConversations(
+                conversations.map((c) => (c.id === conversationId ? res.result : c))
+              );
+            } catch (e: any) {
+              Alert.alert('Error', e?.response?.data?.message || 'Could not change name.');
+            }
+          },
         },
-      },
-    ], 'plain-text', conversation?.name ?? undefined);
+      ],
+      'plain-text',
+      conversation?.name ?? undefined
+    );
   };
 
   const handlePickAvatar = async () => {
@@ -237,7 +258,7 @@ export default function GroupInfoScreen() {
         (item) =>
           item.type === 'PRIVATE' &&
           item.participantIds.includes(targetUserId) &&
-          item.participantIds.includes(user.id),
+          item.participantIds.includes(user.id)
       );
 
       if (existingConversation) {
@@ -251,12 +272,12 @@ export default function GroupInfoScreen() {
       });
       router.push(`/chat/${response.result.id}`);
     },
-    [conversations, router, user],
+    [conversations, router, user]
   );
 
   const handleMemberAction = (member: GroupMemberResponse) => {
     if (member.userId === user?.id) return;
-    
+
     const options = [];
     if (canManage && member.role !== 'OWNER') {
       options.push({
@@ -282,7 +303,7 @@ export default function GroupInfoScreen() {
                   }
                 },
               },
-            ],
+            ]
           );
         },
       });
@@ -294,8 +315,14 @@ export default function GroupInfoScreen() {
         text: newRole === 'ADMIN' ? 'Make Admin' : 'Dismiss Admin',
         onPress: async () => {
           try {
-            await groupService.updateRole(conversationId, member.userId, { role: newRole as GroupRole });
-            setMembers((prev) => prev.map((m) => (m.userId === member.userId ? { ...m, role: newRole as GroupRole } : m)));
+            await groupService.updateRole(conversationId, member.userId, {
+              role: newRole as GroupRole,
+            });
+            setMembers((prev) =>
+              prev.map((m) =>
+                m.userId === member.userId ? { ...m, role: newRole as GroupRole } : m
+              )
+            );
             Alert.alert('Success', 'Privileges updated.');
           } catch (e: unknown) {
             const msg = e instanceof Error ? e.message : 'Could not update privileges.';
@@ -350,7 +377,7 @@ export default function GroupInfoScreen() {
             }
           },
         },
-      ],
+      ]
     );
   };
 
@@ -373,7 +400,7 @@ export default function GroupInfoScreen() {
         },
       ],
       'plain-text',
-      nickname,
+      nickname
     );
   };
 
@@ -402,14 +429,16 @@ export default function GroupInfoScreen() {
     try {
       const res = await groupService.getOrCreateInviteLink(conversationId);
       if (res.result) setInviteLink(res.result.inviteToken);
-    } catch { /* silent */ }
-    finally { setInviteLinkLoading(false); }
+    } catch {
+      /* silent */
+    } finally {
+      setInviteLinkLoading(false);
+    }
   };
 
   const handleCopyInviteLink = async () => {
     if (!inviteLink) return;
-    const fullLink = `${process.env.EXPO_PUBLIC_WEB_URL || 'http://localhost:5173'}/join/${inviteLink}`;
-    await Clipboard.setStringAsync(fullLink);
+    await Clipboard.setStringAsync(buildWebJoinLink(inviteLink));
     Alert.alert('Copied', 'Invite link copied to clipboard.');
   };
 
@@ -430,7 +459,9 @@ export default function GroupInfoScreen() {
     try {
       const res = await groupService.getPendingRequests(conversationId);
       setPendingRequests(res.result ?? []);
-    } catch { /* silent */ }
+    } catch {
+      /* silent */
+    }
   };
 
   const handleApprovePending = async (userId: string) => {
@@ -439,7 +470,9 @@ export default function GroupInfoScreen() {
       removeByTypeAndReference('GROUP_JOIN_REQUEST', conversationId);
       fetchPendingRequests();
       fetchMembers();
-    } catch { Alert.alert('Error', 'Could not approve request.'); }
+    } catch {
+      Alert.alert('Error', 'Could not approve request.');
+    }
   };
 
   const handleRejectPending = async (userId: string) => {
@@ -447,7 +480,9 @@ export default function GroupInfoScreen() {
       await groupService.rejectPendingRequest(conversationId, userId);
       removeByTypeAndReference('GROUP_JOIN_REQUEST', conversationId);
       fetchPendingRequests();
-    } catch { Alert.alert('Error', 'Could not reject request.'); }
+    } catch {
+      Alert.alert('Error', 'Could not reject request.');
+    }
   };
 
   // ── Require approval toggle ──
@@ -478,37 +513,58 @@ export default function GroupInfoScreen() {
     try {
       const res = await groupService.getReminders(conversationId);
       setReminders(res.result ?? []);
-    } catch { /* silent */ }
+    } catch {
+      /* silent */
+    }
   };
 
   const handleCreateReminder = () => {
-    Alert.prompt('Create Reminder', 'Enter reminder title', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Create',
-        onPress: async (title?: string) => {
-          if (!title?.trim()) return;
-          try {
-            await groupService.createReminder(conversationId, { title: title.trim() });
-            fetchReminders();
-          } catch { Alert.alert('Error', 'Could not create reminder.'); }
+    Alert.prompt(
+      'Create Reminder',
+      'Enter reminder title',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Create',
+          onPress: async (title?: string) => {
+            if (!title?.trim()) return;
+            try {
+              await groupService.createReminder(conversationId, { title: title.trim() });
+              fetchReminders();
+            } catch {
+              Alert.alert('Error', 'Could not create reminder.');
+            }
+          },
         },
-      },
-    ], 'plain-text');
+      ],
+      'plain-text'
+    );
   };
 
   const handleToggleReminder = async (id: string) => {
-    try { await groupService.toggleReminder(id); fetchReminders(); }
-    catch { Alert.alert('Error', 'Could not update.'); }
+    try {
+      await groupService.toggleReminder(id);
+      fetchReminders();
+    } catch {
+      Alert.alert('Error', 'Could not update.');
+    }
   };
 
   const handleDeleteReminder = (id: string) => {
     Alert.alert('Delete Reminder', 'Are you sure you want to delete?', [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: async () => {
-        try { await groupService.deleteReminder(id); fetchReminders(); }
-        catch { Alert.alert('Error', 'Could not delete.'); }
-      }},
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await groupService.deleteReminder(id);
+            fetchReminders();
+          } catch {
+            Alert.alert('Error', 'Could not delete.');
+          }
+        },
+      },
     ]);
   };
 
@@ -518,37 +574,58 @@ export default function GroupInfoScreen() {
     try {
       const res = await groupService.getNotes(conversationId);
       setNotes(res.result ?? []);
-    } catch { /* silent */ }
+    } catch {
+      /* silent */
+    }
   };
 
   const handleCreateNote = () => {
-    Alert.prompt('Create Note', 'Enter note title', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Create',
-        onPress: async (title?: string) => {
-          if (!title?.trim()) return;
-          try {
-            await groupService.createNote(conversationId, { title: title.trim() });
-            fetchNotes();
-          } catch { Alert.alert('Error', 'Could not create note.'); }
+    Alert.prompt(
+      'Create Note',
+      'Enter note title',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Create',
+          onPress: async (title?: string) => {
+            if (!title?.trim()) return;
+            try {
+              await groupService.createNote(conversationId, { title: title.trim() });
+              fetchNotes();
+            } catch {
+              Alert.alert('Error', 'Could not create note.');
+            }
+          },
         },
-      },
-    ], 'plain-text');
+      ],
+      'plain-text'
+    );
   };
 
   const handleTogglePin = async (noteId: string, currentPinned: boolean) => {
-    try { await groupService.updateNote(noteId, { title: '', pinned: !currentPinned }); fetchNotes(); }
-    catch { Alert.alert('Error', 'Could not update pin.'); }
+    try {
+      await groupService.updateNote(noteId, { title: '', pinned: !currentPinned });
+      fetchNotes();
+    } catch {
+      Alert.alert('Error', 'Could not update pin.');
+    }
   };
 
   const handleDeleteNote = (id: string) => {
     Alert.alert('Delete Note', 'Are you sure you want to delete?', [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: async () => {
-        try { await groupService.deleteNote(id); fetchNotes(); }
-        catch { Alert.alert('Error', 'Could not delete.'); }
-      }},
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await groupService.deleteNote(id);
+            fetchNotes();
+          } catch {
+            Alert.alert('Error', 'Could not delete.');
+          }
+        },
+      },
     ]);
   };
 
@@ -558,7 +635,7 @@ export default function GroupInfoScreen() {
       fetchInviteLink();
       if (currentUserRole === 'OWNER') fetchPendingRequests();
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isGroup, currentUserRole]);
 
   const availableContacts = useMemo(() => {
@@ -584,18 +661,39 @@ export default function GroupInfoScreen() {
     active?: boolean;
   }) => (
     <TouchableOpacity onPress={onPress} style={{ alignItems: 'center', flex: 1, maxWidth: 76 }}>
-      <View style={{
-        width: 52, height: 52, borderRadius: 26,
-        backgroundColor: active ? Colors.ctaLight : Colors.bg,
-        alignItems: 'center', justifyContent: 'center',
-      }}>
+      <View
+        style={{
+          width: 52,
+          height: 52,
+          borderRadius: 26,
+          backgroundColor: active ? Colors.ctaLight : Colors.bg,
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}>
         {(() => {
           const key = (iconName || '').toString().toLowerCase();
-          const iconSize = key.includes('pin') || key.includes('bookmark') || key.includes('notification') ? 24 : 22;
-          return <Ionicons name={iconName as any} size={iconSize} color={active ? Colors.cta : Colors.text} />;
+          const iconSize =
+            key.includes('pin') || key.includes('bookmark') || key.includes('notification')
+              ? 24
+              : 22;
+          return (
+            <Ionicons
+              name={iconName as any}
+              size={iconSize}
+              color={active ? Colors.cta : Colors.text}
+            />
+          );
         })()}
       </View>
-      <Text style={{ color: Colors.textMuted, fontSize: 11, textAlign: 'center', marginTop: 6, lineHeight: 15 }} numberOfLines={2}>
+      <Text
+        style={{
+          color: Colors.textMuted,
+          fontSize: 11,
+          textAlign: 'center',
+          marginTop: 6,
+          lineHeight: 15,
+        }}
+        numberOfLines={2}>
         {label}
       </Text>
     </TouchableOpacity>
@@ -604,25 +702,54 @@ export default function GroupInfoScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: Colors.bg }}>
       {/* Header */}
-      <View style={{ paddingTop: insets.top, backgroundColor: Colors.bgCard, borderBottomWidth: 0.5, borderBottomColor: Colors.borderLight }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12 }}>
-          <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+      <View
+        style={{
+          paddingTop: insets.top,
+          backgroundColor: Colors.bgCard,
+          borderBottomWidth: 0.5,
+          borderBottomColor: Colors.borderLight,
+        }}>
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            paddingHorizontal: 16,
+            paddingVertical: 12,
+          }}>
+          <TouchableOpacity
+            onPress={() => router.back()}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
             <Ionicons name="chevron-back" size={24} color={Colors.text} />
           </TouchableOpacity>
-          <Text style={{ flex: 1, textAlign: 'center', fontSize: 18, fontWeight: 'bold', color: Colors.text }}>
+          <Text
+            style={{
+              flex: 1,
+              textAlign: 'center',
+              fontSize: 18,
+              fontWeight: 'bold',
+              color: Colors.text,
+            }}>
             Options
           </Text>
           <View style={{ width: 24 }} />
         </View>
       </View>
 
-      <ScrollView contentContainerStyle={{ paddingBottom: Math.max(40, insets.bottom + 16) }} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        contentContainerStyle={{ paddingBottom: Math.max(40, insets.bottom + 16) }}
+        keyboardShouldPersistTaps="handled">
         {/* ── Profile card ── */}
-        <View style={{ alignItems: 'center', paddingTop: 28, paddingBottom: 20, backgroundColor: Colors.bgCard, marginBottom: 8 }}>
+        <View
+          style={{
+            alignItems: 'center',
+            paddingTop: 28,
+            paddingBottom: 20,
+            backgroundColor: Colors.bgCard,
+            marginBottom: 8,
+          }}>
           <TouchableOpacity
             onPress={isGroup && canManage ? handlePickAvatar : undefined}
-            disabled={!isGroup || !canManage}
-          >
+            disabled={!isGroup || !canManage}>
             <View style={{ position: 'relative' }}>
               <Avatar
                 uri={isGroup ? (conversation?.avatarUrl ?? null) : (otherUser?.avatarUrl ?? null)}
@@ -630,30 +757,61 @@ export default function GroupInfoScreen() {
                 size={80}
               />
               {isGroup && canManage && (
-                <View style={{ position: 'absolute', bottom: 0, right: 0, borderRadius: 99, padding: 5, backgroundColor: Colors.cta }}>
+                <View
+                  style={{
+                    position: 'absolute',
+                    bottom: 0,
+                    right: 0,
+                    borderRadius: 99,
+                    padding: 5,
+                    backgroundColor: Colors.cta,
+                  }}>
                   <Ionicons name="camera" size={12} color={Colors.white} />
                 </View>
               )}
             </View>
           </TouchableOpacity>
           <TouchableOpacity
-            style={{ marginTop: 12, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 24 }}
+            style={{
+              marginTop: 12,
+              flexDirection: 'row',
+              alignItems: 'center',
+              paddingHorizontal: 24,
+            }}
             onPress={isGroup && canManage ? handleChangeName : undefined}
-            disabled={!isGroup || !canManage}
-          >
-            <Text numberOfLines={2} style={{ fontSize: 20, fontWeight: 'bold', color: Colors.text, flexShrink: 1, textAlign: 'center' }}>
-              {isGroup ? (conversation?.name ?? 'Untitled Group') : (otherUser?.displayName ?? '...')}
+            disabled={!isGroup || !canManage}>
+            <Text
+              numberOfLines={2}
+              style={{
+                fontSize: 20,
+                fontWeight: 'bold',
+                color: Colors.text,
+                flexShrink: 1,
+                textAlign: 'center',
+              }}>
+              {isGroup
+                ? (conversation?.name ?? 'Untitled Group')
+                : (otherUser?.displayName ?? '...')}
             </Text>
             {isGroup && canManage && (
-              <Ionicons name="pencil" size={15} color={Colors.textLight} style={{ marginLeft: 6 }} />
+              <Ionicons
+                name="pencil"
+                size={15}
+                color={Colors.textLight}
+                style={{ marginLeft: 6 }}
+              />
             )}
           </TouchableOpacity>
           {!isGroup && otherUser && (
             <>
               {nickname ? (
-                <Text style={{ marginTop: 2, fontSize: 14, fontWeight: '600', color: Colors.cta }}>{nickname}</Text>
+                <Text style={{ marginTop: 2, fontSize: 14, fontWeight: '600', color: Colors.cta }}>
+                  {nickname}
+                </Text>
               ) : null}
-              <Text style={{ marginTop: nickname ? 1 : 2, fontSize: 13, color: Colors.textMuted }}>@{otherUser.username}</Text>
+              <Text style={{ marginTop: nickname ? 1 : 2, fontSize: 13, color: Colors.textMuted }}>
+                @{otherUser.username}
+              </Text>
             </>
           )}
           {isGroup && (
@@ -661,7 +819,15 @@ export default function GroupInfoScreen() {
           )}
 
           {/* ── Quick action buttons ── */}
-          <View style={{ flexDirection: 'row', marginTop: 24, paddingHorizontal: 8, alignSelf: 'stretch', justifyContent: 'center', gap: 4 }}>
+          <View
+            style={{
+              flexDirection: 'row',
+              marginTop: 24,
+              paddingHorizontal: 8,
+              alignSelf: 'stretch',
+              justifyContent: 'center',
+              gap: 4,
+            }}>
             <QuickActionBtn
               iconName="search-outline"
               label={'Search\nmessages'}
@@ -704,12 +870,27 @@ export default function GroupInfoScreen() {
           <View style={{ backgroundColor: Colors.bgCard, marginBottom: 8 }}>
             <TouchableOpacity
               onPress={handleSetNickname}
-              style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, height: 54, borderBottomWidth: 0.5, borderBottomColor: Colors.borderLight }}
-            >
-              <Ionicons name="pencil-outline" size={20} color={Colors.textMuted} style={{ marginRight: 14 }} />
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                paddingHorizontal: 16,
+                height: 54,
+                borderBottomWidth: 0.5,
+                borderBottomColor: Colors.borderLight,
+              }}>
+              <Ionicons
+                name="pencil-outline"
+                size={20}
+                color={Colors.textMuted}
+                style={{ marginRight: 14 }}
+              />
               <Text style={{ flex: 1, fontSize: 15, color: Colors.text }}>Set nickname</Text>
               {nickname ? (
-                <Text style={{ fontSize: 13, color: Colors.textLight, maxWidth: 140 }} numberOfLines={1}>{nickname}</Text>
+                <Text
+                  style={{ fontSize: 13, color: Colors.textLight, maxWidth: 140 }}
+                  numberOfLines={1}>
+                  {nickname}
+                </Text>
               ) : (
                 <Ionicons name="chevron-forward" size={16} color={Colors.textLight} />
               )}
@@ -721,21 +902,39 @@ export default function GroupInfoScreen() {
         <View style={{ backgroundColor: Colors.bgCard, marginBottom: 8 }}>
           <TouchableOpacity
             onPress={() => router.push(`/chat/${conversationId}/shared-media`)}
-            style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, height: 54 }}
-          >
-            <Ionicons name="images-outline" size={20} color={Colors.textMuted} style={{ marginRight: 14 }} />
-            <Text style={{ flex: 1, fontSize: 15, color: Colors.text }}>Media, files and links</Text>
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              paddingHorizontal: 16,
+              height: 54,
+            }}>
+            <Ionicons
+              name="images-outline"
+              size={20}
+              color={Colors.textMuted}
+              style={{ marginRight: 14 }}
+            />
+            <Text style={{ flex: 1, fontSize: 15, color: Colors.text }}>
+              Media, files and links
+            </Text>
             <Ionicons name="chevron-forward" size={16} color={Colors.textLight} />
           </TouchableOpacity>
         </View>
 
         {mediaFiles.length > 0 && (
           <View style={{ backgroundColor: Colors.bgCard, padding: 16, marginBottom: 8 }}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+            <View
+              style={{
+                flexDirection: 'row',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: 10,
+              }}>
               <Text style={{ fontWeight: '600', fontSize: 15, color: Colors.text }}>
                 Media ({mediaFiles.length})
               </Text>
-              <TouchableOpacity onPress={() => router.push(`/chat/${conversationId}/shared-media?tab=media`)}>
+              <TouchableOpacity
+                onPress={() => router.push(`/chat/${conversationId}/shared-media?tab=media`)}>
                 <Text style={{ fontSize: 13, color: Colors.cta }}>View All</Text>
               </TouchableOpacity>
             </View>
@@ -751,16 +950,25 @@ export default function GroupInfoScreen() {
                   <TouchableOpacity
                     key={file.fileId}
                     onPress={() => openMediaLightbox(idx)}
-                    style={{ borderRadius: 8, overflow: 'hidden' }}
-                  >
-                    <Image source={{ uri: file.url }} style={{ width: 80, height: 80 }} resizeMode="cover" />
+                    style={{ borderRadius: 8, overflow: 'hidden' }}>
+                    <Image
+                      source={{ uri: file.url }}
+                      style={{ width: 80, height: 80 }}
+                      resizeMode="cover"
+                    />
                   </TouchableOpacity>
                 ))}
                 {mediaFiles.length > 4 && (
                   <TouchableOpacity
                     onPress={() => router.push(`/chat/${conversationId}/shared-media?tab=media`)}
-                    style={{ width: 80, height: 80, borderRadius: 8, backgroundColor: Colors.bg, alignItems: 'center', justifyContent: 'center' }}
-                  >
+                    style={{
+                      width: 80,
+                      height: 80,
+                      borderRadius: 8,
+                      backgroundColor: Colors.bg,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}>
                     <Ionicons name="arrow-forward" size={22} color={Colors.cta} />
                   </TouchableOpacity>
                 )}
@@ -772,11 +980,18 @@ export default function GroupInfoScreen() {
         {/* ── Files ── */}
         {docFiles.length > 0 && (
           <View style={{ backgroundColor: Colors.bgCard, padding: 16, marginBottom: 8 }}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+            <View
+              style={{
+                flexDirection: 'row',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: 10,
+              }}>
               <Text style={{ fontWeight: '600', fontSize: 15, color: Colors.text }}>
                 Files ({docFiles.length})
               </Text>
-              <TouchableOpacity onPress={() => router.push(`/chat/${conversationId}/shared-media?tab=files`)}>
+              <TouchableOpacity
+                onPress={() => router.push(`/chat/${conversationId}/shared-media?tab=files`)}>
                 <Text style={{ fontSize: 13, color: Colors.cta }}>View All</Text>
               </TouchableOpacity>
             </View>
@@ -796,14 +1011,28 @@ export default function GroupInfoScreen() {
                     paddingVertical: 8,
                     borderBottomWidth: 0.5,
                     borderBottomColor: Colors.borderLight,
-                  }}
-                >
-                  <View style={{ width: 36, height: 36, borderRadius: 8, backgroundColor: Colors.ctaLight, alignItems: 'center', justifyContent: 'center', marginRight: 10 }}>
+                  }}>
+                  <View
+                    style={{
+                      width: 36,
+                      height: 36,
+                      borderRadius: 8,
+                      backgroundColor: Colors.ctaLight,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      marginRight: 10,
+                    }}>
                     <Ionicons name="document-text" size={18} color={Colors.cta} />
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text numberOfLines={1} style={{ fontSize: 13, fontWeight: '500', color: Colors.text }}>{file.fileName}</Text>
-                    {sizeStr ? <Text style={{ fontSize: 11, color: Colors.textLight }}>{sizeStr}</Text> : null}
+                    <Text
+                      numberOfLines={1}
+                      style={{ fontSize: 13, fontWeight: '500', color: Colors.text }}>
+                      {file.fileName}
+                    </Text>
+                    {sizeStr ? (
+                      <Text style={{ fontSize: 11, color: Colors.textLight }}>{sizeStr}</Text>
+                    ) : null}
                   </View>
                   <Ionicons name="download-outline" size={18} color={Colors.textLight} />
                 </TouchableOpacity>
@@ -815,17 +1044,33 @@ export default function GroupInfoScreen() {
         {/* ── Group: Members ── */}
         {isGroup && (
           <View style={{ backgroundColor: Colors.bgCard, marginBottom: 8 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12 }}>
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                paddingHorizontal: 16,
+                paddingVertical: 12,
+              }}>
               <Text style={{ fontWeight: '600', fontSize: 15, color: Colors.text }}>
                 Members ({members.length})
               </Text>
               {canManage && (
                 <TouchableOpacity
                   onPress={handleOpenAddModal}
-                  style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8, backgroundColor: Colors.ctaLight }}
-                >
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    paddingHorizontal: 10,
+                    paddingVertical: 5,
+                    borderRadius: 8,
+                    backgroundColor: Colors.ctaLight,
+                  }}>
                   <Ionicons name="person-add" size={14} color={Colors.cta} />
-                  <Text style={{ marginLeft: 4, color: Colors.cta, fontSize: 13, fontWeight: '600' }}>Add</Text>
+                  <Text
+                    style={{ marginLeft: 4, color: Colors.cta, fontSize: 13, fontWeight: '600' }}>
+                    Add
+                  </Text>
                 </TouchableOpacity>
               )}
             </View>
@@ -835,26 +1080,46 @@ export default function GroupInfoScreen() {
                 key={item.userId}
                 onPress={() => handleMemberAction(item)}
                 disabled={item.userId === user?.id}
-                style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10, borderTopWidth: 0.5, borderTopColor: Colors.borderLight }}
-              >
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  paddingHorizontal: 16,
+                  paddingVertical: 10,
+                  borderTopWidth: 0.5,
+                  borderTopColor: Colors.borderLight,
+                }}>
                 <TouchableOpacity
                   onPress={(event) => {
                     event.stopPropagation();
                     setQuickProfileMember(item);
                   }}
-                  activeOpacity={0.8}
-                >
+                  activeOpacity={0.8}>
                   <Avatar uri={item.avatar} name={item.displayName} size={40} />
                 </TouchableOpacity>
                 <View style={{ flex: 1, marginLeft: 12 }}>
                   <Text numberOfLines={1} style={{ fontWeight: '500', color: Colors.text }}>
                     {item.userId === user?.id ? 'You' : item.displayName}
                   </Text>
-                  <Text numberOfLines={1} style={{ fontSize: 12, marginTop: 1, color: Colors.textLight }}>@{item.username}</Text>
+                  <Text
+                    numberOfLines={1}
+                    style={{ fontSize: 12, marginTop: 1, color: Colors.textLight }}>
+                    @{item.username}
+                  </Text>
                 </View>
                 {item.role !== 'MEMBER' && (
-                  <View style={{ borderRadius: 4, paddingHorizontal: 8, paddingVertical: 2, backgroundColor: item.role === 'OWNER' ? '#FFE8D6' : Colors.ctaLight }}>
-                    <Text style={{ fontSize: 11, fontWeight: 'bold', color: item.role === 'OWNER' ? '#D08C60' : Colors.cta }}>
+                  <View
+                    style={{
+                      borderRadius: 4,
+                      paddingHorizontal: 8,
+                      paddingVertical: 2,
+                      backgroundColor: item.role === 'OWNER' ? '#FFE8D6' : Colors.ctaLight,
+                    }}>
+                    <Text
+                      style={{
+                        fontSize: 11,
+                        fontWeight: 'bold',
+                        color: item.role === 'OWNER' ? '#D08C60' : Colors.cta,
+                      }}>
                       {item.role === 'OWNER' ? 'Owner' : 'Admin'}
                     </Text>
                   </View>
@@ -869,16 +1134,31 @@ export default function GroupInfoScreen() {
             {/* Invite Link */}
             <TouchableOpacity
               onPress={inviteLink ? handleCopyInviteLink : fetchInviteLink}
-              style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, height: 54, borderBottomWidth: 0.5, borderBottomColor: Colors.borderLight }}
-            >
-              <Ionicons name="link-outline" size={22} color={Colors.textMuted} style={{ marginRight: 14 }} />
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                paddingHorizontal: 16,
+                height: 54,
+                borderBottomWidth: 0.5,
+                borderBottomColor: Colors.borderLight,
+              }}>
+              <Ionicons
+                name="link-outline"
+                size={22}
+                color={Colors.textMuted}
+                style={{ marginRight: 14 }}
+              />
               <Text style={{ flex: 1, fontSize: 15, color: Colors.text }}>
                 {inviteLink ? 'Copy invite link' : 'Create invite link'}
               </Text>
               {inviteLinkLoading ? (
                 <ActivityIndicator size="small" color={Colors.cta} />
               ) : (
-                <Ionicons name={inviteLink ? 'copy-outline' : 'chevron-forward'} size={16} color={Colors.textLight} />
+                <Ionicons
+                  name={inviteLink ? 'copy-outline' : 'chevron-forward'}
+                  size={16}
+                  color={Colors.textLight}
+                />
               )}
             </TouchableOpacity>
 
@@ -886,20 +1166,46 @@ export default function GroupInfoScreen() {
             {inviteLink && canManage && (
               <TouchableOpacity
                 onPress={handleResetInviteLink}
-                style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, height: 48, borderBottomWidth: 0.5, borderBottomColor: Colors.borderLight }}
-              >
-                <Ionicons name="refresh-outline" size={20} color={Colors.cta} style={{ marginRight: 14 }} />
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  paddingHorizontal: 16,
+                  height: 48,
+                  borderBottomWidth: 0.5,
+                  borderBottomColor: Colors.borderLight,
+                }}>
+                <Ionicons
+                  name="refresh-outline"
+                  size={20}
+                  color={Colors.cta}
+                  style={{ marginRight: 14 }}
+                />
                 <Text style={{ fontSize: 14, color: Colors.cta }}>Reset invite link</Text>
               </TouchableOpacity>
             )}
 
             {/* Require approval toggle (OWNER/ADMIN) */}
             {canManage && (
-              <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, height: 54, borderBottomWidth: 0.5, borderBottomColor: Colors.borderLight }}>
-                <Ionicons name="shield-checkmark-outline" size={22} color={Colors.textMuted} style={{ marginRight: 14 }} />
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  paddingHorizontal: 16,
+                  height: 54,
+                  borderBottomWidth: 0.5,
+                  borderBottomColor: Colors.borderLight,
+                }}>
+                <Ionicons
+                  name="shield-checkmark-outline"
+                  size={22}
+                  color={Colors.textMuted}
+                  style={{ marginRight: 14 }}
+                />
                 <View style={{ flex: 1 }}>
                   <Text style={{ fontSize: 15, color: Colors.text }}>Approve new members</Text>
-                  <Text style={{ fontSize: 12, color: Colors.textLight, marginTop: 1 }}>Owner must approve join requests</Text>
+                  <Text style={{ fontSize: 12, color: Colors.textLight, marginTop: 1 }}>
+                    Owner must approve join requests
+                  </Text>
                 </View>
                 <Switch
                   value={requireApproval}
@@ -912,13 +1218,23 @@ export default function GroupInfoScreen() {
 
             {/* AI proactive toggle (OWNER/ADMIN) */}
             {canManage && (
-              <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, height: 54, borderBottomWidth: 0.5, borderBottomColor: Colors.borderLight }}>
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  paddingHorizontal: 16,
+                  height: 54,
+                  borderBottomWidth: 0.5,
+                  borderBottomColor: Colors.borderLight,
+                }}>
                 <View style={{ marginRight: 14 }}>
                   <CustomAiIcon size={22} color={Colors.textMuted} />
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={{ fontSize: 15, color: Colors.text }}>AI assistant</Text>
-                  <Text style={{ fontSize: 12, color: Colors.textLight, marginTop: 1 }}>Allow AI to respond proactively in this group</Text>
+                  <Text style={{ fontSize: 12, color: Colors.textLight, marginTop: 1 }}>
+                    Allow AI to respond proactively in this group
+                  </Text>
                 </View>
                 <Switch
                   value={aiProactiveEnabled}
@@ -934,7 +1250,13 @@ export default function GroupInfoScreen() {
         {/* ── Group: Pending Requests (OWNER only) ── */}
         {isGroup && currentUserRole === 'OWNER' && pendingRequests.length > 0 && (
           <View style={{ backgroundColor: Colors.bgCard, marginBottom: 8 }}>
-            <View style={{ paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 0.5, borderBottomColor: Colors.borderLight }}>
+            <View
+              style={{
+                paddingHorizontal: 16,
+                paddingVertical: 12,
+                borderBottomWidth: 0.5,
+                borderBottomColor: Colors.borderLight,
+              }}>
               <Text style={{ fontWeight: '600', fontSize: 15, color: Colors.text }}>
                 Pending requests ({pendingRequests.length})
               </Text>
@@ -942,23 +1264,36 @@ export default function GroupInfoScreen() {
             {pendingRequests.map((req) => (
               <View
                 key={req.id}
-                style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: 0.5, borderBottomColor: Colors.borderLight }}
-              >
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  paddingHorizontal: 16,
+                  paddingVertical: 10,
+                  borderBottomWidth: 0.5,
+                  borderBottomColor: Colors.borderLight,
+                }}>
                 <Avatar uri={req.avatarUrl} name={req.displayName} size={40} />
                 <View style={{ flex: 1, marginLeft: 12 }}>
-                  <Text numberOfLines={1} style={{ fontWeight: '500', color: Colors.text }}>{req.displayName}</Text>
-                  <Text numberOfLines={1} style={{ fontSize: 12, color: Colors.textLight }}>@{req.username}</Text>
+                  <Text numberOfLines={1} style={{ fontWeight: '500', color: Colors.text }}>
+                    {req.displayName}
+                  </Text>
+                  <Text numberOfLines={1} style={{ fontSize: 12, color: Colors.textLight }}>
+                    @{req.username}
+                  </Text>
                 </View>
                 <TouchableOpacity
                   onPress={() => handleApprovePending(req.userId)}
-                  style={{ marginRight: 8, padding: 6, borderRadius: 8, backgroundColor: '#E8F5E9' }}
-                >
+                  style={{
+                    marginRight: 8,
+                    padding: 6,
+                    borderRadius: 8,
+                    backgroundColor: '#E8F5E9',
+                  }}>
                   <Ionicons name="checkmark" size={18} color="#4CAF50" />
                 </TouchableOpacity>
                 <TouchableOpacity
                   onPress={() => handleRejectPending(req.userId)}
-                  style={{ padding: 6, borderRadius: 8, backgroundColor: '#FFEBEE' }}
-                >
+                  style={{ padding: 6, borderRadius: 8, backgroundColor: '#FFEBEE' }}>
                   <Ionicons name="close" size={18} color={Colors.error} />
                 </TouchableOpacity>
               </View>
@@ -969,22 +1304,56 @@ export default function GroupInfoScreen() {
         {/* ── Group: Bulletin Board (Reminders + Notes) ── */}
         {isGroup && (
           <View style={{ backgroundColor: Colors.bgCard, marginBottom: 8 }}>
-            <View style={{ paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 0.5, borderBottomColor: Colors.borderLight }}>
-              <Text style={{ fontWeight: '600', fontSize: 15, color: Colors.text }}>Bulletin board</Text>
+            <View
+              style={{
+                paddingHorizontal: 16,
+                paddingVertical: 12,
+                borderBottomWidth: 0.5,
+                borderBottomColor: Colors.borderLight,
+              }}>
+              <Text style={{ fontWeight: '600', fontSize: 15, color: Colors.text }}>
+                Bulletin board
+              </Text>
             </View>
             <TouchableOpacity
-              onPress={() => { fetchReminders(); setRemindersVisible(true); }}
-              style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, height: 54, borderBottomWidth: 0.5, borderBottomColor: Colors.borderLight }}
-            >
-              <Ionicons name="alarm-outline" size={22} color={Colors.textMuted} style={{ marginRight: 14 }} />
+              onPress={() => {
+                fetchReminders();
+                setRemindersVisible(true);
+              }}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                paddingHorizontal: 16,
+                height: 54,
+                borderBottomWidth: 0.5,
+                borderBottomColor: Colors.borderLight,
+              }}>
+              <Ionicons
+                name="alarm-outline"
+                size={22}
+                color={Colors.textMuted}
+                style={{ marginRight: 14 }}
+              />
               <Text style={{ flex: 1, fontSize: 15, color: Colors.text }}>Reminder list</Text>
               <Ionicons name="chevron-forward" size={16} color={Colors.textLight} />
             </TouchableOpacity>
             <TouchableOpacity
-              onPress={() => { fetchNotes(); setNotesVisible(true); }}
-              style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, height: 54 }}
-            >
-              <Ionicons name="document-text-outline" size={22} color={Colors.textMuted} style={{ marginRight: 14 }} />
+              onPress={() => {
+                fetchNotes();
+                setNotesVisible(true);
+              }}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                paddingHorizontal: 16,
+                height: 54,
+              }}>
+              <Ionicons
+                name="document-text-outline"
+                size={22}
+                color={Colors.textMuted}
+                style={{ marginRight: 14 }}
+              />
               <Text style={{ flex: 1, fontSize: 15, color: Colors.text }}>Notes</Text>
               <Ionicons name="chevron-forward" size={16} color={Colors.textLight} />
             </TouchableOpacity>
@@ -993,8 +1362,21 @@ export default function GroupInfoScreen() {
 
         {/* ── Settings: Pin & Mute ── */}
         <View style={{ backgroundColor: Colors.bgCard, marginBottom: 8 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, height: 54, borderBottomWidth: 0.5, borderBottomColor: Colors.borderLight }}>
-            <Ionicons name="pin-outline" size={22} color={Colors.textMuted} style={{ marginRight: 14 }} />
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              paddingHorizontal: 16,
+              height: 54,
+              borderBottomWidth: 0.5,
+              borderBottomColor: Colors.borderLight,
+            }}>
+            <Ionicons
+              name="pin-outline"
+              size={22}
+              color={Colors.textMuted}
+              style={{ marginRight: 14 }}
+            />
             <Text style={{ flex: 1, fontSize: 15, color: Colors.text }}>Pin conversation</Text>
             <Switch
               value={isPinned}
@@ -1005,8 +1387,13 @@ export default function GroupInfoScreen() {
           </View>
           <TouchableOpacity
             onPress={handleMutePress}
-            style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, minHeight: 54, paddingVertical: 8 }}
-          >
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              paddingHorizontal: 16,
+              minHeight: 54,
+              paddingVertical: 8,
+            }}>
             <Ionicons
               name={isEffMuted ? 'notifications-off-outline' : 'notifications-outline'}
               size={22}
@@ -1016,7 +1403,9 @@ export default function GroupInfoScreen() {
             <View style={{ flex: 1 }}>
               <Text style={{ fontSize: 15, color: Colors.text }}>Mute notifications</Text>
               {isEffMuted && (
-                <Text style={{ fontSize: 12, color: Colors.cta, marginTop: 1 }}>{muteUntilLabel}</Text>
+                <Text style={{ fontSize: 12, color: Colors.cta, marginTop: 1 }}>
+                  {muteUntilLabel}
+                </Text>
               )}
             </View>
             <Ionicons name="chevron-forward" size={16} color={Colors.textLight} />
@@ -1027,9 +1416,15 @@ export default function GroupInfoScreen() {
         {isGroup && currentUserRole === 'OWNER' && (
           <TouchableOpacity
             onPress={handleDissolveGroup}
-            style={{ backgroundColor: Colors.bgCard, paddingVertical: 16, alignItems: 'center', marginBottom: 4 }}
-          >
-            <Text style={{ color: Colors.error, fontSize: 16, fontWeight: '600' }}>Dissolve group</Text>
+            style={{
+              backgroundColor: Colors.bgCard,
+              paddingVertical: 16,
+              alignItems: 'center',
+              marginBottom: 4,
+            }}>
+            <Text style={{ color: Colors.error, fontSize: 16, fontWeight: '600' }}>
+              Dissolve group
+            </Text>
           </TouchableOpacity>
         )}
 
@@ -1037,50 +1432,84 @@ export default function GroupInfoScreen() {
         {isGroup && (
           <TouchableOpacity
             onPress={handleLeaveGroup}
-            style={{ backgroundColor: Colors.bgCard, paddingVertical: 16, alignItems: 'center', marginBottom: 8 }}
-          >
-            <Text style={{ color: Colors.error, fontSize: 16, fontWeight: '600' }}>Leave group</Text>
+            style={{
+              backgroundColor: Colors.bgCard,
+              paddingVertical: 16,
+              alignItems: 'center',
+              marginBottom: 8,
+            }}>
+            <Text style={{ color: Colors.error, fontSize: 16, fontWeight: '600' }}>
+              Leave group
+            </Text>
           </TouchableOpacity>
         )}
       </ScrollView>
 
       {/* Add Member Modal */}
-      <Modal visible={addModalVisible} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setAddModalVisible(false)}>
+      <Modal
+        visible={addModalVisible}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setAddModalVisible(false)}>
         <View className="flex-1" style={{ backgroundColor: Colors.bg }}>
-          <View className="flex-row items-center justify-between px-4" style={{ height: 60, backgroundColor: Colors.bgCard, borderBottomWidth: 0.5, borderBottomColor: Colors.borderLight }}>
-            <TouchableOpacity onPress={() => setAddModalVisible(false)}><Text style={{ color: Colors.text, fontSize: 16 }}>Cancel</Text></TouchableOpacity>
+          <View
+            className="flex-row items-center justify-between px-4"
+            style={{
+              height: 60,
+              backgroundColor: Colors.bgCard,
+              borderBottomWidth: 0.5,
+              borderBottomColor: Colors.borderLight,
+            }}>
+            <TouchableOpacity onPress={() => setAddModalVisible(false)}>
+              <Text style={{ color: Colors.text, fontSize: 16 }}>Cancel</Text>
+            </TouchableOpacity>
             <Text style={{ fontSize: 18, fontWeight: 'bold' }}>Add members</Text>
             <View style={{ width: 40 }} />
           </View>
           <View className="p-3" style={{ backgroundColor: Colors.bgCard }}>
-             <TextInput 
-               placeholder="Search..." 
-               value={searchQuery}
-               onChangeText={setSearchQuery}
-               style={{ backgroundColor: Colors.bg, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 8, fontSize: 15 }} 
-             />
+            <TextInput
+              placeholder="Search..."
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              style={{
+                backgroundColor: Colors.bg,
+                paddingHorizontal: 12,
+                paddingVertical: 10,
+                borderRadius: 8,
+                fontSize: 15,
+              }}
+            />
           </View>
           <FlatList
-             data={availableContacts}
-             keyExtractor={(item) => item.id}
-             ListEmptyComponent={() => <View className="p-4 items-center"><Text style={{ color: Colors.textLight }}>No results found</Text></View>}
-             renderItem={({ item }) => {
-               const contactUser = item.user.id === user?.id ? item.contact : item.user;
-               return (
-                 <TouchableOpacity 
-                   onPress={() => handleAddMember(contactUser)}
-                   disabled={addingMember}
-                   className="flex-row items-center px-4 py-3" 
-                   style={{ backgroundColor: Colors.bgCard, borderBottomWidth: 0.5, borderBottomColor: Colors.borderLight }}
-                 >
-                   <Avatar uri={contactUser.avatarUrl} name={contactUser.displayName} size={40} />
-                   <View className="ml-3 flex-1">
-                     <Text className="font-semibold" style={{ color: Colors.text }}>{contactUser.displayName}</Text>
-                   </View>
-                   <Ionicons name="add-circle" size={24} color={Colors.cta} />
-                 </TouchableOpacity>
-               );
-             }}
+            data={availableContacts}
+            keyExtractor={(item) => item.id}
+            ListEmptyComponent={() => (
+              <View className="items-center p-4">
+                <Text style={{ color: Colors.textLight }}>No results found</Text>
+              </View>
+            )}
+            renderItem={({ item }) => {
+              const contactUser = item.user.id === user?.id ? item.contact : item.user;
+              return (
+                <TouchableOpacity
+                  onPress={() => handleAddMember(contactUser)}
+                  disabled={addingMember}
+                  className="flex-row items-center px-4 py-3"
+                  style={{
+                    backgroundColor: Colors.bgCard,
+                    borderBottomWidth: 0.5,
+                    borderBottomColor: Colors.borderLight,
+                  }}>
+                  <Avatar uri={contactUser.avatarUrl} name={contactUser.displayName} size={40} />
+                  <View className="ml-3 flex-1">
+                    <Text className="font-semibold" style={{ color: Colors.text }}>
+                      {contactUser.displayName}
+                    </Text>
+                  </View>
+                  <Ionicons name="add-circle" size={24} color={Colors.cta} />
+                </TouchableOpacity>
+              );
+            }}
           />
         </View>
       </Modal>
@@ -1090,17 +1519,41 @@ export default function GroupInfoScreen() {
         visible={muteModalVisible}
         transparent
         animationType="fade"
-        onRequestClose={() => setMuteModalVisible(false)}
-      >
+        onRequestClose={() => setMuteModalVisible(false)}>
         <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}>
-          <View style={{ backgroundColor: Colors.bgCard, borderTopLeftRadius: 16, borderTopRightRadius: 16, paddingBottom: insets.bottom }}>
+          <View
+            style={{
+              backgroundColor: Colors.bgCard,
+              borderTopLeftRadius: 16,
+              borderTopRightRadius: 16,
+              paddingBottom: insets.bottom,
+            }}>
             {/* Header */}
-            <View style={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 12, borderBottomWidth: 0.5, borderBottomColor: Colors.borderLight }}>
-              <Text style={{ fontSize: 18, fontWeight: '700', color: Colors.text, textAlign: 'center' }}>
+            <View
+              style={{
+                paddingHorizontal: 16,
+                paddingTop: 16,
+                paddingBottom: 12,
+                borderBottomWidth: 0.5,
+                borderBottomColor: Colors.borderLight,
+              }}>
+              <Text
+                style={{
+                  fontSize: 18,
+                  fontWeight: '700',
+                  color: Colors.text,
+                  textAlign: 'center',
+                }}>
                 {isEffMuted ? 'Muted' : 'Mute notifications'}
               </Text>
               {isEffMuted && (
-                <Text style={{ fontSize: 13, color: Colors.textMuted, textAlign: 'center', marginTop: 4 }}>
+                <Text
+                  style={{
+                    fontSize: 13,
+                    color: Colors.textMuted,
+                    textAlign: 'center',
+                    marginTop: 4,
+                  }}>
                   {muteUntilLabel}
                 </Text>
               )}
@@ -1114,9 +1567,15 @@ export default function GroupInfoScreen() {
                     setMute(conversationId, false);
                     setMuteModalVisible(false);
                   }}
-                  style={{ backgroundColor: Colors.error, borderRadius: 10, paddingVertical: 12, alignItems: 'center' }}
-                >
-                  <Text style={{ fontSize: 15, fontWeight: '600', color: Colors.white }}>Unmute now</Text>
+                  style={{
+                    backgroundColor: Colors.error,
+                    borderRadius: 10,
+                    paddingVertical: 12,
+                    alignItems: 'center',
+                  }}>
+                  <Text style={{ fontSize: 15, fontWeight: '600', color: Colors.white }}>
+                    Unmute now
+                  </Text>
                 </TouchableOpacity>
               ) : (
                 <>
@@ -1133,17 +1592,29 @@ export default function GroupInfoScreen() {
                         setMute(conversationId, true, hours === -1 ? null : h(hours));
                         setMuteModalVisible(false);
                       }}
-                      style={{ backgroundColor: Colors.ctaLight, borderRadius: 10, paddingVertical: 12, alignItems: 'center', borderWidth: 1, borderColor: Colors.cta }}
-                    >
-                      <Text style={{ fontSize: 15, fontWeight: '600', color: Colors.cta }}>{label}</Text>
+                      style={{
+                        backgroundColor: Colors.ctaLight,
+                        borderRadius: 10,
+                        paddingVertical: 12,
+                        alignItems: 'center',
+                        borderWidth: 1,
+                        borderColor: Colors.cta,
+                      }}>
+                      <Text style={{ fontSize: 15, fontWeight: '600', color: Colors.cta }}>
+                        {label}
+                      </Text>
                     </TouchableOpacity>
                   ))}
                 </>
               )}
               <TouchableOpacity
                 onPress={() => setMuteModalVisible(false)}
-                style={{ backgroundColor: Colors.bg, borderRadius: 10, paddingVertical: 12, alignItems: 'center' }}
-              >
+                style={{
+                  backgroundColor: Colors.bg,
+                  borderRadius: 10,
+                  paddingVertical: 12,
+                  alignItems: 'center',
+                }}>
                 <Text style={{ fontSize: 15, fontWeight: '600', color: Colors.text }}>Close</Text>
               </TouchableOpacity>
             </View>
@@ -1152,9 +1623,23 @@ export default function GroupInfoScreen() {
       </Modal>
 
       {/* Reminders Modal */}
-      <Modal visible={remindersVisible} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setRemindersVisible(false)}>
+      <Modal
+        visible={remindersVisible}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setRemindersVisible(false)}>
         <View style={{ flex: 1, backgroundColor: Colors.bg }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, height: 60, backgroundColor: Colors.bgCard, borderBottomWidth: 0.5, borderBottomColor: Colors.borderLight }}>
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              paddingHorizontal: 16,
+              height: 60,
+              backgroundColor: Colors.bgCard,
+              borderBottomWidth: 0.5,
+              borderBottomColor: Colors.borderLight,
+            }}>
             <TouchableOpacity onPress={() => setRemindersVisible(false)}>
               <Text style={{ color: Colors.text, fontSize: 16 }}>Close</Text>
             </TouchableOpacity>
@@ -1196,8 +1681,7 @@ export default function GroupInfoScreen() {
                     borderWidth: 1,
                     borderColor: Colors.borderLight,
                     opacity: isCompleted ? 0.7 : 1,
-                  }}
-                >
+                  }}>
                   {/* Header bar */}
                   <View
                     style={{
@@ -1209,8 +1693,7 @@ export default function GroupInfoScreen() {
                       borderBottomWidth: 1,
                       borderBottomColor: Colors.borderLight,
                       gap: 6,
-                    }}
-                  >
+                    }}>
                     <TouchableOpacity onPress={() => handleToggleReminder(item.id)}>
                       <Ionicons
                         name={isCompleted ? 'checkmark-circle' : 'ellipse-outline'}
@@ -1218,13 +1701,27 @@ export default function GroupInfoScreen() {
                         color={isCompleted ? '#16a34a' : Colors.cta}
                       />
                     </TouchableOpacity>
-                    <Ionicons name="alarm-outline" size={13} color={isCompleted ? '#16a34a' : Colors.cta} />
+                    <Ionicons
+                      name="alarm-outline"
+                      size={13}
+                      color={isCompleted ? '#16a34a' : Colors.cta}
+                    />
                     {timeStr ? (
-                      <Text style={{ fontSize: 12, fontWeight: '600', color: isCompleted ? '#16a34a' : Colors.cta, flex: 1 }}>
+                      <Text
+                        style={{
+                          fontSize: 12,
+                          fontWeight: '600',
+                          color: isCompleted ? '#16a34a' : Colors.cta,
+                          flex: 1,
+                        }}>
                         {timeStr}
                       </Text>
-                    ) : <View style={{ flex: 1 }} />}
-                    <TouchableOpacity onPress={() => handleDeleteReminder(item.id)} style={{ padding: 4 }}>
+                    ) : (
+                      <View style={{ flex: 1 }} />
+                    )}
+                    <TouchableOpacity
+                      onPress={() => handleDeleteReminder(item.id)}
+                      style={{ padding: 4 }}>
                       <Ionicons name="trash-outline" size={16} color={Colors.error} />
                     </TouchableOpacity>
                   </View>
@@ -1236,12 +1733,17 @@ export default function GroupInfoScreen() {
                         fontWeight: '600',
                         color: Colors.text,
                         textDecorationLine: isCompleted ? 'line-through' : 'none',
-                      }}
-                    >
+                      }}>
                       {item.title}
                     </Text>
                     {item.description ? (
-                      <Text style={{ fontSize: 12, color: Colors.textMuted, marginTop: 4, lineHeight: 17 }}>
+                      <Text
+                        style={{
+                          fontSize: 12,
+                          color: Colors.textMuted,
+                          marginTop: 4,
+                          lineHeight: 17,
+                        }}>
                         {item.description}
                       </Text>
                     ) : null}
@@ -1254,9 +1756,23 @@ export default function GroupInfoScreen() {
       </Modal>
 
       {/* Notes Modal */}
-      <Modal visible={notesVisible} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setNotesVisible(false)}>
+      <Modal
+        visible={notesVisible}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setNotesVisible(false)}>
         <View style={{ flex: 1, backgroundColor: Colors.bg }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, height: 60, backgroundColor: Colors.bgCard, borderBottomWidth: 0.5, borderBottomColor: Colors.borderLight }}>
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              paddingHorizontal: 16,
+              height: 60,
+              backgroundColor: Colors.bgCard,
+              borderBottomWidth: 0.5,
+              borderBottomColor: Colors.borderLight,
+            }}>
             <TouchableOpacity onPress={() => setNotesVisible(false)}>
               <Text style={{ color: Colors.text, fontSize: 16 }}>Close</Text>
             </TouchableOpacity>
@@ -1276,19 +1792,43 @@ export default function GroupInfoScreen() {
               </View>
             )}
             renderItem={({ item }) => (
-              <View style={{ backgroundColor: Colors.bgCard, borderRadius: 10, padding: 14, marginBottom: 8, borderLeftWidth: item.pinned ? 3 : 0, borderLeftColor: Colors.cta }}>
+              <View
+                style={{
+                  backgroundColor: Colors.bgCard,
+                  borderRadius: 10,
+                  padding: 14,
+                  marginBottom: 8,
+                  borderLeftWidth: item.pinned ? 3 : 0,
+                  borderLeftColor: Colors.cta,
+                }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
-                  {item.pinned && <Ionicons name="pin" size={14} color={Colors.cta} style={{ marginRight: 4 }} />}
-                  <Text style={{ flex: 1, fontSize: 15, fontWeight: '600', color: Colors.text }}>{item.title}</Text>
-                  <TouchableOpacity onPress={() => handleTogglePin(item.id, item.pinned)} style={{ padding: 4, marginRight: 4 }}>
-                    <Ionicons name={item.pinned ? 'pin' : 'pin-outline'} size={16} color={item.pinned ? Colors.cta : Colors.textLight} />
+                  {item.pinned && (
+                    <Ionicons name="pin" size={14} color={Colors.cta} style={{ marginRight: 4 }} />
+                  )}
+                  <Text style={{ flex: 1, fontSize: 15, fontWeight: '600', color: Colors.text }}>
+                    {item.title}
+                  </Text>
+                  <TouchableOpacity
+                    onPress={() => handleTogglePin(item.id, item.pinned)}
+                    style={{ padding: 4, marginRight: 4 }}>
+                    <Ionicons
+                      name={item.pinned ? 'pin' : 'pin-outline'}
+                      size={16}
+                      color={item.pinned ? Colors.cta : Colors.textLight}
+                    />
                   </TouchableOpacity>
-                  <TouchableOpacity onPress={() => handleDeleteNote(item.id)} style={{ padding: 4 }}>
+                  <TouchableOpacity
+                    onPress={() => handleDeleteNote(item.id)}
+                    style={{ padding: 4 }}>
                     <Ionicons name="trash-outline" size={16} color={Colors.error} />
                   </TouchableOpacity>
                 </View>
                 {item.content ? (
-                  <Text style={{ fontSize: 14, color: Colors.textMuted, lineHeight: 20 }} numberOfLines={4}>{item.content}</Text>
+                  <Text
+                    style={{ fontSize: 14, color: Colors.textMuted, lineHeight: 20 }}
+                    numberOfLines={4}>
+                    {item.content}
+                  </Text>
                 ) : null}
                 <Text style={{ fontSize: 11, color: Colors.textLight, marginTop: 6 }}>
                   {new Date(item.createdAt).toLocaleString('en-US')}

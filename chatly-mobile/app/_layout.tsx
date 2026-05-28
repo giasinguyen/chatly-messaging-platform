@@ -1,5 +1,5 @@
 import '../global.css';
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useState } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Slot, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -22,6 +22,8 @@ import { notificationService } from '@/services/notification.service';
 import { useNotificationStore } from '@/store/notification.store';
 import { useThemeStore } from '@/store/theme.store';
 import { getThemeColors } from '@/utils/themeColors';
+import { InAppMessageBanner } from '@/components/notifications/InAppMessageBanner';
+import type { NotificationResponse } from '@/types/notification';
 
 const CallScreenComponent = IS_CALL_ENABLED
   ? require('@/components/call/CallScreen').CallScreen
@@ -46,6 +48,7 @@ function AuthGateInner({ children }: { children: React.ReactNode }) {
   const segments = useSegments();
   const router = useRouter();
   const setScopedUnreadCount = useNotificationStore((s) => s.setScopedUnreadCount);
+  const [foregroundMessage, setForegroundMessage] = useState<NotificationResponse | null>(null);
 
   // Hydrate auth state from AsyncStorage on mount
   useEffect(() => {
@@ -86,7 +89,23 @@ function AuthGateInner({ children }: { children: React.ReactNode }) {
   }, []);
 
   usePresenceSocket({ onPresenceChange: handlePresenceChange });
-  useNotificationSocket();
+  const handleForegroundMessage = useCallback((notification: NotificationResponse) => {
+    setForegroundMessage(notification);
+  }, []);
+
+  const handleDismissForegroundMessage = useCallback(() => {
+    setForegroundMessage(null);
+  }, []);
+
+  const handleOpenForegroundMessage = useCallback(
+    (conversationId: string) => {
+      setForegroundMessage(null);
+      router.push(`/chat/${conversationId}`);
+    },
+    [router],
+  );
+
+  useNotificationSocket({ onForegroundMessage: handleForegroundMessage });
   useExpoPush();
 
   // Initialize signaling WebSocket for calls (active on all screens)
@@ -144,6 +163,12 @@ function AuthGateInner({ children }: { children: React.ReactNode }) {
   return (
     <>
       {children}
+
+      <InAppMessageBanner
+        notification={foregroundMessage}
+        onDismiss={handleDismissForegroundMessage}
+        onPress={handleOpenForegroundMessage}
+      />
 
       {/* Incoming 1-1 call screen */}
       {IS_CALL_ENABLED &&

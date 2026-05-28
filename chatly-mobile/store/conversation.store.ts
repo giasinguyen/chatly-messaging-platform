@@ -12,7 +12,7 @@ interface ConversationState {
   fetchConversations: () => Promise<void>;
   addConversation: (conversation: ConversationResponse) => void;
   updateConversation: (id: string, updates: Partial<ConversationResponse>) => void;
-  handleIncomingMessage: (notification: NotificationResponse) => void;
+  handleIncomingMessage: (notification: NotificationResponse, currentUserId: string) => void;
   removeConversation: (id: string) => void;
   setActiveConversation: (id: string | null) => void;
   setLoading: (loading: boolean) => void;
@@ -61,7 +61,7 @@ export const useConversationStore = create<ConversationState>((set, get) => ({
         }),
     })),
 
-  handleIncomingMessage: (notification) => {
+  handleIncomingMessage: (notification, currentUserId) => {
     const state = get();
     const convId = notification.referenceId;
 
@@ -82,10 +82,17 @@ export const useConversationStore = create<ConversationState>((set, get) => ({
     };
 
     const isNotActive = state.activeConversationId !== convId;
+    const isFromCurrentUser = notification.senderId === currentUserId;
+    const baseUnreadCount = existingConv.unreadCount || 0;
+    const nextUnreadCount = isFromCurrentUser
+      ? baseUnreadCount
+      : isNotActive
+        ? baseUnreadCount + 1
+        : 0;
     const updatedConv: ConversationResponse = {
       ...existingConv,
       lastMessage: lastMsg,
-      unreadCount: isNotActive ? (existingConv.unreadCount || 0) + 1 : 0,
+      unreadCount: nextUnreadCount,
       updatedAt: new Date().toISOString(),
     };
 

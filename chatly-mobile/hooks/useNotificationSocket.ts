@@ -7,19 +7,26 @@ import { useAuthStore } from '@/store/auth.store';
 import { useNotificationStore } from '@/store/notification.store';
 import { useConversationStore } from '@/store/conversation.store';
 import { useContactStore } from '@/store/contact.store';
-import type { NotificationEvent } from '@/types/notification';
+import { isConvMuted, useConversationPrefsStore } from '@/store/conversationPrefs.store';
+import type { NotificationEvent, NotificationResponse } from '@/types/notification';
+
+interface UseNotificationSocketOptions {
+  onForegroundMessage?: (notification: NotificationResponse) => void;
+}
 
 /**
  * Hook to subscribe to /user/queue/notifications for realtime notifications
  */
-export function useNotificationSocket() {
+export function useNotificationSocket(options: UseNotificationSocketOptions = {}) {
   const user = useAuthStore((s) => s.user);
   const pathname = usePathname();
   const pathnameRef = useRef(pathname);
+  const optionsRef = useRef(options);
   const { addNotification, setUnreadCount } = useNotificationStore();
   const handleIncomingMessage = useConversationStore((s) => s.handleIncomingMessage);
 
   pathnameRef.current = pathname;
+  optionsRef.current = options;
 
   useEffect(() => {
     if (!user) return;
@@ -38,7 +45,13 @@ export function useNotificationSocket() {
         const event = JSON.parse(payload.body) as NotificationEvent;
 
         if (event.notification) {
-          addNotification(event.notification);
+          const isSelfMessage =
+            event.notification.type === 'NEW_MESSAGE' &&
+            event.notification.senderId === user.id;
+
+          if (!isSelfMessage) {
+            addNotification(event.notification);
+          }
 
           const currentPathname = pathnameRef.current;
           const isChatScene = currentPathname.startsWith('/chat/');
@@ -51,7 +64,18 @@ export function useNotificationSocket() {
             event.notification.type === 'GROUP_LEAVE'
           ) {
             if (event.notification.type === 'NEW_MESSAGE') {
-              handleIncomingMessage(event.notification);
+              handleIncomingMessage(event.notification, user.id);
+              const conversationId = event.notification.referenceId;
+              const prefs = useConversationPrefsStore.getState().prefs[conversationId] ?? {};
+              const shouldShowForegroundMessage =
+                conversationId &&
+                conversationId !== currentChatId &&
+                !isConvMuted(prefs) &&
+                !isSelfMessage;
+
+              if (shouldShowForegroundMessage) {
+                optionsRef.current.onForegroundMessage?.(event.notification);
+              }
             } else {
               useConversationStore.getState().fetchConversations();
               if (

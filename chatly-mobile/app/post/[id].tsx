@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { CustomAiIcon } from '@/components/ui/CustomAiIcon';
 import { postService } from '@/services/post.service';
@@ -21,6 +22,7 @@ import { formatRelativeTime } from '@/utils/socialFormat';
 export default function PostDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   useThemeStore((state) => state.isDarkMode);
   const { isStartingAiChat, startPostAiChat } = usePostAiChatStarter();
 
@@ -223,7 +225,7 @@ export default function PostDetailScreen() {
   }, [loadComments]);
 
   return (
-    <View className="flex-1" style={{ backgroundColor: Colors.bg }}>
+    <View className="flex-1" style={{ backgroundColor: Colors.bg, paddingTop: insets.top }}>
       <Stack.Screen options={{ headerShown: false }} />
 
       <View
