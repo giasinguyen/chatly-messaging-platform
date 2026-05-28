@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Check, Search, Loader2, Users } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import {
     Dialog,
     DialogContent,
@@ -41,6 +42,7 @@ export function AddMembersDialog({
     existingMemberIds = [],
     onAdded,
 }: AddMembersDialogProps) {
+    const { t } = useTranslation();
     const { user: currentUser } = useAuthStore();
     const [friends, setFriends] = useState<FriendOption[]>([]);
     const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -72,7 +74,7 @@ export function AddMembersDialog({
                     .filter((f) => !existingSet.has(f.id));
                 setFriends(opts);
             })
-            .catch(() => toast.error("Failed to load friend list"))
+            .catch(() => toast.error(t("chat.add_members_dialog.load_failed")))
             .finally(() => setLoading(false));
     }, [open, currentUser?.id]);
 
@@ -111,11 +113,11 @@ export function AddMembersDialog({
                 successCount++;
             } catch {
                 const f = friends.find((x) => x.id === userId);
-                toast.error(`Failed to add ${f?.displayName ?? userId}`);
+                toast.error(t("chat.add_members_dialog.add_failed", { name: f?.displayName ?? userId }));
             }
         }
         if (successCount > 0) {
-            toast.success(`Added ${successCount} members to the group`);
+            toast.success(t("chat.add_members_dialog.add_success", { count: successCount }));
             onAdded?.();
         }
         setSubmitting(false);
@@ -126,7 +128,7 @@ export function AddMembersDialog({
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-md p-0 gap-0 max-h-[85vh] flex flex-col">
                 <DialogHeader className="px-5 pt-5 pb-3 shrink-0">
-                    <DialogTitle>Add Members</DialogTitle>
+                    <DialogTitle>{t("chat.add_members_dialog.title")}</DialogTitle>
                 </DialogHeader>
 
                 <div className="px-5 pb-3 shrink-0">
@@ -138,7 +140,7 @@ export function AddMembersDialog({
                         <Input
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            placeholder="Enter name, phone number..."
+                            placeholder={t("chat.add_members_dialog.search_placeholder")}
                             className="pl-9 h-9 text-sm"
                         />
                     </div>
@@ -157,8 +159,8 @@ export function AddMembersDialog({
                             <Users size={24} className="opacity-30" />
                             <p className="text-sm">
                                 {friends.length === 0
-                                    ? "No friends to add"
-                                    : "Not found"}
+                                    ? t("chat.add_members_dialog.no_friends")
+                                    : t("chat.add_members_dialog.not_found")}
                             </p>
                         </div>
                     ) : (
@@ -220,15 +222,17 @@ export function AddMembersDialog({
                         onClick={() => onOpenChange(false)}
                         disabled={submitting}
                     >
-                        Cancel
+                        {t("common.cancel")}
                     </Button>
                     <Button onClick={handleConfirm} disabled={submitting}>
                         {submitting && (
                             <Loader2 size={13} className="animate-spin mr-1" />
                         )}
                         {submitting
-                            ? "Adding..."
-                            : `Confirm${selected.size > 0 ? ` (${selected.size})` : ""}`}
+                            ? t("chat.add_members_dialog.adding")
+                            : selected.size > 0
+                              ? t("chat.add_members_dialog.confirm_count", { count: selected.size })
+                              : t("chat.add_members_dialog.confirm")}
                     </Button>
                 </DialogFooter>
             </DialogContent>

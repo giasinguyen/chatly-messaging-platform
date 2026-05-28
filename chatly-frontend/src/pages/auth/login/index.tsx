@@ -6,6 +6,7 @@ import { QRCodeSVG } from "qrcode.react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Controller, useForm, type Resolver } from "react-hook-form";
 import { toast } from "sonner";
+import { Trans, useTranslation } from "react-i18next";
 
 import { ForgotPasswordDialog } from "./components/ForgotPasswordDialog";
 import {
@@ -30,11 +31,10 @@ import { useAuthStore } from "@/store/auth.store";
 import type { ApiResponse } from "@/types/auth";
 import "./login.css";
 
-const SMS_LOGIN_MAINTENANCE_MESSAGE = "SMS login is currently under maintenance.";
-const LOGIN_ERROR_MESSAGE = "An error occurred";
 const SUSPENDED_ERROR_CODE = 1115;
 
 export default function LoginPage() {
+    const { t } = useTranslation();
     const [showPassword, setShowPassword] = useState(false);
     const [loginMethod, setLoginMethod] = useState<"password" | "sms">(
         "password",
@@ -86,7 +86,7 @@ export default function LoginPage() {
                     if (response.result.status === "SUCCESS" && response.result.result) {
                         if (pollingRef.current) clearInterval(pollingRef.current);
                         setAuth(response.result.result);
-                        toast.success("Login successful via QR!");
+                        toast.success(t("auth.login.qr_login_success"));
                         navigate("/");
                     } else if (response.result.status === "EXPIRED") {
                         if (pollingRef.current) clearInterval(pollingRef.current);
@@ -108,7 +108,7 @@ export default function LoginPage() {
 
     const handleLoginMethodToggle = () => {
         if (loginMethod === "password") {
-            toast.info(SMS_LOGIN_MAINTENANCE_MESSAGE);
+            toast.info(t("auth.login.sms_maintenance"));
             return;
         }
 
@@ -117,7 +117,7 @@ export default function LoginPage() {
 
     const onSubmit = async (data: LoginFormValues) => {
         if (loginMethod === "sms") {
-            toast.info(SMS_LOGIN_MAINTENANCE_MESSAGE);
+            toast.info(t("auth.login.sms_maintenance"));
             return;
         }
 
@@ -132,19 +132,20 @@ export default function LoginPage() {
 
             if (response.code === 1000) {
                 setAuth(response.result);
-                toast.success("Login successful!");
+                toast.success(t("auth.login.login_success"));
                 navigate("/");
             } else {
-                toast.error(response.message || "Login failed");
+                toast.error(response.message || t("auth.login.login_failed"));
             }
         } catch (error: unknown) {
             console.error("Login error:", error);
+            const fallback = t("auth.login.generic_error");
             if (axios.isAxiosError<ApiResponse<unknown>>(error) && error.response?.data?.code === SUSPENDED_ERROR_CODE) {
                 setIsSuspended(true);
             } else {
                 const msg = axios.isAxiosError<ApiResponse<unknown>>(error)
-                    ? error.response?.data?.message ?? LOGIN_ERROR_MESSAGE
-                    : LOGIN_ERROR_MESSAGE;
+                    ? error.response?.data?.message ?? fallback
+                    : fallback;
                 toast.error(msg);
             }
         } finally {
@@ -182,10 +183,10 @@ export default function LoginPage() {
                 {/* Left — form */}
                 <div className="flex-1 p-9 pb-8">
                     <h1 className="mb-1.5 text-center text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
-                        Welcome back!
+                        {t("auth.login.welcome_back")}
                     </h1>
                     <p className="mb-6 text-center text-sm text-gray-500 dark:text-[#a0a3ab]">
-                        We're so excited to see you again!
+                        {t("auth.login.subtitle")}
                     </p>
 
                     <form
@@ -204,8 +205,8 @@ export default function LoginPage() {
                                             className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-[#b0b3bc]"
                                         >
                                             {loginMethod === "password"
-                                                ? "Email, Phone or Username"
-                                                : "Phone Number"}{" "}
+                                                ? t("auth.login.identifier_password")
+                                                : t("auth.login.identifier_sms")}{" "}
                                             <span className="text-red-400">
                                                 *
                                             </span>
@@ -232,8 +233,8 @@ export default function LoginPage() {
                                                 type="text"
                                                 placeholder={
                                                     loginMethod === "password"
-                                                        ? "Enter email, phone or username"
-                                                        : "Enter your phone number"
+                                                        ? t("auth.login.identifier_password_placeholder")
+                                                        : t("auth.login.identifier_sms_placeholder")
                                                 }
                                                 autoComplete="username"
                                                 aria-invalid={
@@ -264,7 +265,7 @@ export default function LoginPage() {
                                                 htmlFor="login-password"
                                                 className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-[#b0b3bc]"
                                             >
-                                                Password{" "}
+                                                {t("auth.login.password")}{" "}
                                                 <span className="text-red-400">
                                                     *
                                                 </span>
@@ -334,8 +335,8 @@ export default function LoginPage() {
                                 <>
                                     <span>
                                         {loginMethod === "password"
-                                            ? "Log In"
-                                            : "Send OTP"}
+                                            ? t("auth.login.log_in_button")
+                                            : t("auth.login.send_otp")}
                                     </span>
                                 </>
                             )}
@@ -343,12 +344,12 @@ export default function LoginPage() {
 
                         <div className="flex items-center justify-between text-[13px]">
                             <p className="text-left text-gray-500 dark:text-[#6c6f78]">
-                                Need an account?{" "}
+                                {t("auth.login.need_account")}{" "}
                                 <Link
                                     to="/auth/register"
                                     className="font-medium text-brand no-underline transition-colors duration-200 hover:text-brand-light hover:underline dark:text-brand-light dark:hover:text-brand-light"
                                 >
-                                    Register
+                                    {t("auth.login.register_link")}
                                 </Link>
                             </p>
                             <button
@@ -357,8 +358,8 @@ export default function LoginPage() {
                                 className="cursor-pointer bg-transparent border-none p-0 font-medium text-brand no-underline transition-colors duration-200 hover:text-brand-light hover:underline dark:text-brand-light dark:hover:text-brand-light"
                             >
                                 {loginMethod === "password"
-                                    ? "Log in via SMS"
-                                    : "Log in via Password"}
+                                    ? t("auth.login.switch_to_sms")
+                                    : t("auth.login.switch_to_password")}
                             </button>
                         </div>
                     </form>
@@ -373,13 +374,13 @@ export default function LoginPage() {
                             </div>
                         ) : qrStatus === "EXPIRED" || !qrToken ? (
                             <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-50/80 backdrop-blur-sm dark:bg-black/40 z-10">
-                                <p className="mb-2 text-xs font-medium text-gray-600 dark:text-gray-300">QR Expired</p>
+                                <p className="mb-2 text-xs font-medium text-gray-600 dark:text-gray-300">{t("auth.login.qr_expired")}</p>
                                 <button
                                     type="button"
                                     onClick={fetchQrToken}
                                     className="flex cursor-pointer items-center justify-center gap-1.5 rounded-full bg-brand px-3 py-1.5 text-xs font-medium text-white transition-all hover:bg-brand-hover"
                                 >
-                                    <RefreshCw size={14} /> Refresh
+                                    <RefreshCw size={14} /> {t("common.refresh")}
                                 </button>
                             </div>
                         ) : null}
@@ -395,14 +396,15 @@ export default function LoginPage() {
                         )}
                     </div>
                     <h3 className="mb-2 text-base font-bold tracking-tight text-gray-900 dark:text-white">
-                        Log in with QR Code
+                        {t("auth.login.qr_title")}
                     </h3>
                     <p className="text-[13px] leading-relaxed text-gray-500 dark:text-[#a0a3ab]">
-                        Scan this with the{" "}
-                        <strong className="text-gray-700 dark:text-[#d1d3da]">
-                            Chatly mobile app
-                        </strong>{" "}
-                        to log in instantly.
+                        <Trans
+                            i18nKey="auth.login.qr_description"
+                            components={[
+                                <strong className="text-gray-700 dark:text-[#d1d3da]" />,
+                            ]}
+                        />
                     </p>
                 </div>
             </div>
@@ -415,17 +417,16 @@ export default function LoginPage() {
                             type="button"
                             onClick={() => setIsSuspended(false)}
                             className="absolute top-4 right-4 rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
-                            aria-label="Close"
+                            aria-label={t("common.close")}
                         >
                             <X size={18} />
                         </button>
                         <div className="flex h-16 w-16 items-center justify-center rounded-full bg-red-50 mb-5">
                             <ShieldAlert size={32} className="text-red-500" />
                         </div>
-                        <h2 className="text-xl font-bold text-slate-900 mb-2">Account is temporarily suspended.</h2>
+                        <h2 className="text-xl font-bold text-slate-900 mb-2">{t("auth.login.suspended_title")}</h2>
                         <p className="text-sm text-slate-600 mb-4 leading-relaxed">
-                           Your account has been temporarily suspended for violating Chatly's community standards.
-                            If you believe this is a mistake, please contact support to file a complaint.
+                            {t("auth.login.suspended_description")}
                         </p>
                         <a
                             href="mailto:cskh@chatly.com"
@@ -439,7 +440,7 @@ export default function LoginPage() {
                             onClick={() => setIsSuspended(false)}
                             className="w-full rounded-xl bg-slate-100 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-200 transition-colors"
                         >
-                            Close
+                            {t("common.close")}
                         </button>
                     </div>
                 </div>

@@ -9,6 +9,7 @@ import {
     MonitorSmartphone,
     Bookmark,
 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 
 interface SettingsSidebarProps {
@@ -20,22 +21,25 @@ export function SettingsSidebar({
     activeCategory,
     onCategoryChange,
 }: SettingsSidebarProps) {
+    const { t } = useTranslation();
     const categories = [
-        { id: "general", label: "General", icon: Settings },
-        { id: "privacy", label: "Privacy", icon: ShieldCheck },
-        { id: "change-password", label: "Change Password", icon: KeyRound },
-        { id: "sessions", label: "Sessions", icon: MonitorSmartphone },
-        { id: "saved-posts", label: "Saved Posts", icon: Bookmark },
-        { id: "appearance", label: "Appearance", icon: Palette },
-        { id: "notifications", label: "Notifications", icon: Bell },
-        { id: "messages", label: "Messages", icon: MessageSquare },
-        { id: "utilities", label: "Utilities", icon: LayoutGrid },
+        { id: "general", labelKey: "settings.categories.general", icon: Settings },
+        { id: "privacy", labelKey: "settings.categories.privacy", icon: ShieldCheck },
+        { id: "change-password", labelKey: "settings.categories.change_password", icon: KeyRound },
+        { id: "sessions", labelKey: "settings.categories.sessions", icon: MonitorSmartphone },
+        { id: "saved-posts", labelKey: "settings.categories.saved_posts", icon: Bookmark },
+        { id: "appearance", labelKey: "settings.categories.appearance", icon: Palette },
+        { id: "notifications", labelKey: "settings.categories.notifications", icon: Bell },
+        { id: "messages", labelKey: "settings.categories.messages", icon: MessageSquare },
+        { id: "utilities", labelKey: "settings.categories.utilities", icon: LayoutGrid },
     ];
 
     return (
         <aside className="w-[340px] flex flex-col border-r border-border bg-card/50 shrink-0">
             <div className="px-6 py-6 border-b border-border/50">
-                <h2 className="text-xl font-bold text-foreground">Settings</h2>
+                <h2 className="text-xl font-bold text-foreground">
+                    {t("settings.title")}
+                </h2>
             </div>
 
             <div className="flex-1 py-2 px-2 overflow-y-auto">
@@ -60,7 +64,7 @@ export function SettingsSidebar({
                                 )}
                             />
                             <span className="text-sm font-medium">
-                                {cat.label}
+                                {t(cat.labelKey)}
                             </span>
                         </button>
                     ))}
@@ -69,4 +73,3 @@ export function SettingsSidebar({
         </aside>
     );
 }
-

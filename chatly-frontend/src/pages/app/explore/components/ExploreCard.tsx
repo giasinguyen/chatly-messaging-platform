@@ -1,4 +1,5 @@
 import { Copy, Play } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import type { Post } from "@/types/post";
 
 interface ExploreCardProps {
@@ -7,6 +8,7 @@ interface ExploreCardProps {
 }
 
 export function ExploreCard({ post, onClick }: ExploreCardProps) {
+    const { t } = useTranslation();
     const hasMedia = post.mediaUrls.length > 0;
     const isAlbum = post.mediaUrls.length > 1;
 
@@ -20,7 +22,7 @@ export function ExploreCard({ post, onClick }: ExploreCardProps) {
                 <div className="w-full aspect-[4/5] overflow-hidden bg-muted">
                     <img
                         src={post.mediaUrls[0]}
-                        alt="Post media"
+                        alt={t("post.media_alt")}
                         className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
                         loading="lazy"
                     />

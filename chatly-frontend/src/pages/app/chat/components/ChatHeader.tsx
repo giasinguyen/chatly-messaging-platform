@@ -11,6 +11,7 @@ import { useCallContext } from "@/contexts/CallContext";
 import { useCallStore } from "@/store/call.store";
 import { agentService } from "@/services/agent.service";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 import type { ChatUser } from "@/types/message";
 import type { CallType } from "@/types/call";
 
@@ -34,6 +35,7 @@ interface ChatHeaderProps {
 }
 
 export function ChatHeader({ user, onOpenProfile, isGroup, conversationId, otherUserId, onOpenGroupPanel, onToggleSearch, onToggleInfoPanel, isInfoPanelOpen, presenceStatus, lastSeen, onBack, isPinned, isMuted, nickname }: ChatHeaderProps) {
+    const { t } = useTranslation();
     const navigate = useNavigate();
     const { initiateCall, initiateGroupCall } = useCallContext();
     const callStatus = useCallStore((s) => s.callStatus);
@@ -53,7 +55,7 @@ export function ChatHeader({ user, onOpenProfile, isGroup, conversationId, other
             });
             navigate(`/chatbot/${session.id}`);
         } catch {
-            toast.error("Failed to open AI assistant");
+            toast.error(t("chat.ai_open_failed"));
         } finally {
             setIsAiStarting(false);
         }
@@ -125,7 +127,7 @@ export function ChatHeader({ user, onOpenProfile, isGroup, conversationId, other
                         variant="ghost"
                         size="icon"
                         className="h-9 w-9"
-                        title="Group management"
+                        title={t("chat.group_management")}
                     >
                         <Users size={18} />
                     </Button>
@@ -137,7 +139,7 @@ export function ChatHeader({ user, onOpenProfile, isGroup, conversationId, other
                         variant="ghost"
                         size="icon"
                         className="h-9 w-9 disabled:opacity-50 disabled:cursor-not-allowed"
-                        title="Ask AI about this group"
+                        title={t("chat.ask_ai_about_group")}
                     >
                         <CustomAiIcon />
                     </Button>
@@ -147,7 +149,7 @@ export function ChatHeader({ user, onOpenProfile, isGroup, conversationId, other
                     variant="ghost"
                     size="icon"
                     className="h-9 w-9"
-                    title="Search messages"
+                    title={t("chat.search_messages")}
                 >
                     <Search size={18} />
                 </Button>
@@ -167,7 +169,7 @@ export function ChatHeader({ user, onOpenProfile, isGroup, conversationId, other
                             variant="ghost"
                             size="icon"
                             className="h-9 w-9 disabled:opacity-50 disabled:cursor-not-allowed"
-                            title="Video call"
+                            title={t("chat.video_call_btn")}
                         >
                             <Video size={18} />
                         </Button>
@@ -185,7 +187,7 @@ export function ChatHeader({ user, onOpenProfile, isGroup, conversationId, other
                             variant="ghost"
                             size="icon"
                             className="h-9 w-9 disabled:opacity-50 disabled:cursor-not-allowed"
-                            title="Voice call"
+                            title={t("chat.voice_call_btn")}
                         >
                             <Phone size={18} />
                         </Button>
@@ -203,7 +205,7 @@ export function ChatHeader({ user, onOpenProfile, isGroup, conversationId, other
                             variant="ghost"
                             size="icon"
                             className="h-9 w-9 disabled:opacity-50 disabled:cursor-not-allowed"
-                            title="Group video call"
+                            title={t("chat.group_video_call")}
                         >
                             <Video size={18} />
                         </Button>
@@ -218,7 +220,7 @@ export function ChatHeader({ user, onOpenProfile, isGroup, conversationId, other
                             variant="ghost"
                             size="icon"
                             className="h-9 w-9 disabled:opacity-50 disabled:cursor-not-allowed"
-                            title="Group voice call"
+                            title={t("chat.group_voice_call")}
                         >
                             <Phone size={18} />
                         </Button>
@@ -232,8 +234,8 @@ export function ChatHeader({ user, onOpenProfile, isGroup, conversationId, other
                         className="h-9 w-9 hidden lg:inline-flex"
                         title={
                             isInfoPanelOpen
-                                ? "Close info panel"
-                                : "Open info panel"
+                                ? t("chat.close_info_panel")
+                                : t("chat.open_info_panel")
                         }
                     >
                         {isInfoPanelOpen ? (

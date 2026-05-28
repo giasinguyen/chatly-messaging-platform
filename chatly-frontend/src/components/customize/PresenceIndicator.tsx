@@ -1,3 +1,5 @@
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { cn } from "@/lib/utils";
 
 interface PresenceIndicatorProps {
@@ -8,7 +10,7 @@ interface PresenceIndicatorProps {
     className?: string;
 }
 
-function formatLastSeen(lastSeen: string | null | undefined): string {
+function formatLastSeen(lastSeen: string | null | undefined, t: TFunction, locale: string): string {
     if (!lastSeen) return "";
     const date = new Date(lastSeen);
     if (Number.isNaN(date.getTime())) return "";
@@ -19,12 +21,12 @@ function formatLastSeen(lastSeen: string | null | undefined): string {
     const diffHours = Math.floor(diffMins / 60);
     const diffDays = Math.floor(diffHours / 24);
 
-    if (diffMins < 1) return "Just now";
-    if (diffMins < 60) return `${diffMins}m ago`;
-    if (diffHours < 24) return `${diffHours}h ago`;
-    if (diffDays < 7) return `${diffDays}d ago`;
+    if (diffMins < 1) return t("common.just_now");
+    if (diffMins < 60) return t("notifications.time_m_ago", { count: diffMins });
+    if (diffHours < 24) return t("notifications.time_h_ago", { count: diffHours });
+    if (diffDays < 7) return t("notifications.time_d_ago", { count: diffDays });
 
-    return new Intl.DateTimeFormat("en-US", {
+    return new Intl.DateTimeFormat(locale, {
         day: "2-digit",
         month: "2-digit",
         year: "numeric",
@@ -46,6 +48,7 @@ export function PresenceIndicator({
     showLabel = false,
     className,
 }: PresenceIndicatorProps) {
+    const { t, i18n } = useTranslation();
     const isOnline = status === "ONLINE";
 
     return (
@@ -60,10 +63,10 @@ export function PresenceIndicator({
             {showLabel && (
                 <span className="text-xs text-muted-foreground">
                     {isOnline
-                        ? "Online"
+                        ? t("common.online")
                         : lastSeen
-                          ? formatLastSeen(lastSeen)
-                          : "Offline"}
+                          ? formatLastSeen(lastSeen, t, i18n.language)
+                          : t("common.offline")}
                 </span>
             )}
         </span>

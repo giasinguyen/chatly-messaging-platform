@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Check, Search, Users } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import {
     Dialog,
     DialogContent,
@@ -38,6 +39,7 @@ export function CreateGroupDialog({
     onOpenChange,
     onCreated,
 }: CreateGroupDialogProps) {
+    const { t } = useTranslation();
     const { user: currentUser } = useAuthStore();
     const [groupName, setGroupName] = useState("");
     const [friends, setFriends] = useState<FriendOption[]>([]);
@@ -69,7 +71,7 @@ export function CreateGroupDialog({
                 });
                 setFriends(opts);
             } catch {
-                toast.error("Could not load friends list");
+                toast.error(t("chat.create_group_dialog.load_friends_failed"));
             } finally {
                 setLoadingFriends(false);
             }
@@ -93,11 +95,11 @@ export function CreateGroupDialog({
 
     const handleCreate = async () => {
         if (!groupName.trim()) {
-            toast.error("Please enter group name");
+            toast.error(t("chat.create_group_dialog.enter_name"));
             return;
         }
         if (selected.size < 2) {
-            toast.error("Group needs at least 2 members besides you");
+            toast.error(t("chat.create_group_dialog.min_members_error"));
             return;
         }
         try {
@@ -108,12 +110,12 @@ export function CreateGroupDialog({
                 participantIds: Array.from(selected),
             });
             if (res.result) {
-                toast.success(`Group "${groupName.trim()}" created`);
+                toast.success(t("chat.create_group_dialog.create_success", { name: groupName.trim() }));
                 onCreated(res.result);
                 onOpenChange(false);
             }
         } catch {
-            toast.error("Could not create group. Please try again.");
+            toast.error(t("chat.create_group_dialog.create_failed"));
         } finally {
             setSubmitting(false);
         }
@@ -125,7 +127,7 @@ export function CreateGroupDialog({
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
                         <Users size={18} className="text-brand" />
-                        Create Group Chat
+                        {t("chat.create_group_dialog.title")}
                     </DialogTitle>
                 </DialogHeader>
 
@@ -133,10 +135,10 @@ export function CreateGroupDialog({
                     {/* Group name */}
                     <div className="flex flex-col gap-1.5">
                         <label className="text-sm font-medium text-foreground">
-                            Group Name
+                            {t("chat.create_group_dialog.group_name_label")}
                         </label>
                         <Input
-                            placeholder="Enter group name..."
+                            placeholder={t("chat.create_group_dialog.group_name_placeholder")}
                             value={groupName}
                             onChange={(e) => setGroupName(e.target.value)}
                             maxLength={60}
@@ -147,9 +149,9 @@ export function CreateGroupDialog({
                     {/* Friend selection */}
                     <div className="flex flex-col gap-1.5">
                         <label className="text-sm font-medium text-foreground">
-                            Add members{" "}
+                            {t("chat.create_group_dialog.add_members_label")}{" "}
                             <span className="text-muted-foreground font-normal">
-                                ({selected.size} selected)
+                                {t("chat.create_group_dialog.selected_count", { count: selected.size })}
                             </span>
                         </label>
 
@@ -157,7 +159,7 @@ export function CreateGroupDialog({
                         <div className="relative">
                             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                             <Input
-                                placeholder="Search friends..."
+                                placeholder={t("chat.create_group_dialog.search_friends")}
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
                                 className="pl-8 h-8 text-sm"
@@ -168,11 +170,11 @@ export function CreateGroupDialog({
                         <ScrollArea className="h-52 rounded-md border border-border/60">
                             {loadingFriends ? (
                                 <div className="flex items-center justify-center h-full py-8 text-sm text-muted-foreground">
-                                    Loading...
+                                    {t("chat.create_group_dialog.loading")}
                                 </div>
                             ) : filtered.length === 0 ? (
                                 <div className="flex items-center justify-center h-full py-8 text-sm text-muted-foreground">
-                                    No friends found
+                                    {t("chat.create_group_dialog.no_friends")}
                                 </div>
                             ) : (
                                 <div className="p-1">
@@ -215,7 +217,7 @@ export function CreateGroupDialog({
                         </ScrollArea>
 
                         <p className="text-[11px] text-muted-foreground">
-                            A group must have at least 2 members besides you.
+                            {t("chat.create_group_dialog.min_members_hint")}
                         </p>
                     </div>
                 </div>
@@ -226,13 +228,13 @@ export function CreateGroupDialog({
                         onClick={() => onOpenChange(false)}
                         disabled={submitting}
                     >
-                        Cancel
+                        {t("common.cancel")}
                     </Button>
                     <Button
                         onClick={handleCreate}
                         disabled={submitting || !groupName.trim() || selected.size < 2}
                     >
-                        {submitting ? "Creating..." : "Create Group"}
+                        {submitting ? t("chat.create_group_dialog.creating") : t("chat.create_group_dialog.create")}
                     </Button>
                 </DialogFooter>
             </DialogContent>

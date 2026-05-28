@@ -1,3 +1,4 @@
+import type { TFunction } from "i18next";
 import type { Attachment, Message } from "@/types/message";
 
 function isPlainImageAttachment(attachment: Attachment): boolean {
@@ -53,15 +54,15 @@ export function canForward(msg: Message): boolean {
     return ["TEXT", "IMAGE", "FILE", "GIF", "STICKER", "AGENT"].includes(msg.type);
 }
 
-export function formatSeenTime(readAt: string): string {
+export function formatSeenTime(readAt: string, t: TFunction): string {
     const diff = Date.now() - new Date(readAt).getTime();
     const minutes = Math.floor(diff / 60000);
-    if (minutes < 1) return "just seen";
-    if (minutes < 60) return `${minutes} minutes ago`;
+    if (minutes < 1) return t("chat.just_seen");
+    if (minutes < 60) return t("chat.minutes_ago", { count: minutes });
     const hours = Math.floor(minutes / 60);
-    if (hours < 24) return `${hours} hours ago`;
+    if (hours < 24) return t("chat.hours_ago", { count: hours });
     const days = Math.floor(hours / 24);
-    return `${days} days ago`;
+    return t("chat.days_ago", { count: days });
 }
 
 export function shouldShowAvatar(messages: Message[], index: number): boolean {

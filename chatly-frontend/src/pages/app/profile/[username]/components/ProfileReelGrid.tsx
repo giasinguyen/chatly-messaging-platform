@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Heart, Loader2, MessageCircle, Play } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -22,6 +23,7 @@ function getReactionCount(reel: Reel) {
 }
 
 export function ProfileReelGrid({ authorId, isLimited, onNavigate }: ProfileReelGridProps) {
+    const { t } = useTranslation();
     const [reels, setReels] = useState<Reel[]>([]);
     const [nextCursor, setNextCursor] = useState<string | null>(null);
     const [hasMore, setHasMore] = useState(false);
@@ -41,7 +43,7 @@ export function ProfileReelGrid({ authorId, isLimited, onNavigate }: ProfileReel
                     REEL_FEED_PAGE_SIZE,
                 );
                 if (response.code !== 1000 || !response.result) {
-                    toast.error(response.message ?? "Could not load reels.");
+                    toast.error(response.message ?? t("profile.reels_load_failed"));
                     return;
                 }
 
@@ -51,13 +53,13 @@ export function ProfileReelGrid({ authorId, isLimited, onNavigate }: ProfileReel
                 setNextCursor(response.result.nextCursor);
                 setHasMore(response.result.hasMore);
             } catch {
-                toast.error("Could not load reels.");
+                toast.error(t("profile.reels_load_failed"));
             } finally {
                 isLoadingRef.current = false;
                 setIsLoading(false);
             }
         },
-        [authorId, isLimited],
+        [authorId, isLimited, t],
     );
 
     useEffect(() => {
@@ -70,7 +72,7 @@ export function ProfileReelGrid({ authorId, isLimited, onNavigate }: ProfileReel
     if (isLimited) {
         return (
             <div className="py-10 text-center text-muted-foreground">
-                Reels are hidden due to privacy settings.
+                {t("profile.reels_hidden")}
             </div>
         );
     }
@@ -78,7 +80,7 @@ export function ProfileReelGrid({ authorId, isLimited, onNavigate }: ProfileReel
     if (!isLoading && reels.length === 0) {
         return (
             <div className="py-10 text-center text-muted-foreground">
-                No reels to display yet.
+                {t("profile.no_reels_display")}
             </div>
         );
     }

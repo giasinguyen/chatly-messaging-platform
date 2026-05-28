@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { sessionService } from "@/services/session.service";
 import { authService } from "@/services/auth.service";
@@ -18,10 +19,10 @@ function geoDetailLine(s: UserSessionInfo): string | null {
     return parts.length ? parts.join(" · ") : null;
 }
 
-function formatWhen(iso?: string | null) {
+function formatWhen(iso: string | null | undefined, locale: string): string {
     if (!iso) return "—";
     try {
-        return new Date(iso).toLocaleString();
+        return new Date(iso).toLocaleString(locale);
     } catch {
         return iso;
     }
@@ -33,6 +34,7 @@ function isRevoked(s: UserSessionInfo): boolean {
 }
 
 export function SessionSettings() {
+    const { t, i18n } = useTranslation();
     const navigate = useNavigate();
     const clearAuth = useAuthStore((s) => s.clearAuth);
     const [sessions, setSessions] = useState<UserSessionInfo[]>([]);
@@ -48,28 +50,24 @@ export function SessionSettings() {
                 setSessions(res.result);
             }
         } catch {
-            toast.error("Could not load sessions.");
+            toast.error(t("settings.sessions.load_failed"));
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [t]);
 
     useEffect(() => {
         load();
     }, [load]);
 
     const onPurgeAll = async () => {
-        if (
-            !window.confirm(
-                "Remove ALL session history and sign out every device (including this one)? You will need to sign in again.",
-            )
-        ) {
+        if (!window.confirm(t("settings.sessions.purge_confirm"))) {
             return;
         }
         try {
             setPurging(true);
             await sessionService.purgeAll();
-            toast.success("All sessions cleared.");
+            toast.success(t("settings.sessions.purge_success"));
             try {
                 await authService.logout();
             } catch {
@@ -80,7 +78,7 @@ export function SessionSettings() {
         } catch (e: unknown) {
             const msg =
                 (e as { response?: { data?: { message?: string } } })?.response
-                    ?.data?.message ?? "Could not clear sessions.";
+                    ?.data?.message ?? t("settings.sessions.purge_failed");
             toast.error(msg);
         } finally {
             setPurging(false);
@@ -94,8 +92,8 @@ export function SessionSettings() {
             await sessionService.revoke(row.id);
             toast.success(
                 row.current
-                    ? "This device was signed out."
-                    : "Session revoked.",
+                    ? t("settings.sessions.device_signed_out")
+                    : t("settings.sessions.session_revoked"),
             );
             if (row.current) {
                 try {
@@ -111,7 +109,7 @@ export function SessionSettings() {
         } catch (e: unknown) {
             const msg =
                 (e as { response?: { data?: { message?: string } } })?.response
-                    ?.data?.message ?? "Could not revoke session.";
+                    ?.data?.message ?? t("settings.sessions.revoke_failed");
             toast.error(msg);
         } finally {
             setRevoking(null);
@@ -125,11 +123,10 @@ export function SessionSettings() {
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                         <div className="flex flex-col gap-1">
                             <h3 className="text-lg font-bold text-foreground">
-                                Devices &amp; sessions
+                                {t("settings.sessions.title")}
                             </h3>
                             <p className="text-sm text-muted-foreground">
-                                Lists every sign-in record, including ended sessions. At most one active web and
-                                one active mobile session; older rows are kept as history until you clear them.
+                                {t("settings.sessions.description")}
                             </p>
                         </div>
                         <Button
@@ -140,17 +137,19 @@ export function SessionSettings() {
                             disabled={purging || loading}
                             onClick={onPurgeAll}
                         >
-                            {purging ? "Clearing…" : "Clear all & sign out everywhere"}
+                            {purging
+                                ? t("settings.sessions.clearing")
+                                : t("settings.sessions.purge_all")}
                         </Button>
                     </div>
 
                     {loading ? (
                         <div className="flex items-center gap-2 text-muted-foreground">
                             <Loader2 className="h-5 w-5 animate-spin" />
-                            Loading sessions…
+                            {t("settings.sessions.loading")}
                         </div>
                     ) : sessions.length === 0 ? (
-                        <p className="text-sm text-muted-foreground">No session history.</p>
+                        <p className="text-sm text-muted-foreground">{t("settings.sessions.no_sessions")}</p>
                     ) : (
                         <ul className="space-y-3">
                             {sessions.map((s) => {
@@ -174,45 +173,43 @@ export function SessionSettings() {
                                             <div className="flex flex-wrap items-center gap-2">
                                                 <span className="font-medium text-foreground">
                                                     {s.platform === "MOBILE"
-                                                        ? "Mobile"
-                                                        : "Web"}
+                                                        ? t("settings.sessions.platform_mobile")
+                                                        : t("settings.sessions.platform_web")}
                                                 </span>
                                                 {isRevoked(s) ? (
-                                                    <span
-                                                        className="text-xs rounded-full bg-muted px-2 py-0.5 text-muted-foreground"
-                                                        title="Session revoked — already logged out on this device"
-                                                    >
-                                                        Logged out
+                                                    <span className="text-xs rounded-full bg-muted px-2 py-0.5 text-muted-foreground">
+                                                        {t("settings.sessions.logged_out")}
                                                     </span>
                                                 ) : (
-                                                    <span
-                                                        className="text-xs rounded-full bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 px-2 py-0.5"
-                                                        title="Still active — use Revoke to sign out this session"
-                                                    >
-                                                        Active
+                                                    <span className="text-xs rounded-full bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 px-2 py-0.5">
+                                                        {t("settings.sessions.active")}
                                                     </span>
                                                 )}
                                                 {s.current && !isRevoked(s) && (
                                                     <span className="text-xs rounded-full bg-brand/15 text-brand px-2 py-0.5">
-                                                        This device
+                                                        {t("settings.sessions.this_device")}
                                                     </span>
                                                 )}
                                             </div>
                                             <p className="text-sm text-muted-foreground break-words">
-                                                {s.deviceLabel || "Unknown device"}
+                                                {s.deviceLabel || t("settings.sessions.unknown_device")}
                                             </p>
                                             <p className="text-xs text-muted-foreground mt-1">
                                                 {s.locationLabel && (
                                                     <span>{s.locationLabel} · </span>
                                                 )}
                                                 {s.ipAddress && (
-                                                    <span>IP {s.ipAddress} · </span>
+                                                    <span>{t("settings.sessions.ip_label")} {s.ipAddress} · </span>
                                                 )}
-                                                Last seen {formatWhen(s.lastSeenAt ?? s.createdAt)}
+                                                {t("settings.sessions.last_seen", {
+                                                    time: formatWhen(s.lastSeenAt ?? s.createdAt, i18n.language),
+                                                })}
                                                 {isRevoked(s) && s.revokedAt && (
                                                     <>
-                                                        {" "}
-                                                        · Logged out {formatWhen(s.revokedAt)}
+                                                        {" · "}
+                                                        {t("settings.sessions.logged_out_at", {
+                                                            time: formatWhen(s.revokedAt, i18n.language),
+                                                        })}
                                                     </>
                                                 )}
                                             </p>
@@ -234,15 +231,12 @@ export function SessionSettings() {
                                             {revoking === s.id
                                                 ? "…"
                                                 : s.current
-                                                  ? "Sign out this device"
-                                                  : "Revoke"}
+                                                  ? t("settings.sessions.sign_out_this_device")
+                                                  : t("settings.sessions.revoke")}
                                         </Button>
                                     ) : (
-                                        <span
-                                            className="text-xs text-muted-foreground self-center max-w-[8rem] text-right"
-                                            title="Already logged out"
-                                        >
-                                            Logged out
+                                        <span className="text-xs text-muted-foreground self-center max-w-[8rem] text-right">
+                                            {t("settings.sessions.logged_out")}
                                         </span>
                                     )}
                                 </li>

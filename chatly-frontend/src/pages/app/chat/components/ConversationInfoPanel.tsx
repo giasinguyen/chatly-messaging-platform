@@ -46,6 +46,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 import type { Attachment, ChatUser, Message } from "@/types/message";
 import type { ConversationResponse } from "@/types/conversation";
 import { conversationService } from "@/services/conversation.service";
@@ -70,10 +71,10 @@ interface ConversationInfoPanelProps {
 }
 
 const MUTE_OPTIONS = [
-    { value: "1h", label: "1 hour", duration: 1 * 60 * 60 * 1000 },
-    { value: "4h", label: "4 hours", duration: 4 * 60 * 60 * 1000 },
-    { value: "8h", label: "8 hours", duration: 8 * 60 * 60 * 1000 },
-    { value: "forever", label: "Until I turn it back on", duration: null },
+    { value: "1h", labelKey: "chat.mute_1h", duration: 1 * 60 * 60 * 1000 },
+    { value: "4h", labelKey: "chat.mute_4h", duration: 4 * 60 * 60 * 1000 },
+    { value: "8h", labelKey: "chat.mute_8h", duration: 8 * 60 * 60 * 1000 },
+    { value: "forever", labelKey: "chat.mute_forever", duration: null },
 ] as const;
 
 function attachmentToFile(
@@ -181,6 +182,7 @@ export function ConversationInfoPanel({
     onGroupUpdated,
     onConversationUpdate: _onConversationUpdate,
 }: ConversationInfoPanelProps) {
+    const { t } = useTranslation();
     const navigate = useNavigate();
     const isGroup = conversation.type === "GROUP";
 
@@ -338,15 +340,15 @@ export function ConversationInfoPanel({
             if (res.result) {
                 setInviteLink(`${import.meta.env.VITE_WEB_BASE_URL || window.location.origin}/join/${res.result.inviteToken}`);
             }
-            toast.success("Invite link reset");
-        } catch { toast.error("Could not reset invite link"); }
+            toast.success(t("chat.invite_link_reset"));
+        } catch { toast.error(t("chat.invite_link_reset_failed")); }
         finally { setInviteLinkLoading(false); }
     };
 
     const handleCopyInviteLink = () => {
         if (inviteLink) {
             navigator.clipboard.writeText(inviteLink);
-            toast.success("Invite link copied");
+            toast.success(t("chat.invite_link_copied"));
         }
     };
 
@@ -359,7 +361,7 @@ export function ConversationInfoPanel({
     const handleOpenMute = () => {
         if (isMuted) {
             setMute(conversation.id, false);
-            toast.success("Notifications turned on");
+            toast.success(t("chat.notifications_on"));
             return;
         }
         setShowMuteDialog(true);
@@ -372,18 +374,18 @@ export function ConversationInfoPanel({
             : null;
         setMute(conversation.id, true, mutedUntil);
         setShowMuteDialog(false);
-        toast.success(`Notifications silenced · ${option?.label ?? ""}`);
+        toast.success(`${t("chat.notifications_silenced")} · ${option ? t(option.labelKey) : ""}`);
     };
 
     const handleTogglePin = () => {
         const pinnedConvs = Object.entries(useConversationPrefsStore.getState().prefs)
             .filter(([, p]) => p.isPinned);
         if (!isPinned && pinnedConvs.length >= 5) {
-            toast.warning("You can only pin up to 5 conversations");
+            toast.warning(t("chat.pin_limit_warning"));
             return;
         }
         setPin(conversation.id, !isPinned);
-        toast.success(isPinned ? "Conversation unpinned" : "Conversation pinned");
+        toast.success(isPinned ? t("chat.conv_unpinned") : t("chat.conv_pinned"));
     };
 
     const handleSaveNickname = () => {
@@ -392,7 +394,7 @@ export function ConversationInfoPanel({
         storeSetNickname(conversation.id, trimmed);
         onNicknameChange?.(trimmed);
         setIsEditingNickname(false);
-        toast.success("Nickname set");
+        toast.success(t("chat.nickname_set"));
     };
 
     const handleSaveGroupName = async () => {
@@ -408,9 +410,9 @@ export function ConversationInfoPanel({
                 _onConversationUpdate?.(updated.result);
             }
             setIsEditingGroupName(false);
-            toast.success("Group name changed");
+            toast.success(t("chat.group_name_changed"));
         } catch {
-            toast.error("Could not change group name");
+            toast.error(t("chat.group_name_change_failed"));
         } finally {
             setGroupNameSaving(false);
         }
@@ -429,9 +431,9 @@ export function ConversationInfoPanel({
             if (updated.result) {
                 _onConversationUpdate?.(updated.result);
             }
-            toast.success("Group avatar updated");
+            toast.success(t("chat.group_avatar_updated"));
         } catch {
-            toast.error("Could not update group avatar");
+            toast.error(t("chat.group_avatar_update_failed"));
         } finally {
             setAvatarUploading(false);
             if (avatarInputRef.current) avatarInputRef.current.value = "";
@@ -439,45 +441,45 @@ export function ConversationInfoPanel({
     };
 
     const handleDelete = async () => {
-        if (!window.confirm("Are you sure you want to delete this conversation?")) return;
+        if (!window.confirm(t("chat.confirm_delete_conv"))) return;
         try {
             setIsDeleting(true);
             await conversationService.delete(conversation.id);
             onDeleteConversation();
             navigate("/chat");
-            toast.success("Conversation deleted");
+            toast.success(t("chat.conv_deleted"));
         } catch {
-            toast.error("Could not delete conversation. Please try again.");
+            toast.error(t("chat.delete_conv_failed"));
         } finally {
             setIsDeleting(false);
         }
     };
 
     const handleDissolve = async () => {
-        if (!window.confirm("Are you sure you want to dissolve this group? This action cannot be undone.")) return;
+        if (!window.confirm(t("chat.confirm_dissolve_group"))) return;
         try {
             setIsDismissing(true);
             await conversationService.dissolve(conversation.id);
             onDeleteConversation();
             navigate("/chat");
-            toast.success("Group dissolved");
+            toast.success(t("chat.group_dissolved"));
         } catch {
-            toast.error("Could not dissolve group. Please try again.");
+            toast.error(t("chat.group_dissolve_failed"));
         } finally {
             setIsDismissing(false);
         }
     };
 
     const handleLeaveGroup = async () => {
-        if (!window.confirm("Are you sure you want to leave this group?")) return;
+        if (!window.confirm(t("chat.confirm_leave_group"))) return;
         try {
             setIsLeaving(true);
             await groupService.removeMember(conversation.id, currentUserId);
             onDeleteConversation();
             navigate("/chat");
-            toast.success("You have left the group");
+            toast.success(t("chat.group_left"));
         } catch {
-            toast.error("Could not leave group. Please try again.");
+            toast.error(t("chat.group_leave_failed"));
         } finally {
             setIsLeaving(false);
         }
@@ -488,7 +490,7 @@ export function ConversationInfoPanel({
             {/* Header */}
             <div className="h-16 flex items-center px-4 border-b border-border shrink-0">
                 <h3 className="text-sm font-semibold text-foreground">
-                    {isGroup ? "Group Information" : "Conversation Information"}
+                    {isGroup ? t("chat.group_information") : t("chat.conversation_info")}
                 </h3>
             </div>
 
@@ -588,7 +590,7 @@ export function ConversationInfoPanel({
                                             setIsEditingNickname(true);
                                         }}
                                         className="shrink-0 text-muted-foreground hover:text-foreground transition"
-                                        title="Set nickname"
+                                        title={t("chat.set_nickname")}
                                     >
                                         <Pencil size={13} />
                                     </button>
@@ -600,7 +602,7 @@ export function ConversationInfoPanel({
                                             setIsEditingGroupName(true);
                                         }}
                                         className="shrink-0 text-muted-foreground hover:text-foreground transition"
-                                        title="Change group name"
+                                        title={t("chat.change_group_name")}
                                     >
                                         <Pencil size={13} />
                                     </button>
@@ -625,8 +627,8 @@ export function ConversationInfoPanel({
                             )}>
                                 {isMuted ? <Bell size={18} /> : <BellOff size={18} />}
                             </div>
-                            <span className="text-[11px] text-muted-foreground text-center leading-tight max-w-[60px]">
-                                {isMuted ? "Turn on\nnotifications" : "Turn off\nnotifications"}
+                            <span className="text-[11px] text-muted-foreground text-center leading-tight max-w-[60px] whitespace-pre-line">
+                                {isMuted ? t("chat.turn_on_notifications_label") : t("chat.turn_off_notifications_label")}
                             </span>
                         </button>
 
@@ -644,8 +646,8 @@ export function ConversationInfoPanel({
                             )}>
                                 {isPinned ? <PinOff size={18} /> : <Pin size={18} />}
                             </div>
-                            <span className="text-[11px] text-muted-foreground text-center leading-tight max-w-[60px]">
-                                {isPinned ? "Unpin" : "Pin\nconversation"}
+                            <span className="text-[11px] text-muted-foreground text-center leading-tight max-w-[60px] whitespace-pre-line">
+                                {isPinned ? t("chat.unpin_label") : t("chat.pin_conversation_label")}
                             </span>
                         </button>
 
@@ -659,8 +661,8 @@ export function ConversationInfoPanel({
                                 <div className="h-10 w-10 rounded-full bg-muted text-foreground flex items-center justify-center transition-colors group-hover:bg-muted/70">
                                     <UserPlus size={18} />
                                 </div>
-                                <span className="text-[11px] text-muted-foreground text-center leading-tight max-w-[60px]">
-                                    Add{"\n"}member
+                                <span className="text-[11px] text-muted-foreground text-center leading-tight max-w-[60px] whitespace-pre-line">
+                                    {t("chat.add_member")}
                                 </span>
                             </button>
                         ) : (
@@ -673,7 +675,7 @@ export function ConversationInfoPanel({
                                     <UserPlus size={18} />
                                 </div>
                                 <span className="text-[11px] text-muted-foreground text-center leading-tight max-w-[60px]">
-                                    Create group chat
+                                    {t("chat.create_group_chat_short")}
                                 </span>
                             </button>
                         )}
@@ -689,7 +691,7 @@ export function ConversationInfoPanel({
                                     <Settings size={18} />
                                 </div>
                                 <span className="text-[11px] text-muted-foreground text-center leading-tight max-w-[60px]">
-                                    Group management
+                                    {t("chat.group_management")}
                                 </span>
                             </button>
                         )}
@@ -705,7 +707,7 @@ export function ConversationInfoPanel({
                                 className="w-full flex items-center justify-between px-4 py-3 hover:bg-muted/30 transition"
                                 onClick={() => setMembersExpanded((v) => !v)}
                             >
-                                <span className="text-sm font-medium text-foreground">Group members</span>
+                                <span className="text-sm font-medium text-foreground">{t("chat.group_members")}</span>
                                 <ChevronDown
                                     size={16}
                                     className={cn(
@@ -723,7 +725,7 @@ export function ConversationInfoPanel({
                                         onClick={onOpenGroupPanel}
                                     >
                                         <Users size={16} className="text-muted-foreground" />
-                                        <span className="text-muted-foreground">{conversation.participantIds.length} members</span>
+                                        <span className="text-muted-foreground">{t("chat.members_count", { count: conversation.participantIds.length })}</span>
                                     </button>
                                     </div>
                                 </div>
@@ -739,7 +741,7 @@ export function ConversationInfoPanel({
                                 >
                                     <div className="flex items-center gap-2">
                                         <UserPlus size={16} className="text-muted-foreground" />
-                                        <span className="text-sm font-medium text-foreground">Pending requests</span>
+                                        <span className="text-sm font-medium text-foreground">{t("chat.pending_requests")}</span>
                                     </div>
                                     {pendingCount > 0 && (
                                         <span className="text-xs bg-red-500 text-white rounded-full px-1.5 py-0.5 min-w-5 text-center">
@@ -758,7 +760,7 @@ export function ConversationInfoPanel({
                                 >
                                     <div className="flex items-center gap-2">
                                         <LinkIcon size={15} className="text-muted-foreground" />
-                                        <span className="text-sm font-medium text-foreground">Group invite link</span>
+                                        <span className="text-sm font-medium text-foreground">{t("chat.group_invite_link")}</span>
                                     </div>
                                     <ChevronDown
                                         size={14}
@@ -787,7 +789,7 @@ export function ConversationInfoPanel({
                                                         variant="outline"
                                                         className="h-8 w-8 shrink-0"
                                                         onClick={handleCopyInviteLink}
-                                                        title="Copy"
+                                                        title={t("common.copy")}
                                                     >
                                                         <Copy size={13} />
                                                     </Button>
@@ -796,7 +798,7 @@ export function ConversationInfoPanel({
                                                         variant="outline"
                                                         className="h-8 w-8 shrink-0"
                                                         onClick={() => setShowQrDialog(true)}
-                                                        title="QR Code"
+                                                        title={t("chat.qr_code")}
                                                     >
                                                         <QrCode size={13} />
                                                     </Button>
@@ -809,7 +811,7 @@ export function ConversationInfoPanel({
                                                     disabled={inviteLinkLoading}
                                                 >
                                                     <RefreshCw size={11} />
-                                                    Reset link
+                                                    {t("chat.reset_link")}
                                                 </Button>
                                             </>
                                         ) : (
@@ -820,7 +822,7 @@ export function ConversationInfoPanel({
                                                 onClick={fetchInviteLink}
                                             >
                                                 <LinkIcon size={12} />
-                                                Create invite link
+                                                {t("chat.create_invite_link_short")}
                                             </Button>
                                         )}
                                     </div>
@@ -837,7 +839,7 @@ export function ConversationInfoPanel({
                                 >
                                     <div className="flex items-center gap-2">
                                         <FileText size={15} className="text-muted-foreground" />
-                                        <span className="text-sm font-medium text-foreground">Group Bulletin Board</span>
+                                        <span className="text-sm font-medium text-foreground">{t("chat.group_bulletin_board")}</span>
                                     </div>
                                     <ChevronDown
                                         size={14}
@@ -857,7 +859,7 @@ export function ConversationInfoPanel({
                                             <div className="h-7 w-7 rounded bg-brand/10 flex items-center justify-center shrink-0">
                                                 <FileText size={13} className="text-brand" />
                                             </div>
-                                            <span className="text-xs text-foreground">Notes</span>
+                                            <span className="text-xs text-foreground">{t("chat.notes")}</span>
                                         </button>
                                         <button
                                             type="button"
@@ -867,7 +869,7 @@ export function ConversationInfoPanel({
                                             <div className="h-7 w-7 rounded bg-amber-500/10 flex items-center justify-center shrink-0">
                                                 <Pin size={13} className="text-amber-500" />
                                             </div>
-                                            <span className="text-xs text-foreground">Pinned Messages</span>
+                                            <span className="text-xs text-foreground">{t("chat.pinned_messages")}</span>
                                         </button>
                                         <button
                                             type="button"
@@ -877,7 +879,7 @@ export function ConversationInfoPanel({
                                             <div className="h-7 w-7 rounded bg-green-500/10 flex items-center justify-center shrink-0">
                                                 <Bell size={13} className="text-green-500" />
                                             </div>
-                                            <span className="text-xs text-foreground">Reminders</span>
+                                            <span className="text-xs text-foreground">{t("chat.reminders")}</span>
                                         </button>
                                     </div>
                                 )}
@@ -891,17 +893,17 @@ export function ConversationInfoPanel({
                         <div className="flex items-center justify-between mb-2">
                             <div className="flex items-center gap-2">
                                 <Image size={15} className="text-muted-foreground" />
-                                <span className="text-sm font-medium text-foreground">Media</span>
+                                <span className="text-sm font-medium text-foreground">{t("chat.media")}</span>
                             </div>
                             <button
                                 className="text-[12px] text-brand dark:text-indigo-400 hover:underline cursor-pointer bg-transparent border-none p-0"
                                 onClick={() => { setSharedMediaTab("media"); setSharedMediaOpen(true); }}
                             >
-                                View all ({liveMediaFiles.length})
+                                {t("chat.view_all_count", { count: liveMediaFiles.length })}
                             </button>
                         </div>
                         {liveMediaFiles.length === 0 ? (
-                            <p className="text-xs text-muted-foreground text-center py-3">No media yet</p>
+                            <p className="text-xs text-muted-foreground text-center py-3">{t("chat.no_media_yet")}</p>
                         ) : (
                             <div className="grid grid-cols-3 gap-1">
                                 {liveMediaFiles.slice(0, 6).map((file) => (
@@ -930,17 +932,17 @@ export function ConversationInfoPanel({
                         <div className="flex items-center justify-between mb-2">
                             <div className="flex items-center gap-2">
                                 <FileText size={15} className="text-muted-foreground" />
-                                <span className="text-sm font-medium text-foreground">File</span>
+                                <span className="text-sm font-medium text-foreground">{t("chat.files")}</span>
                             </div>
                             <button
                                 className="text-[12px] text-brand dark:text-indigo-400 hover:underline cursor-pointer bg-transparent border-none p-0"
                                 onClick={() => { setSharedMediaTab("files"); setSharedMediaOpen(true); }}
                             >
-                                View all ({liveDocFiles.length})
+                                {t("chat.view_all_count", { count: liveDocFiles.length })}
                             </button>
                         </div>
                         {liveDocFiles.length === 0 ? (
-                            <p className="text-xs text-muted-foreground text-center py-3">No files yet</p>
+                            <p className="text-xs text-muted-foreground text-center py-3">{t("chat.no_files_yet")}</p>
                         ) : (
                             <div className="flex flex-col gap-2">
                                 {liveDocFiles.slice(0, 5).map((file) => {
@@ -983,7 +985,7 @@ export function ConversationInfoPanel({
                             <div className="px-4 py-3">
                                 <div className="flex items-center gap-2 mb-2">
                                     <LinkIcon size={15} className="text-muted-foreground" />
-                                    <span className="text-sm font-medium text-foreground">Link</span>
+                                    <span className="text-sm font-medium text-foreground">{t("chat.link")}</span>
                                 </div>
                                 <button
                                     className="text-[12px] text-brand dark:text-indigo-400 hover:underline cursor-pointer bg-transparent border-none p-0"
@@ -1019,7 +1021,7 @@ export function ConversationInfoPanel({
                             disabled={isDeleting}
                         >
                             <Trash2 size={16} />
-                            {isDeleting ? "Deleting..." : "Delete conversation"}
+                            {isDeleting ? t("chat.deleting") : t("chat.delete_conversation")}
                         </Button>
                         {isGroup && isOwner && (
                             <Button
@@ -1040,7 +1042,7 @@ export function ConversationInfoPanel({
                                 disabled={isLeaving}
                             >
                                 <LogOut size={16} />
-                                {isLeaving ? "Leaving..." : "Leave group"}
+                                {isLeaving ? t("chat.leaving") : t("chat.leave_group")}
                             </Button>
                         )}
                     </div>
@@ -1051,21 +1053,21 @@ export function ConversationInfoPanel({
             <Dialog open={showMuteDialog} onOpenChange={setShowMuteDialog}>
                 <DialogContent className="sm:max-w-xs">
                     <DialogHeader>
-                        <DialogTitle>Silence notifications</DialogTitle>
+                        <DialogTitle>{t("chat.silence_notifications_dialog")}</DialogTitle>
                     </DialogHeader>
                     <RadioGroup value={muteDuration} onValueChange={setMuteDuration} className="gap-3 py-1">
                         {MUTE_OPTIONS.map((opt) => (
                             <div key={opt.value} className="flex items-center gap-3">
                                 <RadioGroupItem value={opt.value} id={`mute-${opt.value}`} />
                                 <Label htmlFor={`mute-${opt.value}`} className="cursor-pointer text-sm font-normal">
-                                    {opt.label}
+                                    {t(opt.labelKey)}
                                 </Label>
                             </div>
                         ))}
                     </RadioGroup>
                     <DialogFooter className="gap-2 sm:gap-0">
-                        <Button variant="ghost" onClick={() => setShowMuteDialog(false)}>Cancel</Button>
-                        <Button onClick={handleConfirmMute}>Confirm</Button>
+                        <Button variant="ghost" onClick={() => setShowMuteDialog(false)}>{t("common.cancel")}</Button>
+                        <Button onClick={handleConfirmMute}>{t("common.confirm")}</Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
@@ -1107,7 +1109,7 @@ export function ConversationInfoPanel({
             <Dialog open={showQrDialog} onOpenChange={setShowQrDialog}>
                 <DialogContent className="sm:max-w-xs flex flex-col items-center gap-4 py-8">
                     <DialogHeader>
-                        <DialogTitle className="text-center">Group QR Code</DialogTitle>
+                        <DialogTitle className="text-center">{t("chat.group_qr_code")}</DialogTitle>
                     </DialogHeader>
                     {inviteLink && (
                         <QRCodeSVG value={inviteLink} size={200} level="M" />

@@ -1,12 +1,14 @@
 import { useEffect, useState } from "react";
 import { Hash, Loader2, TrendingUp } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { postService } from "@/services/post.service";
 import type { TrendingHashtag } from "@/types/post";
 
 const HOME_TRENDING_HASHTAG_LIMIT = 5;
 
 export function HomeLeftSidebar() {
+    const { t } = useTranslation();
     const navigate = useNavigate();
     const [trendingHashtags, setTrendingHashtags] = useState<TrendingHashtag[]>(
         [],
@@ -41,23 +43,23 @@ export function HomeLeftSidebar() {
                 <div className="mb-1 flex items-center gap-2">
                     <TrendingUp className="size-4 text-[#1a146b]" />
                     <h2 className="text-sm font-semibold text-foreground">
-                        Trending
+                        {t("home.trending_title")}
                     </h2>
                 </div>
                 <p className="mb-4 text-xs text-muted-foreground">
-                    Hot hashtags from the last 24 hours
+                    {t("home.trending_subtitle")}
                 </p>
 
                 {isLoading && (
                     <div className="flex items-center gap-2 py-3 text-sm text-muted-foreground">
                         <Loader2 className="size-4 animate-spin" />
-                        Loading trends...
+                        {t("home.trending_loading")}
                     </div>
                 )}
 
                 {!isLoading && trendingHashtags.length === 0 && (
                     <p className="py-3 text-sm text-muted-foreground">
-                        No hashtags are trending yet.
+                        {t("home.trending_empty")}
                     </p>
                 )}
 
@@ -83,7 +85,7 @@ export function HomeLeftSidebar() {
                                     {trend.hashtag}
                                 </span>
                                 <span className="block text-xs text-muted-foreground">
-                                    {trend.postCount.toLocaleString()} posts in 24h
+                                    {t("home.trending_posts_24h", { count: trend.postCount })}
                                 </span>
                             </span>
                         </button>

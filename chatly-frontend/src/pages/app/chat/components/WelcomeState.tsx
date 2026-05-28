@@ -1,4 +1,5 @@
 import { MonitorSmartphone, CloudLightning, ShieldCheck } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import {
     Carousel,
     CarouselContent,
@@ -8,39 +9,43 @@ import {
 } from "@/components/ui/carousel";
 import Autoplay from "embla-carousel-autoplay";
 
-const slides = [
-    {
-        title: "Seamless Experience",
-        desc: "Connect and work on all devices with always-synced data",
-        icon: <MonitorSmartphone className="h-32 w-32 text-[#1a146b]" />,
-    },
-    {
-        title: "Large File Transfer",
-        desc: "Send files up to 1GB quickly and conveniently",
-        icon: <CloudLightning className="h-32 w-32 text-[#312e81]" />,
-    },
-    {
-        title: "Secure Messaging",
-        desc: "Chat securely with end-to-end encryption in all spaces",
-        icon: <ShieldCheck className="h-32 w-32 text-[#1a146b]" />,
-    },
-];
+const CAROUSEL_DELAY_MS = 4500;
 
 export function WelcomeState() {
+    const { t } = useTranslation();
+
+    const slides = [
+        {
+            title: t("welcome.slide_1_title"),
+            desc: t("welcome.slide_1_desc"),
+            icon: <MonitorSmartphone className="h-32 w-32 text-[#1a146b]" />,
+        },
+        {
+            title: t("welcome.slide_2_title"),
+            desc: t("welcome.slide_2_desc"),
+            icon: <CloudLightning className="h-32 w-32 text-[#312e81]" />,
+        },
+        {
+            title: t("welcome.slide_3_title"),
+            desc: t("welcome.slide_3_desc"),
+            icon: <ShieldCheck className="h-32 w-32 text-[#1a146b]" />,
+        },
+    ];
+
     return (
         <main className="flex-1 bg-[#f8f9fa] dark:bg-[#1D1D1F] flex flex-col items-center justify-center p-8 overflow-hidden relative">
             <div className="max-w-[480px] w-full flex flex-col items-center justify-center">
                 <h2 className="text-2xl md:text-3xl font-semibold mb-12 text-foreground text-center">
-                    Welcome to{" "}
+                    {t("welcome.title_prefix")}{" "}
                     <span className="font-bold text-[#1a146b]">
-                        Chatly!
+                        {t("welcome.brand")}
                     </span>
                 </h2>
 
-                <Carousel 
-                    className="w-full" 
+                <Carousel
+                    className="w-full"
                     opts={{ loop: true }}
-                    plugins={[Autoplay({ delay: 4500, stopOnInteraction: false })]}
+                    plugins={[Autoplay({ delay: CAROUSEL_DELAY_MS, stopOnInteraction: false })]}
                 >
                     <CarouselContent>
                         {slides.map((slide, index) => (

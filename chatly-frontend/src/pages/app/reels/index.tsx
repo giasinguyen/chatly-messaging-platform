@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ChevronDown, ChevronUp, Clapperboard, Loader2, Plus } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { CreateReelModal } from "@/components/app/CreateReelModal";
@@ -20,6 +21,7 @@ function mergeReels(existing: Reel[], incoming: Reel[]) {
 }
 
 export default function ReelsPage() {
+    const { t } = useTranslation();
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
     const user = useAuthStore((s) => s.user);
@@ -70,7 +72,7 @@ export default function ReelsPage() {
             try {
                 const response = await reelService.getFeed(cursor, REEL_FEED_PAGE_SIZE);
                 if (response.code !== 1000 || !response.result) {
-                    toast.error(response.message ?? "Could not load reels.");
+                    toast.error(response.message ?? t("reels.load_failed"));
                     return;
                 }
 
@@ -86,12 +88,12 @@ export default function ReelsPage() {
                     viewedIdsRef.current = new Set();
                 }
             } catch {
-                toast.error("Could not load reels.");
+                toast.error(t("reels.load_failed"));
             } finally {
                 setIsLoading(false);
             }
         },
-        [],
+        [t],
     );
 
     useEffect(() => {
@@ -109,7 +111,7 @@ export default function ReelsPage() {
             .then(([focusedResponse, feedResponse]) => {
                 if (!isActive) return;
                 if (focusedResponse.code !== 1000 || !focusedResponse.result) {
-                    toast.error(focusedResponse.message ?? "Could not load reel.");
+                    toast.error(focusedResponse.message ?? t("reels.load_reel_failed"));
                     return;
                 }
                 const feed = feedResponse.result;
@@ -120,7 +122,7 @@ export default function ReelsPage() {
                 viewedIdsRef.current = new Set();
             })
             .catch(() => {
-                if (isActive) toast.error("Could not load reel.");
+                if (isActive) toast.error(t("reels.load_reel_failed"));
             })
             .finally(() => {
                 if (isActive) setIsLoading(false);
@@ -129,7 +131,7 @@ export default function ReelsPage() {
         return () => {
             isActive = false;
         };
-    }, [focusedReelId, loadReels]);
+    }, [focusedReelId, loadReels, t]);
 
     useEffect(() => {
         if (!activeReel || viewedIdsRef.current.has(activeReel.id)) return;
@@ -183,7 +185,7 @@ export default function ReelsPage() {
                 updateReel(response.result);
             }
         } catch {
-            toast.error("Could not update reaction.");
+            toast.error(t("reels.reaction_failed"));
         } finally {
             setBusyReelId(null);
         }
@@ -196,12 +198,12 @@ export default function ReelsPage() {
     const handleOpenAuthorProfile = useCallback(
         (reel: Reel) => {
             if (!reel.authorUsername) {
-                toast.error("Could not open author profile.");
+                toast.error(t("reels.no_author"));
                 return;
             }
             navigate(`/u/${reel.authorUsername}`);
         },
-        [navigate],
+        [navigate, t],
     );
 
     const handleReportReel = useCallback((reel: Reel) => {
@@ -217,25 +219,25 @@ export default function ReelsPage() {
             try {
                 const response = await reelService.report(selectedReportReel.id, payload);
                 if (response.code !== 1000) {
-                    toast.error(response.message ?? "Could not report reel.");
+                    toast.error(response.message ?? t("reels.report_failed"));
                     return;
                 }
-                toast.success("Reel reported successfully.");
+                toast.success(t("reels.report_success"));
                 setSelectedReportReel(null);
             } catch {
-                toast.error("Could not report reel.");
+                toast.error(t("reels.report_failed"));
             } finally {
                 setIsReportingReel(false);
             }
         },
-        [selectedReportReel],
+        [selectedReportReel, t],
     );
 
     return (
         <div className="relative h-full w-full overflow-hidden bg-black text-white">
             <div className="absolute left-5 top-5 z-20 flex items-center gap-2">
                 <Clapperboard className="h-6 w-6 text-white" />
-                <h1 className="text-xl font-bold">Reels</h1>
+                <h1 className="text-xl font-bold">{t("reels.title")}</h1>
             </div>
 
             <Button
@@ -245,15 +247,15 @@ export default function ReelsPage() {
                 className="absolute right-5 top-5 z-20 rounded-full bg-white text-black hover:bg-white/90"
             >
                 <Plus className="mr-1.5 h-4 w-4" />
-                Create
+                {t("reels.create")}
             </Button>
 
             {isEmpty && (
                 <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
                     <Clapperboard className="h-12 w-12 text-white/60" />
-                    <p className="text-lg font-semibold">No reels yet</p>
+                    <p className="text-lg font-semibold">{t("reels.no_reels")}</p>
                     <p className="max-w-sm text-sm text-white/60">
-                        Create the first reel or come back after more people share videos.
+                        {t("reels.no_reels_hint")}
                     </p>
                 </div>
             )}
