@@ -1,4 +1,25 @@
-import type { Message } from "@/types/message";
+import type { Attachment, Message } from "@/types/message";
+
+function isPlainImageAttachment(attachment: Attachment): boolean {
+    if (!attachment.type?.startsWith("image/")) return false;
+    return (
+        attachment.kind !== "POST_PREVIEW" &&
+        attachment.kind !== "REEL_PREVIEW" &&
+        attachment.kind !== "STORY_REPLY" &&
+        attachment.type !== "application/x-chatly-post-preview" &&
+        attachment.type !== "application/x-chatly-reel-preview" &&
+        !attachment.postId &&
+        !attachment.reelId
+    );
+}
+
+/** Text caption with one or more photo attachments (Messenger-style card). */
+export function isImageCaptionMessage(msg: Message): boolean {
+    if (!msg.content?.trim()) return false;
+    const attachments = msg.attachments ?? [];
+    if (attachments.length === 0) return false;
+    return attachments.every(isPlainImageAttachment);
+}
 
 export const RECALL_LIMIT_MS = 24 * 60 * 60 * 1000;
 export const EDIT_LIMIT_MS = 15 * 60 * 1000;

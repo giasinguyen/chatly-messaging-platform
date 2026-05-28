@@ -17,14 +17,14 @@ spring:
                     completion: true
 
     datasource:
-        url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/chatly}
-        username: ${SPRING_DATASOURCE_USERNAME:chatly}
-        password: ${SPRING_DATASOURCE_PASSWORD:chatly123}
+        url: ${DATABASE_URL:${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/chatly}}
+        username: ${DATABASE_USERNAME:${SPRING_DATASOURCE_USERNAME:chatly}}
+        password: ${DATABASE_PASSWORD:${SPRING_DATASOURCE_PASSWORD:chatly123}}
         driver-class-name: org.postgresql.Driver
 
     jpa:
         hibernate:
-            ddl-auto: ${SPRING_JPA_HIBERNATE_DDL_AUTO:update}
+            ddl-auto: ${JPA_DDL_AUTO:${SPRING_JPA_HIBERNATE_DDL_AUTO:update}}
         defer-datasource-initialization: true
         open-in-view: false
         properties:
@@ -37,7 +37,7 @@ spring:
             data-locations: classpath:db/seed-data.sql
 
     mongodb:
-        uri: ${SPRING_DATA_MONGODB_URI:mongodb://localhost:27017/chatly}
+        uri: ${MONGODB_URI:${SPRING_DATA_MONGODB_URI:mongodb://localhost:27017/chatly}}
     data:
         redis:
             host: ${REDIS_HOST:localhost}
@@ -76,9 +76,9 @@ logging:
 
 app:
     jwt:
-        secret: ${APP_JWT_SECRET:Y2hhdGx5LXNlY3JldC1rZXktZm9yLWp3dC10b2tlbi1nZW5lcmF0aW9uLTIwMjY=}
-        expiration-ms: ${APP_JWT_EXPIRATION_MS:86400000} # 1d
-        refresh-expiration-ms: ${APP_JWT_REFRESH_EXPIRATION_MS:86400000} # 1d
+        secret: ${APP_JWT_SECRET:${JWT_SECRET:Y2hhdGx5LXNlY3JldC1rZXktZm9yLWp3dC10b2tlbi1nZW5lcmF0aW9uLTIwMjY=}}
+        expiration-ms: ${APP_JWT_EXPIRATION_MS:${JWT_EXPIRATION_MS:86400000}} # 1d
+        refresh-expiration-ms: ${APP_JWT_REFRESH_EXPIRATION_MS:${JWT_REFRESH_EXPIRATION_MS:86400000}} # 1d
     cors:
         allowed-origins: ${APP_CORS_ALLOWED_ORIGINS:http://localhost:3000, http://localhost:3001, http://localhost:5174, http://localhost:8081, http://192.168.*:*, https://*.devtunnels.ms}
     auth:

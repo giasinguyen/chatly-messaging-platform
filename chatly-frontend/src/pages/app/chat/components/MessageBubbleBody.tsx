@@ -21,9 +21,11 @@ import { VCardMessageRenderer } from "./VCardMessageRenderer";
 import { LocationMessageRenderer } from "./LocationMessageRenderer";
 import { TextMessageBody } from "./TextMessageBody";
 import { MessageAttachmentRenderer } from "./MessageAttachmentRenderer";
+import { ImageCaptionMessageBubble } from "./ImageCaptionMessageBubble";
 import { AudioMessagePlayer } from "@/components/AudioMessagePlayer";
 import { RichTextMessageEditor } from "./RichTextMessageEditor";
 import { isRichTextHtml } from "./richTextMessage.utils";
+import { isImageCaptionMessage } from "./messageList.utils";
 
 interface MessageBubbleBodyProps {
     msg: Message;
@@ -49,6 +51,7 @@ interface MessageBubbleBodyProps {
     onClosePoll?: (messageId: string) => void;
     onAddFriend?: (userId: string) => void;
     onOpenImage: (attachmentId: string) => void;
+    showInlineMetadata?: boolean;
 }
 
 export function MessageBubbleBody(props: MessageBubbleBodyProps) {
@@ -75,6 +78,7 @@ export function MessageBubbleBody(props: MessageBubbleBodyProps) {
         onClosePoll,
         onAddFriend,
         onOpenImage,
+        showInlineMetadata = false,
     } = props;
 
     if (msg.recalled) {
@@ -248,6 +252,25 @@ export function MessageBubbleBody(props: MessageBubbleBodyProps) {
                 return !msg.content && a.kind === "STORY_REPLY";
             }
         );
+
+    if (isImageCaptionMessage(msg)) {
+        return (
+            <ImageCaptionMessageBubble
+                msg={msg}
+                isMe={isMe}
+                isAgent={isAgent}
+                repliedMsg={repliedMsg}
+                replySenderName={replySenderName}
+                participant={participant}
+                currentUserId={currentUserId}
+                participantDirectory={participantDirectory}
+                highlightKeyword={highlightKeyword}
+                onOpenSenderProfile={onOpenSenderProfile}
+                onOpenImage={onOpenImage}
+                showInlineMetadata={showInlineMetadata}
+            />
+        );
+    }
 
     if (hasOnlyImages || hasSpecialAttachment) {
         return (
