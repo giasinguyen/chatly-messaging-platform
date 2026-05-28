@@ -96,7 +96,7 @@ export function ChatHeader({ user, onOpenProfile, isGroup, conversationId, other
                             {isPinned && (
                                 <Pin
                                     size={14}
-                                    className="text-brand shrink-0"
+                                    className="text-[#1a146b] shrink-0"
                                 />
                             )}
                             {isMuted && (

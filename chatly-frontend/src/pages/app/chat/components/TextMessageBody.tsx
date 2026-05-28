@@ -98,7 +98,7 @@ export function TextMessageBody({
                                 "underline break-all",
                                 isMe
                                     ? "text-white/90 hover:text-white"
-                                    : "text-brand hover:text-brand/80",
+                                    : "text-[#1a146b] hover:text-[#312e81] dark:text-[#818cf8] dark:hover:text-[#a5b4fc]",
                             )}
                         >
                             {part}
@@ -140,7 +140,7 @@ export function TextMessageBody({
                                 onClick={() => onOpenSenderProfile(mentionedUser.id)}
                                 className={cn(
                                     "font-semibold cursor-pointer hover:underline",
-                                    isMe ? "text-white/90" : "text-brand",
+                                    isMe ? "text-white/90" : "text-[#1a146b] dark:text-[#818cf8]",
                                 )}
                             >
                                 {part}
@@ -152,7 +152,7 @@ export function TextMessageBody({
                             key={i}
                             className={cn(
                                 "font-semibold",
-                                isMe ? "text-white/90" : "text-brand",
+                                isMe ? "text-white/90" : "text-[#1a146b] dark:text-[#818cf8]",
                             )}
                         >
                             {part}

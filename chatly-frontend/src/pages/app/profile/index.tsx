@@ -319,10 +319,10 @@ export default function ProfilePage() {
 
     return (
         <>
-            <div className="h-full w-full overflow-y-auto bg-[linear-gradient(145deg,#f8fbff_0%,#edf5ff_55%,#ffffff_100%)] px-6 py-8 dark:bg-[linear-gradient(145deg,#0b1220_0%,#0f1e38_55%,#111827_100%)] md:px-10">
+            <div className="h-full w-full overflow-y-auto bg-[linear-gradient(145deg,#f5f3ff_0%,#eef2ff_55%,#ffffff_100%)] px-6 py-8 dark:bg-[linear-gradient(145deg,#0b0d1f_0%,#0f1433_55%,#111827_100%)] md:px-10">
             <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 animate-in fade-in duration-300">
-                <section className="overflow-hidden rounded-3xl border border-brand/10 bg-card shadow-[0_20px_60px_-35px_rgba(0,113,227,0.45)] dark:border-brand/25 dark:shadow-[0_24px_70px_-40px_rgba(52,170,220,0.45)]">
-                    <div className="h-28 w-full bg-[radial-gradient(circle_at_20%_20%,rgba(255,255,255,0.4)_0%,rgba(255,255,255,0)_35%),linear-gradient(110deg,#0a1628_0%,#0d3b7a_40%,#0071e3_75%,#34aadc_100%)]" />
+                <section className="overflow-hidden rounded-3xl border border-[#1a146b]/10 bg-card shadow-[0_20px_60px_-35px_rgba(26,20,107,0.35)] dark:border-[#312e81]/25 dark:shadow-[0_24px_70px_-40px_rgba(99,102,241,0.35)]">
+                    <div className="h-28 w-full bg-[radial-gradient(circle_at_20%_20%,rgba(255,255,255,0.4)_0%,rgba(255,255,255,0)_35%),linear-gradient(110deg,#0b0d1f_0%,#1a146b_40%,#312e81_75%,#6366f1_100%)]" />
 
                     <div className="relative grid gap-5 px-6 pb-7 pt-0 md:grid-cols-[auto_1fr_auto] md:items-end md:gap-6 md:px-8">
                         <div className="-mt-12">
@@ -338,7 +338,7 @@ export default function ProfilePage() {
                                 </Avatar>
                                 <button
                                     type="button"
-                                    className="absolute -bottom-1 -right-1 rounded-full border border-white bg-brand p-2 text-white shadow-md transition hover:scale-105 hover:bg-brand-hover disabled:opacity-60 disabled:cursor-not-allowed"
+                                    className="absolute -bottom-1 -right-1 rounded-full border border-white bg-[#1a146b] p-2 text-white shadow-md transition hover:scale-105 hover:bg-[#312e81] disabled:opacity-60 disabled:cursor-not-allowed"
                                     aria-label="Change avatar"
                                     onClick={onPickAvatar}
                                     disabled={uploadingAvatar || saving}
@@ -383,7 +383,7 @@ export default function ProfilePage() {
                                 Undo
                             </Button>
                             <Button
-                                className="gap-2 bg-brand text-white hover:bg-brand-hover"
+                                className="gap-2 bg-[#1a146b] text-white hover:bg-[#312e81]"
                                 onClick={onSave}
                                 disabled={!isDirty || saving}
                             >
@@ -404,7 +404,7 @@ export default function ProfilePage() {
                 </section>
 
                 <section className="grid gap-4 md:grid-cols-2">
-                    <article className="rounded-2xl border border-border bg-card p-5 shadow-sm dark:border-brand/20 dark:shadow-[0_16px_45px_-32px_rgba(52,170,220,0.5)] md:p-6">
+                    <article className="rounded-2xl border border-border bg-card p-5 iv-shadow-sm dark:border-[#312e81]/20 dark:shadow-[0_16px_45px_-32px_rgba(99,102,241,0.4)] md:p-6">
                         <h2 className="mb-4 text-base font-semibold text-foreground md:text-lg">
                             Contact Information
                         </h2>
@@ -453,7 +453,7 @@ export default function ProfilePage() {
                         </div>
                     </article>
 
-                    <article className="rounded-2xl border border-border bg-card p-5 shadow-sm dark:border-brand/20 dark:shadow-[0_16px_45px_-32px_rgba(52,170,220,0.5)] md:p-6">
+                    <article className="rounded-2xl border border-border bg-card p-5 iv-shadow-sm dark:border-[#312e81]/20 dark:shadow-[0_16px_45px_-32px_rgba(99,102,241,0.4)] md:p-6">
                         <h2 className="mb-4 text-base font-semibold text-foreground md:text-lg">
                             Account Status
                         </h2>
@@ -487,7 +487,7 @@ export default function ProfilePage() {
 
                             <div className="flex items-center justify-between rounded-xl bg-muted/60 px-4 py-3 dark:bg-muted/40">
                                 <div className="flex items-center gap-3 text-foreground">
-                                    <ShieldCheck className="text-brand" size={18} />
+                                    <ShieldCheck className="text-[#1a146b]" size={18} />
                                     <span className="text-sm font-medium">Account Status</span>
                                 </div>
                                 <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-500/20 dark:text-emerald-300 dark:hover:bg-emerald-500/20">
@@ -538,7 +538,7 @@ function InfoRow({ icon: Icon, label, value }: InfoRowProps) {
     return (
         <div className="flex items-center justify-between rounded-xl bg-muted/60 px-4 py-3 dark:bg-muted/40">
             <div className="flex items-center gap-3 text-foreground">
-                <Icon className="text-brand" size={18} />
+                <Icon className="text-[#1a146b]" size={18} />
                 <span className="text-sm font-medium">{label}</span>
             </div>
             <span className="text-sm text-muted-foreground">{value}</span>

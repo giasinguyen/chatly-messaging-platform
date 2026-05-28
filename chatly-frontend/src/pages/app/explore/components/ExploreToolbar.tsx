@@ -33,7 +33,7 @@ export function ExploreToolbar({
                         placeholder="Search explore..."
                         value={searchInput}
                         onChange={(event) => onSearchChange(event.target.value)}
-                        className="h-12 rounded-2xl border-none bg-muted/50 pl-10 text-base focus-visible:ring-1 focus-visible:ring-brand"
+                        className="h-12 rounded-2xl border-none bg-muted/50 pl-10 text-base focus-visible:ring-1 focus-visible:ring-[#1a146b] dark:focus-visible:ring-indigo-400"
                     />
                 </div>
                 <Button
@@ -58,7 +58,7 @@ export function ExploreToolbar({
                         className={cn(
                             "cursor-pointer whitespace-nowrap rounded-xl px-5 py-2 text-sm font-medium transition-all",
                             selectedCategory === category.label
-                                ? "bg-brand text-white shadow-md shadow-brand/20"
+                                ? "bg-[#312e81] text-[#c3c0ff] shadow-md shadow-[#312e81]/20"
                                 : "bg-muted/50 text-muted-foreground hover:bg-muted",
                         )}
                         onClick={() =>
@@ -71,7 +71,7 @@ export function ExploreToolbar({
                 {isCustomHashtag && (
                     <Badge
                         variant="default"
-                        className="cursor-pointer rounded-xl bg-brand px-5 py-2 text-sm font-medium text-white"
+                        className="cursor-pointer rounded-xl bg-[#312e81] px-5 py-2 text-sm font-medium text-[#c3c0ff]"
                         onClick={() => onCategoryClick("For You", selectedHashtag)}
                     >
                         #{selectedHashtag}

@@ -894,7 +894,7 @@ export function ConversationInfoPanel({
                                 <span className="text-sm font-medium text-foreground">Media</span>
                             </div>
                             <button
-                                className="text-[12px] text-brand hover:underline cursor-pointer bg-transparent border-none p-0"
+                                className="text-[12px] text-brand dark:text-indigo-400 hover:underline cursor-pointer bg-transparent border-none p-0"
                                 onClick={() => { setSharedMediaTab("media"); setSharedMediaOpen(true); }}
                             >
                                 View all ({liveMediaFiles.length})
@@ -933,7 +933,7 @@ export function ConversationInfoPanel({
                                 <span className="text-sm font-medium text-foreground">File</span>
                             </div>
                             <button
-                                className="text-[12px] text-brand hover:underline cursor-pointer bg-transparent border-none p-0"
+                                className="text-[12px] text-brand dark:text-indigo-400 hover:underline cursor-pointer bg-transparent border-none p-0"
                                 onClick={() => { setSharedMediaTab("files"); setSharedMediaOpen(true); }}
                             >
                                 View all ({liveDocFiles.length})
@@ -986,7 +986,7 @@ export function ConversationInfoPanel({
                                     <span className="text-sm font-medium text-foreground">Link</span>
                                 </div>
                                 <button
-                                    className="text-[12px] text-brand hover:underline cursor-pointer bg-transparent border-none p-0"
+                                    className="text-[12px] text-brand dark:text-indigo-400 hover:underline cursor-pointer bg-transparent border-none p-0"
                                     onClick={() => { setSharedMediaTab("links"); setSharedMediaOpen(true); }}
                                 >
                                     View all ({liveLinkMessages.length})

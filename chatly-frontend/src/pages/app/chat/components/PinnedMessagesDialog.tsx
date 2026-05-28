@@ -116,9 +116,9 @@ export function PinnedMessagesDialog({
                                 >
                                     <div className="mt-0.5 shrink-0">
                                         {msg.attachments?.some((a) => a.type?.startsWith("image/")) ? (
-                                            <ImageIcon size={16} className="text-brand" />
+                                            <ImageIcon size={16} className="text-[#1a146b] dark:text-[#818cf8]" />
                                         ) : msg.attachments?.length ? (
-                                            <FileText size={16} className="text-brand" />
+                                            <FileText size={16} className="text-[#1a146b] dark:text-[#818cf8]" />
                                         ) : (
                                             <Pin size={14} className="text-amber-500" />
                                         )}

@@ -210,7 +210,7 @@ export function RemindersDialog({
             <DialogContent className="sm:max-w-md p-0 gap-0 overflow-hidden max-h-[80vh] flex flex-col">
                 <DialogHeader className="px-5 pt-5 pb-3 shrink-0">
                     <DialogTitle className="flex items-center gap-2 text-base">
-                        <CalendarClock size={16} className="text-brand" />
+                        <CalendarClock size={16} className="text-[#1a146b] dark:text-[#818cf8]" />
                         Reminders list
                     </DialogTitle>
                 </DialogHeader>
@@ -259,7 +259,7 @@ export function RemindersDialog({
                             <div className="flex gap-2">
                                 <Button
                                     size="sm"
-                                    className="h-7 text-xs flex-1 gap-1"
+                                    className="h-7 text-xs flex-1 gap-1 bg-[#1a146b] hover:bg-[#312e81]"
                                     onClick={handleCreate}
                                     disabled={creating}
                                 >
@@ -295,7 +295,7 @@ export function RemindersDialog({
                                 editingId === r.id ? (
                                     <div
                                         key={r.id}
-                                        className="space-y-2 rounded-lg border border-brand/40 bg-muted/20 p-3"
+                                        className="space-y-2 rounded-lg border border-[#1a146b]/40 bg-muted/20 p-3"
                                     >
                                         <Input
                                             value={editTitle}
@@ -328,7 +328,7 @@ export function RemindersDialog({
                                         <div className="flex gap-2">
                                             <Button
                                                 size="sm"
-                                                className="h-7 text-xs flex-1 gap-1"
+                                                className="h-7 text-xs flex-1 gap-1 bg-[#1a146b] hover:bg-[#312e81]"
                                                 onClick={handleUpdate}
                                                 disabled={updating}
                                             >
@@ -356,7 +356,7 @@ export function RemindersDialog({
                                     {/* Card header bar */}
                                     <div className={cn(
                                         "flex items-center gap-2 px-3 py-1.5 border-b border-border/40",
-                                        r.completed ? "bg-green-50 dark:bg-green-950/30" : "bg-brand/5 dark:bg-brand/10",
+                                        r.completed ? "bg-green-50 dark:bg-green-950/30" : "bg-[#1a146b]/5 dark:bg-[#1a146b]/10",
                                     )}>
                                         <button
                                             type="button"
@@ -369,9 +369,9 @@ export function RemindersDialog({
                                                 <Circle size={15} className="text-muted-foreground" />
                                             )}
                                         </button>
-                                        <Clock size={12} className={r.completed ? "text-green-500" : "text-brand"} />
+                                        <Clock size={12} className={r.completed ? "text-green-500" : "text-[#1a146b] dark:text-[#818cf8]"} />
                                         {r.remindAt && (
-                                            <span className={cn("text-[11px] font-semibold", r.completed ? "text-green-600" : "text-brand")}>
+                                            <span className={cn("text-[11px] font-semibold", r.completed ? "text-green-600" : "text-[#1a146b] dark:text-[#818cf8]")}>
                                                 {formatReminderTime(r.remindAt)}
                                             </span>
                                         )}

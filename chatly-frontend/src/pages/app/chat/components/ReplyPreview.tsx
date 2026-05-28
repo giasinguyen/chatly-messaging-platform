@@ -39,10 +39,10 @@ export function ReplyPreview({ replyMessage, participant, currentUserId, senderN
                 "w-full text-left rounded-lg px-2.5 py-1.5 mb-1.5 border-l-2 text-xs max-w-full overflow-hidden cursor-pointer transition-opacity hover:opacity-75",
                 isMe
                     ? "bg-white/15 border-white/50 text-white/80"
-                    : "bg-muted/50 border-brand/60 text-muted-foreground",
+                    : "bg-muted/50 border-[#1a146b]/60 text-muted-foreground",
             )}
         >
-            <p className={cn("font-semibold text-[10px] mb-0.5", isMe ? "text-white/90" : "text-brand")}>
+            <p className={cn("font-semibold text-[10px] mb-0.5", isMe ? "text-white/90" : "text-[#1a146b] dark:text-[#818cf8]")}>
                 {resolvedSenderName}
             </p>
             <div className="flex items-center gap-2">

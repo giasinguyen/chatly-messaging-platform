@@ -37,9 +37,9 @@ export function HomeLeftSidebar() {
 
     return (
         <aside className="sticky top-0 hidden h-screen w-100 shrink-0 overflow-y-auto px-8 pt-8 xl:block hide-scrollbar">
-            <section className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+            <section className="rounded-2xl border border-border bg-card p-5 iv-shadow-sm">
                 <div className="mb-1 flex items-center gap-2">
-                    <TrendingUp className="size-4 text-brand" />
+                    <TrendingUp className="size-4 text-[#1a146b]" />
                     <h2 className="text-sm font-semibold text-foreground">
                         Trending
                     </h2>
@@ -74,7 +74,7 @@ export function HomeLeftSidebar() {
                             }
                             className="flex w-full items-center gap-3 rounded-xl px-2 py-2 text-left transition-colors hover:bg-muted"
                         >
-                            <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-brand/10 text-xs font-semibold text-brand">
+                            <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-[#1a146b]/10 text-xs font-semibold text-[#1a146b]">
                                 {index + 1}
                             </span>
                             <span className="min-w-0 flex-1">

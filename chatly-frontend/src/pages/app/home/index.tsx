@@ -197,7 +197,7 @@ export default function HomePage() {
                 <div className="flex w-full justify-center">
                     <HomeLeftSidebar />
                     {/* Central Feed Area */}
-                    <div className="w-full max-w-2xl px-4 py-8 flex flex-col gap-3 pb-32">
+                    <div className="w-full max-w-2xl px-4 py-10 flex flex-col gap-10 pb-32">
                         {/* Stories Carousel */}
                         <div className="w-full relative">
                             <div className="flex gap-4 overflow-x-auto hide-scrollbar pb-3 pt-1 snap-x">
@@ -208,7 +208,7 @@ export default function HomePage() {
                                 >
                                     <div className="relative w-16 h-16 rounded-full bg-muted flex items-center justify-center border-2 border-background shadow-sm group-hover:scale-105 transition-transform">
                                         <Plus className="text-muted-foreground w-8 h-8" />
-                                        <div className="absolute -bottom-1 -right-1 bg-primary text-primary-foreground rounded-full w-5 h-5 flex items-center justify-center border-2 border-background">
+                                        <div className="absolute -bottom-1 -right-1 bg-[#1a146b] text-white rounded-full w-5 h-5 flex items-center justify-center border-2 border-background">
                                             <Plus className="w-3 h-3 font-bold" />
                                         </div>
                                     </div>
@@ -235,7 +235,7 @@ export default function HomePage() {
                                                     "p-[2.5px] rounded-full group-hover:scale-105 transition-transform shadow-sm",
                                                     allViewed
                                                         ? "bg-muted"
-                                                        : "bg-linear-to-tr from-brand via-blue-500 to-cyan-400",
+                                                        : "story-ring-active",
                                                 )}
                                             >
                                                 <div className="bg-background p-0.5 rounded-full">
@@ -275,7 +275,7 @@ export default function HomePage() {
                         </div>
 
                         {/* Feed Posts */}
-                        <div className="flex flex-col gap-6">
+                        <div className="flex flex-col gap-10">
                             <NewPostBanner
                                 count={pendingCount}
                                 onClick={handleFlushPending}
