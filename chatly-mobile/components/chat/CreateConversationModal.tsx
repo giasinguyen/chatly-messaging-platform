@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Modal,
   View,
@@ -29,6 +30,7 @@ interface CreateConversationModalProps {
 }
 
 export function CreateConversationModal({ visible, onClose }: CreateConversationModalProps) {
+  const { t } = useTranslation();
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
   const conversations = useConversationStore((s) => s.conversations);
@@ -97,7 +99,10 @@ export function CreateConversationModal({ visible, onClose }: CreateConversation
       onClose();
       router.push({ pathname: '/chat/[id]', params: { id: res.result.id, returnTo: 'chats' } });
     } catch (error: any) {
-      Alert.alert('Error', error?.response?.data?.message || 'Could not create conversation.');
+      Alert.alert(
+        t('errors.request_failed'),
+        error?.response?.data?.message || t('mobile.chat.create_conv_failed'),
+      );
     } finally {
       setSubmitting(false);
     }
@@ -105,11 +110,11 @@ export function CreateConversationModal({ visible, onClose }: CreateConversation
 
   const handleCreateGroup = async () => {
     if (!groupName.trim()) {
-      Alert.alert('Error', 'Please enter group name');
+      Alert.alert(t('errors.request_failed'), t('mobile.chat.group_name_required'));
       return;
     }
     if (selectedContactIds.size < 2) {
-      Alert.alert('Error', 'Select at least 2 members to create a group');
+      Alert.alert(t('errors.request_failed'), t('mobile.chat.min_group_members'));
       return;
     }
 
@@ -123,7 +128,10 @@ export function CreateConversationModal({ visible, onClose }: CreateConversation
       onClose();
       router.push({ pathname: '/chat/[id]', params: { id: res.result.id, returnTo: 'chats' } });
     } catch (error: any) {
-      Alert.alert('Error', error?.response?.data?.message || 'Could not create group.');
+      Alert.alert(
+        t('errors.request_failed'),
+        error?.response?.data?.message || t('mobile.chat.create_group_failed'),
+      );
     } finally {
       setSubmitting(false);
     }
@@ -196,10 +204,10 @@ export function CreateConversationModal({ visible, onClose }: CreateConversation
         <View style={{ backgroundColor: Colors.bgCard, borderBottomWidth: 0.5, borderBottomColor: Colors.borderLight }}>
           <View className="flex-row items-center justify-between px-4 py-3 pt-6">
             <TouchableOpacity onPress={onClose} disabled={submitting}>
-              <Text style={{ color: Colors.cta, fontSize: 16 }}>Cancel</Text>
+              <Text style={{ color: Colors.cta, fontSize: 16 }}>{t('common.cancel')}</Text>
             </TouchableOpacity>
             <Text style={{ fontSize: 18, fontWeight: 'bold', color: Colors.text }}>
-              Create Conversation
+              {t('mobile.chat.create_conversation_title')}
             </Text>
             <TouchableOpacity 
               onPress={activeTab === 'group' ? handleCreateGroup : undefined}
@@ -213,7 +221,7 @@ export function CreateConversationModal({ visible, onClose }: CreateConversation
                   color: (selectedContactIds.size > 0 && groupName.trim()) ? Colors.cta : Colors.textMuted, 
                   fontSize: 16, fontWeight: 'bold' 
                 }}>
-                  Create
+                  {t('mobile.chat.create_button')}
                 </Text>
               )}
             </TouchableOpacity>
@@ -227,7 +235,7 @@ export function CreateConversationModal({ visible, onClose }: CreateConversation
               onPress={() => setActiveTab('private')}
             >
               <Text style={{ color: activeTab === 'private' ? Colors.cta : Colors.textLight, fontWeight: '600', fontSize: 15 }}>
-                Direct Chat
+                {t('mobile.chat.direct_chat_tab')}
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -236,7 +244,7 @@ export function CreateConversationModal({ visible, onClose }: CreateConversation
               onPress={() => setActiveTab('group')}
             >
               <Text style={{ color: activeTab === 'group' ? Colors.cta : Colors.textLight, fontWeight: '600', fontSize: 15 }}>
-                Groups
+                {t('mobile.chat.groups_tab')}
               </Text>
             </TouchableOpacity>
           </View>
@@ -245,7 +253,7 @@ export function CreateConversationModal({ visible, onClose }: CreateConversation
         {activeTab === 'group' && (
           <View className="px-4 py-3" style={{ backgroundColor: Colors.bgCard, borderBottomWidth: 0.5, borderBottomColor: Colors.borderLight }}>
             <TextInput
-              placeholder="Group name..."
+              placeholder={t('mobile.chat.group_name_placeholder_short')}
               placeholderTextColor={Colors.textLight}
               value={groupName}
               onChangeText={setGroupName}
@@ -260,7 +268,7 @@ export function CreateConversationModal({ visible, onClose }: CreateConversation
             />
             {selectedContactIds.size > 0 && (
                <Text style={{ color: Colors.textLight, fontSize: 13, marginTop: 8 }}>
-                 {selectedContactIds.size} members selected
+                 {t('mobile.chat.members_selected', { count: selectedContactIds.size })}
                </Text>
             )}
           </View>
@@ -273,7 +281,7 @@ export function CreateConversationModal({ visible, onClose }: CreateConversation
             <TextInput
               className="ml-2 flex-1 text-[15px]"
               style={{ color: Colors.text }}
-              placeholder="Search friends..."
+              placeholder={t('mobile.chat.search_friends_placeholder')}
               placeholderTextColor={Colors.textLight}
               value={searchQuery}
               onChangeText={setSearchQuery}
@@ -298,7 +306,7 @@ export function CreateConversationModal({ visible, onClose }: CreateConversation
             renderItem={renderContactItem}
             ListEmptyComponent={
               <View className="flex-1 items-center justify-center pt-10">
-                <Text style={{ color: Colors.textLight }}>No friends found</Text>
+                <Text style={{ color: Colors.textLight }}>{t('mobile.chat.no_friends_found')}</Text>
               </View>
             }
           />

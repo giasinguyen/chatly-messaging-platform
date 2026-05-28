@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   View,
   Text,
@@ -48,6 +49,7 @@ import type { ContactResponse } from '@/types/contact';
 import type { UserResponse } from '@/types/auth';
 
 export default function GroupInfoScreen() {
+  const { t } = useTranslation();
   const { id: conversationId } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -68,8 +70,13 @@ export default function GroupInfoScreen() {
   const muteUntilLabel = !isEffMuted
     ? ''
     : muteUntil == null
-      ? 'Until turned back on'
-      : `Until ${new Date(muteUntil).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}`;
+      ? t('chat.mute_forever')
+      : t('mobile.chat.mute_until_time', {
+          time: new Date(muteUntil).toLocaleTimeString(undefined, {
+            hour: '2-digit',
+            minute: '2-digit',
+          }),
+        });
 
   useEffect(() => {
     hydrate();
@@ -193,12 +200,12 @@ export default function GroupInfoScreen() {
   const handleChangeName = () => {
     if (!canManage) return;
     Alert.prompt(
-      'Change Group Name',
-      'Enter new name',
+      t('chat.change_group_name'),
+      t('chat.group_name_placeholder'),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Save',
+          text: t('chat.save'),
           onPress: async (newName?: string) => {
             if (!newName || !newName.trim()) return;
             try {
@@ -207,7 +214,10 @@ export default function GroupInfoScreen() {
                 conversations.map((c) => (c.id === conversationId ? res.result : c))
               );
             } catch (e: any) {
-              Alert.alert('Error', e?.response?.data?.message || 'Could not change name.');
+              Alert.alert(
+                t('errors.request_failed'),
+                e?.response?.data?.message || t('chat.group_name_change_failed'),
+              );
             }
           },
         },
@@ -222,7 +232,7 @@ export default function GroupInfoScreen() {
     try {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert('Error', 'Need gallery access permission.');
+        Alert.alert(t('errors.request_failed'), t('mobile.settings.photo_permission_body'));
         return;
       }
       const result = await ImagePicker.launchImageLibraryAsync({
@@ -246,7 +256,7 @@ export default function GroupInfoScreen() {
       }
     } catch (error) {
       console.error(error);
-      Alert.alert('Error', 'Error changing avatar.');
+      Alert.alert(t('errors.request_failed'), t('chat.group_avatar_update_failed'));
     }
   };
 
@@ -281,25 +291,26 @@ export default function GroupInfoScreen() {
     const options = [];
     if (canManage && member.role !== 'OWNER') {
       options.push({
-        text: 'Remove from group',
+        text: t('chat.group_panel.remove_from_group'),
         style: 'destructive' as const,
         onPress: () => {
           Alert.alert(
-            'Confirm Removal',
-            `Are you sure you want to remove ${member.displayName} from the group?`,
+            t('chat.group_panel.remove_member_title'),
+            t('mobile.chat.remove_member_confirm', { name: member.displayName }),
             [
-              { text: 'Cancel', style: 'cancel' },
+              { text: t('common.cancel'), style: 'cancel' },
               {
-                text: 'Remove',
+                text: t('chat.group_panel.remove'),
                 style: 'destructive',
                 onPress: async () => {
                   try {
                     await groupService.removeMember(conversationId, member.userId);
                     setMembers((prev) => prev.filter((m) => m.userId !== member.userId));
-                    Alert.alert('Success', 'Removed from group.');
+                    Alert.alert(t('mobile.common.success'), t('mobile.chat.removed_from_group_success'));
                   } catch (e: unknown) {
-                    const msg = e instanceof Error ? e.message : 'Could not remove member.';
-                    Alert.alert('Error', msg);
+                    const msg =
+                      e instanceof Error ? e.message : t('chat.group_panel.remove_member_failed');
+                    Alert.alert(t('errors.request_failed'), msg);
                   }
                 },
               },
@@ -312,7 +323,10 @@ export default function GroupInfoScreen() {
     if (currentUserRole === 'OWNER' && member.role !== 'OWNER') {
       const newRole = member.role === 'ADMIN' ? 'MEMBER' : 'ADMIN';
       options.push({
-        text: newRole === 'ADMIN' ? 'Make Admin' : 'Dismiss Admin',
+        text:
+          newRole === 'ADMIN'
+            ? t('chat.group_panel.make_admin')
+            : t('mobile.chat.dismiss_admin'),
         onPress: async () => {
           try {
             await groupService.updateRole(conversationId, member.userId, {
@@ -323,35 +337,36 @@ export default function GroupInfoScreen() {
                 m.userId === member.userId ? { ...m, role: newRole as GroupRole } : m
               )
             );
-            Alert.alert('Success', 'Privileges updated.');
+            Alert.alert(t('mobile.common.success'), t('chat.group_panel.role_updated'));
           } catch (e: unknown) {
-            const msg = e instanceof Error ? e.message : 'Could not update privileges.';
-            Alert.alert('Error', msg);
+            const msg =
+              e instanceof Error ? e.message : t('chat.group_panel.role_update_failed');
+            Alert.alert(t('errors.request_failed'), msg);
           }
         },
       });
     }
 
-    options.push({ text: 'Cancel', style: 'cancel' as const });
+    options.push({ text: t('common.cancel'), style: 'cancel' as const });
 
     if (options.length > 1) {
-      Alert.alert(member.displayName, 'Select action', options);
+      Alert.alert(member.displayName, t('chat.group_panel.manage_member'), options);
     }
   };
 
   const handleLeaveGroup = () => {
-    Alert.alert('Leave Group', 'Are you sure you want to leave this group?', [
-      { text: 'Cancel', style: 'cancel' },
+    Alert.alert(t('chat.leave_group'), t('chat.confirm_leave_group'), [
+      { text: t('common.cancel'), style: 'cancel' },
       {
-        text: 'Leave Group',
+        text: t('chat.leave_group'),
         style: 'destructive',
         onPress: async () => {
           try {
             await groupService.removeMember(conversationId, user?.id || '');
             router.dismissAll();
           } catch (e: unknown) {
-            const msg = e instanceof Error ? e.message : 'Could not leave group.';
-            Alert.alert('Error', msg);
+            const msg = e instanceof Error ? e.message : t('chat.group_leave_failed');
+            Alert.alert(t('errors.request_failed'), msg);
           }
         },
       },
@@ -360,20 +375,20 @@ export default function GroupInfoScreen() {
 
   const handleDissolveGroup = () => {
     Alert.alert(
-      'Dissolve Group',
-      'This will permanently delete the group, all messages, and remove all members. This action cannot be undone.',
+      t('chat.group_panel.dissolve_confirm_title'),
+      t('chat.group_panel.dissolve_confirm_desc'),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Dissolve',
+          text: t('chat.group_panel.dissolve_group'),
           style: 'destructive',
           onPress: async () => {
             try {
               await conversationService.dissolve(conversationId);
               router.dismissAll();
             } catch (e: unknown) {
-              const msg = e instanceof Error ? e.message : 'Could not dissolve group.';
-              Alert.alert('Error', msg);
+              const msg = e instanceof Error ? e.message : t('chat.group_dissolve_failed');
+              Alert.alert(t('errors.request_failed'), msg);
             }
           },
         },
@@ -388,12 +403,14 @@ export default function GroupInfoScreen() {
 
   const handleSetNickname = () => {
     Alert.prompt(
-      'Set Nickname',
-      `Nickname for ${otherUser?.displayName ?? 'this user'}`,
+      t('chat.set_nickname'),
+      t('mobile.chat.nickname_prompt', {
+        name: otherUser?.displayName ?? t('mobile.chat.user_fallback'),
+      }),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Save',
+          text: t('chat.save'),
           onPress: (value?: string) => {
             setNickname(conversationId, (value ?? '').trim());
           },
@@ -414,9 +431,12 @@ export default function GroupInfoScreen() {
       const res = await groupService.addMember(conversationId, { userId: contactUser.id });
       setMembers((prev) => [...prev, res.result]);
       setAddModalVisible(false);
-      Alert.alert('Success', 'New member added.');
+      Alert.alert(t('mobile.common.success'), t('mobile.chat.member_added_success'));
     } catch (e: any) {
-      Alert.alert('Error', e?.response?.data?.message || 'Could not add member.');
+      Alert.alert(
+        t('errors.request_failed'),
+        e?.response?.data?.message || t('mobile.chat.add_member_failed'),
+      );
     } finally {
       setAddingMember(false);
     }
@@ -439,7 +459,7 @@ export default function GroupInfoScreen() {
   const handleCopyInviteLink = async () => {
     if (!inviteLink) return;
     await Clipboard.setStringAsync(buildWebJoinLink(inviteLink));
-    Alert.alert('Copied', 'Invite link copied to clipboard.');
+    Alert.alert(t('common.copied'), t('chat.invite_link_copied'));
   };
 
   const handleResetInviteLink = async () => {
@@ -447,9 +467,9 @@ export default function GroupInfoScreen() {
     try {
       const res = await groupService.resetInviteLink(conversationId);
       if (res.result) setInviteLink(res.result.inviteToken);
-      Alert.alert('Success', 'New invite link generated.');
+      Alert.alert(t('mobile.common.success'), t('mobile.chat.invite_link_regenerated'));
     } catch {
-      Alert.alert('Error', 'Could not generate new invite link.');
+      Alert.alert(t('errors.request_failed'), t('mobile.chat.invite_link_regenerate_failed'));
     }
   };
 
@@ -471,7 +491,7 @@ export default function GroupInfoScreen() {
       fetchPendingRequests();
       fetchMembers();
     } catch {
-      Alert.alert('Error', 'Could not approve request.');
+      Alert.alert(t('errors.request_failed'), t('chat.group_panel.request_approve_failed'));
     }
   };
 
@@ -481,7 +501,7 @@ export default function GroupInfoScreen() {
       removeByTypeAndReference('GROUP_JOIN_REQUEST', conversationId);
       fetchPendingRequests();
     } catch {
-      Alert.alert('Error', 'Could not reject request.');
+      Alert.alert(t('errors.request_failed'), t('chat.group_panel.request_reject_failed'));
     }
   };
 
@@ -492,7 +512,7 @@ export default function GroupInfoScreen() {
       await groupService.updateGroup(conversationId, { requireApproval: val });
     } catch {
       setRequireApproval(!val);
-      Alert.alert('Error', 'Could not update settings.');
+      Alert.alert(t('errors.request_failed'), t('chat.group_panel.update_failed'));
     }
   };
 
@@ -503,7 +523,7 @@ export default function GroupInfoScreen() {
       await groupService.updateGroup(conversationId, { aiProactiveEnabled: val });
     } catch {
       setAiProactiveEnabled(!val);
-      Alert.alert('Error', 'Could not update settings.');
+      Alert.alert(t('errors.request_failed'), t('chat.group_panel.update_failed'));
     }
   };
 
@@ -520,19 +540,19 @@ export default function GroupInfoScreen() {
 
   const handleCreateReminder = () => {
     Alert.prompt(
-      'Create Reminder',
-      'Enter reminder title',
+      t('chat.reminders_dialog.create_new'),
+      t('mobile.chat.create_reminder_prompt'),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Create',
+          text: t('chat.reminders_dialog.create'),
           onPress: async (title?: string) => {
             if (!title?.trim()) return;
             try {
               await groupService.createReminder(conversationId, { title: title.trim() });
               fetchReminders();
             } catch {
-              Alert.alert('Error', 'Could not create reminder.');
+              Alert.alert(t('errors.request_failed'), t('chat.reminders_dialog.create_failed'));
             }
           },
         },
@@ -546,22 +566,22 @@ export default function GroupInfoScreen() {
       await groupService.toggleReminder(id);
       fetchReminders();
     } catch {
-      Alert.alert('Error', 'Could not update.');
+      Alert.alert(t('errors.request_failed'), t('mobile.chat.update_failed_short'));
     }
   };
 
   const handleDeleteReminder = (id: string) => {
-    Alert.alert('Delete Reminder', 'Are you sure you want to delete?', [
-      { text: 'Cancel', style: 'cancel' },
+    Alert.alert(t('mobile.chat.delete_reminder_title'), t('mobile.chat.delete_confirm_body'), [
+      { text: t('common.cancel'), style: 'cancel' },
       {
-        text: 'Delete',
+        text: t('common.delete'),
         style: 'destructive',
         onPress: async () => {
           try {
             await groupService.deleteReminder(id);
             fetchReminders();
           } catch {
-            Alert.alert('Error', 'Could not delete.');
+            Alert.alert(t('errors.request_failed'), t('mobile.chat.delete_failed_short'));
           }
         },
       },
@@ -581,19 +601,19 @@ export default function GroupInfoScreen() {
 
   const handleCreateNote = () => {
     Alert.prompt(
-      'Create Note',
-      'Enter note title',
+      t('mobile.chat.create_note_title'),
+      t('mobile.chat.enter_note_title'),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Create',
+          text: t('chat.reminders_dialog.create'),
           onPress: async (title?: string) => {
             if (!title?.trim()) return;
             try {
               await groupService.createNote(conversationId, { title: title.trim() });
               fetchNotes();
             } catch {
-              Alert.alert('Error', 'Could not create note.');
+              Alert.alert(t('errors.request_failed'), t('mobile.chat.note_create_failed'));
             }
           },
         },
@@ -607,22 +627,22 @@ export default function GroupInfoScreen() {
       await groupService.updateNote(noteId, { title: '', pinned: !currentPinned });
       fetchNotes();
     } catch {
-      Alert.alert('Error', 'Could not update pin.');
+      Alert.alert(t('errors.request_failed'), t('mobile.chat.note_pin_update_failed'));
     }
   };
 
   const handleDeleteNote = (id: string) => {
-    Alert.alert('Delete Note', 'Are you sure you want to delete?', [
-      { text: 'Cancel', style: 'cancel' },
+    Alert.alert(t('mobile.chat.note_delete_title'), t('mobile.chat.delete_confirm_body'), [
+      { text: t('common.cancel'), style: 'cancel' },
       {
-        text: 'Delete',
+        text: t('common.delete'),
         style: 'destructive',
         onPress: async () => {
           try {
             await groupService.deleteNote(id);
             fetchNotes();
           } catch {
-            Alert.alert('Error', 'Could not delete.');
+            Alert.alert(t('errors.request_failed'), t('mobile.chat.delete_failed_short'));
           }
         },
       },
@@ -729,7 +749,7 @@ export default function GroupInfoScreen() {
               fontWeight: 'bold',
               color: Colors.text,
             }}>
-            Options
+            {t('chat.options')}
           </Text>
           <View style={{ width: 24 }} />
         </View>
@@ -753,7 +773,11 @@ export default function GroupInfoScreen() {
             <View style={{ position: 'relative' }}>
               <Avatar
                 uri={isGroup ? (conversation?.avatarUrl ?? null) : (otherUser?.avatarUrl ?? null)}
-                name={isGroup ? (conversation?.name ?? 'Group') : (otherUser?.displayName ?? '?')}
+                name={
+                  isGroup
+                    ? (conversation?.name ?? t('chat.group_chat_short'))
+                    : (otherUser?.displayName ?? '?')
+                }
                 size={80}
               />
               {isGroup && canManage && (
@@ -790,7 +814,7 @@ export default function GroupInfoScreen() {
                 textAlign: 'center',
               }}>
               {isGroup
-                ? (conversation?.name ?? 'Untitled Group')
+                ? (conversation?.name ?? t('chat.fallback_group_name'))
                 : (otherUser?.displayName ?? '...')}
             </Text>
             {isGroup && canManage && (
@@ -815,7 +839,9 @@ export default function GroupInfoScreen() {
             </>
           )}
           {isGroup && (
-            <Text style={{ marginTop: 4, color: Colors.textLight }}>{members.length} members</Text>
+            <Text style={{ marginTop: 4, color: Colors.textLight }}>
+              {t('chat.members_count', { count: members.length })}
+            </Text>
           )}
 
           {/* ── Quick action buttons ── */}
@@ -830,19 +856,19 @@ export default function GroupInfoScreen() {
             }}>
             <QuickActionBtn
               iconName="search-outline"
-              label={'Search\nmessages'}
+              label={t('chat.search_messages')}
               onPress={() => router.back()}
             />
             {isGroup ? (
               <QuickActionBtn
                 iconName="person-add-outline"
-                label={'Add\nmembers'}
+                label={t('chat.add_member')}
                 onPress={handleOpenAddModal}
               />
             ) : (
               <QuickActionBtn
                 iconName="person-outline"
-                label={'User\nprofile'}
+                label={t('mobile.chat.user_profile_action')}
                 onPress={() => {
                   if (otherUser?.id) {
                     router.push(`/profile/${otherUser.id}`);
@@ -852,13 +878,13 @@ export default function GroupInfoScreen() {
             )}
             <QuickActionBtn
               iconName={isPinned ? 'bookmark' : 'bookmark-outline'}
-              label={isPinned ? 'Unpin\nchat' : 'Pin\nchat'}
+              label={isPinned ? t('chat.unpin_label') : t('chat.pin_conversation_label')}
               onPress={() => setPin(conversationId, !isPinned)}
               active={isPinned}
             />
             <QuickActionBtn
               iconName={isEffMuted ? 'notifications-off-outline' : 'notifications-outline'}
-              label={isEffMuted ? 'Unmute' : 'Mute'}
+              label={isEffMuted ? t('mobile.chat.unmute_short') : t('mobile.chat.mute_short')}
               onPress={handleMutePress}
               active={isEffMuted}
             />
@@ -884,7 +910,7 @@ export default function GroupInfoScreen() {
                 color={Colors.textMuted}
                 style={{ marginRight: 14 }}
               />
-              <Text style={{ flex: 1, fontSize: 15, color: Colors.text }}>Set nickname</Text>
+              <Text style={{ flex: 1, fontSize: 15, color: Colors.text }}>{t('chat.set_nickname')}</Text>
               {nickname ? (
                 <Text
                   style={{ fontSize: 13, color: Colors.textLight, maxWidth: 140 }}
@@ -915,7 +941,7 @@ export default function GroupInfoScreen() {
               style={{ marginRight: 14 }}
             />
             <Text style={{ flex: 1, fontSize: 15, color: Colors.text }}>
-              Media, files and links
+              {t('mobile.chat.media_files_links')}
             </Text>
             <Ionicons name="chevron-forward" size={16} color={Colors.textLight} />
           </TouchableOpacity>
@@ -931,11 +957,11 @@ export default function GroupInfoScreen() {
                 marginBottom: 10,
               }}>
               <Text style={{ fontWeight: '600', fontSize: 15, color: Colors.text }}>
-                Media ({mediaFiles.length})
+                {t('mobile.chat.media_section_count', { count: mediaFiles.length })}
               </Text>
               <TouchableOpacity
                 onPress={() => router.push(`/chat/${conversationId}/shared-media?tab=media`)}>
-                <Text style={{ fontSize: 13, color: Colors.cta }}>View All</Text>
+                <Text style={{ fontSize: 13, color: Colors.cta }}>{t('common.view_all')}</Text>
               </TouchableOpacity>
             </View>
             <ImageLightbox
@@ -988,11 +1014,11 @@ export default function GroupInfoScreen() {
                 marginBottom: 10,
               }}>
               <Text style={{ fontWeight: '600', fontSize: 15, color: Colors.text }}>
-                Files ({docFiles.length})
+                {t('mobile.chat.files_section_count', { count: docFiles.length })}
               </Text>
               <TouchableOpacity
                 onPress={() => router.push(`/chat/${conversationId}/shared-media?tab=files`)}>
-                <Text style={{ fontSize: 13, color: Colors.cta }}>View All</Text>
+                <Text style={{ fontSize: 13, color: Colors.cta }}>{t('common.view_all')}</Text>
               </TouchableOpacity>
             </View>
             {docFiles.slice(0, 5).map((file) => {
@@ -1053,7 +1079,7 @@ export default function GroupInfoScreen() {
                 paddingVertical: 12,
               }}>
               <Text style={{ fontWeight: '600', fontSize: 15, color: Colors.text }}>
-                Members ({members.length})
+                {t('chat.members_label', { count: members.length })}
               </Text>
               {canManage && (
                 <TouchableOpacity
@@ -1069,7 +1095,7 @@ export default function GroupInfoScreen() {
                   <Ionicons name="person-add" size={14} color={Colors.cta} />
                   <Text
                     style={{ marginLeft: 4, color: Colors.cta, fontSize: 13, fontWeight: '600' }}>
-                    Add
+                    {t('common.add')}
                   </Text>
                 </TouchableOpacity>
               )}
@@ -1098,7 +1124,7 @@ export default function GroupInfoScreen() {
                 </TouchableOpacity>
                 <View style={{ flex: 1, marginLeft: 12 }}>
                   <Text numberOfLines={1} style={{ fontWeight: '500', color: Colors.text }}>
-                    {item.userId === user?.id ? 'You' : item.displayName}
+                    {item.userId === user?.id ? t('common.you') : item.displayName}
                   </Text>
                   <Text
                     numberOfLines={1}
@@ -1120,7 +1146,9 @@ export default function GroupInfoScreen() {
                         fontWeight: 'bold',
                         color: item.role === 'OWNER' ? '#D08C60' : Colors.cta,
                       }}>
-                      {item.role === 'OWNER' ? 'Owner' : 'Admin'}
+                      {item.role === 'OWNER'
+                        ? t('chat.group_panel.owner')
+                        : t('chat.group_panel.admin')}
                     </Text>
                   </View>
                 )}
@@ -1149,7 +1177,9 @@ export default function GroupInfoScreen() {
                 style={{ marginRight: 14 }}
               />
               <Text style={{ flex: 1, fontSize: 15, color: Colors.text }}>
-                {inviteLink ? 'Copy invite link' : 'Create invite link'}
+                {inviteLink
+                  ? t('mobile.chat.copy_invite_link')
+                  : t('chat.group_panel.create_invite_link')}
               </Text>
               {inviteLinkLoading ? (
                 <ActivityIndicator size="small" color={Colors.cta} />
@@ -1180,7 +1210,7 @@ export default function GroupInfoScreen() {
                   color={Colors.cta}
                   style={{ marginRight: 14 }}
                 />
-                <Text style={{ fontSize: 14, color: Colors.cta }}>Reset invite link</Text>
+                <Text style={{ fontSize: 14, color: Colors.cta }}>{t('chat.reset_link')}</Text>
               </TouchableOpacity>
             )}
 
@@ -1202,9 +1232,11 @@ export default function GroupInfoScreen() {
                   style={{ marginRight: 14 }}
                 />
                 <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 15, color: Colors.text }}>Approve new members</Text>
+                  <Text style={{ fontSize: 15, color: Colors.text }}>
+                    {t('chat.group_panel.approve_new_members')}
+                  </Text>
                   <Text style={{ fontSize: 12, color: Colors.textLight, marginTop: 1 }}>
-                    Owner must approve join requests
+                    {t('mobile.chat.approve_join_hint')}
                   </Text>
                 </View>
                 <Switch
@@ -1231,9 +1263,9 @@ export default function GroupInfoScreen() {
                   <CustomAiIcon size={22} color={Colors.textMuted} />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 15, color: Colors.text }}>AI assistant</Text>
+                  <Text style={{ fontSize: 15, color: Colors.text }}>{t('chat.ai_short')}</Text>
                   <Text style={{ fontSize: 12, color: Colors.textLight, marginTop: 1 }}>
-                    Allow AI to respond proactively in this group
+                    {t('chat.group_panel.ai_proactive_desc')}
                   </Text>
                 </View>
                 <Switch
@@ -1258,7 +1290,7 @@ export default function GroupInfoScreen() {
                 borderBottomColor: Colors.borderLight,
               }}>
               <Text style={{ fontWeight: '600', fontSize: 15, color: Colors.text }}>
-                Pending requests ({pendingRequests.length})
+                {t('chat.group_panel.pending_requests', { count: pendingRequests.length })}
               </Text>
             </View>
             {pendingRequests.map((req) => (
@@ -1312,7 +1344,7 @@ export default function GroupInfoScreen() {
                 borderBottomColor: Colors.borderLight,
               }}>
               <Text style={{ fontWeight: '600', fontSize: 15, color: Colors.text }}>
-                Bulletin board
+                {t('chat.group_bulletin_board')}
               </Text>
             </View>
             <TouchableOpacity
@@ -1334,7 +1366,9 @@ export default function GroupInfoScreen() {
                 color={Colors.textMuted}
                 style={{ marginRight: 14 }}
               />
-              <Text style={{ flex: 1, fontSize: 15, color: Colors.text }}>Reminder list</Text>
+              <Text style={{ flex: 1, fontSize: 15, color: Colors.text }}>
+                {t('chat.reminders_dialog.title')}
+              </Text>
               <Ionicons name="chevron-forward" size={16} color={Colors.textLight} />
             </TouchableOpacity>
             <TouchableOpacity
@@ -1354,7 +1388,7 @@ export default function GroupInfoScreen() {
                 color={Colors.textMuted}
                 style={{ marginRight: 14 }}
               />
-              <Text style={{ flex: 1, fontSize: 15, color: Colors.text }}>Notes</Text>
+              <Text style={{ flex: 1, fontSize: 15, color: Colors.text }}>{t('chat.notes')}</Text>
               <Ionicons name="chevron-forward" size={16} color={Colors.textLight} />
             </TouchableOpacity>
           </View>
@@ -1377,7 +1411,7 @@ export default function GroupInfoScreen() {
               color={Colors.textMuted}
               style={{ marginRight: 14 }}
             />
-            <Text style={{ flex: 1, fontSize: 15, color: Colors.text }}>Pin conversation</Text>
+            <Text style={{ flex: 1, fontSize: 15, color: Colors.text }}>{t('chat.pin_conversation')}</Text>
             <Switch
               value={isPinned}
               onValueChange={(v) => setPin(conversationId, v)}
@@ -1401,7 +1435,7 @@ export default function GroupInfoScreen() {
               style={{ marginRight: 14 }}
             />
             <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 15, color: Colors.text }}>Mute notifications</Text>
+              <Text style={{ fontSize: 15, color: Colors.text }}>{t('chat.silence_notifications')}</Text>
               {isEffMuted && (
                 <Text style={{ fontSize: 12, color: Colors.cta, marginTop: 1 }}>
                   {muteUntilLabel}
@@ -1423,7 +1457,7 @@ export default function GroupInfoScreen() {
               marginBottom: 4,
             }}>
             <Text style={{ color: Colors.error, fontSize: 16, fontWeight: '600' }}>
-              Dissolve group
+              {t('chat.group_panel.dissolve_group')}
             </Text>
           </TouchableOpacity>
         )}
@@ -1439,7 +1473,7 @@ export default function GroupInfoScreen() {
               marginBottom: 8,
             }}>
             <Text style={{ color: Colors.error, fontSize: 16, fontWeight: '600' }}>
-              Leave group
+              {t('chat.leave_group')}
             </Text>
           </TouchableOpacity>
         )}
@@ -1461,14 +1495,14 @@ export default function GroupInfoScreen() {
               borderBottomColor: Colors.borderLight,
             }}>
             <TouchableOpacity onPress={() => setAddModalVisible(false)}>
-              <Text style={{ color: Colors.text, fontSize: 16 }}>Cancel</Text>
+              <Text style={{ color: Colors.text, fontSize: 16 }}>{t('common.cancel')}</Text>
             </TouchableOpacity>
-            <Text style={{ fontSize: 18, fontWeight: 'bold' }}>Add members</Text>
+            <Text style={{ fontSize: 18, fontWeight: 'bold' }}>{t('chat.add_members_dialog.title')}</Text>
             <View style={{ width: 40 }} />
           </View>
           <View className="p-3" style={{ backgroundColor: Colors.bgCard }}>
             <TextInput
-              placeholder="Search..."
+              placeholder={t('common.search')}
               value={searchQuery}
               onChangeText={setSearchQuery}
               style={{
@@ -1485,7 +1519,7 @@ export default function GroupInfoScreen() {
             keyExtractor={(item) => item.id}
             ListEmptyComponent={() => (
               <View className="items-center p-4">
-                <Text style={{ color: Colors.textLight }}>No results found</Text>
+                <Text style={{ color: Colors.textLight }}>{t('contact.no_results')}</Text>
               </View>
             )}
             renderItem={({ item }) => {
@@ -1544,7 +1578,7 @@ export default function GroupInfoScreen() {
                   color: Colors.text,
                   textAlign: 'center',
                 }}>
-                {isEffMuted ? 'Muted' : 'Mute notifications'}
+                {isEffMuted ? t('mobile.chat.muted_status') : t('mobile.chat.mute_notifications_title')}
               </Text>
               {isEffMuted && (
                 <Text
@@ -1574,19 +1608,19 @@ export default function GroupInfoScreen() {
                     alignItems: 'center',
                   }}>
                   <Text style={{ fontSize: 15, fontWeight: '600', color: Colors.white }}>
-                    Unmute now
+                    {t('mobile.chat.unmute_now')}
                   </Text>
                 </TouchableOpacity>
               ) : (
                 <>
                   {[
-                    { label: '1 hour', hours: 1 },
-                    { label: '4 hours', hours: 4 },
-                    { label: '8 hours', hours: 8 },
-                    { label: 'Until I turn it back on', hours: -1 },
-                  ].map(({ label, hours }) => (
+                    { labelKey: 'chat.mute_1h', hours: 1 },
+                    { labelKey: 'chat.mute_4h', hours: 4 },
+                    { labelKey: 'chat.mute_8h', hours: 8 },
+                    { labelKey: 'chat.mute_forever', hours: -1 },
+                  ].map(({ labelKey, hours }) => (
                     <TouchableOpacity
-                      key={label}
+                      key={labelKey}
                       onPress={() => {
                         const h = (hrs: number) => Date.now() + hrs * 3_600_000;
                         setMute(conversationId, true, hours === -1 ? null : h(hours));
@@ -1601,7 +1635,7 @@ export default function GroupInfoScreen() {
                         borderColor: Colors.cta,
                       }}>
                       <Text style={{ fontSize: 15, fontWeight: '600', color: Colors.cta }}>
-                        {label}
+                        {t(labelKey)}
                       </Text>
                     </TouchableOpacity>
                   ))}
@@ -1615,7 +1649,7 @@ export default function GroupInfoScreen() {
                   paddingVertical: 12,
                   alignItems: 'center',
                 }}>
-                <Text style={{ fontSize: 15, fontWeight: '600', color: Colors.text }}>Close</Text>
+                <Text style={{ fontSize: 15, fontWeight: '600', color: Colors.text }}>{t('common.close')}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -1641,9 +1675,11 @@ export default function GroupInfoScreen() {
               borderBottomColor: Colors.borderLight,
             }}>
             <TouchableOpacity onPress={() => setRemindersVisible(false)}>
-              <Text style={{ color: Colors.text, fontSize: 16 }}>Close</Text>
+              <Text style={{ color: Colors.text, fontSize: 16 }}>{t('common.close')}</Text>
             </TouchableOpacity>
-            <Text style={{ fontSize: 18, fontWeight: 'bold', color: Colors.text }}>Reminders</Text>
+            <Text style={{ fontSize: 18, fontWeight: 'bold', color: Colors.text }}>
+              {t('chat.reminders')}
+            </Text>
             <TouchableOpacity onPress={handleCreateReminder}>
               <Ionicons name="add" size={24} color={Colors.cta} />
             </TouchableOpacity>
@@ -1655,7 +1691,9 @@ export default function GroupInfoScreen() {
             ListEmptyComponent={() => (
               <View style={{ alignItems: 'center', paddingVertical: 40 }}>
                 <Ionicons name="alarm-outline" size={40} color={Colors.borderLight} />
-                <Text style={{ color: Colors.textLight, marginTop: 8 }}>No reminders yet</Text>
+                <Text style={{ color: Colors.textLight, marginTop: 8 }}>
+                  {t('chat.reminders_dialog.empty')}
+                </Text>
               </View>
             )}
             renderItem={({ item }) => {
@@ -1774,9 +1812,9 @@ export default function GroupInfoScreen() {
               borderBottomColor: Colors.borderLight,
             }}>
             <TouchableOpacity onPress={() => setNotesVisible(false)}>
-              <Text style={{ color: Colors.text, fontSize: 16 }}>Close</Text>
+              <Text style={{ color: Colors.text, fontSize: 16 }}>{t('common.close')}</Text>
             </TouchableOpacity>
-            <Text style={{ fontSize: 18, fontWeight: 'bold', color: Colors.text }}>Notes</Text>
+            <Text style={{ fontSize: 18, fontWeight: 'bold', color: Colors.text }}>{t('chat.notes')}</Text>
             <TouchableOpacity onPress={handleCreateNote}>
               <Ionicons name="add" size={24} color={Colors.cta} />
             </TouchableOpacity>
@@ -1788,7 +1826,9 @@ export default function GroupInfoScreen() {
             ListEmptyComponent={() => (
               <View style={{ alignItems: 'center', paddingVertical: 40 }}>
                 <Ionicons name="document-text-outline" size={40} color={Colors.borderLight} />
-                <Text style={{ color: Colors.textLight, marginTop: 8 }}>No notes yet</Text>
+                <Text style={{ color: Colors.textLight, marginTop: 8 }}>
+                  {t('mobile.chat.no_items_yet', { label: t('chat.notes').toLowerCase() })}
+                </Text>
               </View>
             )}
             renderItem={({ item }) => (

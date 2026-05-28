@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -10,6 +11,7 @@ import { useAuthStore } from '@/store/auth.store';
 import { useThemeStore } from '@/store/theme.store';
 import type { UserSessionInfo } from '@/types/auth';
 import { Colors } from '@/constants/theme';
+import { getApiErrorMessage } from '@/utils/errorHandler';
 
 type ReturnTab = 'home' | 'chats' | 'contacts' | 'assistant' | 'settings';
 
@@ -47,6 +49,7 @@ function isRevoked(s: UserSessionInfo): boolean {
 }
 
 export default function SessionsScreen() {
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   useThemeStore((s) => s.isDarkMode);
@@ -68,49 +71,45 @@ export default function SessionsScreen() {
       const res = await sessionService.list();
       if (res.code === 1000 && res.result) setSessions(res.result);
     } catch {
-      Alert.alert('Error', 'Could not load sessions.');
+      Alert.alert(t('errors.request_failed'), t('settings.sessions.load_failed'));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     load();
   }, [load]);
 
   const onPurgeAll = () => {
-    Alert.alert(
-      'Clear all sessions?',
-      'This removes every session record and signs out all devices including this one. You will need to sign in again.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Clear all',
-          style: 'destructive',
-          onPress: async () => {
+    Alert.alert(t('settings.sessions.purge_all'), t('settings.sessions.purge_confirm'), [
+      { text: t('common.cancel'), style: 'cancel' },
+      {
+        text: t('settings.sessions.purge_all'),
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            setPurging(true);
+            await sessionService.purgeAll();
             try {
-              setPurging(true);
-              await sessionService.purgeAll();
-              try {
-                await authService.logout();
-              } catch {
-                /* ignore */
-              }
-              socketService.disconnect();
-              await clearAuth();
-              router.replace('/(auth)/login');
-            } catch (e: unknown) {
-              const msg =
-                (e as { response?: { data?: { message?: string } } })?.response?.data?.message ??
-                'Could not clear sessions.';
-              Alert.alert('Error', msg);
-            } finally {
-              setPurging(false);
+              await authService.logout();
+            } catch {
+              /* ignore */
             }
-          },
+            socketService.disconnect();
+            await clearAuth();
+            router.replace('/(auth)/login');
+          } catch (e: unknown) {
+            Alert.alert(
+              t('errors.request_failed'),
+              getApiErrorMessage(e, t('settings.sessions.purge_failed')),
+            );
+          } finally {
+            setPurging(false);
+          }
         },
-      ]
-    );
+      },
+    ]);
   };
 
   const onRevoke = async (row: UserSessionInfo) => {
@@ -131,10 +130,10 @@ export default function SessionsScreen() {
         await load();
       }
     } catch (e: unknown) {
-      const msg =
-        (e as { response?: { data?: { message?: string } } })?.response?.data?.message ??
-        'Could not revoke session.';
-      Alert.alert('Error', msg);
+      Alert.alert(
+        t('errors.request_failed'),
+        getApiErrorMessage(e, t('settings.sessions.revoke_failed')),
+      );
     } finally {
       setRevoking(null);
     }
@@ -149,14 +148,13 @@ export default function SessionsScreen() {
           <Ionicons name="chevron-back" size={24} color={Colors.text} />
         </TouchableOpacity>
         <Text className="ml-2 flex-1 text-[18px] font-bold" style={{ color: Colors.text }}>
-          Devices & sessions
+          {t('settings.sessions.title')}
         </Text>
       </View>
 
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 24 }}>
         <Text className="mb-3 text-[13px]" style={{ color: Colors.textLight }}>
-          Full history including ended sessions. Use the button below to remove every row and sign
-          out everywhere.
+          {t('settings.sessions.description')}
         </Text>
         <TouchableOpacity
           className="mb-4 self-start rounded-lg px-4 py-3"
@@ -164,17 +162,18 @@ export default function SessionsScreen() {
           disabled={purging || loading}
           onPress={onPurgeAll}>
           <Text style={{ color: Colors.white, fontWeight: '600', fontSize: 14 }}>
-            {purging ? 'Clearing…' : 'Clear all & sign out everywhere'}
+            {purging ? t('settings.sessions.clearing') : t('settings.sessions.purge_all')}
           </Text>
         </TouchableOpacity>
 
         {loading ? (
           <ActivityIndicator color={Colors.cta} />
         ) : sessions.length === 0 ? (
-          <Text style={{ color: Colors.textLight }}>No session history.</Text>
+          <Text style={{ color: Colors.textLight }}>{t('settings.sessions.no_sessions')}</Text>
         ) : (
           sessions.map((s) => {
             const extra = geoLine(s);
+            const lastSeenTime = formatWhen(s.lastSeenAt ?? s.createdAt);
             return (
               <View
                 key={s.id}
@@ -195,14 +194,16 @@ export default function SessionsScreen() {
                         color={Colors.textMuted}
                       />
                       <Text className="font-semibold" style={{ color: Colors.text }}>
-                        {s.platform === 'MOBILE' ? 'Mobile' : 'Web'}
+                        {s.platform === 'MOBILE'
+                          ? t('settings.sessions.platform_mobile')
+                          : t('settings.sessions.platform_web')}
                       </Text>
                       {isRevoked(s) ? (
                         <View
                           className="rounded-full px-2 py-0.5"
                           style={{ backgroundColor: Colors.borderLight }}>
                           <Text className="text-[11px]" style={{ color: Colors.textMuted }}>
-                            Logged out
+                            {t('settings.sessions.logged_out')}
                           </Text>
                         </View>
                       ) : (
@@ -210,7 +211,7 @@ export default function SessionsScreen() {
                           className="rounded-full px-2 py-0.5"
                           style={{ backgroundColor: '#d1fae5' }}>
                           <Text className="text-[11px]" style={{ color: '#065f46' }}>
-                            Active
+                            {t('settings.sessions.active')}
                           </Text>
                         </View>
                       )}
@@ -219,20 +220,20 @@ export default function SessionsScreen() {
                           className="rounded-full px-2 py-0.5"
                           style={{ backgroundColor: `${Colors.cta}22` }}>
                           <Text className="text-[11px]" style={{ color: Colors.cta }}>
-                            This device
+                            {t('settings.sessions.this_device')}
                           </Text>
                         </View>
                       )}
                     </View>
                     <Text className="mt-1 text-[13px]" style={{ color: Colors.textLight }}>
-                      {s.deviceLabel ?? 'Unknown device'}
+                      {s.deviceLabel ?? t('settings.sessions.unknown_device')}
                     </Text>
                     <Text className="mt-1 text-[12px]" style={{ color: Colors.textMuted }}>
                       {s.locationLabel ? `${s.locationLabel} · ` : ''}
-                      {s.ipAddress ? `IP ${s.ipAddress} · ` : ''}
-                      Last seen {formatWhen(s.lastSeenAt ?? s.createdAt)}
+                      {s.ipAddress ? `${t('settings.sessions.ip_label')} ${s.ipAddress} · ` : ''}
+                      {t('settings.sessions.last_seen', { time: lastSeenTime })}
                       {isRevoked(s) && s.revokedAt
-                        ? ` · Logged out ${formatWhen(s.revokedAt)}`
+                        ? ` · ${t('settings.sessions.logged_out_at', { time: formatWhen(s.revokedAt) })}`
                         : ''}
                     </Text>
                     {extra ? (
@@ -249,12 +250,16 @@ export default function SessionsScreen() {
                     disabled={revoking === s.id}
                     onPress={() => onRevoke(s)}>
                     <Text style={{ color: Colors.text, fontSize: 13 }}>
-                      {revoking === s.id ? '…' : s.current ? 'Sign out this device' : 'Revoke'}
+                      {revoking === s.id
+                        ? '…'
+                        : s.current
+                          ? t('settings.sessions.sign_out_this_device')
+                          : t('settings.sessions.revoke')}
                     </Text>
                   </TouchableOpacity>
                 ) : (
                   <Text className="mt-3 text-[12px]" style={{ color: Colors.textMuted }}>
-                    Logged out
+                    {t('settings.sessions.logged_out')}
                   </Text>
                 )}
               </View>

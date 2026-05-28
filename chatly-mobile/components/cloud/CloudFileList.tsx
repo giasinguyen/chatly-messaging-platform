@@ -1,4 +1,5 @@
 import { ActivityIndicator, FlatList, RefreshControl, Text, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import { CloudDocumentRow } from '@/components/cloud/CloudDocumentRow';
 import { CloudMediaTile } from '@/components/cloud/CloudMediaTile';
@@ -43,6 +44,8 @@ export function CloudFileList({
   onDeleteFile,
   getConversationName,
 }: CloudFileListProps) {
+  const { t } = useTranslation();
+
   if (loading) {
     return (
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
@@ -93,10 +96,17 @@ export function CloudFileList({
             </View>
             <View style={{ flex: 1 }}>
               <Text style={{ color: Colors.white, fontWeight: '700', fontSize: 16 }}>
-                {files.length} files · {formatCloudFileSize(totalSize)}
+                {t('mobile.cloud.files_summary', {
+                  count: files.length,
+                  size: formatCloudFileSize(totalSize),
+                })}
               </Text>
               <Text style={{ color: 'rgba(255,255,255,0.75)', fontSize: 12, marginTop: 2 }}>
-                {uploadCount} uploads · {mediaCount} media · {docCount} documents
+                {t('mobile.cloud.files_breakdown', {
+                  uploads: uploadCount,
+                  media: mediaCount,
+                  documents: docCount,
+                })}
               </Text>
             </View>
           </View>
@@ -107,17 +117,17 @@ export function CloudFileList({
           <Ionicons name="cloud-offline-outline" size={64} color={Colors.borderLight} />
           <Text style={{ marginTop: 16, fontSize: 16, color: Colors.textMuted }}>
             {searchQuery
-              ? 'No files found'
+              ? t('mobile.cloud.no_files_found')
               : tab === 'uploads'
-                ? 'No cloud uploads yet'
-                : 'No files yet'}
+                ? t('mobile.cloud.empty_uploads')
+                : t('mobile.cloud.no_files_yet')}
           </Text>
           <Text style={{ marginTop: 4, fontSize: 13, color: Colors.textLight }}>
             {searchQuery
-              ? 'Try a different keyword'
+              ? t('mobile.cloud.empty_keyword')
               : tab === 'uploads'
-                ? 'Use the upload button to add files to Cloud'
-                : 'Photos and files you send will appear here'}
+                ? t('mobile.cloud.empty_upload_hint')
+                : t('mobile.cloud.chat_files_hint')}
           </Text>
         </View>
       }

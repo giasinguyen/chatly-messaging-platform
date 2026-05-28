@@ -1,4 +1,5 @@
 import { View, Text, TouchableOpacity, Modal, Pressable } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import { CustomAiIcon } from '@/components/ui/CustomAiIcon';
 import { Colors } from '@/constants/theme';
@@ -44,6 +45,8 @@ export function MessageActions({
   onTogglePin,
   onAskAi,
 }: MessageActionsProps) {
+  const { t } = useTranslation();
+
   if (!message) return null;
 
   const now = new Date();
@@ -53,20 +56,31 @@ export function MessageActions({
   const canRecall = isMe && diffMin <= 1440 && !message.recalled; // 24h
 
   const actions: ActionItem[] = [
-    { icon: 'arrow-undo-outline', label: 'Reply', onPress: onReply },
-    ...(onForward ? [{ icon: 'arrow-redo-outline' as const, label: 'Forward', onPress: onForward }] : []),
-    { icon: 'copy-outline', label: 'Copy', onPress: onCopy },
-    ...(!message.recalled && onAskAi ? [{ customIcon: <CustomAiIcon size={22} color={Colors.cta} />, label: 'Ask AI', onPress: onAskAi, brand: true }] : []),
+    { icon: 'arrow-undo-outline', label: t('chat.reply'), onPress: onReply },
+    ...(onForward
+      ? [{ icon: 'arrow-redo-outline' as const, label: t('chat.forward'), onPress: onForward }]
+      : []),
+    { icon: 'copy-outline', label: t('common.copy'), onPress: onCopy },
+    ...(!message.recalled && onAskAi
+      ? [
+          {
+            customIcon: <CustomAiIcon size={22} color={Colors.cta} />,
+            label: t('chat.forward_to_ai'),
+            onPress: onAskAi,
+            brand: true,
+          },
+        ]
+      : []),
   ];
 
   if (canEdit && onEdit) {
-    actions.push({ icon: 'pencil-outline', label: 'Edit', onPress: onEdit });
+    actions.push({ icon: 'pencil-outline', label: t('common.edit'), onPress: onEdit });
   }
 
   if (!message.recalled && onTogglePin) {
     actions.push({
       icon: 'pin-outline',
-      label: message.pinned ? 'Unpin' : 'Pin message',
+      label: message.pinned ? t('chat.unpin') : t('mobile.chat.pin_message'),
       onPress: onTogglePin,
     });
   }
@@ -74,7 +88,7 @@ export function MessageActions({
   if (canRecall && onRecall) {
     actions.push({
       icon: 'refresh-outline',
-      label: 'Recall',
+      label: t('chat.recall'),
       onPress: onRecall,
       destructive: true,
     });
@@ -83,7 +97,7 @@ export function MessageActions({
   if (isMe && onDelete) {
     actions.push({
       icon: 'trash-outline',
-      label: 'Delete',
+      label: t('common.delete'),
       onPress: onDelete,
       destructive: true,
     });

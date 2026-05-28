@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Modal, ScrollView, Switch, Text, TouchableOpacity, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import { settingsService, type PrivacySettingsType, type UserSettingsType } from '@/services/settings.service';
 import { Colors } from '@/constants/theme';
@@ -21,6 +22,7 @@ interface PrivacyRowProps {
 }
 
 export function PrivacySettingsModal({ visible, isDarkMode, onClose }: PrivacySettingsModalProps) {
+  const { t } = useTranslation();
   const palette = getThemeColors(isDarkMode);
   const [settings, setSettings] = useState<UserSettingsType | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -34,11 +36,11 @@ export function PrivacySettingsModal({ visible, isDarkMode, onClose }: PrivacySe
         setSettings(response.result);
       }
     } catch {
-      Alert.alert('Error', 'Could not load privacy settings.');
+      Alert.alert(t('errors.request_failed'), t('settings.privacy.load_failed'));
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     if (visible) {
@@ -63,11 +65,11 @@ export function PrivacySettingsModal({ visible, isDarkMode, onClose }: PrivacySe
         setSettings(response.result);
       } else {
         setSettings(previousSettings);
-        Alert.alert('Error', response.message ?? 'Could not update setting.');
+        Alert.alert(t('errors.request_failed'), response.message ?? t('settings.privacy.update_failed'));
       }
     } catch {
       setSettings(previousSettings);
-      Alert.alert('Error', 'Could not update setting.');
+      Alert.alert(t('errors.request_failed'), t('settings.privacy.update_failed'));
     } finally {
       setSavingKey(null);
     }
@@ -83,7 +85,7 @@ export function PrivacySettingsModal({ visible, isDarkMode, onClose }: PrivacySe
             <Ionicons name="chevron-back" size={24} color={palette.text} />
           </TouchableOpacity>
           <Text className="ml-2 text-[20px] font-bold" style={{ color: palette.text }}>
-            Privacy
+            {t('settings.privacy.title')}
           </Text>
         </View>
 
@@ -94,23 +96,23 @@ export function PrivacySettingsModal({ visible, isDarkMode, onClose }: PrivacySe
         ) : (
           <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
             <Text className="mb-4 text-[14px]" style={{ color: palette.textLight }}>
-              Manage what information you display and who can contact you.
+              {t('settings.privacy.description')}
             </Text>
 
             <Text className="mb-3 text-[16px] font-bold" style={{ color: palette.text }}>
-              Personal
+              {t('settings.privacy.personal_title')}
             </Text>
             <View className="mb-7 rounded-2xl border p-4" style={{ backgroundColor: palette.card, borderColor: palette.border }}>
               <PrivacyRow
-                label="Show online status"
+                label={t('settings.privacy.show_online_status')}
                 value={privacy?.showOnlineStatus ?? true}
                 disabled={savingKey !== null}
                 onToggle={() => void handleToggle('showOnlineStatus')}
                 isDarkMode={isDarkMode}
               />
               <PrivacyRow
-                label="Allow others to view my friend list"
-                description="When off, people who open your profile will see that your friend list is private."
+                label={t('settings.privacy.show_friend_list')}
+                description={t('settings.privacy.show_friend_list_desc')}
                 value={privacy?.showFriendList ?? true}
                 disabled={savingKey !== null}
                 onToggle={() => void handleToggle('showFriendList')}
@@ -119,18 +121,18 @@ export function PrivacySettingsModal({ visible, isDarkMode, onClose }: PrivacySe
             </View>
 
             <Text className="mb-3 text-[16px] font-bold" style={{ color: palette.text }}>
-              Messages and Calls
+              {t('settings.privacy.messages_calls_title')}
             </Text>
             <View className="rounded-2xl border p-4" style={{ backgroundColor: palette.card, borderColor: palette.border }}>
               <PrivacyRow
-                label={'Show "Seen" status'}
+                label={t('settings.privacy.show_seen_status')}
                 value={privacy?.showReadReceipts ?? true}
                 disabled={savingKey !== null}
                 onToggle={() => void handleToggle('showReadReceipts')}
                 isDarkMode={isDarkMode}
               />
               <PrivacyRow
-                label="Allow friend requests"
+                label={t('settings.privacy.allow_friend_requests')}
                 value={privacy?.allowFriendRequests ?? true}
                 disabled={savingKey !== null}
                 onToggle={() => void handleToggle('allowFriendRequests')}

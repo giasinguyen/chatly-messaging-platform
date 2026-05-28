@@ -24,6 +24,7 @@ import { useThemeStore } from '@/store/theme.store';
 import { getThemeColors } from '@/utils/themeColors';
 import { InAppMessageBanner } from '@/components/notifications/InAppMessageBanner';
 import type { NotificationResponse } from '@/types/notification';
+import { hydrateI18nLanguage } from '@/lib/i18n';
 
 const CallScreenComponent = IS_CALL_ENABLED
   ? require('@/components/call/CallScreen').CallScreen
@@ -228,12 +229,15 @@ export default function RootLayout() {
   const [fontsLoaded] = useFonts({
     ...Ionicons.font,
   });
+  const [i18nReady, setI18nReady] = useState(false);
   const isDarkMode = useThemeStore((s) => s.isDarkMode);
   const hydrateTheme = useThemeStore((s) => s.hydrate);
   const palette = getThemeColors(isDarkMode);
 
   useEffect(() => {
-    void hydrateTheme();
+    void Promise.all([hydrateTheme(), hydrateI18nLanguage()]).finally(() => {
+      setI18nReady(true);
+    });
   }, [hydrateTheme]);
 
   useEffect(() => {
@@ -244,7 +248,7 @@ export default function RootLayout() {
     }
   }, [fontsLoaded]);
 
-  if (!fontsLoaded) {
+  if (!fontsLoaded || !i18nReady) {
     return null;
   }
 

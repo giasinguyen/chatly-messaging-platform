@@ -1,4 +1,5 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useRouter } from 'expo-router';
 import {
   View,
@@ -23,12 +24,15 @@ import { socketService } from '@/services/socket.service';
 import { Avatar } from '@/components/ui/Avatar';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { AppearanceSettingsModal } from '@/components/settings/AppearanceSettingsModal';
+import { LanguageSettingsModal } from '@/components/settings/LanguageSettingsModal';
 import { PrivacySettingsModal } from '@/components/settings/PrivacySettingsModal';
 import { Colors } from '@/constants/theme';
 import { useThemeStore } from '@/store/theme.store';
 import { getThemeColors } from '@/utils/themeColors';
+import { getApiErrorMessage } from '@/utils/errorHandler';
 
 export default function SettingsScreen() {
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { user, clearAuth, updateUser } = useAuthStore();
@@ -48,12 +52,13 @@ export default function SettingsScreen() {
   const [pwdSaving, setPwdSaving] = useState(false);
   const [privacyVisible, setPrivacyVisible] = useState(false);
   const [appearanceVisible, setAppearanceVisible] = useState(false);
+  const [languageVisible, setLanguageVisible] = useState(false);
 
   const handleLogout = useCallback(async () => {
-    Alert.alert('Logout', 'Are you sure you want to log out?', [
-      { text: 'Cancel', style: 'cancel' },
+    Alert.alert(t('logout.title'), t('logout.description'), [
+      { text: t('common.cancel'), style: 'cancel' },
       {
-        text: 'Log Out',
+        text: t('nav.logout'),
         style: 'destructive',
         onPress: async () => {
           try {
@@ -66,12 +71,15 @@ export default function SettingsScreen() {
         },
       },
     ]);
-  }, [clearAuth]);
+  }, [clearAuth, t]);
 
   const handlePickAvatar = useCallback(async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Permission Required', 'Please grant photo library access.');
+      Alert.alert(
+        t('mobile.settings.photo_permission_title'),
+        t('mobile.settings.photo_permission_body'),
+      );
       return;
     }
 
@@ -86,7 +94,7 @@ export default function SettingsScreen() {
       setLocalAvatarUri(result.assets[0].uri);
       setEditing(true);
     }
-  }, []);
+  }, [t]);
 
   const handleSaveProfile = useCallback(async () => {
     if (!user || !displayName.trim()) return;
@@ -110,25 +118,37 @@ export default function SettingsScreen() {
       });
       updateUser(res.result);
       setEditing(false);
-      Alert.alert('Success', 'Profile updated');
-    } catch (error: any) {
-      Alert.alert('Error', error?.response?.data?.message ?? 'Could not update profile.');
+      Alert.alert(t('mobile.common.success'), t('mobile.settings.profile_updated'));
+    } catch (error: unknown) {
+      Alert.alert(
+        t('errors.request_failed'),
+        getApiErrorMessage(error, t('mobile.settings.update_profile_failed')),
+      );
     } finally {
       setSaving(false);
     }
-  }, [user, displayName, localAvatarUri, updateUser]);
+  }, [user, displayName, localAvatarUri, updateUser, t]);
 
   const handleChangePassword = useCallback(async () => {
     if (!currentPassword.trim() || !newPassword.trim() || !confirmPassword.trim()) {
-      Alert.alert('Missing fields', 'Please fill in all password fields.');
+      Alert.alert(
+        t('mobile.settings.missing_fields'),
+        t('mobile.settings.fill_password_fields'),
+      );
       return;
     }
     if (newPassword.length < 6) {
-      Alert.alert('Invalid password', 'New password must be at least 6 characters.');
+      Alert.alert(
+        t('settings.change_password.title'),
+        t('mobile.settings.password_min_length'),
+      );
       return;
     }
     if (newPassword !== confirmPassword) {
-      Alert.alert('Mismatch', 'New password and confirmation do not match.');
+      Alert.alert(
+        t('settings.change_password.title'),
+        t('mobile.settings.password_mismatch'),
+      );
       return;
     }
 
@@ -150,41 +170,57 @@ export default function SettingsScreen() {
       }
       socketService.disconnect();
       await clearAuth();
-      Alert.alert('Password updated', 'Please sign in again with your new password.');
-    } catch (error: any) {
-      Alert.alert('Error', error?.response?.data?.message ?? 'Could not change password.');
+      Alert.alert(
+        t('settings.change_password.title'),
+        t('settings.change_password.success'),
+      );
+    } catch (error: unknown) {
+      Alert.alert(
+        t('errors.request_failed'),
+        getApiErrorMessage(error, t('settings.change_password.failed')),
+      );
     } finally {
       setPwdSaving(false);
     }
-  }, [currentPassword, newPassword, confirmPassword, clearAuth]);
+  }, [currentPassword, newPassword, confirmPassword, clearAuth, t]);
 
-  const settingsItems = [
-    {
-      icon: 'bookmark-outline' as const,
-      label: 'Saved posts',
-      onPress: () => router.push({ pathname: '/saved', params: { returnTo: 'settings' } }),
-    },
-    {
-      icon: 'lock-closed-outline' as const,
-      label: 'Privacy',
-      onPress: () => setPrivacyVisible(true),
-    },
-    {
-      icon: 'color-palette-outline' as const,
-      label: 'Appearance',
-      onPress: () => setAppearanceVisible(true),
-    },
-    {
-      icon: 'help-circle-outline' as const,
-      label: 'Help & Support',
-      onPress: () => Alert.alert('Help', 'Feature coming soon'),
-    },
-    {
-      icon: 'information-circle-outline' as const,
-      label: 'About Chatly',
-      onPress: () => Alert.alert('Chatly', 'Version 1.0.0\nChatly Team'),
-    },
-  ];
+  const settingsItems = useMemo(
+    () => [
+      {
+        icon: 'bookmark-outline' as const,
+        label: t('settings.categories.saved_posts'),
+        onPress: () => router.push({ pathname: '/saved', params: { returnTo: 'settings' } }),
+      },
+      {
+        icon: 'lock-closed-outline' as const,
+        label: t('settings.categories.privacy'),
+        onPress: () => setPrivacyVisible(true),
+      },
+      {
+        icon: 'color-palette-outline' as const,
+        label: t('settings.categories.appearance'),
+        onPress: () => setAppearanceVisible(true),
+      },
+      {
+        icon: 'language-outline' as const,
+        label: t('mobile.settings.language_menu'),
+        onPress: () => setLanguageVisible(true),
+      },
+      {
+        icon: 'help-circle-outline' as const,
+        label: t('mobile.settings.help_support'),
+        onPress: () =>
+          Alert.alert(t('mobile.settings.help_title'), t('mobile.settings.coming_soon')),
+      },
+      {
+        icon: 'information-circle-outline' as const,
+        label: t('mobile.settings.about_chatly'),
+        onPress: () =>
+          Alert.alert(t('mobile.settings.about_chatly'), t('mobile.settings.about_body')),
+      },
+    ],
+    [router, t],
+  );
 
   return (
     <ScrollView
@@ -196,7 +232,7 @@ export default function SettingsScreen() {
         className="border-b px-4 pb-4 pt-2"
         style={{ borderBottomColor: palette.border, backgroundColor: palette.card }}>
         <Text className="text-[22px] font-bold" style={{ color: palette.text }}>
-          Settings
+          {t('settings.title')}
         </Text>
       </View>
 
@@ -276,14 +312,16 @@ export default function SettingsScreen() {
                 setDisplayName(user?.displayName ?? '');
                 setLocalAvatarUri(null);
               }}>
-              <Text style={{ color: palette.textLight }}>Cancel</Text>
+              <Text style={{ color: palette.textLight }}>{t('common.cancel')}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               className="rounded-lg px-4 py-2"
               style={{ backgroundColor: Colors.cta }}
               onPress={handleSaveProfile}
               disabled={saving}>
-              <Text style={{ color: Colors.white }}>{saving ? 'Saving...' : 'Save'}</Text>
+              <Text style={{ color: Colors.white }}>
+                {saving ? t('mobile.common.saving') : t('common.save')}
+              </Text>
             </TouchableOpacity>
           </View>
         )}
@@ -297,7 +335,7 @@ export default function SettingsScreen() {
           activeOpacity={0.7}>
           <Ionicons name="key-outline" size={22} color={palette.text} />
           <Text className="ml-3 flex-1 text-[15px]" style={{ color: palette.text }}>
-            Change password
+            {t('settings.categories.change_password')}
           </Text>
           <Ionicons name="chevron-forward" size={18} color={palette.textLight} />
         </TouchableOpacity>
@@ -312,7 +350,7 @@ export default function SettingsScreen() {
           activeOpacity={0.7}>
           <Ionicons name="phone-portrait-outline" size={22} color={palette.text} />
           <Text className="ml-3 flex-1 text-[15px]" style={{ color: palette.text }}>
-            Devices & sessions
+            {t('settings.sessions.title')}
           </Text>
           <Ionicons name="chevron-forward" size={18} color={palette.textLight} />
         </TouchableOpacity>
@@ -323,7 +361,7 @@ export default function SettingsScreen() {
           activeOpacity={0.7}>
           <Ionicons name="qr-code-outline" size={22} color={palette.text} />
           <Text className="ml-3 flex-1 text-[15px]" style={{ color: palette.text }}>
-            Scan QR to Login
+            {t('mobile.settings.scan_qr')}
           </Text>
           <Ionicons name="chevron-forward" size={18} color={palette.textLight} />
         </TouchableOpacity>
@@ -345,13 +383,13 @@ export default function SettingsScreen() {
           />
           <View className="rounded-t-3xl px-4 pb-8 pt-4" style={{ backgroundColor: palette.card }}>
             <Text className="mb-4 text-[18px] font-bold" style={{ color: palette.text }}>
-              Change password
+              {t('settings.change_password.title')}
             </Text>
             <Text className="mb-3 text-[13px]" style={{ color: palette.textLight }}>
-              After changing your password you will need to sign in again on all devices.
+              {t('mobile.settings.change_password_hint')}
             </Text>
             <Text className="mb-1 text-[13px]" style={{ color: palette.text }}>
-              Current password
+              {t('settings.change_password.current')}
             </Text>
             <TextInput
               className="mb-3 rounded-lg border px-3 py-2.5 text-[16px]"
@@ -362,7 +400,7 @@ export default function SettingsScreen() {
               editable={!pwdSaving}
             />
             <Text className="mb-1 text-[13px]" style={{ color: palette.text }}>
-              New password
+              {t('settings.change_password.new_password')}
             </Text>
             <TextInput
               className="mb-3 rounded-lg border px-3 py-2.5 text-[16px]"
@@ -373,7 +411,7 @@ export default function SettingsScreen() {
               editable={!pwdSaving}
             />
             <Text className="mb-1 text-[13px]" style={{ color: palette.text }}>
-              Confirm new password
+              {t('settings.change_password.confirm')}
             </Text>
             <TextInput
               className="mb-4 rounded-lg border px-3 py-2.5 text-[16px]"
@@ -388,7 +426,7 @@ export default function SettingsScreen() {
                 className="rounded-lg px-4 py-3"
                 onPress={() => !pwdSaving && setPwdModalVisible(false)}
                 disabled={pwdSaving}>
-                <Text style={{ color: palette.textLight }}>Cancel</Text>
+                <Text style={{ color: palette.textLight }}>{t('common.cancel')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 className="rounded-lg px-5 py-3"
@@ -398,7 +436,9 @@ export default function SettingsScreen() {
                 {pwdSaving ? (
                   <ActivityIndicator color={Colors.white} />
                 ) : (
-                  <Text style={{ color: Colors.white, fontWeight: '600' }}>Update</Text>
+                  <Text style={{ color: Colors.white, fontWeight: '600' }}>
+                    {t('settings.change_password.update')}
+                  </Text>
                 )}
               </TouchableOpacity>
             </View>
@@ -429,7 +469,7 @@ export default function SettingsScreen() {
 
       {/* Logout */}
       <View className="mx-4 mt-4">
-        <PrimaryButton title="Log Out" variant="outline" onPress={handleLogout} />
+        <PrimaryButton title={t('nav.logout')} variant="outline" onPress={handleLogout} />
       </View>
 
       <PrivacySettingsModal
@@ -442,6 +482,11 @@ export default function SettingsScreen() {
         isDarkMode={isDarkMode}
         onToggleDarkMode={(value) => void setDarkMode(value)}
         onClose={() => setAppearanceVisible(false)}
+      />
+      <LanguageSettingsModal
+        visible={languageVisible}
+        isDarkMode={isDarkMode}
+        onClose={() => setLanguageVisible(false)}
       />
     </ScrollView>
   );

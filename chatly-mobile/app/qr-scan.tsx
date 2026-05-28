@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { CameraView, Camera } from 'expo-camera';
 import { useRouter } from 'expo-router';
@@ -6,8 +7,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '@/constants/theme';
 import { authService } from '@/services/auth.service';
+import { getApiErrorMessage } from '@/utils/errorHandler';
 
 export default function QrScanScreen() {
+  const { t } = useTranslation();
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const [scanned, setScanned] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -47,19 +50,19 @@ export default function QrScanScreen() {
       setLoading(true);
       const res = await authService.confirmQrLogin(data);
       if (res.code === 1000) {
-        Alert.alert('Success', 'Web login successful!', [
-          { text: 'OK', onPress: () => handleBack() }
+        Alert.alert(t('mobile.auth.qr.success_title'), t('mobile.auth.qr.success_body'), [
+          { text: t('common.ok'), onPress: () => handleBack() }
         ]);
       } else {
-        Alert.alert('Error', res.message || 'Invalid QR Code', [
-          { text: 'Try Again', onPress: () => resetScanner() }
+        Alert.alert(t('errors.request_failed'), res.message || t('mobile.auth.qr.invalid'), [
+          { text: t('common.retry'), onPress: () => resetScanner() }
         ]);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error(error);
-      const msg = error?.response?.data?.message || 'Failed to confirm QR login';
-      Alert.alert('Error', msg, [
-        { text: 'Try Again', onPress: () => resetScanner() }
+      const msg = getApiErrorMessage(error, t('mobile.auth.qr.invalid'));
+      Alert.alert(t('errors.request_failed'), msg, [
+        { text: t('common.retry'), onPress: () => resetScanner() }
       ]);
     } finally {
       setLoading(false);
@@ -69,19 +72,19 @@ export default function QrScanScreen() {
   if (hasPermission === null) {
     return (
       <View style={styles.centerContainer}>
-        <Text style={{ color: Colors.text }}>Requesting camera permission...</Text>
+        <Text style={{ color: Colors.text }}>{t('mobile.auth.qr.requesting_permission')}</Text>
       </View>
     );
   }
   if (hasPermission === false) {
     return (
       <View style={styles.centerContainer}>
-        <Text style={{ color: Colors.text }}>No access to camera</Text>
+        <Text style={{ color: Colors.text }}>{t('mobile.auth.qr.no_camera')}</Text>
         <TouchableOpacity
           style={styles.backButton}
           onPress={handleBack}
         >
-          <Text style={styles.backButtonText}>Go Back</Text>
+          <Text style={styles.backButtonText}>{t('common.back')}</Text>
         </TouchableOpacity>
       </View>
     );
@@ -105,7 +108,7 @@ export default function QrScanScreen() {
         >
           <Ionicons name="close" size={28} color="#fff" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Scan QR Code</Text>
+        <Text style={styles.headerTitle}>{t('mobile.auth.qr.title')}</Text>
         <View style={{ width: 44 }} />
       </View>
 
@@ -128,7 +131,7 @@ export default function QrScanScreen() {
       {loading && (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={Colors.cta} />
-          <Text style={styles.loadingText}>Confirming Login...</Text>
+          <Text style={styles.loadingText}>{t('mobile.auth.qr.confirming')}</Text>
         </View>
       )}
     </View>

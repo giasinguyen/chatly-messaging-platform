@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Modal,
   View,
@@ -33,14 +34,18 @@ interface SelectedVideo {
   type: string;
 }
 
-const VISIBILITY_OPTIONS: { value: PostVisibility; label: string; icon: string }[] = [
-  { value: 'PUBLIC', label: 'Everyone', icon: 'earth-outline' },
-  { value: 'FRIENDS_ONLY', label: 'Friends', icon: 'people-outline' },
-  { value: 'ONLY_ME', label: 'Only me', icon: 'lock-closed-outline' },
-];
-
 export function CreateReelModal({ visible, onClose, onCreated }: CreateReelModalProps) {
+  const { t } = useTranslation();
   const currentUser = useAuthStore((state) => state.user);
+
+  const visibilityOptions = useMemo(
+    (): { value: PostVisibility; label: string; icon: string }[] => [
+      { value: 'PUBLIC', label: t('mobile.reels.visibility_everyone'), icon: 'earth-outline' },
+      { value: 'FRIENDS_ONLY', label: t('mobile.reels.visibility_friends'), icon: 'people-outline' },
+      { value: 'ONLY_ME', label: t('mobile.reels.visibility_only_me'), icon: 'lock-closed-outline' },
+    ],
+    [t],
+  );
   const [video, setVideo] = useState<SelectedVideo | null>(null);
   const [caption, setCaption] = useState('');
   const [visibility, setVisibility] = useState<PostVisibility>('PUBLIC');
@@ -72,7 +77,7 @@ export function CreateReelModal({ visible, onClose, onCreated }: CreateReelModal
   const handlePickVideo = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Permission needed', 'Please allow library access to select video.');
+      Alert.alert(t('mobile.reels.video_permission_title'), t('mobile.reels.video_permission_body'));
       return;
     }
 
@@ -87,7 +92,7 @@ export function CreateReelModal({ visible, onClose, onCreated }: CreateReelModal
 
     const picked = result.assets[0];
     if (picked.fileSize && picked.fileSize > 20 * 1024 * 1024) {
-      Alert.alert('Warning', 'Video size must be less than 20MB.');
+      Alert.alert(t('mobile.common.info'), t('mobile.reels.video_size_warning'));
       return;
     }
 
@@ -100,7 +105,7 @@ export function CreateReelModal({ visible, onClose, onCreated }: CreateReelModal
 
   const handleSubmit = async () => {
     if (!video) {
-      Alert.alert('Warning', 'Please select a video file.');
+      Alert.alert(t('mobile.common.info'), t('mobile.reels.select_video_warning'));
       return;
     }
 
@@ -113,20 +118,20 @@ export function CreateReelModal({ visible, onClose, onCreated }: CreateReelModal
       });
 
       if (response.code === 1000) {
-        Alert.alert('Success', 'Reel created successfully.');
+        Alert.alert(t('mobile.common.success'), t('mobile.reels.create_success'));
         onCreated();
         handleClose();
       } else {
-        Alert.alert('Error', response.message ?? 'Failed to create Reel.');
+        Alert.alert(t('errors.request_failed'), response.message ?? t('mobile.reels.create_failed'));
       }
     } catch (error: unknown) {
-      Alert.alert('Error', getApiErrorMessage(error, 'Failed to create Reel.'));
+      Alert.alert(t('errors.request_failed'), getApiErrorMessage(error, t('mobile.reels.create_failed')));
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const currentVisibilityOption = VISIBILITY_OPTIONS.find((opt) => opt.value === visibility);
+  const currentVisibilityOption = visibilityOptions.find((opt) => opt.value === visibility);
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={handleClose}>
@@ -136,7 +141,7 @@ export function CreateReelModal({ visible, onClose, onCreated }: CreateReelModal
         <View className="bg-white rounded-t-3xl h-[85%] w-full overflow-hidden">
           {/* Header */}
           <View className="flex-row items-center justify-between px-4 py-4 border-b border-gray-200">
-            <Text className="text-lg font-bold text-gray-900">Create Reel</Text>
+            <Text className="text-lg font-bold text-gray-900">{t('mobile.reels.create_modal_title')}</Text>
             <TouchableOpacity onPress={handleClose} disabled={isSubmitting} activeOpacity={0.7} className="p-1">
               <Ionicons name="close" size={24} color={Colors.text} />
             </TouchableOpacity>
@@ -165,7 +170,7 @@ export function CreateReelModal({ visible, onClose, onCreated }: CreateReelModal
                 </View>
                 <View>
                   <Text className="text-sm font-bold text-gray-900">
-                    {currentUser?.displayName ?? 'Your profile'}
+                    {currentUser?.displayName ?? t('mobile.reels.your_profile')}
                   </Text>
                   <Text className="text-xs text-gray-500">{currentUser?.email ?? ''}</Text>
                 </View>
@@ -197,7 +202,7 @@ export function CreateReelModal({ visible, onClose, onCreated }: CreateReelModal
                       className="flex-1 items-center justify-center p-2">
                       <Ionicons name="film-outline" size={24} color={Colors.textMuted} />
                       <Text className="text-[10px] text-gray-500 font-medium mt-1 text-center">
-                        Select Video
+                        {t('mobile.reels.select_video')}
                       </Text>
                     </TouchableOpacity>
                   )}
@@ -205,11 +210,11 @@ export function CreateReelModal({ visible, onClose, onCreated }: CreateReelModal
 
                 {/* Description Input */}
                 <View className="flex-1 gap-1">
-                  <Text className="text-xs font-semibold text-gray-500">Description</Text>
+                  <Text className="text-xs font-semibold text-gray-500">{t('mobile.reels.description')}</Text>
                   <TextInput
                     value={caption}
                     onChangeText={setCaption}
-                    placeholder="Describe your reel..."
+                    placeholder={t('mobile.reels.caption_placeholder')}
                     multiline
                     maxLength={1000}
                     editable={!isSubmitting}
@@ -224,7 +229,7 @@ export function CreateReelModal({ visible, onClose, onCreated }: CreateReelModal
 
               {/* Privacy settings */}
               <View className="mb-4">
-                <Text className="text-xs font-semibold text-gray-500 mb-1.5">Visibility</Text>
+                <Text className="text-xs font-semibold text-gray-500 mb-1.5">{t('mobile.reels.visibility')}</Text>
                 <TouchableOpacity
                   onPress={() => setIsVisibilityOpen((open) => !open)}
                   activeOpacity={0.7}
@@ -236,7 +241,7 @@ export function CreateReelModal({ visible, onClose, onCreated }: CreateReelModal
                       color={Colors.text}
                     />
                     <Text className="text-sm font-semibold text-gray-900">
-                      {currentVisibilityOption?.label}
+                      {currentVisibilityOption ? t(currentVisibilityOption.labelKey) : ''}
                     </Text>
                   </View>
                   <Ionicons name="chevron-down" size={16} color={Colors.textMuted} />
@@ -245,7 +250,7 @@ export function CreateReelModal({ visible, onClose, onCreated }: CreateReelModal
                 {/* Visibility Dropdown Drawer */}
                 {isVisibilityOpen && (
                   <View className="bg-gray-50 border-x border-b border-gray-200 rounded-b-xl -mt-1 overflow-hidden">
-                    {VISIBILITY_OPTIONS.map((opt) => (
+                    {visibilityOptions.map((opt) => (
                       <TouchableOpacity
                         key={opt.value}
                         onPress={() => {
@@ -265,7 +270,7 @@ export function CreateReelModal({ visible, onClose, onCreated }: CreateReelModal
                           className={`text-sm ${
                             visibility === opt.value ? 'text-blue-600 font-bold' : 'text-gray-700'
                           }`}>
-                          {opt.label}
+                          {t(opt.labelKey)}
                         </Text>
                       </TouchableOpacity>
                     ))}
@@ -280,7 +285,7 @@ export function CreateReelModal({ visible, onClose, onCreated }: CreateReelModal
                 onPress={handleClose}
                 disabled={isSubmitting}
                 className="flex-1 items-center justify-center rounded-2xl bg-gray-100 py-3.5">
-                <Text className="text-sm font-bold text-gray-800">Cancel</Text>
+                <Text className="text-sm font-bold text-gray-800">{t('common.cancel')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={handleSubmit}
@@ -291,7 +296,7 @@ export function CreateReelModal({ visible, onClose, onCreated }: CreateReelModal
                 {isSubmitting ? (
                   <ActivityIndicator size="small" color="white" />
                 ) : (
-                  <Text className="text-sm font-bold text-white">Publish Reel</Text>
+                  <Text className="text-sm font-bold text-white">{t('mobile.reels.publish')}</Text>
                 )}
               </TouchableOpacity>
             </View>

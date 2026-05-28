@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Alert, Animated, View } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import { useFocusEffect } from 'expo-router';
@@ -20,6 +21,7 @@ import {
 } from '@/utils/cloudFileDisplay';
 
 export default function CloudScreen() {
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   useThemeStore((state) => state.isDarkMode);
   const conversations = useConversationStore((state) => state.conversations);
@@ -41,11 +43,11 @@ export default function CloudScreen() {
 
   const getConversationName = useCallback(
     (id?: string) => {
-      if (!id) return 'Unknown';
+      if (!id) return t('common.anonymous');
       const conversation = conversations.find((item) => item.id === id);
-      return conversation?.name ?? 'Conversation';
+      return conversation?.name ?? t('chat.message_fallback');
     },
-    [conversations]
+    [conversations, t]
   );
 
   const load = useCallback(async (silent = false) => {
@@ -54,12 +56,12 @@ export default function CloudScreen() {
       const response = await fileService.getMyFiles();
       setFiles(response);
     } catch {
-      Alert.alert('Error', 'Could not load cloud files.');
+      Alert.alert(t('errors.request_failed'), t('cloud.load_failed'));
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [t]);
 
   useFocusEffect(
     useCallback(() => {
@@ -91,7 +93,7 @@ export default function CloudScreen() {
     setUploadProgress(0);
     try {
       for (const asset of result.assets) {
-        const fileName = asset.name || `cloud-upload-${Date.now()}`;
+        const fileName = asset.name || `${t('mobile.cloud.upload_label')}-${Date.now()}`;
         const mimeType = asset.mimeType || 'application/octet-stream';
         await fileService.upload(asset.uri, fileName, mimeType, undefined, setUploadProgress);
       }
@@ -99,23 +101,29 @@ export default function CloudScreen() {
       await load(true);
       setTab('uploads');
       Alert.alert(
-        'Uploaded',
-        `${result.assets.length} file${result.assets.length > 1 ? 's' : ''} uploaded.`
+        t('mobile.cloud.upload_success'),
+        t(
+          result.assets.length === 1 ? 'cloud.file_count_one' : 'cloud.file_count_other',
+          { count: result.assets.length },
+        ),
       );
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'Could not upload file.';
-      Alert.alert('Upload failed', message);
+      const message = error instanceof Error ? error.message : t('mobile.cloud.upload_failed');
+      Alert.alert(t('mobile.cloud.upload_failed'), message);
     } finally {
       setUploading(false);
       setUploadProgress(0);
     }
-  }, [load]);
+  }, [load, t]);
 
   const handleDeleteFile = useCallback((file: FileUploadResponse) => {
-    Alert.alert('Delete upload?', `"${file.fileName}" will be removed from Cloud.`, [
-      { text: 'Cancel', style: 'cancel' },
+    Alert.alert(
+      t('mobile.cloud.delete_upload_title'),
+      t('mobile.cloud.delete_upload_body', { fileName: file.fileName }),
+      [
+      { text: t('common.cancel'), style: 'cancel' },
       {
-        text: 'Delete',
+        text: t('common.delete'),
         style: 'destructive',
         onPress: async () => {
           try {
@@ -123,13 +131,13 @@ export default function CloudScreen() {
             setFiles((current) => current.filter((item) => item.fileId !== file.fileId));
             setSelectedShareFile((current) => (current?.fileId === file.fileId ? null : current));
           } catch (error: unknown) {
-            const message = error instanceof Error ? error.message : 'Could not delete file.';
-            Alert.alert('Delete failed', message);
+            const message = error instanceof Error ? error.message : t('mobile.cloud.delete_failed');
+            Alert.alert(t('mobile.cloud.delete_failed'), message);
           }
         },
       },
     ]);
-  }, []);
+  }, [t]);
 
   const displayed = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();

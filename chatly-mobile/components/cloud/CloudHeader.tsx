@@ -7,15 +7,16 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/theme';
 import type { CloudTab } from '@/utils/cloudFileDisplay';
 
-const TAB_FILTERS: { key: CloudTab; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
-  { key: 'all', label: 'All', icon: 'albums-outline' },
-  { key: 'uploads', label: 'Uploads', icon: 'cloud-upload-outline' },
-  { key: 'media', label: 'Media', icon: 'image-outline' },
-  { key: 'file', label: 'Documents', icon: 'document-text-outline' },
+const TAB_FILTER_KEYS: { key: CloudTab; labelKey: string; icon: keyof typeof Ionicons.glyphMap }[] = [
+  { key: 'all', labelKey: 'cloud.all', icon: 'albums-outline' },
+  { key: 'uploads', labelKey: 'mobile.cloud.tab_uploads', icon: 'cloud-upload-outline' },
+  { key: 'media', labelKey: 'mobile.cloud.tab_media', icon: 'image-outline' },
+  { key: 'file', labelKey: 'mobile.cloud.tab_documents', icon: 'document-text-outline' },
 ];
 
 interface CloudHeaderProps {
@@ -47,6 +48,8 @@ export function CloudHeader({
   onClearSearch,
   onTabChange,
 }: CloudHeaderProps) {
+  const { t } = useTranslation();
+
   return (
     <View
       style={{
@@ -63,7 +66,7 @@ export function CloudHeader({
           paddingVertical: 12,
         }}>
         <View style={{ flex: 1 }}>
-          <Text style={{ fontSize: 22, fontWeight: '700', color: Colors.text }}>Cloud Storage</Text>
+          <Text style={{ fontSize: 22, fontWeight: '700', color: Colors.text }}>{t('cloud.title')}</Text>
         </View>
         <TouchableOpacity
           onPress={onUpload}
@@ -103,7 +106,7 @@ export function CloudHeader({
           <Ionicons name="search-outline" size={16} color={Colors.textMuted} />
           <TextInput
             style={{ flex: 1, marginLeft: 8, fontSize: 14, color: Colors.text }}
-            placeholder="Search file name..."
+            placeholder={t('cloud.search_placeholder')}
             placeholderTextColor={Colors.textLight}
             value={searchQuery}
             onChangeText={onSearchChange}
@@ -142,7 +145,7 @@ export function CloudHeader({
         horizontal
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={{ paddingHorizontal: 12, paddingBottom: 10, gap: 8 }}>
-        {TAB_FILTERS.map((item) => {
+        {TAB_FILTER_KEYS.map((item) => {
           const active = tab === item.key;
           return (
             <TouchableOpacity
@@ -168,7 +171,7 @@ export function CloudHeader({
                   fontWeight: '600',
                   color: active ? Colors.white : Colors.textMuted,
                 }}>
-                {item.label}
+                {t(item.labelKey)}
               </Text>
             </TouchableOpacity>
           );

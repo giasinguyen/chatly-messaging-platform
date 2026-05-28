@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   View,
   Text,
@@ -27,6 +28,7 @@ interface FormErrors {
 }
 
 export default function RegisterScreen() {
+  const { t } = useTranslation();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const setAuth = useAuthStore((s) => s.setAuth);
@@ -43,25 +45,25 @@ export default function RegisterScreen() {
     const newErrors: FormErrors = {};
 
     if (!displayName.trim()) {
-      newErrors.displayName = 'Please enter your display name';
+      newErrors.displayName = t('mobile.auth.register.display_name_required');
     }
     if (!username.trim()) {
-      newErrors.username = 'Please enter your username';
+      newErrors.username = t('mobile.auth.register.username_required');
     } else if (username.length < 3) {
-      newErrors.username = 'Username must be at least 3 characters';
+      newErrors.username = t('mobile.auth.register.username_min_length');
     }
     if (!email.trim()) {
-      newErrors.email = 'Please enter your email';
+      newErrors.email = t('mobile.auth.register.email_required');
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      newErrors.email = 'Invalid email address';
+      newErrors.email = t('mobile.auth.register.invalid_email');
     }
     if (!password) {
-      newErrors.password = 'Please enter a password';
+      newErrors.password = t('mobile.auth.register.password_required');
     } else if (password.length < 6) {
-      newErrors.password = 'Password must be at least 6 characters';
+      newErrors.password = t('mobile.auth.register.password_min_length');
     }
     if (password !== confirmPassword) {
-      newErrors.confirmPassword = 'Passwords do not match';
+      newErrors.confirmPassword = t('mobile.auth.register.password_mismatch');
     }
 
     setErrors(newErrors);
@@ -82,9 +84,9 @@ export default function RegisterScreen() {
 
       await setAuth(response.result);
       router.replace('/(tabs)/chats');
-    } catch (error: any) {
-      const message = getApiErrorMessage(error, 'Registration failed. Please try again.');
-      Alert.alert('Registration Failed', message);
+    } catch (error: unknown) {
+      const message = getApiErrorMessage(error, t('auth.register.failed'));
+      Alert.alert(t('auth.register.failed'), message);
     } finally {
       setLoading(false);
     }
@@ -117,16 +119,16 @@ export default function RegisterScreen() {
             className="mt-2 text-center text-base"
             style={{ color: Colors.textMuted }}
           >
-            Create a new account
+            {t('mobile.auth.register.title')}
           </Text>
         </View>
 
         {/* Form */}
         <View className="mb-4">
           <AuthInput
-            label="Display Name"
+            label={t('auth.register.display_name')}
             icon="person-outline"
-            placeholder="John Doe"
+            placeholder={t('profile.display_name_placeholder')}
             value={displayName}
             onChangeText={(text) => {
               setDisplayName(text);
@@ -137,9 +139,9 @@ export default function RegisterScreen() {
           />
 
           <AuthInput
-            label="Username"
+            label={t('auth.register.username')}
             icon="at-outline"
-            placeholder="username"
+            placeholder={t('profile.username_placeholder')}
             value={username}
             onChangeText={(text) => {
               setUsername(text);
@@ -151,9 +153,9 @@ export default function RegisterScreen() {
           />
 
           <AuthInput
-            label="Email"
+            label={t('profile.email')}
             icon="mail-outline"
-            placeholder="example@email.com"
+            placeholder={t('profile.email_placeholder')}
             value={email}
             onChangeText={(text) => {
               setEmail(text);
@@ -165,9 +167,9 @@ export default function RegisterScreen() {
           />
 
           <AuthInput
-            label="Password"
+            label={t('auth.register.password')}
             icon="lock-closed-outline"
-            placeholder="At least 6 characters"
+            placeholder={t('mobile.auth.login.password_placeholder')}
             value={password}
             onChangeText={(text) => {
               setPassword(text);
@@ -179,9 +181,9 @@ export default function RegisterScreen() {
           />
 
           <AuthInput
-            label="Confirm Password"
+            label={t('mobile.auth.register.confirm_password')}
             icon="shield-checkmark-outline"
-            placeholder="Re-enter password"
+            placeholder={t('mobile.auth.register.confirm_password_placeholder')}
             value={confirmPassword}
             onChangeText={(text) => {
               setConfirmPassword(text);
@@ -195,15 +197,16 @@ export default function RegisterScreen() {
         </View>
 
         {/* Register Button */}
-        <PrimaryButton title="Sign Up" loading={loading} onPress={handleRegister} />
+        <PrimaryButton
+          title={t('mobile.auth.register.sign_up')}
+          loading={loading}
+          onPress={handleRegister}
+        />
 
         {/* Login Link */}
-        <View className="mt-6 flex-row items-center justify-center">
-          <Text style={{ color: Colors.textMuted }}>Already have an account? </Text>
+        <View className="mt-6 items-center justify-center">
           <TouchableOpacity onPress={() => router.back()}>
-            <Text className="font-semibold" style={{ color: Colors.cta }}>
-              Sign In
-            </Text>
+            <Text style={{ color: Colors.cta }}>{t('auth.register.already_have_account')}</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
