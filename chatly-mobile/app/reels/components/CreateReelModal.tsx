@@ -241,7 +241,7 @@ export function CreateReelModal({ visible, onClose, onCreated }: CreateReelModal
                       color={Colors.text}
                     />
                     <Text className="text-sm font-semibold text-gray-900">
-                      {currentVisibilityOption ? t(currentVisibilityOption.labelKey) : ''}
+                      {currentVisibilityOption?.label ?? ''}
                     </Text>
                   </View>
                   <Ionicons name="chevron-down" size={16} color={Colors.textMuted} />
@@ -270,7 +270,7 @@ export function CreateReelModal({ visible, onClose, onCreated }: CreateReelModal
                           className={`text-sm ${
                             visibility === opt.value ? 'text-blue-600 font-bold' : 'text-gray-700'
                           }`}>
-                          {t(opt.labelKey)}
+                          {opt.label}
                         </Text>
                       </TouchableOpacity>
                     ))}

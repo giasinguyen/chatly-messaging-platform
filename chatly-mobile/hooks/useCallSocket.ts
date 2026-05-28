@@ -137,7 +137,7 @@ export function useCallSocket(groupSignalRef?: GroupSignalRef) {
                 })
                 .catch((error: unknown) => {
                   const message =
-                    error instanceof Error ? error.message : 'Unable to join the call.';
+                    error instanceof Error ? error.message : i18n.t('call.join_failed');
                   Alert.alert(i18n.t('call.error_title'), message);
                   endCallStore();
                 });
@@ -277,7 +277,7 @@ export function useCallSocket(groupSignalRef?: GroupSignalRef) {
           },
         });
       } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : 'Failed to initiate call.';
+        const message = error instanceof Error ? error.message : i18n.t('call.initiate_failed');
         Alert.alert(i18n.t('call.error_title'), message);
         endCallStore();
       }
@@ -321,7 +321,7 @@ export function useCallSocket(groupSignalRef?: GroupSignalRef) {
             payload: { accepted: true },
           });
         } catch (error: unknown) {
-          const message = error instanceof Error ? error.message : 'Failed to answer call.';
+          const message = error instanceof Error ? error.message : i18n.t('call.answer_failed');
           Alert.alert(i18n.t('call.error_title'), message);
           endCallStore();
         }
@@ -409,7 +409,7 @@ export function useCallSocket(groupSignalRef?: GroupSignalRef) {
         .toggleCamera(cameraOff)
         .then((cameraOn) => setCameraOff(!cameraOn))
         .catch((error: unknown) => {
-          const message = error instanceof Error ? error.message : 'Failed to toggle camera.';
+          const message = error instanceof Error ? error.message : i18n.t('call.camera_toggle_failed');
           Alert.alert(i18n.t('call.camera_error_title'), message);
         });
     },
