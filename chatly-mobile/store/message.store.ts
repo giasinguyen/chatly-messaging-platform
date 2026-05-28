@@ -49,6 +49,14 @@ export const useMessageStore = create<MessageState>((set) => ({
 
   addMessage: (conversationId, message) =>
     set((state) => {
+      console.log('[messageStore.addMessage]', {
+        messageId: message.id,
+        conversationId,
+        type: message.type,
+        attachmentCount: message.attachments?.length ?? 0,
+        hasPostPreview: message.attachments?.some(a => a.kind === 'POST_PREVIEW'),
+        attachments: message.attachments
+      });
       const existing = state.messagesByConversation[conversationId] ?? [];
       // Avoid duplicates
       if (existing.some((m) => m.id === message.id)) return state;

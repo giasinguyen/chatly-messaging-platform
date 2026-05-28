@@ -1,23 +1,40 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
-import { View, TouchableOpacity, Text, Image, ActivityIndicator, Alert, Modal, FlatList, Pressable, Keyboard } from 'react-native';
+import {
+  View,
+  TouchableOpacity,
+  Text,
+  Image,
+  ActivityIndicator,
+  Alert,
+  Modal,
+  FlatList,
+  Pressable,
+  Keyboard,
+} from 'react-native';
 import { Image as ExpoImage } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import * as Location from 'expo-location';
 import { Colors } from '@/constants/theme';
-import { fileService } from '@/services/file.service';
+import { fileService, type FileUploadResponse } from '@/services/file.service';
 import { getDisplayUrl, type KlipyItem } from '@/services/klipy.service';
 import { MediaPicker } from '@/components/chat/MediaPicker';
 import { ReminderModal } from '@/components/chat/ReminderModal';
 import { PollModal } from '@/components/chat/PollModal';
 import { VoiceRecordingBar } from '@/components/chat/VoiceRecordingBar';
+import { CloudFilePickerModal } from '@/components/cloud/CloudFilePickerModal';
 import { useAuthStore } from '@/store/auth.store';
 import { useVoiceRecorder, MicPermissionDeniedError } from '@/hooks/useVoiceRecorder';
 import type { Message, Attachment, Poll, LocationPayload } from '@/types/message';
-import { TextRichComposer, type ComposerMode, type TextRichComposerRef } from '@/components/chat/TextRichComposer';
+import {
+  TextRichComposer,
+  type ComposerMode,
+  type TextRichComposerRef,
+} from '@/components/chat/TextRichComposer';
 import { CustomAiIcon } from '@/components/ui/CustomAiIcon';
 import { richTextToPlainText } from '@/utils/format';
+import { fileToAttachment, resolveCloudFileMessageType } from '@/utils/cloudFileAttachment';
 
 interface GroupMember {
   id: string;
@@ -31,7 +48,14 @@ const VIRTUAL_MENTION_AI: GroupMember = { id: '__ai__', displayName: 'AI', usern
 
 interface ChatInputProps {
   conversationId?: string;
-  onSend: (text: string, attachments?: Attachment[], messageType?: string, priority?: 'IMPORTANT' | 'URGENT', poll?: Poll, location?: LocationPayload) => void;
+  onSend: (
+    text: string,
+    attachments?: Attachment[],
+    messageType?: string,
+    priority?: 'IMPORTANT' | 'URGENT',
+    poll?: Poll,
+    location?: LocationPayload
+  ) => void;
   onTyping?: (isTyping: boolean) => void;
   replyingTo?: Message | null;
   onCancelReply?: () => void;
@@ -56,16 +80,34 @@ interface PendingFile {
 
 function getDocumentIcon(mimeType: string): { name: string; color: string } {
   if (mimeType.includes('pdf')) return { name: 'document-text-outline', color: '#ef4444' };
-  if (mimeType.includes('word') || mimeType.includes('msword') || mimeType.includes('wordprocessingml'))
+  if (
+    mimeType.includes('word') ||
+    mimeType.includes('msword') ||
+    mimeType.includes('wordprocessingml')
+  )
     return { name: 'document-outline', color: '#3b82f6' };
-  if (mimeType.includes('sheet') || mimeType.includes('excel') || mimeType.includes('spreadsheetml'))
+  if (
+    mimeType.includes('sheet') ||
+    mimeType.includes('excel') ||
+    mimeType.includes('spreadsheetml')
+  )
     return { name: 'grid-outline', color: '#22c55e' };
   if (mimeType.includes('csv')) return { name: 'grid-outline', color: '#22c55e' };
-  if (mimeType.includes('presentation') || mimeType.includes('powerpoint') || mimeType.includes('presentationml'))
+  if (
+    mimeType.includes('presentation') ||
+    mimeType.includes('powerpoint') ||
+    mimeType.includes('presentationml')
+  )
     return { name: 'easel-outline', color: '#f97316' };
   if (mimeType.startsWith('audio/')) return { name: 'musical-notes-outline', color: '#a855f7' };
   if (mimeType.startsWith('video/')) return { name: 'film-outline', color: '#ec4899' };
-  if (mimeType.includes('zip') || mimeType.includes('rar') || mimeType.includes('7z') || mimeType.includes('tar') || mimeType.includes('gzip'))
+  if (
+    mimeType.includes('zip') ||
+    mimeType.includes('rar') ||
+    mimeType.includes('7z') ||
+    mimeType.includes('tar') ||
+    mimeType.includes('gzip')
+  )
     return { name: 'archive-outline', color: '#78716c' };
   if (mimeType.startsWith('text/') || mimeType.includes('json') || mimeType.includes('xml'))
     return { name: 'code-slash-outline', color: '#64748b' };
@@ -96,6 +138,7 @@ export function ChatInput({
   const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([]);
   const [activePicker, setActivePicker] = useState<'emoji' | 'gif' | 'sticker' | null>(null);
   const [showOptionsSheet, setShowOptionsSheet] = useState(false);
+  const [showCloudPicker, setShowCloudPicker] = useState(false);
   const [selectedPriority, setSelectedPriority] = useState<'IMPORTANT' | 'URGENT' | null>(null);
   const [showReminderModal, setShowReminderModal] = useState(false);
   const [showPollModal, setShowPollModal] = useState(false);
@@ -104,7 +147,8 @@ export function ChatInput({
   const [isAcquiringLocation, setIsAcquiringLocation] = useState(false);
   const [isAudioSending, setIsAudioSending] = useState(false);
 
-  const { isRecording, elapsedSeconds, startRecording, stopRecording, cancelRecording } = useVoiceRecorder();
+  const { isRecording, elapsedSeconds, startRecording, stopRecording, cancelRecording } =
+    useVoiceRecorder();
   const replyPreviewText = replyingTo ? richTextToPlainText(replyingTo.content) : '';
 
   // Mention detection
@@ -119,13 +163,15 @@ export function ChatInput({
     const q = mentionQuery.toLowerCase();
     const virtual: GroupMember[] = [
       ...('all'.includes(q) || 'All'.toLowerCase().includes(q) ? [VIRTUAL_MENTION_ALL] : []),
-      ...(showAiMention && ('ai'.includes(q) || 'AI'.toLowerCase().includes(q)) ? [VIRTUAL_MENTION_AI] : []),
+      ...(showAiMention && ('ai'.includes(q) || 'AI'.toLowerCase().includes(q))
+        ? [VIRTUAL_MENTION_AI]
+        : []),
     ];
-    const members = (groupMembers ?? []).filter(
-      (m) =>
-        m.displayName.toLowerCase().includes(q) ||
-        m.username.toLowerCase().includes(q),
-    ).slice(0, 6);
+    const members = (groupMembers ?? [])
+      .filter(
+        (m) => m.displayName.toLowerCase().includes(q) || m.username.toLowerCase().includes(q)
+      )
+      .slice(0, 6);
     return [...virtual, ...members];
   }, [mentionQuery, groupMembers, showAiMention]);
 
@@ -154,7 +200,7 @@ export function ChatInput({
     try {
       const result = await fileService.upload(uri, fileName, mimeType, conversationId, (pct) => {
         setPendingFiles((prev) =>
-          prev.map((p) => (p.localId === localId ? { ...p, progress: pct } : p)),
+          prev.map((p) => (p.localId === localId ? { ...p, progress: pct } : p))
         );
       });
 
@@ -167,15 +213,11 @@ export function ChatInput({
       };
 
       setPendingFiles((prev) =>
-        prev.map((p) =>
-          p.localId === localId ? { ...p, progress: 100, uploaded: attachment } : p,
-        ),
+        prev.map((p) => (p.localId === localId ? { ...p, progress: 100, uploaded: attachment } : p))
       );
     } catch {
       setPendingFiles((prev) =>
-        prev.map((p) =>
-          p.localId === localId ? { ...p, error: 'Upload failed' } : p,
-        ),
+        prev.map((p) => (p.localId === localId ? { ...p, error: 'Upload failed' } : p))
       );
     }
   };
@@ -207,7 +249,14 @@ export function ChatInput({
   const handlePickDocument = async () => {
     try {
       const result = await DocumentPicker.getDocumentAsync({
-        type: ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.*', 'text/plain', 'application/zip', 'audio/*'],
+        type: [
+          'application/pdf',
+          'application/msword',
+          'application/vnd.openxmlformats-officedocument.*',
+          'text/plain',
+          'application/zip',
+          'audio/*',
+        ],
         multiple: true,
       });
       if (!result.canceled && result.assets) {
@@ -240,7 +289,12 @@ export function ChatInput({
       .map((p) => p.uploaded!);
 
     const outgoingContent = composerMode === 'editor' ? richHtml.trim() : text.trim();
-    onSend(outgoingContent, attachments.length ? attachments : undefined, undefined, selectedPriority ?? undefined);
+    onSend(
+      outgoingContent,
+      attachments.length ? attachments : undefined,
+      undefined,
+      selectedPriority ?? undefined
+    );
     setText('');
     setRichHtml('');
     setPendingFiles([]);
@@ -286,8 +340,27 @@ export function ChatInput({
       setShowReminderModal(true);
     } else if (optionId === 'poll') {
       setShowPollModal(true);
+    } else if (optionId === 'cloud-upload') {
+      setShowCloudPicker(true);
     }
   };
+
+  const handleSendCloudFiles = useCallback(
+    (files: FileUploadResponse[]) => {
+      if (files.length === 0) {
+        return;
+      }
+
+      onSend(
+        '',
+        files.map(fileToAttachment),
+        resolveCloudFileMessageType(files),
+        selectedPriority ?? undefined
+      );
+      setSelectedPriority(null);
+    },
+    [onSend, selectedPriority]
+  );
 
   const handleSendPoll = (poll: Poll) => {
     onSend('', undefined, 'POLL', undefined, poll);
@@ -298,13 +371,18 @@ export function ChatInput({
       setShowOptionsSheet(false);
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert('Permission Denied', 'Please grant location permission to share your location.');
+        Alert.alert(
+          'Permission Denied',
+          'Please grant location permission to share your location.'
+        );
         return;
       }
-      
+
       setIsAcquiringLocation(true);
-      const position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-      
+      const position = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+
       // Get human readable address if possible
       let address = `${position.coords.latitude.toFixed(5)}, ${position.coords.longitude.toFixed(5)}`;
       try {
@@ -314,7 +392,9 @@ export function ChatInput({
         });
         if (reverse && reverse.length > 0) {
           const first = reverse[0];
-          address = [first.streetNumber, first.street, first.district, first.city, first.region].filter(Boolean).join(', ');
+          address = [first.streetNumber, first.street, first.district, first.city, first.region]
+            .filter(Boolean)
+            .join(', ');
         }
       } catch {}
 
@@ -345,7 +425,10 @@ export function ChatInput({
       await startRecording();
     } catch (err) {
       if (err instanceof MicPermissionDeniedError) {
-        Alert.alert('Permission Denied', 'Please grant microphone permission to send voice messages.');
+        Alert.alert(
+          'Permission Denied',
+          'Please grant microphone permission to send voice messages.'
+        );
       } else {
         Alert.alert('Error', 'Failed to start recording. Please try again.');
       }
@@ -407,6 +490,12 @@ export function ChatInput({
 
   return (
     <View style={{ backgroundColor: Colors.bgCard }}>
+      <CloudFilePickerModal
+        visible={showCloudPicker}
+        onClose={() => setShowCloudPicker(false)}
+        onSend={handleSendCloudFiles}
+      />
+
       {/* Mention suggestions */}
       {mentionSuggestions.length > 0 && (
         <View
@@ -540,8 +629,8 @@ export function ChatInput({
                       : replyingTo.type === 'STICKER'
                         ? '🎨 Sticker'
                         : replyingTo.type === 'LOCATION'
-                        ? '📍 Location'
-                        : replyPreviewText}
+                          ? '📍 Location'
+                          : replyPreviewText}
             </Text>
           </View>
           <TouchableOpacity onPress={onCancelReply} className="ml-2 p-1">
@@ -576,7 +665,13 @@ export function ChatInput({
                 <View className="flex-1 items-center justify-center">
                   {(() => {
                     const icon = getDocumentIcon(p.mimeType);
-                    return <Ionicons name={icon.name as 'document-outline'} size={24} color={icon.color} />;
+                    return (
+                      <Ionicons
+                        name={icon.name as 'document-outline'}
+                        size={24}
+                        color={icon.color}
+                      />
+                    );
                   })()}
                   <Text style={{ fontSize: 8, color: Colors.textMuted }} numberOfLines={1}>
                     {p.name}
@@ -631,101 +726,101 @@ export function ChatInput({
 
       {/* Input row */}
       {!isRecording && (
-      <View
-        className="flex-row items-end border-t px-3 py-2"
-        style={{
-          borderTopColor: Colors.borderLight,
-          backgroundColor: Colors.bg,
-        }}>
-        {/* Image picker button */}
-        <TouchableOpacity
-          onPress={handlePickImage}
-          className="items-center justify-center pb-1"
-          style={{ width: 36, height: 36 }}>
-          <Ionicons name="image-outline" size={24} color={Colors.cta} />
-        </TouchableOpacity>
-
-        {/* Document picker button */}
-        <TouchableOpacity
-          onPress={handlePickDocument}
-          className="items-center justify-center pb-1"
-          style={{ width: 36, height: 36 }}>
-          <Ionicons name="attach-outline" size={24} color={Colors.cta} />
-        </TouchableOpacity>
-
-        {/* 3-dot options button */}
-        <TouchableOpacity
-          onPress={() => setShowOptionsSheet(true)}
-          className="items-center justify-center pb-1"
-          style={{ width: 36, height: 36 }}>
-          <Ionicons
-            name="ellipsis-horizontal"
-            size={22}
-            color={
-              selectedPriority
-                ? selectedPriority === 'URGENT'
-                  ? '#ef4444'
-                  : '#d97706'
-                : Colors.cta
-            }
-          />
-        </TouchableOpacity>
-
-        {/* Text / Editor composer */}
         <View
-          className="mx-2 flex-1 rounded-2xl px-4 py-2"
+          className="flex-row items-center border-t px-3 py-2"
           style={{
-            backgroundColor: 'transparent',
-            minHeight: 38,
-            maxHeight: composerMode === 'plain' ? 120 : 220,
+            borderTopColor: Colors.borderLight,
+            backgroundColor: Colors.bg,
           }}>
-          <TextRichComposer
-            ref={composerRef}
-            mode={composerMode}
-            onModeChange={setComposerMode}
-            plainText={text}
-            onPlainTextChange={handleChangeText}
-            richHtml={richHtml}
-            onRichHtmlChange={setRichHtml}
-            placeholder="Type..."
-            minHeight={44}
-            showToolbar={composerMode === 'editor'}
-            showModeToggle={false}
-            editorKey={`chat-input-composer-${editorInstanceKey}`}
-            plainRightAccessory={
-              <TouchableOpacity
-                onPress={() => setActivePicker((current) => (current ? null : 'emoji'))}
-                className="items-center justify-center rounded-full"
-                style={{ width: 32, height: 32 }}>
-                <Ionicons
-                  name="happy-outline"
-                  size={22}
-                  color={activePicker ? Colors.cta : Colors.textMuted}
-                />
-              </TouchableOpacity>
-            }
-          />
-        </View>
+          {/* Image picker button */}
+          <TouchableOpacity
+            onPress={handlePickImage}
+            className="items-center justify-center"
+            style={{ width: 36, height: 36 }}>
+            <Ionicons name="image-outline" size={24} color={Colors.cta} />
+          </TouchableOpacity>
 
-        {/* Mic button — shown when text and files are empty */}
-        {composerMode === 'plain' && text === '' && pendingFiles.length === 0 ? (
+          {/* Document picker button */}
           <TouchableOpacity
-            onPress={handleStartRecording}
-            className="items-center justify-center pb-1"
+            onPress={handlePickDocument}
+            className="items-center justify-center"
             style={{ width: 36, height: 36 }}>
-            <Ionicons name="mic-outline" size={24} color={Colors.cta} />
+            <Ionicons name="attach-outline" size={24} color={Colors.cta} />
           </TouchableOpacity>
-        ) : (
-          /* Send button */
+
+          {/* 3-dot options button */}
           <TouchableOpacity
-            onPress={handleSend}
-            disabled={!canSend}
-            className="items-center justify-center pb-1"
+            onPress={() => setShowOptionsSheet(true)}
+            className="items-center justify-center"
             style={{ width: 36, height: 36 }}>
-            <Ionicons name="send" size={24} color={canSend ? Colors.cta : Colors.textLight} />
+            <Ionicons
+              name="ellipsis-horizontal"
+              size={22}
+              color={
+                selectedPriority
+                  ? selectedPriority === 'URGENT'
+                    ? '#ef4444'
+                    : '#d97706'
+                  : Colors.cta
+              }
+            />
           </TouchableOpacity>
-        )}
-      </View>
+
+          {/* Text / Editor composer */}
+          <View
+            className="mx-2 flex-1 rounded-2xl px-4 py-2"
+            style={{
+              backgroundColor: 'transparent',
+              minHeight: 38,
+              maxHeight: composerMode === 'plain' ? 120 : 220,
+            }}>
+            <TextRichComposer
+              ref={composerRef}
+              mode={composerMode}
+              onModeChange={setComposerMode}
+              plainText={text}
+              onPlainTextChange={handleChangeText}
+              richHtml={richHtml}
+              onRichHtmlChange={setRichHtml}
+              placeholder="Type..."
+              minHeight={44}
+              showToolbar={composerMode === 'editor'}
+              showModeToggle={false}
+              editorKey={`chat-input-composer-${editorInstanceKey}`}
+              plainRightAccessory={
+                <TouchableOpacity
+                  onPress={() => setActivePicker((current) => (current ? null : 'emoji'))}
+                  className="items-center justify-center rounded-full"
+                  style={{ width: 32, height: 32 }}>
+                  <Ionicons
+                    name="happy-outline"
+                    size={22}
+                    color={activePicker ? Colors.cta : Colors.textMuted}
+                  />
+                </TouchableOpacity>
+              }
+            />
+          </View>
+
+          {/* Mic button — shown when text and files are empty */}
+          {composerMode === 'plain' && text === '' && pendingFiles.length === 0 ? (
+            <TouchableOpacity
+              onPress={handleStartRecording}
+              className="items-center justify-center"
+              style={{ width: 36, height: 36 }}>
+              <Ionicons name="mic-outline" size={24} color={Colors.cta} />
+            </TouchableOpacity>
+          ) : (
+            /* Send button */
+            <TouchableOpacity
+              onPress={handleSend}
+              disabled={!canSend}
+              className="items-center justify-center"
+              style={{ width: 36, height: 36 }}>
+              <Ionicons name="send" size={24} color={canSend ? Colors.cta : Colors.textLight} />
+            </TouchableOpacity>
+          )}
+        </View>
       )}
 
       {/* Reminder Modal */}
@@ -750,11 +845,35 @@ export function ChatInput({
         transparent
         animationType="fade"
         onRequestClose={() => setShowLocationPreview(false)}>
-        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 }}>
-          <View style={{ backgroundColor: Colors.bgCard, borderRadius: 24, width: '100%', overflow: 'hidden', maxWidth: 400 }}>
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: 'rgba(0,0,0,0.5)',
+            justifyContent: 'center',
+            alignItems: 'center',
+            padding: 20,
+          }}>
+          <View
+            style={{
+              backgroundColor: Colors.bgCard,
+              borderRadius: 24,
+              width: '100%',
+              overflow: 'hidden',
+              maxWidth: 400,
+            }}>
             {/* Header */}
-            <View style={{ padding: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 0.5, borderBottomColor: Colors.borderLight }}>
-              <Text style={{ fontSize: 18, fontWeight: '700', color: Colors.text }}>Share Location</Text>
+            <View
+              style={{
+                padding: 20,
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                borderBottomWidth: 0.5,
+                borderBottomColor: Colors.borderLight,
+              }}>
+              <Text style={{ fontSize: 18, fontWeight: '700', color: Colors.text }}>
+                Share Location
+              </Text>
               <TouchableOpacity onPress={() => setShowLocationPreview(false)}>
                 <Ionicons name="close" size={24} color={Colors.textMuted} />
               </TouchableOpacity>
@@ -764,12 +883,23 @@ export function ChatInput({
             {tempLocation && (
               <View style={{ height: 250, backgroundColor: '#f1f5f9', position: 'relative' }}>
                 <ExpoImage
-                  source={{ uri: `https://static-maps.yandex.ru/1.x/?ll=${tempLocation.longitude},${tempLocation.latitude}&size=600,400&z=15&l=map&pt=${tempLocation.longitude},${tempLocation.latitude},pm2rdl` }}
+                  source={{
+                    uri: `https://static-maps.yandex.ru/1.x/?ll=${tempLocation.longitude},${tempLocation.latitude}&size=600,400&z=15&l=map&pt=${tempLocation.longitude},${tempLocation.latitude},pm2rdl`,
+                  }}
                   style={{ width: '100%', height: '100%' }}
                   contentFit="cover"
                 />
-                <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' }}>
-                   <Ionicons name="location" size={40} color="#ef4444" style={{ marginTop: -20 }} />
+                <View
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}>
+                  <Ionicons name="location" size={40} color="#ef4444" style={{ marginTop: -20 }} />
                 </View>
               </View>
             )}
@@ -778,7 +908,14 @@ export function ChatInput({
             <View style={{ padding: 20 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
                 <Ionicons name="navigate-circle" size={20} color={Colors.cta} />
-                <Text style={{ marginLeft: 8, fontSize: 15, fontWeight: '600', color: Colors.text, flex: 1 }}>
+                <Text
+                  style={{
+                    marginLeft: 8,
+                    fontSize: 15,
+                    fontWeight: '600',
+                    color: Colors.text,
+                    flex: 1,
+                  }}>
                   Your Current Location
                 </Text>
               </View>
@@ -794,14 +931,30 @@ export function ChatInput({
             <View style={{ padding: 20, paddingTop: 0, flexDirection: 'row', gap: 12 }}>
               <TouchableOpacity
                 onPress={() => setShowLocationPreview(false)}
-                style={{ flex: 1, paddingVertical: 14, borderRadius: 14, backgroundColor: Colors.bg, alignItems: 'center' }}>
+                style={{
+                  flex: 1,
+                  paddingVertical: 14,
+                  borderRadius: 14,
+                  backgroundColor: Colors.bg,
+                  alignItems: 'center',
+                }}>
                 <Text style={{ fontSize: 15, fontWeight: '600', color: Colors.text }}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={confirmShareLocation}
-                style={{ flex: 1, paddingVertical: 14, borderRadius: 14, backgroundColor: Colors.cta, alignItems: 'center', flexDirection: 'row', justifyContent: 'center' }}>
+                style={{
+                  flex: 1,
+                  paddingVertical: 14,
+                  borderRadius: 14,
+                  backgroundColor: Colors.cta,
+                  alignItems: 'center',
+                  flexDirection: 'row',
+                  justifyContent: 'center',
+                }}>
                 <Ionicons name="send" size={16} color="white" style={{ marginRight: 8 }} />
-                <Text style={{ fontSize: 15, fontWeight: '600', color: 'white' }}>Send Location</Text>
+                <Text style={{ fontSize: 15, fontWeight: '600', color: 'white' }}>
+                  Send Location
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -810,9 +963,19 @@ export function ChatInput({
 
       {/* Loading overlay for location acquisition */}
       {isAcquiringLocation && (
-        <View style={{ position: 'absolute', inset: 0, backgroundColor: Colors.overlay, alignItems: 'center', justifyContent: 'center', zIndex: 999 }}>
-           <ActivityIndicator size="large" color={Colors.cta} />
-           <Text style={{ marginTop: 12, fontSize: 14, color: Colors.text, fontWeight: '500' }}>Acquiring location...</Text>
+        <View
+          style={{
+            position: 'absolute',
+            inset: 0,
+            backgroundColor: Colors.overlay,
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 999,
+          }}>
+          <ActivityIndicator size="large" color={Colors.cta} />
+          <Text style={{ marginTop: 12, fontSize: 14, color: Colors.text, fontWeight: '500' }}>
+            Acquiring location...
+          </Text>
         </View>
       )}
 
@@ -869,12 +1032,16 @@ export function ChatInput({
                 <Ionicons name="text-outline" size={20} color="#2563eb" />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: 15, fontWeight: '500', color: Colors.text }}>Text mode</Text>
+                <Text style={{ fontSize: 15, fontWeight: '500', color: Colors.text }}>
+                  Text mode
+                </Text>
                 <Text style={{ fontSize: 12, color: Colors.textMuted, marginTop: 1 }}>
                   Simple plain text input
                 </Text>
               </View>
-              {composerMode === 'plain' && <Ionicons name="checkmark-circle" size={20} color="#2563eb" />}
+              {composerMode === 'plain' && (
+                <Ionicons name="checkmark-circle" size={20} color="#2563eb" />
+              )}
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -899,12 +1066,16 @@ export function ChatInput({
                 <Ionicons name="create-outline" size={20} color="#7c3aed" />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: 15, fontWeight: '500', color: Colors.text }}>Editor mode</Text>
+                <Text style={{ fontSize: 15, fontWeight: '500', color: Colors.text }}>
+                  Editor mode
+                </Text>
                 <Text style={{ fontSize: 12, color: Colors.textMuted, marginTop: 1 }}>
                   Rich text with formatting
                 </Text>
               </View>
-              {composerMode === 'editor' && <Ionicons name="checkmark-circle" size={20} color="#7c3aed" />}
+              {composerMode === 'editor' && (
+                <Ionicons name="checkmark-circle" size={20} color="#7c3aed" />
+              )}
             </TouchableOpacity>
 
             <View
@@ -1003,6 +1174,36 @@ export function ChatInput({
             />
 
             <TouchableOpacity
+              onPress={() => handleOptionSelect('cloud-upload')}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                paddingHorizontal: 20,
+                paddingVertical: 14,
+              }}>
+              <View
+                style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: 18,
+                  backgroundColor: '#eef2ff',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginRight: 14,
+                }}>
+                <Ionicons name="cloud-upload-outline" size={20} color={Colors.cta} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 15, fontWeight: '500', color: Colors.text }}>
+                  Upload from cloud
+                </Text>
+                <Text style={{ fontSize: 12, color: Colors.textMuted, marginTop: 1 }}>
+                  Send files uploaded in Cloud.
+                </Text>
+              </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity
               onPress={() => handleOptionSelect('reminder')}
               style={{
                 flexDirection: 'row',
@@ -1084,7 +1285,9 @@ export function ChatInput({
                 <Ionicons name="location-outline" size={20} color="#ef4444" />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: 15, fontWeight: '500', color: Colors.text }}>Location</Text>
+                <Text style={{ fontSize: 15, fontWeight: '500', color: Colors.text }}>
+                  Location
+                </Text>
                 <Text style={{ fontSize: 12, color: Colors.textMuted, marginTop: 1 }}>
                   Share your current location.
                 </Text>

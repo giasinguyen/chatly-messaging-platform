@@ -189,6 +189,11 @@ export function PostCardBody({
               {showMenu ? (
                 <PostCardMenu
                   isOwnPost={isOwnPost}
+                  isSaved={isSaved}
+                  onSave={() => {
+                    handleSave();
+                    setShowMenu(false);
+                  }}
                   onEdit={() => {
                     onEditPost?.(post.id);
                     setShowMenu(false);

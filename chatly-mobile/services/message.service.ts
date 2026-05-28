@@ -25,7 +25,20 @@ export const messageService = {
     poll?: import('@/types/message').Poll;
     location?: import('@/types/message').LocationPayload;
   }): Promise<ApiResponse<Message>> => {
+    console.log('[messageService.send] Request payload:', { 
+      conversationId: payload.conversationId,
+      content: payload.content,
+      type: payload.type,
+      attachmentCount: payload.attachments?.length ?? 0,
+      attachments: payload.attachments
+    });
     const response = await axiosClient.post<ApiResponse<Message>>('/api/messages', payload);
+    console.log('[messageService.send] Response message:', {
+      id: response.data.result?.id,
+      type: response.data.result?.type,
+      attachmentCount: response.data.result?.attachments?.length ?? 0,
+      attachments: response.data.result?.attachments
+    });
     return response.data;
   },
 

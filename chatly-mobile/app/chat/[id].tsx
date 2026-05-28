@@ -188,11 +188,32 @@ export default function ChatScreen() {
     }
   }, [scrollToLatestMessage]);
 
+  const latestMessageId = messages[0]?.id;
+
+  useEffect(() => {
+    if (!latestMessageId || !shouldScrollToLatestRef.current) {
+      return;
+    }
+
+    const timeoutId = setTimeout(() => {
+      scrollToLatestMessage(true);
+    }, 50);
+
+    return () => clearTimeout(timeoutId);
+  }, [latestMessageId, scrollToLatestMessage]);
+
   const handleChatEvent = useCallback(
     (event: ChatEvent) => {
       if (!conversationId) return;
       switch (event.action) {
         case 'SEND':
+          console.log('[ChatScreen handleChatEvent SEND] WebSocket message:', {
+            messageId: event.message.id,
+            type: event.message.type,
+            attachmentCount: event.message.attachments?.length ?? 0,
+            hasPostPreview: event.message.attachments?.some(a => a.kind === 'POST_PREVIEW'),
+            attachments: event.message.attachments
+          });
           shouldScrollToLatestRef.current = true;
           addMessage(conversationId, event.message);
 
