@@ -49,7 +49,7 @@ export function VCardMessageRenderer({
                 </span>
             </div>
             <div className="flex items-center gap-3 px-3 py-3">
-                <div className="w-12 h-12 rounded-full bg-brand/15 flex items-center justify-center text-base font-bold text-brand shrink-0 overflow-hidden ring-2 ring-brand/20">
+                <div className="w-12 h-12 rounded-full bg-[#1a146b]/10 flex items-center justify-center text-base font-bold text-[#1a146b] shrink-0 overflow-hidden ring-2 ring-[#1a146b]/20">
                     {card.avatarUrl ? (
                         <img
                             src={card.avatarUrl}
@@ -85,7 +85,7 @@ export function VCardMessageRenderer({
                         <button
                             type="button"
                             onClick={() => onAddFriend?.(cardId)}
-                            className="flex-1 py-2 text-xs font-semibold text-brand hover:bg-brand/5 transition-colors"
+                            className="flex-1 py-2 text-xs font-semibold text-[#1a146b] dark:text-indigo-400 hover:bg-[#1a146b]/5 dark:hover:bg-indigo-400/10 transition-colors"
                         >
                             Add friend
                         </button>
@@ -94,7 +94,7 @@ export function VCardMessageRenderer({
                         <button
                             type="button"
                             onClick={() => onOpenSenderProfile(cardId)}
-                            className="flex-1 py-2 text-xs font-semibold text-brand hover:bg-brand/5 transition-colors border-l border-border/40"
+                            className="flex-1 py-2 text-xs font-semibold text-[#1a146b] dark:text-indigo-400 hover:bg-[#1a146b]/5 dark:hover:bg-indigo-400/10 transition-colors border-l border-border/40"
                         >
                             View profile
                         </button>

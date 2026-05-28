@@ -1,4 +1,5 @@
-@import url("https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap");
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
@@ -51,6 +52,28 @@
     --color-brand-light: var(--brand-light);
     --color-brand-dark: var(--brand-dark);
     --color-brand-deep: var(--brand-deep);
+
+    /* Stitch Indigo Velvet Design Tokens */
+    --color-iv-primary: #1a146b;
+    --color-iv-primary-container: #312e81;
+    --color-iv-on-primary: #ffffff;
+    --color-iv-on-primary-container: #9c9af4;
+    --color-iv-secondary: #a43073;
+    --color-iv-secondary-container: #fc79bd;
+    --color-iv-on-secondary: #ffffff;
+    --color-iv-surface: #f8f9fa;
+    --color-iv-surface-container: #edeeef;
+    --color-iv-surface-container-low: #f3f4f5;
+    --color-iv-surface-container-high: #e7e8e9;
+    --color-iv-surface-container-lowest: #ffffff;
+    --color-iv-surface-variant: #e1e3e4;
+    --color-iv-on-surface: #191c1d;
+    --color-iv-on-surface-variant: #474651;
+    --color-iv-outline: #777682;
+    --color-iv-outline-variant: #c8c5d3;
+    --color-iv-tertiary-container: #202b96;
+    --color-iv-primary-fixed: #e2dfff;
+    --color-iv-error: #ba1a1a;
 }
 
 :root {
@@ -87,18 +110,24 @@
     --sidebar-border: oklch(0.922 0 0);
     --sidebar-ring: oklch(0.708 0 0);
 
-    /* Chatly Brand */
-    --brand: #0071e3;
-    --brand-hover: #0077ed;
-    --brand-light: #34aadc;
-    --brand-dark: #0d3b7a;
-    --brand-deep: #0a1628;
+    /* Chatly Brand — Indigo Velvet */
+    --brand: #1a146b;
+    --brand-hover: #312e81;
+    --brand-light: #c3c0ff;
+    --brand-dark: #100563;
+    --brand-deep: #0a0545;
     --gradient-brand: linear-gradient(
         135deg,
-        #dbeafe 0%,
-        #93c5fd 30%,
-        #3b82f6 70%,
-        #0071e3 100%
+        #e2dfff 0%,
+        #c3c0ff 30%,
+        #5654a8 70%,
+        #1a146b 100%
+    );
+    --gradient-story: linear-gradient(
+        135deg,
+        #1a146b 0%,
+        #202b96 50%,
+        #fc79bd 100%
     );
 }
 
@@ -135,18 +164,24 @@
     --sidebar-border: oklch(1 0 0 / 10%);
     --sidebar-ring: oklch(0.556 0 0);
 
-    /* Chatly Brand (same in dark — inherently dark gradient) */
-    --brand: #0071e3;
-    --brand-hover: #0077ed;
-    --brand-light: #34aadc;
-    --brand-dark: #0d3b7a;
-    --brand-deep: #0a1628;
+    /* Chatly Brand — Indigo Velvet (dark) */
+    --brand: #312e81;
+    --brand-hover: #3e3c8f;
+    --brand-light: #c3c0ff;
+    --brand-dark: #1a146b;
+    --brand-deep: #0a0545;
     --gradient-brand: linear-gradient(
         135deg,
-        #0a1628 0%,
-        #0d3b7a 40%,
-        #0071e3 70%,
-        #34aadc 100%
+        #0a0545 0%,
+        #1a146b 40%,
+        #5654a8 70%,
+        #c3c0ff 100%
+    );
+    --gradient-story: linear-gradient(
+        135deg,
+        #1a146b 0%,
+        #202b96 50%,
+        #fc79bd 100%
     );
 }
 
@@ -156,6 +191,9 @@
     }
     body {
         @apply bg-background text-foreground;
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
     }
 }
 
@@ -245,5 +283,105 @@
     }
     .chat-rich-text s {
         text-decoration: line-through;
+    }
+
+    /* ── Stitch Indigo Velvet Components ── */
+
+    /* Material Symbols icon defaults */
+    .material-symbols-outlined {
+        font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+    }
+    .icon-fill {
+        font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+    }
+
+    /* Story ring — gradient border using the Stitch palette */
+    .story-ring-active {
+        background: var(--gradient-story);
+        padding: 2.5px;
+        border-radius: 9999px;
+    }
+    .story-ring-viewed {
+        padding: 2px;
+        border-radius: 9999px;
+        border: 2px solid var(--color-iv-surface-variant, #e1e3e4);
+    }
+
+    /* Premium Post Card (Stitch) */
+    .iv-post-card {
+        background: var(--color-iv-surface-container-lowest, #ffffff);
+        border-radius: 24px;
+        padding: 24px;
+        border: 1px solid rgba(225, 227, 228, 0.5);
+        box-shadow: 0 4px 24px rgba(49, 46, 129, 0.04);
+    }
+
+    /* Indigo chip / tag pill */
+    .iv-chip {
+        background: rgba(49, 46, 129, 0.05);
+        color: var(--color-iv-primary, #1a146b);
+        border-radius: 9999px;
+        padding: 4px 12px;
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+    }
+
+    /* Masonry grid for Explore page */
+    .masonry-grid {
+        column-count: 1;
+        column-gap: 24px;
+    }
+    @media (min-width: 640px) { .masonry-grid { column-count: 2; } }
+    @media (min-width: 1024px) { .masonry-grid { column-count: 3; } }
+    @media (min-width: 1280px) { .masonry-grid { column-count: 4; } }
+    .masonry-item {
+        break-inside: avoid;
+        margin-bottom: 24px;
+    }
+
+    /* Ambient shadow – tinted with indigo */
+    .iv-shadow {
+        box-shadow: 0 4px 24px rgba(49, 46, 129, 0.08);
+    }
+    .iv-shadow-sm {
+        box-shadow: 0 2px 12px rgba(49, 46, 129, 0.04);
+    }
+
+    /* Glassmorphic backdrop */
+    .iv-glass {
+        background: rgba(255, 255, 255, 0.8);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+    }
+
+    /* Message bubbles */
+    .iv-bubble-outgoing {
+        background: var(--color-iv-primary, #1a146b);
+        color: var(--color-iv-on-primary, #ffffff);
+        border-radius: 1rem 1rem 0.25rem 1rem;
+    }
+    .iv-bubble-incoming {
+        background: #ffffff;
+        color: var(--color-iv-on-surface, #191c1d);
+        border: 1px solid rgba(200, 197, 211, 0.2);
+        border-radius: 1rem 1rem 1rem 0.25rem;
+    }
+
+    /* Category chip active state */
+    .iv-category-chip-active {
+        background: var(--color-iv-primary-container, #312e81);
+        color: var(--color-iv-on-primary-container, #9c9af4);
+    }
+
+    /* Nav sidebar (Stitch) */
+    .iv-nav-active-marker {
+        position: absolute;
+        left: -16px;
+        width: 4px;
+        height: 24px;
+        border-radius: 9999px;
+        background: var(--color-iv-secondary-container, #fc79bd);
     }
 }

@@ -11,7 +11,11 @@ import { useContactStore } from "@/store/contact.store";
 import type { Notification, NotificationEvent } from "@/types/notification";
 import { resolveNotificationRoute } from "@/utils/notificationRedirect";
 
-export function NotificationBell() {
+interface NotificationBellProps {
+    collapsed?: boolean;
+}
+
+export function NotificationBell({ collapsed = false }: NotificationBellProps) {
     const { user } = useAuthStore();
     const {
         notifications,
@@ -151,22 +155,37 @@ export function NotificationBell() {
         return `${days}d ago`;
     };
 
+
+
     return (
-        <div className="relative w-full flex justify-center" ref={dropdownRef}>
+        <div className="relative w-full" ref={dropdownRef}>
             {/* Bell button */}
             <button
                 onClick={() => setOpen((v) => !v)}
                 title="Notifications"
                 className={cn(
-                    "w-full flex justify-center py-3 relative transition-colors hover:bg-black/10 text-white/70",
-                    open && "bg-black/20",
+                    "relative flex items-center rounded-xl transition-all duration-200 text-sm font-medium w-full text-left cursor-pointer",
+                    collapsed ? "justify-center p-2.5" : "gap-3 p-2.5",
+                    open
+                        ? "text-[#1a146b] dark:text-white font-bold bg-[#e2dfff]/30 dark:bg-[#312e81]/20"
+                        : "text-slate-500 dark:text-slate-400 hover:text-[#1a146b] dark:hover:text-white hover:bg-indigo-50/50 dark:hover:bg-indigo-900/20"
                 )}
             >
-                <Bell className="h-6 w-6 transition-colors" />
+                {open && <div className="iv-nav-active-marker" />}
+                <div className="relative flex items-center justify-center">
+                    <Bell className="h-5 w-5 transition-colors" />
+                </div>
+                {!collapsed && <span className="font-inter text-sm flex-grow">Notifications</span>}
                 {unreadOtherCount > 0 && (
-                    <span className="absolute top-2 right-2 min-w-4.5 h-4.5 flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-bold px-1 leading-none">
-                        {unreadOtherCount > 99 ? "99+" : unreadOtherCount}
-                    </span>
+                    collapsed ? (
+                        <span className="absolute -top-1 -right-1 min-w-[14px] h-[14px] flex items-center justify-center rounded-full bg-[#a43073] text-white text-[8px] font-bold px-0.5 leading-none">
+                            {unreadOtherCount > 9 ? "9+" : unreadOtherCount}
+                        </span>
+                    ) : (
+                        <span className="ml-auto min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-[#a43073] text-white text-[10px] font-bold px-1 leading-none">
+                            {unreadOtherCount > 99 ? "99+" : unreadOtherCount}
+                        </span>
+                    )
                 )}
             </button>
 

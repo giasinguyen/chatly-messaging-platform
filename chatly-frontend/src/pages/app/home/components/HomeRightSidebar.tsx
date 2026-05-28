@@ -122,7 +122,7 @@ export function HomeRightSidebar({
 
     return (
         <aside className="sticky top-0 hidden h-screen w-100 shrink-0 overflow-y-auto pt-8 pr-8 pl-6 xl:block hide-scrollbar">
-            <div className="mb-8 flex items-center justify-between rounded-xl border border-border bg-card p-3 shadow-sm">
+            <div className="mb-8 flex items-center justify-between rounded-2xl border border-border bg-card p-4 iv-shadow-sm">
                 <div
                     className="flex cursor-pointer items-center gap-3"
                     onClick={onOpenProfile}
@@ -131,7 +131,7 @@ export function HomeRightSidebar({
                         className={cn(
                             "rounded-full p-0.5",
                             hasMyStories
-                                ? "bg-linear-to-tr from-brand via-blue-500 to-cyan-400"
+                                ? "story-ring-active"
                                 : "bg-transparent",
                         )}
                     >
@@ -160,7 +160,7 @@ export function HomeRightSidebar({
                         </p>
                     </div>
                 </div>
-                <button className="border-none bg-transparent text-[12px] font-semibold text-brand transition-colors hover:text-brand-dark">
+                <button className="border-none bg-transparent text-[12px] font-semibold text-[#1a146b] dark:text-indigo-400 transition-colors hover:text-[#312e81] dark:hover:text-indigo-300">
                     Switch
                 </button>
             </div>
@@ -173,7 +173,7 @@ export function HomeRightSidebar({
                         </h3>
                     </div>
 
-                    <div className="space-y-2 rounded-2xl border border-border bg-card/70 p-3">
+                    <div className="space-y-2 rounded-2xl border border-border bg-card/70 p-3 iv-shadow-sm">
                         {suggestions.map((suggestion) => {
                             const hasRequested = Boolean(
                                 requestIdsBySuggestionId[suggestion.id],

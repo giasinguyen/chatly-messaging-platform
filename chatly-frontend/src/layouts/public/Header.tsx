@@ -19,11 +19,9 @@ export const Header = () => {
                 <div className="container px-4 mx-auto">
                     <div className="flex items-center justify-between">
                         <img
-                            src={Logo}
+                            src="/chatly-logo-nobg.png"
                             alt="Chatly logo"
-                            height={40}
-                            width={40}
-                            className="cursor-pointer hover:opacity-80 transition-opacity"
+                            className="h-14 w-14 cursor-pointer hover:scale-105 hover:opacity-90 transition-all duration-200 object-contain"
                             onClick={() => navigate("/")}
                         />
                         <div className="flex items-center gap-6">

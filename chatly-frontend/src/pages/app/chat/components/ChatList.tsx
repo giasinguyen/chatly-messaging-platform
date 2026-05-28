@@ -615,7 +615,7 @@ export const ChatList = forwardRef(function ChatListComponent(_, ref) {
                                 cn(
                                     "flex items-center gap-3 px-4 py-3 cursor-pointer select-none transition-colors rounded-lg mx-2",
                                     isActive
-                                        ? "bg-brand/20 border border-brand/30"
+                                        ? "bg-[#1a146b]/10 border border-[#1a146b]/20 dark:bg-[#312e81]/15 dark:border-[#312e81]/30"
                                         : "hover:bg-muted/40",
                                 )
                             }
@@ -636,7 +636,7 @@ export const ChatList = forwardRef(function ChatListComponent(_, ref) {
                                     </AvatarFallback>
                                 </Avatar>
                                 {isGroup && (
-                                    <span className="absolute -bottom-0.5 -right-0.5 h-4.5 w-4.5 rounded-full bg-brand flex items-center justify-center ring-2 ring-background">
+                                    <span className="absolute -bottom-0.5 -right-0.5 h-4.5 w-4.5 rounded-full bg-[#1a146b] flex items-center justify-center ring-2 ring-background">
                                         <Users
                                             size={10}
                                             className="text-white"
@@ -679,7 +679,7 @@ export const ChatList = forwardRef(function ChatListComponent(_, ref) {
                                                 </div>
                                             </TooltipProvider>
                                         )}
-                                        {isPinned && <Pin size={14} className="text-brand shrink-0" />}
+                                        {isPinned && <Pin size={14} className="text-[#1a146b] shrink-0" />}
                                         {isMuted && <BellOff size={14} className="text-muted-foreground shrink-0" />}
                                         {blockDirection === "I_BLOCKED" && (
                                             <TooltipProvider>
@@ -769,7 +769,7 @@ export const ChatList = forwardRef(function ChatListComponent(_, ref) {
                             placeholder="Search"
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className="h-8 pl-8 bg-muted/30 border-border/40 focus-visible:ring-1 focus-visible:ring-brand focus-visible:border-brand rounded-full text-sm"
+                            className="h-8 pl-8 bg-muted/30 border-border/40 focus-visible:ring-1 focus-visible:ring-[#1a146b] focus-visible:border-[#1a146b] rounded-full text-sm"
                         />
                     </div>
                     <div className="flex items-center gap-1">
@@ -802,11 +802,11 @@ export const ChatList = forwardRef(function ChatListComponent(_, ref) {
                                 renderSkeleton()
                             ) : filteredConversations.length === 0 ? (
                                 <div className="flex flex-col items-center justify-center py-16 gap-4 text-muted-foreground">
-                                    <div className="h-20 w-20 rounded-full bg-primary/5 flex items-center justify-center mb-2">
+                                    <div className="h-20 w-20 rounded-full bg-[#1a146b]/5 flex items-center justify-center mb-2">
                                         <UsersRound
                                             size={40}
                                             strokeWidth={1.5}
-                                            className="text-primary/40"
+                                            className="text-[#1a146b]/40"
                                         />
                                     </div>
                                     <p className="text-[14px] font-medium text-foreground/70">

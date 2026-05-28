@@ -48,7 +48,7 @@ function AppLayoutInner() {
     return (
         <div className="flex h-screen w-full bg-background overflow-hidden font-sans">
             {/* Desktop Sidebar (hidden on mobile max-width: 767px) */}
-            <div className="hidden md:flex shrink-0 h-full">
+            <div className="hidden md:block shrink-0 h-full">
                 <Sidebar user={user} />
             </div>
 
@@ -75,7 +75,7 @@ function AppLayoutInner() {
                             }}
                             className="fixed top-0 bottom-0 left-0 z-50 md:hidden flex shadow-2xl"
                         >
-                            <Sidebar user={user} />
+                            <Sidebar user={user} forceExpanded={true} />
                         </motion.div>
                     </>
                 )}
