@@ -1,0 +1,38 @@
+@startuml Chatly_Sequence_Simple_Add_Group_Member
+title Add Group Member
+
+autonumber
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+
+actor "Group Owner or Admin" as Manager
+boundary "Web or Mobile Client" as Client
+control "GroupController" as GroupController
+control "GroupService" as GroupService
+control "ConversationRepository" as ConversationRepo
+control "GroupMemberRepository" as GroupMemberRepo
+control "NotificationService" as NotificationService
+control "GlobalExceptionHandler" as ExceptionHandler
+
+Manager -> Client: Add member to group
+Client -> GroupController: AddMemberRequest{userId}
+GroupController -> GroupService: addMember(conversationId, userId, managerId)
+
+GroupService -> ConversationRepo: find group
+ConversationRepo --> GroupService: group?
+
+alt Not found or permission denied
+  GroupService -> ExceptionHandler: AppException(FORBIDDEN)
+  ExceptionHandler --> Client: HTTP 403\nApiResponse{error}
+else Allowed
+  GroupService -> GroupMemberRepo: save member
+  GroupMemberRepo --> GroupService: member
+  GroupService -> NotificationService: notify new member
+  NotificationService --> GroupService: done
+  GroupService --> GroupController: GroupMemberResponse
+  GroupController --> Client: HTTP 200\nApiResponse{code:1000, result}
+end
+
+Client --> Manager: Show updated member list
+
+@enduml

@@ -1,0 +1,49 @@
+@startuml Chatly_Sequence_Simple_Login
+title Login
+
+autonumber
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+
+actor "Guest" as Guest
+boundary "Web or Mobile Client" as Client
+control "AuthController" as AuthController
+control "AuthService" as AuthService
+entity "User" as UserEntity
+entity "UserSession" as SessionEntity
+control "UserRepository" as UserRepo
+control "UserSessionService" as SessionService
+control "JwtProvider" as JwtProvider
+control "GlobalExceptionHandler" as ExceptionHandler
+
+Guest -> Client: Enter identifier + password
+Client -> AuthController: LoginRequest{identifier,\npassword, deviceId?}
+AuthController -> AuthService: login(request, httpRequest)
+
+AuthService -> UserRepo: findByIdentifier(identifier)
+UserRepo --> AuthService: user?
+
+alt User not found or email not verified
+  AuthService -> ExceptionHandler: AppException(...)
+  ExceptionHandler --> Client: HTTP 4xx\nApiResponse{error}
+else User found
+  AuthService -> UserEntity: verify password
+  UserEntity --> AuthService: password valid?
+  alt Invalid password or locked
+    AuthService -> ExceptionHandler: AppException(INVALID_CREDENTIALS)
+    ExceptionHandler --> Client: HTTP 401\nApiResponse{error}
+  else Valid credentials
+    AuthService -> SessionEntity: create session\n(userId, deviceId)
+    SessionEntity --> AuthService: session
+    AuthService -> SessionService: save session
+    SessionService --> AuthService: sessionId
+    AuthService -> JwtProvider: generate access + refresh token
+    JwtProvider --> AuthService: tokens
+    AuthService --> AuthController: AuthResponse\n{token, refreshToken, user}
+    AuthController --> Client: HTTP 200\nApiResponse{code:1000, result}
+  end
+end
+
+Client --> Guest: Show login result
+
+@enduml

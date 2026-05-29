@@ -1,0 +1,34 @@
+@startuml Chatly_Sequence_Simple_Create_Group_Chat
+title Create Group Chat
+
+autonumber
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+
+actor "Group Owner" as Owner
+boundary "Web or Mobile Client" as Client
+control "ConversationController" as ConversationController
+control "ConversationService" as ConversationService
+entity "Conversation" as ConversationEntity
+control "ConversationRepository" as ConversationRepo
+control "GroupMemberRepository" as GroupMemberRepo
+control "NotificationService" as NotificationService
+
+Owner -> Client: Create group chat
+Client -> ConversationController: ConversationRequest{type:GROUP,\nname, memberIds}
+ConversationController -> ConversationService: create(ownerId, request)
+
+ConversationService -> ConversationEntity: build{type:GROUP}
+ConversationEntity --> ConversationService: conversation
+ConversationService -> ConversationRepo: save(conversation)
+ConversationRepo --> ConversationService: conversationId
+ConversationService -> GroupMemberRepo: add owner + members
+GroupMemberRepo --> ConversationService: saved
+ConversationService -> NotificationService: notify members
+NotificationService --> ConversationService: done
+ConversationService --> ConversationController: ConversationResponse
+ConversationController --> Client: HTTP 200\nApiResponse{code:1000, result}
+
+Client --> Owner: Open group chat
+
+@enduml

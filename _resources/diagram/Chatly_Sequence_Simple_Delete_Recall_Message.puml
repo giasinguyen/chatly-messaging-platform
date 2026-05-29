@@ -1,0 +1,43 @@
+@startuml Chatly_Sequence_Simple_Delete_Recall_Message
+title Delete or Recall Message
+
+autonumber
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+
+actor "Authenticated User" as User
+boundary "Web or Mobile Client" as Client
+control "MessageController" as MessageController
+control "MessageService" as MessageService
+entity "Message" as MessageEntity
+control "MessageRepository" as MessageRepo
+control "MongoTemplate" as MongoTemplate
+control "GlobalExceptionHandler" as ExceptionHandler
+
+User -> Client: Delete or recall a message
+alt Recall
+  Client -> MessageController: recall message
+  MessageController -> MessageService: recall(messageId, userId)
+else Delete
+  Client -> MessageController: delete message
+  MessageController -> MessageService: delete(messageId, userId)
+end
+
+MessageService -> MessageRepo: findById(messageId)
+MessageRepo --> MessageService: message?
+
+alt Not owner or time window expired
+  MessageService -> ExceptionHandler: AppException(FORBIDDEN)
+  ExceptionHandler --> Client: HTTP 403\nApiResponse{error}
+else Allowed
+  MessageService -> MessageEntity: apply action\n(recall or delete)
+  MessageEntity --> MessageService: updated message
+  MessageService -> MongoTemplate: update message state
+  MongoTemplate --> MessageService: updated
+  MessageService --> MessageController: MessageResponse
+  MessageController --> Client: HTTP 200\nApiResponse{code:1000, result}
+end
+
+Client --> User: Update message UI
+
+@enduml

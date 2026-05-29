@@ -1,0 +1,29 @@
+@startuml Chatly_Sequence_Simple_View_Feed
+title View Feed
+
+autonumber
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+
+actor "Authenticated User" as User
+boundary "Web or Mobile Client" as Client
+control "FeedController" as FeedController
+control "FeedService" as FeedService
+control "PostRepository" as PostRepo
+control "ContactRepository" as ContactRepo
+control "GlobalExceptionHandler" as ExceptionHandler
+
+User -> Client: Open home feed
+Client -> FeedController: getHomeFeed{cursor?, size}
+FeedController -> FeedService: getHomeFeed(userId, cursor, size)
+
+FeedService -> ContactRepo: resolve blocked or following
+ContactRepo --> FeedService: filters
+FeedService -> PostRepo: load posts for feed
+PostRepo --> FeedService: posts + nextCursor
+FeedService --> FeedController: FeedResponse{items, nextCursor}
+FeedController --> Client: HTTP 200\nApiResponse{code:1000, result}
+
+Client --> User: Render feed
+
+@enduml

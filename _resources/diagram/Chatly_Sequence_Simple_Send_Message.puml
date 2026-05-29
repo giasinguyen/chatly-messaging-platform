@@ -1,0 +1,40 @@
+@startuml Chatly_Sequence_Simple_Send_Message
+title Send Message
+
+autonumber
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+
+actor "Authenticated User" as User
+boundary "Web or Mobile Client" as Client
+control "ChatMessageController" as ChatWsController
+control "MessageService" as MessageService
+entity "Conversation" as ConversationEntity
+entity "Message" as MessageEntity
+control "ConversationRepository" as ConversationRepo
+control "MessageRepository" as MessageRepo
+control "NotificationService" as NotificationService
+
+User -> Client: Send message
+Client -> ChatWsController: chat.send{conversationId,\ncontent, attachments?}
+ChatWsController -> MessageService: send(userId, request)
+
+MessageService -> ConversationRepo: findById(conversationId)
+ConversationRepo --> MessageService: conversation?
+
+alt Not participant or invalid conversation
+  MessageService --> ChatWsController: AppException(...)
+  ChatWsController --> Client: Error event
+else Allowed
+  MessageService -> ConversationEntity: check status\n(not muted or locked)
+  ConversationEntity --> MessageService: ok
+  MessageService -> MessageEntity: build message
+  MessageEntity --> MessageService: message
+  MessageService -> MessageRepo: save(message)
+  MessageRepo --> MessageService: saved
+  MessageService -> NotificationService: createAndPush(NEW_MESSAGE)
+  NotificationService --> MessageService: done
+  ChatWsController --> Client: New message event
+end
+
+@enduml
