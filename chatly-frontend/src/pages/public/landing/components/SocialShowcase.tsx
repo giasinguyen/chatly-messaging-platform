@@ -2,10 +2,12 @@ import cylinderImage from "@/assets/landing/cylinder.png";
 import noodleImage from "@/assets/landing/noodle.png";
 import { motion, useScroll, useTransform } from "framer-motion";
 import { useRef } from "react";
+import { useTranslation } from "react-i18next";
 
 const socialImage = "/chatly-image-show-social.png";
 
 export const SocialShowcase = () => {
+    const { t } = useTranslation();
     const sectionRef = useRef(null);
     const { scrollYProgress } = useScroll({
         target: sectionRef,
@@ -21,21 +23,19 @@ export const SocialShowcase = () => {
             <div className="container">
                 <div className="section-heading">
                     <div className="flex justify-center">
-                        <div className="tag">Social spaces</div>
+                        <div className="tag">{t("landing.social.tag")}</div>
                     </div>
                     <h2 className="section-title mt-5">
-                        Share stories, posts, and moments in one place
+                        {t("landing.social.title")}
                     </h2>
                     <p className="section-description mt-5">
-                        Chatly combines messaging with a social feed, reels, and
-                        media sharing so conversations stay connected to what
-                        people are doing.
+                        {t("landing.social.description")}
                     </p>
                 </div>
                 <div className="relative">
                     <img
                         src={socialImage}
-                        alt="Chatly social feed preview"
+                        alt={t("landing.social.image_alt")}
                         className="mt-10 w-full rounded-3xl shadow-2xl shadow-black/10"
                     />
                     <motion.img

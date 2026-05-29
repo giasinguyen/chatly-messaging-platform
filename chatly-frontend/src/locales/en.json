@@ -1008,6 +1008,84 @@
         "login": "Login",
         "toggle_theme": "Toggle theme",
         "switch_theme": "Switch Theme",
-        "open_menu": "Open menu"
+        "open_menu": "Open menu",
+        "footer_copyright": "© 2026 Chatly Messaging Platform. All rights reserved.",
+        "hero": {
+            "tag": "Version 1.0.0 - Officially launched",
+            "title": "Chatly",
+            "subtitle": "Your AI-powered messaging, storage, and collaboration platform",
+            "scan_to_download": "Scan to download",
+            "coming_soon": "Coming soon",
+            "google_play_alt": "Get it on Google Play",
+            "app_store_alt": "Download on the App Store",
+            "hero_image_alt": "Chatly app preview"
+        },
+        "product": {
+            "tag": "Boost your productivity",
+            "title": "A more effective way to track progress",
+            "description": "Effortlessly turn your ideas into a fully functional, responsive SaaS experience in just minutes with Chatly",
+            "image_alt": "Chatly product preview"
+        },
+        "social": {
+            "tag": "Social spaces",
+            "title": "Share stories, posts, and moments in one place",
+            "description": "Chatly combines messaging with a social feed, reels, and media sharing so conversations stay connected to what people are doing.",
+            "image_alt": "Chatly social feed preview"
+        },
+        "cta": {
+            "title": "Sign up for free today",
+            "description": "Celebrate the joy of accomplishment with an app designed to track your progress and motivate your efforts.",
+            "button": "Sign up now"
+        },
+        "testimonials": {
+            "tag": "Testimonials",
+            "title": "What our users say",
+            "description": "From intuitive design to powerful features, our app has become an essential tool for users around the world.",
+            "minh": {
+                "text": "The future of communication is fast, decentralized, and user-first. Platforms like this push the internet in the right direction.",
+                "name": "Nguyen Van Minh",
+                "username": "@nvminh162"
+            },
+            "si": {
+                "text": "Great products focus on simplicity and community. This platform shows how powerful digital communication can be.",
+                "name": "Nguyen Tran Gia Si",
+                "username": "@giasinguyen"
+            },
+            "tuan": {
+                "text": "Technology should empower people to collaborate and build together. Tools like this make that possible.",
+                "name": "Dao Quoc Tuan",
+                "username": "@yezsudev"
+            },
+            "nguyen": {
+                "text": "Innovation happens when people connect and share ideas. Communication platforms are the backbone of the modern internet.",
+                "name": "Nguyen Trung Nguyen",
+                "username": "@NguyenNguyen0"
+            },
+            "paul": {
+                "text": "The best products create communities. When people feel connected, amazing things happen.",
+                "name": "Paul Nguyen",
+                "username": "@nvminh162"
+            },
+            "ja": {
+                "text": "Building tools that help creators and communities thrive is the future of the digital world.",
+                "name": "Ja Si",
+                "username": "@giasinguyen"
+            },
+            "yezsu": {
+                "text": "Communication platforms shape culture. When designed well, they bring people closer together.",
+                "name": "Yezsu",
+                "username": "@yezsudev"
+            },
+            "putin": {
+                "text": "The power of the internet lies in how we connect and share ideas. Great platforms make that seamless.",
+                "name": "Putin Nguyen",
+                "username": "@NguyenNguyen0"
+            },
+            "juno": {
+                "text": "Communities are everything online. The right platform can turn a simple idea into a global movement.",
+                "name": "JUNO OKYO",
+                "username": "@J2TEAM"
+            }
+        }
     }
 }
