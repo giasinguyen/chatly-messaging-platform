@@ -8,6 +8,7 @@ export interface FileUploadResponse {
     fileType: string;
     fileSize: number;
     conversationId?: string;
+    uploadSource?: string;
     createdAt?: string;
 }
 
@@ -16,11 +17,15 @@ export const fileService = {
         file: File,
         conversationId?: string,
         onProgress?: (percent: number) => void,
+        uploadSource?: string,
     ): Promise<FileUploadResponse> {
         const formData = new FormData();
         formData.append("file", file);
         if (conversationId) {
             formData.append("conversationId", conversationId);
+        }
+        if (uploadSource) {
+            formData.append("uploadSource", uploadSource);
         }
 
         const { data } = await axiosClient.post<{ result: FileUploadResponse }>(

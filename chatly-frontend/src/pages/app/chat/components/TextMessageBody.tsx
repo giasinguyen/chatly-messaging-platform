@@ -56,6 +56,15 @@ function buildCombinedRegex(participantDirectory: Record<string, ChatUser>): Reg
     return new RegExp(`(https?:\\/\\/[^\\s<>"]+|${mentionPart})`, "g");
 }
 
+function formatUrlLabel(url: string): string {
+    try {
+        const parsedUrl = new URL(url);
+        return `${parsedUrl.hostname}${parsedUrl.pathname === "/" ? "" : parsedUrl.pathname}`;
+    } catch {
+        return url;
+    }
+}
+
 export function TextMessageBody({
     content,
     isMe,
@@ -95,20 +104,22 @@ export function TextMessageBody({
                 if (/^https?:\/\//.test(part)) {
                     const shouldOpenInCurrentTab = isGroupInviteLink(part);
                     const youtubePreview = getYouTubePreview(part);
+                    const linkLabel = youtubePreview ? formatUrlLabel(part) : part;
                     return (
-                        <span key={i} className="inline-flex max-w-full flex-col gap-1 align-top">
+                        <span key={i} className="inline-flex w-60 max-w-full flex-col gap-1 align-top">
                             <a
                                 href={part}
                                 target={shouldOpenInCurrentTab ? undefined : "_blank"}
                                 rel={shouldOpenInCurrentTab ? undefined : "noopener noreferrer"}
+                                title={part}
                                 className={cn(
-                                    "underline break-all",
+                                    youtubePreview ? "block truncate underline" : "underline break-all",
                                     isMe
                                         ? "text-white/90 hover:text-white"
                                         : "text-[#1a146b] hover:text-[#312e81] dark:text-[#818cf8] dark:hover:text-[#a5b4fc]",
                                 )}
                             >
-                                {part}
+                                {linkLabel}
                             </a>
                             {youtubePreview && (
                                 <a
@@ -116,7 +127,7 @@ export function TextMessageBody({
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     className={cn(
-                                        "mt-1 block w-60 max-w-full overflow-hidden rounded-lg border no-underline transition hover:opacity-90",
+                                        "block w-full overflow-hidden rounded-lg border no-underline transition hover:opacity-90",
                                         isMe
                                             ? "border-white/20 bg-white/10 text-white"
                                             : "border-border/60 bg-background text-foreground",

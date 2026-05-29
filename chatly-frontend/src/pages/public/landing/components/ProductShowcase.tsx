@@ -1,8 +1,10 @@
-import productImage from "@/mocks/images/pc.png";
 import pyramidImage from "@/assets/landing/pyramid.png";
 import tubeImage from "@/assets/landing/tube.png";
 import { motion, useScroll, useTransform } from "framer-motion";
 import { useRef } from "react";
+
+const productImage = "/chatly-image-show.png";
+
 export const ProductShowcase = () => {
     const sectionRef = useRef(null);
     const { scrollYProgress } = useScroll({

@@ -1,6 +1,5 @@
 import {
     Archive,
-    CheckCircle2,
     Code2,
     Download,
     File,
@@ -173,10 +172,8 @@ export function MessageAttachmentRenderer({
                     <div
                         key={i}
                         className={cn(
-                            "flex w-[23rem] max-w-full items-center gap-3 rounded-lg border px-3 py-2.5 text-xs shadow-sm",
-                            isMe
-                                ? "border-blue-400 bg-blue-50 text-slate-800"
-                                : "border-border/70 bg-background text-foreground",
+                            "flex w-[23rem] max-w-full items-center gap-3 rounded-lg border-0 px-3 py-2.5 text-xs shadow-sm",
+                            isMe ? "bg-blue-50 text-slate-800" : "bg-background text-foreground",
                         )}
                     >
                         <div className={cn("flex h-12 w-10 shrink-0 flex-col items-center justify-center gap-0.5 rounded text-white", fileIcon.className)}>
@@ -187,11 +184,8 @@ export function MessageAttachmentRenderer({
                             <p className="truncate text-sm font-semibold leading-tight">
                                 {att.name ?? t("chat.file_fallback")}
                             </p>
-                            <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
+                            <p className="mt-1 text-xs text-muted-foreground">
                                 {formatFileSize(att.size)}
-                                {att.size ? <span>•</span> : null}
-                                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
-                                <span>{t("chat.file_on_cloud")}</span>
                             </p>
                         </div>
                         <button
