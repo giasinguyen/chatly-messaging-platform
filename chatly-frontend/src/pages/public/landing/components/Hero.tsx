@@ -5,9 +5,11 @@ import appStoreImg from "@/assets/landing/appstore.png";
 import googlePlayImg from "@/assets/landing/google_play_transparent.png";
 import { motion, useScroll, useTransform } from "framer-motion";
 import { useRef } from "react";
+import { useTranslation } from "react-i18next";
 import "./hero.css";
 
 export const Hero = () => {
+    const { t } = useTranslation();
     const heroRef = useRef(null);
     const { scrollYProgress } = useScroll({
         target: heroRef,
@@ -45,49 +47,41 @@ export const Hero = () => {
             <div className="relative z-10 container flex justify-center">
                 <div className="md:flex md:items-center md:gap-10 md:max-w-[1040px] w-full">
                     <div className="md:w-[420px] md:flex-shrink-0">
-                        <div className="tag">Version 1.0.0 coming soon</div>
+                        <div className="tag">{t("landing.hero.tag")}</div>
                         <h1 className="text-7xl md:text-8xl font-bold tracking-tighter bg-gradient-to-b from-black to-brand dark:from-white dark:to-brand-light text-transparent bg-clip-text mt-6">
-                            Chatly
+                            {t("landing.hero.title")}
                         </h1>
                         <p className="text-xl text-gray-900 dark:text-gray-100 tracking-tight mt-6">
-                            Your AI-Powered, messaging, storage and
-                            collaboration platform
+                            {t("landing.hero.subtitle")}
                         </p>
 
-                        {/* Download section */}
                         <div className="mt-8 flex items-center gap-5 mt-15">
-                            {/* QR code */}
-                            {/* <div className="flex-shrink-0 rounded-xl bg-gray-100 dark:bg-gray-800 p-2 shadow-md border border-dashed border-gray-300 dark:border-gray-700 flex items-center justify-center h-[88px] w-[88px]">
-                                <p className="text-[10px] font-bold text-gray-400 uppercase text-center leading-tight">
-                                    Coming<br/>Soon
-                                </p>
-                            </div> */}
                             <div className="flex flex-col gap-2">
                                 <p className="text-xs font-semibold uppercase tracking-widest text-gray-500 dark:text-gray-400">
-                                    Scan to download
+                                    {t("landing.hero.scan_to_download")}
                                 </p>
                                 <div className="flex flex-row gap-5 justify-center">
                                     <a
                                         href="#"
                                         onClick={(e) => e.preventDefault()}
-                                        title="Coming soon"
+                                        title={t("landing.hero.coming_soon")}
                                         className="cursor-not-allowed"
                                     >
                                         <img
                                             src={googlePlayImg}
-                                            alt="Get it on Google Play"
+                                            alt={t("landing.hero.google_play_alt")}
                                             className="h-9 w-auto object-contain"
                                         />
                                     </a>
                                     <a
                                         href="#"
                                         onClick={(e) => e.preventDefault()}
-                                        title="Coming soon"
+                                        title={t("landing.hero.coming_soon")}
                                         className="cursor-not-allowed"
                                     >
                                         <img
                                             src={appStoreImg}
-                                            alt="Download on the App Store"
+                                            alt={t("landing.hero.app_store_alt")}
                                             className="h-9 w-auto object-contain"
                                         />
                                     </a>
@@ -98,7 +92,7 @@ export const Hero = () => {
                     <div className="mt-20 md:mt-0 md:h-[580px] md:w-[580px] md:flex-shrink-0 relative">
                         <motion.img
                             src={cogImage}
-                            alt="cog"
+                            alt={t("landing.hero.hero_image_alt")}
                             className="md:absolute md:h-full md:w-auto md:max-w-[580px] md:right-0 md:left-auto"
                             animate={{
                                 translateY: [-30, 30],
@@ -112,7 +106,7 @@ export const Hero = () => {
                         />
                         <motion.img
                             src={cylinderImage}
-                            alt="cylinder image"
+                            alt=""
                             width={220}
                             height={220}
                             className="hidden md:block md:absolute top-10 -left-32"
@@ -122,7 +116,7 @@ export const Hero = () => {
                         />
                         <motion.img
                             src={noodleImage}
-                            alt="noodle image"
+                            alt=""
                             width={220}
                             height={220}
                             className="hidden lg:block absolute top-[420px] -right-35 left-auto rotate-[30deg]"

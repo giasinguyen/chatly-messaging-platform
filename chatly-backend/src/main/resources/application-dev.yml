@@ -76,7 +76,7 @@ logging:
 
 app:
     jwt:
-        secret: ${APP_JWT_SECRET:${JWT_SECRET:Y2hhdGx5LXNlY3JldC1rZXktZm9yLWp3dC10b2tlbi1nZW5lcmF0aW9uLTIwMjY=}}
+        secret: ${APP_JWT_SECRET:${JWT_SECRET:Y2hhdGx5K3NlY3JldCtrZXkrZm9yK2p3dCt0b2tlbitnZW5lcmF0aW9uKzIwMjY=}}
         expiration-ms: ${APP_JWT_EXPIRATION_MS:${JWT_EXPIRATION_MS:86400000}} # 1d
         refresh-expiration-ms: ${APP_JWT_REFRESH_EXPIRATION_MS:${JWT_REFRESH_EXPIRATION_MS:86400000}} # 1d
     cors:

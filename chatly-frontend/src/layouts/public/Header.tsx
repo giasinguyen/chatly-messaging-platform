@@ -26,17 +26,27 @@ export const Header = () => {
     };
 
     return (
-        <header className="fixed top-0 backdrop-blur-sm z-20 w-full">
-            <div className="py-5">
-                <div className="container px-4 mx-auto">
-                    <div className="flex items-center justify-between">
+        <header className="fixed top-0 z-20 w-full h-16 overflow-visible bg-[#EAEEFE]/80 backdrop-blur-sm dark:bg-[#1a1c23]/80 md:h-20">
+            <div className="container relative h-full px-4 mx-auto">
+                <div className="flex h-full items-center justify-between">
+                    <button
+                        type="button"
+                        onClick={() => navigate("/")}
+                        aria-label="Chatly home"
+                        className="relative h-10 w-28 shrink-0 md:h-12 md:w-32"
+                    >
                         <img
                             src="/chatly-logo-nobg.png"
-                            alt="Chatly logo"
-                            className="h-14 w-14 cursor-pointer hover:scale-105 hover:opacity-90 transition-all duration-200 object-contain"
-                            onClick={() => navigate("/")}
+                            alt=""
+                            className="absolute left-0 top-1/2 h-24 w-24 -translate-y-1/2 object-contain transition-all duration-200 hover:scale-105 hover:opacity-90 dark:hidden sm:h-28 sm:w-28 md:h-32 md:w-32"
                         />
-                        <div className="flex items-center gap-6">
+                        <img
+                            src="/chatly-logo-white.png"
+                            alt=""
+                            className="absolute left-0 top-1/2 hidden h-24 w-24 -translate-y-1/2 object-contain transition-all duration-200 hover:scale-105 hover:opacity-90 dark:block sm:h-28 sm:w-28 md:h-32 md:w-32"
+                        />
+                    </button>
+                    <div className="flex items-center gap-6">
                             <nav className="hidden md:flex gap-8 text-black/60 dark:text-white/60 items-center font-medium">
                                 <Link
                                     to="/terms"
@@ -143,11 +153,11 @@ export const Header = () => {
                                     onClick={() => setIsMenuOpen(!isMenuOpen)}
                                 />
                             </div>
-                        </div>
                     </div>
+                </div>
 
-                    {isMenuOpen && (
-                        <div className="md:hidden mt-4 py-4 border-t dark:border-white/10 flex flex-col gap-4 animate-in slide-in-from-top duration-300">
+                {isMenuOpen && (
+                    <div className="md:hidden absolute inset-x-0 top-full z-30 border-t border-black/10 bg-[#EAEEFE] px-4 py-4 shadow-lg dark:border-white/10 dark:bg-[#1a1c23] flex flex-col gap-4 animate-in slide-in-from-top duration-300">
                             <Link
                                 to="/terms"
                                 className="text-black/70 dark:text-white/70 font-medium"
@@ -227,9 +237,8 @@ export const Header = () => {
                                     {t("landing.switch_theme")}
                                 </button>
                             </div>
-                        </div>
-                    )}
-                </div>
+                    </div>
+                )}
             </div>
         </header>
     );

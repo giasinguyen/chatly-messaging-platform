@@ -1,71 +1,28 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { motion } from "framer-motion";
+import { useTranslation } from "react-i18next";
 
-const testimonials = [
-    {
-        text: "The future of communication is fast, decentralized, and user-first. Platforms like this push the internet in the right direction.",
-        imageSrc: "https://avatars.githubusercontent.com/u/121565657?v=4",
-        name: "Nguyen Van Minh",
-        username: "@nvminh162",
-    },
-    {
-        text: "Great products focus on simplicity and community. This platform shows how powerful digital communication can be.",
-        imageSrc: "https://avatars.githubusercontent.com/u/63839394?v=4",
-        name: "Nguyen Tran Gia Si",
-        username: "@giasinguyen ",
-    },
-    {
-        text: "Technology should empower people to collaborate and build together. Tools like this make that possible.",
-        imageSrc: "https://avatars.githubusercontent.com/u/156154739?v=4",
-        name: "Dao Quoc Tuan",
-        username: "@yezsudev",
-    },
-    {
-        text: "Innovation happens when people connect and share ideas. Communication platforms are the backbone of the modern internet.",
-        imageSrc: "https://avatars.githubusercontent.com/u/126145466?v=4",
-        name: "Nguyen Trung Nguyen",
-        username: "@NguyenNguyen0",
-    },
+const TESTIMONIAL_AVATARS = [
+    { id: "minh", imageSrc: "https://avatars.githubusercontent.com/u/121565657?v=4" },
+    { id: "si", imageSrc: "https://avatars.githubusercontent.com/u/63839394?v=4" },
+    { id: "tuan", imageSrc: "https://avatars.githubusercontent.com/u/156154739?v=4" },
+    { id: "nguyen", imageSrc: "https://avatars.githubusercontent.com/u/126145466?v=4" },
+    { id: "paul", imageSrc: "https://avatars.githubusercontent.com/u/121565657?v=4" },
+    { id: "ja", imageSrc: "https://avatars.githubusercontent.com/u/63839394?v=4" },
+    { id: "yezsu", imageSrc: "https://avatars.githubusercontent.com/u/156154739?v=4" },
+    { id: "putin", imageSrc: "https://avatars.githubusercontent.com/u/126145466?v=4" },
+    { id: "juno", imageSrc: "https://avatars.githubusercontent.com/u/5250117?v=4" },
+] as const;
 
-    {
-        text: "The best products create communities. When people feel connected, amazing things happen.",
-        imageSrc: "https://avatars.githubusercontent.com/u/121565657?v=4",
-        name: "Paul Nguyen",
-        username: "@nvminh162",
-    },
-    {
-        text: "Building tools that help creators and communities thrive is the future of the digital world.",
-        imageSrc: "https://avatars.githubusercontent.com/u/63839394?v=4",
-        name: "Ja Si",
-        username: "@giasinguyen ",
-    },
-    {
-        text: "Communication platforms shape culture. When designed well, they bring people closer together.",
-        imageSrc: "https://avatars.githubusercontent.com/u/156154739?v=4",
-        name: "Yezsu",
-        username: "@yezsudev",
-    },
-    {
-        text: "The power of the internet lies in how we connect and share ideas. Great platforms make that seamless.",
-        imageSrc: "https://avatars.githubusercontent.com/u/126145466?v=4",
-        name: "Putin Nguyen",
-        username: "@NguyenNguyen0",
-    },
-
-    {
-        text: "Communities are everything online. The right platform can turn a simple idea into a global movement.",
-        imageSrc: "https://avatars.githubusercontent.com/u/5250117?v=4",
-        name: "JUNO OKYO",
-        username: "@J2TEAM",
-    },
-];
-
-const firstColumn = testimonials.slice(0, 3);
-const secondColumn = testimonials.slice(3, 6);
-const thirdColumn = testimonials.slice(6, 9);
+type TestimonialItem = {
+    text: string;
+    imageSrc: string;
+    name: string;
+    username: string;
+};
 
 const TestimonialsColumn = (props: {
-    testimonials: typeof testimonials;
+    testimonials: TestimonialItem[];
     className?: string;
     duration?: number;
 }) => {
@@ -86,8 +43,8 @@ const TestimonialsColumn = (props: {
                 {[...new Array(2)].fill(0).map((_, index) => (
                     <React.Fragment key={index}>
                         {props.testimonials.map(
-                            ({ text, imageSrc, name, username }, index) => (
-                                <div key={name + index} className="card">
+                            ({ text, imageSrc, name, username }, itemIndex) => (
+                                <div key={name + itemIndex} className="card">
                                     <div>{text}</div>
                                     <div className="flex items-center gap-2 mt-5">
                                         <img
@@ -117,17 +74,35 @@ const TestimonialsColumn = (props: {
 };
 
 export const Testimonials = () => {
+    const { t, i18n } = useTranslation();
+
+    const testimonials = useMemo<TestimonialItem[]>(
+        () =>
+            TESTIMONIAL_AVATARS.map(({ id, imageSrc }) => ({
+                imageSrc,
+                text: t(`landing.testimonials.${id}.text`),
+                name: t(`landing.testimonials.${id}.name`),
+                username: t(`landing.testimonials.${id}.username`),
+            })),
+        [t, i18n.language],
+    );
+
+    const firstColumn = testimonials.slice(0, 3);
+    const secondColumn = testimonials.slice(3, 6);
+    const thirdColumn = testimonials.slice(6, 9);
+
     return (
         <section className="bg-white dark:bg-[#1a1c23]">
             <div className="container">
                 <div className="section-heading">
                     <div className="flex justify-center">
-                        <div className="tag">Testimonials</div>
+                        <div className="tag">{t("landing.testimonials.tag")}</div>
                     </div>
-                    <h2 className="section-title mt-5">What our users say</h2>
+                    <h2 className="section-title mt-5">
+                        {t("landing.testimonials.title")}
+                    </h2>
                     <p className="section-description mt-5">
-                        From intuitive design to powerful features, our app has
-                        become an essential tool for users around the world.
+                        {t("landing.testimonials.description")}
                     </p>
                 </div>
                 <div className="flex justify-center gap-6 [mask-image:linear-gradient(to_bottom,transparent,black_25%,black_75%,transparent)] dark:[mask-image:linear-gradient(to_bottom,transparent,white_25%,white_75%,transparent)] mt-10 max-h-[738px] overflow-hidden">
