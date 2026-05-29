@@ -1,51 +1,31 @@
-import { View, Text, Image } from 'react-native';
-import { Colors } from '@/constants/theme';
+import { Image, View } from 'react-native';
+import { useThemeStore } from '@/store/theme.store';
 
 interface LogoProps {
   size?: 'sm' | 'md' | 'lg';
-  showText?: boolean;
 }
 
-const LOGO = require('@/assets/logo/chatly-logo-transparent.png');
+const LIGHT_LOGO = require('@/assets/logo/chatly-logo-nobg.png');
+const DARK_LOGO = require('@/assets/logo/chatly-logo-white.png');
 
-export function Logo({ size = 'md', showText = true }: LogoProps) {
+export function Logo({ size = 'md' }: LogoProps) {
+  const isDarkMode = useThemeStore((state) => state.isDarkMode);
   const dimensions = {
-    sm: 56,
-    md: 88,
-    lg: 120,
+    sm: { width: 132, height: 76 },
+    md: { width: 176, height: 102 },
+    lg: { width: 220, height: 128 },
   };
-
-  const textSize = {
-    sm: 18,
-    md: 26,
-    lg: 34,
-  };
-
-  const dim = dimensions[size];
 
   return (
     <View className="items-center">
       <Image
-        source={LOGO}
+        source={isDarkMode ? DARK_LOGO : LIGHT_LOGO}
         style={{
-          width: dim,
-          height: dim,
+          width: dimensions[size].width,
+          height: dimensions[size].height,
           resizeMode: 'contain',
         }}
       />
-      {showText && (
-        <Text
-          style={{
-            fontSize: textSize[size],
-            fontWeight: '800',
-            color: Colors.text,
-            letterSpacing: -0.5,
-            marginTop: 8,
-          }}
-        >
-          Chatly
-        </Text>
-      )}
     </View>
   );
 }

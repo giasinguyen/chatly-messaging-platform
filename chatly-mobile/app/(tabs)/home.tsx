@@ -16,7 +16,7 @@ import {
   HomeFeedEmptyState,
   HomeFeedFooter,
   HomeNewPostsBanner,
-} from '@/app/(tabs)/components/HomeFeedStates';
+} from '@/components/social/HomeFeedStates';
 import { useHomeFeed } from '@/hooks/useHomeFeed';
 import { HOME_FEED_END_REACHED_THRESHOLD } from '@/constants/feed';
 import { Colors } from '@/constants/theme';

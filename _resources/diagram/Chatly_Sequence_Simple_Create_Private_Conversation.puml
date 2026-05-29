@@ -1,0 +1,42 @@
+@startuml Chatly_Sequence_Simple_Create_Private_Conversation
+title Create Private Conversation
+
+autonumber
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+
+actor "User A" as UserA
+actor "User B" as UserB
+boundary "Client A" as ClientA
+control "ConversationController" as ConversationController
+control "ConversationService" as ConversationService
+control "ContactService" as ContactService
+entity "Conversation" as ConversationEntity
+control "ConversationRepository" as ConversationRepo
+control "GlobalExceptionHandler" as ExceptionHandler
+
+UserA -> ClientA: Start private chat with User B
+ClientA -> ConversationController: ConversationRequest{type:PRIVATE,\ntargetUserId}
+ConversationController -> ConversationService: create(userAId, request)
+
+ConversationService -> ContactService: checkBlock(userAId, userBId)
+alt Blocked
+  ConversationService -> ExceptionHandler: AppException(BLOCKED)
+  ExceptionHandler --> ClientA: HTTP 403\nApiResponse{error}
+else Allowed
+  ConversationService -> ConversationRepo: findDirectPair(userAId, userBId)
+  alt Conversation exists
+    ConversationRepo --> ConversationService: conversation
+  else Create new
+    ConversationService -> ConversationEntity: build{type:PRIVATE}
+    ConversationEntity --> ConversationService: conversation
+    ConversationService -> ConversationRepo: save(conversation)
+    ConversationRepo --> ConversationService: saved conversation
+  end
+  ConversationService --> ConversationController: ConversationResponse
+  ConversationController --> ClientA: HTTP 200\nApiResponse{code:1000, result}
+end
+
+ClientA --> UserA: Open conversation
+
+@enduml

@@ -18,6 +18,8 @@ import { authService } from '@/services/auth.service';
 import { useAuthStore } from '@/store/auth.store';
 import { getApiErrorMessage } from '@/utils/errorHandler';
 import { Colors } from '@/constants/theme';
+import { useThemeStore } from '@/store/theme.store';
+import { getThemeColors } from '@/utils/themeColors';
 
 interface FormErrors {
   displayName?: string;
@@ -32,6 +34,8 @@ export default function RegisterScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const setAuth = useAuthStore((s) => s.setAuth);
+  const isDarkMode = useThemeStore((s) => s.isDarkMode);
+  const palette = getThemeColors(isDarkMode);
 
   const [displayName, setDisplayName] = useState('');
   const [username, setUsername] = useState('');
@@ -100,7 +104,7 @@ export default function RegisterScreen() {
     <KeyboardAvoidingView
       className="flex-1"
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={{ backgroundColor: Colors.bg }}
+      style={{ backgroundColor: palette.background }}
     >
       <ScrollView
         contentContainerStyle={{
@@ -117,7 +121,7 @@ export default function RegisterScreen() {
           <Logo size="md" />
           <Text
             className="mt-2 text-center text-base"
-            style={{ color: Colors.textMuted }}
+            style={{ color: palette.textMuted }}
           >
             {t('mobile.auth.register.title')}
           </Text>

@@ -1,0 +1,34 @@
+@startuml Chatly_Sequence_Simple_Update_Group_Info
+title Update Group Info
+
+autonumber
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+
+actor "Group Owner or Admin" as Manager
+boundary "Web or Mobile Client" as Client
+control "GroupController" as GroupController
+control "GroupService" as GroupService
+control "ConversationRepository" as ConversationRepo
+control "GlobalExceptionHandler" as ExceptionHandler
+
+Manager -> Client: Update group name or avatar
+Client -> GroupController: GroupUpdateRequest{name, avatarUrl}
+GroupController -> GroupService: updateGroup(conversationId, request, managerId)
+
+GroupService -> ConversationRepo: find group
+ConversationRepo --> GroupService: group?
+
+alt Not found or permission denied
+  GroupService -> ExceptionHandler: AppException(FORBIDDEN)
+  ExceptionHandler --> Client: HTTP 403\nApiResponse{error}
+else Allowed
+  GroupService -> ConversationRepo: save updated group
+  ConversationRepo --> GroupService: updated group
+  GroupService --> GroupController: ConversationResponse
+  GroupController --> Client: HTTP 200\nApiResponse{code:1000, result}
+end
+
+Client --> Manager: Show updated group
+
+@enduml

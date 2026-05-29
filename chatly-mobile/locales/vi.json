@@ -282,6 +282,7 @@
             "location_permission_body": "Vui lòng cấp quyền vị trí để chia sẻ vị trí của bạn.",
             "location_acquire_failed": "Không thể lấy vị trí",
             "mic_permission_body": "Vui lòng cấp quyền micro để gửi tin nhắn thoại.",
+            "recording": "Đang ghi âm...",
             "recording_start_failed": "Không thể bắt đầu ghi âm. Vui lòng thử lại.",
             "voice_send_failed": "Không thể gửi tin nhắn thoại. Vui lòng thử lại.",
             "urgent_message": "Tin nhắn khẩn",

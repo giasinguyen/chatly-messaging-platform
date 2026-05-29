@@ -1,0 +1,42 @@
+@startuml Chatly_Sequence_Simple_Upload_Media
+title Upload Media
+
+autonumber
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+
+actor "Authenticated User" as User
+boundary "Web or Mobile Client" as Client
+control "FileUploadController" as FileController
+control "FileUploadService" as FileService
+entity "FileMetadata" as FileMetadataEntity
+control "StorageProvider" as StorageProvider
+control "FileMetadataRepository" as FileRepo
+control "AgentProxyClient" as AgentProxy
+control "GlobalExceptionHandler" as ExceptionHandler
+
+User -> Client: Select file to upload
+Client -> FileController: multipart form data{file,\nconversationId?, uploadSource?}
+FileController -> FileService: upload(file, conversationId, userId, source)
+
+FileService -> FileService: validate file size and type
+alt Invalid file
+  FileService -> ExceptionHandler: AppException(FILE_UPLOAD_FAILED)
+  ExceptionHandler --> Client: HTTP 400\nApiResponse{error}
+else Valid file
+  FileService -> StorageProvider: upload(file, folder)
+  StorageProvider --> FileService: UploadResult{url, key}
+  FileService -> FileMetadataEntity: build metadata
+  FileMetadataEntity --> FileService: metadata
+  FileService -> FileRepo: save metadata
+  FileRepo --> FileService: metadata
+  opt Indexable document
+    FileService -> AgentProxy: triggerFileIndexAsync(...)
+  end
+  FileService --> FileController: FileUploadResponse{url, fileId}
+  FileController --> Client: HTTP 200\nApiResponse{code:1000, result}
+end
+
+Client --> User: Show uploaded media
+
+@enduml
