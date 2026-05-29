@@ -1,0 +1,35 @@
+@startuml Chatly_Sequence_Simple_Remove_Group_Member
+title Remove Group Member
+
+autonumber
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+
+actor "Group Owner or Admin" as Manager
+boundary "Web or Mobile Client" as Client
+control "GroupController" as GroupController
+control "GroupService" as GroupService
+control "ConversationRepository" as ConversationRepo
+control "GroupMemberRepository" as GroupMemberRepo
+control "GlobalExceptionHandler" as ExceptionHandler
+
+Manager -> Client: Remove member from group
+Client -> GroupController: Remove member request
+GroupController -> GroupService: removeMember(conversationId, userId, managerId)
+
+GroupService -> ConversationRepo: find group
+ConversationRepo --> GroupService: group?
+
+alt Not found or permission denied
+  GroupService -> ExceptionHandler: AppException(FORBIDDEN)
+  ExceptionHandler --> Client: HTTP 403\nApiResponse{error}
+else Allowed
+  GroupService -> GroupMemberRepo: delete member
+  GroupMemberRepo --> GroupService: removed
+  GroupService --> GroupController: ok
+  GroupController --> Client: HTTP 200\nApiResponse{code:1000}
+end
+
+Client --> Manager: Update group members
+
+@enduml

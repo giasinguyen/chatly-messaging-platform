@@ -1,0 +1,52 @@
+@startuml Chatly_Sequence_Simple_React_To_Post
+title Post Interaction
+
+autonumber
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+
+actor "Authenticated User" as User
+boundary "Web or Mobile Client" as Client
+control "PostController" as PostController
+control "PostService" as PostService
+entity "Post" as PostEntity
+control "PostRepository" as PostRepo
+control "NotificationService" as NotificationService
+control "GlobalExceptionHandler" as ExceptionHandler
+
+User -> Client: Interact with a post
+
+alt React
+  Client -> PostController: react to post
+  PostController -> PostService: react(postId, userId, request)
+else Comment
+  Client -> PostController: add comment
+  PostController -> PostService: addComment(postId, userId, request)
+else Share
+  Client -> PostController: share post
+  PostController -> PostService: share(postId, userId)
+else Save
+  Client -> PostController: save post
+  PostController -> PostService: save(postId, userId)
+end
+
+PostService -> PostRepo: findById(postId)
+PostRepo --> PostService: post?
+
+alt Not found or forbidden
+  PostService -> ExceptionHandler: AppException(NOT_FOUND)
+  ExceptionHandler --> Client: HTTP 404\nApiResponse{error}
+else Allowed
+  PostService -> PostEntity: apply interaction
+  PostEntity --> PostService: updated post
+  PostService -> PostRepo: save post
+  PostRepo --> PostService: updated post
+  PostService -> NotificationService: notify author
+  NotificationService --> PostService: done
+  PostService --> PostController: PostResponse or PostCommentResponse
+  PostController --> Client: HTTP 200\nApiResponse{code:1000, result}
+end
+
+Client --> User: Update post UI
+
+@enduml
