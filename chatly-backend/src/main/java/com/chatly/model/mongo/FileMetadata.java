@@ -19,7 +19,7 @@ public class FileMetadata {
     @Id
     private String id;
 
-    /** Storage provider that holds this file ("local", "s3", …). */
+    /** Storage provider that holds this file, such as "local" or "s3". */
     private String provider;
 
     /** Provider-specific key / path used for deletion. */
@@ -41,9 +41,13 @@ public class FileMetadata {
     @Indexed
     private String uploadedBy;
 
-    /** Conversation the file belongs to (optional — set for chat attachments). */
+    /** Conversation the file belongs to, when this is a chat attachment. */
     @Indexed
     private String conversationId;
+
+    /** Client feature that created the upload, such as "CLOUD". */
+    @Indexed
+    private String uploadSource;
 
     @CreatedDate
     private Instant createdAt;

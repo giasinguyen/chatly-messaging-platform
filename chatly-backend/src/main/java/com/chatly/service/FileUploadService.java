@@ -22,6 +22,7 @@ import java.util.Set;
 @Service
 @RequiredArgsConstructor
 public class FileUploadService {
+    private static final String CLOUD_UPLOAD_SOURCE = "CLOUD";
 
     private static final Set<String> INDEXABLE_MIME_TYPES = Set.of(
             "application/pdf",
@@ -56,7 +57,12 @@ public class FileUploadService {
     private final FileMetadataRepository fileMetadataRepository;
     private final AgentProxyClient agentProxyClient;
 
-    public FileUploadResponse upload(MultipartFile file, String conversationId, String uploadedBy) {
+    public FileUploadResponse upload(
+            MultipartFile file,
+            String conversationId,
+            String uploadedBy,
+            String uploadSource
+    ) {
         validateFile(file);
 
         String folder = resolveFolder(file.getContentType());
@@ -71,6 +77,7 @@ public class FileUploadService {
                 .fileSize(file.getSize())
                 .uploadedBy(uploadedBy)
                 .conversationId(conversationId)
+                .uploadSource(normalizeUploadSource(uploadSource))
                 .build();
 
         metadata = fileMetadataRepository.save(metadata);
@@ -89,15 +96,7 @@ public class FileUploadService {
             );
         }
 
-        return FileUploadResponse.builder()
-                .fileId(metadata.getId())
-                .provider(metadata.getProvider())
-                .url(metadata.getUrl())
-                .fileName(metadata.getFileName())
-                .fileType(metadata.getFileType())
-                .fileSize(metadata.getFileSize())
-                .conversationId(conversationId)
-                .build();
+        return toResponse(metadata);
     }
 
     public void delete(String fileId, String requesterId) {
@@ -137,17 +136,8 @@ public class FileUploadService {
         return files.stream()
                 .skip(skip)
                 .limit(size)
-                .map(m -> FileUploadResponse.builder()
-                .fileId(m.getId())
-                .provider(m.getProvider())
-                .url(m.getUrl())
-                .fileName(m.getFileName())
-                .fileType(m.getFileType())
-                .fileSize(m.getFileSize())
-                .conversationId(m.getConversationId())
-                .createdAt(m.getCreatedAt())
-                .build()
-        ).toList();
+                .map(this::toResponse)
+                .toList();
     }
 
     public List<FileUploadResponse> getByUploadedUser(String userId, String type) {
@@ -173,17 +163,9 @@ public class FileUploadService {
             }).toList();
         }
 
-        return files.stream().map(m -> FileUploadResponse.builder()
-                .fileId(m.getId())
-                .provider(m.getProvider())
-                .url(m.getUrl())
-                .fileName(m.getFileName())
-                .fileType(m.getFileType())
-                .fileSize(m.getFileSize())
-                .conversationId(m.getConversationId())
-                .createdAt(m.getCreatedAt())
-                .build()
-        ).toList();
+        return files.stream()
+                .map(this::toResponse)
+                .toList();
     }
 
     // -------------------------------------------------------------------------
@@ -222,5 +204,26 @@ public class FileUploadService {
         if (contentType.startsWith("video/")) return "videos";
         if (contentType.startsWith("audio/")) return "audio";
         return "documents";
+    }
+
+    private static String normalizeUploadSource(String uploadSource) {
+        if (uploadSource == null || uploadSource.isBlank()) {
+            return null;
+        }
+        return CLOUD_UPLOAD_SOURCE.equalsIgnoreCase(uploadSource) ? CLOUD_UPLOAD_SOURCE : null;
+    }
+
+    private FileUploadResponse toResponse(FileMetadata metadata) {
+        return FileUploadResponse.builder()
+                .fileId(metadata.getId())
+                .provider(metadata.getProvider())
+                .url(metadata.getUrl())
+                .fileName(metadata.getFileName())
+                .fileType(metadata.getFileType())
+                .fileSize(metadata.getFileSize())
+                .conversationId(metadata.getConversationId())
+                .uploadSource(metadata.getUploadSource())
+                .createdAt(metadata.getCreatedAt())
+                .build();
     }
 }
