@@ -1,5 +1,6 @@
 import { cn } from "@/lib/utils";
 import type { ChatUser } from "@/types/message";
+import { isGroupInviteLink } from "@/utils/groupInviteLink";
 import { isRichTextHtml, sanitizeRichTextHtml } from "./richTextMessage.utils";
 
 interface TextMessageBodyProps {
@@ -88,12 +89,13 @@ export function TextMessageBody({
         <span>
             {parts.map((part, i) => {
                 if (/^https?:\/\//.test(part)) {
+                    const shouldOpenInCurrentTab = isGroupInviteLink(part);
                     return (
                         <a
                             key={i}
                             href={part}
-                            target="_blank"
-                            rel="noopener noreferrer"
+                            target={shouldOpenInCurrentTab ? undefined : "_blank"}
+                            rel={shouldOpenInCurrentTab ? undefined : "noopener noreferrer"}
                             className={cn(
                                 "underline break-all",
                                 isMe

@@ -48,6 +48,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { buildGroupInviteLink } from "@/utils/groupInviteLink";
 import type { GroupMemberResponse, GroupRole, PendingJoinResponse } from "@/types/group";
 import { QRCodeSVG } from "qrcode.react";
 
@@ -328,7 +329,7 @@ export function GroupManagementPanel({
             const data = res.result;
             if (data) {
                 setInviteToken(data.inviteToken);
-                setInviteLink(`${import.meta.env.VITE_WEB_BASE_URL || window.location.origin}/join/${data.inviteToken}`);
+                setInviteLink(buildGroupInviteLink(data.inviteToken));
             }
         } catch {
             toast.error(t("chat.group_panel.create_invite_failed"));
@@ -344,7 +345,7 @@ export function GroupManagementPanel({
             const data = res.result;
             if (data) {
                 setInviteToken(data.inviteToken);
-                setInviteLink(`${import.meta.env.VITE_WEB_BASE_URL || window.location.origin}/join/${data.inviteToken}`);
+                setInviteLink(buildGroupInviteLink(data.inviteToken));
             }
             toast.success(t("chat.group_panel.invite_reset"));
         } catch {
