@@ -282,6 +282,7 @@
             "location_permission_body": "Please grant location permission to share your location.",
             "location_acquire_failed": "Failed to acquire location",
             "mic_permission_body": "Please grant microphone permission to send voice messages.",
+            "recording": "Recording...",
             "recording_start_failed": "Failed to start recording. Please try again.",
             "voice_send_failed": "Failed to send voice message. Please try again.",
             "urgent_message": "Urgent message",

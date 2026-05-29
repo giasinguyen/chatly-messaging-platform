@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { View, Text, Animated, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { Colors } from '@/constants/theme';
 
 interface VoiceRecordingBarProps {
@@ -19,6 +20,7 @@ function formatDuration(seconds: number): string {
 }
 
 export function VoiceRecordingBar({ elapsedSeconds, onSend, onCancel, isSending }: VoiceRecordingBarProps) {
+  const { t } = useTranslation();
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const pulseColorAnim = useRef(new Animated.Value(0)).current;
 
@@ -26,11 +28,11 @@ export function VoiceRecordingBar({ elapsedSeconds, onSend, onCancel, isSending 
     const animation = Animated.loop(
       Animated.sequence([
         Animated.parallel([
-          Animated.timing(pulseAnim, { toValue: 1.35, duration: 700, useNativeDriver: true }),
+          Animated.timing(pulseAnim, { toValue: 1.35, duration: 700, useNativeDriver: false }),
           Animated.timing(pulseColorAnim, { toValue: 1, duration: 700, useNativeDriver: false }),
         ]),
         Animated.parallel([
-          Animated.timing(pulseAnim, { toValue: 1, duration: 700, useNativeDriver: true }),
+          Animated.timing(pulseAnim, { toValue: 1, duration: 700, useNativeDriver: false }),
           Animated.timing(pulseColorAnim, { toValue: 0, duration: 700, useNativeDriver: false }),
         ]),
       ]),
@@ -68,7 +70,7 @@ export function VoiceRecordingBar({ elapsedSeconds, onSend, onCancel, isSending 
           {formatDuration(elapsedSeconds)}
         </Text>
         <Text className="ml-2 text-[13px]" style={{ color: Colors.textMuted }}>
-          Recording…
+          {t('chat.composer.recording')}
         </Text>
       </View>
 
