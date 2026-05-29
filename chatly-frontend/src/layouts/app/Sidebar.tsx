@@ -8,7 +8,6 @@ import {
     Compass,
     Clapperboard,
     LayoutDashboard,
-    PlusCircle,
     ChevronLeft,
     ChevronRight,
 } from "lucide-react";
@@ -244,29 +243,6 @@ export function Sidebar({ user, forceExpanded = false }: SidebarProps) {
                     <LogOut className="h-5 w-5 transition-colors group-hover:scale-110" />
                     {!collapsed && <span className="font-inter text-sm">{t("nav.logout")}</span>}
                 </button>
-
-                {/* Create Post CTA */}
-                <NavLink
-                    to="/home"
-                    className="w-full block"
-                    onClick={(e) => {
-                        e.preventDefault();
-                        navigate("/home");
-                    }}
-                >
-                    {collapsed ? (
-                        <button
-                            className="w-10 h-10 mx-auto flex items-center justify-center bg-[#1a146b] dark:bg-indigo-600 text-white rounded-full shadow-md hover:-translate-y-0.5 transition-transform duration-200 cursor-pointer"
-                            title={t("nav.create_post")}
-                        >
-                            <PlusCircle className="h-5 w-5" />
-                        </button>
-                    ) : (
-                        <button className="w-full bg-[#1a146b] dark:bg-indigo-600 text-white py-3 px-6 rounded-full text-xs font-semibold tracking-wider uppercase shadow-md hover:-translate-y-0.5 transition-transform duration-200 cursor-pointer">
-                            {t("nav.create_post")}
-                        </button>
-                    )}
-                </NavLink>
             </div>
 
             {/* Logout Confirm Dialog */}

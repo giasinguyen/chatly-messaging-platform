@@ -1,4 +1,5 @@
 import { useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 import type { Message, ChatUser } from "@/types/message";
 import { toMessagePreviewText } from "./richTextMessage.utils";
@@ -13,6 +14,7 @@ interface ReplyPreviewProps {
 }
 
 export function ReplyPreview({ replyMessage, participant, currentUserId, senderName, isMe }: ReplyPreviewProps) {
+    const { t } = useTranslation();
     const previewText = toMessagePreviewText(replyMessage.content);
     const imageAttachment = replyMessage.attachments?.find((attachment) =>
         attachment.type?.startsWith("image/"),
@@ -20,7 +22,7 @@ export function ReplyPreview({ replyMessage, participant, currentUserId, senderN
     const resolvedSenderName =
         senderName ??
         (replyMessage.senderId === currentUserId
-            ? "You"
+            ? t("common.you")
             : participant.displayName.split(" ").slice(-1)[0]);
 
     const handleScrollToOriginal = useCallback(() => {

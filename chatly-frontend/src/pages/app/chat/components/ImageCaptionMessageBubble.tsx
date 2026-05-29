@@ -9,6 +9,7 @@ import type { Message, ChatUser } from "@/types/message";
 import { ReplyPreview } from "./ReplyPreview";
 import { TextMessageBody } from "./TextMessageBody";
 import { ImageCaptionGallery } from "./ImageCaptionGallery";
+import { useTranslation } from "react-i18next";
 
 const IMAGE_CAPTION_MAX_WIDTH = "min(280px, 70vw)";
 const IMAGE_CAPTION_MIN_WIDTH = "200px";
@@ -70,6 +71,8 @@ export function ImageCaptionMessageBubble({
     onOpenImage,
     showInlineMetadata = true,
 }: ImageCaptionMessageBubbleProps) {
+    const { t, i18n } = useTranslation();
+    const dateLocale = i18n.language === "vi" ? "vi-VN" : "en-US";
     const imageAttachments =
         msg.attachments?.filter((a) => a.type?.startsWith("image/")) ?? [];
     const formattedTime = new Date(msg.createdAt).toLocaleTimeString("en-US", {
@@ -140,12 +143,15 @@ export function ImageCaptionMessageBubble({
                     <Tooltip>
                         <TooltipTrigger asChild>
                             <span className="ml-1.5 text-[10px] opacity-70 cursor-help">
-                                (edited)
+                                {t("chat.edited")}
                             </span>
                         </TooltipTrigger>
                         <TooltipContent side="top">
                             {msg.editedAt &&
-                                `Edited at: ${new Date(msg.editedAt).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}, ${new Date(msg.editedAt).toLocaleDateString("en-US")}`}
+                                t("chat.edited_at", {
+                                    time: new Date(msg.editedAt).toLocaleTimeString(dateLocale, { hour: "2-digit", minute: "2-digit" }),
+                                    date: new Date(msg.editedAt).toLocaleDateString(dateLocale),
+                                })}
                         </TooltipContent>
                     </Tooltip>
                 )}

@@ -10,3 +10,7 @@ export function fileToAttachment(file: FileUploadResponse): Attachment {
         size: file.fileSize,
     };
 }
+
+export function isUserUploadedCloudFile(file: FileUploadResponse): boolean {
+    return !file.conversationId;
+}
