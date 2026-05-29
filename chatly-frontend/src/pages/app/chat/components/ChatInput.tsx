@@ -22,6 +22,7 @@ import {
     Mic,
     Type,
     PencilLine,
+    Cloud,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
@@ -38,7 +39,7 @@ import {
     DialogTitle,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { fileService } from "@/services/file.service";
+import { fileService, type FileUploadResponse } from "@/services/file.service";
 import { getDisplayUrl, type KlipyItem } from "@/services/klipy.service";
 import { groupService } from "@/services/group.service";
 import { contactService } from "@/services/contact.service";
@@ -55,6 +56,7 @@ import {
 import { AudioRecordingBar } from "./AudioRecordingBar";
 import { RichTextMessageEditor, type RichTextMessageEditorRef } from "./RichTextMessageEditor";
 import { toMessagePreviewText } from "./richTextMessage.utils";
+import { fileToAttachment } from "@/utils/fileAttachment";
 
 const LazyMediaPicker = lazy(() => import("@/components/media-picker/MediaPicker").then(m => ({ default: m.MediaPicker })));
 
@@ -90,6 +92,12 @@ export interface ChatInputRef {
 const TYPING_STOP_DELAY = 2000;
 const ACCEPTED_TYPES =
     "image/*,video/*,audio/*,application/pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip";
+
+const formatCloudFileSize = (bytes: number): string => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+};
 
 export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
     conversationId,
@@ -137,6 +145,10 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
     const [vCardUser, setVCardUser] = useState<ChatUser | null>(null);
     const [vCardContacts, setVCardContacts] = useState<ChatUser[]>([]);
     const [vCardLoading, setVCardLoading] = useState(false);
+    const [showCloudFileDialog, setShowCloudFileDialog] = useState(false);
+    const [cloudFiles, setCloudFiles] = useState<FileUploadResponse[]>([]);
+    const [cloudFileLoading, setCloudFileLoading] = useState(false);
+    const [selectedCloudFileIds, setSelectedCloudFileIds] = useState<string[]>([]);
     // Location dialog state
     const [showLocationDialog, setShowLocationDialog] = useState(false);
     const [pendingLocation, setPendingLocation] = useState<LocationPayload | null>(null);
@@ -494,6 +506,47 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
         };
         onSendMessage(displayUrl, [attachment], undefined, undefined, undefined, messageType);
         setActivePicker(null);
+    };
+
+    const handleOpenCloudFiles = async () => {
+        setShowPriorityMenu(false);
+        setShowCloudFileDialog(true);
+        setSelectedCloudFileIds([]);
+        setCloudFileLoading(true);
+        try {
+            const files = await fileService.getMyFiles();
+            setCloudFiles(files);
+        } catch {
+            toast.error(t("chat.no_cloud_files"));
+        } finally {
+            setCloudFileLoading(false);
+        }
+    };
+
+    const handleToggleCloudFile = (fileId: string) => {
+        setSelectedCloudFileIds((prev) =>
+            prev.includes(fileId)
+                ? prev.filter((id) => id !== fileId)
+                : [...prev, fileId],
+        );
+    };
+
+    const handleAttachCloudFiles = () => {
+        const selectedFiles = cloudFiles.filter((file) =>
+            selectedCloudFileIds.includes(file.fileId),
+        );
+        if (selectedFiles.length === 0) return;
+        const attachments = selectedFiles.map(fileToAttachment);
+        const items: PendingFile[] = attachments.map((att) => ({
+            localId: `cloud-${att.fileId ?? att.url}-${Date.now()}`,
+            file: new File([], att.name ?? "file"),
+            previewUrl: att.type?.startsWith("image/") ? att.url : "",
+            progress: 100,
+            uploaded: att,
+        }));
+        setPendingFiles((prev) => [...prev, ...items]);
+        setShowCloudFileDialog(false);
+        setSelectedCloudFileIds([]);
     };
 
     const handleCreateReminder = async () => {
@@ -972,6 +1025,17 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
                                 <button
                                     type="button"
                                     className="flex items-center gap-2.5 w-full px-3 py-2.5 text-sm text-left hover:bg-accent transition-colors"
+                                    onClick={handleOpenCloudFiles}
+                                >
+                                    <Cloud
+                                        size={15}
+                                        className="text-muted-foreground shrink-0"
+                                    />
+                                    {t("chat.cloud_upload_title")}
+                                </button>
+                                <button
+                                    type="button"
+                                    className="flex items-center gap-2.5 w-full px-3 py-2.5 text-sm text-left hover:bg-accent transition-colors"
                                     onClick={async () => {
                                         setShowPriorityMenu(false);
                                         setVCardUser(null);
@@ -1319,6 +1383,75 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
                                 />
                             )}
                             Create reminder
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={showCloudFileDialog} onOpenChange={setShowCloudFileDialog}>
+                <DialogContent className="sm:max-w-lg">
+                    <DialogHeader>
+                        <DialogTitle>{t("chat.cloud_upload_title")}</DialogTitle>
+                    </DialogHeader>
+                    <div className="max-h-80 overflow-y-auto space-y-1">
+                        {cloudFileLoading && (
+                            <div className="flex items-center justify-center py-8">
+                                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                            </div>
+                        )}
+                        {!cloudFileLoading && cloudFiles.length === 0 && (
+                            <p className="py-8 text-center text-sm text-muted-foreground">
+                                {t("chat.no_cloud_files")}
+                            </p>
+                        )}
+                        {!cloudFileLoading && cloudFiles.map((file) => {
+                            const selected = selectedCloudFileIds.includes(file.fileId);
+                            return (
+                                <button
+                                    key={file.fileId}
+                                    type="button"
+                                    className={cn(
+                                        "flex w-full items-center gap-3 rounded-lg border px-3 py-2 text-left transition-colors hover:bg-accent",
+                                        selected
+                                            ? "border-[#1a146b] bg-[#1a146b]/5"
+                                            : "border-transparent",
+                                    )}
+                                    onClick={() => handleToggleCloudFile(file.fileId)}
+                                >
+                                    {file.fileType.startsWith("image/") ? (
+                                        <img
+                                            src={file.url}
+                                            alt=""
+                                            className="h-10 w-10 shrink-0 rounded object-cover"
+                                        />
+                                    ) : (
+                                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded bg-muted">
+                                            <FileText className="h-5 w-5 text-muted-foreground" />
+                                        </div>
+                                    )}
+                                    <div className="min-w-0 flex-1">
+                                        <p className="truncate text-sm font-medium">{file.fileName}</p>
+                                        <p className="text-xs text-muted-foreground">
+                                            {formatCloudFileSize(file.fileSize)}
+                                        </p>
+                                    </div>
+                                    {selected && <Check className="h-4 w-4 shrink-0 text-[#1a146b]" />}
+                                </button>
+                            );
+                        })}
+                    </div>
+                    <DialogFooter>
+                        <Button
+                            variant="ghost"
+                            onClick={() => setShowCloudFileDialog(false)}
+                        >
+                            {t("common.cancel")}
+                        </Button>
+                        <Button
+                            disabled={selectedCloudFileIds.length === 0}
+                            onClick={handleAttachCloudFiles}
+                        >
+                            {t("chat.attach_selected")}
                         </Button>
                     </DialogFooter>
                 </DialogContent>
