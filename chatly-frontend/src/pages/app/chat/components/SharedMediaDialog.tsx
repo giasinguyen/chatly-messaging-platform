@@ -7,17 +7,12 @@ import {
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { Image, FileText, Link as LinkIcon, Download, Loader2 } from "lucide-react";
+import { Image, FileText, Link as LinkIcon, Download, Loader2, X } from "lucide-react";
 import { fileService, type FileUploadResponse } from "@/services/file.service";
 import { messageService } from "@/services/message.service";
+import { useTranslation } from "react-i18next";
 
 type ActiveTab = "media" | "files" | "links";
-
-const TAB_TITLES: Record<ActiveTab, string> = {
-    media: "Shared Media",
-    files: "Files",
-    links: "Links",
-};
 
 const PAGE_SIZE = 20;
 const URL_REGEX = /(https?:\/\/[^\s<>"]+)/g;
@@ -26,7 +21,7 @@ function isSharedMediaType(fileType?: string): boolean {
     if (!fileType || fileType === "image/gif") {
         return false;
     }
-    return fileType.startsWith("image/");
+    return fileType.startsWith("image/") || fileType.startsWith("video/");
 }
 
 function isStickerOrGifAsset(
@@ -62,7 +57,9 @@ export function SharedMediaDialog({
     onOpenChange,
     defaultTab = "media",
 }: SharedMediaDialogProps) {
+    const { t, i18n } = useTranslation();
     const [activeTab, setActiveTab] = useState<ActiveTab>(defaultTab);
+    const dateLocale = i18n.language === "vi" ? "vi-VN" : "en-US";
 
     const [media, setMedia] = useState<FileUploadResponse[]>([]);
     const [files, setFiles] = useState<FileUploadResponse[]>([]);
@@ -76,6 +73,14 @@ export function SharedMediaDialog({
     const [loadingMedia, setLoadingMedia] = useState(false);
     const [loadingFiles, setLoadingFiles] = useState(false);
     const [loadingLinks, setLoadingLinks] = useState(false);
+    const [previewMedia, setPreviewMedia] = useState<FileUploadResponse | null>(null);
+
+    const tabTitle =
+        activeTab === "media"
+            ? t("chat.shared_media_title")
+            : activeTab === "files"
+              ? t("chat.shared_files_title")
+              : t("chat.shared_links_title");
 
     const loadMedia = useCallback(async (page: number, append: boolean) => {
         setLoadingMedia(true);
@@ -143,9 +148,41 @@ export function SharedMediaDialog({
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
+            {previewMedia && (
+                <div
+                    className="fixed inset-0 z-[70] flex items-center justify-center bg-black/85 p-4 backdrop-blur-sm"
+                    onClick={() => setPreviewMedia(null)}
+                >
+                    <button
+                        type="button"
+                        className="absolute right-4 top-4 rounded-full bg-white/10 p-2 text-white transition hover:bg-white/20"
+                        onClick={() => setPreviewMedia(null)}
+                    >
+                        <X className="h-5 w-5" />
+                    </button>
+                    <div className="max-h-[88vh] max-w-[92vw]" onClick={(event) => event.stopPropagation()}>
+                        {previewMedia.fileType.startsWith("video/") ? (
+                            <video
+                                src={previewMedia.url}
+                                controls
+                                className="max-h-[86vh] max-w-[90vw] rounded-xl shadow-2xl"
+                            />
+                        ) : (
+                            <img
+                                src={previewMedia.url}
+                                alt={previewMedia.fileName}
+                                className="max-h-[86vh] max-w-[90vw] rounded-xl object-contain shadow-2xl"
+                            />
+                        )}
+                        <p className="mt-2 text-center text-xs text-white/70">
+                            {previewMedia.fileName}
+                        </p>
+                    </div>
+                </div>
+            )}
             <DialogContent className="sm:max-w-lg p-0 gap-0 overflow-hidden max-h-[85vh] flex flex-col">
                 <DialogHeader className="px-5 pt-5 pb-3 shrink-0">
-                    <DialogTitle className="text-base">{TAB_TITLES[activeTab]}</DialogTitle>
+                    <DialogTitle className="text-base">{tabTitle}</DialogTitle>
                 </DialogHeader>
 
                 <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as ActiveTab)} className="flex flex-1 min-h-0 flex-col overflow-hidden">
@@ -153,15 +190,15 @@ export function SharedMediaDialog({
                         <TabsList className="h-9 w-full bg-muted/50">
                             <TabsTrigger value="media" className="flex-1 gap-1.5 text-xs">
                                 <Image size={13} />
-                                Media ({media.length})
+                                {t("chat.media")} ({media.length})
                             </TabsTrigger>
                             <TabsTrigger value="files" className="flex-1 gap-1.5 text-xs">
                                 <FileText size={13} />
-                                Files ({files.length})
+                                {t("chat.files")} ({files.length})
                             </TabsTrigger>
                             <TabsTrigger value="links" className="flex-1 gap-1.5 text-xs">
                                 <LinkIcon size={13} />
-                                Links ({links.length})
+                                {t("chat.links")} ({links.length})
                             </TabsTrigger>
                         </TabsList>
                     </div>
@@ -170,16 +207,15 @@ export function SharedMediaDialog({
                     <TabsContent value="media" className="mt-0 flex-1 min-h-0 overflow-hidden flex flex-col px-5 pb-5">
                         <div className="flex-1 min-h-0 overflow-y-auto pt-3 pr-1">
                             {media.length === 0 && !loadingMedia ? (
-                                <p className="text-xs text-muted-foreground text-center py-10">No media yet</p>
+                                <p className="text-xs text-muted-foreground text-center py-10">{t("chat.no_media_yet")}</p>
                             ) : (
                                 <>
                                     <div className="grid grid-cols-4 gap-1.5">
                                         {media.map((file) => (
-                                            <a
+                                            <button
+                                                type="button"
                                                 key={file.fileId}
-                                                href={file.url}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
+                                                onClick={() => setPreviewMedia(file)}
                                                 className="aspect-square rounded bg-muted/60 border border-border/40 overflow-hidden hover:opacity-80 transition"
                                             >
                                                 {file.fileType?.startsWith("video/") ? (
@@ -187,7 +223,7 @@ export function SharedMediaDialog({
                                                 ) : (
                                                     <img src={file.url} alt={file.fileName} className="w-full h-full object-cover" />
                                                 )}
-                                            </a>
+                                            </button>
                                         ))}
                                     </div>
                                     {hasMoreMedia && (
@@ -200,7 +236,7 @@ export function SharedMediaDialog({
                                                 disabled={loadingMedia}
                                             >
                                                 {loadingMedia ? <Loader2 size={13} className="animate-spin mr-1" /> : null}
-                                                Load more
+                                                {t("chat.load_more")}
                                             </Button>
                                         </div>
                                     )}
@@ -218,7 +254,7 @@ export function SharedMediaDialog({
                     <TabsContent value="files" className="mt-0 flex-1 min-h-0 overflow-hidden flex flex-col px-5 pb-5">
                         <div className="flex-1 min-h-0 overflow-y-auto pt-3 pr-1">
                             {files.length === 0 && !loadingFiles ? (
-                                <p className="text-xs text-muted-foreground text-center py-10">No files yet</p>
+                                <p className="text-xs text-muted-foreground text-center py-10">{t("chat.no_files_yet")}</p>
                             ) : (
                                 <>
                                     <div className="flex flex-col gap-2">
@@ -229,7 +265,7 @@ export function SharedMediaDialog({
                                                     : `${(file.fileSize / 1024).toFixed(0)} KB`
                                                 : "";
                                             const dateStr = file.createdAt
-                                                ? new Date(file.createdAt).toLocaleDateString("en-US")
+                                                ? new Date(file.createdAt).toLocaleDateString(dateLocale)
                                                 : "";
                                             return (
                                                 <a
@@ -245,7 +281,7 @@ export function SharedMediaDialog({
                                                     <div className="flex-1 min-w-0">
                                                         <p className="text-xs font-medium text-foreground truncate">{file.fileName}</p>
                                                         <p className="text-[11px] text-muted-foreground">
-                                                            {sizeStr}{sizeStr && dateStr ? " · " : ""}{dateStr}
+                                                            {sizeStr}{sizeStr && dateStr ? " - " : ""}{dateStr}
                                                         </p>
                                                     </div>
                                                     <Download size={14} className="text-muted-foreground shrink-0" />
@@ -263,7 +299,7 @@ export function SharedMediaDialog({
                                                 disabled={loadingFiles}
                                             >
                                                 {loadingFiles ? <Loader2 size={13} className="animate-spin mr-1" /> : null}
-                                                Load more
+                                                {t("chat.load_more")}
                                             </Button>
                                         </div>
                                     )}
@@ -281,7 +317,7 @@ export function SharedMediaDialog({
                     <TabsContent value="links" className="mt-0 flex-1 min-h-0 overflow-hidden flex flex-col px-5 pb-5">
                         <div className="flex-1 min-h-0 overflow-y-auto pt-3 pr-1">
                             {links.length === 0 && !loadingLinks ? (
-                                <p className="text-xs text-muted-foreground text-center py-10">No links yet</p>
+                                <p className="text-xs text-muted-foreground text-center py-10">{t("chat.no_links_yet")}</p>
                             ) : (
                                 <div className="flex flex-col gap-2">
                                     {links.map((link, i) => (
