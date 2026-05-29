@@ -7,6 +7,7 @@ import {
     DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { useTranslation } from "react-i18next";
 
 interface MessageConfirmDialogsProps {
     recallConfirmId: string | null;
@@ -25,6 +26,8 @@ export function MessageConfirmDialogs({
     onConfirmRecall,
     onConfirmDelete,
 }: MessageConfirmDialogsProps) {
+    const { t } = useTranslation();
+
     return (
         <>
             <Dialog
@@ -33,15 +36,14 @@ export function MessageConfirmDialogs({
             >
                 <DialogContent className="sm:max-w-xs">
                     <DialogHeader>
-                        <DialogTitle>Recall message?</DialogTitle>
+                        <DialogTitle>{t("chat.recall_message_title")}</DialogTitle>
                         <DialogDescription>
-                            The message will be recalled for everyone in the
-                            conversation. This action cannot be undone.
+                            {t("chat.recall_message_description")}
                         </DialogDescription>
                     </DialogHeader>
                     <DialogFooter className="gap-2 sm:gap-0">
                         <Button variant="ghost" onClick={onCancelRecall}>
-                            Cancel
+                            {t("common.cancel")}
                         </Button>
                         <Button
                             variant="destructive"
@@ -49,7 +51,7 @@ export function MessageConfirmDialogs({
                                 if (recallConfirmId) onConfirmRecall(recallConfirmId);
                             }}
                         >
-                            Recall
+                            {t("chat.recall")}
                         </Button>
                     </DialogFooter>
                 </DialogContent>
@@ -61,15 +63,14 @@ export function MessageConfirmDialogs({
             >
                 <DialogContent className="sm:max-w-xs">
                     <DialogHeader>
-                        <DialogTitle>Delete message?</DialogTitle>
+                        <DialogTitle>{t("chat.delete_message_title")}</DialogTitle>
                         <DialogDescription>
-                            The message will be deleted from your view. Others will
-                            still see it. This action cannot be undone.
+                            {t("chat.delete_message_description")}
                         </DialogDescription>
                     </DialogHeader>
                     <DialogFooter className="gap-2 sm:gap-0">
                         <Button variant="ghost" onClick={onCancelDelete}>
-                            Cancel
+                            {t("common.cancel")}
                         </Button>
                         <Button
                             variant="destructive"
@@ -77,7 +78,7 @@ export function MessageConfirmDialogs({
                                 if (deleteConfirmId) onConfirmDelete(deleteConfirmId);
                             }}
                         >
-                            Delete
+                            {t("common.delete")}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

@@ -183,7 +183,7 @@ export function ConversationInfoPanel({
     onGroupUpdated,
     onConversationUpdate: _onConversationUpdate,
 }: ConversationInfoPanelProps) {
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
     const navigate = useNavigate();
     const isGroup = conversation.type === "GROUP";
 
@@ -953,7 +953,7 @@ export function ConversationInfoPanel({
                                             : `${(file.fileSize / 1024).toFixed(0)} KB`
                                         : "";
                                     const dateStr = file.createdAt
-                                        ? new Date(file.createdAt).toLocaleDateString("en-US")
+                                        ? new Date(file.createdAt).toLocaleDateString(i18n.language === "vi" ? "vi-VN" : "en-US")
                                         : "";
                                     return (
                                         <a
@@ -968,7 +968,7 @@ export function ConversationInfoPanel({
                                             </div>
                                             <div className="flex-1 min-w-0">
                                                 <p className="text-xs font-medium text-foreground truncate">{file.fileName}</p>
-                                                <p className="text-[11px] text-muted-foreground">{sizeStr}{sizeStr && dateStr ? " · " : ""}{dateStr}</p>
+                                                <p className="text-[11px] text-muted-foreground">{sizeStr}{sizeStr && dateStr ? " - " : ""}{dateStr}</p>
                                             </div>
                                             <Download size={14} className="text-muted-foreground shrink-0" />
                                         </a>

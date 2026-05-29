@@ -1,4 +1,5 @@
 import { Check, CheckCheck, Pin } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { CoAuthorAvatar } from "@/components/customize/CoAuthorAvatar";
@@ -55,6 +56,7 @@ function getStatusIcon(status: Message["status"]) {
 }
 
 export function MessageBubbleContainer(props: MessageBubbleContainerProps) {
+    const { t } = useTranslation();
     const {
         msg,
         messages,
@@ -111,7 +113,7 @@ export function MessageBubbleContainer(props: MessageBubbleContainerProps) {
         : null;
     const replySenderName = repliedMsg
         ? repliedMsg.senderId === currentUserId
-            ? "You"
+            ? t("common.you")
             : (
                   participantDirectory[repliedMsg.senderId]?.displayName ||
                   participant.displayName

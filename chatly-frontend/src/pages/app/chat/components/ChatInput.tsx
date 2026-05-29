@@ -56,7 +56,7 @@ import {
 import { AudioRecordingBar } from "./AudioRecordingBar";
 import { RichTextMessageEditor, type RichTextMessageEditorRef } from "./RichTextMessageEditor";
 import { toMessagePreviewText } from "./richTextMessage.utils";
-import { fileToAttachment } from "@/utils/fileAttachment";
+import { fileToAttachment, isUserUploadedCloudFile } from "@/utils/fileAttachment";
 
 const LazyMediaPicker = lazy(() => import("@/components/media-picker/MediaPicker").then(m => ({ default: m.MediaPicker })));
 
@@ -515,7 +515,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
         setCloudFileLoading(true);
         try {
             const files = await fileService.getMyFiles();
-            setCloudFiles(files);
+            setCloudFiles(files.filter(isUserUploadedCloudFile));
         } catch {
             toast.error(t("chat.no_cloud_files"));
         } finally {
@@ -709,7 +709,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
                     <CornerUpLeft size={14} className="text-[#1a146b] shrink-0" />
                     <div className="flex-1 min-w-0">
                         <p className="text-[10px] font-semibold text-[#1a146b]">
-                            {senderName ?? "You"}
+                            {senderName ?? t("common.you")}
                         </p>
                         <p className="text-[11px] text-muted-foreground truncate">
                             {replyPreviewText}
@@ -1502,7 +1502,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
                                         {user.displayName}
                                         {user.id === currentUserId && (
                                             <span className="ml-1.5 text-xs text-muted-foreground">
-                                                (You)
+                                                ({t("common.you")})
                                             </span>
                                         )}
                                     </p>

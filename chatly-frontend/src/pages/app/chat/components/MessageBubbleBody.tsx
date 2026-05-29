@@ -26,6 +26,7 @@ import { AudioMessagePlayer } from "@/components/AudioMessagePlayer";
 import { RichTextMessageEditor } from "./RichTextMessageEditor";
 import { isRichTextHtml } from "./richTextMessage.utils";
 import { isImageCaptionMessage } from "./messageList.utils";
+import { useTranslation } from "react-i18next";
 
 interface MessageBubbleBodyProps {
     msg: Message;
@@ -55,6 +56,7 @@ interface MessageBubbleBodyProps {
 }
 
 export function MessageBubbleBody(props: MessageBubbleBodyProps) {
+    const { t, i18n } = useTranslation();
     const {
         msg,
         repliedMsg,
@@ -80,6 +82,7 @@ export function MessageBubbleBody(props: MessageBubbleBodyProps) {
         onOpenImage,
         showInlineMetadata = false,
     } = props;
+    const dateLocale = i18n.language === "vi" ? "vi-VN" : "en-US";
 
     if (msg.recalled) {
         return (
@@ -92,7 +95,7 @@ export function MessageBubbleBody(props: MessageBubbleBodyProps) {
                 )}
             >
                 <RotateCcw size={12} className="inline mr-1.5 opacity-60" />
-                Message recalled
+                {t("chat.message_recalled")}
             </div>
         );
     }
@@ -134,14 +137,14 @@ export function MessageBubbleBody(props: MessageBubbleBodyProps) {
                     <button
                         onClick={onCommitEdit}
                         className="p-1.5 rounded-full bg-[#1a146b] text-white hover:bg-[#312e81] shrink-0"
-                        title="Save"
+                        title={t("common.save")}
                     >
                         <Send size={12} />
                     </button>
                     <button
                         onClick={onCancelEdit}
                         className="p-1.5 rounded-full hover:bg-muted text-muted-foreground shrink-0"
-                        title="Cancel"
+                        title={t("common.cancel")}
                     >
                         <X size={12} />
                     </button>
@@ -372,12 +375,15 @@ export function MessageBubbleBody(props: MessageBubbleBodyProps) {
                 <Tooltip>
                     <TooltipTrigger asChild>
                         <span className="ml-1.5 text-[10px] opacity-70 cursor-help">
-                            (edited)
+                            {t("chat.edited")}
                         </span>
                     </TooltipTrigger>
                     <TooltipContent side="top">
                         {msg.editedAt &&
-                            `Edited at: ${new Date(msg.editedAt).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}, ${new Date(msg.editedAt).toLocaleDateString("en-US")}`}
+                            t("chat.edited_at", {
+                                time: new Date(msg.editedAt).toLocaleTimeString(dateLocale, { hour: "2-digit", minute: "2-digit" }),
+                                date: new Date(msg.editedAt).toLocaleDateString(dateLocale),
+                            })}
                     </TooltipContent>
                 </Tooltip>
             )}
