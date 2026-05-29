@@ -1008,6 +1008,84 @@
         "login": "Đăng nhập",
         "toggle_theme": "Chuyển giao diện",
         "switch_theme": "Đổi giao diện",
-        "open_menu": "Mở menu"
+        "open_menu": "Mở menu",
+        "footer_copyright": "© 2026 Chatly Messaging Platform. Bảo lưu mọi quyền.",
+        "hero": {
+            "tag": "Phiên bản 1.0.0 - Chính thức ra mắt",
+            "title": "Chatly",
+            "subtitle": "Nền tảng nhắn tin, lưu trữ và cộng tác được hỗ trợ bởi AI",
+            "scan_to_download": "Quét để tải xuống",
+            "coming_soon": "Sắp ra mắt",
+            "google_play_alt": "Tải trên Google Play",
+            "app_store_alt": "Tải trên App Store",
+            "hero_image_alt": "Xem trước ứng dụng Chatly"
+        },
+        "product": {
+            "tag": "Tăng năng suất của bạn",
+            "title": "Cách hiệu quả hơn để theo dõi tiến độ",
+            "description": "Dễ dàng biến ý tưởng thành trải nghiệm SaaS đầy đủ, linh hoạt chỉ trong vài phút với Chatly",
+            "image_alt": "Xem trước sản phẩm Chatly"
+        },
+        "social": {
+            "tag": "Không gian xã hội",
+            "title": "Chia sẻ câu chuyện, bài viết và khoảnh khắc tại một nơi",
+            "description": "Chatly kết hợp nhắn tin với bảng tin, reel và chia sẻ media để cuộc trò chuyện luôn gắn với những gì mọi người đang làm.",
+            "image_alt": "Xem trước bảng tin xã hội Chatly"
+        },
+        "cta": {
+            "title": "Đăng ký miễn phí ngay hôm nay",
+            "description": "Tận hưởng niềm vui hoàn thành mục tiêu với ứng dụng được thiết kế để theo dõi tiến độ và truyền cảm hứng cho bạn.",
+            "button": "Đăng ký ngay"
+        },
+        "testimonials": {
+            "tag": "Đánh giá",
+            "title": "Người dùng nói gì về chúng tôi",
+            "description": "Từ thiết kế trực quan đến tính năng mạnh mẽ, ứng dụng đã trở thành công cụ thiết yếu của người dùng trên toàn thế giới.",
+            "minh": {
+                "text": "Tương lai của giao tiếp là nhanh, phi tập trung và lấy người dùng làm trung tâm. Các nền tảng như thế này đẩy internet đi đúng hướng.",
+                "name": "Nguyen Van Minh",
+                "username": "@nvminh162"
+            },
+            "si": {
+                "text": "Sản phẩm tuyệt vời tập trung vào sự đơn giản và cộng đồng. Nền tảng này cho thấy giao tiếp số có thể mạnh mẽ đến mức nào.",
+                "name": "Nguyen Tran Gia Si",
+                "username": "@giasinguyen"
+            },
+            "tuan": {
+                "text": "Công nghệ nên trao quyền cho mọi người cộng tác và cùng xây dựng. Các công cụ như thế này giúp điều đó thành hiện thực.",
+                "name": "Dao Quoc Tuan",
+                "username": "@yezsudev"
+            },
+            "nguyen": {
+                "text": "Đổi mới xảy ra khi mọi người kết nối và chia sẻ ý tưởng. Nền tảng giao tiếp là xương sống của internet hiện đại.",
+                "name": "Nguyen Trung Nguyen",
+                "username": "@NguyenNguyen0"
+            },
+            "paul": {
+                "text": "Những sản phẩm tốt nhất tạo nên cộng đồng. Khi mọi người cảm thấy được kết nối, những điều tuyệt vời sẽ xảy ra.",
+                "name": "Paul Nguyen",
+                "username": "@nvminh162"
+            },
+            "ja": {
+                "text": "Xây dựng công cụ giúp creator và cộng đồng phát triển là tương lai của thế giới số.",
+                "name": "Ja Si",
+                "username": "@giasinguyen"
+            },
+            "yezsu": {
+                "text": "Nền tảng giao tiếp định hình văn hóa. Khi được thiết kế tốt, chúng đưa mọi người lại gần nhau hơn.",
+                "name": "Yezsu",
+                "username": "@yezsudev"
+            },
+            "putin": {
+                "text": "Sức mạnh của internet nằm ở cách chúng ta kết nối và chia sẻ ý tưởng. Nền tảng tốt làm điều đó trở nên liền mạch.",
+                "name": "Putin Nguyen",
+                "username": "@NguyenNguyen0"
+            },
+            "juno": {
+                "text": "Cộng đồng là tất cả trên mạng. Nền tảng phù hợp có thể biến một ý tưởng đơn giản thành phong trào toàn cầu.",
+                "name": "JUNO OKYO",
+                "username": "@J2TEAM"
+            }
+        }
     }
 }

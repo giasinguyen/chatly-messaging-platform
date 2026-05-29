@@ -3,8 +3,10 @@ import springImage from "@/assets/landing/spring.png";
 import { motion, useScroll, useTransform } from "framer-motion";
 import { useRef } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 
 export const CallToAction = () => {
+    const { t } = useTranslation();
     const navigate = useNavigate();
     const sectionRef = useRef(null);
     const { scrollYProgress } = useScroll({
@@ -19,14 +21,13 @@ export const CallToAction = () => {
         >
             <div className="container">
                 <div className="section-heading relative">
-                    <h2 className="section-title">Sign up for free today</h2>
+                    <h2 className="section-title">{t("landing.cta.title")}</h2>
                     <p className="section-description mt-5">
-                        Celebrate the joy of accomplishment with an app designed
-                        to track your progress and motivate your efforts
+                        {t("landing.cta.description")}
                     </p>
                     <motion.img
                         src={starImage}
-                        alt="Star image"
+                        alt=""
                         width={360}
                         className="absolute -left-[350px] -top-[137px]"
                         style={{
@@ -35,7 +36,7 @@ export const CallToAction = () => {
                     />
                     <motion.img
                         src={springImage}
-                        alt="Spring image"
+                        alt=""
                         width={360}
                         className="absolute -right-[331px] -top-[19px]"
                         style={{
@@ -45,10 +46,11 @@ export const CallToAction = () => {
                 </div>
                 <div className="mt-10 flex justify-center gap-2">
                     <button
+                        type="button"
                         onClick={() => navigate("/auth/register")}
                         className="btn btn-primary"
                     >
-                        Sign up now
+                        {t("landing.cta.button")}
                     </button>
                 </div>
             </div>
