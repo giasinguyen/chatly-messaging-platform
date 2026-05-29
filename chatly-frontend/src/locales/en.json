@@ -317,7 +317,6 @@
         "contact_card": "📇 Contact card",
         "message_fallback": "Message",
         "file_fallback": "File",
-        "file_on_cloud": "Available in cloud",
         "more_options": "More options",
         "send_image_video": "Send image/video",
         "attach_file": "Attach file",

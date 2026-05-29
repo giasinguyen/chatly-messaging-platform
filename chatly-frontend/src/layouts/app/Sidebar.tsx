@@ -111,7 +111,7 @@ export function Sidebar({ user, forceExpanded = false }: SidebarProps) {
                 <img
                     src="/chatly-logo-nobg.png"
                     className={cn(
-                        "object-contain transition-all duration-300",
+                        "object-contain transition-all duration-300 dark:invert",
                         collapsed ? "h-16 w-16 -my-2" : "h-36 w-36 -my-6"
                     )}
                     alt="ChatLy Logo"
