@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { CommentItem } from './CommentItem';
 import { Colors } from '@/constants/theme';
 import type { PostComment, ReactionType } from '@/types/post';
@@ -23,10 +24,10 @@ export function CommentList({
   onEditComment,
   maxVisibleCount = 3,
 }: CommentListProps) {
+  const { t } = useTranslation();
   const [expandedReplyGroups, setExpandedReplyGroups] = useState<Set<string>>(new Set());
   const [showAllComments, setShowAllComments] = useState(false);
 
-  // Separate root comments from replies
   const { rootComments, repliesByParentId } = useMemo(() => {
     const root: PostComment[] = [];
     const replies: Record<string, PostComment[]> = {};
@@ -78,7 +79,6 @@ export function CommentList({
           showRepliesButton={replies.length > 0 && !isExpanded}
         />
 
-        {/* Replies Section - Hidden by default */}
         {isExpanded && replies.length > 0 && (
           <View className="mt-1">
             {replies.map((reply) => (
@@ -94,13 +94,13 @@ export function CommentList({
               />
             ))}
 
-            {/* Hide replies button */}
             <TouchableOpacity
               onPress={() => toggleReplies(comment.id)}
-              className="mt-2 py-1 px-2"
-              activeOpacity={0.7}
-            >
-              <Text className="text-xs font-semibold text-[#0071E3]">Hide replies</Text>
+              className="mt-2 px-2 py-1"
+              activeOpacity={0.7}>
+              <Text className="text-xs font-semibold text-[#0071E3]">
+                {t('post.hide_replies')}
+              </Text>
             </TouchableOpacity>
           </View>
         )}
@@ -111,37 +111,36 @@ export function CommentList({
   if (comments.length === 0) {
     return (
       <View className="py-4">
-        <Text className="text-sm" style={{ color: Colors.textMuted }}>No comments yet. Be the first to comment!</Text>
+        <Text className="text-sm" style={{ color: Colors.textMuted }}>
+          {t('post.no_comments')}
+        </Text>
       </View>
     );
   }
 
   return (
     <View>
-      {/* Comments List */}
       {visibleRootComments.map(renderComment)}
 
-      {/* Show More Comments Button */}
       {!showAllComments && rootComments.length > maxVisibleCount && (
         <TouchableOpacity
           onPress={() => setShowAllComments(true)}
           className="mb-3 py-2"
-          activeOpacity={0.7}
-        >
+          activeOpacity={0.7}>
           <Text className="text-sm font-semibold text-[#0071E3]">
-            View all {rootComments.length} comments
+            {t('post.view_all_comments', { count: rootComments.length })}
           </Text>
         </TouchableOpacity>
       )}
 
-      {/* Hide Older Comments Button */}
       {showAllComments && rootComments.length > maxVisibleCount && (
         <TouchableOpacity
           onPress={() => setShowAllComments(false)}
           className="mb-3 py-2"
-          activeOpacity={0.7}
-        >
-          <Text className="text-sm font-semibold" style={{ color: Colors.textMuted }}>Hide older comments</Text>
+          activeOpacity={0.7}>
+          <Text className="text-sm font-semibold" style={{ color: Colors.textMuted }}>
+            {t('post.hide_older_comments')}
+          </Text>
         </TouchableOpacity>
       )}
     </View>

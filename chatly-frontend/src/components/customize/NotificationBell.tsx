@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Bell, Check, CheckCheck, MessageCircle, UserPlus, Users, X, Heart, Reply } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 import { notificationService } from "@/services/notification.service";
 import { useNotificationSocket } from "@/hooks/useNotificationSocket";
@@ -11,7 +12,12 @@ import { useContactStore } from "@/store/contact.store";
 import type { Notification, NotificationEvent } from "@/types/notification";
 import { resolveNotificationRoute } from "@/utils/notificationRedirect";
 
-export function NotificationBell() {
+interface NotificationBellProps {
+    collapsed?: boolean;
+}
+
+export function NotificationBell({ collapsed = false }: NotificationBellProps) {
+    const { t } = useTranslation();
     const { user } = useAuthStore();
     const {
         notifications,
@@ -130,43 +136,58 @@ export function NotificationBell() {
 
     const getLabel = (type: Notification["type"]) => {
         switch (type) {
-            case "NEW_MESSAGE": return "New message";
-            case "FRIEND_REQUEST": return "Friend request";
-            case "GROUP_INVITE": return "Added to group";
-            case "POST_LIKED": return "Post liked";
-            case "POST_COMMENTED": return "Comment on your post";
-            case "COMMENT_REPLIED": return "Reply to your comment";
-            default: return "Notifications";
+            case "NEW_MESSAGE": return t("notifications.type_new_message");
+            case "FRIEND_REQUEST": return t("notifications.type_friend_request");
+            case "GROUP_INVITE": return t("notifications.type_group_invite");
+            case "POST_LIKED": return t("notifications.type_post_liked");
+            case "POST_COMMENTED": return t("notifications.type_post_commented");
+            case "COMMENT_REPLIED": return t("notifications.type_comment_replied");
+            default: return t("notifications.title");
         }
     };
 
     const formatTime = (createdAt: string) => {
         const diff = Date.now() - new Date(createdAt).getTime();
         const minutes = Math.floor(diff / 60000);
-        if (minutes < 1) return "just now";
-        if (minutes < 60) return `${minutes}m ago`;
+        if (minutes < 1) return t("notifications.time_just_now");
+        if (minutes < 60) return t("notifications.time_m_ago", { count: minutes });
         const hours = Math.floor(minutes / 60);
-        if (hours < 24) return `${hours}h ago`;
+        if (hours < 24) return t("notifications.time_h_ago", { count: hours });
         const days = Math.floor(hours / 24);
-        return `${days}d ago`;
+        return t("notifications.time_d_ago", { count: days });
     };
 
+
+
     return (
-        <div className="relative w-full flex justify-center" ref={dropdownRef}>
+        <div className="relative w-full" ref={dropdownRef}>
             {/* Bell button */}
             <button
                 onClick={() => setOpen((v) => !v)}
-                title="Notifications"
+                title={t("notifications.title")}
                 className={cn(
-                    "w-full flex justify-center py-3 relative transition-colors hover:bg-black/10 text-white/70",
-                    open && "bg-black/20",
+                    "relative flex items-center rounded-xl transition-all duration-200 text-sm font-medium w-full text-left cursor-pointer",
+                    collapsed ? "justify-center p-2.5" : "gap-3 p-2.5",
+                    open
+                        ? "text-[#1a146b] dark:text-white font-bold bg-[#e2dfff]/30 dark:bg-[#312e81]/20"
+                        : "text-slate-500 dark:text-slate-400 hover:text-[#1a146b] dark:hover:text-white hover:bg-indigo-50/50 dark:hover:bg-indigo-900/20"
                 )}
             >
-                <Bell className="h-6 w-6 transition-colors" />
+                {open && <div className="iv-nav-active-marker" />}
+                <div className="relative flex items-center justify-center">
+                    <Bell className="h-5 w-5 transition-colors" />
+                </div>
+                {!collapsed && <span className="font-inter text-sm flex-grow">{t("notifications.title")}</span>}
                 {unreadOtherCount > 0 && (
-                    <span className="absolute top-2 right-2 min-w-4.5 h-4.5 flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-bold px-1 leading-none">
-                        {unreadOtherCount > 99 ? "99+" : unreadOtherCount}
-                    </span>
+                    collapsed ? (
+                        <span className="absolute -top-1 -right-1 min-w-[14px] h-[14px] flex items-center justify-center rounded-full bg-[#a43073] text-white text-[8px] font-bold px-0.5 leading-none">
+                            {unreadOtherCount > 9 ? "9+" : unreadOtherCount}
+                        </span>
+                    ) : (
+                        <span className="ml-auto min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-[#a43073] text-white text-[10px] font-bold px-1 leading-none">
+                            {unreadOtherCount > 99 ? "99+" : unreadOtherCount}
+                        </span>
+                    )
                 )}
             </button>
 
@@ -176,10 +197,10 @@ export function NotificationBell() {
                     {/* Header */}
                     <div className="flex items-center justify-between px-4 py-3 border-b border-border/60">
                         <span className="font-semibold text-sm text-foreground">
-                            Notifications
+                            {t("notifications.title")}
                             {unreadOtherCount > 0 && (
                                 <span className="ml-2 text-[11px] bg-brand/10 text-brand px-1.5 py-0.5 rounded-full font-medium">
-                                    {unreadOtherCount} unread
+                                    {t("notifications.unread_badge", { count: unreadOtherCount })}
                                 </span>
                             )}
                         </span>
@@ -187,7 +208,7 @@ export function NotificationBell() {
                             {unreadOtherCount > 0 && (
                                 <button
                                     onClick={handleMarkAllRead}
-                                    title="Mark all as read"
+                                    title={t("notifications.mark_all_read")}
                                     className="p-1.5 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
                                 >
                                     <CheckCheck size={14} />
@@ -213,7 +234,7 @@ export function NotificationBell() {
                         ) : otherNotifications.length === 0 ? (
                             <div className="flex flex-col items-center justify-center py-10 gap-2 text-muted-foreground">
                                 <Bell size={28} className="opacity-30" />
-                                <span className="text-xs">No notifications yet</span>
+                                <span className="text-xs">{t("notifications.empty_short")}</span>
                             </div>
                         ) : (
                             <ul className="py-1">

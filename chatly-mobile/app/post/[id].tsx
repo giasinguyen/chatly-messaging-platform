@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { CustomAiIcon } from '@/components/ui/CustomAiIcon';
 import { postService } from '@/services/post.service';
@@ -19,8 +21,10 @@ import { PostCommentsSection } from '@/app/post/components/PostCommentsSection';
 import { formatRelativeTime } from '@/utils/socialFormat';
 
 export default function PostDetailScreen() {
+  const { t } = useTranslation();
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   useThemeStore((state) => state.isDarkMode);
   const { isStartingAiChat, startPostAiChat } = usePostAiChatStarter();
 
@@ -36,7 +40,7 @@ export default function PostDetailScreen() {
 
   const loadPost = useCallback(async () => {
     if (!id) {
-      setErrorMessage('Invalid post id.');
+      setErrorMessage(t('errors.validation_failed'));
       setIsLoading(false);
       return;
     }
@@ -46,15 +50,15 @@ export default function PostDetailScreen() {
       setErrorMessage(null);
       const response = await postService.getById(id);
       if (response.code !== 1000 || !response.result) {
-        throw new Error(response.message ?? 'Could not load post.');
+        throw new Error(response.message ?? t('post.loading'));
       }
       setPost(response.result);
     } catch (error: unknown) {
-      setErrorMessage(getApiErrorMessage(error, 'Could not load post.'));
+      setErrorMessage(getApiErrorMessage(error, t('explore.load_failed')));
     } finally {
       setIsLoading(false);
     }
-  }, [id]);
+  }, [id, t]);
 
   const loadComments = useCallback(async () => {
     if (!id) {
@@ -66,15 +70,15 @@ export default function PostDetailScreen() {
       setCommentsError(null);
       const response = await postService.getComments(id);
       if (response.code !== 1000) {
-        throw new Error(response.message ?? 'Could not load comments.');
+        throw new Error(response.message ?? t('explore.load_failed'));
       }
       setComments(response.result ?? []);
     } catch (error: unknown) {
-      setCommentsError(getApiErrorMessage(error, 'Could not load comments.'));
+      setCommentsError(getApiErrorMessage(error, t('explore.load_failed')));
     } finally {
       setIsCommentsLoading(false);
     }
-  }, [id]);
+  }, [id, t]);
 
   const handleSubmitComment = useCallback(
     async (
@@ -97,7 +101,7 @@ export default function PostDetailScreen() {
           mentionIds,
         });
         if (response.code !== 1000 || !response.result) {
-          throw new Error(response.message ?? 'Could not send comment.');
+          throw new Error(response.message ?? t('errors.request_failed'));
         }
 
         setComments((prev) => [response.result, ...prev]);
@@ -111,13 +115,13 @@ export default function PostDetailScreen() {
         );
         setCommentsError(null);
       } catch (error: unknown) {
-        setCommentsError(getApiErrorMessage(error, 'Could not send comment.'));
+        setCommentsError(getApiErrorMessage(error, t('errors.request_failed')));
         throw error;
       } finally {
         setIsSubmittingComment(false);
       }
     },
-    [id, isSubmittingComment]
+    [id, isSubmittingComment, t]
   );
 
   const handleLikeComment = useCallback(
@@ -134,10 +138,10 @@ export default function PostDetailScreen() {
           );
         }
       } catch (error: unknown) {
-        setCommentsError(getApiErrorMessage(error, 'Could not react to comment.'));
+        setCommentsError(getApiErrorMessage(error, t('errors.request_failed')));
       }
     },
-    [id]
+    [id, t]
   );
 
   const handleUnlikeComment = useCallback(
@@ -154,10 +158,10 @@ export default function PostDetailScreen() {
           );
         }
       } catch (error: unknown) {
-        setCommentsError(getApiErrorMessage(error, 'Could not remove comment reaction.'));
+        setCommentsError(getApiErrorMessage(error, t('errors.request_failed')));
       }
     },
-    [id]
+    [id, t]
   );
 
   const handleDeleteComment = useCallback(
@@ -169,7 +173,7 @@ export default function PostDetailScreen() {
       try {
         const response = await postService.deleteComment(id, commentId);
         if (response.code !== 1000) {
-          throw new Error(response.message ?? 'Could not delete comment.');
+          throw new Error(response.message ?? t('errors.request_failed'));
         }
 
         const removedCount = countCommentBranch(comments, commentId);
@@ -184,10 +188,10 @@ export default function PostDetailScreen() {
             : current
         );
       } catch (error: unknown) {
-        setCommentsError(getApiErrorMessage(error, 'Could not delete comment.'));
+        setCommentsError(getApiErrorMessage(error, t('errors.request_failed')));
       }
     },
-    [comments, id]
+    [comments, id, t]
   );
 
   const handleEditComment = useCallback(
@@ -199,7 +203,7 @@ export default function PostDetailScreen() {
       try {
         const response = await postService.updateComment(id, commentId, { content, mentionIds });
         if (response.code !== 1000 || !response.result) {
-          throw new Error(response.message ?? 'Could not update comment.');
+          throw new Error(response.message ?? t('errors.request_failed'));
         }
 
         setComments((prev) =>
@@ -207,11 +211,11 @@ export default function PostDetailScreen() {
         );
         setCommentsError(null);
       } catch (error: unknown) {
-        setCommentsError(getApiErrorMessage(error, 'Could not update comment.'));
+        setCommentsError(getApiErrorMessage(error, t('errors.request_failed')));
         throw error;
       }
     },
-    [id]
+    [id, t]
   );
 
   useEffect(() => {
@@ -223,7 +227,7 @@ export default function PostDetailScreen() {
   }, [loadComments]);
 
   return (
-    <View className="flex-1" style={{ backgroundColor: Colors.bg }}>
+    <View className="flex-1" style={{ backgroundColor: Colors.bg, paddingTop: insets.top }}>
       <Stack.Screen options={{ headerShown: false }} />
 
       <View
@@ -235,7 +239,9 @@ export default function PostDetailScreen() {
           activeOpacity={0.75}>
           <Ionicons name="chevron-back" size={24} color={Colors.text} />
         </TouchableOpacity>
-        <Text className="ml-2 text-lg font-semibold" style={{ color: Colors.text }}>Post</Text>
+        <Text className="ml-2 text-lg font-semibold" style={{ color: Colors.text }}>
+          {t('mobile.home.post_title')}
+        </Text>
       </View>
 
       {isLoading ? (
@@ -244,12 +250,14 @@ export default function PostDetailScreen() {
         </View>
       ) : errorMessage ? (
         <View className="flex-1 items-center justify-center px-8">
-          <Text className="text-base font-semibold" style={{ color: Colors.text }}>Could not load post</Text>
+          <Text className="text-base font-semibold" style={{ color: Colors.text }}>
+            {t('explore.load_failed_title')}
+          </Text>
           <Text className="mt-1 text-center text-sm" style={{ color: Colors.textMuted }}>{errorMessage}</Text>
           <TouchableOpacity
             className="mt-4 rounded-full bg-[#0A7AFF] px-4 py-2 active:opacity-85"
             onPress={() => void loadPost()}>
-            <Text className="text-sm font-semibold text-white">Try again</Text>
+            <Text className="text-sm font-semibold text-white">{t('common.retry')}</Text>
           </TouchableOpacity>
         </View>
       ) : post ? (
@@ -261,12 +269,12 @@ export default function PostDetailScreen() {
               activeOpacity={0.75}>
               <Avatar
                 uri={post.authorAvatarUrl}
-                name={post.authorDisplayName ?? post.authorUsername ?? 'Unknown user'}
+                name={post.authorDisplayName ?? post.authorUsername ?? t('common.anonymous')}
                 size={40}
               />
               <View className="ml-2.5">
                 <Text className="text-sm font-semibold" style={{ color: Colors.text }}>
-                  {post.authorDisplayName ?? post.authorUsername ?? 'Unknown user'}
+                  {post.authorDisplayName ?? post.authorUsername ?? t('common.anonymous')}
                 </Text>
                 <Text className="text-xs" style={{ color: Colors.textMuted }}>{formatRelativeTime(post.createdAt)}</Text>
               </View>
@@ -320,7 +328,9 @@ export default function PostDetailScreen() {
         </ScrollView>
       ) : (
         <View className="flex-1 items-center justify-center px-8">
-          <Text className="text-base font-semibold" style={{ color: Colors.text }}>Post not found</Text>
+          <Text className="text-base font-semibold" style={{ color: Colors.text }}>
+            {t('mobile.home.post_not_found')}
+          </Text>
         </View>
       )}
 
@@ -345,7 +355,7 @@ export default function PostDetailScreen() {
         <UserQuickProfileDialog
           visible={isQuickProfileVisible}
           userId={post.authorId}
-          fallbackDisplayName={post.authorDisplayName ?? post.authorUsername ?? 'Unknown user'}
+          fallbackDisplayName={post.authorDisplayName ?? post.authorUsername ?? t('common.anonymous')}
           fallbackAvatarUrl={post.authorAvatarUrl}
           onClose={() => setIsQuickProfileVisible(false)}
         />

@@ -1,4 +1,26 @@
-import type { Message } from "@/types/message";
+import type { TFunction } from "i18next";
+import type { Attachment, Message } from "@/types/message";
+
+function isPlainImageAttachment(attachment: Attachment): boolean {
+    if (!attachment.type?.startsWith("image/")) return false;
+    return (
+        attachment.kind !== "POST_PREVIEW" &&
+        attachment.kind !== "REEL_PREVIEW" &&
+        attachment.kind !== "STORY_REPLY" &&
+        attachment.type !== "application/x-chatly-post-preview" &&
+        attachment.type !== "application/x-chatly-reel-preview" &&
+        !attachment.postId &&
+        !attachment.reelId
+    );
+}
+
+/** Text caption with one or more photo attachments (Messenger-style card). */
+export function isImageCaptionMessage(msg: Message): boolean {
+    if (!msg.content?.trim()) return false;
+    const attachments = msg.attachments ?? [];
+    if (attachments.length === 0) return false;
+    return attachments.every(isPlainImageAttachment);
+}
 
 export const RECALL_LIMIT_MS = 24 * 60 * 60 * 1000;
 export const EDIT_LIMIT_MS = 15 * 60 * 1000;
@@ -32,15 +54,15 @@ export function canForward(msg: Message): boolean {
     return ["TEXT", "IMAGE", "FILE", "GIF", "STICKER", "AGENT"].includes(msg.type);
 }
 
-export function formatSeenTime(readAt: string): string {
+export function formatSeenTime(readAt: string, t: TFunction): string {
     const diff = Date.now() - new Date(readAt).getTime();
     const minutes = Math.floor(diff / 60000);
-    if (minutes < 1) return "just seen";
-    if (minutes < 60) return `${minutes} minutes ago`;
+    if (minutes < 1) return t("chat.just_seen");
+    if (minutes < 60) return t("chat.minutes_ago", { count: minutes });
     const hours = Math.floor(minutes / 60);
-    if (hours < 24) return `${hours} hours ago`;
+    if (hours < 24) return t("chat.hours_ago", { count: hours });
     const days = Math.floor(hours / 24);
-    return `${days} days ago`;
+    return t("chat.days_ago", { count: days });
 }
 
 export function shouldShowAvatar(messages: Message[], index: number): boolean {

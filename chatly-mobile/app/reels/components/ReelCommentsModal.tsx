@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Modal,
   View,
@@ -36,6 +37,7 @@ export function ReelCommentsModal({
   onClose,
   onCommentAdded,
 }: ReelCommentsModalProps) {
+  const { t } = useTranslation();
   const [comments, setComments] = useState<PostComment[]>([]);
   const [draft, setDraft] = useState('');
   const [replyToComment, setReplyToComment] = useState<PostComment | null>(null);
@@ -54,7 +56,7 @@ export function ReelCommentsModal({
           setComments(response.result);
         }
       } catch (error: unknown) {
-        Alert.alert('Error', getApiErrorMessage(error, 'Could not load comments.'));
+        Alert.alert(t('errors.request_failed'), getApiErrorMessage(error, t('mobile.reels.load_comments_failed')));
       } finally {
         setIsLoading(false);
       }
@@ -81,7 +83,7 @@ export function ReelCommentsModal({
         onCommentAdded(reel.id);
       }
     } catch (error: unknown) {
-      Alert.alert('Error', getApiErrorMessage(error, 'Could not post comment.'));
+      Alert.alert(t('errors.request_failed'), getApiErrorMessage(error, t('mobile.reels.post_comment_failed')));
     } finally {
       setIsSubmitting(false);
     }
@@ -108,7 +110,7 @@ export function ReelCommentsModal({
         );
       }
     } catch (error: unknown) {
-      Alert.alert('Error', getApiErrorMessage(error, 'Could not toggle like.'));
+      Alert.alert(t('errors.request_failed'), getApiErrorMessage(error, t('mobile.reels.toggle_like_failed')));
     }
   };
 
@@ -124,7 +126,7 @@ export function ReelCommentsModal({
         <View className="bg-white rounded-t-3xl h-[75%] w-full overflow-hidden">
           {/* Header */}
           <View className="flex-row items-center justify-between px-4 py-4 border-b border-gray-200">
-            <Text className="text-lg font-bold text-gray-900">Comments</Text>
+            <Text className="text-lg font-bold text-gray-900">{t('mobile.reels.comments_title')}</Text>
             <TouchableOpacity onPress={onClose} activeOpacity={0.7} className="p-1">
               <Ionicons name="close" size={24} color={Colors.text} />
             </TouchableOpacity>
@@ -141,8 +143,8 @@ export function ReelCommentsModal({
               </View>
             ) : comments.length === 0 ? (
               <View className="flex-1 items-center justify-center p-6">
-                <Text className="text-[#6E6E73] text-sm">No comments yet.</Text>
-                <Text className="text-[#6E6E73] text-xs mt-1">Be the first to comment!</Text>
+                <Text className="text-[#6E6E73] text-sm">{t('mobile.reels.no_comments')}</Text>
+                <Text className="text-[#6E6E73] text-xs mt-1">{t('mobile.reels.be_first_comment')}</Text>
               </View>
             ) : (
               <FlatList
@@ -154,6 +156,8 @@ export function ReelCommentsModal({
                     depth={0}
                     onReply={handleReply}
                     onToggleLike={handleToggleCommentLike}
+                    replyLabel={t('mobile.reels.reply')}
+                    userFallback={t('mobile.reels.chatly_user')}
                   />
                 )}
                 contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 12 }}
@@ -166,10 +170,9 @@ export function ReelCommentsModal({
               {replyToComment ? (
                 <View className="flex-row items-center justify-between bg-gray-100 rounded-lg px-3 py-1.5 mb-2">
                   <Text className="text-xs text-gray-600">
-                    Replying to{' '}
-                    <Text className="font-semibold">
-                      {replyToComment.userDisplayName ?? replyToComment.userUsername}
-                    </Text>
+                    {t('mobile.reels.replying_to', {
+                      name: replyToComment.userDisplayName ?? replyToComment.userUsername ?? '',
+                    })}
                   </Text>
                   <TouchableOpacity onPress={() => setReplyToComment(null)} activeOpacity={0.7}>
                     <Ionicons name="close-circle" size={16} color={Colors.textMuted} />
@@ -182,7 +185,7 @@ export function ReelCommentsModal({
                   ref={inputRef}
                   value={draft}
                   onChangeText={setDraft}
-                  placeholder="Add a comment..."
+                  placeholder={t('mobile.reels.add_comment_placeholder')}
                   multiline
                   maxLength={500}
                   className="flex-1 bg-gray-100 rounded-xl px-4 py-2.5 text-sm text-gray-900 max-h-20"
@@ -218,13 +221,17 @@ function CommentNodeView({
   depth,
   onReply,
   onToggleLike,
+  replyLabel,
+  userFallback,
 }: {
   comment: CommentNode;
   depth: number;
   onReply: (comment: PostComment) => void;
   onToggleLike: (comment: PostComment) => void;
+  replyLabel: string;
+  userFallback: string;
 }) {
-  const label = comment.userDisplayName ?? comment.userUsername ?? 'Chatly user';
+  const label = comment.userDisplayName ?? comment.userUsername ?? userFallback;
   const reactionCount = comment.reactions?.reduce((sum, reaction) => sum + reaction.count, 0) ?? 0;
   const isLiked = comment.reactions?.some((reaction) => reaction.reactedByMe) ?? false;
 
@@ -278,7 +285,7 @@ function CommentNodeView({
               activeOpacity={0.7}
               className="flex-row items-center gap-1">
               <Ionicons name="chatbubble-outline" size={13} color={Colors.textMuted} />
-              <Text className="text-xs text-gray-500">Reply</Text>
+              <Text className="text-xs text-gray-500">{replyLabel}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -292,6 +299,8 @@ function CommentNodeView({
           depth={depth + 1}
           onReply={onReply}
           onToggleLike={onToggleLike}
+          replyLabel={replyLabel}
+          userFallback={userFallback}
         />
       ))}
     </View>

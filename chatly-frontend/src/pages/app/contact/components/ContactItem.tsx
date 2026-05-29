@@ -1,5 +1,6 @@
 import { Check, ShieldOff, Unlock, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -33,6 +34,7 @@ export function ContactItem({
     onBlock,
     onRemove,
 }: ContactItemProps) {
+    const { t } = useTranslation();
     const navigate = useNavigate();
     const isIncoming = contact.contact.id === currentUserId;
     const otherUser = isIncoming ? contact.user : contact.contact;
@@ -43,10 +45,10 @@ export function ContactItem({
                 return (
                     <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                         <Button size="sm" onClick={() => onAccept(contact.id)} className="h-8">
-                            <Check className="h-4 w-4 mr-1" /> Accept
+                            <Check className="h-4 w-4 mr-1" /> {t("contact.accept")}
                         </Button>
                         <Button size="sm" variant="destructive" onClick={() => onReject(contact.id)} className="h-8">
-                            <X className="h-4 w-4 mr-1" /> Reject
+                            <X className="h-4 w-4 mr-1" /> {t("contact.reject")}
                         </Button>
                     </div>
                 );
@@ -54,7 +56,7 @@ export function ContactItem({
             return (
                 <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                     <Button size="sm" variant="outline" onClick={() => onReject(contact.id)} className="h-8">
-                        <X className="h-4 w-4 mr-1" /> Recall
+                        <X className="h-4 w-4 mr-1" /> {t("contact.recall")}
                     </Button>
                 </div>
             );
@@ -68,7 +70,7 @@ export function ContactItem({
                     onClick={() => onUnblock(contact.id, otherUser.displayName)}
                     className="h-8 opacity-0 group-hover:opacity-100 transition-opacity"
                 >
-                    <Unlock className="h-4 w-4 mr-1" /> Unblock
+                    <Unlock className="h-4 w-4 mr-1" /> {t("contact.unblock")}
                 </Button>
             );
         }
@@ -98,7 +100,7 @@ export function ContactItem({
                 className="gap-1 text-[10px] px-1.5 py-0 bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300"
             >
                 <ShieldOff className="h-2.5 w-2.5" />
-                Limited
+                {t("contact.limited_badge")}
             </Badge>
         );
     };
@@ -129,7 +131,9 @@ export function ContactItem({
                     </div>
                     {activeTab === "requests" && (
                         <span className="text-xs text-muted-foreground mt-0.5">
-                            {isIncoming ? "Sent you a request" : "You sent a request"}
+                            {isIncoming
+                                ? t("contact.incoming_request_label")
+                                : t("contact.outgoing_request_label")}
                         </span>
                     )}
                 </div>

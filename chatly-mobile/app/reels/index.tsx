@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   View,
   Text,
@@ -27,6 +28,7 @@ function mergeReels(existing: Reel[], incoming: Reel[]) {
 }
 
 export default function ReelsScreen() {
+  const { t } = useTranslation();
   const router = useRouter();
   const { reelId: focusedReelId } = useLocalSearchParams<{ reelId?: string }>();
   const { width, height } = useWindowDimensions();
@@ -70,7 +72,7 @@ export default function ReelsScreen() {
     try {
       const response = await reelService.getFeed(cursor, PAGE_SIZE);
       if (response.code !== 1000 || !response.result) {
-        Alert.alert('Error', response.message ?? 'Could not load reels.');
+        Alert.alert(t('errors.request_failed'), response.message ?? t('reels.load_failed'));
         return;
       }
 
@@ -85,11 +87,11 @@ export default function ReelsScreen() {
         viewedIdsRef.current = new Set();
       }
     } catch (error: unknown) {
-      Alert.alert('Error', getApiErrorMessage(error, 'Could not load reels.'));
+      Alert.alert(t('errors.request_failed'), getApiErrorMessage(error, t('reels.load_failed')));
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     if (!focusedReelId) {
@@ -101,7 +103,7 @@ export default function ReelsScreen() {
     Promise.all([reelService.getById(focusedReelId), reelService.getFeed(null, PAGE_SIZE)])
       .then(([focusedResponse, feedResponse]) => {
         if (focusedResponse.code !== 1000 || !focusedResponse.result) {
-          Alert.alert('Error', focusedResponse.message ?? 'Could not load reel.');
+          Alert.alert(t('errors.request_failed'), focusedResponse.message ?? t('reels.load_reel_failed'));
           return;
         }
         const feed = feedResponse.result;
@@ -112,12 +114,15 @@ export default function ReelsScreen() {
         viewedIdsRef.current = new Set();
       })
       .catch((error: unknown) => {
-        Alert.alert('Error', getApiErrorMessage(error, 'Could not load focused reel.'));
+        Alert.alert(
+          t('errors.request_failed'),
+          getApiErrorMessage(error, t('mobile.reels.load_focused_failed')),
+        );
       })
       .finally(() => {
         setIsLoading(false);
       });
-  }, [focusedReelId, loadReels]);
+  }, [focusedReelId, loadReels, t]);
 
   useEffect(() => {
     if (!activeReel || viewedIdsRef.current.has(activeReel.id)) return;
@@ -141,7 +146,10 @@ export default function ReelsScreen() {
         updateReel(response.result);
       }
     } catch (error: unknown) {
-      Alert.alert('Error', getApiErrorMessage(error, 'Could not update reaction.'));
+      Alert.alert(
+        t('errors.request_failed'),
+        getApiErrorMessage(error, t('mobile.reels.reaction_failed')),
+      );
     } finally {
       setBusyReelId(null);
     }
@@ -164,14 +172,14 @@ export default function ReelsScreen() {
           <Ionicons name="chevron-back" size={24} color="white" />
         </TouchableOpacity>
 
-        <Text className="text-white font-bold text-lg shadow-sm">Reels</Text>
+        <Text className="text-white font-bold text-lg shadow-sm">{t('reels.title')}</Text>
 
         <TouchableOpacity
           onPress={() => setIsCreateOpen(true)}
           activeOpacity={0.7}
           className="flex-row items-center gap-1 bg-white/20 border border-white/10 rounded-full px-4 py-2 shadow">
           <Ionicons name="add" size={18} color="white" />
-          <Text className="text-white text-xs font-bold">Create</Text>
+          <Text className="text-white text-xs font-bold">{t('mobile.reels.create')}</Text>
         </TouchableOpacity>
       </SafeAreaView>
 
@@ -179,9 +187,9 @@ export default function ReelsScreen() {
       {isEmpty && (
         <View className="flex-1 items-center justify-center px-6">
           <Ionicons name="film-outline" size={48} color="white" className="opacity-60 mb-2" />
-          <Text className="text-white font-bold text-lg">No reels yet</Text>
+          <Text className="text-white font-bold text-lg">{t('mobile.reels.empty')}</Text>
           <Text className="text-white/60 text-sm mt-1 text-center max-w-xs">
-            Create the first reel or check back later once more people upload videos.
+            {t('mobile.reels.empty_hint')}
           </Text>
         </View>
       )}

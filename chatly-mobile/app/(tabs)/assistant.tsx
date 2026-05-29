@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   View,
   Text,
@@ -38,6 +39,7 @@ import { useAuthStore } from '@/store/auth.store';
 import { useThemeStore } from '@/store/theme.store';
 
 export default function AssistantScreen() {
+  const { t } = useTranslation();
   const router = useRouter();
   useThemeStore((state) => state.isDarkMode);
   const insets = useSafeAreaInsets();
@@ -87,13 +89,14 @@ export default function AssistantScreen() {
   const [forwardModalVisible, setForwardModalVisible] = useState(false);
 
   const session = sessions.find((s) => s.id === activeSessionId);
-  const title = session?.title ?? 'AI Assistant';
+  const title = session?.title ?? t('mobile.assistant.title');
   const contextMode = getAssistantContextMode(session?.context_conversation_id);
   const contextConversationName =
     contextMode === 'group' && session?.context_conversation_id
-      ? conversations.find((conversation) => conversation.id === session.context_conversation_id)?.name ?? 'this group'
+      ? conversations.find((conversation) => conversation.id === session.context_conversation_id)?.name ??
+        t('mobile.assistant.badge_group')
       : contextMode === 'post'
-        ? session?.title ?? 'Post context'
+        ? session?.title ?? t('mobile.assistant.post_context')
         : undefined;
 
   // ─── Load sessions on mount ──────────────────────────────
@@ -151,7 +154,7 @@ export default function AssistantScreen() {
           sid = newSession.id;
           setActiveSessionId(sid);
         } catch {
-          Alert.alert('Error', 'Could not create new conversation');
+          Alert.alert(t('errors.request_failed'), t('mobile.assistant.create_failed'));
           return;
         }
       }
@@ -174,7 +177,7 @@ export default function AssistantScreen() {
         mcp_server_ids: selectedMcpIds,
       });
     },
-    [activeSessionId, addSession, setActiveSessionId, appendMessage, startStream, useWebSearch, selectedMcpIds, setLastUserPrompt],
+    [activeSessionId, addSession, appendMessage, setActiveSessionId, setLastUserPrompt, startStream, selectedMcpIds, t, useWebSearch],
   );
 
   const handleRetry = useCallback(() => {
@@ -245,10 +248,13 @@ export default function AssistantScreen() {
   };
 
   const handleDeleteSession = (sessionId: string, sessionTitle: string) => {
-    Alert.alert('Delete conversation?', `"${sessionTitle}" will be permanently deleted.`, [
-      { text: 'Cancel', style: 'cancel' },
+    Alert.alert(
+      t('mobile.assistant.delete_title'),
+      t('mobile.assistant.delete_body', { title: sessionTitle }),
+      [
+      { text: t('common.cancel'), style: 'cancel' },
       {
-        text: 'Delete',
+        text: t('common.delete'),
         style: 'destructive',
         onPress: async () => {
           try {
@@ -259,7 +265,7 @@ export default function AssistantScreen() {
               resetStreaming();
             }
           } catch {
-            Alert.alert('Error', 'Could not delete');
+            Alert.alert(t('errors.request_failed'), t('mobile.assistant.delete_failed'));
           }
         },
       },
@@ -269,18 +275,18 @@ export default function AssistantScreen() {
   const handleLongPressSession = (s: AgentSession) => {
     Alert.alert(s.title, undefined, [
       {
-        text: 'Rename',
+        text: t('mobile.assistant.rename'),
         onPress: () => {
           setEditingId(s.id);
           setEditTitle(s.title);
         },
       },
       {
-        text: 'Delete',
+        text: t('common.delete'),
         style: 'destructive',
         onPress: () => handleDeleteSession(s.id, s.title),
       },
-      { text: 'Cancel', style: 'cancel' },
+      { text: t('common.cancel'), style: 'cancel' },
     ]);
   };
 
@@ -293,7 +299,7 @@ export default function AssistantScreen() {
       await agentService.renameSession(editingId, editTitle.trim());
       renameSession(editingId, editTitle.trim());
     } catch {
-      Alert.alert('Error', 'Could not rename');
+      Alert.alert(t('errors.request_failed'), t('mobile.assistant.rename_failed'));
     } finally {
       setEditingId(null);
     }
@@ -354,7 +360,8 @@ export default function AssistantScreen() {
     const isActive = activeSessionId === item.id;
     const itemContextMode = getAssistantContextMode(item.context_conversation_id);
     const isContextSession = itemContextMode !== null;
-    const badgeLabel = itemContextMode === 'post' ? 'Post' : 'Group';
+    const badgeLabel =
+      itemContextMode === 'post' ? t('mobile.assistant.badge_post') : t('mobile.assistant.badge_group');
     const badgeColor = itemContextMode === 'post' ? '#0A7AFF' : '#4338CA';
     return (
       <TouchableOpacity
@@ -507,11 +514,10 @@ export default function AssistantScreen() {
                 <CustomAiIcon size={36} color={Colors.cta} />
               </View>
               <Text className="text-xl font-semibold text-center" style={{ color: Colors.text }}>
-                Chatly AI Assistant
+                {t('nav.ai_chat')}
               </Text>
               <Text className="text-sm text-center mt-2.5 leading-5 max-w-xs" style={{ color: Colors.textMuted }}>
-                Enter a question to start chatting with AI.{'\n'}
-                You can upload documents, search the web and use MCP tools.
+                {t('mobile.chat.start_conversation_hint')}
               </Text>
               <AssistantQuickChips
                 onChipSelect={handleChipSelect}
@@ -545,7 +551,7 @@ export default function AssistantScreen() {
             style={{ backgroundColor: Colors.white, borderBottomWidth: 0.5, borderBottomColor: Colors.borderLight }}
           >
             <Text className="text-lg font-bold" style={{ color: Colors.text }}>
-              Chat History
+              {t('mobile.assistant.title')}
             </Text>
             <TouchableOpacity onPress={() => setShowSessions(false)} className="p-1">
               <Ionicons name="close" size={24} color={Colors.textMuted} />
@@ -565,7 +571,7 @@ export default function AssistantScreen() {
               <View className="flex-1 items-center justify-center py-20">
                 <Ionicons name="chatbubbles-outline" size={48} color={Colors.textLight} />
                 <Text className="text-sm mt-3" style={{ color: Colors.textMuted }}>
-                  No conversations yet
+                  {t('chat.no_conversations_yet')}
                 </Text>
               </View>
             }

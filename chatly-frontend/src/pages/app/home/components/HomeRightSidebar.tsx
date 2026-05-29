@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { AdminBadge } from "@/components/customize/AdminBadge";
@@ -27,6 +28,7 @@ export function HomeRightSidebar({
     userRolesById,
     onOpenProfile,
 }: HomeRightSidebarProps) {
+    const { t } = useTranslation();
     const navigate = useNavigate();
     const [suggestions, setSuggestions] = useState<ContactSuggestionResponse[]>(
         [],
@@ -65,18 +67,18 @@ export function HomeRightSidebar({
                 contactId: userId,
             });
             if (response.code !== 1000) {
-                throw new Error(response.message ?? "Could not send friend request.");
+                throw new Error(response.message ?? t("home.friend_request_send_failed"));
             }
             setRequestIdsBySuggestionId((current) => ({
                 ...current,
                 [userId]: response.result.id,
             }));
-            toast.success("Friend request sent.");
+            toast.success(t("home.friend_request_sent"));
         } catch (error: unknown) {
             const message =
                 error instanceof Error
                     ? error.message
-                    : "Could not send friend request.";
+                    : t("home.friend_request_send_failed");
             toast.error(message);
         } finally {
             setPendingSuggestionIds((current) => {
@@ -97,19 +99,19 @@ export function HomeRightSidebar({
         try {
             const response = await contactService.delete(contactId);
             if (response.code !== 1000) {
-                throw new Error(response.message ?? "Could not cancel friend request.");
+                throw new Error(response.message ?? t("home.friend_request_cancel_failed"));
             }
             setRequestIdsBySuggestionId((current) => {
                 const next = { ...current };
                 delete next[suggestion.id];
                 return next;
             });
-            toast.success("Friend request canceled.");
+            toast.success(t("home.friend_request_canceled"));
         } catch (error: unknown) {
             const message =
                 error instanceof Error
                     ? error.message
-                    : "Could not cancel friend request.";
+                    : t("home.friend_request_cancel_failed");
             toast.error(message);
         } finally {
             setPendingSuggestionIds((current) => {
@@ -121,8 +123,8 @@ export function HomeRightSidebar({
     };
 
     return (
-        <aside className="sticky top-0 hidden h-screen w-100 shrink-0 overflow-y-auto pt-8 pr-8 pl-6 xl:block hide-scrollbar">
-            <div className="mb-8 flex items-center justify-between rounded-xl border border-border bg-card p-3 shadow-sm">
+        <aside className="sticky top-0 hidden h-screen w-100 shrink-0 overflow-x-hidden overflow-y-auto pt-8 pr-8 pl-6 xl:block hide-scrollbar">
+            <div className="mb-8 flex items-center justify-between rounded-2xl border border-border bg-card p-4 iv-shadow-sm">
                 <div
                     className="flex cursor-pointer items-center gap-3"
                     onClick={onOpenProfile}
@@ -131,7 +133,7 @@ export function HomeRightSidebar({
                         className={cn(
                             "rounded-full p-0.5",
                             hasMyStories
-                                ? "bg-linear-to-tr from-brand via-blue-500 to-cyan-400"
+                                ? "story-ring-active"
                                 : "bg-transparent",
                         )}
                     >
@@ -139,7 +141,7 @@ export function HomeRightSidebar({
                             <Avatar className="h-12 w-12">
                                 <AvatarImage
                                     src={user?.avatarUrl}
-                                    alt={user?.displayName || "Your Profile"}
+                                    alt={user?.displayName || t("home.your_profile")}
                                     className="object-cover"
                                 />
                                 <AvatarFallback className="bg-linear-to-tr from-pink-400 to-indigo-500 text-sm font-semibold text-white">
@@ -151,7 +153,7 @@ export function HomeRightSidebar({
                     <div>
                         <div className="flex items-center gap-1.5">
                             <h4 className="truncate font-semibold text-foreground">
-                                {user?.displayName || "current_user"}
+                                {user?.displayName || t("home.current_user")}
                             </h4>
                             {user?.role === "ADMIN" && <AdminBadge />}
                         </div>
@@ -160,20 +162,16 @@ export function HomeRightSidebar({
                         </p>
                     </div>
                 </div>
-                <button className="border-none bg-transparent text-[12px] font-semibold text-brand transition-colors hover:text-brand-dark">
-                    Switch
-                </button>
             </div>
 
-            {suggestions.length > 0 && (
-                <>
-                    <div className="mb-4">
-                        <h3 className="font-semibold text-muted-foreground">
-                            People you may know
-                        </h3>
-                    </div>
+            <div className="mb-4">
+                <h3 className="font-semibold text-muted-foreground">
+                    {t("home.people_you_may_know")}
+                </h3>
+            </div>
 
-                    <div className="space-y-2 rounded-2xl border border-border bg-card/70 p-3">
+            {suggestions.length > 0 ? (
+                <div className="space-y-2 rounded-2xl border border-border bg-card/70 p-3 iv-shadow-sm">
                         {suggestions.map((suggestion) => {
                             const hasRequested = Boolean(
                                 requestIdsBySuggestionId[suggestion.id],
@@ -210,7 +208,7 @@ export function HomeRightSidebar({
                                         </div>
                                         <p className="truncate text-xs text-muted-foreground">
                                             @{suggestion.username} -{" "}
-                                            {suggestion.mutualFriendCount} mutual friends
+                                            {t("home.mutual_friends", { count: suggestion.mutualFriendCount })}
                                         </p>
                                     </div>
                                     <Button
@@ -229,7 +227,7 @@ export function HomeRightSidebar({
                                                 "text-red-600 hover:bg-red-50 hover:text-red-700 dark:hover:bg-red-500/10",
                                         )}
                                     >
-                                        {hasRequested ? "Cancel" : "Add"}
+                                        {hasRequested ? t("home.cancel") : t("home.add")}
                                     </Button>
 
                                     <HomeUserHoverCard
@@ -238,7 +236,7 @@ export function HomeRightSidebar({
                                             displayName: suggestion.displayName,
                                             username: suggestion.username,
                                             avatarUrl: suggestion.avatarUrl,
-                                            subtitle: `${suggestion.mutualFriendCount} mutual friends`,
+                                            subtitle: t("home.mutual_friends", { count: suggestion.mutualFriendCount }),
                                             role: suggestionRole,
                                         }}
                                         mode="suggestion"
@@ -252,8 +250,11 @@ export function HomeRightSidebar({
                                 </div>
                             );
                         })}
-                    </div>
-                </>
+                </div>
+            ) : (
+                <div className="rounded-2xl border border-border bg-card/70 px-4 py-6 text-center text-sm text-muted-foreground iv-shadow-sm">
+                    {t("home.suggestions_empty")}
+                </div>
             )}
 
             <HomeFriendsPanel
@@ -262,7 +263,7 @@ export function HomeRightSidebar({
             />
 
             <p className="mt-4 text-center text-[11px] text-muted-foreground">
-                © 2027 ChatLy - The Challenger Team
+                {t("home.copyright")}
             </p>
         </aside>
     );

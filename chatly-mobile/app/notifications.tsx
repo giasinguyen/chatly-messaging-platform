@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   View,
   Text,
@@ -31,6 +32,7 @@ function parseNotificationScope(scopeParam: string | string[] | undefined): Noti
 }
 
 export default function NotificationsScreen() {
+  const { t } = useTranslation();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { scope: scopeParam } = useLocalSearchParams<{ scope?: string | string[] }>();
@@ -147,7 +149,7 @@ export default function NotificationsScreen() {
     }
   };
 
-  const title = scope === 'social' ? 'Feed notifications' : 'Notifications';
+  const title = t('notifications.title');
 
   const handleBack = () => {
     if (scope === 'social') {
@@ -181,7 +183,9 @@ export default function NotificationsScreen() {
             {title}
           </Text>
           <TouchableOpacity onPress={handleMarkAllRead}>
-            <Text style={{ color: Colors.cta, fontWeight: '500' }}>Mark all read</Text>
+            <Text style={{ color: Colors.cta, fontWeight: '500' }}>
+              {t('notifications.mark_all_read')}
+            </Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -209,7 +213,7 @@ export default function NotificationsScreen() {
                   borderBottomColor: Colors.borderLight,
                 }}>
                 <View className="relative">
-                  <Avatar uri={item.senderAvatar} name={item.senderName || 'User'} size={48} />
+                  <Avatar uri={item.senderAvatar} name={item.senderName || t('profile.user_fallback')} size={48} />
                   <View
                     className="absolute -bottom-1 -right-1 rounded-full p-1"
                     style={{
@@ -252,7 +256,7 @@ export default function NotificationsScreen() {
             <View className="flex-1 items-center justify-center pt-20">
               <Ionicons name="notifications-off-outline" size={64} color={Colors.borderLight} />
               <Text className="mt-4 text-base" style={{ color: Colors.textMuted }}>
-                No notifications yet
+                {t('notifications.empty_short')}
               </Text>
             </View>
           }

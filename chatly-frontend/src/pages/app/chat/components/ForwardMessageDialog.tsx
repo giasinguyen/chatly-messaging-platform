@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Search, Send } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { AdminBadge } from "@/components/customize/AdminBadge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -40,6 +41,7 @@ export function ForwardMessageDialog({
     onOpenChange,
     onConfirm,
 }: ForwardMessageDialogProps) {
+    const { t } = useTranslation();
     const [searchQuery, setSearchQuery] = useState("");
     const [selectedIds, setSelectedIds] = useState<string[]>([]);
     const [conversations, setConversations] = useState<ConversationResponse[]>([]);
@@ -117,9 +119,9 @@ export function ForwardMessageDialog({
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-lg">
                 <DialogHeader>
-                    <DialogTitle>Forward Message</DialogTitle>
+                    <DialogTitle>{t("chat.forward_message")}</DialogTitle>
                     <DialogDescription>
-                        Select one or more conversations to forward this message.
+                        {t("chat.forward_message_desc")}
                     </DialogDescription>
                 </DialogHeader>
 
@@ -128,7 +130,7 @@ export function ForwardMessageDialog({
                     <Input
                         value={searchQuery}
                         onChange={(event) => setSearchQuery(event.target.value)}
-                        placeholder="Search conversations..."
+                        placeholder={t("chat.search_conversations")}
                         className="pl-9"
                     />
                 </div>
@@ -137,11 +139,11 @@ export function ForwardMessageDialog({
                     <div className="p-2">
                         {loading ? (
                             <div className="px-3 py-8 text-center text-sm text-muted-foreground">
-                                Loading conversations...
+                                {t("chat.loading_conversations")}
                             </div>
                         ) : filteredConversations.length === 0 ? (
                             <div className="px-3 py-8 text-center text-sm text-muted-foreground">
-                                No matching conversations found.
+                                {t("chat.no_matching_conversations")}
                             </div>
                         ) : (
                             filteredConversations.map((conversation) => {
@@ -180,7 +182,7 @@ export function ForwardMessageDialog({
                                                 )}
                                             </div>
                                             <p className="truncate text-xs text-muted-foreground">
-                                                {conversation.type === "GROUP" ? "Group chat" : "Private chat"}
+                                                {conversation.type === "GROUP" ? t("chat.group_chat_short") : t("chat.private_chat")}
                                             </p>
                                         </div>
                                     </label>
@@ -192,10 +194,10 @@ export function ForwardMessageDialog({
 
                 <DialogFooter>
                     <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={submitting}>
-                        Cancel
+                        {t("common.cancel")}
                     </Button>
                     <Button onClick={handleConfirm} disabled={selectedIds.length === 0 || submitting || loading}>
-                        {submitting ? "Forwarding..." : "Forward"}
+                        {submitting ? t("chat.forwarding") : t("chat.forward_action")}
                         {!submitting && <Send className="ml-2 size-4" />}
                     </Button>
                 </DialogFooter>

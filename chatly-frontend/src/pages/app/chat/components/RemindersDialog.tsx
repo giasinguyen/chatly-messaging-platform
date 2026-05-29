@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import axios from "axios";
+import { useTranslation } from "react-i18next";
 import { groupService } from "@/services/group.service";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -63,6 +64,7 @@ export function RemindersDialog({
     open,
     onOpenChange,
 }: RemindersDialogProps) {
+    const { t } = useTranslation();
     const [reminders, setReminders] = useState<GroupReminderResponse[]>([]);
     const [loading, setLoading] = useState(false);
 
@@ -89,11 +91,11 @@ export function RemindersDialog({
             const res = await groupService.getReminders(conversationId);
             setReminders(res.result ?? []);
         } catch {
-            toast.error("Could not load reminders");
+            toast.error(t("chat.reminders_dialog.load_failed"));
         } finally {
             setLoading(false);
         }
-    }, [conversationId]);
+    }, [conversationId, t]);
 
     useEffect(() => {
         if (open) {
@@ -109,12 +111,12 @@ export function RemindersDialog({
 
     const handleCreate = async () => {
         if (!title.trim()) {
-            toast.error("Title cannot be empty");
+            toast.error(t("chat.reminders_dialog.title_empty"));
             return;
         }
         const remindAt = combineDateTime(remindDate, remindTime);
         if (remindAt && new Date(remindAt) <= new Date()) {
-            toast.error("Reminder time must be in the future");
+            toast.error(t("chat.reminders_dialog.time_in_future"));
             return;
         }
         setCreating(true);
@@ -124,7 +126,7 @@ export function RemindersDialog({
                 description: description.trim() || undefined,
                 remindAt,
             });
-            toast.success("Reminder created");
+            toast.success(t("chat.reminders_dialog.created"));
             setTitle("");
             setDescription("");
             const { date, time } = nowPlusOneMinute();
@@ -136,7 +138,7 @@ export function RemindersDialog({
             const msg = axios.isAxiosError(err)
                 ? (err.response?.data as { message?: string })?.message
                 : undefined;
-            toast.error(msg ?? "Could not create reminder");
+            toast.error(msg ?? t("chat.reminders_dialog.create_failed"));
         } finally {
             setCreating(false);
         }
@@ -147,17 +149,17 @@ export function RemindersDialog({
             await groupService.toggleReminder(id);
             fetchReminders();
         } catch {
-            toast.error("Could not update reminder");
+            toast.error(t("chat.reminders_dialog.toggle_failed"));
         }
     };
 
     const handleDelete = async (id: string) => {
         try {
             await groupService.deleteReminder(id);
-            toast.success("Reminder deleted");
+            toast.success(t("chat.reminders_dialog.deleted"));
             fetchReminders();
         } catch {
-            toast.error("Could not delete reminder");
+            toast.error(t("chat.reminders_dialog.delete_failed"));
         }
     };
 
@@ -177,12 +179,12 @@ export function RemindersDialog({
 
     const handleUpdate = async () => {
         if (!editingId || !editTitle.trim()) {
-            toast.error("Title cannot be empty");
+            toast.error(t("chat.reminders_dialog.title_empty"));
             return;
         }
         const editRemindAt = combineDateTime(editRemindDate, editRemindTime);
         if (editRemindAt && new Date(editRemindAt) <= new Date()) {
-            toast.error("Reminder time must be in the future");
+            toast.error(t("chat.reminders_dialog.time_in_future"));
             return;
         }
         setUpdating(true);
@@ -192,14 +194,14 @@ export function RemindersDialog({
                 description: editDescription.trim() || undefined,
                 remindAt: editRemindAt,
             });
-            toast.success("Reminder updated");
+            toast.success(t("chat.reminders_dialog.updated"));
             setEditingId(null);
             fetchReminders();
         } catch (err) {
             const msg = axios.isAxiosError(err)
                 ? (err.response?.data as { message?: string })?.message
                 : undefined;
-            toast.error(msg ?? "Could not update reminder");
+            toast.error(msg ?? t("chat.reminders_dialog.update_failed"));
         } finally {
             setUpdating(false);
         }
@@ -210,8 +212,8 @@ export function RemindersDialog({
             <DialogContent className="sm:max-w-md p-0 gap-0 overflow-hidden max-h-[80vh] flex flex-col">
                 <DialogHeader className="px-5 pt-5 pb-3 shrink-0">
                     <DialogTitle className="flex items-center gap-2 text-base">
-                        <CalendarClock size={16} className="text-brand" />
-                        Reminders list
+                        <CalendarClock size={16} className="text-[#1a146b] dark:text-[#818cf8]" />
+                        {t("chat.reminders_dialog.title")}
                     </DialogTitle>
                 </DialogHeader>
 
@@ -224,34 +226,34 @@ export function RemindersDialog({
                             onClick={() => setShowForm(true)}
                         >
                             <Plus size={13} />
-                            Create new reminder
+                            {t("chat.reminders_dialog.create_new")}
                         </Button>
                     ) : (
                         <div className="space-y-2 rounded-lg border border-border/50 bg-muted/20 p-3">
                             <Input
                                 value={title}
                                 onChange={(e) => setTitle(e.target.value)}
-                                placeholder="Reminder title..."
+                                placeholder={t("chat.reminders_dialog.reminder_title_placeholder")}
                                 className="h-8 text-sm"
                             />
                             <Input
                                 value={description}
                                 onChange={(e) => setDescription(e.target.value)}
-                                placeholder="Description (optional)..."
+                                placeholder={t("chat.reminders_dialog.description_placeholder")}
                                 className="h-8 text-sm"
                             />
                             <div className="flex gap-2">
                                 <Input
                                     type="text"
                                     value={remindDate}
-                                    placeholder="YYYY-MM-DD"
+                                    placeholder={t("chat.reminders_dialog.date_placeholder")}
                                     onChange={(e) => setRemindDate(e.target.value)}
                                     className="h-8 text-sm flex-1"
                                 />
                                 <Input
                                     type="text"
                                     value={remindTime}
-                                    placeholder="HH:MM"
+                                    placeholder={t("chat.reminders_dialog.time_placeholder")}
                                     onChange={(e) => setRemindTime(e.target.value)}
                                     className="h-8 text-sm w-28"
                                 />
@@ -259,12 +261,12 @@ export function RemindersDialog({
                             <div className="flex gap-2">
                                 <Button
                                     size="sm"
-                                    className="h-7 text-xs flex-1 gap-1"
+                                    className="h-7 text-xs flex-1 gap-1 bg-[#1a146b] hover:bg-[#312e81]"
                                     onClick={handleCreate}
                                     disabled={creating}
                                 >
                                     {creating ? <Loader2 size={11} className="animate-spin" /> : <Plus size={11} />}
-                                    Create
+                                    {t("chat.reminders_dialog.create")}
                                 </Button>
                                 <Button
                                     size="sm"
@@ -272,7 +274,7 @@ export function RemindersDialog({
                                     className="h-7 text-xs"
                                     onClick={() => setShowForm(false)}
                                 >
-                                    Cancel
+                                    {t("common.cancel")}
                                 </Button>
                             </div>
                         </div>
@@ -287,7 +289,7 @@ export function RemindersDialog({
                     ) : reminders.length === 0 ? (
                         <div className="flex flex-col items-center gap-2 py-10 text-muted-foreground">
                             <Clock size={24} className="opacity-30" />
-                            <p className="text-xs">No reminders yet</p>
+                            <p className="text-xs">{t("chat.reminders_dialog.empty")}</p>
                         </div>
                     ) : (
                         <div className="space-y-1.5">
@@ -295,32 +297,32 @@ export function RemindersDialog({
                                 editingId === r.id ? (
                                     <div
                                         key={r.id}
-                                        className="space-y-2 rounded-lg border border-brand/40 bg-muted/20 p-3"
+                                        className="space-y-2 rounded-lg border border-[#1a146b]/40 bg-muted/20 p-3"
                                     >
                                         <Input
                                             value={editTitle}
                                             onChange={(e) => setEditTitle(e.target.value)}
-                                            placeholder="Reminder title..."
+                                            placeholder={t("chat.reminders_dialog.reminder_title_placeholder")}
                                             className="h-8 text-sm"
                                         />
                                         <Input
                                             value={editDescription}
                                             onChange={(e) => setEditDescription(e.target.value)}
-                                            placeholder="Description (optional)..."
+                                            placeholder={t("chat.reminders_dialog.description_placeholder")}
                                             className="h-8 text-sm"
                                         />
                                         <div className="flex gap-2">
                                             <Input
                                                 type="text"
                                                 value={editRemindDate}
-                                                placeholder="YYYY-MM-DD"
+                                                placeholder={t("chat.reminders_dialog.date_placeholder")}
                                                 onChange={(e) => setEditRemindDate(e.target.value)}
                                                 className="h-8 text-sm flex-1"
                                             />
                                             <Input
                                                 type="text"
                                                 value={editRemindTime}
-                                                placeholder="HH:MM"
+                                                placeholder={t("chat.reminders_dialog.time_placeholder")}
                                                 onChange={(e) => setEditRemindTime(e.target.value)}
                                                 className="h-8 text-sm w-28"
                                             />
@@ -328,12 +330,12 @@ export function RemindersDialog({
                                         <div className="flex gap-2">
                                             <Button
                                                 size="sm"
-                                                className="h-7 text-xs flex-1 gap-1"
+                                                className="h-7 text-xs flex-1 gap-1 bg-[#1a146b] hover:bg-[#312e81]"
                                                 onClick={handleUpdate}
                                                 disabled={updating}
                                             >
                                                 {updating ? <Loader2 size={11} className="animate-spin" /> : <Pencil size={11} />}
-                                                Update
+                                                {t("chat.reminders_dialog.update")}
                                             </Button>
                                             <Button
                                                 size="sm"
@@ -341,7 +343,7 @@ export function RemindersDialog({
                                                 className="h-7 text-xs"
                                                 onClick={() => setEditingId(null)}
                                             >
-                                                Cancel
+                                                {t("common.cancel")}
                                             </Button>
                                         </div>
                                     </div>
@@ -356,7 +358,7 @@ export function RemindersDialog({
                                     {/* Card header bar */}
                                     <div className={cn(
                                         "flex items-center gap-2 px-3 py-1.5 border-b border-border/40",
-                                        r.completed ? "bg-green-50 dark:bg-green-950/30" : "bg-brand/5 dark:bg-brand/10",
+                                        r.completed ? "bg-green-50 dark:bg-green-950/30" : "bg-[#1a146b]/5 dark:bg-[#1a146b]/10",
                                     )}>
                                         <button
                                             type="button"
@@ -369,9 +371,9 @@ export function RemindersDialog({
                                                 <Circle size={15} className="text-muted-foreground" />
                                             )}
                                         </button>
-                                        <Clock size={12} className={r.completed ? "text-green-500" : "text-brand"} />
+                                        <Clock size={12} className={r.completed ? "text-green-500" : "text-[#1a146b] dark:text-[#818cf8]"} />
                                         {r.remindAt && (
-                                            <span className={cn("text-[11px] font-semibold", r.completed ? "text-green-600" : "text-brand")}>
+                                            <span className={cn("text-[11px] font-semibold", r.completed ? "text-green-600" : "text-[#1a146b] dark:text-[#818cf8]")}>
                                                 {formatReminderTime(r.remindAt)}
                                             </span>
                                         )}

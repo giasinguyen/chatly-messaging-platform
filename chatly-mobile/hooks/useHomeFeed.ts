@@ -7,6 +7,7 @@ import type { Post, PostComment, PostReactionSummary, ReportPostRequest } from '
 import type { StoryGroup, StoryResponse } from '@/types/story';
 import { countCommentBranch, removeCommentBranch } from '@/utils/commentTree';
 import { getApiErrorMessage } from '@/utils/errorHandler';
+import i18n from '@/lib/i18n';
 
 type FeedLoadMode = 'initial' | 'refresh' | 'append';
 
@@ -60,7 +61,7 @@ export function useHomeFeed() {
   const [commentsByPostId, setCommentsByPostId] = useState<Record<string, PostComment[]>>({});
 
   const showError = useCallback((error: unknown, fallback: string) => {
-    Alert.alert('Error', getApiErrorMessage(error, fallback));
+    Alert.alert(i18n.t('common.error'), getApiErrorMessage(error, fallback));
   }, []);
 
   const updatePost = useCallback((postId: string, updates: Partial<Post>) => {

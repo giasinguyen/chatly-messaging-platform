@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { postService } from "@/services/post.service";
 import type {
     Post,
@@ -15,7 +16,7 @@ import { ExploreTrendingSidebar } from "@/pages/app/explore/components/ExploreTr
 import { ExploreCard } from "@/pages/app/explore/components/ExploreCard";
 import { ExploreHashtagFeed } from "@/pages/app/explore/components/ExploreHashtagFeed";
 import { ExploreToolbar } from "@/pages/app/explore/components/ExploreToolbar";
-import { EXPLORE_CATEGORIES } from "@/constants/explore";
+import { DEFAULT_EXPLORE_CATEGORY_ID, EXPLORE_CATEGORIES } from "@/constants/explore";
 
 const DEBOUNCE_MS = 400;
 
@@ -29,10 +30,13 @@ function parseHashtagQuery(value: string): string | null {
 }
 
 export default function ExplorePage() {
+    const { t } = useTranslation();
     const navigate = useNavigate();
     const location = useLocation();
     const [searchParams, setSearchParams] = useSearchParams();
-    const [selectedCategory, setSelectedCategory] = useState("For You");
+    const [selectedCategoryId, setSelectedCategoryId] = useState<string>(
+        DEFAULT_EXPLORE_CATEGORY_ID,
+    );
     const [selectedHashtag, setSelectedHashtag] = useState<string | null>(null);
     const [searchInput, setSearchInput] = useState("");
     const [debouncedQuery, setDebouncedQuery] = useState("");
@@ -70,11 +74,11 @@ export default function ExplorePage() {
             const matchedCategory = EXPLORE_CATEGORIES.find(
                 (category) => category.hashtag === normalized,
             );
-            setSelectedCategory(matchedCategory?.label ?? "For You");
+            setSelectedCategoryId(matchedCategory?.id ?? DEFAULT_EXPLORE_CATEGORY_ID);
             return;
         }
 
-        setSelectedCategory("For You");
+        setSelectedCategoryId(DEFAULT_EXPLORE_CATEGORY_ID);
         setSearchInput((current) => (current.startsWith("#") ? "" : current));
     }, [searchParams]);
 
@@ -84,7 +88,7 @@ export default function ExplorePage() {
         try {
             const res = await postService.getExploreFeed(cursor);
             if (res.code !== 1000) {
-                const message = res.message ?? "Failed to load explore feed";
+                const message = res.message ?? t("explore.load_failed");
                 setError(message);
                 toast.error(message);
                 return;
@@ -96,14 +100,14 @@ export default function ExplorePage() {
         } catch (error: unknown) {
             const msg =
                 error instanceof AxiosError
-                    ? (error.response?.data?.message ?? "Failed to load explore feed")
-                    : "An unexpected error occurred";
+                    ? (error.response?.data?.message ?? t("explore.load_failed"))
+                    : t("explore.unexpected_error");
             setError(msg);
             toast.error(msg);
         } finally {
             setIsLoading(false);
         }
-    }, []);
+    }, [t]);
 
     const loadSearchResults = useCallback(
         async (
@@ -124,7 +128,7 @@ export default function ExplorePage() {
                     sort,
                 );
                 if (res.code !== 1000) {
-                    const message = res.message ?? "Search failed";
+                    const message = res.message ?? t("explore.search_failed");
                     setError(message);
                     toast.error(message);
                     return;
@@ -135,15 +139,15 @@ export default function ExplorePage() {
             } catch (error: unknown) {
                 const msg =
                     error instanceof AxiosError
-                        ? (error.response?.data?.message ?? "Search failed")
-                        : "An unexpected error occurred";
+                        ? (error.response?.data?.message ?? t("explore.search_failed"))
+                        : t("explore.unexpected_error");
                 setError(msg);
                 toast.error(msg);
             } finally {
                 setIsLoading(false);
             }
         },
-        [],
+        [t],
     );
 
     const loadTrendingHashtags = useCallback(async () => {
@@ -200,8 +204,8 @@ export default function ExplorePage() {
         }
     };
 
-    const handleCategoryClick = (label: string, hashtag: string | null) => {
-        setSelectedCategory(label);
+    const handleCategoryClick = (categoryId: string, hashtag: string | null) => {
+        setSelectedCategoryId(categoryId);
         setSelectedHashtag(hashtag);
         setSearchInput(hashtag ? `#${hashtag}` : "");
         setHashtagSort("newest");
@@ -211,7 +215,7 @@ export default function ExplorePage() {
     const handleTrendingHashtagClick = (hashtag: string) => {
         setSearchInput(`#${hashtag}`);
         setDebouncedQuery("");
-        setSelectedCategory("For You");
+        setSelectedCategoryId(DEFAULT_EXPLORE_CATEGORY_ID);
         setSelectedHashtag(hashtag);
         setHashtagSort("newest");
         updateHashtagFilter(hashtag);
@@ -265,13 +269,13 @@ export default function ExplorePage() {
 
     return (
         <SocialErrorBoundary
-            title="Explore is unavailable"
-            message="The explore page failed to render. Try again."
+            title={t("explore.page_unavailable_title")}
+            message={t("explore.page_unavailable_message")}
         >
             <div className="h-full w-full overflow-y-auto bg-background px-6 py-6 hide-scrollbar">
                 <ExploreToolbar
                     searchInput={searchInput}
-                    selectedCategory={selectedCategory}
+                    selectedCategoryId={selectedCategoryId}
                     selectedHashtag={selectedHashtag}
                     onSearchChange={setSearchInput}
                     onCategoryClick={handleCategoryClick}

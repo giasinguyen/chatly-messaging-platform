@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Modal,
   View,
@@ -87,6 +88,7 @@ function buildPreviewAttachment(
 }
 
 export function ShareReelModal({ reel, visible, onClose, onShared }: ShareReelModalProps) {
+  const { t } = useTranslation();
   const currentUser = useAuthStore((state) => state.user);
   const [friends, setFriends] = useState<ShareFriend[]>([]);
   const [selectedFriendIds, setSelectedFriendIds] = useState<string[]>([]);
@@ -111,7 +113,10 @@ export function ShareReelModal({ reel, visible, onClose, onShared }: ShareReelMo
         );
       })
       .catch((error: unknown) => {
-        Alert.alert('Error', getApiErrorMessage(error, 'Could not load friends list.'));
+        Alert.alert(
+          t('errors.request_failed'),
+          getApiErrorMessage(error, t('mobile.reels.load_friends_failed')),
+        );
       })
       .finally(() => {
         setIsLoadingFriends(false);
@@ -144,12 +149,12 @@ export function ShareReelModal({ reel, visible, onClose, onShared }: ShareReelMo
 
   const handleShare = async () => {
     if (!currentUser?.id || !reel || !previewAttachment) {
-      Alert.alert('Error', 'You need to sign in to share reels.');
+      Alert.alert(t('errors.request_failed'), t('mobile.reels.sign_in_to_share'));
       return;
     }
 
     if (selectedFriendIds.length === 0) {
-      Alert.alert('Warning', 'Select at least one friend.');
+      Alert.alert(t('mobile.common.info'), t('mobile.reels.select_friend_warning'));
       return;
     }
 
@@ -179,7 +184,7 @@ export function ShareReelModal({ reel, visible, onClose, onShared }: ShareReelMo
 
           await messageService.send({
             conversationId: conversation.id,
-            content: 'Shared a reel',
+            content: t('mobile.reels.shared_in_chat'),
             attachments: [previewAttachment],
           });
         })
@@ -187,10 +192,10 @@ export function ShareReelModal({ reel, visible, onClose, onShared }: ShareReelMo
 
       const shareResponse = await reelService.share(reel.id);
       if (shareResponse.result) onShared(shareResponse.result);
-      Alert.alert('Success', `Shared with ${targetFriends.length} friend(s).`);
+      Alert.alert(t('mobile.common.success'), t('mobile.reels.share_success', { count: targetFriends.length }));
       onClose();
     } catch (error: unknown) {
-      Alert.alert('Error', getApiErrorMessage(error, 'Could not share reel.'));
+      Alert.alert(t('errors.request_failed'), getApiErrorMessage(error, t('mobile.reels.share_failed')));
     } finally {
       setIsSharing(false);
     }
@@ -207,8 +212,8 @@ export function ShareReelModal({ reel, visible, onClose, onShared }: ShareReelMo
           {/* Header */}
           <View className="flex-row items-center justify-between px-4 py-4 border-b border-gray-200">
             <View>
-              <Text className="text-lg font-bold text-gray-900">Share Reel</Text>
-              <Text className="text-xs text-gray-500 mt-0.5">Choose friends to share preview in chat</Text>
+              <Text className="text-lg font-bold text-gray-900">{t('mobile.reels.share_title')}</Text>
+              <Text className="text-xs text-gray-500 mt-0.5">{t('mobile.reels.share_subtitle')}</Text>
             </View>
             <TouchableOpacity onPress={onClose} activeOpacity={0.7} className="p-1">
               <Ionicons name="close" size={24} color={Colors.text} />
@@ -221,7 +226,7 @@ export function ShareReelModal({ reel, visible, onClose, onShared }: ShareReelMo
             <TextInput
               value={searchQuery}
               onChangeText={setSearchQuery}
-              placeholder="Search friends"
+              placeholder={t('mobile.reels.share_search')}
               className="flex-1 py-1 text-sm text-gray-900"
             />
           </View>
@@ -231,11 +236,11 @@ export function ShareReelModal({ reel, visible, onClose, onShared }: ShareReelMo
             {isLoadingFriends ? (
               <View className="flex-1 items-center justify-center">
                 <ActivityIndicator size="small" color={Colors.cta} />
-                <Text className="text-xs text-gray-500 mt-2">Loading friends...</Text>
+                <Text className="text-xs text-gray-500 mt-2">{t('mobile.reels.share_loading')}</Text>
               </View>
             ) : filteredFriends.length === 0 ? (
               <View className="flex-1 items-center justify-center">
-                <Text className="text-xs text-gray-500">No friends found.</Text>
+                <Text className="text-xs text-gray-500">{t('mobile.reels.share_empty')}</Text>
               </View>
             ) : (
               <FlatList
@@ -291,7 +296,7 @@ export function ShareReelModal({ reel, visible, onClose, onShared }: ShareReelMo
               onPress={onClose}
               disabled={isSharing}
               className="flex-1 items-center justify-center rounded-2xl bg-gray-100 py-3.5">
-              <Text className="text-sm font-bold text-gray-800">Cancel</Text>
+              <Text className="text-sm font-bold text-gray-800">{t('common.cancel')}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               onPress={handleShare}
@@ -303,7 +308,8 @@ export function ShareReelModal({ reel, visible, onClose, onShared }: ShareReelMo
                 <ActivityIndicator size="small" color="white" />
               ) : (
                 <Text className="text-sm font-bold text-white">
-                  Share {selectedCount > 0 ? `(${selectedCount})` : ''}
+                  {t('mobile.reels.share_button')}
+                  {selectedCount > 0 ? ` (${selectedCount})` : ''}
                 </Text>
               )}
             </TouchableOpacity>

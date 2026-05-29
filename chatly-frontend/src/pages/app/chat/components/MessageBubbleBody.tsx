@@ -21,9 +21,11 @@ import { VCardMessageRenderer } from "./VCardMessageRenderer";
 import { LocationMessageRenderer } from "./LocationMessageRenderer";
 import { TextMessageBody } from "./TextMessageBody";
 import { MessageAttachmentRenderer } from "./MessageAttachmentRenderer";
+import { ImageCaptionMessageBubble } from "./ImageCaptionMessageBubble";
 import { AudioMessagePlayer } from "@/components/AudioMessagePlayer";
 import { RichTextMessageEditor } from "./RichTextMessageEditor";
 import { isRichTextHtml } from "./richTextMessage.utils";
+import { isImageCaptionMessage } from "./messageList.utils";
 
 interface MessageBubbleBodyProps {
     msg: Message;
@@ -49,6 +51,7 @@ interface MessageBubbleBodyProps {
     onClosePoll?: (messageId: string) => void;
     onAddFriend?: (userId: string) => void;
     onOpenImage: (attachmentId: string) => void;
+    showInlineMetadata?: boolean;
 }
 
 export function MessageBubbleBody(props: MessageBubbleBodyProps) {
@@ -75,6 +78,7 @@ export function MessageBubbleBody(props: MessageBubbleBodyProps) {
         onClosePoll,
         onAddFriend,
         onOpenImage,
+        showInlineMetadata = false,
     } = props;
 
     if (msg.recalled) {
@@ -83,7 +87,7 @@ export function MessageBubbleBody(props: MessageBubbleBodyProps) {
                 className={cn(
                     "px-3 py-2 text-sm rounded-2xl border italic text-muted-foreground",
                     isMe
-                        ? "bg-brand/10 border-brand/20"
+                        ? "bg-[#1a146b]/10 border-[#1a146b]/20"
                         : "bg-muted/40 border-border/40 dark:bg-zinc-800/50 dark:border-zinc-700/50",
                 )}
             >
@@ -129,7 +133,7 @@ export function MessageBubbleBody(props: MessageBubbleBodyProps) {
                 <div className="flex items-center gap-1 self-end">
                     <button
                         onClick={onCommitEdit}
-                        className="p-1.5 rounded-full bg-brand text-white hover:bg-brand/80 shrink-0"
+                        className="p-1.5 rounded-full bg-[#1a146b] text-white hover:bg-[#312e81] shrink-0"
                         title="Save"
                     >
                         <Send size={12} />
@@ -167,7 +171,7 @@ export function MessageBubbleBody(props: MessageBubbleBodyProps) {
                         className={cn(
                             "px-3 py-1.5 mb-1 rounded-xl text-sm",
                             isMe
-                                ? "bg-brand/10 border border-brand/20"
+                                ? "bg-[#1a146b]/10 border border-[#1a146b]/20"
                                 : "bg-muted/50 border border-border/40",
                         )}
                     >
@@ -222,15 +226,93 @@ export function MessageBubbleBody(props: MessageBubbleBodyProps) {
         );
     }
 
+    const hasOnlyImages =
+        msg.attachments &&
+        msg.attachments.length > 0 &&
+        !msg.content &&
+        msg.attachments.every((a) => a.type?.startsWith("image/"));
+
+    const hasSpecialAttachment =
+        msg.attachments &&
+        msg.attachments.length > 0 &&
+        msg.attachments.some(
+            (a) => {
+                const isPostOrReel =
+                    a.kind === "POST_PREVIEW" ||
+                    a.kind === "REEL_PREVIEW" ||
+                    a.type === "application/x-chatly-post-preview" ||
+                    a.type === "application/x-chatly-reel-preview" ||
+                    Boolean(a.postId) ||
+                    Boolean(a.reelId);
+
+                if (isPostOrReel) {
+                    return !msg.content || msg.content === "Shared a post" || msg.content === "Shared a reel";
+                }
+
+                return !msg.content && a.kind === "STORY_REPLY";
+            }
+        );
+
+    if (isImageCaptionMessage(msg)) {
+        return (
+            <ImageCaptionMessageBubble
+                msg={msg}
+                isMe={isMe}
+                isAgent={isAgent}
+                repliedMsg={repliedMsg}
+                replySenderName={replySenderName}
+                participant={participant}
+                currentUserId={currentUserId}
+                participantDirectory={participantDirectory}
+                highlightKeyword={highlightKeyword}
+                onOpenSenderProfile={onOpenSenderProfile}
+                onOpenImage={onOpenImage}
+                showInlineMetadata={showInlineMetadata}
+            />
+        );
+    }
+
+    if (hasOnlyImages || hasSpecialAttachment) {
+        return (
+            <div className="flex flex-col gap-1.5">
+                {repliedMsg && (
+                    <div
+                        className={cn(
+                            "px-3 py-1.5 mb-1 rounded-xl text-sm",
+                            isMe
+                                ? "bg-[#1a146b]/10 border border-[#1a146b]/20"
+                                : "bg-muted/50 border border-border/40",
+                        )}
+                    >
+                        <ReplyPreview
+                            replyMessage={repliedMsg}
+                            participant={participant}
+                            senderName={replySenderName}
+                            currentUserId={currentUserId}
+                            isMe={isMe}
+                        />
+                    </div>
+                )}
+                <MessageAttachmentRenderer
+                    messageId={msg.id}
+                    attachments={msg.attachments || []}
+                    hasContent={false}
+                    isMe={isMe}
+                    onOpenImage={onOpenImage}
+                />
+            </div>
+        );
+    }
+
     return (
         <div
             className={cn(
                 "px-3 py-2 text-sm shadow-sm transition-all",
                 isMe
-                    ? "bg-brand text-white rounded-2xl"
+                    ? "bg-[#1a146b] text-white rounded-2xl rounded-br-sm"
                     : isAgent
-                      ? "bg-linear-to-br from-primary/10 to-primary/5 border border-primary/30 text-foreground dark:from-primary/15 dark:to-primary/5 dark:border-primary/25 rounded-2xl"
-                      : "bg-muted/75 border border-border/60 text-foreground dark:bg-zinc-800/90 dark:border-zinc-700 rounded-2xl",
+                      ? "bg-linear-to-br from-[#1a146b]/10 to-[#1a146b]/5 border border-[#1a146b]/30 text-foreground dark:from-[#312e81]/15 dark:to-[#312e81]/5 dark:border-[#312e81]/25 rounded-2xl rounded-bl-sm"
+                      : "bg-muted/75 border border-border/60 text-foreground dark:bg-zinc-800/90 dark:border-zinc-700 rounded-2xl rounded-bl-sm",
                 msg.priority === "URGENT" && "ring-2 ring-red-500/60",
                 msg.priority === "IMPORTANT" && "ring-2 ring-amber-500/60",
             )}

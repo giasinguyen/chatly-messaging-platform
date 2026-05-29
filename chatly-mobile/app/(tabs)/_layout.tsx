@@ -1,10 +1,12 @@
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { Colors } from '@/constants/theme';
 import { CustomAiIcon } from '@/components/ui/CustomAiIcon';
 import { useThemeStore } from '@/store/theme.store';
 
 export default function TabLayout() {
+  const { t } = useTranslation();
   useThemeStore((s) => s.isDarkMode);
 
   return (
@@ -28,7 +30,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="home"
         options={{
-          title: 'Home',
+          title: t('nav.home'),
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="home-outline" size={size} color={color} />
           ),
@@ -37,7 +39,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="chats"
         options={{
-          title: 'Chats',
+          title: t('nav.messages'),
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="chatbubbles-outline" size={size} color={color} />
           ),
@@ -46,7 +48,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="contacts"
         options={{
-          title: 'Contacts',
+          title: t('nav.contacts'),
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="people-outline" size={size} color={color} />
           ),
@@ -55,14 +57,14 @@ export default function TabLayout() {
       <Tabs.Screen
         name="assistant"
         options={{
-          title: 'Assistant',
+          title: t('nav.ai_chat'),
           tabBarIcon: ({ color, size }) => <CustomAiIcon size={size} color={color} />,
         }}
       />
       <Tabs.Screen
         name="cloud"
         options={{
-          title: 'Cloud',
+          title: t('nav.cloud'),
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="cloud-outline" size={size} color={color} />
           ),
@@ -71,7 +73,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="settings"
         options={{
-          title: 'Settings',
+          title: t('nav.settings'),
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="settings-outline" size={size} color={color} />
           ),

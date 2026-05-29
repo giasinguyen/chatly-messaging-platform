@@ -1,4 +1,5 @@
 import { ActivityIndicator, Text, TouchableOpacity, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { CommentList } from '@/components/social/CommentList';
 import { CommentInput } from '@/components/social/CommentInput';
 import { Colors } from '@/constants/theme';
@@ -31,13 +32,17 @@ export function PostCommentsSection({
   onAddComment,
   isSubmittingComment,
 }: PostCommentsSectionProps) {
+  const { t } = useTranslation();
+
   return (
     <View className="mt-6 rounded-2xl px-3 py-3" style={{ backgroundColor: Colors.bgCard }}>
       <View className="mb-3 flex-row items-center justify-between">
-        <Text className="text-base font-semibold" style={{ color: Colors.text }}>Comments ({commentCount})</Text>
+        <Text className="text-base font-semibold" style={{ color: Colors.text }}>
+          {t('mobile.home.comments_count', { count: commentCount })}
+        </Text>
         {commentsError && (
           <TouchableOpacity onPress={onRetry} activeOpacity={0.75}>
-            <Text className="text-sm font-semibold text-[#0A7AFF]">Retry</Text>
+            <Text className="text-sm font-semibold text-[#0A7AFF]">{t('common.retry')}</Text>
           </TouchableOpacity>
         )}
       </View>

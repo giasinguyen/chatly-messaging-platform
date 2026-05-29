@@ -30,7 +30,7 @@ export default function SettingPage() {
             case "sessions":
                 return <SessionSettings />;
             case "saved-posts":
-                return <SavedPage />;
+                return <SavedPage embedded />;
             case "utilities":
                 return <UtilitiesSettings />;
             default:

@@ -1,4 +1,5 @@
 import { Loader2 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { StoryViewer } from "@/components/app/StoryViewer";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -11,6 +12,7 @@ import { useUsernameProfilePage } from "./hooks/useUsernameProfilePage";
 import { SocialErrorBoundary } from "@/features/social/components/SocialErrorBoundary";
 
 export default function UsernameProfilePage() {
+    const { t } = useTranslation();
     const {
         navigate,
         profile,
@@ -80,11 +82,11 @@ export default function UsernameProfilePage() {
             <div className="flex h-full w-full items-center justify-center bg-background px-6">
                 <div className="w-full max-w-md rounded-2xl border border-dashed border-border bg-card/70 p-6 text-center">
                     <p className="text-sm font-semibold text-foreground">
-                        Could not load profile
+                        {t("profile.load_failed_title")}
                     </p>
                     <p className="mt-1 text-sm text-muted-foreground">{loadError}</p>
                     <Button className="mt-4" variant="outline" onClick={() => void loadData()}>
-                        Try again
+                        {t("common.try_again")}
                     </Button>
                 </div>
             </div>
@@ -95,7 +97,7 @@ export default function UsernameProfilePage() {
         return (
             <div className="flex h-full w-full items-center justify-center bg-background">
                 <div className="flex flex-col items-center gap-3 text-muted-foreground">
-                    <p className="text-sm">Profile not found.</p>
+                    <p className="text-sm">{t("profile.profile_not_found")}</p>
                 </div>
             </div>
         );
@@ -103,8 +105,8 @@ export default function UsernameProfilePage() {
 
     return (
         <SocialErrorBoundary
-            title="Profile is unavailable"
-            message="This profile section failed to render. Try again."
+            title={t("profile.unavailable_title")}
+            message={t("profile.unavailable_message")}
         >
             <div className="h-full w-full overflow-y-auto bg-background hide-scrollbar">
             <header className="sticky top-0 z-40 flex w-full items-center justify-between border-b border-border bg-background/80 px-6 py-3 font-inter text-foreground shadow-sm backdrop-blur-md antialiased md:hidden">
@@ -154,7 +156,7 @@ export default function UsernameProfilePage() {
                 <div className="flex flex-col gap-4">
                 {profile.suspended && !isOwnProfile && (
                     <div className="py-12 text-center text-muted-foreground">
-                        <p className="text-sm">This account has been suspended. Content is not available.</p>
+                        <p className="text-sm">{t("profile.account_suspended_content")}</p>
                     </div>
                 )}
                     {!profile.suspended && activeTab === "posts" &&
@@ -164,7 +166,7 @@ export default function UsernameProfilePage() {
                             </div>
                         ) : posts.length === 0 && !loadingPosts ? (
                             <div className="py-10 text-center text-muted-foreground">
-                                No posts to display yet.
+                                {t("profile.no_posts_display")}
                             </div>
                         ) : (
                             <ProfilePostGrid
@@ -191,7 +193,7 @@ export default function UsernameProfilePage() {
                                     size="sm"
                                     onClick={() => void loadPosts(postCursor)}
                                 >
-                                    Load more
+                                    {t("common.load_more")}
                                 </Button>
                             </div>
                         )}
@@ -207,7 +209,7 @@ export default function UsernameProfilePage() {
                     {!profile.suspended && activeTab === "tagged" &&
                         (isLimited ? (
                             <div className="py-10 text-center text-muted-foreground">
-                                Tagged posts are hidden due to privacy settings.
+                                {t("profile.tagged_hidden")}
                             </div>
                         ) : loadingTagged ? (
                             <div className="flex justify-center py-4">
@@ -215,7 +217,7 @@ export default function UsernameProfilePage() {
                             </div>
                         ) : taggedPosts.length === 0 ? (
                             <div className="py-10 text-center text-muted-foreground">
-                                No tagged posts yet.
+                                {t("profile.no_tagged_posts")}
                             </div>
                         ) : (
                             <ProfilePostGrid
@@ -232,7 +234,7 @@ export default function UsernameProfilePage() {
                             </div>
                         ) : savedPosts.length === 0 ? (
                             <div className="py-10 text-center text-muted-foreground">
-                                No saved posts yet.
+                                {t("profile.no_saved_posts")}
                             </div>
                         ) : (
                             <ProfilePostGrid

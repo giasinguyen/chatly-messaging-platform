@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   View,
   Text,
@@ -23,6 +24,7 @@ import { useThemeStore } from '@/store/theme.store';
 import { getThemeColors } from '@/utils/themeColors';
 
 export default function LoginScreen() {
+  const { t } = useTranslation();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const setAuth = useAuthStore((s) => s.setAuth);
@@ -40,12 +42,12 @@ export default function LoginScreen() {
   const validate = () => {
     const newErrors: typeof errors = {};
     if (!identifier.trim()) {
-      newErrors.identifier = 'Please enter email or phone number';
+      newErrors.identifier = t('mobile.auth.login.identifier_required');
     }
     if (!password) {
-      newErrors.password = 'Please enter password';
+      newErrors.password = t('mobile.auth.login.password_required');
     } else if (password.length < 6) {
-      newErrors.password = 'Password must be at least 6 characters';
+      newErrors.password = t('validation.password_too_short');
     }
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -64,8 +66,8 @@ export default function LoginScreen() {
       await setAuth(response.result);
       router.replace('/(tabs)/chats');
     } catch (error: unknown) {
-      const message = getApiErrorMessage(error, 'Login failed. Please try again.');
-      Alert.alert('Login Failed', message);
+      const message = getApiErrorMessage(error, t('auth.login.login_failed'));
+      Alert.alert(t('auth.login.login_failed'), message);
     } finally {
       setLoading(false);
     }
@@ -74,25 +76,34 @@ export default function LoginScreen() {
   const handleForgotPassword = async () => {
     const trimmed = forgotEmail.trim();
     if (!trimmed) {
-      Alert.alert('Email required', 'Enter the email address for your account.');
+      Alert.alert(
+        t('auth.forgot_password.email_required_title'),
+        t('auth.forgot_password.email_required_body'),
+      );
       return;
     }
     const simple = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!simple.test(trimmed)) {
-      Alert.alert('Invalid email', 'Please enter a valid email address.');
+      Alert.alert(
+        t('auth.forgot_password.invalid_email_title'),
+        t('auth.forgot_password.invalid_email_body'),
+      );
       return;
     }
     setForgotLoading(true);
     try {
       const res = await authService.forgotPassword(trimmed);
       Alert.alert(
-        'Check your email',
-        res.message ?? 'If this email is registered, a new password has been sent.',
+        t('auth.forgot_password.check_email_title'),
+        res.message ?? t('auth.forgot_password.code_sent'),
       );
       setForgotOpen(false);
       setForgotEmail('');
     } catch (error: unknown) {
-      Alert.alert('Request failed', getApiErrorMessage(error, 'Could not send reset email.'));
+      Alert.alert(
+        t('auth.forgot_password.request_failed_title'),
+        getApiErrorMessage(error, t('auth.forgot_password.send_failed')),
+      );
     } finally {
       setForgotLoading(false);
     }
@@ -121,16 +132,16 @@ export default function LoginScreen() {
             className="mt-3 text-center text-base"
             style={{ color: palette.textMuted }}
           >
-            Connect anytime, anywhere
+            {t('mobile.auth.login.tagline')}
           </Text>
         </View>
 
         {/* Form */}
         <View className="mb-6">
           <AuthInput
-            label="Email or Phone Number"
+            label={t('auth.login.identifier_password')}
             icon="person-outline"
-            placeholder="example@email.com"
+            placeholder={t('auth.login.identifier_password_placeholder')}
             value={identifier}
             onChangeText={(text) => {
               setIdentifier(text);
@@ -142,9 +153,9 @@ export default function LoginScreen() {
           />
 
           <AuthInput
-            label="Password"
+            label={t('auth.login.password')}
             icon="lock-closed-outline"
-            placeholder="Enter password"
+            placeholder={t('mobile.auth.login.password_placeholder')}
             value={password}
             onChangeText={(text) => {
               setPassword(text);
@@ -164,19 +175,19 @@ export default function LoginScreen() {
             }}
             hitSlop={8}
           >
-            <Text style={{ color: Colors.cta, fontSize: 14 }}>Forgot password?</Text>
+            <Text style={{ color: Colors.cta, fontSize: 14 }}>{t('auth.forgot_password.trigger')}</Text>
           </TouchableOpacity>
         </View>
 
         {/* Login Button */}
-        <PrimaryButton title="Sign In" loading={loading} onPress={handleLogin} />
+        <PrimaryButton title={t('mobile.auth.login.sign_in')} loading={loading} onPress={handleLogin} />
 
         {/* Register Link */}
         <View className="mt-6 flex-row items-center justify-center">
-          <Text style={{ color: palette.textMuted }}>Don't have an account? </Text>
+          <Text style={{ color: palette.textMuted }}>{t('auth.login.need_account')} </Text>
           <TouchableOpacity onPress={() => router.push('/(auth)/register')}>
             <Text className="font-semibold" style={{ color: Colors.cta }}>
-              Sign Up
+              {t('mobile.auth.login.sign_up_link')}
             </Text>
           </TouchableOpacity>
         </View>
@@ -215,7 +226,7 @@ export default function LoginScreen() {
                   disabled={forgotLoading}
                   onPress={() => setForgotOpen(false)}
                 >
-                  <Text style={{ color: palette.textLight }}>Cancel</Text>
+                  <Text style={{ color: palette.textLight }}>{t('common.cancel')}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   className="rounded-lg px-5 py-2"
@@ -226,7 +237,9 @@ export default function LoginScreen() {
                   {forgotLoading ? (
                     <ActivityIndicator color={Colors.white} />
                   ) : (
-                    <Text style={{ color: Colors.white, fontWeight: '600' }}>Send</Text>
+                    <Text style={{ color: Colors.white, fontWeight: '600' }}>
+                      {t('auth.forgot_password.send_code')}
+                    </Text>
                   )}
                 </TouchableOpacity>
               </View>

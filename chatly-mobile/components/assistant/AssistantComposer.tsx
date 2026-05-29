@@ -8,6 +8,7 @@ import {
   Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import { Colors } from '@/constants/theme';
@@ -44,6 +45,7 @@ export function AssistantComposer({
   mcpConfigVisible: mcpConfigVisibleProp,
   onMcpConfigChange,
 }: AssistantComposerProps) {
+  const { t } = useTranslation();
   const {
     useWebSearch,
     setUseWebSearch,
@@ -84,7 +86,11 @@ export function AssistantComposer({
         prev.map((p) => (p.localId === localId ? { ...p, progress: 100, done: true, fileId: uploaded.id } : p)),
       );
     } catch {
-      setPendingFiles((prev) => prev.map((p) => (p.localId === localId ? { ...p, error: 'Upload failed' } : p)));
+      setPendingFiles((prev) =>
+        prev.map((p) =>
+          p.localId === localId ? { ...p, error: t('assistant.upload_failed') } : p,
+        ),
+      );
     }
   };
 
@@ -115,7 +121,7 @@ export function AssistantComposer({
   const handlePickFromCamera = async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Permission required', 'Camera access is needed to take photos.');
+      Alert.alert(t('common.permission_denied'), t('assistant.permission_camera_body'));
       return;
     }
     const result = await ImagePicker.launchCameraAsync({ quality: 0.9 });
@@ -125,11 +131,11 @@ export function AssistantComposer({
   };
 
   const showAttachMenu = () => {
-    Alert.alert('Attach', 'Choose source', [
-      { text: 'Photo Library', onPress: handlePickFromLibrary },
-      { text: 'Camera', onPress: handlePickFromCamera },
-      { text: 'Document', onPress: handlePickDocument },
-      { text: 'Cancel', style: 'cancel' },
+    Alert.alert(t('assistant.attach_title'), t('assistant.attach_choose_source'), [
+      { text: t('assistant.photo_library'), onPress: handlePickFromLibrary },
+      { text: t('assistant.camera'), onPress: handlePickFromCamera },
+      { text: t('assistant.document'), onPress: handlePickDocument },
+      { text: t('common.cancel'), style: 'cancel' },
     ]);
   };
 
@@ -170,7 +176,7 @@ export function AssistantComposer({
                   </Text>
                 ) : p.done ? (
                   <Text className="text-[10px]" style={{ color: Colors.success }}>
-                    Done
+                    {t('assistant.upload_done')}
                   </Text>
                 ) : (
                   <View
@@ -245,7 +251,7 @@ export function AssistantComposer({
           ref={inputRef}
           value={draft}
           onChangeText={(v) => setDraft(sessionId, v)}
-          placeholder="Ask anything..."
+          placeholder={t('assistant.ask_placeholder')}
           placeholderTextColor={Colors.textLight}
           multiline
           maxLength={4000}

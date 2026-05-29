@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react';
 import { Alert } from 'react-native';
+import i18n from '@/lib/i18n';
 import { useRouter } from 'expo-router';
 import { agentService } from '@/services/agent.service';
 import { getApiErrorMessage } from '@/utils/errorHandler';
@@ -23,7 +24,10 @@ function useStartPostAiChat() {
 
         router.push(`/assistant/${response.result.sessionId}`);
       } catch (error: unknown) {
-        Alert.alert('Error', getApiErrorMessage(error, 'Could not start AI chat.'));
+        Alert.alert(
+          i18n.t('common.error'),
+          getApiErrorMessage(error, i18n.t('assistant.start_chat_failed')),
+        );
       } finally {
         setIsStartingAiChat(false);
       }

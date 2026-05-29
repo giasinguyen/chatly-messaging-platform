@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, View, TextInput, TouchableOpacity, type NativeSyntheticEvent, type TextInputSelectionChangeEventData } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import EmojiPicker from 'rn-emoji-keyboard';
@@ -26,12 +27,14 @@ export function CommentInput({
   onSubmit,
   onCancel,
   isLoading = false,
-  placeholder = 'Add a comment...',
+  placeholder,
   isReply = false,
   isEditing = false,
   replyToUsername,
   initialContent,
 }: CommentInputProps) {
+  const { t } = useTranslation();
+  const resolvedPlaceholder = placeholder ?? t('post.write_comment');
   const [content, setContent] = useState(replyToUsername ? `@${replyToUsername} ` : '');
   const [selectedImages, setSelectedImages] = useState<string[]>([]);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
@@ -83,7 +86,10 @@ export function CommentInput({
       setIsPickingImage(true);
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert('Permission denied', 'Please allow photo access to attach an image.');
+        Alert.alert(
+          t('post.comment.permission_denied'),
+          t('post.comment.photo_permission_body'),
+        );
         return;
       }
 
@@ -108,7 +114,7 @@ export function CommentInput({
       setSelectedImages((prev) => [...prev, ...uploadedUrls]);
     } catch (error: unknown) {
       console.error('Failed to pick comment image', error);
-      Alert.alert('Error', 'Failed to attach the selected image.');
+      Alert.alert(t('common.error'), t('post.comment.attach_failed'));
     } finally {
       setIsPickingImage(false);
     }
@@ -223,7 +229,7 @@ export function CommentInput({
             onChangeText={handleChangeText}
             onSelectionChange={handleSelectionChange}
             selection={selection}
-            placeholder={placeholder}
+            placeholder={resolvedPlaceholder}
             placeholderTextColor={Colors.textLight}
             multiline
             editable={!isLoading}

@@ -16,10 +16,9 @@ export function PostPreviewAttachment({ attachment, isMe }: PostPreviewAttachmen
   const router = useRouter();
   const targetUrl = attachment.targetUrl ?? (attachment.postId ? `/post/${attachment.postId}` : attachment.url);
   const previewTitle = attachment.postTitle ?? attachment.name ?? 'Shared post';
-  const previewText = attachment.postExcerpt ?? 'Open this post to see the full content.';
+  const previewText = attachment.postExcerpt ?? previewTitle;
   const previewImageUrl = normalizeMediaUrl(attachment.postImageUrl);
   const titleColor = isMe ? Colors.text : Colors.text;
-  const metaColor = isMe ? Colors.textMuted : Colors.textMuted;
   const subtitleColor = isMe ? Colors.textMuted : Colors.textMuted;
 
   return (
@@ -27,7 +26,7 @@ export function PostPreviewAttachment({ attachment, isMe }: PostPreviewAttachmen
       onPress={() => router.push(targetUrl as `/post/${string}`)}
       activeOpacity={0.82}
       style={{
-        width: 280,
+        width: 340,
         maxWidth: '100%',
         borderRadius: 16,
         borderWidth: 1,
@@ -35,19 +34,19 @@ export function PostPreviewAttachment({ attachment, isMe }: PostPreviewAttachmen
         backgroundColor: isMe ? '#F4F8FF' : Colors.bgCard,
         padding: 12,
       }}>
-      <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}>
+      <View>
         {previewImageUrl ? (
           <Image
             source={{ uri: previewImageUrl }}
-            style={{ width: 80, height: 80, borderRadius: 14 }}
+            style={{ width: '100%', height: 168, borderRadius: 14 }}
             contentFit="cover"
             transition={120}
           />
         ) : (
           <View
             style={{
-              width: 80,
-              height: 80,
+              width: '100%',
+              height: 132,
               borderRadius: 14,
               alignItems: 'center',
               justifyContent: 'center',
@@ -61,41 +60,13 @@ export function PostPreviewAttachment({ attachment, isMe }: PostPreviewAttachmen
           </View>
         )}
 
-        <View style={{ flex: 1, minWidth: 0 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <Text
-              style={{
-                fontSize: 11,
-                color: metaColor,
-                textTransform: 'uppercase',
-                letterSpacing: 0.4,
-              }}>
-              Shared post
-            </Text>
-            <Ionicons
-              name="open-outline"
-              size={12}
-              color={metaColor}
-              style={{ marginLeft: 4 }}
-            />
-          </View>
+        <View style={{ marginTop: 10 }}>
           <Text
             numberOfLines={2}
             style={{
-              marginTop: 4,
               fontSize: 14,
               fontWeight: '700',
               color: titleColor,
-            }}>
-            {previewTitle}
-          </Text>
-          <Text
-            numberOfLines={2}
-            style={{
-              marginTop: 4,
-              fontSize: 12,
-              lineHeight: 18,
-              color: subtitleColor,
             }}>
             {previewText}
           </Text>

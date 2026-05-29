@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, Alert, FlatList, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -35,6 +36,7 @@ function getProfileAction(
 }
 
 export default function UserProfileScreen() {
+  const { t } = useTranslation();
   const { userId } = useLocalSearchParams<{ userId: string }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -57,7 +59,7 @@ export default function UserProfileScreen() {
 
   const loadProfile = useCallback(async () => {
     if (!userId) {
-      setErrorMessage('Invalid user id.');
+      setErrorMessage(t('errors.validation_failed'));
       setIsLoading(false);
       return;
     }
@@ -80,11 +82,11 @@ export default function UserProfileScreen() {
       setPostCount(postResponse.result?.totalElements ?? 0);
       setPosts(postResponse.result?.content ?? []);
     } catch (error: unknown) {
-      setErrorMessage(getApiErrorMessage(error, 'Could not load profile.'));
+      setErrorMessage(getApiErrorMessage(error, t('profile.load_failed')));
     } finally {
       setIsLoading(false);
     }
-  }, [isOwnProfile, userId]);
+  }, [isOwnProfile, t, userId]);
 
   useEffect(() => {
     void loadProfile();
@@ -136,22 +138,22 @@ export default function UserProfileScreen() {
         await loadProfile();
       }
     } catch (error: unknown) {
-      Alert.alert('Error', getApiErrorMessage(error, 'Could not update profile action.'));
+      Alert.alert(t('errors.request_failed'), getApiErrorMessage(error, t('profile.save_failed')));
     } finally {
       setIsActionLoading(false);
     }
-  }, [contactRecord, invalidateContacts, loadProfile, profileAction, router, userId]);
+  }, [contactRecord, invalidateContacts, loadProfile, profileAction, router, t, userId]);
 
   const handleMessage = useCallback(async () => {
     setIsActionLoading(true);
     try {
       await openConversation();
     } catch (error: unknown) {
-      Alert.alert('Error', getApiErrorMessage(error, 'Could not open conversation.'));
+      Alert.alert(t('errors.request_failed'), getApiErrorMessage(error, t('home.open_conversation_failed')));
     } finally {
       setIsActionLoading(false);
     }
-  }, [openConversation]);
+  }, [openConversation, t]);
 
   const handleBack = useCallback(() => {
     if (router.canGoBack()) {
@@ -174,16 +176,18 @@ export default function UserProfileScreen() {
   if (!profile || errorMessage) {
     return (
       <View className="flex-1 px-5" style={{ backgroundColor: Colors.bg, paddingTop: insets.top }}>
-        <ProfileNav onBack={handleBack} title="Profile" />
+        <ProfileNav onBack={handleBack} title={t('nav.profile')} />
         <View className="flex-1 items-center justify-center">
-          <Text className="text-base font-semibold" style={{ color: Colors.text }}>Profile not found</Text>
+          <Text className="text-base font-semibold" style={{ color: Colors.text }}>
+            {t('profile.profile_not_found')}
+          </Text>
           <Text className="mt-1 text-center text-sm" style={{ color: Colors.textMuted }}>
-            {errorMessage ?? 'This profile is unavailable.'}
+            {errorMessage ?? t('profile.unavailable_message')}
           </Text>
           <TouchableOpacity
             className="mt-4 rounded-lg bg-[#0A7AFF] px-4 py-2 active:opacity-80"
             onPress={() => void loadProfile()}>
-            <Text className="text-sm font-semibold text-white">Try again</Text>
+            <Text className="text-sm font-semibold text-white">{t('common.retry')}</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -216,7 +220,9 @@ export default function UserProfileScreen() {
         ListEmptyComponent={
           <View className="items-center px-6 py-14">
             <Ionicons name="grid-outline" size={34} color={Colors.textLight} />
-            <Text className="mt-3 text-sm font-medium" style={{ color: Colors.textMuted }}>No posts yet</Text>
+            <Text className="mt-3 text-sm font-medium" style={{ color: Colors.textMuted }}>
+              {t('profile.no_posts_yet')}
+            </Text>
           </View>
         }
         showsVerticalScrollIndicator={false}

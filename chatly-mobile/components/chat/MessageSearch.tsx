@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { View, TextInput, TouchableOpacity, Text, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/theme';
@@ -13,6 +14,7 @@ interface MessageSearchProps {
 }
 
 export function MessageSearch({ conversationId, onClose, onNavigateToMessage, onKeywordChange }: MessageSearchProps) {
+  const { t } = useTranslation();
   const [keyword, setKeyword] = useState('');
   const [results, setResults] = useState<Message[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -73,7 +75,7 @@ export function MessageSearch({ conversationId, onClose, onNavigateToMessage, on
         autoFocus
         value={keyword}
         onChangeText={handleChange}
-        placeholder="Search messages..."
+        placeholder={t('chat.search_messages_placeholder')}
         placeholderTextColor={Colors.textLight}
         className="mx-2 flex-1 text-sm"
         style={{ color: Colors.text, height: 34 }}
@@ -86,7 +88,7 @@ export function MessageSearch({ conversationId, onClose, onNavigateToMessage, on
       )}
       {searched && !loading && results.length === 0 && keyword.trim() !== '' && (
         <Text className="mr-2 text-xs" style={{ color: Colors.textMuted }}>
-          No results
+          {t('mobile.chat.search_no_results')}
         </Text>
       )}
       <TouchableOpacity onPress={navigatePrev} disabled={results.length === 0} className="p-1">

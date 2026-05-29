@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react';
 import { Alert } from 'react-native';
+import i18n from '@/lib/i18n';
 import * as ImagePicker from 'expo-image-picker';
 import { fileService } from '@/services/file.service';
 import { musicService } from '@/services/music.service';
@@ -74,7 +75,7 @@ export function useCreateStory({ onCreated, onClose }: UseCreateStoryOptions) {
   const requestLibraryAccess = useCallback(async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Permission needed', 'Please allow photo library access to choose a story.');
+      Alert.alert(i18n.t('story.permission_title'), i18n.t('story.permission_body'));
       return false;
     }
     return true;
@@ -109,7 +110,10 @@ export function useCreateStory({ onCreated, onClose }: UseCreateStoryOptions) {
 
     const picked = result.assets[0];
     if (picked.fileSize && picked.fileSize > MAX_STORY_VIDEO_SIZE_BYTES) {
-      Alert.alert('Video too large', `Video size must be less than ${MAX_STORY_VIDEO_SIZE_MB}MB.`);
+      Alert.alert(
+        i18n.t('story.video_too_large'),
+        i18n.t('story.video_size_limit', { max: MAX_STORY_VIDEO_SIZE_MB }),
+      );
       return;
     }
 
@@ -156,7 +160,7 @@ export function useCreateStory({ onCreated, onClose }: UseCreateStoryOptions) {
     const content = textValue.trim();
     if (step === 'choose') return;
     if (step === 'text' && !content) {
-      Alert.alert('Add text', 'Write something for your text story.');
+      Alert.alert(i18n.t('story.add_text_title'), i18n.t('story.add_text_body'));
       return;
     }
 
@@ -184,7 +188,10 @@ export function useCreateStory({ onCreated, onClose }: UseCreateStoryOptions) {
       reset();
       onClose();
     } catch (error: unknown) {
-      Alert.alert('Could not share story', getApiErrorMessage(error, 'Please try again.'));
+      Alert.alert(
+        i18n.t('story.share_failed'),
+        getApiErrorMessage(error, i18n.t('post.try_again')),
+      );
     } finally {
       setIsSubmitting(false);
     }

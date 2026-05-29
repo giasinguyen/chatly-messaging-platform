@@ -1,3 +1,5 @@
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import {
     AlertDialog,
     AlertDialogAction,
@@ -20,34 +22,35 @@ interface ContactConfirmDialogProps {
     onClose: () => void;
 }
 
-function getContent(action: ConfirmAction | null) {
+function getContent(action: ConfirmAction | null, t: TFunction) {
     if (!action) return null;
     if (action.type === "unblock") {
         return {
-            title: "Unblock user?",
-            description: `${action.name} will be able to send you friend requests and messages again. You will be restored as friends.`,
-            actionLabel: "Unblock",
+            title: t("contact.confirm.unblock_title"),
+            description: t("contact.confirm.unblock_desc", { name: action.name }),
+            actionLabel: t("contact.confirm.unblock_action"),
             actionClass: "bg-primary",
         };
     }
     if (action.type === "block") {
         return {
-            title: "Block user?",
-            description: `${action.name} will no longer be able to message you or view your full profile. Your friendship will be frozen.`,
-            actionLabel: "Block",
+            title: t("contact.confirm.block_title"),
+            description: t("contact.confirm.block_desc", { name: action.name }),
+            actionLabel: t("contact.confirm.block_action"),
             actionClass: "bg-destructive text-destructive-foreground hover:bg-destructive/90",
         };
     }
     return {
-        title: "Remove friend?",
-        description: `Are you sure you want to remove ${action.name} from your friends? You'll need to send a new request to reconnect.`,
-        actionLabel: "Remove",
+        title: t("contact.confirm.remove_title"),
+        description: t("contact.confirm.remove_desc", { name: action.name }),
+        actionLabel: t("contact.confirm.remove_action"),
         actionClass: "bg-destructive text-destructive-foreground hover:bg-destructive/90",
     };
 }
 
 export function ContactConfirmDialog({ confirmAction, onConfirm, onClose }: ContactConfirmDialogProps) {
-    const content = getContent(confirmAction);
+    const { t } = useTranslation();
+    const content = getContent(confirmAction, t);
 
     return (
         <AlertDialog open={!!confirmAction} onOpenChange={(open) => !open && onClose()}>
@@ -57,7 +60,7 @@ export function ContactConfirmDialog({ confirmAction, onConfirm, onClose }: Cont
                     <AlertDialogDescription>{content?.description}</AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
                     <AlertDialogAction onClick={onConfirm} className={content?.actionClass}>
                         {content?.actionLabel}
                     </AlertDialogAction>

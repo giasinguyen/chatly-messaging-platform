@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
     ImageIcon,
     FileText,
@@ -72,44 +73,56 @@ const FILE_ICON_COLORS: Record<string, string> = {
 
 const getExtensionColor = (ext: string): string => FILE_ICON_COLORS[ext] ?? "bg-slate-500";
 
-const formatSectionLabel = (timestamp: string) => {
+const formatSectionLabel = (timestamp: string, locale: string) => {
     const date = new Date(timestamp);
     const day = date.getDate().toString().padStart(2, "0");
     const month = (date.getMonth() + 1).toString().padStart(2, "0");
     const year = date.getFullYear();
     const sameYear = year === new Date().getFullYear();
+    const dateLocale = locale === "vi" ? "vi-VN" : "en-US";
     return sameYear
-        ? `${day} ${new Date(timestamp).toLocaleString("en-US", { month: "long" })}`
+        ? `${day} ${new Date(timestamp).toLocaleString(dateLocale, { month: "long" })}`
         : `${day}/${month}/${year}`;
 };
 
-const groupByDate = (files: FileUploadResponse[]): Record<string, FileUploadResponse[]> => {
-    return files.reduce<Record<string, FileUploadResponse[]>>((acc, item) => {
-        const label = formatSectionLabel(item.createdAt ?? new Date().toISOString());
-        acc[label] = acc[label] ? [...acc[label], item] : [item];
-        return acc;
-    }, {});
-};
-
-// --- Constants ---
-
 const STORAGE_QUOTA = 1 * 1024 * 1024 * 1024; // 1 GB
-
-const sortOptions = [
-    { value: "latest", label: "Latest" },
-    { value: "oldest", label: "Oldest" },
-];
-
-const mediaTypeOptions = [
-    { value: "all", label: "All" },
-    { value: "images", label: "Images" },
-    { value: "videos", label: "Videos" },
-];
 
 // --- Component ---
 
 export default function CloudPage() {
+    const { t, i18n } = useTranslation();
     const [loading, setLoading] = useState(true);
+
+    const sortOptions = useMemo(
+        () => [
+            { value: "latest", label: t("cloud.latest") },
+            { value: "oldest", label: t("cloud.oldest") },
+        ],
+        [t],
+    );
+
+    const mediaTypeOptions = useMemo(
+        () => [
+            { value: "all", label: t("cloud.all") },
+            { value: "images", label: t("cloud.images") },
+            { value: "videos", label: t("cloud.videos") },
+        ],
+        [t],
+    );
+
+    const groupByDate = useCallback(
+        (files: FileUploadResponse[]): Record<string, FileUploadResponse[]> => {
+            return files.reduce<Record<string, FileUploadResponse[]>>((acc, item) => {
+                const label = formatSectionLabel(
+                    item.createdAt ?? new Date().toISOString(),
+                    i18n.language,
+                );
+                acc[label] = acc[label] ? [...acc[label], item] : [item];
+                return acc;
+            }, {});
+        },
+        [i18n.language],
+    );
     const [allFiles, setAllFiles] = useState<FileUploadResponse[]>([]);
     const [convMap, setConvMap] = useState<Record<string, string>>({});
 
@@ -164,7 +177,7 @@ export default function CloudPage() {
 
         setIsCleaningUp(true);
         toast.warning(
-            `Storage limit of 1 GB exceeded. Deleting ${toDelete.length} oldest files to free up space...`,
+            t("cloud.storage_exceeded", { quota: "1 GB", count: toDelete.length }),
             { duration: 5000 },
         );
         Promise.all(toDelete.map((f) => fileService.deleteFile(f.fileId)))
@@ -172,9 +185,9 @@ export default function CloudPage() {
                 setAllFiles((prev) =>
                     prev.filter((f) => !toDelete.some((d) => d.fileId === f.fileId)),
                 );
-                toast.success(`Deleted ${toDelete.length} oldest files to free up space.`);
+                toast.success(t("cloud.storage_cleaned", { count: toDelete.length }));
             })
-            .catch(() => toast.error("Failed to clean up old files. Please check again."))
+            .catch(() => toast.error(t("cloud.cleanup_failed")))
             .finally(() => setIsCleaningUp(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [allFiles]);
@@ -207,10 +220,10 @@ export default function CloudPage() {
                 }
                 setConvMap(map);
             })
-            .catch(() => toast.error("Failed to load storage data"))
+            .catch(() => toast.error(t("cloud.load_failed")))
             .finally(() => { if (!cancelled) setLoading(false); });
         return () => { cancelled = true; };
-    }, []);
+    }, [t]);
 
     useEffect(() => {
         return loadCloudData();
@@ -239,10 +252,10 @@ export default function CloudPage() {
     const docExtensions = useMemo(() => {
         const exts = new Set(docFiles.map((f) => getExtension(f.fileName)));
         return [
-            { value: "all", label: "All" },
+            { value: "all", label: t("cloud.all") },
             ...Array.from(exts).map((e) => ({ value: e, label: e.toUpperCase() })),
         ];
-    }, [docFiles]);
+    }, [docFiles, t]);
 
     const totalSize = useMemo(
         () => allFiles.reduce((sum, f) => sum + (f.fileSize ?? 0), 0),
@@ -375,36 +388,36 @@ export default function CloudPage() {
                     <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
                         <Cloud className="h-4 w-4 text-primary-foreground" />
                     </div>
-                    <span className="text-sm font-semibold tracking-tight">Cloud Storage</span>
+                    <span className="text-sm font-semibold tracking-tight">{t("cloud.title")}</span>
                 </div>
 
                 {/* Stats */}
                 {!loading && (
                     <div className="space-y-1.5">
-                        <p className="px-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">Overview</p>
+                        <p className="px-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">{t("cloud.overview")}</p>
                         <div className="rounded-xl border border-border/60 bg-muted/40 p-3 space-y-2.5">
-                            <StatRow label="Files" value={String(allFiles.length)} />
-                            <StatRow label="Images / Videos" value={String(mediaFiles.length)} />
-                            <StatRow label="Documents" value={String(docFiles.length)} />
-                            <StatRow label="Conversations" value={String(uniqueConvCount)} />
+                            <StatRow label={t("cloud.files")} value={String(allFiles.length)} />
+                            <StatRow label={t("cloud.images_videos")} value={String(mediaFiles.length)} />
+                            <StatRow label={t("cloud.documents")} value={String(docFiles.length)} />
+                            <StatRow label={t("cloud.conversations")} value={String(uniqueConvCount)} />
                         </div>
                     </div>
                 )}
 
                 {/* Nav tabs */}
                 <div className="space-y-1.5">
-                    <p className="px-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">Library</p>
+                    <p className="px-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">{t("cloud.library")}</p>
                     <nav className="space-y-0.5">
                         <NavItem
                             icon={<ImageIconLucide className="h-4 w-4" />}
-                            label="Images & Videos"
+                            label={t("cloud.images_videos_nav")}
                             count={mediaFiles.length}
                             active={categoryTab === "media"}
                             onClick={() => setCategoryTab("media")}
                         />
                         <NavItem
                             icon={<File className="h-4 w-4" />}
-                            label="Documents"
+                            label={t("cloud.documents")}
                             count={docFiles.length}
                             active={categoryTab === "files"}
                             onClick={() => setCategoryTab("files")}
@@ -415,11 +428,11 @@ export default function CloudPage() {
                 {/* Filters */}
                 <div className="space-y-2">
                     <p className="px-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">
-                        <SlidersHorizontal className="inline h-3 w-3 mr-1" />Filters
+                        <SlidersHorizontal className="inline h-3 w-3 mr-1" />{t("cloud.filters")}
                     </p>
                     <Select value={currentTypeFilter} onValueChange={handleTypeChange}>
                         <SelectTrigger className="h-9 rounded-lg border-border bg-background text-xs">
-                            <SelectValue placeholder="File type" />
+                            <SelectValue placeholder={t("cloud.file_type")} />
                         </SelectTrigger>
                         <SelectContent>
                             {(categoryTab === "media" ? mediaTypeOptions : docExtensions).map((opt) => (
@@ -430,7 +443,7 @@ export default function CloudPage() {
                     <Select value={sortFilter} onValueChange={setSortFilter}>
                         <SelectTrigger className="h-9 rounded-lg border-border bg-background text-xs">
                             <ArrowDownUp className="mr-1.5 h-3 w-3 text-muted-foreground" />
-                            <SelectValue placeholder="Sort" />
+                            <SelectValue placeholder={t("cloud.sort")} />
                         </SelectTrigger>
                         <SelectContent>
                             {sortOptions.map((opt) => (
@@ -443,7 +456,7 @@ export default function CloudPage() {
                 {/* Storage Quota Widget */}
                 {!loading && (
                     <div className="space-y-1.5 border-t border-border/40 pt-5 mt-auto">
-                        <p className="px-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">Storage</p>
+                        <p className="px-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">{t("cloud.storage")}</p>
                         <StorageWidget used={totalSize} quota={STORAGE_QUOTA} cleaning={isCleaningUp} />
                     </div>
                 )}
@@ -458,14 +471,14 @@ export default function CloudPage() {
                         <Input
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            placeholder="Search file name..."
+                            placeholder={t("cloud.search_placeholder")}
                             className="h-9 rounded-lg border-border bg-background pl-9 text-sm"
                         />
                     </div>
                     <span className="ml-auto text-xs text-muted-foreground">
                         {loading ? "—" : categoryTab === "media"
-                            ? `${filteredMedia.length} file`
-                            : `${filteredDocs.length} file`}
+                            ? t("cloud.file_count_one", { count: filteredMedia.length })
+                            : t("cloud.file_count_one", { count: filteredDocs.length })}
                     </span>
                 </div>
 
@@ -477,7 +490,7 @@ export default function CloudPage() {
                         </div>
                     ) : categoryTab === "media" ? (
                         filteredMedia.length === 0 ? (
-                            <EmptyState icon={<ImageIcon className="h-10 w-10" />} label="No images or videos found" />
+                            <EmptyState icon={<ImageIcon className="h-10 w-10" />} label={t("cloud.no_media")} />
                         ) : (
                             <div className="space-y-8">
                                 {Object.entries(sectionedMedia).map(([label, items]) => (
@@ -527,7 +540,7 @@ export default function CloudPage() {
                         )
                     ) : (
                         filteredDocs.length === 0 ? (
-                            <EmptyState icon={<FileText className="h-10 w-10" />} label="No documents found" />
+                            <EmptyState icon={<FileText className="h-10 w-10" />} label={t("cloud.no_documents")} />
                         ) : (
                             <div className="space-y-8">
                                 {Object.entries(sectionedDocs).map(([label, items]) => (
@@ -554,13 +567,13 @@ export default function CloudPage() {
                                                             </p>
                                                         </div>
                                                         <span className="hidden shrink-0 text-xs text-muted-foreground/60 md:block">
-                                                            {new Date(item.createdAt ?? "").toLocaleDateString("en-US")}
+                                                            {new Date(item.createdAt ?? "").toLocaleDateString(i18n.language === "vi" ? "vi-VN" : "en-US")}
                                                         </span>
                                                         <Button
                                                             size="icon"
                                                             variant="ghost"
                                                             className="h-7 w-7 shrink-0 rounded-lg"
-                                                            title="Xem trước"
+                                                            title={t("cloud.preview")}
                                                             onClick={() => {
                                                                 setDocPreviewFile(item);
                                                                 setDocPreviewOpen(true);
@@ -572,7 +585,7 @@ export default function CloudPage() {
                                                             size="icon"
                                                             variant="ghost"
                                                             className="h-7 w-7 shrink-0 rounded-lg"
-                                                            title="Tải xuống"
+                                                            title={t("cloud.download")}
                                                             onClick={() => handleDownload(item)}
                                                         >
                                                             <Download className="h-3.5 w-3.5" />
@@ -652,6 +665,7 @@ function EmptyState({ icon, label }: { icon: React.ReactNode; label: string }) {
 }
 
 function StorageWidget({ used, quota, cleaning }: { used: number; quota: number; cleaning: boolean }) {
+    const { t } = useTranslation();
     const pct = Math.min((used / quota) * 100, 100);
     const usedStr = formatTotalSize(used);
     const quotaStr = "1 GB";
@@ -680,15 +694,15 @@ function StorageWidget({ used, quota, cleaning }: { used: number; quota: number;
                 {cleaning ? (
                     <span className="flex items-center gap-1">
                         <Loader2 className="h-3 w-3 animate-spin" />
-                        Cleaning up...
+                        {t("cloud.cleaning_up")}
                     </span>
                 ) : (
-                    <>Used <span className={cn("font-medium", textColor)}>{pct.toFixed(1)}%</span> of {quotaStr}</>
+                    t("cloud.used_percent", { percent: pct.toFixed(1), quota: quotaStr })
                 )}
             </p>
             {pct >= 90 && !cleaning && (
                 <p className="text-[10px] text-red-500/80">
-                    ⚠ Almost full — oldest files will be automatically deleted when limit is reached.
+                    ⚠ {t("cloud.almost_full_warning")}
                 </p>
             )}
         </div>

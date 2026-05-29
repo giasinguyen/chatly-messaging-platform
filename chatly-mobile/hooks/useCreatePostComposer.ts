@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Keyboard } from 'react-native';
+import i18n from '@/lib/i18n';
 import * as ImagePicker from 'expo-image-picker';
 import { useMentionCandidates } from '@/hooks/useMentionCandidates';
 import type { Post, PostVisibility } from '@/types/post';
@@ -117,13 +118,19 @@ export function useCreatePostComposer(visible: boolean, editingPost?: Post | nul
   const handlePickImages = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Permission needed', 'Please allow photo library access to choose images.');
+      Alert.alert(
+        i18n.t('post.image_permission_title'),
+        i18n.t('post.image_permission_body'),
+      );
       return;
     }
 
     const remainingSlots = MAX_POST_IMAGES - totalImageCount;
     if (remainingSlots <= 0) {
-      Alert.alert('Limit reached', `You can attach up to ${MAX_POST_IMAGES} images.`);
+      Alert.alert(
+        i18n.t('post.image_limit_title'),
+        i18n.t('post.image_limit_body', { max: MAX_POST_IMAGES }),
+      );
       return;
     }
 

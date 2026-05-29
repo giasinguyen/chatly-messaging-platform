@@ -1,4 +1,5 @@
 import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { Colors } from '@/constants/theme';
@@ -24,6 +25,8 @@ export function HomeStoryCarousel({
   onPressCreateStory,
   onPressStoryGroup,
 }: HomeStoryCarouselProps) {
+  const { t } = useTranslation();
+
   return (
     <View
       className="border-b py-3"
@@ -46,7 +49,7 @@ export function HomeStoryCarousel({
           <Text
             className="mt-2 max-w-[76px] text-center text-xs font-medium"
             style={{ color: Colors.text }}>
-            Your story
+            {t('home.your_story')}
           </Text>
         </TouchableOpacity>
 

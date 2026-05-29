@@ -10,7 +10,7 @@ import { MessageBubbleBody } from "./MessageBubbleBody";
 import { MessageBubbleActions } from "./MessageBubbleActions";
 import { MessageSeenIndicator } from "./MessageSeenIndicator";
 import { MessageContextMenu } from "./MessageContextMenu";
-import { isLastInGroup, shouldShowAvatar } from "./messageList.utils";
+import { isImageCaptionMessage, isLastInGroup, shouldShowAvatar } from "./messageList.utils";
 
 interface MessageBubbleContainerProps {
     msg: Message;
@@ -48,7 +48,7 @@ interface MessageBubbleContainerProps {
 }
 
 function getStatusIcon(status: Message["status"]) {
-    if (status === "READ") return <CheckCheck size={12} className="text-brand" />;
+    if (status === "READ") return <CheckCheck size={12} className="text-[#1a146b] dark:text-[#818cf8]" />;
     if (status === "DELIVERED")
         return <CheckCheck size={12} className="text-muted-foreground/60" />;
     return <Check size={12} className="text-muted-foreground/60" />;
@@ -123,7 +123,6 @@ export function MessageBubbleContainer(props: MessageBubbleContainerProps) {
     const isPoll = msg.type === "POLL";
     const showAvatar = shouldShowAvatar(messages, index);
     const lastInGroup = isLastInGroup(messages, index);
-
     const bubble = (
         <div
             data-message-id={msg.id}
@@ -223,6 +222,7 @@ export function MessageBubbleContainer(props: MessageBubbleContainerProps) {
                         onClosePoll={onClosePoll}
                         onAddFriend={onAddFriend}
                         onOpenImage={onOpenImage}
+                        showInlineMetadata={isImageCaptionMessage(msg)}
                     />
 
                     {!msg.recalled && !isBeingEdited && (
@@ -254,7 +254,7 @@ export function MessageBubbleContainer(props: MessageBubbleContainerProps) {
                                 className={cn(
                                     "flex items-center gap-0.5 text-xs rounded-full px-1.5 py-0.5 border transition-colors",
                                     userIds.includes(currentUserId)
-                                        ? "bg-brand/10 border-brand/40 text-brand"
+                                        ? "bg-[#1a146b]/10 border-[#1a146b]/40 text-[#1a146b] dark:bg-[#312e81]/20 dark:border-[#312e81]/40 dark:text-[#818cf8]"
                                         : "bg-muted/60 border-border/50 text-muted-foreground hover:bg-muted",
                                 )}
                             >
@@ -265,7 +265,7 @@ export function MessageBubbleContainer(props: MessageBubbleContainerProps) {
                     </div>
                 )}
 
-                {lastInGroup && (
+                {lastInGroup && !isImageCaptionMessage(msg) && (
                     <div
                         className={cn(
                             "flex items-center gap-1 mt-1 opacity-0 group-hover:opacity-100 transition-opacity px-1",

@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import type { Message, ChatUser } from "@/types/message";
 import type { ConversationType } from "@/types/conversation";
@@ -16,6 +17,7 @@ export function MessageSeenIndicator({
     participantDirectory,
     conversationType,
 }: MessageSeenIndicatorProps) {
+    const { t } = useTranslation();
     const readers = msg.readBy.filter((r) => r.userId !== currentUserId);
     if (readers.length === 0) return null;
 
@@ -33,7 +35,7 @@ export function MessageSeenIndicator({
                     </Avatar>
                 )}
                 <span className="text-[10px] text-muted-foreground">
-                    Seen {formatSeenTime(receipt.readAt)}
+                    {t("chat.seen")} {formatSeenTime(receipt.readAt, t)}
                 </span>
             </div>
         );
@@ -41,7 +43,7 @@ export function MessageSeenIndicator({
 
     return (
         <div className="flex items-center gap-0.5 px-1 mt-0.5 justify-end">
-            <span className="text-[10px] text-muted-foreground mr-1">Seen</span>
+            <span className="text-[10px] text-muted-foreground mr-1">{t("chat.seen")}</span>
             {readers.slice(0, 3).map((r) => {
                 const reader = participantDirectory[r.userId];
                 return (

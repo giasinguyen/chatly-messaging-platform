@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Bot, MessagesSquare, MessageSquare, Plus, Search } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
@@ -26,6 +27,7 @@ interface ForwardToAiDialogProps {
 }
 
 export function ForwardToAiDialog({ open, onOpenChange, onConfirm }: ForwardToAiDialogProps) {
+    const { t } = useTranslation();
     const [searchQuery, setSearchQuery] = useState("");
     const [selectedId, setSelectedId] = useState<string>(NEW_SESSION_ID);
     const [sessions, setSessions] = useState<AgentSession[]>([]);
@@ -75,9 +77,9 @@ export function ForwardToAiDialog({ open, onOpenChange, onConfirm }: ForwardToAi
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-lg">
                 <DialogHeader>
-                    <DialogTitle>Send to AI Assistant</DialogTitle>
+                    <DialogTitle>{t("chat.forward_to_ai_dialog.title")}</DialogTitle>
                     <DialogDescription>
-                        Forward this message to an AI chat session.
+                        {t("chat.forward_to_ai_dialog.description")}
                     </DialogDescription>
                 </DialogHeader>
 
@@ -86,7 +88,7 @@ export function ForwardToAiDialog({ open, onOpenChange, onConfirm }: ForwardToAi
                     <Input
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        placeholder="Search sessions..."
+                        placeholder={t("chat.forward_to_ai_dialog.search_placeholder")}
                         className="pl-9"
                     />
                 </div>
@@ -108,10 +110,10 @@ export function ForwardToAiDialog({ open, onOpenChange, onConfirm }: ForwardToAi
                                     </div>
                                     <div className="min-w-0 flex-1">
                                         <p className="truncate text-sm font-medium text-foreground">
-                                            New session
+                                            {t("chat.forward_to_ai_dialog.new_session")}
                                         </p>
                                         <p className="text-xs text-muted-foreground">
-                                            Start a fresh AI conversation
+                                            {t("chat.forward_to_ai_dialog.new_session_desc")}
                                         </p>
                                     </div>
                                 </label>
@@ -119,11 +121,11 @@ export function ForwardToAiDialog({ open, onOpenChange, onConfirm }: ForwardToAi
 
                             {loading ? (
                                 <div className="px-3 py-6 text-center text-sm text-muted-foreground">
-                                    Loading sessions...
+                                    {t("chat.forward_to_ai_dialog.loading_sessions")}
                                 </div>
                             ) : filteredSessions.length === 0 && searchQuery.trim() ? (
                                 <div className="px-3 py-6 text-center text-sm text-muted-foreground">
-                                    No matching sessions found.
+                                    {t("chat.forward_to_ai_dialog.no_matching_sessions")}
                                 </div>
                             ) : (
                                 filteredSessions.map((session) => {
@@ -148,7 +150,7 @@ export function ForwardToAiDialog({ open, onOpenChange, onConfirm }: ForwardToAi
                                                     {session.title}
                                                 </p>
                                                 <p className="text-xs text-muted-foreground">
-                                                    {isGroupLinked ? "Group-linked session" : "AI session"}
+                                                    {isGroupLinked ? t("chat.forward_to_ai_dialog.group_linked_session") : t("chat.forward_to_ai_dialog.ai_session")}
                                                 </p>
                                             </div>
                                         </label>
@@ -161,15 +163,15 @@ export function ForwardToAiDialog({ open, onOpenChange, onConfirm }: ForwardToAi
 
                 <DialogFooter>
                     <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={submitting}>
-                        Cancel
+                        {t("common.cancel")}
                     </Button>
                     <Button onClick={handleConfirm} disabled={submitting || loading} className="gap-2">
                         {submitting ? (
-                            "Sending..."
+                            t("chat.forward_to_ai_dialog.sending")
                         ) : (
                             <>
                                 <Bot className="size-4" />
-                                Send to AI
+                                {t("chat.forward_to_ai_dialog.send")}
                             </>
                         )}
                     </Button>

@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   View,
   Text,
@@ -32,6 +33,7 @@ import type { UserResponse } from '@/types/auth';
 type Tab = 'friends' | 'pending' | 'blocked' | 'search';
 
 export default function ContactsScreen() {
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   useThemeStore((state) => state.isDarkMode);
   const user = useAuthStore((s) => s.user);
@@ -172,7 +174,10 @@ export default function ContactsScreen() {
       fetchContacts();
       fetchPending();
     } catch (error: any) {
-      Alert.alert('Error', error?.response?.data?.message ?? 'Could not accept invitation.');
+      Alert.alert(
+        t('errors.request_failed'),
+        error?.response?.data?.message ?? t('mobile.contact.accept_failed'),
+      );
     }
   };
 
@@ -182,26 +187,32 @@ export default function ContactsScreen() {
       await contactService.delete(contactId);
       fetchPending();
     } catch (error: any) {
-      Alert.alert('Error', error?.response?.data?.message ?? 'Could not decline invitation.');
+      Alert.alert(
+        t('errors.request_failed'),
+        error?.response?.data?.message ?? t('mobile.contact.decline_failed'),
+      );
     }
   };
 
   // Unblock contact
   const handleUnblock = async (contactId: string, displayName: string) => {
     Alert.alert(
-      'Unblock user?',
-      `${displayName} will be able to message you and send friend requests again. Your friendship will be restored.`,
+      t('contact.confirm.unblock_title'),
+      t('contact.confirm.unblock_desc', { name: displayName }),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Unblock',
+          text: t('contact.confirm.unblock_action'),
           onPress: async () => {
             try {
               await contactService.unblock(contactId);
               fetchContacts();
               fetchBlocked();
             } catch (error: any) {
-              Alert.alert('Error', error?.response?.data?.message ?? 'Could not unblock.');
+              Alert.alert(
+                t('errors.request_failed'),
+                error?.response?.data?.message ?? t('mobile.contact.unblock_failed'),
+              );
             }
           },
         },
@@ -213,12 +224,12 @@ export default function ContactsScreen() {
   const handleBlock = async (contact: ContactResponse, displayName: string) => {
     const contactUser = getContactUser(contact);
     Alert.alert(
-      'Block user?',
-      `${displayName} will no longer be able to message you or view your full profile. Your friendship will be frozen.`,
+      t('contact.confirm.block_title'),
+      t('contact.confirm.block_desc', { name: displayName }),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Block',
+          text: t('contact.confirm.block_action'),
           style: 'destructive',
           onPress: async () => {
             try {
@@ -227,7 +238,10 @@ export default function ContactsScreen() {
               fetchContacts();
               fetchBlocked();
             } catch (error: any) {
-              Alert.alert('Error', error?.response?.data?.message ?? 'Could not block user.');
+              Alert.alert(
+                t('errors.request_failed'),
+                error?.response?.data?.message ?? t('mobile.contact.block_failed'),
+              );
             }
           },
         },
@@ -238,19 +252,22 @@ export default function ContactsScreen() {
   // Remove a friend
   const handleRemove = async (contactId: string, displayName: string) => {
     Alert.alert(
-      'Remove friend?',
-      `Are you sure you want to remove ${displayName} from your friends? You'll need to send a new request to reconnect.`,
+      t('contact.confirm.remove_title'),
+      t('contact.confirm.remove_desc', { name: displayName }),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Remove',
+          text: t('contact.confirm.remove_action'),
           style: 'destructive',
           onPress: async () => {
             try {
               await contactService.delete(contactId);
               fetchContacts();
             } catch (error: any) {
-              Alert.alert('Error', error?.response?.data?.message ?? 'Could not remove friend.');
+              Alert.alert(
+                t('errors.request_failed'),
+                error?.response?.data?.message ?? t('mobile.contact.remove_failed'),
+              );
             }
           },
         },
@@ -268,25 +285,28 @@ export default function ContactsScreen() {
     if (existing) {
       const status = existing.status;
       if (status === 'ACCEPTED') {
-        Alert.alert('Info', 'You are already friends with this user.');
+        Alert.alert(t('mobile.common.info'), t('mobile.contact.already_friends'));
         return;
       }
       if (status === 'PENDING') {
-        Alert.alert('Info', 'A friend request is already pending.');
+        Alert.alert(t('mobile.common.info'), t('mobile.contact.request_pending'));
         return;
       }
     }
     try {
       await contactService.sendRequest({ contactId: contactUserId });
-      Alert.alert('Success', 'Friend request sent');
+      Alert.alert(t('mobile.common.success'), t('contact.request_sent'));
       fetchPending();
     } catch (error: any) {
       const msg = error?.response?.data?.message ?? '';
       if (msg.includes('ALREADY') || error?.response?.status === 409) {
-        Alert.alert('Info', 'A friend request already exists.');
+        Alert.alert(t('mobile.common.info'), t('mobile.contact.request_exists'));
         fetchPending();
       } else {
-        Alert.alert('Error', msg || 'Could not send friend request.');
+        Alert.alert(
+          t('errors.request_failed'),
+          msg || t('mobile.contact.send_request_failed'),
+        );
       }
     }
   };
@@ -311,26 +331,32 @@ export default function ContactsScreen() {
       });
       router.push({ pathname: '/chat/[id]', params: { id: res.result.id, returnTo: 'contacts' } });
     } catch (error: any) {
-      Alert.alert('Error', error?.response?.data?.message ?? 'Could not create conversation.');
+      Alert.alert(
+        t('errors.request_failed'),
+        error?.response?.data?.message ?? t('contact.create_conv_failed'),
+      );
     }
   };
 
   // Unfriend contact
   const handleUnfriend = (contactId: string, displayName: string) => {
     Alert.alert(
-      'Unfriend',
-      `Are you sure you want to unfriend ${displayName}?`,
+      t('contact.unfriend_confirm_title'),
+      t('contact.unfriend_confirm_description', { name: displayName }),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Unfriend',
+          text: t('contact.unfriend'),
           style: 'destructive',
           onPress: async () => {
             try {
               await contactService.delete(contactId);
               fetchContacts();
             } catch (error: any) {
-              Alert.alert('Error', error?.response?.data?.message ?? 'Could not unfriend.');
+              Alert.alert(
+                t('errors.request_failed'),
+                error?.response?.data?.message ?? t('mobile.contact.unfriend_failed'),
+              );
             }
           },
         },
@@ -367,12 +393,15 @@ export default function ContactsScreen() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [contacts, user, friendSearchQuery, onlineFilter, onlineUserIds]);
 
-  const tabs: { key: Tab; label: string; badge?: number }[] = [
-    { key: 'friends', label: 'Friends' },
-    { key: 'pending', label: 'Pending', badge: pendingContacts.length },
-    { key: 'blocked', label: 'Blocked' },
-    { key: 'search', label: 'Search' },
-  ];
+  const tabs: { key: Tab; label: string; badge?: number }[] = useMemo(
+    () => [
+      { key: 'friends', label: t('mobile.contact.tab_friends') },
+      { key: 'pending', label: t('mobile.contact.tab_pending'), badge: pendingContacts.length },
+      { key: 'blocked', label: t('mobile.contact.tab_blocked') },
+      { key: 'search', label: t('mobile.contact.tab_search') },
+    ],
+    [t, pendingContacts.length],
+  );
 
   const renderContactItem = ({ item }: { item: ContactResponse }) => {
     const contactUser = getContactUser(item);
@@ -422,12 +451,14 @@ export default function ContactsScreen() {
                 }}
               >
                 <Ionicons name="shield-outline" size={10} color="#B08800" />
-                <Text style={{ fontSize: 11, color: '#B08800', fontWeight: '600' }}>Limited</Text>
+                <Text style={{ fontSize: 11, color: '#B08800', fontWeight: '600' }}>
+                  {t('contact.limited_badge')}
+                </Text>
               </View>
             )}
           </View>
           <Text className="mt-0.5 text-[13px]" style={{ color: isOnline && !isLimited ? Colors.online : Colors.textLight }}>
-            {isOnline && !isLimited ? 'Online' : `@${contactUser.username}`}
+            {isOnline && !isLimited ? t('common.online') : `@${contactUser.username}`}
           </Text>
         </View>
 
@@ -468,7 +499,7 @@ export default function ContactsScreen() {
             {contactUser.displayName}
           </Text>
           <Text className="mt-0.5 text-[13px]" style={{ color: Colors.textLight }}>
-            {isReceived ? 'wants to connect' : 'Request sent'}
+            {isReceived ? t('mobile.contact.wants_to_connect') : t('mobile.contact.request_sent_label')}
           </Text>
         </View>
         {isReceived && (
@@ -479,7 +510,7 @@ export default function ContactsScreen() {
               onPress={() => handleDecline(item.id)}
             >
               <Text className="text-[14px] font-semibold" style={{ color: Colors.white }}>
-                Decline
+                {t('contact.decline')}
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -488,7 +519,7 @@ export default function ContactsScreen() {
               onPress={() => handleAccept(item.id)}
             >
               <Text className="text-[14px] font-semibold" style={{ color: Colors.white }}>
-                Accept
+                {t('contact.accept')}
               </Text>
             </TouchableOpacity>
           </View>
@@ -519,7 +550,7 @@ export default function ContactsScreen() {
           onPress={() => handleUnblock(item.id, contactUser.displayName)}
         >
           <Text className="text-[14px] font-semibold" style={{ color: Colors.white }}>
-            Unblock
+            {t('contact.unblock')}
           </Text>
         </TouchableOpacity>
       </View>
@@ -553,13 +584,13 @@ export default function ContactsScreen() {
         {status === 'ACCEPTED' ? (
           <View className="rounded-full px-4 py-1.5" style={{ backgroundColor: Colors.borderLight }}>
             <Text className="text-[14px] font-semibold" style={{ color: Colors.textMuted }}>
-              Friends
+              {t('mobile.contact.status_friends')}
             </Text>
           </View>
         ) : status === 'PENDING' ? (
           <View className="rounded-full px-4 py-1.5" style={{ backgroundColor: Colors.borderLight }}>
             <Text className="text-[14px] font-semibold" style={{ color: Colors.textMuted }}>
-              Pending
+              {t('mobile.contact.status_pending')}
             </Text>
           </View>
         ) : (
@@ -569,7 +600,7 @@ export default function ContactsScreen() {
             onPress={(e) => { e.stopPropagation?.(); handleSendRequest(item.id); }}
           >
             <Text className="text-[14px] font-semibold" style={{ color: Colors.white }}>
-              Add Friend
+              {t('contact.add_friend')}
             </Text>
           </TouchableOpacity>
         )}
@@ -585,7 +616,7 @@ export default function ContactsScreen() {
         style={{ borderBottomColor: Colors.borderLight, backgroundColor: Colors.bgCard }}
       >
         <Text className="text-[22px] font-bold" style={{ color: Colors.text }}>
-          Contacts
+          {t('contact.title')}
         </Text>
 
         {/* Tabs */}
@@ -631,7 +662,7 @@ export default function ContactsScreen() {
             <TextInput
               className="ml-2 flex-1 text-[15px]"
               style={{ color: Colors.text }}
-              placeholder="Search by name or email..."
+              placeholder={t('mobile.contact.search_by_name_email')}
               placeholderTextColor={Colors.textLight}
               value={searchQuery}
               onChangeText={setSearchQuery}
@@ -670,7 +701,7 @@ export default function ContactsScreen() {
               <TextInput
                 className="ml-2 flex-1 text-[14px]"
                 style={{ color: Colors.text }}
-                placeholder="Find friends..."
+                placeholder={t('mobile.contact.find_friends_placeholder')}
                 placeholderTextColor={Colors.textLight}
                 value={friendSearchQuery}
                 onChangeText={setFriendSearchQuery}
@@ -690,7 +721,7 @@ export default function ContactsScreen() {
                 className="text-[13px] font-medium"
                 style={{ color: onlineFilter === 'online' ? Colors.white : Colors.textLight }}
               >
-                Online
+                {t('contact.online')}
               </Text>
             </TouchableOpacity>
           </View>
@@ -699,9 +730,14 @@ export default function ContactsScreen() {
           {(friendSearchQuery.trim() || onlineFilter === 'online') && (
             <View className="px-4 py-1.5" style={{ backgroundColor: Colors.bg }}>
               <Text className="text-[12px]" style={{ color: Colors.textMuted }}>
-                {friendSearchQuery.trim() ? `Found ` : ``}
-                {friendSections.reduce((n, s) => n + s.data.length, 0)} friends
-                {onlineFilter === 'online' ? ' online' : ''}
+                {friendSearchQuery.trim() ? t('mobile.contact.found_prefix') : ''}
+                {onlineFilter === 'online'
+                  ? t('mobile.contact.friends_count_online', {
+                      count: friendSections.reduce((n, s) => n + s.data.length, 0),
+                    })
+                  : t('mobile.contact.friends_count', {
+                      count: friendSections.reduce((n, s) => n + s.data.length, 0),
+                    })}
               </Text>
             </View>
           )}
@@ -732,11 +768,13 @@ export default function ContactsScreen() {
             <View className="flex-1 items-center justify-center pt-20">
               <Ionicons name="people-outline" size={48} color={Colors.textLight} />
               <Text className="mt-3 text-[16px]" style={{ color: Colors.textLight }}>
-                {friendSearchQuery.trim() || onlineFilter === 'online' ? 'No results found' : 'No friends yet'}
+                {friendSearchQuery.trim() || onlineFilter === 'online'
+                  ? t('contact.no_results')
+                  : t('contact.no_friends')}
               </Text>
               {!friendSearchQuery.trim() && onlineFilter === 'all' && (
                 <Text className="mt-1 text-[14px]" style={{ color: Colors.textLight }}>
-                  Search and connect now!
+                  {t('mobile.contact.search_connect_hint')}
                 </Text>
               )}
             </View>
@@ -755,7 +793,7 @@ export default function ContactsScreen() {
             <View className="flex-1 items-center justify-center pt-20">
               <Ionicons name="hourglass-outline" size={48} color={Colors.textLight} />
               <Text className="mt-3 text-[16px]" style={{ color: Colors.textLight }}>
-                No pending invitations
+                {t('mobile.contact.no_pending_invitations')}
               </Text>
             </View>
           }
@@ -772,7 +810,7 @@ export default function ContactsScreen() {
             <View className="flex-1 items-center justify-center pt-20">
               <Ionicons name="shield-checkmark-outline" size={48} color={Colors.textLight} />
               <Text className="mt-3 text-[16px]" style={{ color: Colors.textLight }}>
-                No blocked contacts
+                {t('mobile.contact.no_blocked_contacts')}
               </Text>
             </View>
           }
@@ -787,14 +825,14 @@ export default function ContactsScreen() {
               <View className="flex-1 items-center justify-center pt-20">
                 <Ionicons name="search-outline" size={48} color={Colors.textLight} />
                 <Text className="mt-3 text-[16px]" style={{ color: Colors.textLight }}>
-                  No results found
+                  {t('contact.no_results')}
                 </Text>
               </View>
             ) : (
               <View className="flex-1 items-center justify-center pt-20">
                 <Ionicons name="search-outline" size={48} color={Colors.textLight} />
                 <Text className="mt-3 text-[16px]" style={{ color: Colors.textLight }}>
-                  Enter name or email to search
+                  {t('mobile.contact.enter_search_hint')}
                 </Text>
               </View>
             )
@@ -856,7 +894,7 @@ export default function ContactsScreen() {
             >
               <Ionicons name="chatbubble-outline" size={20} color={Colors.text} />
               <Text className="ml-3 text-[15px]" style={{ color: Colors.text }}>
-                Message
+                {t('contact.message')}
               </Text>
             </TouchableOpacity>
 
@@ -871,7 +909,7 @@ export default function ContactsScreen() {
             >
               <Ionicons name="ban-outline" size={20} color={Colors.error} />
               <Text className="ml-3 text-[15px]" style={{ color: Colors.error }}>
-                Block
+                {t('contact.block')}
               </Text>
             </TouchableOpacity>
 
@@ -887,7 +925,7 @@ export default function ContactsScreen() {
             >
               <Ionicons name="person-remove-outline" size={20} color={Colors.error} />
               <Text className="ml-3 text-[15px]" style={{ color: Colors.error }}>
-                Remove friend
+                {t('mobile.contact.remove_friend')}
               </Text>
             </TouchableOpacity>
 
@@ -898,7 +936,7 @@ export default function ContactsScreen() {
               onPress={closeMenu}
             >
               <Text className="text-[15px] font-medium" style={{ color: Colors.text }}>
-                Cancel
+                {t('common.cancel')}
               </Text>
             </TouchableOpacity>
           </Animated.View>

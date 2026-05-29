@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
 import { Ban, Loader2, Check, Clock } from "lucide-react";
+import { useTranslation } from "react-i18next";
+import { AxiosError } from "axios";
 import {
     Dialog,
     DialogContent,
@@ -27,6 +29,7 @@ interface AddFriendDialogProps {
 }
 
 export function AddFriendDialog({ open, onOpenChange }: AddFriendDialogProps) {
+    const { t } = useTranslation();
     const { user: currentUser } = useAuthStore();
     const navigate = useNavigate();
     const getBlockDirection = useContactStore((s) => s.getBlockDirection);
@@ -75,7 +78,7 @@ export function AddFriendDialog({ open, onOpenChange }: AddFriendDialogProps) {
             }
         } catch (err) {
             console.error(err);
-            toast.error("Error searching for user");
+            toast.error(t("contact.add_friend_dialog.search_error"));
         } finally {
             setLoading(false);
         }
@@ -85,13 +88,16 @@ export function AddFriendDialog({ open, onOpenChange }: AddFriendDialogProps) {
         setSendingIds((prev) => new Set(prev).add(userId));
         try {
             await contactService.sendRequest({ contactId: userId });
-            toast.success("Friend request sent");
+            toast.success(t("contact.add_friend_dialog.request_sent"));
             // Refresh contacts so button updates immediately
             const res = await contactService.getAll();
             if (res.result) setContacts(res.result);
-        } catch (err: any) {
-            const msg = err.response?.data?.message;
-            toast.error(msg || "Could not send friend request");
+        } catch (err: unknown) {
+            const msg =
+                err instanceof AxiosError
+                    ? err.response?.data?.message
+                    : undefined;
+            toast.error(msg || t("contact.add_friend_dialog.request_failed"));
         } finally {
             setSendingIds((prev) => {
                 const next = new Set(prev);
@@ -105,14 +111,14 @@ export function AddFriendDialog({ open, onOpenChange }: AddFriendDialogProps) {
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-md">
                 <DialogHeader>
-                    <DialogTitle>Add friend</DialogTitle>
+                    <DialogTitle>{t("contact.add_friend_dialog.title")}</DialogTitle>
                     <DialogDescription>
-                        Search by phone number, email or name.
+                        {t("contact.add_friend_dialog.description")}
                     </DialogDescription>
                 </DialogHeader>
                 <div className="flex items-center space-x-2">
                     <Input
-                        placeholder="Enter phone number, email or name"
+                        placeholder={t("contact.add_friend_dialog.search_placeholder")}
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         onKeyDown={(e) => {
@@ -120,13 +126,13 @@ export function AddFriendDialog({ open, onOpenChange }: AddFriendDialogProps) {
                         }}
                     />
                     <Button onClick={handleSearch} disabled={loading}>
-                        {loading ? <Loader2 className="animate-spin h-4 w-4" /> : "Search"}
+                        {loading ? <Loader2 className="animate-spin h-4 w-4" /> : t("contact.add_friend_dialog.search_button")}
                     </Button>
                 </div>
                 <div className="mt-4 flex flex-col gap-3 min-h-[150px] max-h-[300px] overflow-y-auto">
                     {loading ? (
                         <div className="flex items-center justify-center p-4">
-                            <span className="text-muted-foreground text-sm">Searching...</span>
+                            <span className="text-muted-foreground text-sm">{t("contact.add_friend_dialog.searching")}</span>
                         </div>
                     ) : users.length > 0 ? (
                         users.map((u) => {
@@ -162,7 +168,7 @@ export function AddFriendDialog({ open, onOpenChange }: AddFriendDialogProps) {
                                                         variant="secondary"
                                                         className="gap-1 text-[10px] px-1.5 py-0 bg-destructive/10 text-destructive border-destructive/20 shrink-0"
                                                     >
-                                                        <Ban className="h-2.5 w-2.5" /> Blocked
+                                                        <Ban className="h-2.5 w-2.5" /> {t("contact.add_friend_dialog.blocked")}
                                                     </Badge>
                                                 )}
                                             </div>
@@ -171,11 +177,11 @@ export function AddFriendDialog({ open, onOpenChange }: AddFriendDialogProps) {
                                     </button>
                                     {status === "ACCEPTED" ? (
                                         <Button size="sm" variant="ghost" disabled className="gap-1 text-muted-foreground">
-                                            <Check className="h-3 w-3" /> Friends
+                                            <Check className="h-3 w-3" /> {t("contact.add_friend_dialog.friends")}
                                         </Button>
                                     ) : status === "PENDING" ? (
                                         <Button size="sm" variant="ghost" disabled className="gap-1 text-muted-foreground">
-                                            <Clock className="h-3 w-3" /> Pending
+                                            <Clock className="h-3 w-3" /> {t("contact.add_friend_dialog.pending")}
                                         </Button>
                                     ) : !blockDir ? (
                                         <Button
@@ -183,7 +189,7 @@ export function AddFriendDialog({ open, onOpenChange }: AddFriendDialogProps) {
                                             disabled={isSending}
                                             onClick={() => handleAddFriend(u.id)}
                                         >
-                                            {isSending ? <Loader2 className="animate-spin h-3 w-3" /> : "Add friend"}
+                                            {isSending ? <Loader2 className="animate-spin h-3 w-3" /> : t("contact.add_friend")}
                                         </Button>
                                     ) : null}
                                 </div>
@@ -191,7 +197,7 @@ export function AddFriendDialog({ open, onOpenChange }: AddFriendDialogProps) {
                         })
                     ) : searchQuery && !loading ? (
                         <div className="flex items-center justify-center p-4">
-                            <span className="text-muted-foreground text-sm">No users found</span>
+                            <span className="text-muted-foreground text-sm">{t("contact.add_friend_dialog.no_users")}</span>
                         </div>
                     ) : null}
                 </div>
