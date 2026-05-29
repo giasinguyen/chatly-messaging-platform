@@ -234,6 +234,10 @@ export function MessageBubbleBody(props: MessageBubbleBodyProps) {
         msg.attachments.length > 0 &&
         !msg.content &&
         msg.attachments.every((a) => a.type?.startsWith("image/"));
+    const hasOnlyAttachments =
+        msg.attachments &&
+        msg.attachments.length > 0 &&
+        !msg.content;
 
     const hasSpecialAttachment =
         msg.attachments &&
@@ -275,7 +279,7 @@ export function MessageBubbleBody(props: MessageBubbleBodyProps) {
         );
     }
 
-    if (hasOnlyImages || hasSpecialAttachment) {
+    if (hasOnlyImages || hasOnlyAttachments || hasSpecialAttachment) {
         return (
             <div className="flex flex-col gap-1.5">
                 {repliedMsg && (

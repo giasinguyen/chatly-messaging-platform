@@ -20,7 +20,11 @@ import {
     ArrowDownUp,
     Eye,
     UploadCloud,
+    FileArchive,
+    FileCode,
+    FileSpreadsheet,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -63,6 +67,7 @@ const getExtension = (fileName: string): string => {
 const isImage = (fileType: string) => fileType.startsWith("image/");
 const isVideo = (fileType: string) => fileType.startsWith("video/");
 const isMedia = (fileType: string) => isImage(fileType) || isVideo(fileType);
+const CLOUD_UPLOAD_SOURCE = "CLOUD";
 
 const FILE_ICON_COLORS: Record<string, string> = {
     pdf: "bg-red-500",
@@ -80,6 +85,13 @@ const FILE_ICON_COLORS: Record<string, string> = {
 };
 
 const getExtensionColor = (ext: string): string => FILE_ICON_COLORS[ext] ?? "bg-slate-500";
+
+const getFileIcon = (ext: string): LucideIcon => {
+    if (["xls", "xlsx", "csv"].includes(ext)) return FileSpreadsheet;
+    if (["zip", "rar"].includes(ext)) return FileArchive;
+    if (["js", "ts", "tsx", "jsx", "py", "java", "sql"].includes(ext)) return FileCode;
+    return FileText;
+};
 
 const formatSectionLabel = (timestamp: string, locale: string) => {
     const date = new Date(timestamp);
@@ -360,7 +372,7 @@ export default function CloudPage() {
     const sectionedUploads = useMemo(() => groupByDate(filteredUploads), [filteredUploads]);
 
     const getConvName = (id?: string) =>
-        id ? (convMap[id] ?? id.slice(0, 8) + "...") : "—";
+        id ? (convMap[id] ?? id.slice(0, 8) + "...") : "-";
 
     const handleDownload = (file: FileUploadResponse) => {
         const a = document.createElement("a");
@@ -379,10 +391,15 @@ export default function CloudPage() {
         try {
             const uploadedFiles: FileUploadResponse[] = [];
             for (const [index, file] of selectedFiles.entries()) {
-                const uploaded = await fileService.upload(file, undefined, (percent) => {
-                    const completed = index / selectedFiles.length;
-                    setUploadProgress(Math.round((completed + percent / 100 / selectedFiles.length) * 100));
-                });
+                const uploaded = await fileService.upload(
+                    file,
+                    undefined,
+                    (percent) => {
+                        const completed = index / selectedFiles.length;
+                        setUploadProgress(Math.round((completed + percent / 100 / selectedFiles.length) * 100));
+                    },
+                    CLOUD_UPLOAD_SOURCE,
+                );
                 uploadedFiles.push(uploaded);
             }
             setAllFiles((prev) => [...uploadedFiles, ...prev]);
@@ -436,7 +453,7 @@ export default function CloudPage() {
     return (
         <div className="flex h-full overflow-hidden bg-background text-foreground">
 
-            {/* ── Lightbox ────────────────────────────────────────────────── */}
+            {/* Lightbox */}
             {lightboxIndex !== null && lightboxList[lightboxIndex] && (
                 <div
                     className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-sm"
@@ -490,7 +507,7 @@ export default function CloudPage() {
                 </div>
             )}
 
-            {/* ── Left Sidebar ─────────────────────────────────────────────── */}
+            {/* Left sidebar */}
             <aside className="flex w-full md:w-85 lg:w-[350px] shrink-0 flex-col gap-5 border-r border-border bg-card px-4 py-6 overflow-y-auto">
                 {/* Brand */}
                 <div className="flex items-center gap-2.5 px-1">
@@ -596,7 +613,7 @@ export default function CloudPage() {
                 )}
             </aside>
 
-            {/* ── Main Area ─────────────────────────────────────────────────── */}
+            {/* Main area */}
             <main className="flex flex-1 flex-col overflow-hidden">
                 {/* Top bar */}
                 <div className="flex shrink-0 items-center gap-3 border-b border-border bg-card px-6 py-3">
@@ -620,7 +637,7 @@ export default function CloudPage() {
                         />
                     </div>
                     <span className="ml-auto text-xs text-muted-foreground">
-                        {loading ? "—" : categoryTab === "media"
+                        {loading ? "-" : categoryTab === "media"
                             ? t("cloud.file_count_one", { count: filteredMedia.length })
                             : categoryTab === "uploads"
                               ? t("cloud.file_count_one", { count: filteredUploads.length })
@@ -720,78 +737,88 @@ export default function CloudPage() {
                                 {Object.entries(sectionedUploads).map(([label, items]) => (
                                     <section key={label}>
                                         <p className="mb-3 text-xs font-semibold text-muted-foreground/70 uppercase tracking-widest">{label}</p>
-                                        <div className="overflow-hidden rounded-xl border border-border/60">
-                                            {items.map((item, i) => {
-                                                const ext = getExtension(item.fileName);
-                                                return (
-                                                    <div
-                                                        key={item.fileId}
-                                                        className={cn(
-                                                            "flex items-center gap-3 bg-card px-4 py-3 transition-colors hover:bg-muted/50",
-                                                            i < items.length - 1 && "border-b border-border/40",
-                                                        )}
+                                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
+                                            {items.map((item) => (
+                                                <div
+                                                    key={item.fileId}
+                                                    className="overflow-hidden rounded-xl border border-border/60 bg-card shadow-sm transition-colors hover:bg-muted/30"
+                                                >
+                                                    <button
+                                                        type="button"
+                                                        className="block aspect-video w-full overflow-hidden bg-muted"
+                                                        onClick={() => {
+                                                            if (isMedia(item.fileType)) {
+                                                                const idx = filteredUploads.findIndex((file) => file.fileId === item.fileId);
+                                                                openLightbox(filteredUploads, idx);
+                                                                return;
+                                                            }
+                                                            setDocPreviewFile(item);
+                                                            setDocPreviewOpen(true);
+                                                        }}
                                                     >
-                                                        <div className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-[10px] font-bold uppercase text-white", getExtensionColor(ext))}>
-                                                            {ext}
-                                                        </div>
-                                                        <div className="flex-1 min-w-0">
-                                                            <p className="text-sm font-medium leading-tight line-clamp-1">{item.fileName}</p>
-                                                            <p className="text-xs text-muted-foreground mt-0.5">
-                                                                {formatFileSize(item.fileSize)} 路 {new Date(item.createdAt ?? "").toLocaleDateString(i18n.language === "vi" ? "vi-VN" : "en-US")}
+                                                        <FileThumbnail file={item} />
+                                                    </button>
+                                                    <div className="space-y-3 p-3">
+                                                        <div className="min-w-0">
+                                                            <p className="truncate text-sm font-medium leading-tight">{item.fileName}</p>
+                                                            <p className="mt-1 text-xs text-muted-foreground">
+                                                                {formatFileSize(item.fileSize)} - {new Date(item.createdAt ?? "").toLocaleDateString(i18n.language === "vi" ? "vi-VN" : "en-US")}
                                                             </p>
                                                         </div>
-                                                        <Button
-                                                            size="icon"
-                                                            variant="ghost"
-                                                            className="h-7 w-7 shrink-0 rounded-lg"
-                                                            title={t("cloud.preview")}
-                                                            onClick={() => {
-                                                                if (isMedia(item.fileType)) {
-                                                                    const idx = filteredUploads.findIndex((file) => file.fileId === item.fileId);
-                                                                    openLightbox(filteredUploads, idx);
-                                                                    return;
-                                                                }
-                                                                setDocPreviewFile(item);
-                                                                setDocPreviewOpen(true);
-                                                            }}
-                                                        >
-                                                            <Eye className="h-3.5 w-3.5" />
-                                                        </Button>
-                                                        <Button
-                                                            size="icon"
-                                                            variant="ghost"
-                                                            className="h-7 w-7 shrink-0 rounded-lg"
-                                                            title={t("cloud.send")}
-                                                            onClick={() => handleOpenSendDialog(item)}
-                                                        >
-                                                            <Send className="h-3.5 w-3.5" />
-                                                        </Button>
-                                                        <Button
-                                                            size="icon"
-                                                            variant="ghost"
-                                                            className="h-7 w-7 shrink-0 rounded-lg text-destructive hover:text-destructive"
-                                                            disabled={deletingFileId === item.fileId}
-                                                            title={t("cloud.delete")}
-                                                            onClick={() => handleDeleteFile(item)}
-                                                        >
-                                                            {deletingFileId === item.fileId ? (
-                                                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                                            ) : (
-                                                                <Trash2 className="h-3.5 w-3.5" />
-                                                            )}
-                                                        </Button>
-                                                        <Button
-                                                            size="icon"
-                                                            variant="ghost"
-                                                            className="h-7 w-7 shrink-0 rounded-lg"
-                                                            title={t("cloud.download")}
-                                                            onClick={() => handleDownload(item)}
-                                                        >
-                                                            <Download className="h-3.5 w-3.5" />
-                                                        </Button>
+                                                        <div className="flex items-center justify-end gap-1">
+                                                            <Button
+                                                                size="icon"
+                                                                variant="ghost"
+                                                                className="h-8 w-8 rounded-lg"
+                                                                title={t("cloud.preview")}
+                                                                onClick={() => {
+                                                                    if (isMedia(item.fileType)) {
+                                                                        const idx = filteredUploads.findIndex((file) => file.fileId === item.fileId);
+                                                                        openLightbox(filteredUploads, idx);
+                                                                        return;
+                                                                    }
+                                                                    setDocPreviewFile(item);
+                                                                    setDocPreviewOpen(true);
+                                                                }}
+                                                            >
+                                                                <Eye className="h-3.5 w-3.5" />
+                                                            </Button>
+                                                            <Button
+                                                                size="icon"
+                                                                variant="ghost"
+                                                                className="h-8 w-8 rounded-lg"
+                                                                title={t("cloud.send")}
+                                                                onClick={() => handleOpenSendDialog(item)}
+                                                            >
+                                                                <Send className="h-3.5 w-3.5" />
+                                                            </Button>
+                                                            <Button
+                                                                size="icon"
+                                                                variant="ghost"
+                                                                className="h-8 w-8 rounded-lg text-destructive hover:text-destructive"
+                                                                disabled={deletingFileId === item.fileId}
+                                                                title={t("cloud.delete")}
+                                                                onClick={() => handleDeleteFile(item)}
+                                                            >
+                                                                {deletingFileId === item.fileId ? (
+                                                                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                                                ) : (
+                                                                    <Trash2 className="h-3.5 w-3.5" />
+                                                                )}
+                                                            </Button>
+                                                            <Button
+                                                                size="icon"
+                                                                variant="ghost"
+                                                                className="h-8 w-8 rounded-lg"
+                                                                title={t("cloud.download")}
+                                                                onClick={() => handleDownload(item)}
+                                                            >
+                                                                <Download className="h-3.5 w-3.5" />
+                                                            </Button>
+                                                        </div>
                                                     </div>
-                                                );
-                                            })}
+                                                </div>
+                                            ))}
                                         </div>
                                     </section>
                                 ))}
@@ -816,13 +843,17 @@ export default function CloudPage() {
                                                             i < items.length - 1 && "border-b border-border/40",
                                                         )}
                                                     >
-                                                        <div className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-[10px] font-bold uppercase text-white", getExtensionColor(ext))}>
-                                                            {ext}
+                                                        <div className={cn("flex h-10 w-10 shrink-0 flex-col items-center justify-center rounded-lg text-white", getExtensionColor(ext))}>
+                                                            {(() => {
+                                                                const Icon = getFileIcon(ext);
+                                                                return <Icon className="h-4 w-4" />;
+                                                            })()}
+                                                            <span className="mt-0.5 text-[8px] font-bold uppercase leading-none">{ext}</span>
                                                         </div>
                                                         <div className="flex-1 min-w-0">
                                                             <p className="text-sm font-medium leading-tight line-clamp-1">{item.fileName}</p>
                                                             <p className="text-xs text-muted-foreground mt-0.5">
-                                                                {formatFileSize(item.fileSize)} · {getConvName(item.conversationId)}
+                                                                {formatFileSize(item.fileSize)} - {getConvName(item.conversationId)}
                                                             </p>
                                                         </div>
                                                         <span className="hidden shrink-0 text-xs text-muted-foreground/60 md:block">
@@ -889,7 +920,7 @@ export default function CloudPage() {
                 open={docPreviewOpen}
                 onOpenChange={setDocPreviewOpen}
                 file={docPreviewFile}
-                files={filteredDocs}
+                files={categoryTab === "uploads" ? filteredUploads.filter((file) => !isMedia(file.fileType)) : filteredDocs}
                 onNavigate={(f) => setDocPreviewFile(f)}
             />
             <Dialog open={!!sendFile} onOpenChange={(open) => !open && setSendFile(null)}>
@@ -985,6 +1016,42 @@ function EmptyState({ icon, label }: { icon: React.ReactNode; label: string }) {
     );
 }
 
+function FileThumbnail({ file }: { file: FileUploadResponse }) {
+    if (isImage(file.fileType)) {
+        return (
+            <img
+                src={file.url}
+                alt={file.fileName}
+                className="h-full w-full object-cover"
+                loading="lazy"
+            />
+        );
+    }
+
+    if (isVideo(file.fileType)) {
+        return (
+            <video
+                src={file.url}
+                className="h-full w-full object-cover"
+                muted
+                preload="metadata"
+            />
+        );
+    }
+
+    const ext = getExtension(file.fileName);
+    const Icon = getFileIcon(ext);
+
+    return (
+        <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-muted/60">
+            <div className={cn("flex h-14 w-14 flex-col items-center justify-center rounded-xl text-white shadow-sm", getExtensionColor(ext))}>
+                <Icon className="h-6 w-6" />
+                <span className="mt-1 text-[10px] font-bold uppercase leading-none">{ext}</span>
+            </div>
+        </div>
+    );
+}
+
 function StorageWidget({ used, quota, cleaning }: { used: number; quota: number; cleaning: boolean }) {
     const { t } = useTranslation();
     const pct = Math.min((used / quota) * 100, 100);
@@ -1023,10 +1090,11 @@ function StorageWidget({ used, quota, cleaning }: { used: number; quota: number;
             </p>
             {pct >= 90 && !cleaning && (
                 <p className="text-[10px] text-red-500/80">
-                    ⚠ {t("cloud.almost_full_warning")}
+                    {t("cloud.almost_full_warning")}
                 </p>
             )}
         </div>
     );
 }
+
 
