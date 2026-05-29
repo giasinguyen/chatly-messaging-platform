@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/dialog";
 import type { ChatUser } from "@/types/message";
 import type { ConversationResponse } from "@/types/conversation";
+import { isGroupInviteLink } from "@/utils/groupInviteLink";
 
 export interface ChatGroupProfileContentProps {
     participant: ChatUser;
@@ -59,6 +60,7 @@ export const ChatGroupProfileContent = memo(function ChatGroupProfileContent({
 }: ChatGroupProfileContentProps) {
     const { t } = useTranslation();
     const avatarInputRef = useRef<HTMLInputElement>(null);
+    const shouldOpenInviteInCurrentTab = isGroupInviteLink(inviteLink);
 
     const handleCopyLink = async () => {
         try {
@@ -227,8 +229,8 @@ export const ChatGroupProfileContent = memo(function ChatGroupProfileContent({
                     <div className="mt-2 flex items-center gap-2">
                         <a
                             href={inviteLink}
-                            target="_blank"
-                            rel="noreferrer"
+                            target={shouldOpenInviteInCurrentTab ? undefined : "_blank"}
+                            rel={shouldOpenInviteInCurrentTab ? undefined : "noreferrer"}
                             className="text-sm text-brand hover:underline truncate"
                         >
                             {inviteLink}

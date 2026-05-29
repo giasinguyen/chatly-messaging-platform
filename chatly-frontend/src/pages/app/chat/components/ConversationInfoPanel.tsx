@@ -55,6 +55,7 @@ import { fileService, type FileUploadResponse } from "@/services/file.service";
 import { messageService } from "@/services/message.service";
 import { useConversationPrefsStore } from "@/store/conversationPrefs.store";
 import { useNotificationStore } from "@/store/notification.store";
+import { buildGroupInviteLink } from "@/utils/groupInviteLink";
 
 interface ConversationInfoPanelProps {
     conversation: ConversationResponse;
@@ -328,7 +329,7 @@ export function ConversationInfoPanel({
         try {
             const res = await groupService.getOrCreateInviteLink(conversation.id);
             if (res.result) {
-                setInviteLink(`${import.meta.env.VITE_WEB_BASE_URL || window.location.origin}/join/${res.result.inviteToken}`);
+                setInviteLink(buildGroupInviteLink(res.result.inviteToken));
             }
         } catch { /* silent */ } finally { setInviteLinkLoading(false); }
     }, [isGroup, conversation.id]);
@@ -338,7 +339,7 @@ export function ConversationInfoPanel({
         try {
             const res = await groupService.resetInviteLink(conversation.id);
             if (res.result) {
-                setInviteLink(`${import.meta.env.VITE_WEB_BASE_URL || window.location.origin}/join/${res.result.inviteToken}`);
+                setInviteLink(buildGroupInviteLink(res.result.inviteToken));
             }
             toast.success(t("chat.invite_link_reset"));
         } catch { toast.error(t("chat.invite_link_reset_failed")); }

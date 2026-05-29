@@ -8,6 +8,9 @@ import {
     Download,
     Loader2,
     X,
+    Send,
+    Trash2,
+    Upload,
     ChevronLeft,
     ChevronRight,
     Cloud,
@@ -29,8 +32,12 @@ import {
 } from "@/components/ui/select";
 import { fileService, type FileUploadResponse } from "@/services/file.service";
 import { conversationService } from "@/services/conversation.service";
+import { messageService } from "@/services/message.service";
 import { cn } from "@/lib/utils";
 import { FilePreviewModal } from "./components/FilePreviewModal";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import type { ConversationResponse } from "@/types/conversation";
+import { fileToAttachment } from "@/utils/fileAttachment";
 
 // --- Helpers ---
 
@@ -125,6 +132,7 @@ export default function CloudPage() {
     );
     const [allFiles, setAllFiles] = useState<FileUploadResponse[]>([]);
     const [convMap, setConvMap] = useState<Record<string, string>>({});
+    const [conversations, setConversations] = useState<ConversationResponse[]>([]);
 
     const [searchTerm, setSearchTerm] = useState("");
     const [sortFilter, setSortFilter] = useState("latest");
@@ -135,6 +143,12 @@ export default function CloudPage() {
     });    
     // Cleanup state
     const [isCleaningUp, setIsCleaningUp] = useState(false);
+    const [isUploading, setIsUploading] = useState(false);
+    const [uploadProgress, setUploadProgress] = useState(0);
+    const [deletingFileId, setDeletingFileId] = useState<string | null>(null);
+    const [sendFile, setSendFile] = useState<FileUploadResponse | null>(null);
+    const [targetConversationId, setTargetConversationId] = useState("");
+    const [isSendingFile, setIsSendingFile] = useState(false);
 
     // Document preview state
     const [docPreviewFile, setDocPreviewFile] = useState<FileUploadResponse | null>(null);
@@ -214,6 +228,7 @@ export default function CloudPage() {
             .then(([files, convsResp]) => {
                 if (cancelled) return;
                 setAllFiles(files);
+                setConversations(convsResp.result);
                 const map: Record<string, string> = {};
                 for (const c of convsResp.result) {
                     map[c.id] = c.nickname ?? c.name ?? c.id;
@@ -322,6 +337,68 @@ export default function CloudPage() {
         a.target = "_blank";
         a.rel = "noreferrer";
         a.click();
+    };
+
+    const handleUploadFiles = async (files: FileList | null) => {
+        const selectedFiles = Array.from(files ?? []);
+        if (selectedFiles.length === 0) return;
+        setIsUploading(true);
+        setUploadProgress(0);
+        try {
+            const uploadedFiles: FileUploadResponse[] = [];
+            for (const [index, file] of selectedFiles.entries()) {
+                const uploaded = await fileService.upload(file, undefined, (percent) => {
+                    const completed = index / selectedFiles.length;
+                    setUploadProgress(Math.round((completed + percent / 100 / selectedFiles.length) * 100));
+                });
+                uploadedFiles.push(uploaded);
+            }
+            setAllFiles((prev) => [...uploadedFiles, ...prev]);
+            toast.success(t("cloud.upload_success", { count: uploadedFiles.length }));
+        } catch {
+            toast.error(t("cloud.upload_failed"));
+        } finally {
+            setIsUploading(false);
+            setUploadProgress(0);
+        }
+    };
+
+    const handleDeleteFile = async (file: FileUploadResponse) => {
+        if (!window.confirm(t("cloud.delete_confirm"))) return;
+        setDeletingFileId(file.fileId);
+        try {
+            await fileService.deleteFile(file.fileId);
+            setAllFiles((prev) => prev.filter((item) => item.fileId !== file.fileId));
+            toast.success(t("cloud.delete_success"));
+        } catch {
+            toast.error(t("cloud.delete_failed"));
+        } finally {
+            setDeletingFileId(null);
+        }
+    };
+
+    const handleOpenSendDialog = (file: FileUploadResponse) => {
+        setSendFile(file);
+        setTargetConversationId(conversations[0]?.id ?? "");
+    };
+
+    const handleSendFile = async () => {
+        if (!sendFile || !targetConversationId) return;
+        setIsSendingFile(true);
+        try {
+            await messageService.send({
+                conversationId: targetConversationId,
+                content: "",
+                attachments: [fileToAttachment(sendFile)],
+            });
+            toast.success(t("cloud.send_success"));
+            setSendFile(null);
+            setTargetConversationId("");
+        } catch {
+            toast.error(t("cloud.send_failed"));
+        } finally {
+            setIsSendingFile(false);
+        }
     };
 
     return (
@@ -466,6 +543,16 @@ export default function CloudPage() {
             <main className="flex flex-1 flex-col overflow-hidden">
                 {/* Top bar */}
                 <div className="flex shrink-0 items-center gap-3 border-b border-border bg-card px-6 py-3">
+                    <input
+                        id="cloud-upload-input"
+                        type="file"
+                        multiple
+                        className="hidden"
+                        onChange={(event) => {
+                            handleUploadFiles(event.target.files);
+                            event.target.value = "";
+                        }}
+                    />
                     <div className="relative flex-1 max-w-sm">
                         <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground/60" />
                         <Input
@@ -475,6 +562,20 @@ export default function CloudPage() {
                             className="h-9 rounded-lg border-border bg-background pl-9 text-sm"
                         />
                     </div>
+                    <Button
+                        type="button"
+                        size="sm"
+                        className="h-9 gap-2"
+                        disabled={isUploading}
+                        onClick={() => document.getElementById("cloud-upload-input")?.click()}
+                    >
+                        {isUploading ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                            <Upload className="h-4 w-4" />
+                        )}
+                        {isUploading ? `${uploadProgress}%` : t("cloud.upload_button")}
+                    </Button>
                     <span className="ml-auto text-xs text-muted-foreground">
                         {loading ? "—" : categoryTab === "media"
                             ? t("cloud.file_count_one", { count: filteredMedia.length })
@@ -500,9 +601,17 @@ export default function CloudPage() {
                                             {items.map((item) => {
                                                 const idx = filteredMedia.findIndex((m) => m.fileId === item.fileId);
                                                 return (
-                                                    <button
+                                                    <div
                                                         key={item.fileId}
+                                                        role="button"
+                                                        tabIndex={0}
                                                         onClick={() => openLightbox(filteredMedia, idx)}
+                                                        onKeyDown={(event) => {
+                                                            if (event.key === "Enter" || event.key === " ") {
+                                                                event.preventDefault();
+                                                                openLightbox(filteredMedia, idx);
+                                                            }
+                                                        }}
                                                         className="group relative aspect-square overflow-hidden rounded-lg bg-muted focus:outline-none focus:ring-2 focus:ring-primary"
                                                     >
                                                         {isImage(item.fileType) ? (
@@ -520,17 +629,37 @@ export default function CloudPage() {
                                                         {/* Hover overlay */}
                                                         <div className="absolute inset-0 flex flex-col justify-end bg-gradient-to-t from-black/70 via-black/20 to-transparent opacity-0 transition-opacity duration-200 group-hover:opacity-100 p-1.5">
                                                             <p className="truncate text-[9px] font-medium text-white leading-tight">{item.fileName}</p>
-                                                            <div className="mt-1 flex items-center justify-between">
+                                                            <div className="mt-1 flex items-center justify-between gap-1">
                                                                 <span className="text-[8px] text-white/60">{formatFileSize(item.fileSize)}</span>
                                                                 <button
                                                                     className="rounded p-0.5 text-white/80 hover:text-white"
                                                                     onClick={(e) => { e.stopPropagation(); handleDownload(item); }}
+                                                                    title={t("cloud.download")}
                                                                 >
                                                                     <Download className="h-3 w-3" />
                                                                 </button>
+                                                                <button
+                                                                    className="rounded p-0.5 text-white/80 hover:text-white"
+                                                                    onClick={(e) => { e.stopPropagation(); handleOpenSendDialog(item); }}
+                                                                    title={t("cloud.send")}
+                                                                >
+                                                                    <Send className="h-3 w-3" />
+                                                                </button>
+                                                                <button
+                                                                    className="rounded p-0.5 text-white/80 hover:text-white disabled:opacity-60"
+                                                                    disabled={deletingFileId === item.fileId}
+                                                                    onClick={(e) => { e.stopPropagation(); handleDeleteFile(item); }}
+                                                                    title={t("cloud.delete")}
+                                                                >
+                                                                    {deletingFileId === item.fileId ? (
+                                                                        <Loader2 className="h-3 w-3 animate-spin" />
+                                                                    ) : (
+                                                                        <Trash2 className="h-3 w-3" />
+                                                                    )}
+                                                                </button>
                                                             </div>
                                                         </div>
-                                                    </button>
+                                                    </div>
                                                 );
                                             })}
                                         </div>
@@ -585,6 +714,29 @@ export default function CloudPage() {
                                                             size="icon"
                                                             variant="ghost"
                                                             className="h-7 w-7 shrink-0 rounded-lg"
+                                                            title={t("cloud.send")}
+                                                            onClick={() => handleOpenSendDialog(item)}
+                                                        >
+                                                            <Send className="h-3.5 w-3.5" />
+                                                        </Button>
+                                                        <Button
+                                                            size="icon"
+                                                            variant="ghost"
+                                                            className="h-7 w-7 shrink-0 rounded-lg text-destructive hover:text-destructive"
+                                                            disabled={deletingFileId === item.fileId}
+                                                            title={t("cloud.delete")}
+                                                            onClick={() => handleDeleteFile(item)}
+                                                        >
+                                                            {deletingFileId === item.fileId ? (
+                                                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                                            ) : (
+                                                                <Trash2 className="h-3.5 w-3.5" />
+                                                            )}
+                                                        </Button>
+                                                        <Button
+                                                            size="icon"
+                                                            variant="ghost"
+                                                            className="h-7 w-7 shrink-0 rounded-lg"
                                                             title={t("cloud.download")}
                                                             onClick={() => handleDownload(item)}
                                                         >
@@ -610,6 +762,45 @@ export default function CloudPage() {
                 files={filteredDocs}
                 onNavigate={(f) => setDocPreviewFile(f)}
             />
+            <Dialog open={!!sendFile} onOpenChange={(open) => !open && setSendFile(null)}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>{t("cloud.send_file_title")}</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-3">
+                        <div className="rounded-lg border border-border bg-muted/30 px-3 py-2">
+                            <p className="truncate text-sm font-medium">{sendFile?.fileName}</p>
+                            <p className="text-xs text-muted-foreground">
+                                {sendFile ? formatFileSize(sendFile.fileSize) : ""}
+                            </p>
+                        </div>
+                        <Select value={targetConversationId} onValueChange={setTargetConversationId}>
+                            <SelectTrigger>
+                                <SelectValue placeholder={t("cloud.select_conversation")} />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {conversations.map((conversation) => (
+                                    <SelectItem key={conversation.id} value={conversation.id}>
+                                        {conversation.nickname ?? conversation.name ?? conversation.id}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="ghost" onClick={() => setSendFile(null)}>
+                            {t("common.cancel")}
+                        </Button>
+                        <Button
+                            disabled={!targetConversationId || isSendingFile}
+                            onClick={handleSendFile}
+                        >
+                            {isSendingFile && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                            {t("cloud.send")}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }
