@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { Phone, Video, X } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import type { CallType } from "@/types/call";
 
 const COUNTDOWN_SECONDS = 3;
@@ -19,6 +20,7 @@ export function GroupCallConfirmDialog({
     onConfirm,
     onCancel,
 }: GroupCallConfirmDialogProps) {
+    const { t } = useTranslation();
     const [countdown, setCountdown] = useState(COUNTDOWN_SECONDS);
 
     const handleConfirm = useCallback(() => {
@@ -48,7 +50,8 @@ export function GroupCallConfirmDialog({
 
     if (!visible) return null;
 
-    const callLabel = callType === "VIDEO" ? "video call" : "voice call";
+    const callLabel =
+        callType === "VIDEO" ? t("chat.call_video") : t("chat.call_voice");
     const CallIcon = callType === "VIDEO" ? Video : Phone;
 
     return (
@@ -57,7 +60,9 @@ export function GroupCallConfirmDialog({
                 {/* Header */}
                 <div className="flex items-center justify-between mb-4">
                     <h3 className="text-lg font-semibold text-foreground">
-                        Start group {callLabel}?
+                        {t("chat.call_start_group_title", {
+                            type: callLabel.toLowerCase(),
+                        })}
                     </h3>
                     <button
                         onClick={onCancel}
@@ -73,9 +78,11 @@ export function GroupCallConfirmDialog({
                         <CallIcon size={24} />
                     </div>
                     <div>
-                        <p className="text-sm font-medium text-foreground">{groupName}</p>
+                        <p className="text-sm font-medium text-foreground">
+                            {groupName}
+                        </p>
                         <p className="text-xs text-muted-foreground">
-                            All group members will be notified
+                            {t("chat.call_notify_group_members")}
                         </p>
                     </div>
                 </div>
@@ -86,13 +93,17 @@ export function GroupCallConfirmDialog({
                         onClick={onCancel}
                         className="flex-1 rounded-lg border border-border px-4 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-muted"
                     >
-                        Cancel
+                        {t("common.cancel")}
                     </button>
                     <button
                         onClick={handleConfirm}
                         className="flex-1 rounded-lg bg-brand px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-brand/90"
                     >
-                        {countdown > 0 ? `Start (${countdown}s)` : "Start"}
+                        {countdown > 0
+                            ? t("chat.call_start_countdown", {
+                                  count: countdown,
+                              })
+                            : t("chat.call_start")}
                     </button>
                 </div>
             </div>

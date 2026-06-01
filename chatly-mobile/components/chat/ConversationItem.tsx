@@ -1,8 +1,15 @@
 import { View, Text, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { Avatar } from '@/components/ui/Avatar';
 import { Colors } from '@/constants/theme';
-import { firstMeaningfulPreview, formatRelativeTime, richTextToPlainText, truncateText } from '@/utils/format';
+import {
+  firstMeaningfulPreview,
+  formatRelativeTime,
+  richTextToPlainText,
+  truncateText,
+} from '@/utils/format';
+import { formatSystemMessage } from '@/utils/systemMessage';
 import type { ConversationResponse } from '@/types/conversation';
 
 interface ConversationItemProps {
@@ -28,6 +35,7 @@ export function ConversationItem({
   isPinned = false,
   isMuted = false,
 }: ConversationItemProps) {
+  const { t } = useTranslation();
   const { type, name, avatarUrl, lastMessage, participantIds, updatedAt } = conversation;
 
   // Resolve display name
@@ -44,9 +52,7 @@ export function ConversationItem({
     }
   } else {
     // Group: online if any other member is online
-    isOnline = participantIds.some(
-      (pid) => pid !== currentUserId && onlineUserIds.has(pid),
-    );
+    isOnline = participantIds.some((pid) => pid !== currentUserId && onlineUserIds.has(pid));
   }
 
   // Last message preview
@@ -59,13 +65,16 @@ export function ConversationItem({
         preview = prefix + '📷 Image';
         break;
       case 'FILE':
-        preview = prefix + '📎 ' + (firstMeaningfulPreview(lastMessage.content || '', 35) || 'Attachment');
+        preview =
+          prefix + '📎 ' + (firstMeaningfulPreview(lastMessage.content || '', 35) || 'Attachment');
         break;
       case 'VIDEO':
-        preview = prefix + '🎬 ' + (firstMeaningfulPreview(lastMessage.content || '', 35) || 'Video');
+        preview =
+          prefix + '🎬 ' + (firstMeaningfulPreview(lastMessage.content || '', 35) || 'Video');
         break;
       case 'AUDIO':
-        preview = prefix + '🎵 ' + (firstMeaningfulPreview(lastMessage.content || '', 35) || 'Audio');
+        preview =
+          prefix + '🎵 ' + (firstMeaningfulPreview(lastMessage.content || '', 35) || 'Audio');
         break;
       case 'GIF':
         preview = prefix + '🎬 GIF';
@@ -77,18 +86,26 @@ export function ConversationItem({
         preview = prefix + '📇 Contact card';
         break;
       case 'SYSTEM':
-        preview = firstMeaningfulPreview(lastMessage.content, 35);
+        preview = firstMeaningfulPreview(formatSystemMessage(lastMessage.content), 35);
         break;
       case 'CALL': {
         let callData: { callType?: string; status?: string } = {};
-        try { callData = JSON.parse(lastMessage.content); } catch { /* ignore */ }
+        try {
+          callData = JSON.parse(lastMessage.content);
+        } catch {
+          /* ignore */
+        }
         const missed = callData.status === 'MISSED' || callData.status === 'REJECTED';
         const video = callData.callType === 'VIDEO';
-        if (missed) {
-          preview = video ? '📵 Missed video call' : '📵 Missed audio call';
-        } else {
-          preview = video ? '🎥 Video call' : '📞 Audio call';
-        }
+        preview =
+          prefix +
+          (missed
+            ? video
+              ? t('chat.missed_video_call')
+              : t('chat.missed_audio_call')
+            : video
+              ? t('chat.video_call')
+              : t('chat.audio_call'));
         break;
       }
       default:
@@ -110,8 +127,7 @@ export function ConversationItem({
         backgroundColor: isPinned ? Colors.ctaLight : Colors.bgCard,
         borderBottomWidth: 0.5,
         borderBottomColor: Colors.borderLight,
-      }}
-    >
+      }}>
       <Avatar uri={displayAvatar} name={displayName} size={52} showOnline isOnline={isOnline} />
 
       <View className="ml-3 flex-1">
@@ -119,14 +135,11 @@ export function ConversationItem({
           <Text
             className="flex-1 text-base font-semibold"
             style={{ color: Colors.text }}
-            numberOfLines={1}
-          >
+            numberOfLines={1}>
             {displayName}
           </Text>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginLeft: 6 }}>
-            {isPinned && (
-              <Ionicons name="bookmark" size={13} color={Colors.cta} />
-            )}
+            {isPinned && <Ionicons name="bookmark" size={13} color={Colors.cta} />}
             {isMuted && (
               <Ionicons name="notifications-off-outline" size={13} color={Colors.textLight} />
             )}
@@ -135,22 +148,20 @@ export function ConversationItem({
             </Text>
           </View>
         </View>
-        <View className="flex-row items-center justify-between mt-0.5">
+        <View className="mt-0.5 flex-row items-center justify-between">
           <Text
             className="flex-1 text-sm"
-            style={{ 
+            style={{
               color: conversation.unreadCount > 0 ? Colors.text : Colors.textMuted,
-              fontWeight: conversation.unreadCount > 0 ? '600' : 'normal'
+              fontWeight: conversation.unreadCount > 0 ? '600' : 'normal',
             }}
-            numberOfLines={1}
-          >
+            numberOfLines={1}>
             {truncateText(richTextToPlainText(preview), 35)}
           </Text>
           {conversation.unreadCount > 0 && (
-            <View 
+            <View
               className="ml-2 h-5 min-w-[20px] items-center justify-center rounded-full px-1.5"
-              style={{ backgroundColor: Colors.cta }}
-            >
+              style={{ backgroundColor: Colors.cta }}>
               <Text className="text-[10px] font-bold text-white">
                 {conversation.unreadCount > 99 ? '99+' : conversation.unreadCount}
               </Text>

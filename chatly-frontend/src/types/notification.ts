@@ -6,6 +6,7 @@ export type NotificationType =
     | "FRIEND_ACCEPTED"
     | "GROUP_INVITE"
     | "GROUP_LEAVE"
+    | "GROUP_UPDATED"
     | "GROUP_JOIN_REQUEST"
     | "MEMBER_JOINED"
     | "CALL_MISSED"
@@ -38,4 +39,3 @@ export interface NotificationEvent {
     notification: Notification;
     unreadCount: number;
 }
-

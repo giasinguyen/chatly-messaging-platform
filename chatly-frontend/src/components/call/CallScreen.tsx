@@ -1,4 +1,5 @@
 import { PhoneOff, Phone, Video } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import type { IncomingCall } from "@/types/call";
 
 interface CallScreenProps {
@@ -8,11 +9,20 @@ interface CallScreenProps {
     onReject: () => void;
 }
 
-export function CallScreen({ visible, incomingCall, onAccept, onReject }: CallScreenProps) {
+export function CallScreen({
+    visible,
+    incomingCall,
+    onAccept,
+    onReject,
+}: CallScreenProps) {
+    const { t } = useTranslation();
+
     if (!visible || !incomingCall) return null;
 
     const callLabel =
-        incomingCall.type === "VIDEO" ? "Incoming video call" : "Incoming voice call";
+        incomingCall.type === "VIDEO"
+            ? t("chat.call_incoming_video")
+            : t("chat.call_incoming_voice");
 
     const initial = incomingCall.callerName.charAt(0).toUpperCase();
 
@@ -30,7 +40,9 @@ export function CallScreen({ visible, incomingCall, onAccept, onReject }: CallSc
                         />
                     ) : (
                         <div className="relative flex h-32 w-32 items-center justify-center rounded-full bg-gray-600">
-                            <span className="text-4xl font-bold text-white">{initial}</span>
+                            <span className="text-4xl font-bold text-white">
+                                {initial}
+                            </span>
                         </div>
                     )}
                 </div>
@@ -53,7 +65,9 @@ export function CallScreen({ visible, incomingCall, onAccept, onReject }: CallSc
                         >
                             <PhoneOff size={24} className="text-white" />
                         </button>
-                        <span className="text-xs text-gray-400">Decline</span>
+                        <span className="text-xs text-gray-400">
+                            {t("chat.call_decline")}
+                        </span>
                     </div>
 
                     {/* Accept */}
@@ -68,7 +82,9 @@ export function CallScreen({ visible, incomingCall, onAccept, onReject }: CallSc
                                 <Phone size={24} className="text-white" />
                             )}
                         </button>
-                        <span className="text-xs text-gray-400">Accept</span>
+                        <span className="text-xs text-gray-400">
+                            {t("chat.call_accept")}
+                        </span>
                     </div>
                 </div>
             </div>
