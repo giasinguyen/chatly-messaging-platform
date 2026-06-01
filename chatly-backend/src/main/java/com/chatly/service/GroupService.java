@@ -297,6 +297,7 @@ public class GroupService {
     @Transactional
     public ConversationResponse updateGroup(String conversationId, GroupUpdateRequest request, String requesterId) {
         Conversation conversation = getGroupConversation(conversationId);
+        String previousName = conversation.getName();
         String previousAvatarUrl = conversation.getAvatarUrl();
         
         // Check permission: only owner/admin can always update; members can update only if allowMembersUpdateInfo is true
@@ -329,8 +330,14 @@ public class GroupService {
         conversation = conversationRepository.save(conversation);
         ConversationResponse response = conversationMapper.toResponse(conversation);
 
+        if (request.getName() != null && !Objects.equals(previousName, request.getName())) {
+            notifyGroupUpdated(conversation, requesterId,
+                    getRequesterName(requesterId) + " changed the group name to " + request.getName());
+        }
+
         if (request.getAvatar() != null && !Objects.equals(previousAvatarUrl, request.getAvatar())) {
-            notifyGroupAvatarUpdated(conversation, requesterId);
+            notifyGroupUpdated(conversation, requesterId,
+                    getRequesterName(requesterId) + " changed the group avatar");
         }
         
         // Broadcast GROUP_UPDATE event to all participants
@@ -765,11 +772,12 @@ public class GroupService {
         }
     }
 
-    private void notifyGroupAvatarUpdated(Conversation conversation, String requesterId) {
+    private String getRequesterName(String requesterId) {
         User requester = userRepository.findById(UUID.fromString(requesterId)).orElse(null);
-        String requesterName = requester != null ? requester.getDisplayName() : "Someone";
-        String content = requesterName + " changed the group avatar";
+        return requester != null ? requester.getDisplayName() : "Someone";
+    }
 
+    private void notifyGroupUpdated(Conversation conversation, String requesterId, String content) {
         messageService.sendSystemMessage(conversation.getId(), content);
 
         conversation.getParticipantIds().stream()

@@ -30,20 +30,28 @@ export function resolveNotificationRoute(notification: Notification): string {
     }
 
     if (
-        notification.type === "POST_LIKED"
-        || notification.type === "POST_COMMENTED"
-        || notification.type === "POST_SHARED"
-        || notification.type === "POST_MENTION"
-        || notification.type === "COMMENT_REPLIED"
+        notification.type === "POST_LIKED" ||
+        notification.type === "POST_COMMENTED" ||
+        notification.type === "POST_SHARED" ||
+        notification.type === "POST_MENTION" ||
+        notification.type === "COMMENT_REPLIED"
     ) {
         return `/post/${extractPostId(referenceId)}`;
     }
 
-    if (notification.type === "NEW_MESSAGE" || notification.type === "MENTION") {
+    if (
+        notification.type === "NEW_MESSAGE" ||
+        notification.type === "MENTION"
+    ) {
         return `/chat/${referenceId}`;
     }
 
-    if (notification.type === "GROUP_INVITE") {
+    if (
+        notification.type === "GROUP_INVITE" ||
+        notification.type === "GROUP_UPDATED" ||
+        notification.type === "MEMBER_JOINED" ||
+        notification.type === "GROUP_LEAVE"
+    ) {
         return `/chat/${referenceId}`;
     }
 

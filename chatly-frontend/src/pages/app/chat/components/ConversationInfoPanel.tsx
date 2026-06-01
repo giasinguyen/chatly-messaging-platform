@@ -119,13 +119,15 @@ function messageToDocFiles(message: Message): FileUploadResponse[] {
     return message.attachments
         .filter((attachment) => {
             const type = attachment.type ?? "";
-            return Boolean(attachment.url)
-                && !type.startsWith("image/")
-                && !type.startsWith("video/")
-                && !type.startsWith("audio/")
-                && attachment.kind !== "POST_PREVIEW"
-                && attachment.kind !== "REEL_PREVIEW"
-                && attachment.kind !== "STORY_REPLY";
+            return (
+                Boolean(attachment.url) &&
+                !type.startsWith("image/") &&
+                !type.startsWith("video/") &&
+                !type.startsWith("audio/") &&
+                attachment.kind !== "POST_PREVIEW" &&
+                attachment.kind !== "REEL_PREVIEW" &&
+                attachment.kind !== "STORY_REPLY"
+            );
         })
         .map((attachment) => attachmentToFile(attachment, message));
 }
@@ -145,7 +147,9 @@ function mergeFiles(
     );
 }
 
-function extractLinksFromMessages(messages: Message[]): { url: string; domain: string }[] {
+function extractLinksFromMessages(
+    messages: Message[],
+): { url: string; domain: string }[] {
     const urlRegex = /(https?:\/\/[^\s<>"]+)/g;
     const links: { url: string; domain: string }[] = [];
     messages.forEach((message) => {
@@ -167,7 +171,9 @@ function mergeLinks(
     liveLinks: { url: string; domain: string }[],
 ): { url: string; domain: string }[] {
     const byUrl = new Map<string, { url: string; domain: string }>();
-    [...liveLinks, ...fetchedLinks].forEach((link) => byUrl.set(link.url, link));
+    [...liveLinks, ...fetchedLinks].forEach((link) =>
+        byUrl.set(link.url, link),
+    );
     return [...byUrl.values()].slice(0, 20);
 }
 
@@ -187,7 +193,12 @@ export function ConversationInfoPanel({
     const navigate = useNavigate();
     const isGroup = conversation.type === "GROUP";
 
-    const { getPrefs, setPin, setMute, setNickname: storeSetNickname } = useConversationPrefsStore();
+    const {
+        getPrefs,
+        setPin,
+        setMute,
+        setNickname: storeSetNickname,
+    } = useConversationPrefsStore();
     const localPrefs = getPrefs(conversation.id);
 
     // Local prefs override server prefs
@@ -204,13 +215,20 @@ export function ConversationInfoPanel({
     // Fetch current user's role in group to determine owner status
     useEffect(() => {
         if (!isGroup) return;
-        groupService.getMembers(conversation.id).then((res) => {
-            if (res.code === 1000) {
-                const me = res.result.find((m) => m.userId === currentUserId);
-                setIsOwner(me?.role === "OWNER");
-                setIsOwnerOrAdmin(me?.role === "OWNER" || me?.role === "ADMIN");
-            }
-        }).catch(() => {});
+        groupService
+            .getMembers(conversation.id)
+            .then((res) => {
+                if (res.code === 1000) {
+                    const me = res.result.find(
+                        (m) => m.userId === currentUserId,
+                    );
+                    setIsOwner(me?.role === "OWNER");
+                    setIsOwnerOrAdmin(
+                        me?.role === "OWNER" || me?.role === "ADMIN",
+                    );
+                }
+            })
+            .catch(() => {});
     }, [isGroup, conversation.id, currentUserId]);
 
     // Mute duration dialog
@@ -219,19 +237,25 @@ export function ConversationInfoPanel({
 
     // Nickname editing
     const [isEditingNickname, setIsEditingNickname] = useState(false);
-    const [nicknameDraft, setNicknameDraft] = useState(storedNickname || participant.displayName);
+    const [nicknameDraft, setNicknameDraft] = useState(
+        storedNickname || participant.displayName,
+    );
 
     // Add members dialog (group only)
     const [showAddMembersDialog, setShowAddMembersDialog] = useState(false);
 
     // Shared media dialog
     const [sharedMediaOpen, setSharedMediaOpen] = useState(false);
-    const [sharedMediaTab, setSharedMediaTab] = useState<"media" | "files" | "links">("media");
+    const [sharedMediaTab, setSharedMediaTab] = useState<
+        "media" | "files" | "links"
+    >("media");
 
     // Media & files from S3
     const [mediaFiles, setMediaFiles] = useState<FileUploadResponse[]>([]);
     const [docFiles, setDocFiles] = useState<FileUploadResponse[]>([]);
-    const [linkMessages, setLinkMessages] = useState<{ url: string; domain: string }[]>([]);
+    const [linkMessages, setLinkMessages] = useState<
+        { url: string; domain: string }[]
+    >([]);
 
     const liveMediaFiles = useMemo(
         () => mergeFiles(mediaFiles, messages.flatMap(messageToMediaFiles)),
@@ -254,22 +278,31 @@ export function ConversationInfoPanel({
                 const [images, docs, linkMsgs] = await Promise.all([
                     fileService.getByConversation(conversation.id, "image"),
                     fileService.getByConversation(conversation.id, "file"),
-                    messageService.search(conversation.id, "http", 0, 50).catch(() => ({ result: [] })),
+                    messageService
+                        .search(conversation.id, "http", 0, 50)
+                        .catch(() => ({ result: [] })),
                 ]);
                 if (!cancelled) {
-                        setMediaFiles(images.filter((file) => isSharedMediaType(file.fileType)));
+                    setMediaFiles(
+                        images.filter((file) =>
+                            isSharedMediaType(file.fileType),
+                        ),
+                    );
                     setDocFiles(docs);
                     const extracted: { url: string; domain: string }[] = [];
                     for (const msg of linkMsgs.result) {
-                        if (msg.type === "GIF" || msg.type === "STICKER") continue;
+                        if (msg.type === "GIF" || msg.type === "STICKER")
+                            continue;
                         const matches = msg.content?.match(URL_REGEX) ?? [];
                         for (const url of matches) {
                             try {
                                 const domain = new URL(url).hostname;
-                                if (!extracted.find(l => l.url === url)) {
+                                if (!extracted.find((l) => l.url === url)) {
                                     extracted.push({ url, domain });
                                 }
-                            } catch { /* ignore */ }
+                            } catch {
+                                /* ignore */
+                            }
                         }
                     }
                     setLinkMessages(extracted.slice(0, 20));
@@ -279,12 +312,16 @@ export function ConversationInfoPanel({
             }
         };
         fetchFiles();
-        return () => { cancelled = true; };
+        return () => {
+            cancelled = true;
+        };
     }, [conversation.id, conversation.lastMessage?.timestamp]);
 
     // Group name editing (group only)
     const [isEditingGroupName, setIsEditingGroupName] = useState(false);
-    const [groupNameDraft, setGroupNameDraft] = useState(participant.displayName);
+    const [groupNameDraft, setGroupNameDraft] = useState(
+        participant.displayName,
+    );
     const [groupNameSaving, setGroupNameSaving] = useState(false);
 
     // Group avatar upload (group only)
@@ -310,16 +347,28 @@ export function ConversationInfoPanel({
     const [pendingCount, setPendingCount] = useState(0);
     const notifications = useNotificationStore((s) => s.notifications);
     const joinRequestCount = useMemo(
-        () => notifications.filter((n) => n.type === "GROUP_JOIN_REQUEST" && n.referenceId === conversation.id).length,
+        () =>
+            notifications.filter(
+                (n) =>
+                    n.type === "GROUP_JOIN_REQUEST" &&
+                    n.referenceId === conversation.id,
+            ).length,
         [notifications, conversation.id],
     );
     useEffect(() => {
         if (!isGroup || !isOwnerOrAdmin) return;
         let cancelled = false;
-        groupService.getPendingRequests(conversation.id).then((res) => {
-            if (!cancelled) setPendingCount(res.result?.length ?? 0);
-        }).catch(() => { /* silent */ });
-        return () => { cancelled = true; };
+        groupService
+            .getPendingRequests(conversation.id)
+            .then((res) => {
+                if (!cancelled) setPendingCount(res.result?.length ?? 0);
+            })
+            .catch(() => {
+                /* silent */
+            });
+        return () => {
+            cancelled = true;
+        };
     }, [isGroup, isOwnerOrAdmin, conversation.id, joinRequestCount]);
 
     // Invite link handlers
@@ -327,11 +376,17 @@ export function ConversationInfoPanel({
         if (!isGroup) return;
         setInviteLinkLoading(true);
         try {
-            const res = await groupService.getOrCreateInviteLink(conversation.id);
+            const res = await groupService.getOrCreateInviteLink(
+                conversation.id,
+            );
             if (res.result) {
                 setInviteLink(buildGroupInviteLink(res.result.inviteToken));
             }
-        } catch { /* silent */ } finally { setInviteLinkLoading(false); }
+        } catch {
+            /* silent */
+        } finally {
+            setInviteLinkLoading(false);
+        }
     }, [isGroup, conversation.id]);
 
     const handleResetInviteLink = async () => {
@@ -342,8 +397,11 @@ export function ConversationInfoPanel({
                 setInviteLink(buildGroupInviteLink(res.result.inviteToken));
             }
             toast.success(t("chat.invite_link_reset"));
-        } catch { toast.error(t("chat.invite_link_reset_failed")); }
-        finally { setInviteLinkLoading(false); }
+        } catch {
+            toast.error(t("chat.invite_link_reset_failed"));
+        } finally {
+            setInviteLinkLoading(false);
+        }
     };
 
     const handleCopyInviteLink = () => {
@@ -375,18 +433,23 @@ export function ConversationInfoPanel({
             : null;
         setMute(conversation.id, true, mutedUntil);
         setShowMuteDialog(false);
-        toast.success(`${t("chat.notifications_silenced")} · ${option ? t(option.labelKey) : ""}`);
+        toast.success(
+            `${t("chat.notifications_silenced")} · ${option ? t(option.labelKey) : ""}`,
+        );
     };
 
     const handleTogglePin = () => {
-        const pinnedConvs = Object.entries(useConversationPrefsStore.getState().prefs)
-            .filter(([, p]) => p.isPinned);
+        const pinnedConvs = Object.entries(
+            useConversationPrefsStore.getState().prefs,
+        ).filter(([, p]) => p.isPinned);
         if (!isPinned && pinnedConvs.length >= 5) {
             toast.warning(t("chat.pin_limit_warning"));
             return;
         }
         setPin(conversation.id, !isPinned);
-        toast.success(isPinned ? t("chat.conv_unpinned") : t("chat.conv_pinned"));
+        toast.success(
+            isPinned ? t("chat.conv_unpinned") : t("chat.conv_pinned"),
+        );
     };
 
     const handleSaveNickname = () => {
@@ -419,13 +482,17 @@ export function ConversationInfoPanel({
         }
     };
 
-    const handleAvatarFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleAvatarFileChange = async (
+        e: React.ChangeEvent<HTMLInputElement>,
+    ) => {
         const file = e.target.files?.[0];
         if (!file) return;
         setAvatarUploading(true);
         try {
             const res = await fileService.upload(file);
-            await groupService.updateGroup(conversation.id, { avatar: res.url });
+            await groupService.updateGroup(conversation.id, {
+                avatar: res.url,
+            });
             // Refetch to update ChatList
             const updated = await conversationService.getById(conversation.id);
             onGroupUpdated?.(participant.displayName, res.url);
@@ -491,7 +558,9 @@ export function ConversationInfoPanel({
             {/* Header */}
             <div className="h-16 flex items-center px-4 border-b border-border shrink-0">
                 <h3 className="text-sm font-semibold text-foreground">
-                    {isGroup ? t("chat.group_information") : t("chat.conversation_info")}
+                    {isGroup
+                        ? t("chat.group_information")
+                        : t("chat.conversation_info")}
                 </h3>
             </div>
 
@@ -510,22 +579,43 @@ export function ConversationInfoPanel({
                                 />
                             )}
                             <Avatar
-                                className={cn("h-16 w-16 border-2 border-border/50", isGroup && "cursor-pointer")}
-                                onClick={isGroup ? () => avatarInputRef.current?.click() : undefined}
+                                className={cn(
+                                    "h-16 w-16 border-2 border-border/50",
+                                    isGroup && "cursor-pointer",
+                                )}
+                                onClick={
+                                    isGroup
+                                        ? () => avatarInputRef.current?.click()
+                                        : undefined
+                                }
                             >
-                                <AvatarImage src={participant.avatarUrl} className="object-cover" />
+                                <AvatarImage
+                                    src={participant.avatarUrl}
+                                    className="object-cover"
+                                />
                                 <AvatarFallback className="text-2xl font-semibold bg-muted">
-                                    {participant.displayName.charAt(0).toUpperCase()}
+                                    {participant.displayName
+                                        .charAt(0)
+                                        .toUpperCase()}
                                 </AvatarFallback>
                             </Avatar>
                             {isGroup && (
                                 <button
                                     type="button"
-                                    onClick={() => avatarInputRef.current?.click()}
+                                    onClick={() =>
+                                        avatarInputRef.current?.click()
+                                    }
                                     disabled={avatarUploading}
                                     className="absolute -bottom-1 -right-1 h-6 w-6 bg-muted border border-border rounded-full flex items-center justify-center hover:bg-muted/80 transition disabled:opacity-50"
                                 >
-                                    {avatarUploading ? <Loader2 size={11} className="animate-spin" /> : <Pencil size={11} />}
+                                    {avatarUploading ? (
+                                        <Loader2
+                                            size={11}
+                                            className="animate-spin"
+                                        />
+                                    ) : (
+                                        <Pencil size={11} />
+                                    )}
                                 </button>
                             )}
                         </div>
@@ -534,21 +624,41 @@ export function ConversationInfoPanel({
                             <div className="flex items-center gap-1.5 px-2">
                                 <Input
                                     value={nicknameDraft}
-                                    onChange={(e) => setNicknameDraft(e.target.value)}
+                                    onChange={(e) =>
+                                        setNicknameDraft(e.target.value)
+                                    }
                                     onKeyDown={(e) => {
-                                        if (e.key === "Enter") handleSaveNickname();
+                                        if (e.key === "Enter")
+                                            handleSaveNickname();
                                         if (e.key === "Escape") {
                                             setIsEditingNickname(false);
-                                            setNicknameDraft(storedNickname || participant.displayName);
+                                            setNicknameDraft(
+                                                storedNickname ||
+                                                    participant.displayName,
+                                            );
                                         }
                                     }}
                                     className="h-7 text-sm text-center"
                                     autoFocus
                                 />
-                                <button type="button" onClick={handleSaveNickname} className="text-brand hover:text-brand/80">
+                                <button
+                                    type="button"
+                                    onClick={handleSaveNickname}
+                                    className="text-brand hover:text-brand/80"
+                                >
                                     <Check size={15} />
                                 </button>
-                                <button type="button" onClick={() => { setIsEditingNickname(false); setNicknameDraft(storedNickname || participant.displayName); }} className="text-muted-foreground hover:text-foreground">
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setIsEditingNickname(false);
+                                        setNicknameDraft(
+                                            storedNickname ||
+                                                participant.displayName,
+                                        );
+                                    }}
+                                    className="text-muted-foreground hover:text-foreground"
+                                >
                                     <X size={15} />
                                 </button>
                             </div>
@@ -556,22 +666,48 @@ export function ConversationInfoPanel({
                             <div className="flex items-center gap-1.5 px-2">
                                 <Input
                                     value={groupNameDraft}
-                                    onChange={(e) => setGroupNameDraft(e.target.value)}
+                                    onChange={(e) =>
+                                        setGroupNameDraft(e.target.value)
+                                    }
                                     onKeyDown={(e) => {
-                                        if (e.key === "Enter") handleSaveGroupName();
+                                        if (e.key === "Enter")
+                                            handleSaveGroupName();
                                         if (e.key === "Escape") {
                                             setIsEditingGroupName(false);
-                                            setGroupNameDraft(participant.displayName);
+                                            setGroupNameDraft(
+                                                participant.displayName,
+                                            );
                                         }
                                     }}
                                     className="h-7 text-sm text-center"
                                     autoFocus
                                     disabled={groupNameSaving}
                                 />
-                                <button type="button" onClick={handleSaveGroupName} disabled={groupNameSaving} className="text-brand hover:text-brand/80 disabled:opacity-50">
-                                    {groupNameSaving ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />}
+                                <button
+                                    type="button"
+                                    onClick={handleSaveGroupName}
+                                    disabled={groupNameSaving}
+                                    className="text-brand hover:text-brand/80 disabled:opacity-50"
+                                >
+                                    {groupNameSaving ? (
+                                        <Loader2
+                                            size={15}
+                                            className="animate-spin"
+                                        />
+                                    ) : (
+                                        <Check size={15} />
+                                    )}
                                 </button>
-                                <button type="button" onClick={() => { setIsEditingGroupName(false); setGroupNameDraft(participant.displayName); }} className="text-muted-foreground hover:text-foreground">
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setIsEditingGroupName(false);
+                                        setGroupNameDraft(
+                                            participant.displayName,
+                                        );
+                                    }}
+                                    className="text-muted-foreground hover:text-foreground"
+                                >
                                     <X size={15} />
                                 </button>
                             </div>
@@ -587,7 +723,10 @@ export function ConversationInfoPanel({
                                     <button
                                         type="button"
                                         onClick={() => {
-                                            setNicknameDraft(storedNickname || participant.displayName);
+                                            setNicknameDraft(
+                                                storedNickname ||
+                                                    participant.displayName,
+                                            );
                                             setIsEditingNickname(true);
                                         }}
                                         className="shrink-0 text-muted-foreground hover:text-foreground transition"
@@ -599,7 +738,9 @@ export function ConversationInfoPanel({
                                     <button
                                         type="button"
                                         onClick={() => {
-                                            setGroupNameDraft(participant.displayName);
+                                            setGroupNameDraft(
+                                                participant.displayName,
+                                            );
                                             setIsEditingGroupName(true);
                                         }}
                                         className="shrink-0 text-muted-foreground hover:text-foreground transition"
@@ -620,16 +761,24 @@ export function ConversationInfoPanel({
                             className="flex flex-col items-center gap-1.5 group"
                             onClick={handleOpenMute}
                         >
-                            <div className={cn(
-                                "h-10 w-10 rounded-full flex items-center justify-center transition-colors",
-                                isMuted
-                                    ? "bg-brand/15 text-brand"
-                                    : "bg-muted text-foreground group-hover:bg-muted/70"
-                            )}>
-                                {isMuted ? <Bell size={18} /> : <BellOff size={18} />}
+                            <div
+                                className={cn(
+                                    "h-10 w-10 rounded-full flex items-center justify-center transition-colors",
+                                    isMuted
+                                        ? "bg-brand/15 text-brand"
+                                        : "bg-muted text-foreground group-hover:bg-muted/70",
+                                )}
+                            >
+                                {isMuted ? (
+                                    <Bell size={18} />
+                                ) : (
+                                    <BellOff size={18} />
+                                )}
                             </div>
                             <span className="text-[11px] text-muted-foreground text-center leading-tight max-w-[60px] whitespace-pre-line">
-                                {isMuted ? t("chat.turn_on_notifications_label") : t("chat.turn_off_notifications_label")}
+                                {isMuted
+                                    ? t("chat.turn_on_notifications_label")
+                                    : t("chat.turn_off_notifications_label")}
                             </span>
                         </button>
 
@@ -639,16 +788,24 @@ export function ConversationInfoPanel({
                             className="flex flex-col items-center gap-1.5 group"
                             onClick={handleTogglePin}
                         >
-                            <div className={cn(
-                                "h-10 w-10 rounded-full flex items-center justify-center transition-colors",
-                                isPinned
-                                    ? "bg-brand/15 text-brand"
-                                    : "bg-muted text-foreground group-hover:bg-muted/70"
-                            )}>
-                                {isPinned ? <PinOff size={18} /> : <Pin size={18} />}
+                            <div
+                                className={cn(
+                                    "h-10 w-10 rounded-full flex items-center justify-center transition-colors",
+                                    isPinned
+                                        ? "bg-brand/15 text-brand"
+                                        : "bg-muted text-foreground group-hover:bg-muted/70",
+                                )}
+                            >
+                                {isPinned ? (
+                                    <PinOff size={18} />
+                                ) : (
+                                    <Pin size={18} />
+                                )}
                             </div>
                             <span className="text-[11px] text-muted-foreground text-center leading-tight max-w-[60px] whitespace-pre-line">
-                                {isPinned ? t("chat.unpin_label") : t("chat.pin_conversation_label")}
+                                {isPinned
+                                    ? t("chat.unpin_label")
+                                    : t("chat.pin_conversation_label")}
                             </span>
                         </button>
 
@@ -708,7 +865,9 @@ export function ConversationInfoPanel({
                                 className="w-full flex items-center justify-between px-4 py-3 hover:bg-muted/30 transition"
                                 onClick={() => setMembersExpanded((v) => !v)}
                             >
-                                <span className="text-sm font-medium text-foreground">{t("chat.group_members")}</span>
+                                <span className="text-sm font-medium text-foreground">
+                                    {t("chat.group_members")}
+                                </span>
                                 <ChevronDown
                                     size={16}
                                     className={cn(
@@ -720,14 +879,22 @@ export function ConversationInfoPanel({
                             {membersExpanded && (
                                 <div className="px-4 py-3 bg-muted/20">
                                     <div className="flex items-center gap-2 text-sm">
-                                    <button
-                                        type="button"
-                                        className=" text-brand flex items-center gap-1"
-                                        onClick={onOpenGroupPanel}
-                                    >
-                                        <Users size={16} className="text-muted-foreground" />
-                                        <span className="text-muted-foreground">{t("chat.members_count", { count: conversation.participantIds.length })}</span>
-                                    </button>
+                                        <button
+                                            type="button"
+                                            className=" text-brand flex items-center gap-1"
+                                            onClick={onOpenGroupPanel}
+                                        >
+                                            <Users
+                                                size={16}
+                                                className="text-muted-foreground"
+                                            />
+                                            <span className="text-muted-foreground">
+                                                {t("chat.members_count", {
+                                                    count: conversation
+                                                        .participantIds.length,
+                                                })}
+                                            </span>
+                                        </button>
                                     </div>
                                 </div>
                             )}
@@ -741,8 +908,13 @@ export function ConversationInfoPanel({
                                     onClick={onOpenGroupPanel}
                                 >
                                     <div className="flex items-center gap-2">
-                                        <UserPlus size={16} className="text-muted-foreground" />
-                                        <span className="text-sm font-medium text-foreground">{t("chat.pending_requests")}</span>
+                                        <UserPlus
+                                            size={16}
+                                            className="text-muted-foreground"
+                                        />
+                                        <span className="text-sm font-medium text-foreground">
+                                            {t("chat.pending_requests")}
+                                        </span>
                                     </div>
                                     {pendingCount > 0 && (
                                         <span className="text-xs bg-red-500 text-white rounded-full px-1.5 py-0.5 min-w-5 text-center">
@@ -757,11 +929,18 @@ export function ConversationInfoPanel({
                                 <button
                                     type="button"
                                     className="flex items-center justify-between w-full"
-                                    onClick={() => setInviteLinkExpanded((v) => !v)}
+                                    onClick={() =>
+                                        setInviteLinkExpanded((v) => !v)
+                                    }
                                 >
                                     <div className="flex items-center gap-2">
-                                        <LinkIcon size={15} className="text-muted-foreground" />
-                                        <span className="text-sm font-medium text-foreground">{t("chat.group_invite_link")}</span>
+                                        <LinkIcon
+                                            size={15}
+                                            className="text-muted-foreground"
+                                        />
+                                        <span className="text-sm font-medium text-foreground">
+                                            {t("chat.group_invite_link")}
+                                        </span>
                                     </div>
                                     <ChevronDown
                                         size={14}
@@ -775,7 +954,10 @@ export function ConversationInfoPanel({
                                     <div className="mt-2 space-y-2">
                                         {inviteLinkLoading ? (
                                             <div className="flex items-center justify-center py-4">
-                                                <Loader2 size={16} className="animate-spin text-muted-foreground" />
+                                                <Loader2
+                                                    size={16}
+                                                    className="animate-spin text-muted-foreground"
+                                                />
                                             </div>
                                         ) : inviteLink ? (
                                             <>
@@ -789,7 +971,9 @@ export function ConversationInfoPanel({
                                                         size="icon"
                                                         variant="outline"
                                                         className="h-8 w-8 shrink-0"
-                                                        onClick={handleCopyInviteLink}
+                                                        onClick={
+                                                            handleCopyInviteLink
+                                                        }
                                                         title={t("common.copy")}
                                                     >
                                                         <Copy size={13} />
@@ -798,8 +982,14 @@ export function ConversationInfoPanel({
                                                         size="icon"
                                                         variant="outline"
                                                         className="h-8 w-8 shrink-0"
-                                                        onClick={() => setShowQrDialog(true)}
-                                                        title={t("chat.qr_code")}
+                                                        onClick={() =>
+                                                            setShowQrDialog(
+                                                                true,
+                                                            )
+                                                        }
+                                                        title={t(
+                                                            "chat.qr_code",
+                                                        )}
                                                     >
                                                         <QrCode size={13} />
                                                     </Button>
@@ -808,7 +998,9 @@ export function ConversationInfoPanel({
                                                     size="sm"
                                                     variant="ghost"
                                                     className="h-7 text-xs gap-1.5 text-muted-foreground"
-                                                    onClick={handleResetInviteLink}
+                                                    onClick={
+                                                        handleResetInviteLink
+                                                    }
                                                     disabled={inviteLinkLoading}
                                                 >
                                                     <RefreshCw size={11} />
@@ -823,7 +1015,9 @@ export function ConversationInfoPanel({
                                                 onClick={fetchInviteLink}
                                             >
                                                 <LinkIcon size={12} />
-                                                {t("chat.create_invite_link_short")}
+                                                {t(
+                                                    "chat.create_invite_link_short",
+                                                )}
                                             </Button>
                                         )}
                                     </div>
@@ -839,8 +1033,13 @@ export function ConversationInfoPanel({
                                     onClick={() => setBoardExpanded((v) => !v)}
                                 >
                                     <div className="flex items-center gap-2">
-                                        <FileText size={15} className="text-muted-foreground" />
-                                        <span className="text-sm font-medium text-foreground">{t("chat.group_bulletin_board")}</span>
+                                        <FileText
+                                            size={15}
+                                            className="text-muted-foreground"
+                                        />
+                                        <span className="text-sm font-medium text-foreground">
+                                            {t("chat.group_bulletin_board")}
+                                        </span>
                                     </div>
                                     <ChevronDown
                                         size={14}
@@ -858,29 +1057,48 @@ export function ConversationInfoPanel({
                                             onClick={() => setShowNotes(true)}
                                         >
                                             <div className="h-7 w-7 rounded bg-brand/10 flex items-center justify-center shrink-0">
-                                                <FileText size={13} className="text-brand" />
+                                                <FileText
+                                                    size={13}
+                                                    className="text-brand"
+                                                />
                                             </div>
-                                            <span className="text-xs text-foreground">{t("chat.notes")}</span>
+                                            <span className="text-xs text-foreground">
+                                                {t("chat.notes")}
+                                            </span>
                                         </button>
                                         <button
                                             type="button"
                                             className="flex items-center gap-2.5 p-2 rounded-lg bg-muted/30 border border-border/40 hover:bg-muted/50 cursor-pointer transition text-left"
-                                            onClick={() => setShowPinnedMessages(true)}
+                                            onClick={() =>
+                                                setShowPinnedMessages(true)
+                                            }
                                         >
                                             <div className="h-7 w-7 rounded bg-amber-500/10 flex items-center justify-center shrink-0">
-                                                <Pin size={13} className="text-amber-500" />
+                                                <Pin
+                                                    size={13}
+                                                    className="text-amber-500"
+                                                />
                                             </div>
-                                            <span className="text-xs text-foreground">{t("chat.pinned_messages")}</span>
+                                            <span className="text-xs text-foreground">
+                                                {t("chat.pinned_messages")}
+                                            </span>
                                         </button>
                                         <button
                                             type="button"
                                             className="flex items-center gap-2.5 p-2 rounded-lg bg-muted/30 border border-border/40 hover:bg-muted/50 cursor-pointer transition text-left"
-                                            onClick={() => setShowReminders(true)}
+                                            onClick={() =>
+                                                setShowReminders(true)
+                                            }
                                         >
                                             <div className="h-7 w-7 rounded bg-green-500/10 flex items-center justify-center shrink-0">
-                                                <Bell size={13} className="text-green-500" />
+                                                <Bell
+                                                    size={13}
+                                                    className="text-green-500"
+                                                />
                                             </div>
-                                            <span className="text-xs text-foreground">{t("chat.reminders")}</span>
+                                            <span className="text-xs text-foreground">
+                                                {t("chat.reminders")}
+                                            </span>
                                         </button>
                                     </div>
                                 )}
@@ -893,18 +1111,30 @@ export function ConversationInfoPanel({
                     <div className="px-4 py-3">
                         <div className="flex items-center justify-between mb-2">
                             <div className="flex items-center gap-2">
-                                <Image size={15} className="text-muted-foreground" />
-                                <span className="text-sm font-medium text-foreground">{t("chat.media")}</span>
+                                <Image
+                                    size={15}
+                                    className="text-muted-foreground"
+                                />
+                                <span className="text-sm font-medium text-foreground">
+                                    {t("chat.media")}
+                                </span>
                             </div>
                             <button
                                 className="text-[12px] text-brand dark:text-indigo-400 hover:underline cursor-pointer bg-transparent border-none p-0"
-                                onClick={() => { setSharedMediaTab("media"); setSharedMediaOpen(true); }}
+                                onClick={() => {
+                                    setSharedMediaTab("media");
+                                    setSharedMediaOpen(true);
+                                }}
                             >
-                                {t("chat.view_all_count", { count: liveMediaFiles.length })}
+                                {t("chat.view_all_count", {
+                                    count: liveMediaFiles.length,
+                                })}
                             </button>
                         </div>
                         {liveMediaFiles.length === 0 ? (
-                            <p className="text-xs text-muted-foreground text-center py-3">{t("chat.no_media_yet")}</p>
+                            <p className="text-xs text-muted-foreground text-center py-3">
+                                {t("chat.no_media_yet")}
+                            </p>
                         ) : (
                             <div className="grid grid-cols-3 gap-1">
                                 {liveMediaFiles.slice(0, 6).map((file) => (
@@ -916,9 +1146,17 @@ export function ConversationInfoPanel({
                                         className="aspect-square rounded bg-muted/60 border border-border/40 overflow-hidden cursor-pointer hover:opacity-80 transition"
                                     >
                                         {file.fileType?.startsWith("video/") ? (
-                                            <video src={file.url} className="w-full h-full object-cover" muted />
+                                            <video
+                                                src={file.url}
+                                                className="w-full h-full object-cover"
+                                                muted
+                                            />
                                         ) : (
-                                            <img src={file.url} alt={file.fileName} className="w-full h-full object-cover" />
+                                            <img
+                                                src={file.url}
+                                                alt={file.fileName}
+                                                className="w-full h-full object-cover"
+                                            />
                                         )}
                                     </a>
                                 ))}
@@ -932,18 +1170,30 @@ export function ConversationInfoPanel({
                     <div className="px-4 py-3">
                         <div className="flex items-center justify-between mb-2">
                             <div className="flex items-center gap-2">
-                                <FileText size={15} className="text-muted-foreground" />
-                                <span className="text-sm font-medium text-foreground">{t("chat.files")}</span>
+                                <FileText
+                                    size={15}
+                                    className="text-muted-foreground"
+                                />
+                                <span className="text-sm font-medium text-foreground">
+                                    {t("chat.files")}
+                                </span>
                             </div>
                             <button
                                 className="text-[12px] text-brand dark:text-indigo-400 hover:underline cursor-pointer bg-transparent border-none p-0"
-                                onClick={() => { setSharedMediaTab("files"); setSharedMediaOpen(true); }}
+                                onClick={() => {
+                                    setSharedMediaTab("files");
+                                    setSharedMediaOpen(true);
+                                }}
                             >
-                                {t("chat.view_all_count", { count: liveDocFiles.length })}
+                                {t("chat.view_all_count", {
+                                    count: liveDocFiles.length,
+                                })}
                             </button>
                         </div>
                         {liveDocFiles.length === 0 ? (
-                            <p className="text-xs text-muted-foreground text-center py-3">{t("chat.no_files_yet")}</p>
+                            <p className="text-xs text-muted-foreground text-center py-3">
+                                {t("chat.no_files_yet")}
+                            </p>
                         ) : (
                             <div className="flex flex-col gap-2">
                                 {liveDocFiles.slice(0, 5).map((file) => {
@@ -953,7 +1203,13 @@ export function ConversationInfoPanel({
                                             : `${(file.fileSize / 1024).toFixed(0)} KB`
                                         : "";
                                     const dateStr = file.createdAt
-                                        ? new Date(file.createdAt).toLocaleDateString(i18n.language === "vi" ? "vi-VN" : "en-US")
+                                        ? new Date(
+                                              file.createdAt,
+                                          ).toLocaleDateString(
+                                              i18n.language === "vi"
+                                                  ? "vi-VN"
+                                                  : "en-US",
+                                          )
                                         : "";
                                     return (
                                         <a
@@ -964,13 +1220,27 @@ export function ConversationInfoPanel({
                                             className="flex items-center gap-2.5 p-2 rounded-lg bg-muted/30 border border-border/40 hover:bg-muted/50 cursor-pointer transition"
                                         >
                                             <div className="h-8 w-8 rounded bg-brand/10 flex items-center justify-center shrink-0">
-                                                <FileText size={14} className="text-brand" />
+                                                <FileText
+                                                    size={14}
+                                                    className="text-brand"
+                                                />
                                             </div>
                                             <div className="flex-1 min-w-0">
-                                                <p className="text-xs font-medium text-foreground truncate">{file.fileName}</p>
-                                                <p className="text-[11px] text-muted-foreground">{sizeStr}{sizeStr && dateStr ? " - " : ""}{dateStr}</p>
+                                                <p className="text-xs font-medium text-foreground truncate">
+                                                    {file.fileName}
+                                                </p>
+                                                <p className="text-[11px] text-muted-foreground">
+                                                    {sizeStr}
+                                                    {sizeStr && dateStr
+                                                        ? " - "
+                                                        : ""}
+                                                    {dateStr}
+                                                </p>
                                             </div>
-                                            <Download size={14} className="text-muted-foreground shrink-0" />
+                                            <Download
+                                                size={14}
+                                                className="text-muted-foreground shrink-0"
+                                            />
                                         </a>
                                     );
                                 })}
@@ -985,25 +1255,50 @@ export function ConversationInfoPanel({
                         <>
                             <div className="px-4 py-3">
                                 <div className="flex items-center gap-2 mb-2">
-                                    <LinkIcon size={15} className="text-muted-foreground" />
-                                    <span className="text-sm font-medium text-foreground">{t("chat.link")}</span>
+                                    <LinkIcon
+                                        size={15}
+                                        className="text-muted-foreground"
+                                    />
+                                    <span className="text-sm font-medium text-foreground">
+                                        {t("chat.link")}
+                                    </span>
                                 </div>
                                 <button
                                     className="text-[12px] text-brand dark:text-indigo-400 hover:underline cursor-pointer bg-transparent border-none p-0"
-                                    onClick={() => { setSharedMediaTab("links"); setSharedMediaOpen(true); }}
+                                    onClick={() => {
+                                        setSharedMediaTab("links");
+                                        setSharedMediaOpen(true);
+                                    }}
                                 >
-                                    View all ({liveLinkMessages.length})
+                                    {t("chat.view_all_count", {
+                                        count: liveLinkMessages.length,
+                                    })}
                                 </button>
                                 <div className="flex flex-col gap-2">
                                     {liveLinkMessages.map((link, i) => (
-                                        <a key={i} href={link.url} target="_blank" rel="noopener noreferrer"
-                                            className="flex min-w-0 items-center gap-2.5 p-2 rounded-lg bg-muted/30 border border-border/40 hover:bg-muted/50 transition no-underline">
+                                        <a
+                                            key={i}
+                                            href={link.url}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="flex min-w-0 items-center gap-2.5 p-2 rounded-lg bg-muted/30 border border-border/40 hover:bg-muted/50 transition no-underline"
+                                        >
                                             <div className="h-7 w-7 rounded bg-brand/10 flex items-center justify-center shrink-0">
-                                                <LinkIcon size={13} className="text-brand" />
+                                                <LinkIcon
+                                                    size={13}
+                                                    className="text-brand"
+                                                />
                                             </div>
                                             <div className="flex-1 min-w-0 overflow-hidden">
-                                                <p className="text-xs text-brand truncate">{link.domain}</p>
-                                                <p className="text-[11px] text-muted-foreground truncate leading-tight" title={link.url}>{link.url}</p>
+                                                <p className="text-xs text-brand truncate">
+                                                    {link.domain}
+                                                </p>
+                                                <p
+                                                    className="text-[11px] text-muted-foreground truncate leading-tight"
+                                                    title={link.url}
+                                                >
+                                                    {link.url}
+                                                </p>
                                             </div>
                                         </a>
                                     ))}
@@ -1022,7 +1317,9 @@ export function ConversationInfoPanel({
                             disabled={isDeleting}
                         >
                             <Trash2 size={16} />
-                            {isDeleting ? t("chat.deleting") : t("chat.delete_conversation")}
+                            {isDeleting
+                                ? t("chat.deleting")
+                                : t("chat.delete_conversation")}
                         </Button>
                         {isGroup && isOwner && (
                             <Button
@@ -1032,7 +1329,9 @@ export function ConversationInfoPanel({
                                 disabled={isDismissing}
                             >
                                 <Trash2 size={16} />
-                                {isDismissing ? "Dissolving..." : "Dissolve group"}
+                                {isDismissing
+                                    ? t("chat.dissolving")
+                                    : t("chat.group_panel.dissolve_group")}
                             </Button>
                         )}
                         {isGroup && (
@@ -1043,7 +1342,9 @@ export function ConversationInfoPanel({
                                 disabled={isLeaving}
                             >
                                 <LogOut size={16} />
-                                {isLeaving ? t("chat.leaving") : t("chat.leave_group")}
+                                {isLeaving
+                                    ? t("chat.leaving")
+                                    : t("chat.leave_group")}
                             </Button>
                         )}
                     </div>
@@ -1054,21 +1355,43 @@ export function ConversationInfoPanel({
             <Dialog open={showMuteDialog} onOpenChange={setShowMuteDialog}>
                 <DialogContent className="sm:max-w-xs">
                     <DialogHeader>
-                        <DialogTitle>{t("chat.silence_notifications_dialog")}</DialogTitle>
+                        <DialogTitle>
+                            {t("chat.silence_notifications_dialog")}
+                        </DialogTitle>
                     </DialogHeader>
-                    <RadioGroup value={muteDuration} onValueChange={setMuteDuration} className="gap-3 py-1">
+                    <RadioGroup
+                        value={muteDuration}
+                        onValueChange={setMuteDuration}
+                        className="gap-3 py-1"
+                    >
                         {MUTE_OPTIONS.map((opt) => (
-                            <div key={opt.value} className="flex items-center gap-3">
-                                <RadioGroupItem value={opt.value} id={`mute-${opt.value}`} />
-                                <Label htmlFor={`mute-${opt.value}`} className="cursor-pointer text-sm font-normal">
+                            <div
+                                key={opt.value}
+                                className="flex items-center gap-3"
+                            >
+                                <RadioGroupItem
+                                    value={opt.value}
+                                    id={`mute-${opt.value}`}
+                                />
+                                <Label
+                                    htmlFor={`mute-${opt.value}`}
+                                    className="cursor-pointer text-sm font-normal"
+                                >
                                     {t(opt.labelKey)}
                                 </Label>
                             </div>
                         ))}
                     </RadioGroup>
                     <DialogFooter className="gap-2 sm:gap-0">
-                        <Button variant="ghost" onClick={() => setShowMuteDialog(false)}>{t("common.cancel")}</Button>
-                        <Button onClick={handleConfirmMute}>{t("common.confirm")}</Button>
+                        <Button
+                            variant="ghost"
+                            onClick={() => setShowMuteDialog(false)}
+                        >
+                            {t("common.cancel")}
+                        </Button>
+                        <Button onClick={handleConfirmMute}>
+                            {t("common.confirm")}
+                        </Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
@@ -1110,13 +1433,15 @@ export function ConversationInfoPanel({
             <Dialog open={showQrDialog} onOpenChange={setShowQrDialog}>
                 <DialogContent className="sm:max-w-xs flex flex-col items-center gap-4 py-8">
                     <DialogHeader>
-                        <DialogTitle className="text-center">{t("chat.group_qr_code")}</DialogTitle>
+                        <DialogTitle className="text-center">
+                            {t("chat.group_qr_code")}
+                        </DialogTitle>
                     </DialogHeader>
                     {inviteLink && (
                         <QRCodeSVG value={inviteLink} size={200} level="M" />
                     )}
                     <p className="text-xs text-muted-foreground text-center">
-                        Scan QR code to join group
+                        {t("chat.group_panel.qr_dialog_desc")}
                     </p>
                 </DialogContent>
             </Dialog>

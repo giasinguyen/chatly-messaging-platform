@@ -11,7 +11,12 @@ import { MessageBubbleBody } from "./MessageBubbleBody";
 import { MessageBubbleActions } from "./MessageBubbleActions";
 import { MessageSeenIndicator } from "./MessageSeenIndicator";
 import { MessageContextMenu } from "./MessageContextMenu";
-import { isImageCaptionMessage, isLastInGroup, shouldShowAvatar } from "./messageList.utils";
+import {
+    isImageCaptionMessage,
+    isLastInGroup,
+    shouldShowAvatar,
+} from "./messageList.utils";
+import { formatSystemMessage } from "@/utils/systemMessage";
 
 interface MessageBubbleContainerProps {
     msg: Message;
@@ -49,7 +54,13 @@ interface MessageBubbleContainerProps {
 }
 
 function getStatusIcon(status: Message["status"]) {
-    if (status === "READ") return <CheckCheck size={12} className="text-[#1a146b] dark:text-[#818cf8]" />;
+    if (status === "READ")
+        return (
+            <CheckCheck
+                size={12}
+                className="text-[#1a146b] dark:text-[#818cf8]"
+            />
+        );
     if (status === "DELIVERED")
         return <CheckCheck size={12} className="text-muted-foreground/60" />;
     return <Check size={12} className="text-muted-foreground/60" />;
@@ -97,7 +108,7 @@ export function MessageBubbleContainer(props: MessageBubbleContainerProps) {
             <div className="flex justify-center my-2 px-4">
                 <div className="inline-flex items-center gap-1.5 bg-muted/60 dark:bg-zinc-800/60 border border-border/40 rounded-full px-3.5 py-1.5 max-w-[85%]">
                     <span className="text-xs text-muted-foreground text-center">
-                        {msg.content}
+                        {formatSystemMessage(msg.content, t)}
                     </span>
                 </div>
             </div>
@@ -107,9 +118,10 @@ export function MessageBubbleContainer(props: MessageBubbleContainerProps) {
     const isMe = msg.senderId === currentUserId && msg.type !== "AGENT";
     const isAgent = msg.type === "AGENT";
     const sender = participantDirectory[msg.senderId] ?? participant;
-    const senderShortName = sender.displayName.split(" ").slice(-1)[0] || "User";
+    const senderShortName =
+        sender.displayName.split(" ").slice(-1)[0] || "User";
     const repliedMsg = msg.replyToId
-        ? messages.find((m) => m.id === msg.replyToId) ?? null
+        ? (messages.find((m) => m.id === msg.replyToId) ?? null)
         : null;
     const replySenderName = repliedMsg
         ? repliedMsg.senderId === currentUserId
@@ -131,11 +143,17 @@ export function MessageBubbleContainer(props: MessageBubbleContainerProps) {
             className={cn(
                 "flex gap-2 group px-4 transition-colors duration-500",
                 lastInGroup ? "mb-3" : "mb-0.5",
-                isPoll ? "justify-center" : isMe ? "flex-row-reverse" : "flex-row",
+                isPoll
+                    ? "justify-center"
+                    : isMe
+                      ? "flex-row-reverse"
+                      : "flex-row",
             )}
         >
-            {!isMe && !isPoll && showAvatar && (
-                isAgent ? (
+            {!isMe &&
+                !isPoll &&
+                showAvatar &&
+                (isAgent ? (
                     <CoAuthorAvatar
                         userAvatarUrl={sender.avatarUrl}
                         userDisplayName={sender.displayName}
@@ -150,37 +168,55 @@ export function MessageBubbleContainer(props: MessageBubbleContainerProps) {
                     >
                         <Avatar className="h-8 w-8 align-bottom border border-border/30 shrink-0">
                             <AvatarImage src={sender.avatarUrl} />
-                            <AvatarFallback>{sender.displayName.charAt(0)}</AvatarFallback>
+                            <AvatarFallback>
+                                {sender.displayName.charAt(0)}
+                            </AvatarFallback>
                         </Avatar>
                     </button>
-                )
+                ))}
+            {!isMe && !isPoll && !showAvatar && (
+                <div className="h-8 w-8 shrink-0" />
             )}
-            {!isMe && !isPoll && !showAvatar && <div className="h-8 w-8 shrink-0" />}
 
             <div
                 className={cn(
                     "flex flex-col",
                     !isPoll && "max-w-[70%]",
-                    isPoll ? "items-center" : isMe ? "items-end" : "items-start",
+                    isPoll
+                        ? "items-center"
+                        : isMe
+                          ? "items-end"
+                          : "items-start",
                 )}
             >
-                {!isMe && !isPoll && conversationType === "GROUP" && showAvatar && (
-                    <button
-                        type="button"
-                        onClick={() => onOpenSenderProfile?.(msg.senderId)}
-                        className="flex items-center gap-1 text-[11px] text-muted-foreground mb-1 px-1 hover:text-foreground transition-colors"
-                        title="View user info"
-                    >
-                        {isAgent ? `${senderShortName} + AI` : senderShortName}
-                        {!isAgent && sender.role === "ADMIN" && <AdminBadge className="size-3" />}
-                    </button>
-                )}
+                {!isMe &&
+                    !isPoll &&
+                    conversationType === "GROUP" &&
+                    showAvatar && (
+                        <button
+                            type="button"
+                            onClick={() => onOpenSenderProfile?.(msg.senderId)}
+                            className="flex items-center gap-1 text-[11px] text-muted-foreground mb-1 px-1 hover:text-foreground transition-colors"
+                            title="View user info"
+                        >
+                            {isAgent
+                                ? `${senderShortName} + AI`
+                                : senderShortName}
+                            {!isAgent && sender.role === "ADMIN" && (
+                                <AdminBadge className="size-3" />
+                            )}
+                        </button>
+                    )}
 
                 {msg.pinned && (
                     <div
                         className={cn(
                             "flex items-center gap-1 px-1 mb-0.5",
-                            isPoll ? "justify-center" : isMe ? "justify-end" : "justify-start",
+                            isPoll
+                                ? "justify-center"
+                                : isMe
+                                  ? "justify-end"
+                                  : "justify-start",
                         )}
                     >
                         <Pin size={10} className="text-amber-500" />
@@ -196,8 +232,8 @@ export function MessageBubbleContainer(props: MessageBubbleContainerProps) {
                         isPoll
                             ? "flex-row justify-center"
                             : isMe
-                            ? "flex-row-reverse"
-                            : "flex-row",
+                              ? "flex-row-reverse"
+                              : "flex-row",
                     )}
                 >
                     <MessageBubbleBody
@@ -245,10 +281,13 @@ export function MessageBubbleContainer(props: MessageBubbleContainerProps) {
                         )}
                     >
                         {Object.entries(
-                            msg.reactions.reduce<Record<string, string[]>>((acc, r) => {
-                                (acc[r.emoji] ??= []).push(r.userId);
-                                return acc;
-                            }, {}),
+                            msg.reactions.reduce<Record<string, string[]>>(
+                                (acc, r) => {
+                                    (acc[r.emoji] ??= []).push(r.userId);
+                                    return acc;
+                                },
+                                {},
+                            ),
                         ).map(([emoji, userIds]) => (
                             <button
                                 key={emoji}
@@ -261,7 +300,9 @@ export function MessageBubbleContainer(props: MessageBubbleContainerProps) {
                                 )}
                             >
                                 <span>{emoji}</span>
-                                {userIds.length > 1 && <span>{userIds.length}</span>}
+                                {userIds.length > 1 && (
+                                    <span>{userIds.length}</span>
+                                )}
                             </button>
                         ))}
                     </div>
@@ -275,12 +316,17 @@ export function MessageBubbleContainer(props: MessageBubbleContainerProps) {
                         )}
                     >
                         <span className="text-[10px] text-muted-foreground">
-                            {new Date(msg.createdAt).toLocaleTimeString("en-US", {
-                                hour: "2-digit",
-                                minute: "2-digit",
-                            })}
+                            {new Date(msg.createdAt).toLocaleTimeString(
+                                "en-US",
+                                {
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                },
+                            )}
                         </span>
-                        {isMe && !msg.recalled && <span>{getStatusIcon(msg.status)}</span>}
+                        {isMe && !msg.recalled && (
+                            <span>{getStatusIcon(msg.status)}</span>
+                        )}
                     </div>
                 )}
 
