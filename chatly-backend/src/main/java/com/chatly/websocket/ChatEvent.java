@@ -18,7 +18,7 @@ public class ChatEvent {
     private GroupMemberResponse updatedMember;
 
     public enum ChatAction {
-        SEND, EDIT, RECALL, DELETE, GROUP_UPDATE, REACT, ROLE_UPDATED
+        SEND, EDIT, RECALL, DELETE, GROUP_UPDATE, REACT, ROLE_UPDATED, GROUP_DISSOLVED
     }
 
 }

@@ -7,6 +7,7 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import {
+    DEFAULT_LANGUAGE,
     SUPPORTED_LANGUAGES,
     setAppLanguage,
     type SupportedLanguage,
@@ -18,10 +19,11 @@ interface LanguageSwitcherProps {
 
 export function LanguageSwitcher({ className }: LanguageSwitcherProps) {
     const { t, i18n } = useTranslation();
+    const resolvedLanguage = i18n.resolvedLanguage ?? i18n.language;
     const current = (
-        SUPPORTED_LANGUAGES.includes(i18n.language as SupportedLanguage)
-            ? i18n.language
-            : "vi"
+        SUPPORTED_LANGUAGES.includes(resolvedLanguage as SupportedLanguage)
+            ? resolvedLanguage
+            : DEFAULT_LANGUAGE
     ) as SupportedLanguage;
 
     const labels: Record<SupportedLanguage, string> = {

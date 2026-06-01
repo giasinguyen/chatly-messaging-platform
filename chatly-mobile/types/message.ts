@@ -95,7 +95,8 @@ export type ChatAction =
   | 'DELETE'
   | 'GROUP_UPDATE'
   | 'REACT'
-  | 'ROLE_UPDATED';
+  | 'ROLE_UPDATED'
+  | 'GROUP_DISSOLVED';
 
 export interface ChatEvent {
   action: ChatAction;

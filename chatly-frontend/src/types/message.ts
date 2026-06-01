@@ -120,7 +120,15 @@ export interface Message {
 /**
  * ChatEvent – wrapper for all realtime message and group update events from WebSocket.
  */
-export type ChatAction = "SEND" | "EDIT" | "RECALL" | "DELETE" | "GROUP_UPDATE" | "REACT" | "ROLE_UPDATED";
+export type ChatAction =
+    | "SEND"
+    | "EDIT"
+    | "RECALL"
+    | "DELETE"
+    | "GROUP_UPDATE"
+    | "REACT"
+    | "ROLE_UPDATED"
+    | "GROUP_DISSOLVED";
 export interface ChatEvent {
     action: ChatAction;
     message?: Message;
