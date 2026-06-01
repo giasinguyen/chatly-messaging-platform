@@ -8,6 +8,7 @@ import vi from "./locales/vi.json";
 export const SUPPORTED_LANGUAGES = ["vi", "en"] as const;
 export type SupportedLanguage = (typeof SUPPORTED_LANGUAGES)[number];
 
+export const DEFAULT_LANGUAGE: SupportedLanguage = "en";
 export const LANGUAGE_STORAGE_KEY = "chatly-lang";
 
 i18n.use(LanguageDetector)
@@ -17,7 +18,7 @@ i18n.use(LanguageDetector)
             en: { translation: en },
             vi: { translation: vi },
         },
-        fallbackLng: "vi",
+        fallbackLng: DEFAULT_LANGUAGE,
         supportedLngs: SUPPORTED_LANGUAGES,
         nonExplicitSupportedLngs: true,
         interpolation: { escapeValue: false },
@@ -37,7 +38,7 @@ export function setAppLanguage(lang: SupportedLanguage): void {
 }
 
 if (typeof document !== "undefined") {
-    document.documentElement.lang = i18n.language || "vi";
+    document.documentElement.lang = i18n.resolvedLanguage || DEFAULT_LANGUAGE;
     i18n.on("languageChanged", (lng) => {
         document.documentElement.lang = lng;
     });
