@@ -58,6 +58,7 @@ export default function GroupInfoScreen() {
 
   const conversations = useConversationStore((s) => s.conversations);
   const setConversations = useConversationStore((s) => s.setConversations);
+  const removeConversation = useConversationStore((s) => s.removeConversation);
   const conversation = conversations.find((c) => c.id === conversationId);
   const isGroup = conversation?.type === 'GROUP';
 
@@ -216,7 +217,7 @@ export default function GroupInfoScreen() {
             } catch (e: any) {
               Alert.alert(
                 t('errors.request_failed'),
-                e?.response?.data?.message || t('chat.group_name_change_failed'),
+                e?.response?.data?.message || t('chat.group_name_change_failed')
               );
             }
           },
@@ -306,7 +307,10 @@ export default function GroupInfoScreen() {
                   try {
                     await groupService.removeMember(conversationId, member.userId);
                     setMembers((prev) => prev.filter((m) => m.userId !== member.userId));
-                    Alert.alert(t('mobile.common.success'), t('mobile.chat.removed_from_group_success'));
+                    Alert.alert(
+                      t('mobile.common.success'),
+                      t('mobile.chat.removed_from_group_success')
+                    );
                   } catch (e: unknown) {
                     const msg =
                       e instanceof Error ? e.message : t('chat.group_panel.remove_member_failed');
@@ -324,9 +328,7 @@ export default function GroupInfoScreen() {
       const newRole = member.role === 'ADMIN' ? 'MEMBER' : 'ADMIN';
       options.push({
         text:
-          newRole === 'ADMIN'
-            ? t('chat.group_panel.make_admin')
-            : t('mobile.chat.dismiss_admin'),
+          newRole === 'ADMIN' ? t('chat.group_panel.make_admin') : t('mobile.chat.dismiss_admin'),
         onPress: async () => {
           try {
             await groupService.updateRole(conversationId, member.userId, {
@@ -339,8 +341,7 @@ export default function GroupInfoScreen() {
             );
             Alert.alert(t('mobile.common.success'), t('chat.group_panel.role_updated'));
           } catch (e: unknown) {
-            const msg =
-              e instanceof Error ? e.message : t('chat.group_panel.role_update_failed');
+            const msg = e instanceof Error ? e.message : t('chat.group_panel.role_update_failed');
             Alert.alert(t('errors.request_failed'), msg);
           }
         },
@@ -385,6 +386,7 @@ export default function GroupInfoScreen() {
           onPress: async () => {
             try {
               await conversationService.dissolve(conversationId);
+              removeConversation(conversationId);
               router.dismissAll();
             } catch (e: unknown) {
               const msg = e instanceof Error ? e.message : t('chat.group_dissolve_failed');
@@ -435,7 +437,7 @@ export default function GroupInfoScreen() {
     } catch (e: any) {
       Alert.alert(
         t('errors.request_failed'),
-        e?.response?.data?.message || t('mobile.chat.add_member_failed'),
+        e?.response?.data?.message || t('mobile.chat.add_member_failed')
       );
     } finally {
       setAddingMember(false);
@@ -910,7 +912,9 @@ export default function GroupInfoScreen() {
                 color={Colors.textMuted}
                 style={{ marginRight: 14 }}
               />
-              <Text style={{ flex: 1, fontSize: 15, color: Colors.text }}>{t('chat.set_nickname')}</Text>
+              <Text style={{ flex: 1, fontSize: 15, color: Colors.text }}>
+                {t('chat.set_nickname')}
+              </Text>
               {nickname ? (
                 <Text
                   style={{ fontSize: 13, color: Colors.textLight, maxWidth: 140 }}
@@ -1411,7 +1415,9 @@ export default function GroupInfoScreen() {
               color={Colors.textMuted}
               style={{ marginRight: 14 }}
             />
-            <Text style={{ flex: 1, fontSize: 15, color: Colors.text }}>{t('chat.pin_conversation')}</Text>
+            <Text style={{ flex: 1, fontSize: 15, color: Colors.text }}>
+              {t('chat.pin_conversation')}
+            </Text>
             <Switch
               value={isPinned}
               onValueChange={(v) => setPin(conversationId, v)}
@@ -1435,7 +1441,9 @@ export default function GroupInfoScreen() {
               style={{ marginRight: 14 }}
             />
             <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 15, color: Colors.text }}>{t('chat.silence_notifications')}</Text>
+              <Text style={{ fontSize: 15, color: Colors.text }}>
+                {t('chat.silence_notifications')}
+              </Text>
               {isEffMuted && (
                 <Text style={{ fontSize: 12, color: Colors.cta, marginTop: 1 }}>
                   {muteUntilLabel}
@@ -1497,7 +1505,9 @@ export default function GroupInfoScreen() {
             <TouchableOpacity onPress={() => setAddModalVisible(false)}>
               <Text style={{ color: Colors.text, fontSize: 16 }}>{t('common.cancel')}</Text>
             </TouchableOpacity>
-            <Text style={{ fontSize: 18, fontWeight: 'bold' }}>{t('chat.add_members_dialog.title')}</Text>
+            <Text style={{ fontSize: 18, fontWeight: 'bold' }}>
+              {t('chat.add_members_dialog.title')}
+            </Text>
             <View style={{ width: 40 }} />
           </View>
           <View className="p-3" style={{ backgroundColor: Colors.bgCard }}>
@@ -1578,7 +1588,9 @@ export default function GroupInfoScreen() {
                   color: Colors.text,
                   textAlign: 'center',
                 }}>
-                {isEffMuted ? t('mobile.chat.muted_status') : t('mobile.chat.mute_notifications_title')}
+                {isEffMuted
+                  ? t('mobile.chat.muted_status')
+                  : t('mobile.chat.mute_notifications_title')}
               </Text>
               {isEffMuted && (
                 <Text
@@ -1649,7 +1661,9 @@ export default function GroupInfoScreen() {
                   paddingVertical: 12,
                   alignItems: 'center',
                 }}>
-                <Text style={{ fontSize: 15, fontWeight: '600', color: Colors.text }}>{t('common.close')}</Text>
+                <Text style={{ fontSize: 15, fontWeight: '600', color: Colors.text }}>
+                  {t('common.close')}
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -1814,7 +1828,9 @@ export default function GroupInfoScreen() {
             <TouchableOpacity onPress={() => setNotesVisible(false)}>
               <Text style={{ color: Colors.text, fontSize: 16 }}>{t('common.close')}</Text>
             </TouchableOpacity>
-            <Text style={{ fontSize: 18, fontWeight: 'bold', color: Colors.text }}>{t('chat.notes')}</Text>
+            <Text style={{ fontSize: 18, fontWeight: 'bold', color: Colors.text }}>
+              {t('chat.notes')}
+            </Text>
             <TouchableOpacity onPress={handleCreateNote}>
               <Ionicons name="add" size={24} color={Colors.cta} />
             </TouchableOpacity>

@@ -412,6 +412,13 @@ export const ChatList = forwardRef(function ChatListComponent(_, ref) {
                 (payload) => {
                     const event = JSON.parse(payload.body) as ChatEvent;
 
+                    if (event.action === "GROUP_DISSOLVED") {
+                        setConversations((prev) =>
+                            prev.filter((item) => item.id !== conv.id),
+                        );
+                        return;
+                    }
+
                     // Handle SEND actions - update last message preview
                     if (event.action === "SEND") {
                         const message = event.message;

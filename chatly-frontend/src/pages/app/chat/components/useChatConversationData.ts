@@ -31,7 +31,9 @@ interface UseChatConversationDataOptions {
     id: string;
 }
 
-export function useChatConversationData({ id }: UseChatConversationDataOptions) {
+export function useChatConversationData({
+    id,
+}: UseChatConversationDataOptions) {
     const currentUser = useAuthStore((s) => s.user);
     const { getPrefs } = useConversationPrefsStore();
     const markConvMessagesRead = useNotificationStore(
@@ -40,27 +42,39 @@ export function useChatConversationData({ id }: UseChatConversationDataOptions) 
     const unreadMsgCountForConv = useNotificationStore(
         (s) =>
             s.notifications.filter(
-                (n) => n.type === "NEW_MESSAGE" && n.referenceId === id && !n.read,
+                (n) =>
+                    n.type === "NEW_MESSAGE" && n.referenceId === id && !n.read,
             ).length,
     );
 
-    const [conversation, setConversation] = useState<ConversationResponse | null>(null);
+    const [conversation, setConversation] =
+        useState<ConversationResponse | null>(null);
     const [participant, setParticipant] = useState<ChatUser | null>(null);
-    const [participantDirectory, setParticipantDirectory] = useState<Record<string, ChatUser>>({});
-    const [userDirectory, setUserDirectory] = useState<Record<string, UserResponse>>({});
+    const [participantDirectory, setParticipantDirectory] = useState<
+        Record<string, ChatUser>
+    >({});
+    const [userDirectory, setUserDirectory] = useState<
+        Record<string, UserResponse>
+    >({});
     const [messages, setMessages] = useState<Message[]>([]);
     const [replyingTo, setReplyingTo] = useState<Message | null>(null);
     const [loading, setLoading] = useState(true);
     const [notFound, setNotFound] = useState(false);
     const [typingUserIds, setTypingUserIds] = useState<Set<string>>(new Set());
-    const [failedMessages, setFailedMessages] = useState<FailedMessageItem[]>([]);
+    const [failedMessages, setFailedMessages] = useState<FailedMessageItem[]>(
+        [],
+    );
 
     const [isLoadingMore, setIsLoadingMore] = useState(false);
     const [hasMore, setHasMore] = useState(false);
     const currentPageRef = useRef(0);
 
-    const [contactStatus, setContactStatus] = useState<ContactStatus | null>(null);
-    const [blockStatus, setBlockStatus] = useState<BlockStatusResponse | null>(null);
+    const [contactStatus, setContactStatus] = useState<ContactStatus | null>(
+        null,
+    );
+    const [blockStatus, setBlockStatus] = useState<BlockStatusResponse | null>(
+        null,
+    );
     const [allContacts, setAllContacts] = useState<ContactResponse[]>([]);
 
     const [pinnedMessages, setPinnedMessages] = useState<Message[]>([]);
@@ -75,17 +89,24 @@ export function useChatConversationData({ id }: UseChatConversationDataOptions) 
         const unread = useNotificationStore
             .getState()
             .notifications.filter(
-                (n) => n.type === "NEW_MESSAGE" && n.referenceId === id && !n.read,
+                (n) =>
+                    n.type === "NEW_MESSAGE" && n.referenceId === id && !n.read,
             );
         markConvMessagesRead(id);
-        Promise.all(unread.map((n) => notificationService.markAsRead(n.id))).catch(
-            () => {},
-        );
+        Promise.all(
+            unread.map((n) => notificationService.markAsRead(n.id)),
+        ).catch(() => {});
     }, [id, unreadMsgCountForConv, markConvMessagesRead]);
 
     const onEvent = useCallback(
         (event: ChatEvent) => {
             const { action, message: msg } = event;
+
+            if (action === "GROUP_DISSOLVED") {
+                setConversation(null);
+                setNotFound(true);
+                return;
+            }
 
             if (action === "GROUP_UPDATE" || action === "ROLE_UPDATED") {
                 const updatedConversation = event.conversationData;
@@ -93,7 +114,9 @@ export function useChatConversationData({ id }: UseChatConversationDataOptions) 
                     return;
                 }
 
-                if (!updatedConversation.participantIds.includes(currentUser.id)) {
+                if (
+                    !updatedConversation.participantIds.includes(currentUser.id)
+                ) {
                     setConversation(null);
                     setNotFound(true);
                     return;
@@ -124,8 +147,13 @@ export function useChatConversationData({ id }: UseChatConversationDataOptions) 
                     setParticipant((prevParticipant) => ({
                         id: updatedConversation.id,
                         username: "group",
-                        displayName: updatedConversation.name ?? prevParticipant?.displayName ?? "Chat group",
-                        avatarUrl: updatedConversation.avatarUrl ?? prevParticipant?.avatarUrl,
+                        displayName:
+                            updatedConversation.name ??
+                            prevParticipant?.displayName ??
+                            "Chat group",
+                        avatarUrl:
+                            updatedConversation.avatarUrl ??
+                            prevParticipant?.avatarUrl,
                     }));
                 }
 
@@ -148,7 +176,11 @@ export function useChatConversationData({ id }: UseChatConversationDataOptions) 
                             .catch(() => {});
                     }
                 }
-            } else if (action === "EDIT" || action === "RECALL" || action === "REACT") {
+            } else if (
+                action === "EDIT" ||
+                action === "RECALL" ||
+                action === "REACT"
+            ) {
                 setMessages((prev) =>
                     prev.map((m) => (m.id === msg.id ? { ...m, ...msg } : m)),
                 );
@@ -163,7 +195,9 @@ export function useChatConversationData({ id }: UseChatConversationDataOptions) 
                             return prev.filter((m) => m.id !== msg.id);
                         }
                         if (exists) {
-                            return prev.map((m) => (m.id === msg.id ? { ...m, ...msg } : m));
+                            return prev.map((m) =>
+                                m.id === msg.id ? { ...m, ...msg } : m,
+                            );
                         }
                         return prev;
                     });
@@ -207,8 +241,8 @@ export function useChatConversationData({ id }: UseChatConversationDataOptions) 
         onError: (errorPayload) => {
             if (errorPayload.code === CONTACT_SUSPENDED_ERROR_CODE) {
                 toast.error(
-                    errorPayload.message
-                        ?? "This user has been banned and cannot receive messages.",
+                    errorPayload.message ??
+                        "This user has been banned and cannot receive messages.",
                 );
                 return;
             }

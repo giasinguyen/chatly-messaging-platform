@@ -178,7 +178,7 @@ export default function ChatScreen() {
   const currentPage = page[conversationId ?? ''] ?? 0;
   const canLoadMore = hasMore[conversationId ?? ''] ?? true;
 
-  const { updateConversation } = useConversationStore();
+  const { updateConversation, removeConversation } = useConversationStore();
 
   const scrollToLatestMessage = useCallback((animated: boolean) => {
     flatListRef.current?.scrollToOffset({ offset: 0, animated });
@@ -259,6 +259,10 @@ export default function ChatScreen() {
           if (!event.message) return;
           removeMessage(conversationId, event.message.id);
           break;
+        case 'GROUP_DISSOLVED':
+          removeConversation(conversationId);
+          router.dismissAll();
+          break;
         case 'GROUP_UPDATE':
         case 'ROLE_UPDATED':
           if (event.conversationData) {
@@ -268,7 +272,16 @@ export default function ChatScreen() {
           break;
       }
     },
-    [conversationId, user?.id, addMessage, updateMessage, removeMessage, updateConversation]
+    [
+      conversationId,
+      user?.id,
+      addMessage,
+      updateMessage,
+      removeMessage,
+      updateConversation,
+      removeConversation,
+      router,
+    ]
   );
 
   const handleTyping = useCallback(
