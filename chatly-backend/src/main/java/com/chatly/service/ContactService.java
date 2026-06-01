@@ -66,7 +66,7 @@ public class ContactService {
                 NotificationType.FRIEND_REQUEST,
                 userId.toString(),
                 contactId.toString(),
-                user.getDisplayName() + " đã gửi cho bạn một lời mời kết bạn",
+                user.getDisplayName() + " sent you a friend request",
                 userId.toString()
         );
 

@@ -184,6 +184,8 @@ public class NotificationService {
                             title = "Friend request accepted";
                         } else if (notification.getType() == NotificationType.GROUP_JOIN_REQUEST) {
                             title = "New join request";
+                        } else if (notification.getType() == NotificationType.GROUP_UPDATED) {
+                            title = "Group updated";
                         } else if (notification.getType() == NotificationType.GROUP_INVITE) {
                             title = "Added to group";
                         } else if (notification.getType() == NotificationType.GROUP_LEAVE) {

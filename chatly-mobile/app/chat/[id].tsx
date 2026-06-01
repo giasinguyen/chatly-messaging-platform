@@ -44,7 +44,8 @@ import { useNotificationStore } from '@/store/notification.store';
 import { usePresenceSocket } from '@/hooks/usePresenceSocket';
 import { Colors } from '@/constants/theme';
 import { formatDateSeparator, isRichTextHtml, richTextToPlainText } from '@/utils/format';
-import type { Message, ChatEvent, Attachment, Poll } from '@/types/message';
+import { getApiErrorMessage } from '@/utils/errorHandler';
+import type { Message, ChatEvent, Attachment, Poll, LocationPayload } from '@/types/message';
 import type { ConversationResponse } from '@/types/conversation';
 import type { UserResponse } from '@/types/auth';
 import type { ContactResponse } from '@/types/contact';
@@ -209,13 +210,7 @@ export default function ChatScreen() {
       if (!conversationId) return;
       switch (event.action) {
         case 'SEND':
-          console.log('[ChatScreen handleChatEvent SEND] WebSocket message:', {
-            messageId: event.message.id,
-            type: event.message.type,
-            attachmentCount: event.message.attachments?.length ?? 0,
-            hasPostPreview: event.message.attachments?.some(a => a.kind === 'POST_PREVIEW'),
-            attachments: event.message.attachments
-          });
+          if (!event.message) return;
           shouldScrollToLatestRef.current = true;
           addMessage(conversationId, event.message);
 
@@ -238,20 +233,22 @@ export default function ChatScreen() {
         case 'EDIT':
         case 'RECALL':
         case 'REACT':
-          updateMessage(conversationId, event.message.id, event.message);
+          if (!event.message) return;
+          const updatedMessage = event.message;
+          updateMessage(conversationId, updatedMessage.id, updatedMessage);
           // Sync pinned messages list when pin status changes
-          if (event.message.pinned !== undefined) {
+          if (updatedMessage.pinned !== undefined) {
             setPinnedMessages((prev) => {
-              const exists = prev.some((m) => m.id === event.message.id);
-              if (event.message.pinned && !exists) {
-                return [...prev, event.message];
+              const exists = prev.some((m) => m.id === updatedMessage.id);
+              if (updatedMessage.pinned && !exists) {
+                return [...prev, updatedMessage];
               }
-              if (!event.message.pinned && exists) {
-                return prev.filter((m) => m.id !== event.message.id);
+              if (!updatedMessage.pinned && exists) {
+                return prev.filter((m) => m.id !== updatedMessage.id);
               }
               if (exists) {
                 return prev.map((m) =>
-                  m.id === event.message.id ? { ...m, ...event.message } : m
+                  m.id === updatedMessage.id ? { ...m, ...updatedMessage } : m
                 );
               }
               return prev;
@@ -259,11 +256,15 @@ export default function ChatScreen() {
           }
           break;
         case 'DELETE':
+          if (!event.message) return;
           removeMessage(conversationId, event.message.id);
           break;
         case 'GROUP_UPDATE':
         case 'ROLE_UPDATED':
-          // Handled at conversation list level, ignore here
+          if (event.conversationData) {
+            setConversation(event.conversationData);
+            updateConversation(conversationId, event.conversationData);
+          }
           break;
       }
     },
@@ -485,7 +486,7 @@ export default function ChatScreen() {
       messageType?: string,
       priority?: 'IMPORTANT' | 'URGENT',
       poll?: Poll,
-      location?: any
+      location?: LocationPayload
     ) => {
       if (!conversationId || !user) return;
       const replyToId = replyingTo?.id ?? null;
@@ -658,10 +659,10 @@ export default function ChatScreen() {
           try {
             const res = await messageService.recall(selectedMessage.id);
             updateMessage(conversationId, selectedMessage.id, res.result);
-          } catch (error: any) {
+          } catch (error: unknown) {
             Alert.alert(
               t('errors.request_failed'),
-              error?.response?.data?.message ?? t('mobile.chat.recall_failed'),
+              getApiErrorMessage(error, t('mobile.chat.recall_failed'))
             );
           }
         },
@@ -680,10 +681,10 @@ export default function ChatScreen() {
           try {
             await messageService.delete(selectedMessage.id);
             removeMessage(conversationId, selectedMessage.id);
-          } catch (error: any) {
+          } catch (error: unknown) {
             Alert.alert(
               t('errors.request_failed'),
-              error?.response?.data?.message ?? t('mobile.chat.delete_failed'),
+              getApiErrorMessage(error, t('mobile.chat.delete_failed'))
             );
           }
         },
@@ -699,15 +700,15 @@ export default function ChatScreen() {
         await messageService.forward(selectedMessage.id, targetConversationIds);
         setForwardVisible(false);
         setSelectedMessage(null);
-      } catch (error: any) {
+      } catch (error: unknown) {
         Alert.alert(
           t('errors.request_failed'),
-          error?.response?.data?.message ?? t('mobile.chat.forward_failed'),
+          getApiErrorMessage(error, t('mobile.chat.forward_failed'))
         );
         throw error;
       }
     },
-    [selectedMessage]
+    [selectedMessage, t]
   );
 
   const handleReact = useCallback(
@@ -853,17 +854,20 @@ export default function ChatScreen() {
     [participantMap]
   );
 
-  const handleAddFriend = useCallback(async (contactId: string) => {
-    try {
-      await contactService.sendRequest({ contactId });
-      // Refresh contacts
-      const res = await contactService.getAll();
-      setContacts(res.result ?? []);
-      Alert.alert(t('mobile.common.success'), t('contact.request_sent'));
-    } catch {
-      Alert.alert(t('errors.request_failed'), t('contact.add_friend_dialog.request_failed'));
-    }
-  }, [t]);
+  const handleAddFriend = useCallback(
+    async (contactId: string) => {
+      try {
+        await contactService.sendRequest({ contactId });
+        // Refresh contacts
+        const res = await contactService.getAll();
+        setContacts(res.result ?? []);
+        Alert.alert(t('mobile.common.success'), t('contact.request_sent'));
+      } catch {
+        Alert.alert(t('errors.request_failed'), t('contact.add_friend_dialog.request_failed'));
+      }
+    },
+    [t]
+  );
 
   const getMentionFriendStatus = useCallback(
     (userId: string) => {
@@ -1176,28 +1180,24 @@ export default function ChatScreen() {
               <TouchableOpacity
                 onPress={() => {
                   if (!otherUserId || !user) return;
-                  Alert.alert(
-                    t('chat.unblock_user_q'),
-                    t('mobile.chat.unblock_short_desc'),
-                    [
-                      { text: t('common.cancel'), style: 'cancel' },
-                      {
-                        text: t('contact.unblock'),
-                        onPress: async () => {
-                          try {
-                            await contactService.unblockByUser(otherUserId);
-                            invalidateContacts();
-                            setBlockDirection(null);
-                          } catch (e: any) {
-                            Alert.alert(
-                              t('errors.request_failed'),
-                              e?.response?.data?.message ?? t('mobile.chat.unblock_failed'),
-                            );
-                          }
-                        },
+                  Alert.alert(t('chat.unblock_user_q'), t('mobile.chat.unblock_short_desc'), [
+                    { text: t('common.cancel'), style: 'cancel' },
+                    {
+                      text: t('contact.unblock'),
+                      onPress: async () => {
+                        try {
+                          await contactService.unblockByUser(otherUserId);
+                          invalidateContacts();
+                          setBlockDirection(null);
+                        } catch (error: unknown) {
+                          Alert.alert(
+                            t('errors.request_failed'),
+                            getApiErrorMessage(error, t('mobile.chat.unblock_failed'))
+                          );
+                        }
                       },
-                    ],
-                  );
+                    },
+                  ]);
                 }}
                 style={{
                   paddingHorizontal: 14,

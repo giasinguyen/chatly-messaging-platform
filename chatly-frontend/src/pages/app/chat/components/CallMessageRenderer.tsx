@@ -1,4 +1,5 @@
 import { PhoneCall } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { useCallStore } from "@/store/call.store";
@@ -19,7 +20,11 @@ interface CallMessageRendererProps {
     participant: ChatUser;
     participantDirectory: Record<string, ChatUser>;
     conversationType: ConversationType;
-    onCallAgain?: (calleeId: string, calleeName: string, calleeAvatar?: string) => void;
+    onCallAgain?: (
+        calleeId: string,
+        calleeName: string,
+        calleeAvatar?: string,
+    ) => void;
     onJoinGroupCall?: (callId: string) => void;
 }
 
@@ -32,7 +37,9 @@ function parseCallData(content: string): CallData {
 }
 
 function formatDuration(seconds: number): string {
-    const mm = Math.floor(seconds / 60).toString().padStart(2, "0");
+    const mm = Math.floor(seconds / 60)
+        .toString()
+        .padStart(2, "0");
     const ss = (seconds % 60).toString().padStart(2, "0");
     return `${mm}:${ss}`;
 }
@@ -47,10 +54,14 @@ export function CallMessageRenderer({
     onCallAgain,
     onJoinGroupCall,
 }: CallMessageRendererProps) {
+    const { t } = useTranslation();
     const callData = parseCallData(msg.content);
-    const groupCallRealtimeState = useCallStore((state) => state.groupCallRealtimeState);
+    const groupCallRealtimeState = useCallStore(
+        (state) => state.groupCallRealtimeState,
+    );
     const normalizedStatus = (callData.status ?? "").toUpperCase();
-    const isMissed = normalizedStatus === "MISSED" || normalizedStatus === "REJECTED";
+    const isMissed =
+        normalizedStatus === "MISSED" || normalizedStatus === "REJECTED";
     const isGroupCallActiveStatus =
         normalizedStatus === "RINGING" || normalizedStatus === "ONGOING";
     const isVideo = callData.callType === "VIDEO";
@@ -58,18 +69,26 @@ export function CallMessageRenderer({
     const isMe = msg.senderId === currentUserId;
     const sender = participantDirectory[msg.senderId] ?? participant;
     const calleeId = isMe ? participant.id : msg.senderId;
-    const typeLabel = isVideo ? "video" : "audio";
+    const groupCallLabel = isVideo
+        ? t("chat.call_group_active_video")
+        : t("chat.call_group_active_voice");
 
-    if (isGroupCallActiveStatus && callData.callId && conversationType === "GROUP") {
+    if (
+        isGroupCallActiveStatus &&
+        callData.callId &&
+        conversationType === "GROUP"
+    ) {
         const realtimeState = groupCallRealtimeState[callData.callId];
-        const isCallEnded = Boolean(realtimeState?.ended) || messages.some((m) => {
-            if (m.id === msg.id || m.type !== "CALL") return false;
-            const other = parseCallData(m.content);
-            return (
-                other.callId === callData.callId &&
-                (other.status === "ENDED" || other.status === "MISSED")
-            );
-        });
+        const isCallEnded =
+            Boolean(realtimeState?.ended) ||
+            messages.some((m) => {
+                if (m.id === msg.id || m.type !== "CALL") return false;
+                const other = parseCallData(m.content);
+                return (
+                    other.callId === callData.callId &&
+                    (other.status === "ENDED" || other.status === "MISSED")
+                );
+            });
 
         return (
             <div className="flex justify-center my-3 px-4">
@@ -79,8 +98,12 @@ export function CallMessageRenderer({
                             <PhoneCall size={16} />
                         </div>
                         <div>
-                            <p className="text-sm font-medium">Group {typeLabel} call</p>
-                            <p className="text-xs opacity-70">Call ended</p>
+                            <p className="text-sm font-medium">
+                                {groupCallLabel}
+                            </p>
+                            <p className="text-xs opacity-70">
+                                {t("chat.call_ended")}
+                            </p>
                         </div>
                     </div>
                 ) : (
@@ -93,8 +116,12 @@ export function CallMessageRenderer({
                             <PhoneCall size={16} />
                         </div>
                         <div className="text-left">
-                            <p className="text-sm font-medium">Group {typeLabel} call</p>
-                            <p className="text-xs opacity-70">Tap to join</p>
+                            <p className="text-sm font-medium">
+                                {groupCallLabel}
+                            </p>
+                            <p className="text-xs opacity-70">
+                                {t("chat.call_tap_to_join")}
+                            </p>
                         </div>
                     </button>
                 )}
@@ -103,11 +130,20 @@ export function CallMessageRenderer({
     }
 
     const statusLabel = isMissed
-        ? `Missed ${typeLabel} call`
-        : `${isVideo ? "Video" : "Audio"} call`;
+        ? isVideo
+            ? t("chat.missed_video_call")
+            : t("chat.missed_audio_call")
+        : isVideo
+          ? t("chat.video_call")
+          : t("chat.audio_call");
 
     return (
-        <div className={cn("flex my-2 px-4", isMe ? "justify-end" : "justify-start")}>
+        <div
+            className={cn(
+                "flex my-2 px-4",
+                isMe ? "justify-end" : "justify-start",
+            )}
+        >
             <div
                 className={cn(
                     "inline-flex items-start gap-2 rounded-2xl px-4 py-2.5 border flex-col max-w-60",
@@ -117,21 +153,32 @@ export function CallMessageRenderer({
                 )}
             >
                 <div className="flex items-center gap-2">
-                    <PhoneCall size={13} className={cn(!isMissed && "text-brand")} />
+                    <PhoneCall
+                        size={13}
+                        className={cn(!isMissed && "text-brand")}
+                    />
                     <span className="text-xs font-medium">{statusLabel}</span>
                 </div>
                 {!isMissed && duration > 0 && (
-                    <span className="text-[11px] text-muted-foreground">{formatDuration(duration)}</span>
+                    <span className="text-[11px] text-muted-foreground">
+                        {formatDuration(duration)}
+                    </span>
                 )}
                 {isMissed && !isMe && onCallAgain && (
                     <Button
                         size="sm"
                         variant="ghost"
                         className="self-stretch h-7 text-[11px] px-2 justify-center hover:bg-destructive/15"
-                        onClick={() => onCallAgain(calleeId, sender.displayName, sender.avatarUrl)}
+                        onClick={() =>
+                            onCallAgain(
+                                calleeId,
+                                sender.displayName,
+                                sender.avatarUrl,
+                            )
+                        }
                     >
                         <PhoneCall size={12} className="mr-1" />
-                        Call back
+                        {t("chat.call_back")}
                     </Button>
                 )}
             </div>

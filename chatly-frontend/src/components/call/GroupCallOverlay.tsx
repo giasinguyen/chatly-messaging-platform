@@ -11,6 +11,9 @@ import {
     Maximize2,
     Minimize2,
 } from "lucide-react";
+import { useTranslation } from "react-i18next";
+
+import { useAuthStore } from "@/store/auth.store";
 import { useCallStore } from "@/store/call.store";
 import { buildAgoraUidKey } from "@/utils/call/agoraUid";
 
@@ -35,11 +38,13 @@ function ParticipantTile({
     avatar,
     stream,
     isLocal,
+    localLabel,
 }: {
     name: string;
     avatar: string | null;
     stream: MediaStream | null;
     isLocal?: boolean;
+    localLabel: string;
 }) {
     const videoRef = useRef<HTMLVideoElement>(null);
     const hasLiveVideoTrack = Boolean(
@@ -92,14 +97,14 @@ function ParticipantTile({
                         </div>
                     )}
                     <p className="text-xs font-medium text-white truncate max-w-full">
-                        {isLocal ? "You" : name}
+                        {isLocal ? localLabel : name}
                     </p>
                 </div>
             )}
             {/* Name badge */}
             <div className="absolute bottom-1 left-1 rounded bg-black/50 px-1.5 py-0.5">
                 <span className="text-[10px] text-white">
-                    {isLocal ? "You" : name}
+                    {isLocal ? localLabel : name}
                 </span>
             </div>
         </div>
@@ -115,6 +120,8 @@ export function GroupCallOverlay({
     onToggleSpeaker,
     onUpgradeToVideo,
 }: GroupCallOverlayProps) {
+    const { t } = useTranslation();
+    const currentUser = useAuthStore((state) => state.user);
     const {
         callStatus,
         activeCall,
@@ -132,7 +139,6 @@ export function GroupCallOverlay({
     const [isSpeakerOn, setIsSpeakerOn] = useState(true);
     const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-
     // Call duration timer
     useEffect(() => {
         if (callStatus === "ONGOING" && isGroupCall) {
@@ -145,7 +151,6 @@ export function GroupCallOverlay({
             }
         };
     }, [callStatus, isGroupCall, incrementDuration]);
-
 
     if (
         (callStatus !== "ONGOING" && callStatus !== "RINGING") ||
@@ -181,7 +186,9 @@ export function GroupCallOverlay({
         .map(([streamKey, stream], index) => ({
             peerId: `agora-${streamKey}`,
             stream,
-            name: `Participant ${knownRemotePeers.length + index + 1}`,
+            name: t("chat.call_participant_number", {
+                count: knownRemotePeers.length + index + 1,
+            }),
             avatar: null,
         }));
     const remotePeers = [...knownRemotePeers, ...unknownRemotePeers];
@@ -212,7 +219,7 @@ export function GroupCallOverlay({
                 const message =
                     error instanceof Error
                         ? error.message
-                        : "Failed to upgrade group call to video.";
+                        : t("chat.call_group_upgrade_failed");
                 toast.error(message);
             }
             return;
@@ -231,7 +238,12 @@ export function GroupCallOverlay({
     };
 
     const durationText =
-        remotePeers.length === 0 ? "Waiting..." : formatDuration(callDuration);
+        remotePeers.length === 0
+            ? t("chat.call_waiting")
+            : formatDuration(callDuration);
+    const participantCountText = t("chat.call_participant_count", {
+        count: totalParticipants,
+    });
 
     // Expanded mode (full screen)
     if (isExpanded) {
@@ -244,8 +256,7 @@ export function GroupCallOverlay({
                     </span>
                     <div className="flex items-center gap-3">
                         <span className="text-sm text-gray-400">
-                            {totalParticipants} participant
-                            {totalParticipants !== 1 ? "s" : ""}
+                            {participantCountText}
                         </span>
                         <button
                             onClick={() => setIsExpanded(false)}
@@ -267,10 +278,11 @@ export function GroupCallOverlay({
                     }}
                 >
                     <ParticipantTile
-                        name="You"
-                        avatar={null}
+                        name={currentUser?.displayName ?? t("chat.you")}
+                        avatar={currentUser?.avatarUrl ?? null}
                         stream={groupLocalStream}
                         isLocal
+                        localLabel={t("chat.you")}
                     />
                     {remotePeers.map(({ peerId, stream, name, avatar }) => (
                         <ParticipantTile
@@ -278,6 +290,7 @@ export function GroupCallOverlay({
                             name={name}
                             avatar={avatar}
                             stream={stream}
+                            localLabel={t("chat.you")}
                         />
                     ))}
                 </div>
@@ -287,7 +300,7 @@ export function GroupCallOverlay({
                     <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
                         <div className="animate-ping mb-3 h-3 w-3 rounded-full bg-white/50" />
                         <p className="text-sm text-gray-300">
-                            Waiting for others to join...
+                            {t("chat.call_waiting_for_others")}
                         </p>
                     </div>
                 )}
@@ -382,7 +395,9 @@ export function GroupCallOverlay({
                     ) : (
                         <div className="flex flex-col items-center gap-1">
                             <div className="animate-ping h-2 w-2 rounded-full bg-white/50" />
-                            <p className="text-xs text-gray-400">Waiting...</p>
+                            <p className="text-xs text-gray-400">
+                                {t("chat.call_waiting")}
+                            </p>
                         </div>
                     )}
                 </div>
@@ -390,10 +405,11 @@ export function GroupCallOverlay({
 
             {/* Call info */}
             <div className="px-3 pt-2">
-                <p className="text-sm font-semibold truncate">Group call</p>
+                <p className="text-sm font-semibold truncate">
+                    {t("chat.call_group_call")}
+                </p>
                 <p className="text-xs text-gray-400">
-                    {durationText} &bull; {totalParticipants} participant
-                    {totalParticipants !== 1 ? "s" : ""}
+                    {durationText} &bull; {participantCountText}
                 </p>
             </div>
 

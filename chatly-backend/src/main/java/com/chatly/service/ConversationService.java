@@ -50,6 +50,7 @@ public class ConversationService {
     private final UserRepository userRepository;
     private final ConversationMapper conversationMapper;
     private final MongoTemplate mongoTemplate;
+    private final NotificationService notificationService;
 
     @Transactional
     public ConversationResponse create(String creatorId, ConversationRequest request) {
@@ -75,6 +76,7 @@ public class ConversationService {
 
         if (request.getType() == ConversationType.GROUP) {
             createGroupMembers(conversation.getId(), creatorId, participantIds);
+            notifyCreatedGroupParticipants(conversation, creatorId);
         }
 
         return conversationMapper.toResponse(conversation);
@@ -241,6 +243,25 @@ public class ConversationService {
 
             groupMemberRepository.save(member);
         }
+    }
+
+    private void notifyCreatedGroupParticipants(Conversation conversation, String creatorId) {
+        User creator = userRepository.findById(UUID.fromString(creatorId)).orElse(null);
+        String creatorName = creator != null ? creator.getDisplayName() : "Someone";
+        String groupName = conversation.getName() != null && !conversation.getName().isBlank()
+                ? conversation.getName()
+                : "a group chat";
+        String content = creatorName + " added you to " + groupName;
+
+        conversation.getParticipantIds().stream()
+                .filter(participantId -> !participantId.equals(creatorId))
+                .forEach(participantId -> notificationService.createAndPush(
+                        NotificationType.GROUP_INVITE,
+                        creatorId,
+                        participantId,
+                        content,
+                        conversation.getId()
+                ));
     }
 
     // ==================== Pin / Unpin ====================

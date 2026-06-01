@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import i18n from "@/i18n";
 import { socketService } from "@/services/socket.service";
 import { useAuthStore } from "@/store/auth.store";
 import type { NotificationEvent } from "@/types/notification";
@@ -37,24 +38,55 @@ export function useNotificationSocket({ onEvent }: UseNotificationSocketProps) {
                     const event = JSON.parse(payload.body) as NotificationEvent;
                     onEvent(event);
 
-                    if (document.hidden && "Notification" in window && Notification.permission === "granted") {
+                    if (
+                        document.hidden &&
+                        "Notification" in window &&
+                        Notification.permission === "granted"
+                    ) {
                         let title = "Chatly";
                         switch (event.notification.type) {
-                            case "NEW_MESSAGE": title = "New message"; break;
-                            case "FRIEND_REQUEST": title = "Friend request"; break;
-                            case "FRIEND_ACCEPTED": title = "Friend request accepted"; break;
-                            case "GROUP_INVITE": title = "Group invitation"; break;
-                            case "GROUP_JOIN_REQUEST": title = "New join request"; break;
-                            case "MEMBER_JOINED": title = "New member joined"; break;
+                            case "NEW_MESSAGE":
+                                title = i18n.t("notifications.new_message");
+                                break;
+                            case "FRIEND_REQUEST":
+                                title = i18n.t("notifications.friend_request");
+                                break;
+                            case "FRIEND_ACCEPTED":
+                                title = i18n.t(
+                                    "notifications.friend_request_accepted",
+                                );
+                                break;
+                            case "GROUP_INVITE":
+                                title = i18n.t(
+                                    "notifications.group_invitation",
+                                );
+                                break;
+                            case "GROUP_UPDATED":
+                                title = i18n.t("notifications.group_updated");
+                                break;
+                            case "GROUP_JOIN_REQUEST":
+                                title = i18n.t(
+                                    "notifications.new_join_request",
+                                );
+                                break;
+                            case "MEMBER_JOINED":
+                                title = i18n.t(
+                                    "notifications.new_member_joined",
+                                );
+                                break;
                         }
                         const options = {
-                            body: event.notification.content || "You have a new notification",
-                            icon: "/favicon.ico"
+                            body:
+                                event.notification.content ||
+                                i18n.t("notifications.new_notification"),
+                            icon: "/favicon.ico",
                         };
                         const notif = new window.Notification(title, options);
                         notif.onclick = () => {
                             window.focus();
-                            window.location.href = resolveNotificationRoute(event.notification);
+                            window.location.href = resolveNotificationRoute(
+                                event.notification,
+                            );
                             notif.close();
                         };
                     }

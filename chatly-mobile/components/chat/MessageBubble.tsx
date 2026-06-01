@@ -16,6 +16,7 @@ import { Image as ExpoImage } from 'expo-image';
 import { router } from 'expo-router';
 import RenderHtml from 'react-native-render-html';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import {
   FilePdf,
   MicrosoftWordLogo,
@@ -31,6 +32,7 @@ import {
 } from 'phosphor-react-native';
 import { Colors } from '@/constants/theme';
 import { formatMessageTime, isRichTextHtml, richTextToPlainText } from '@/utils/format';
+import { formatSystemMessage } from '@/utils/systemMessage';
 import { normalizeMediaUrl } from '@/utils/mediaUrl';
 import { openAppAwareUrl } from '@/utils/appLinking';
 import { ImageLightbox } from '@/components/ui/ImageLightbox';
@@ -112,6 +114,7 @@ export function MessageBubble({
   onScrollToMessage,
   onSwipeReply,
 }: MessageBubbleProps) {
+  const { t } = useTranslation();
   const { content, type, recalled, edited, createdAt, readBy, attachments } = message;
   const normalizedTextContent = richTextToPlainText(content);
   const groupCallRealtimeState = useCallStore((state) => state.groupCallRealtimeState);
@@ -445,11 +448,7 @@ export function MessageBubble({
                   justifyContent: 'center',
                   flexShrink: 0,
                 }}>
-                <IconComponent
-                  size={28}
-                  color={iconColor}
-                  weight="duotone"
-                />
+                <IconComponent size={28} color={iconColor} weight="duotone" />
               </View>
               <View style={{ marginLeft: 10, flex: 1, overflow: 'hidden' }}>
                 <Text
@@ -625,9 +624,7 @@ export function MessageBubble({
         onPress={handlePress}
         activeOpacity={0.85}
         className={`mt-1.5 w-full max-w-[280px] rounded-2xl p-3 ${
-          isMe
-            ? 'bg-white/10'
-            : 'bg-white dark:bg-zinc-800'
+          isMe ? 'bg-white/10' : 'bg-white dark:bg-zinc-800'
         }`}>
         <View className="flex-row items-start gap-3">
           <View className="relative h-20 w-14 items-center justify-center overflow-hidden rounded-xl bg-black">
@@ -1306,7 +1303,7 @@ export function MessageBubble({
           `${Math.floor(s / 60)
             .toString()
             .padStart(2, '0')}:${(s % 60).toString().padStart(2, '0')}`;
-        const typeLabel = isVideo ? 'video' : 'audio';
+        const groupCallLabel = isVideo ? t('chat.group_video_call') : t('chat.group_voice_call');
 
         if (isGroupCallActiveStatus && isGroupConversation && callData.callId) {
           if (isCallEnded || !onJoinGroupCall) {
@@ -1339,11 +1336,11 @@ export function MessageBubble({
                   </View>
                   <View style={{ flex: 1 }}>
                     <Text style={{ color: Colors.text, fontSize: 13, fontWeight: '600' }}>
-                      Group {typeLabel} call
+                      {groupCallLabel}
                     </Text>
                     <Text
                       style={{ color: Colors.textMuted, fontSize: 11, opacity: 0.8, marginTop: 1 }}>
-                      Call ended
+                      {t('call.ended')}
                     </Text>
                   </View>
                 </View>
@@ -1381,11 +1378,11 @@ export function MessageBubble({
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={{ color: Colors.cta, fontSize: 13, fontWeight: '600' }}>
-                    Group {typeLabel} call
+                    {groupCallLabel}
                   </Text>
                   <Text
                     style={{ color: Colors.textMuted, fontSize: 11, opacity: 0.85, marginTop: 1 }}>
-                    Tap to join
+                    {t('call.tap_to_join')}
                   </Text>
                 </View>
               </TouchableOpacity>
@@ -1395,11 +1392,11 @@ export function MessageBubble({
 
         const callLabel = isMissed
           ? isVideo
-            ? 'Missed video call'
-            : 'Missed audio call'
+            ? t('chat.missed_video_call')
+            : t('chat.missed_audio_call')
           : isVideo
-            ? 'Video call'
-            : 'Audio call';
+            ? t('chat.video_call')
+            : t('chat.audio_call');
         const callColor = isMissed ? Colors.error : Colors.cta;
         return (
           <View
@@ -1450,7 +1447,7 @@ export function MessageBubble({
                   <Ionicons name="call" size={12} color={Colors.error} />
                   <Text
                     style={{ color: Colors.error, fontSize: 11, fontWeight: '600', marginLeft: 4 }}>
-                    Call back
+                    {t('call.call_back')}
                   </Text>
                 </TouchableOpacity>
               )}
@@ -1464,7 +1461,7 @@ export function MessageBubble({
             <Text
               className="rounded-lg px-3 py-1 text-xs"
               style={{ color: Colors.textMuted, backgroundColor: Colors.bg }}>
-              {content}
+              {formatSystemMessage(content)}
             </Text>
           </View>
         );

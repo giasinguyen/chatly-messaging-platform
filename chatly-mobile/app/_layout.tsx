@@ -99,11 +99,34 @@ function AuthGateInner({ children }: { children: React.ReactNode }) {
   }, []);
 
   const handleOpenForegroundMessage = useCallback(
-    (conversationId: string) => {
+    (notification: NotificationResponse) => {
       setForegroundMessage(null);
-      router.push(`/chat/${conversationId}`);
+      if (
+        notification.type === 'NEW_MESSAGE' ||
+        notification.type === 'GROUP_INVITE' ||
+        notification.type === 'GROUP_UPDATED' ||
+        notification.type === 'MEMBER_JOINED'
+      ) {
+        router.push(`/chat/${notification.referenceId}`);
+        return;
+      }
+
+      if (notification.type === 'FRIEND_REQUEST' || notification.type === 'FRIEND_ACCEPTED') {
+        router.push('/(tabs)/contacts');
+        return;
+      }
+
+      if (
+        notification.type === 'POST_LIKED' ||
+        notification.type === 'POST_COMMENTED' ||
+        notification.type === 'POST_SHARED' ||
+        notification.type === 'POST_MENTION' ||
+        notification.type === 'COMMENT_REPLIED'
+      ) {
+        router.push(`/post/${notification.referenceId.split('_')[0] ?? notification.referenceId}`);
+      }
     },
-    [router],
+    [router]
   );
 
   useNotificationSocket({ onForegroundMessage: handleForegroundMessage });

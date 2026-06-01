@@ -1,4 +1,4 @@
-import { Animated, Text, View } from 'react-native';
+import { Animated, Pressable, Text, View } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { usePostImageCarousel, FALLBACK_ASPECT_RATIO } from '@/hooks/usePostImageCarousel';
@@ -20,6 +20,7 @@ export function PostImageCarousel({ images, onDoubleTap, onPressImage }: PostIma
     heartScale,
     normalizedImages,
     panHandlers,
+    handleFramePress,
     handleImageError,
   } = usePostImageCarousel({ images, onDoubleTap, onPressImage });
 
@@ -50,8 +51,9 @@ export function PostImageCarousel({ images, onDoubleTap, onPressImage }: PostIma
     const imageSource = failedImages[imageUrl] ? FALLBACK_MEDIA_SOURCE : { uri: imageUrl };
 
     return (
-      <View
+      <Pressable
         {...panHandlers}
+        onPress={handleFramePress}
         style={{ width: '100%', aspectRatio: frameAspectRatio, backgroundColor: '#F5F5F7' }}>
         <Image
           source={imageSource}
@@ -75,7 +77,7 @@ export function PostImageCarousel({ images, onDoubleTap, onPressImage }: PostIma
           }}>
           <Ionicons name="heart" size={96} color="rgba(255,255,255,0.95)" />
         </Animated.View>
-      </View>
+      </Pressable>
     );
   }
 
@@ -86,8 +88,9 @@ export function PostImageCarousel({ images, onDoubleTap, onPressImage }: PostIma
     : { uri: currentImage };
 
   return (
-    <View
+    <Pressable
       {...panHandlers}
+      onPress={handleFramePress}
       style={{
         width: '100%',
         aspectRatio: frameAspectRatio,
@@ -208,6 +211,6 @@ export function PostImageCarousel({ images, onDoubleTap, onPressImage }: PostIma
           ))}
         </View>
       )}
-    </View>
+    </Pressable>
   );
 }

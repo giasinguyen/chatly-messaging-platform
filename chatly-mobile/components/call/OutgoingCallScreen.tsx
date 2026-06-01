@@ -1,5 +1,6 @@
 import { View, Text, TouchableOpacity, Modal } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -14,6 +15,7 @@ import { useCallStore } from '@/store/call.store';
 import { useCallContext } from '@/contexts/CallContext';
 
 export function OutgoingCallScreen() {
+  const { t } = useTranslation();
   const callStatus = useCallStore((s) => s.callStatus);
   const remoteParticipant = useCallStore((s) => s.remoteParticipant);
   const incomingCall = useCallStore((s) => s.incomingCall);
@@ -36,12 +38,12 @@ export function OutgoingCallScreen() {
       pulseScale.value = withRepeat(
         withTiming(1.6, { duration: 1200, easing: Easing.out(Easing.ease) }),
         -1,
-        true,
+        true
       );
       pulseOpacity.value = withRepeat(
         withTiming(0, { duration: 1200, easing: Easing.out(Easing.ease) }),
         -1,
-        true,
+        true
       );
     } else {
       pulseScale.value = 1;
@@ -56,27 +58,21 @@ export function OutgoingCallScreen() {
 
   if (!visible) return null;
 
-  const name = remoteParticipant?.name ?? 'Connecting...';
+  const name = remoteParticipant?.name ?? t('call.connecting');
   const avatar = remoteParticipant?.avatar ?? null;
 
-  let statusText = 'Ringing...';
-  if (callStatus === 'REJECTED') statusText = 'Call rejected';
+  let statusText = t('call.ringing');
+  if (callStatus === 'REJECTED') statusText = t('call.rejected');
 
   return (
-    <Modal
-      visible={visible}
-      animationType="fade"
-      transparent
-      statusBarTranslucent
-    >
+    <Modal visible={visible} animationType="fade" transparent statusBarTranslucent>
       <View
         className="flex-1 items-center justify-center"
-        style={{ backgroundColor: 'rgba(0, 0, 0, 0.88)' }}
-      >
+        style={{ backgroundColor: 'rgba(0, 0, 0, 0.88)' }}>
         {/* Recipient info */}
-        <View className="items-center mb-12">
+        <View className="mb-12 items-center">
           <Text className="mb-6 text-sm" style={{ color: Colors.textMuted }}>
-            Calling...
+            {t('call.calling')}
           </Text>
 
           {/* Avatar + pulse */}
@@ -116,12 +112,16 @@ export function OutgoingCallScreen() {
                 height: 64,
                 borderRadius: 32,
                 backgroundColor: '#ef4444',
-              }}
-            >
-              <Ionicons name="call" size={28} color={Colors.white} style={{ transform: [{ rotate: '135deg' }] }} />
+              }}>
+              <Ionicons
+                name="call"
+                size={28}
+                color={Colors.white}
+                style={{ transform: [{ rotate: '135deg' }] }}
+              />
             </TouchableOpacity>
             <Text className="text-xs" style={{ color: Colors.textMuted }}>
-              Cancel call
+              {t('call.cancel')}
             </Text>
           </View>
         )}
