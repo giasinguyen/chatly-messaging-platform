@@ -42,13 +42,25 @@ export function GroupParticipantTile({
         borderColor: isLocal ? Colors.cta : 'transparent',
       }}>
       {shouldRenderAgoraVideo ? (
-        <AgoraVideoView
-          key={`${peerId}:${agoraVideoKey}`}
-          uid={agoraUid}
-          isLocal={isLocal}
-          zOrderMediaOverlay={isLocal}
-          className="w-full flex-1"
-        />
+        <>
+          <AgoraVideoView
+            key={`${peerId}:${agoraVideoKey}`}
+            uid={agoraUid}
+            isLocal={isLocal}
+            zOrderMediaOverlay={isLocal}
+            className="w-full flex-1"
+          />
+          <View
+            className="absolute bottom-2 left-2 right-2 rounded-full px-2 py-1"
+            style={{ backgroundColor: 'rgba(0,0,0,0.55)' }}>
+            <Text
+              className="text-center text-xs font-semibold"
+              style={{ color: Colors.white }}
+              numberOfLines={1}>
+              {name}
+            </Text>
+          </View>
+        </>
       ) : (
         <View className="flex-1 items-center justify-center" style={{ padding: 12 }}>
           <Avatar uri={avatar} name={name} size={56} />

@@ -52,7 +52,7 @@ export function HomeFeedHeader({
               <Ionicons name="notifications-outline" size={25} color={Colors.text} />
               {hasUnreadNotifications ? (
                 <View
-                  className="absolute right-1 top-1 h-2.5 w-2.5 rounded-full border-2 bg-[#FF3B30]"
+                  className="absolute right-0.5 top-0.5 h-3.5 w-3.5 rounded-full border-2 bg-[#FF3B30]"
                   style={{ borderColor: Colors.bgCard }}
                 />
               ) : null}

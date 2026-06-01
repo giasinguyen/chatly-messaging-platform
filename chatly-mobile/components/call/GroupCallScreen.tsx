@@ -1,5 +1,6 @@
 import { Alert, View, Text, TouchableOpacity, Modal } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -26,6 +27,7 @@ export function GroupCallScreen({
   onJoin,
   onDecline,
 }: GroupCallScreenProps) {
+  const { t } = useTranslation();
   const pulseScale = useSharedValue(1);
   const pulseOpacity = useSharedValue(0.6);
 
@@ -52,14 +54,12 @@ export function GroupCallScreen({
     opacity: pulseOpacity.value,
   }));
 
-  const callLabel = incomingGroupCall.type === 'VIDEO' ? 'Group video call' : 'Group voice call';
+  const callLabel =
+    incomingGroupCall.type === 'VIDEO' ? t('chat.group_video_call') : t('chat.group_voice_call');
 
   const handleJoin = () => {
     if (!IS_CALL_ENABLED) {
-      Alert.alert(
-        'Call unavailable in Expo Go',
-        'Calling is only available in a development build. Please build the app to use voice/video calls.'
-      );
+      Alert.alert(t('mobile.chat.call_unavailable_title'), t('mobile.chat.call_unavailable_body'));
       return;
     }
 
@@ -101,8 +101,10 @@ export function GroupCallScreen({
             {callLabel}
           </Text>
           <Text className="mt-2 text-sm" style={{ color: Colors.textMuted }}>
-            {incomingGroupCall.initiatorName} is calling • {incomingGroupCall.participantCount}{' '}
-            participants
+            {t('call.group_incoming_summary', {
+              name: incomingGroupCall.initiatorName,
+              count: incomingGroupCall.participantCount,
+            })}
           </Text>
         </View>
 
@@ -128,7 +130,7 @@ export function GroupCallScreen({
               />
             </TouchableOpacity>
             <Text className="text-sm" style={{ color: Colors.textLight }}>
-              Decline
+              {t('call.decline')}
             </Text>
           </View>
 
@@ -151,7 +153,7 @@ export function GroupCallScreen({
               />
             </TouchableOpacity>
             <Text className="text-sm" style={{ color: Colors.textLight }}>
-              Join
+              {t('call.join')}
             </Text>
           </View>
         </View>
