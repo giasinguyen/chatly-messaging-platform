@@ -11,6 +11,7 @@ public enum NotificationScope {
             NotificationType.GROUP_INVITE,
             NotificationType.GROUP_LEAVE,
             NotificationType.GROUP_JOIN_REQUEST,
+            NotificationType.GROUP_UPDATED,
             NotificationType.MEMBER_JOINED,
             NotificationType.CALL_MISSED
     )),

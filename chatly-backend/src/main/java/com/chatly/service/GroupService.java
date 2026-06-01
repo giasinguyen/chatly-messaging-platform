@@ -19,15 +19,18 @@ import com.chatly.repository.postgres.GroupMemberRepository;
 import com.chatly.repository.postgres.UserRepository;
 import com.chatly.websocket.ChatEvent;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class GroupService {
 
     private final ConversationRepository conversationRepository;
@@ -294,6 +297,7 @@ public class GroupService {
     @Transactional
     public ConversationResponse updateGroup(String conversationId, GroupUpdateRequest request, String requesterId) {
         Conversation conversation = getGroupConversation(conversationId);
+        String previousAvatarUrl = conversation.getAvatarUrl();
         
         // Check permission: only owner/admin can always update; members can update only if allowMembersUpdateInfo is true
         // Treat null as true (field didn't exist for older groups; default is "allowed")
@@ -324,6 +328,10 @@ public class GroupService {
 
         conversation = conversationRepository.save(conversation);
         ConversationResponse response = conversationMapper.toResponse(conversation);
+
+        if (request.getAvatar() != null && !Objects.equals(previousAvatarUrl, request.getAvatar())) {
+            notifyGroupAvatarUpdated(conversation, requesterId);
+        }
         
         // Broadcast GROUP_UPDATE event to all participants
         broadcastGroupUpdate(conversationId, response);
@@ -753,9 +761,26 @@ public class GroupService {
                             .build()
             );
         } catch (Exception e) {
-            // Log but don't throw - broadcast failure shouldn't break the update
-            System.err.println("Failed to broadcast group update: " + e.getMessage());
+            log.warn("Failed to broadcast group update for conversation={}: {}", conversationId, e.getMessage());
         }
+    }
+
+    private void notifyGroupAvatarUpdated(Conversation conversation, String requesterId) {
+        User requester = userRepository.findById(UUID.fromString(requesterId)).orElse(null);
+        String requesterName = requester != null ? requester.getDisplayName() : "Someone";
+        String content = requesterName + " changed the group avatar";
+
+        messageService.sendSystemMessage(conversation.getId(), content);
+
+        conversation.getParticipantIds().stream()
+                .filter(participantId -> !participantId.equals(requesterId))
+                .forEach(participantId -> notificationService.createAndPush(
+                        NotificationType.GROUP_UPDATED,
+                        requesterId,
+                        participantId,
+                        content,
+                        conversation.getId()
+                ));
     }
 
     private void broadcastRoleUpdate(String conversationId, GroupMember updatedMember) {
@@ -773,7 +798,7 @@ public class GroupService {
                             .build()
             );
         } catch (Exception e) {
-            System.err.println("Failed to broadcast role update: " + e.getMessage());
+            log.warn("Failed to broadcast role update for conversation={}: {}", conversationId, e.getMessage());
         }
     }
 }
