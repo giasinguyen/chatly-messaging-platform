@@ -3,12 +3,7 @@ import { socketService } from '@/services/socket.service';
 import { useAuthStore } from '@/store/auth.store';
 import { useCallStore } from '@/store/call.store';
 import { useAgoraGroupCall } from '@/hooks/useAgoraGroupCall';
-import type {
-  CallType,
-  CallSignal,
-  CallSession,
-  IncomingGroupCall,
-} from '@/types/call';
+import type { CallType, CallSignal, CallSession, IncomingGroupCall } from '@/types/call';
 
 /**
  * Manages group call signaling via STOMP WebSocket using Agora as the media provider.
@@ -52,6 +47,7 @@ export function useGroupCallSocket() {
             participantCount: number;
             conversationId: string;
             inviteeIds?: string[];
+            agoraUid?: number | null;
           };
           const incoming: IncomingGroupCall = {
             callId: signal.callId,
@@ -59,6 +55,7 @@ export function useGroupCallSocket() {
             initiatorId: signal.senderId,
             initiatorName: p.initiatorName,
             initiatorAvatar: p.initiatorAvatar ?? null,
+            initiatorAgoraUid: p.agoraUid ?? null,
             groupName: p.groupName,
             groupAvatarUrl: p.groupAvatarUrl ?? null,
             type: p.callType,
@@ -76,10 +73,15 @@ export function useGroupCallSocket() {
           const newPeerId = signal.senderId;
           if (!user || newPeerId === user.id) break;
 
-          const p = signal.payload as { displayName?: string; avatarUrl?: string | null };
+          const p = signal.payload as {
+            displayName?: string;
+            avatarUrl?: string | null;
+            agoraUid?: number | null;
+          };
           setGroupParticipantInfo(newPeerId, {
             name: p.displayName ?? newPeerId,
             avatar: p.avatarUrl ?? null,
+            agoraUid: p.agoraUid ?? null,
           });
           const knownRemoteCount = Object.keys(useCallStore.getState().groupParticipantInfo).length;
           setGroupCallRealtimeState(signal.callId, false, Math.max(2, knownRemoteCount + 1));
@@ -212,6 +214,7 @@ export function useGroupCallSocket() {
             groupAvatarUrl: groupAvatarUrl ?? null,
             participantCount,
             inviteeIds: inviteeIds ?? [],
+            agoraUid: groupAgoraCallRef.current.localUid,
           },
         });
 
@@ -294,6 +297,7 @@ export function useGroupCallSocket() {
         setGroupParticipantInfo(incoming.initiatorId, {
           name: incoming.initiatorName,
           avatar: incoming.initiatorAvatar,
+          agoraUid: incoming.initiatorAgoraUid ?? null,
         });
 
         const isPublished = socketService.publish('/app/call.group.join', {
@@ -303,6 +307,7 @@ export function useGroupCallSocket() {
           payload: {
             displayName: user.displayName,
             avatarUrl: user.avatarUrl ?? null,
+            agoraUid: groupAgoraCallRef.current.localUid,
           },
         });
 
@@ -367,22 +372,16 @@ export function useGroupCallSocket() {
   const isAgoraGroupCall =
     activeGroupCall?.isGroup === true && activeGroupCall.mediaProvider === 'AGORA';
 
-  const groupToggleMute = useCallback(
-    (muted: boolean): void => {
-      groupAgoraCallRef.current.toggleMute(muted);
-    },
-    []
-  );
+  const groupToggleMute = useCallback((muted: boolean): void => {
+    groupAgoraCallRef.current.toggleMute(muted);
+  }, []);
 
-  const groupToggleCamera = useCallback(
-    (cameraOff: boolean): void => {
-      groupAgoraCallRef.current
-        .toggleCamera(cameraOff)
-        .then((cameraOn) => useCallStore.getState().setCameraOff(!cameraOn))
-        .catch(console.error);
-    },
-    []
-  );
+  const groupToggleCamera = useCallback((cameraOff: boolean): void => {
+    groupAgoraCallRef.current
+      .toggleCamera(cameraOff)
+      .then((cameraOn) => useCallStore.getState().setCameraOff(!cameraOn))
+      .catch(console.error);
+  }, []);
 
   const groupToggleSpeaker = useCallback(
     (enabled: boolean): void => {
