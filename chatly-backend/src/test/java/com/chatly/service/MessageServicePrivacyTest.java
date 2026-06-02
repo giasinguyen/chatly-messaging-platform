@@ -31,6 +31,9 @@ class MessageServicePrivacyTest {
     @Mock
     private UserSettingsService userSettingsService;
 
+    @Mock
+    private NotificationService notificationService;
+
     @InjectMocks
     private MessageService messageService;
 
@@ -48,6 +51,8 @@ class MessageServicePrivacyTest {
         var result = messageService.markAsSeen("message-id", "reader-id");
 
         assertThat(result).isEmpty();
+        org.mockito.Mockito.verify(notificationService)
+                .markChatNotificationsAsRead("reader-id", "conversation-id");
         verifyNoInteractions(messageMapper, mongoTemplate);
     }
 }
