@@ -19,6 +19,7 @@ import { messageService } from '@/services/message.service';
 import { ImageLightbox } from '@/components/ui/ImageLightbox';
 import { Colors } from '@/constants/theme';
 import { useThemeStore } from '@/store/theme.store';
+import { getCloudFileIcon, getCloudFileIconColor } from '@/utils/cloudFileDisplay';
 
 type TabType = 'media' | 'files' | 'links';
 
@@ -42,18 +43,11 @@ export default function SharedMediaScreen() {
   const insets = useSafeAreaInsets();
   useThemeStore((state) => state.isDarkMode);
 
-  const [activeTab, setActiveTab] = useState<TabType>(
-    (initialTab as TabType) || 'media',
-  );
+  const [activeTab, setActiveTab] = useState<TabType>((initialTab as TabType) || 'media');
 
   const [media, setMedia] = useState<FileUploadResponse[]>([]);
   const [files, setFiles] = useState<FileUploadResponse[]>([]);
   const [links, setLinks] = useState<ExtractedLink[]>([]);
-
-  const [mediaPage, setMediaPage] = useState(0);
-  const [filesPage, setFilesPage] = useState(0);
-  const [hasMoreMedia, setHasMoreMedia] = useState(true);
-  const [hasMoreFiles, setHasMoreFiles] = useState(true);
 
   const [loadingMedia, setLoadingMedia] = useState(false);
   const [loadingFiles, setLoadingFiles] = useState(false);
@@ -62,49 +56,45 @@ export default function SharedMediaScreen() {
   const [lightboxVisible, setLightboxVisible] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
 
-  const loadMedia = useCallback(
-    async (page: number, append: boolean) => {
-      setLoadingMedia(true);
-      try {
-        const result = await fileService.getByConversation(
-          conversationId,
-          'image',
-          page,
-          PAGE_SIZE,
-        );
-        setMedia((prev) => (append ? [...prev, ...result] : result));
-        setHasMoreMedia(result.length === PAGE_SIZE);
-        setMediaPage(page);
-      } catch {
-        /* silent */
-      } finally {
-        setLoadingMedia(false);
+  const loadAllConversationFiles = useCallback(
+    async (type: 'image' | 'file') => {
+      const allFiles: FileUploadResponse[] = [];
+      let page = 0;
+      let shouldContinue = true;
+
+      while (shouldContinue) {
+        const result = await fileService.getByConversation(conversationId, type, page, PAGE_SIZE);
+        allFiles.push(...result);
+        shouldContinue = result.length === PAGE_SIZE;
+        page += 1;
       }
+
+      return allFiles;
     },
-    [conversationId],
+    [conversationId]
   );
 
-  const loadFiles = useCallback(
-    async (page: number, append: boolean) => {
-      setLoadingFiles(true);
-      try {
-        const result = await fileService.getByConversation(
-          conversationId,
-          'file',
-          page,
-          PAGE_SIZE,
-        );
-        setFiles((prev) => (append ? [...prev, ...result] : result));
-        setHasMoreFiles(result.length === PAGE_SIZE);
-        setFilesPage(page);
-      } catch {
-        /* silent */
-      } finally {
-        setLoadingFiles(false);
-      }
-    },
-    [conversationId],
-  );
+  const loadMedia = useCallback(async () => {
+    setLoadingMedia(true);
+    try {
+      setMedia(await loadAllConversationFiles('image'));
+    } catch {
+      /* silent */
+    } finally {
+      setLoadingMedia(false);
+    }
+  }, [loadAllConversationFiles]);
+
+  const loadFiles = useCallback(async () => {
+    setLoadingFiles(true);
+    try {
+      setFiles(await loadAllConversationFiles('file'));
+    } catch {
+      /* silent */
+    } finally {
+      setLoadingFiles(false);
+    }
+  }, [loadAllConversationFiles]);
 
   const loadLinks = useCallback(async () => {
     setLoadingLinks(true);
@@ -134,8 +124,8 @@ export default function SharedMediaScreen() {
   }, [conversationId]);
 
   useEffect(() => {
-    loadMedia(0, false);
-    loadFiles(0, false);
+    loadMedia();
+    loadFiles();
     loadLinks();
   }, [loadMedia, loadFiles, loadLinks]);
 
@@ -152,8 +142,7 @@ export default function SharedMediaScreen() {
           borderRadius: 6,
           overflow: 'hidden',
           margin: 1,
-        }}
-      >
+        }}>
         <Image
           source={{ uri: item.url }}
           style={{ width: '100%', height: '100%' }}
@@ -161,60 +150,52 @@ export default function SharedMediaScreen() {
         />
       </TouchableOpacity>
     ),
-    [],
+    []
   );
 
-  const renderFileItem = useCallback(
-    ({ item }: { item: FileUploadResponse }) => {
-      const sizeStr = item.fileSize
-        ? item.fileSize > 1048576
-          ? `${(item.fileSize / 1048576).toFixed(1)} MB`
-          : `${(item.fileSize / 1024).toFixed(0)} KB`
-        : '';
-      return (
-        <TouchableOpacity
-          onPress={() => Linking.openURL(item.url)}
+  const renderFileItem = useCallback(({ item }: { item: FileUploadResponse }) => {
+    const iconName = getCloudFileIcon(item.fileType, item.fileName);
+    const iconColor = getCloudFileIconColor(item.fileType, item.fileName);
+    const sizeStr = item.fileSize
+      ? item.fileSize > 1048576
+        ? `${(item.fileSize / 1048576).toFixed(1)} MB`
+        : `${(item.fileSize / 1024).toFixed(0)} KB`
+      : '';
+    return (
+      <TouchableOpacity
+        onPress={() => Linking.openURL(item.url)}
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          paddingVertical: 10,
+          paddingHorizontal: 16,
+          borderBottomWidth: 0.5,
+          borderBottomColor: Colors.borderLight,
+        }}>
+        <View
           style={{
-            flexDirection: 'row',
+            width: 36,
+            height: 36,
+            borderRadius: 8,
+            backgroundColor: `${iconColor}1A`,
             alignItems: 'center',
-            paddingVertical: 10,
-            paddingHorizontal: 16,
-            borderBottomWidth: 0.5,
-            borderBottomColor: Colors.borderLight,
-          }}
-        >
-          <View
-            style={{
-              width: 36,
-              height: 36,
-              borderRadius: 8,
-              backgroundColor: Colors.ctaLight,
-              alignItems: 'center',
-              justifyContent: 'center',
-              marginRight: 10,
-            }}
-          >
-            <Ionicons name="document-text" size={18} color={Colors.cta} />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text
-              numberOfLines={1}
-              style={{ fontSize: 13, fontWeight: '500', color: Colors.text }}
-            >
-              {item.fileName}
-            </Text>
-            {sizeStr ? (
-              <Text style={{ fontSize: 11, color: Colors.textLight }}>
-                {sizeStr}
-              </Text>
-            ) : null}
-          </View>
-          <Ionicons name="download-outline" size={18} color={Colors.textLight} />
-        </TouchableOpacity>
-      );
-    },
-    [],
-  );
+            justifyContent: 'center',
+            marginRight: 10,
+          }}>
+          <Ionicons name={iconName} size={18} color={iconColor} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text numberOfLines={1} style={{ fontSize: 13, fontWeight: '500', color: Colors.text }}>
+            {item.fileName}
+          </Text>
+          {sizeStr ? (
+            <Text style={{ fontSize: 11, color: Colors.textLight }}>{sizeStr}</Text>
+          ) : null}
+        </View>
+        <Ionicons name="download-outline" size={18} color={Colors.textLight} />
+      </TouchableOpacity>
+    );
+  }, []);
 
   const renderLinkItem = useCallback(
     ({ item }: { item: ExtractedLink }) => (
@@ -227,8 +208,7 @@ export default function SharedMediaScreen() {
           paddingHorizontal: 16,
           borderBottomWidth: 0.5,
           borderBottomColor: Colors.borderLight,
-        }}
-      >
+        }}>
         <View
           style={{
             width: 32,
@@ -238,27 +218,20 @@ export default function SharedMediaScreen() {
             alignItems: 'center',
             justifyContent: 'center',
             marginRight: 10,
-          }}
-        >
+          }}>
           <Ionicons name="link" size={16} color={Colors.cta} />
         </View>
         <View style={{ flex: 1, minWidth: 0 }}>
-          <Text
-            numberOfLines={1}
-            style={{ fontSize: 13, fontWeight: '500', color: Colors.cta }}
-          >
+          <Text numberOfLines={1} style={{ fontSize: 13, fontWeight: '500', color: Colors.cta }}>
             {item.domain}
           </Text>
-          <Text
-            numberOfLines={1}
-            style={{ fontSize: 11, color: Colors.textLight }}
-          >
+          <Text numberOfLines={1} style={{ fontSize: 11, color: Colors.textLight }}>
             {item.url}
           </Text>
         </View>
       </TouchableOpacity>
     ),
-    [],
+    []
   );
 
   const mediaImageUrls = media.map((f) => f.url);
@@ -272,15 +245,13 @@ export default function SharedMediaScreen() {
         alignItems: 'center',
         borderBottomWidth: 2,
         borderBottomColor: activeTab === tab ? Colors.cta : 'transparent',
-      }}
-    >
+      }}>
       <Text
         style={{
           fontSize: 13,
           fontWeight: activeTab === tab ? '600' : '400',
           color: activeTab === tab ? Colors.cta : Colors.textLight,
-        }}
-      >
+        }}>
         {label} ({count})
       </Text>
     </TouchableOpacity>
@@ -304,16 +275,14 @@ export default function SharedMediaScreen() {
           backgroundColor: Colors.bgCard,
           borderBottomWidth: 0.5,
           borderBottomColor: Colors.borderLight,
-        }}
-      >
+        }}>
         <View
           style={{
             height: 50,
             flexDirection: 'row',
             alignItems: 'center',
             paddingHorizontal: 16,
-          }}
-        >
+          }}>
           <TouchableOpacity onPress={() => router.back()}>
             <Ionicons name="arrow-back" size={24} color={Colors.text} />
           </TouchableOpacity>
@@ -324,8 +293,7 @@ export default function SharedMediaScreen() {
               fontSize: 17,
               fontWeight: '600',
               color: Colors.text,
-            }}
-          >
+            }}>
             {activeTab === 'media'
               ? t('mobile.chat.shared_media_title')
               : activeTab === 'files'
@@ -351,25 +319,13 @@ export default function SharedMediaScreen() {
           keyExtractor={(item) => item.fileId}
           numColumns={4}
           contentContainerStyle={{ padding: 16 }}
-          ListEmptyComponent={renderEmpty(loadingMedia, t('mobile.chat.shared_tab_media').toLowerCase())}
+          ListEmptyComponent={renderEmpty(
+            loadingMedia,
+            t('mobile.chat.shared_tab_media').toLowerCase()
+          )}
           ListFooterComponent={
             loadingMedia ? (
-              <ActivityIndicator
-                style={{ paddingVertical: 16 }}
-                color={Colors.cta}
-              />
-            ) : hasMoreMedia && media.length > 0 ? (
-              <TouchableOpacity
-                onPress={() => loadMedia(mediaPage + 1, true)}
-                style={{
-                  paddingVertical: 12,
-                  alignItems: 'center',
-                }}
-              >
-                <Text style={{ fontSize: 13, color: Colors.cta }}>
-                  {t('mobile.chat.load_more')}
-                </Text>
-              </TouchableOpacity>
+              <ActivityIndicator style={{ paddingVertical: 16 }} color={Colors.cta} />
             ) : null
           }
         />
@@ -381,26 +337,13 @@ export default function SharedMediaScreen() {
           renderItem={renderFileItem}
           keyExtractor={(item) => item.fileId}
           contentContainerStyle={{ backgroundColor: Colors.bgCard }}
-          ListEmptyComponent={renderEmpty(loadingFiles, t('mobile.chat.shared_tab_files').toLowerCase())}
+          ListEmptyComponent={renderEmpty(
+            loadingFiles,
+            t('mobile.chat.shared_tab_files').toLowerCase()
+          )}
           ListFooterComponent={
             loadingFiles ? (
-              <ActivityIndicator
-                style={{ paddingVertical: 16 }}
-                color={Colors.cta}
-              />
-            ) : hasMoreFiles && files.length > 0 ? (
-              <TouchableOpacity
-                onPress={() => loadFiles(filesPage + 1, true)}
-                style={{
-                  paddingVertical: 12,
-                  alignItems: 'center',
-                  backgroundColor: Colors.bgCard,
-                }}
-              >
-                <Text style={{ fontSize: 13, color: Colors.cta }}>
-                  {t('mobile.chat.load_more')}
-                </Text>
-              </TouchableOpacity>
+              <ActivityIndicator style={{ paddingVertical: 16 }} color={Colors.cta} />
             ) : null
           }
         />
@@ -412,13 +355,13 @@ export default function SharedMediaScreen() {
           renderItem={renderLinkItem}
           keyExtractor={(item, index) => `${item.url}-${index}`}
           contentContainerStyle={{ backgroundColor: Colors.bgCard }}
-          ListEmptyComponent={renderEmpty(loadingLinks, t('mobile.chat.shared_tab_links').toLowerCase())}
+          ListEmptyComponent={renderEmpty(
+            loadingLinks,
+            t('mobile.chat.shared_tab_links').toLowerCase()
+          )}
           ListFooterComponent={
             loadingLinks ? (
-              <ActivityIndicator
-                style={{ paddingVertical: 16 }}
-                color={Colors.cta}
-              />
+              <ActivityIndicator style={{ paddingVertical: 16 }} color={Colors.cta} />
             ) : null
           }
         />

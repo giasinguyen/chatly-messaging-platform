@@ -4,6 +4,7 @@ import { socketService } from "@/services/socket.service";
 import { useAuthStore } from "@/store/auth.store";
 import type { NotificationEvent } from "@/types/notification";
 import { resolveNotificationRoute } from "@/utils/notificationRedirect";
+import { useNotificationPrefsStore } from "@/store/notificationPrefs.store";
 
 interface UseNotificationSocketProps {
     onEvent: (event: NotificationEvent) => void;
@@ -15,7 +16,11 @@ export function useNotificationSocket({ onEvent }: UseNotificationSocketProps) {
     useEffect(() => {
         if (!user) return;
 
-        if ("Notification" in window && Notification.permission === "default") {
+        if (
+            useNotificationPrefsStore.getState().browserNotificationsEnabled &&
+            "Notification" in window &&
+            Notification.permission === "default"
+        ) {
             Notification.requestPermission();
         }
 
@@ -26,13 +31,12 @@ export function useNotificationSocket({ onEvent }: UseNotificationSocketProps) {
             if (!token) return;
 
             await socketService.connect(token);
-            const client = socketService.getClient();
 
-            if (!client || !isMounted) return;
+            if (!isMounted) return;
 
             // Subscribe to the user-specific notification queue.
             // Spring maps /user/queue/notifications → user's own session channel.
-            const sub = client.subscribe(
+            const unsubscribe = socketService.subscribe(
                 "/user/queue/notifications",
                 (payload) => {
                     const event = JSON.parse(payload.body) as NotificationEvent;
@@ -40,6 +44,8 @@ export function useNotificationSocket({ onEvent }: UseNotificationSocketProps) {
 
                     if (
                         document.hidden &&
+                        useNotificationPrefsStore.getState()
+                            .browserNotificationsEnabled &&
                         "Notification" in window &&
                         Notification.permission === "granted"
                     ) {
@@ -94,7 +100,7 @@ export function useNotificationSocket({ onEvent }: UseNotificationSocketProps) {
             );
 
             return () => {
-                sub.unsubscribe();
+                unsubscribe();
             };
         };
 

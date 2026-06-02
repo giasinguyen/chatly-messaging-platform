@@ -4,7 +4,11 @@ import { useAuthStore } from "@/store/auth.store";
 import { useNotificationStore } from "@/store/notification.store";
 import { socketService } from "@/services/socket.service";
 import { notificationService } from "@/services/notification.service";
-import type { Notification, NotificationEvent, NotificationType } from "@/types/notification";
+import type {
+    Notification,
+    NotificationEvent,
+    NotificationType,
+} from "@/types/notification";
 import {
     Bell,
     Check,
@@ -18,86 +22,131 @@ import {
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { resolveNotificationRoute } from "@/utils/notificationRedirect";
+import { useNotificationPrefsStore } from "@/store/notificationPrefs.store";
 
 function getIcon(type: NotificationType) {
     switch (type) {
-        case "FRIEND_REQUEST": return <UserPlus className="h-4 w-4 text-brand" />;
-        case "FRIEND_ACCEPTED": return <Users className="h-4 w-4 text-green-500" />;
-        case "POST_LIKED":     return <Heart className="h-4 w-4 text-red-500" />;
-        case "POST_COMMENTED": return <MessageCircle className="h-4 w-4 text-blue-500" />;
-        case "COMMENT_REPLIED":return <Reply className="h-4 w-4 text-purple-500" />;
-        case "NEW_MESSAGE":    return <MessageCircle className="h-4 w-4 text-green-500" />;
-        case "MEMBER_JOINED":  return <Users className="h-4 w-4 text-indigo-500" />;
-        default:               return <Bell className="h-4 w-4 text-muted-foreground" />;
+        case "FRIEND_REQUEST":
+            return <UserPlus className="h-4 w-4 text-brand" />;
+        case "FRIEND_ACCEPTED":
+            return <Users className="h-4 w-4 text-green-500" />;
+        case "POST_LIKED":
+            return <Heart className="h-4 w-4 text-red-500" />;
+        case "POST_COMMENTED":
+            return <MessageCircle className="h-4 w-4 text-blue-500" />;
+        case "COMMENT_REPLIED":
+            return <Reply className="h-4 w-4 text-purple-500" />;
+        case "NEW_MESSAGE":
+            return <MessageCircle className="h-4 w-4 text-green-500" />;
+        case "MEMBER_JOINED":
+            return <Users className="h-4 w-4 text-indigo-500" />;
+        default:
+            return <Bell className="h-4 w-4 text-muted-foreground" />;
     }
 }
 
 function getColorClass(type: NotificationType) {
     switch (type) {
-        case "FRIEND_REQUEST": return "bg-brand/5 border-brand/20";
-        case "FRIEND_ACCEPTED": return "bg-green-50 border-green-200 dark:bg-green-950/20";
-        case "POST_LIKED":     return "bg-red-50 border-red-200 dark:bg-red-950/20";
-        case "POST_COMMENTED": return "bg-blue-50 border-blue-200 dark:bg-blue-950/20";
-        case "COMMENT_REPLIED":return "bg-purple-50 border-purple-200 dark:bg-purple-950/20";
-        default:               return "bg-muted/50 border-border";
+        case "FRIEND_REQUEST":
+            return "bg-brand/5 border-brand/20";
+        case "FRIEND_ACCEPTED":
+            return "bg-green-50 border-green-200 dark:bg-green-950/20";
+        case "POST_LIKED":
+            return "bg-red-50 border-red-200 dark:bg-red-950/20";
+        case "POST_COMMENTED":
+            return "bg-blue-50 border-blue-200 dark:bg-blue-950/20";
+        case "COMMENT_REPLIED":
+            return "bg-purple-50 border-purple-200 dark:bg-purple-950/20";
+        default:
+            return "bg-muted/50 border-border";
     }
 }
 
 export function NotificationCenter() {
     const navigate = useNavigate();
     const { user } = useAuthStore();
-    const { notifications, unreadCount, addNotification, setUnreadCount } = useNotificationStore();
+    const { notifications, unreadCount, addNotification, setUnreadCount } =
+        useNotificationStore();
     const [isOpen, setIsOpen] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
 
-    const showFriendRequestToast = useCallback((notif: Notification) => {
-        const senderName = notif.content?.split(" đã")?.[0] ?? "Someone";
-        toast(senderName + " sent you a friend request", {
-            duration: 6000,
-            icon: <UserPlus className="h-4 w-4 text-brand" />,
-            action: {
-                label: "View Requests",
-                onClick: () => navigate("/contact?tab=requests"),
-            },
-        });
-    }, [navigate]);
+    const showFriendRequestToast = useCallback(
+        (notif: Notification) => {
+            const senderName = notif.content?.split(" đã")?.[0] ?? "Someone";
+            toast(senderName + " sent you a friend request", {
+                duration: 6000,
+                icon: <UserPlus className="h-4 w-4 text-brand" />,
+                action: {
+                    label: "View Requests",
+                    onClick: () => navigate("/contact?tab=requests"),
+                },
+            });
+        },
+        [navigate],
+    );
 
     const showGenericToast = useCallback((notif: Notification) => {
-        toast.info(notif.content ?? `New ${notif.type.toLowerCase()} notification`, {
-            duration: 3000,
-        });
+        toast.info(
+            notif.content ?? `New ${notif.type.toLowerCase()} notification`,
+            {
+                duration: 3000,
+            },
+        );
     }, []);
 
-    const handleIncomingNotification = useCallback((event: NotificationEvent) => {
-        addNotification(event.notification);
-        setUnreadCount(event.unreadCount);
+    const handleIncomingNotification = useCallback(
+        (event: NotificationEvent) => {
+            addNotification(event.notification);
+            setUnreadCount(event.unreadCount);
 
-        if (event.notification.type === "FRIEND_REQUEST") {
-            showFriendRequestToast(event.notification);
-        } else {
-            showGenericToast(event.notification);
-        }
+            if (event.notification.type === "FRIEND_REQUEST") {
+                showFriendRequestToast(event.notification);
+            } else {
+                showGenericToast(event.notification);
+            }
 
-        // Browser push notification when tab is hidden
-        if (document.hidden && "Notification" in window && Notification.permission === "granted") {
-            const browserNotif = new window.Notification("Chatly", {
-                body: event.notification.content ?? "You have a new notification",
-                icon: "/favicon.ico",
-            });
-            const redirectUrl = resolveNotificationRoute(event.notification);
-            browserNotif.onclick = () => {
-                window.focus();
-                navigate(redirectUrl);
-                browserNotif.close();
-            };
-        }
-    }, [addNotification, setUnreadCount, showFriendRequestToast, showGenericToast, navigate]);
+            // Browser push notification when tab is hidden
+            if (
+                document.hidden &&
+                useNotificationPrefsStore.getState()
+                    .browserNotificationsEnabled &&
+                "Notification" in window &&
+                Notification.permission === "granted"
+            ) {
+                const browserNotif = new window.Notification("Chatly", {
+                    body:
+                        event.notification.content ??
+                        "You have a new notification",
+                    icon: "/favicon.ico",
+                });
+                const redirectUrl = resolveNotificationRoute(
+                    event.notification,
+                );
+                browserNotif.onclick = () => {
+                    window.focus();
+                    navigate(redirectUrl);
+                    browserNotif.close();
+                };
+            }
+        },
+        [
+            addNotification,
+            setUnreadCount,
+            showFriendRequestToast,
+            showGenericToast,
+            navigate,
+        ],
+    );
 
     // Real-time WebSocket subscription
     useEffect(() => {
         if (!user?.id) return;
 
-        if ("Notification" in window && Notification.permission === "default") {
+        if (
+            useNotificationPrefsStore.getState().browserNotificationsEnabled &&
+            "Notification" in window &&
+            Notification.permission === "default"
+        ) {
             Notification.requestPermission();
         }
 
@@ -108,14 +157,15 @@ export function NotificationCenter() {
             if (!token) return;
 
             await socketService.connect(token);
-            const client = socketService.getClient();
-            if (!client || !isMounted) return;
+            if (!isMounted) return;
 
-            const subscription = client.subscribe(
+            const unsubscribe = socketService.subscribe(
                 `/user/${user.id}/queue/notifications`,
                 (message) => {
                     try {
-                        const event = JSON.parse(message.body) as NotificationEvent;
+                        const event = JSON.parse(
+                            message.body,
+                        ) as NotificationEvent;
                         if (isMounted) handleIncomingNotification(event);
                     } catch {
                         // Malformed notification payload — ignore silently
@@ -123,7 +173,7 @@ export function NotificationCenter() {
                 },
             );
 
-            return () => subscription.unsubscribe();
+            return () => unsubscribe();
         };
 
         const cleanupPromise = setup();
@@ -193,18 +243,24 @@ export function NotificationCenter() {
             {isOpen && (
                 <>
                     {/* Backdrop */}
-                    <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)} />
+                    <div
+                        className="fixed inset-0 z-40"
+                        onClick={() => setIsOpen(false)}
+                    />
 
                     <div className="absolute right-0 top-12 w-96 bg-popover rounded-xl shadow-xl border border-border z-50">
                         <div className="flex items-center justify-between p-4 border-b border-border">
-                            <h3 className="font-semibold text-foreground">Notifications</h3>
+                            <h3 className="font-semibold text-foreground">
+                                Notifications
+                            </h3>
                             <div className="flex items-center gap-2">
                                 {unreadCount > 0 && (
                                     <button
                                         onClick={handleMarkAllRead}
                                         className="flex items-center gap-1 text-xs text-brand hover:text-brand/80 transition-colors"
                                     >
-                                        <Check className="h-3 w-3" /> Mark all read
+                                        <Check className="h-3 w-3" /> Mark all
+                                        read
                                     </button>
                                 )}
                                 <button
@@ -218,28 +274,39 @@ export function NotificationCenter() {
 
                         <div className="max-h-96 overflow-y-auto divide-y divide-border">
                             {isLoading ? (
-                                <div className="p-6 text-center text-sm text-muted-foreground">Loading...</div>
+                                <div className="p-6 text-center text-sm text-muted-foreground">
+                                    Loading...
+                                </div>
                             ) : notifications.length === 0 ? (
-                                <div className="p-6 text-center text-sm text-muted-foreground">No notifications yet</div>
+                                <div className="p-6 text-center text-sm text-muted-foreground">
+                                    No notifications yet
+                                </div>
                             ) : (
                                 notifications.map((notif) => (
                                     <button
                                         key={notif.id}
                                         type="button"
-                                        onClick={() => void handleNotificationClick(notif)}
+                                        onClick={() =>
+                                            void handleNotificationClick(notif)
+                                        }
                                         className={cn(
                                             "w-full text-left p-4 hover:brightness-95 transition-all border-b border-border last:border-0",
-                                            !notif.read && getColorClass(notif.type),
+                                            !notif.read &&
+                                                getColorClass(notif.type),
                                         )}
                                     >
                                         <div className="flex items-start gap-3">
-                                            <div className="mt-0.5 shrink-0">{getIcon(notif.type)}</div>
+                                            <div className="mt-0.5 shrink-0">
+                                                {getIcon(notif.type)}
+                                            </div>
                                             <div className="flex-1 min-w-0">
                                                 <p className="text-sm text-foreground line-clamp-2">
                                                     {notif.content}
                                                 </p>
                                                 <p className="text-xs text-muted-foreground mt-1">
-                                                    {new Date(notif.createdAt).toLocaleString()}
+                                                    {new Date(
+                                                        notif.createdAt,
+                                                    ).toLocaleString()}
                                                 </p>
                                             </div>
                                             {!notif.read && (

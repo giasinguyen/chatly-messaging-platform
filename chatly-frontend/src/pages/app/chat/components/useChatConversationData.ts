@@ -5,6 +5,7 @@ import { notificationService } from "@/services/notification.service";
 import { useAuthStore } from "@/store/auth.store";
 import { useConversationPrefsStore } from "@/store/conversationPrefs.store";
 import { useNotificationStore } from "@/store/notification.store";
+import { playNotificationSound } from "@/store/notificationPrefs.store";
 import { useChatSocket } from "@/hooks/useChatSocket";
 import {
     usePresenceSocket,
@@ -20,7 +21,6 @@ import type { ConversationResponse } from "@/types/conversation";
 import type { UserResponse } from "@/types/auth";
 import {
     CHAT_WINDOW_PAGE_SIZE,
-    MESSAGE_NOTIFICATION_SOUND_URL,
 } from "./chatWindow.utils";
 import type { FailedMessageItem } from "./messageList.utils";
 import { useChatConversationInit } from "./useChatConversationInit";
@@ -171,9 +171,7 @@ export function useChatConversationData({
                     sendSeen(msg.id);
                     const isMuted = getPrefs(id).isMuted ?? false;
                     if (!isMuted) {
-                        new Audio(MESSAGE_NOTIFICATION_SOUND_URL)
-                            .play()
-                            .catch(() => {});
+                        playNotificationSound();
                     }
                 }
             } else if (

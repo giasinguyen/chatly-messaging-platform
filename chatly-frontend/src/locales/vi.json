@@ -174,11 +174,12 @@
             "sound_label": "Loại âm thanh",
             "sound_placeholder": "Chọn âm thanh",
             "sound_soft_bell": "Chuông nhẹ",
-            "sound_classic_pop": "Pop cổ điển",
             "sound_silent": "Im lặng",
             "dnd_title": "Không làm phiền",
             "dnd_start": "Bắt đầu",
-            "dnd_end": "Kết thúc"
+            "dnd_end": "Kết thúc",
+            "browser_notifications": "Hiển thị thông báo trên trình duyệt",
+            "sound_iphone": "Chuông lớn"
         },
         "messages": {
             "title": "Cài đặt tin nhắn",

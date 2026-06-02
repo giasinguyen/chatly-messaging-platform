@@ -40,6 +40,7 @@ import { $generateHtmlFromNodes, $generateNodesFromDOM } from "@lexical/html";
 import { Bold, Italic, Underline, Strikethrough, List, ListOrdered } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import type { MessageSendShortcut } from "@/store/messagePrefs.store";
 
 type EditorMode = "plain" | "editor";
 
@@ -48,6 +49,7 @@ interface RichTextMessageEditorProps {
     onChange: (nextHtml: string, nextText: string) => void;
     onSend: () => void;
     mode?: EditorMode;
+    sendShortcut?: MessageSendShortcut;
 }
 
 interface EditorToolbarButton {
@@ -161,9 +163,15 @@ interface EditorBridgeProps {
     onEditorReady: (editor: LexicalEditor) => void;
     onSend: () => void;
     initialHtml?: string;
+    sendShortcut: MessageSendShortcut;
 }
 
-function EditorBridge({ onEditorReady, onSend, initialHtml }: EditorBridgeProps) {
+function EditorBridge({
+    onEditorReady,
+    onSend,
+    initialHtml,
+    sendShortcut,
+}: EditorBridgeProps) {
     const [editor] = useLexicalComposerContext();
     const lastHydratedHtmlRef = useRef<string | null>(null);
 
@@ -175,7 +183,12 @@ function EditorBridge({ onEditorReady, onSend, initialHtml }: EditorBridgeProps)
         return editor.registerCommand<KeyboardEvent>(
             KEY_ENTER_COMMAND,
             (event) => {
-                if (event.shiftKey) {
+                const shouldSend =
+                    sendShortcut === "enter"
+                        ? !event.shiftKey && !event.ctrlKey && !event.metaKey
+                        : event.ctrlKey || event.metaKey;
+
+                if (!shouldSend) {
                     return false;
                 }
                 event.preventDefault();
@@ -184,7 +197,7 @@ function EditorBridge({ onEditorReady, onSend, initialHtml }: EditorBridgeProps)
             },
             COMMAND_PRIORITY_EDITOR,
         );
-    }, [editor, onSend]);
+    }, [editor, onSend, sendShortcut]);
 
     useEffect(() => {
         const normalizedHtml = initialHtml?.trim() ?? "";
@@ -227,7 +240,7 @@ function EditorBridge({ onEditorReady, onSend, initialHtml }: EditorBridgeProps)
 export const RichTextMessageEditor = forwardRef<
     RichTextMessageEditorRef,
     RichTextMessageEditorProps
->(({ initialHtml, onChange, onSend, mode = "editor" }, ref) => {
+>(({ initialHtml, onChange, onSend, mode = "editor", sendShortcut = "enter" }, ref) => {
     const editorRef = useRef<LexicalEditor | null>(null);
 
     const editorConfig = useMemo<InitialConfigType>(
@@ -310,6 +323,7 @@ export const RichTextMessageEditor = forwardRef<
                     onEditorReady={(editor) => (editorRef.current = editor)}
                     onSend={onSend}
                     initialHtml={initialHtml}
+                    sendShortcut={sendShortcut}
                 />
                 <EditorToolbar />
                 <RichTextPlugin

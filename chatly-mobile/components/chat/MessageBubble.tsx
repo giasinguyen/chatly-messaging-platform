@@ -1000,7 +1000,7 @@ export function MessageBubble({
           style={{
             flexDirection: 'row',
             alignItems: 'center',
-            justifyContent: 'flex-end',
+            justifyContent: isMe ? 'flex-end' : 'flex-start',
             paddingHorizontal: 14,
             paddingBottom: 8,
             gap: 4,
@@ -1693,7 +1693,8 @@ export function MessageBubble({
                     borderBottomLeftRadius: isMe ? 20 : 6,
                   }}>
                   {renderTextContent()}
-                  <View className="mt-1 flex-row items-center justify-end">
+                  <View
+                    className={`mt-1 flex-row items-center ${isMe ? 'justify-end' : 'justify-start'}`}>
                     <Text
                       className="text-[10px]"
                       style={{ color: isMe ? 'rgba(255,255,255,0.6)' : Colors.textLight }}>
@@ -1902,7 +1903,7 @@ export function MessageBubble({
               style={{
                 flexDirection: 'row',
                 alignItems: 'center',
-                marginLeft: 4,
+                marginLeft: 38,
                 marginBottom: 2,
                 gap: 4,
               }}>
@@ -1914,24 +1915,27 @@ export function MessageBubble({
               )}
             </View>
           )}
-          <TouchableOpacity activeOpacity={0.8} onLongPress={onLongPress} delayLongPress={300}>
-            {renderContent()}
-            <View
-              className="mt-0.5 flex-row items-center"
-              style={{ alignSelf: isMe ? 'flex-end' : 'flex-start' }}>
-              <Text className="text-[10px]" style={{ color: Colors.textLight }}>
-                {formatMessageTime(createdAt)}
-              </Text>
-              {isMe && (
-                <Ionicons
-                  name={readBy && readBy.length > 0 ? 'checkmark-done' : 'checkmark'}
-                  size={14}
-                  color={readBy && readBy.length > 0 ? '#60D4F2' : Colors.textLight}
-                  style={{ marginLeft: 3 }}
-                />
-              )}
-            </View>
-          </TouchableOpacity>
+          <View style={{ flexDirection: 'row', alignItems: 'flex-end' }}>
+            {renderSenderAvatar()}
+            <TouchableOpacity activeOpacity={0.8} onLongPress={onLongPress} delayLongPress={300}>
+              {renderContent()}
+              <View
+                className="mt-0.5 flex-row items-center"
+                style={{ alignSelf: isMe ? 'flex-end' : 'flex-start' }}>
+                <Text className="text-[10px]" style={{ color: Colors.textLight }}>
+                  {formatMessageTime(createdAt)}
+                </Text>
+                {isMe && (
+                  <Ionicons
+                    name={readBy && readBy.length > 0 ? 'checkmark-done' : 'checkmark'}
+                    size={14}
+                    color={readBy && readBy.length > 0 ? '#60D4F2' : Colors.textLight}
+                    style={{ marginLeft: 3 }}
+                  />
+                )}
+              </View>
+            </TouchableOpacity>
+          </View>
 
           {/* Reaction badges */}
           {message.reactions && message.reactions.length > 0 && (
@@ -1970,6 +1974,7 @@ export function MessageBubble({
             </View>
           )}
         </Animated.View>
+        {quickProfileDialog}
       </>
     );
   }
@@ -2075,7 +2080,8 @@ export function MessageBubble({
               {renderContent()}
 
               {/* Time + status */}
-              <View className="mt-1 flex-row items-center justify-end">
+              <View
+                className={`mt-1 flex-row items-center ${isMe ? 'justify-end' : 'justify-start'}`}>
                 {edited && (
                   <Text
                     className="mr-1 text-[10px]"

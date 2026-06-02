@@ -1216,6 +1216,15 @@
     "group_incoming_summary_plural": "{{name}} is calling · {{count}} participants"
   },
   "mobile": {
+    "language_onboarding": {
+      "title": "Choose your language",
+      "subtitle": "Set the language you want to use before starting Chatly.",
+      "vietnamese_title": "Vietnamese",
+      "vietnamese_subtitle": "Use Chatly in Vietnamese",
+      "english_title": "English",
+      "english_subtitle": "Use Chatly in English",
+      "continue": "Continue"
+    },
     "common": {
       "info": "Info",
       "success": "Success",

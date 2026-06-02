@@ -301,10 +301,7 @@ export const ChatList = forwardRef(function ChatListComponent(_, ref) {
             await socketService.connect(token);
             if (disposed) return;
 
-            const client = socketService.getClient();
-            if (!client) return;
-
-            const subscription = client.subscribe(
+            const unsubscribe = socketService.subscribe(
                 "/user/queue/notifications",
                 (payload) => {
                     const event = JSON.parse(payload.body) as NotificationEvent;
@@ -339,7 +336,7 @@ export const ChatList = forwardRef(function ChatListComponent(_, ref) {
                 },
             );
 
-            return () => subscription.unsubscribe();
+            return () => unsubscribe();
         };
 
         const cleanupPromise = setup();
@@ -403,11 +400,8 @@ export const ChatList = forwardRef(function ChatListComponent(_, ref) {
 
         let disposed = false;
 
-        const createSubscription = (
-            client: import("@stomp/stompjs").Client,
-            conv: ConversationResponse,
-        ) => {
-            return client.subscribe(
+        const createSubscription = (conv: ConversationResponse) => {
+            const unsubscribe = socketService.subscribe(
                 `/topic/conversation.${conv.id}`,
                 (payload) => {
                     const event = JSON.parse(payload.body) as ChatEvent;
@@ -469,6 +463,8 @@ export const ChatList = forwardRef(function ChatListComponent(_, ref) {
                     }
                 },
             );
+
+            return { unsubscribe };
         };
 
         const setup = async () => {
@@ -479,9 +475,6 @@ export const ChatList = forwardRef(function ChatListComponent(_, ref) {
                 await socketService.connect(token);
                 if (disposed) return;
 
-                const client = socketService.getClient();
-                if (!client) return;
-
                 const currentIds = new Set(conversations.map((c) => c.id));
                 const subscribedIds = new Set(subscriptionsRef.current.keys());
 
@@ -490,7 +483,7 @@ export const ChatList = forwardRef(function ChatListComponent(_, ref) {
                     if (!subscribedIds.has(conv.id)) {
                         subscriptionsRef.current.set(
                             conv.id,
-                            createSubscription(client, conv),
+                            createSubscription(conv),
                         );
                     }
                 }

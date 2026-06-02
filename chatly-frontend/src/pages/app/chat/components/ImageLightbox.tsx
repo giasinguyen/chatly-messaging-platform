@@ -1,4 +1,4 @@
-import { type KeyboardEvent } from "react";
+import { type KeyboardEvent, useEffect, useRef } from "react";
 import { ChevronLeft, ChevronRight, Download, X } from "lucide-react";
 import type { LightboxImage } from "./messageList.utils";
 
@@ -10,20 +10,54 @@ interface ImageLightboxProps {
 
 export function ImageLightbox({ images, index, onIndexChange }: ImageLightboxProps) {
     const current = images[index];
-    if (!current) return null;
+    const pointerStartXRef = useRef<number | null>(null);
+    const activeThumbnailRef = useRef<HTMLButtonElement | null>(null);
+
+    const canGoPrevious = index > 0;
+    const canGoNext = index < images.length - 1;
+
+    const handlePrevious = () => {
+        if (canGoPrevious) onIndexChange(index - 1);
+    };
+
+    const handleNext = () => {
+        if (canGoNext) onIndexChange(index + 1);
+    };
 
     const handleKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
         e.stopPropagation();
 
         if (e.key === "Escape") onIndexChange(null);
-        if (e.key === "ArrowLeft" && index > 0) onIndexChange(index - 1);
-        if (e.key === "ArrowRight" && index < images.length - 1)
-            onIndexChange(index + 1);
+        if (e.key === "ArrowLeft") handlePrevious();
+        if (e.key === "ArrowRight") handleNext();
     };
+
+    const handlePointerUp = (clientX: number) => {
+        if (pointerStartXRef.current === null) return;
+        const distance = clientX - pointerStartXRef.current;
+        pointerStartXRef.current = null;
+
+        if (Math.abs(distance) < 60) return;
+        if (distance > 0) {
+            handlePrevious();
+            return;
+        }
+        handleNext();
+    };
+
+    useEffect(() => {
+        activeThumbnailRef.current?.scrollIntoView({
+            behavior: "smooth",
+            block: "nearest",
+            inline: "center",
+        });
+    }, [index]);
+
+    if (!current) return null;
 
     return (
         <div
-            className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-md flex items-center justify-center pointer-events-auto outline-none animate-in fade-in duration-200"
+            className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-md flex flex-col items-center justify-center pointer-events-auto outline-none animate-in fade-in duration-200"
             tabIndex={-1}
             onKeyDown={handleKeyDown}
             onClick={(e) => {
@@ -62,34 +96,77 @@ export function ImageLightbox({ images, index, onIndexChange }: ImageLightboxPro
                 </div>
             </div>
 
-            {index > 0 && (
+            {canGoPrevious && (
                 <button
                     className="absolute left-4 p-2 text-white/50 hover:text-white bg-black/20 hover:bg-black/50 rounded-full transition-all"
                     onClick={(e) => {
                         e.stopPropagation();
-                        onIndexChange(index - 1);
+                        handlePrevious();
                     }}
                 >
                     <ChevronLeft size={36} />
                 </button>
             )}
-            {index < images.length - 1 && (
+            {canGoNext && (
                 <button
                     className="absolute right-4 p-2 text-white/50 hover:text-white bg-black/20 hover:bg-black/50 rounded-full transition-all"
                     onClick={(e) => {
                         e.stopPropagation();
-                        onIndexChange(index + 1);
+                        handleNext();
                     }}
                 >
                     <ChevronRight size={36} />
                 </button>
             )}
 
-            <img
-                src={current.url}
-                alt={current.name}
-                className="max-h-[90vh] max-w-[90vw] object-contain select-none"
-            />
+            <div
+                className="flex min-h-0 flex-1 items-center justify-center px-14 pb-24 pt-16"
+                onClick={(e) => e.stopPropagation()}
+                onPointerDown={(e) => {
+                    pointerStartXRef.current = e.clientX;
+                }}
+                onPointerUp={(e) => handlePointerUp(e.clientX)}
+                onPointerCancel={() => {
+                    pointerStartXRef.current = null;
+                }}
+            >
+                <img
+                    src={current.url}
+                    alt={current.name}
+                    className="max-h-full max-w-full object-contain select-none"
+                    draggable={false}
+                />
+            </div>
+
+            {images.length > 1 && (
+                <div
+                    className="absolute bottom-0 inset-x-0 bg-black/50 px-4 py-3"
+                    onClick={(e) => e.stopPropagation()}
+                >
+                    <div className="mx-auto flex max-w-4xl gap-2 overflow-x-auto pb-1">
+                        {images.map((image, imageIndex) => (
+                            <button
+                                key={image.id}
+                                type="button"
+                                ref={imageIndex === index ? activeThumbnailRef : null}
+                                className={`h-16 w-16 shrink-0 overflow-hidden rounded border transition ${
+                                    imageIndex === index
+                                        ? "border-white opacity-100"
+                                        : "border-white/20 opacity-60 hover:opacity-100"
+                                }`}
+                                onClick={() => onIndexChange(imageIndex)}
+                            >
+                                <img
+                                    src={image.url}
+                                    alt={image.name}
+                                    className="h-full w-full object-cover"
+                                    draggable={false}
+                                />
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

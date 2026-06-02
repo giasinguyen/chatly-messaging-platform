@@ -16,10 +16,15 @@ interface UsePresenceSocketProps {
  * Hook to subscribe to WebSocket topic /topic/presence
  * to update online/offline status in real-time.
  */
-export function usePresenceSocket({ onPresenceChange }: UsePresenceSocketProps) {
+export function usePresenceSocket({
+    onPresenceChange,
+}: UsePresenceSocketProps) {
     const { user } = useAuthStore();
     const callbackRef = useRef(onPresenceChange);
-    callbackRef.current = onPresenceChange;
+
+    useEffect(() => {
+        callbackRef.current = onPresenceChange;
+    }, [onPresenceChange]);
 
     useEffect(() => {
         if (!user) return;
@@ -31,17 +36,19 @@ export function usePresenceSocket({ onPresenceChange }: UsePresenceSocketProps) 
             if (!token) return;
 
             await socketService.connect(token);
-            const client = socketService.getClient();
 
-            if (!client || !isMounted) return;
+            if (!isMounted) return;
 
-            const sub = client.subscribe("/topic/presence", (payload: { body: string }) => {
-                const event: PresenceEvent = JSON.parse(payload.body);
-                callbackRef.current(event);
-            });
+            const unsubscribe = socketService.subscribe(
+                "/topic/presence",
+                (payload) => {
+                    const event: PresenceEvent = JSON.parse(payload.body);
+                    callbackRef.current(event);
+                },
+            );
 
             return () => {
-                sub.unsubscribe();
+                unsubscribe();
             };
         };
 
