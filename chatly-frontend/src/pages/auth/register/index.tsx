@@ -1,9 +1,11 @@
-import { Link, useNavigate } from "react-router-dom";
+import { useState } from "react";
+import { Link } from "react-router-dom";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { AxiosError } from "axios";
 import { Trans, useTranslation } from "react-i18next";
+import { ArrowRight, MailCheck } from "lucide-react";
 
 import {
     registerSchema,
@@ -22,6 +24,10 @@ import "../login/login.css";
 
 export default function RegisterPage() {
     const { t, i18n } = useTranslation();
+    const [isRegistrationComplete, setIsRegistrationComplete] = useState(false);
+    const [verificationEmail, setVerificationEmail] = useState<string | null>(
+        null,
+    );
     const form = useForm<RegisterFormValues>({
         resolver: zodResolver(registerSchema),
         mode: "onChange",
@@ -39,7 +45,6 @@ export default function RegisterPage() {
 
     const setGlobalLoading = useAuthStore((s) => s.setLoading);
     const isGlobalLoading = useAuthStore((s) => s.loading);
-    const navigate = useNavigate();
 
     const onSubmit = async (data: RegisterFormValues) => {
         const { identifier, month, day, year, ...rest } = data;
@@ -65,8 +70,9 @@ export default function RegisterPage() {
             const response = await authService.register(payload);
 
             if (response.code === 1000) {
-                toast.success(t("auth.register.success"));
-                navigate("/auth/login");
+                setVerificationEmail(identifier);
+                setIsRegistrationComplete(true);
+                form.reset();
             } else {
                 toast.error(response.message || t("auth.register.failed"));
             }
@@ -112,10 +118,40 @@ export default function RegisterPage() {
                     {t("auth.register.title")}
                 </h1>
 
-                <form
-                    onSubmit={form.handleSubmit(onSubmit)}
-                    className="flex flex-col gap-4"
-                >
+                {isRegistrationComplete ? (
+                    <div className="flex flex-col items-center gap-5 text-center">
+                        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-brand/10 text-brand ring-8 ring-brand/5">
+                            <MailCheck className="h-8 w-8" />
+                        </div>
+                        <div className="space-y-2">
+                            <h2 className="text-xl font-bold text-gray-950 dark:text-white">
+                                {t("auth.register.verify_email_title")}
+                            </h2>
+                            <p className="text-sm leading-6 text-gray-600 dark:text-[#b0b3bc]">
+                                {t("auth.register.verify_email_description")}
+                            </p>
+                            {verificationEmail ? (
+                                <p className="rounded-xl border border-brand/20 bg-brand/5 px-3 py-2 text-sm font-semibold text-brand">
+                                    {verificationEmail}
+                                </p>
+                            ) : null}
+                            <p className="text-xs leading-5 text-gray-500 dark:text-[#a0a3ab]">
+                                {t("auth.register.verify_email_hint")}
+                            </p>
+                        </div>
+                        <Link
+                            to="/auth/login"
+                            className="flex w-full items-center justify-center gap-2 rounded-full bg-brand py-3.5 text-[15px] font-bold text-white transition-all duration-300 hover:scale-[1.02] hover:bg-brand-hover active:scale-[0.99]"
+                        >
+                            <span>{t("auth.register.go_to_login")}</span>
+                            <ArrowRight className="h-4 w-4" />
+                        </Link>
+                    </div>
+                ) : (
+                    <form
+                        onSubmit={form.handleSubmit(onSubmit)}
+                        className="flex flex-col gap-4"
+                    >
                     <FieldGroup>
                         {/* Email */}
                         <Controller
@@ -440,7 +476,8 @@ export default function RegisterPage() {
                             {t("auth.register.already_have_account")}
                         </Link>
                     </div>
-                </form>
+                    </form>
+                )}
             </div>
         </div>
     );

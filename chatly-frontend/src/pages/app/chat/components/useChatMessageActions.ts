@@ -1,5 +1,6 @@
 import { useCallback, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { messageService } from "@/services/message.service";
 import { agentService } from "@/services/agent.service";
@@ -46,6 +47,7 @@ export function useChatMessageActions({
     setFailedMessages,
     sendMessage,
 }: UseChatMessageActionsOptions) {
+    const { t } = useTranslation();
     const [forwardingMessage, setForwardingMessage] = useState<Message | null>(null);
     const [forwardingToAiMessage, setForwardingToAiMessage] = useState<Message | null>(null);
     const navigate = useNavigate();
@@ -183,12 +185,12 @@ export function useChatMessageActions({
             try {
                 await messageService.delete(messageId);
                 setMessages((prev) => prev.filter((m) => m.id !== messageId));
-                toast.success("Message deleted");
+                toast.success(t("chat.message_deleted"));
             } catch (error) {
-                toast.error(getErrorMessage(error, "Could not delete message"));
+                toast.error(getErrorMessage(error, t("chat.delete_message_failed")));
             }
         },
-        [setMessages],
+        [setMessages, t],
     );
 
     const handleForward = useCallback((message: Message) => {
