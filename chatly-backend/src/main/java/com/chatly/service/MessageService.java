@@ -28,7 +28,6 @@ import com.chatly.websocket.ChatEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
@@ -71,6 +70,14 @@ public class MessageService {
     private static final long UNANSWERED_CHECK_DELAY_S = 1800;
     private static final String AI_TYPING_USER_ID = "AI";
     private static final long AI_TYPING_TIMEOUT_S = 120;
+    private static final String FIELD_ID = "_id";
+    private static final String FIELD_CONVERSATION_ID = "conversationId";
+    private static final String FIELD_CREATED_AT = "createdAt";
+    private static final String FIELD_DELETED_BY = "deletedBy";
+    private static final String FIELD_RECALLED = "recalled";
+    private static final String FIELD_CONTENT = "content";
+    private static final String FIELD_PINNED = "pinned";
+    private static final String FIELD_PINNED_AT = "pinnedAt";
     private static final Set<String> ALLOWED_EMOJIS = Set.of("👍", "❤️", "😂", "😮", "😢", "😡", "🔥", "👏");
         private static final Set<MessageType> FORWARDABLE_TYPES = Set.of(MessageType.TEXT, MessageType.IMAGE, MessageType.FILE, MessageType.GIF, MessageType.STICKER);
 
@@ -181,10 +188,13 @@ public class MessageService {
     public List<MessageResponse> getByConversation(String conversationId, String userId, int page, int size) {
         getConversationForParticipant(conversationId, userId);
 
-        Page<Message> messages = messageRepository
-                .findByConversationIdOrderByCreatedAtDesc(conversationId, PageRequest.of(page, size));
+        Query query = visibleMessagesQuery(conversationId, userId)
+                .with(org.springframework.data.domain.Sort.by(
+                        org.springframework.data.domain.Sort.Direction.DESC, FIELD_CREATED_AT))
+                .skip((long) page * size)
+                .limit(size);
 
-        return messages.getContent().stream()
+        return mongoTemplate.find(query, Message.class).stream()
                 .map(messageMapper::toResponse)
                 .toList();
     }
@@ -193,11 +203,13 @@ public class MessageService {
             String conversationId, String userId, Instant from, Instant to) {
         getConversationForParticipant(conversationId, userId);
 
-        List<Message> messages = messageRepository
-                .findByConversationIdAndCreatedAtBetweenOrderByCreatedAtAsc(
-                        conversationId, from, to, PageRequest.of(0, MAX_MESSAGES_PER_RANGE));
+        Query query = visibleMessagesQuery(conversationId, userId)
+                .addCriteria(Criteria.where(FIELD_CREATED_AT).gte(from).lte(to))
+                .with(org.springframework.data.domain.Sort.by(
+                        org.springframework.data.domain.Sort.Direction.ASC, FIELD_CREATED_AT))
+                .limit(MAX_MESSAGES_PER_RANGE);
 
-        return messages.stream()
+        return mongoTemplate.find(query, Message.class).stream()
                 .map(messageMapper::toResponse)
                 .toList();
     }
@@ -326,17 +338,21 @@ public class MessageService {
         return response;
     }
 
-    public void delete(String messageId, String senderId) {
+    public void delete(String messageId, String userId) {
         Message message = messageRepository.findById(messageId)
                 .orElseThrow(() -> new AppException(ErrorCode.MESSAGE_NOT_FOUND));
 
-        if (!message.getSenderId().equals(senderId)) {
-            throw new AppException(ErrorCode.GROUP_PERMISSION_DENIED);
+        getConversationForParticipant(message.getConversationId(), userId);
+
+        if (message.getDeletedBy().contains(userId)) {
+            return;
         }
 
-        MessageResponse response = messageMapper.toResponse(message);
-        messageRepository.deleteById(messageId);
-        broadcastEvent(message.getConversationId(), ChatEvent.ChatAction.DELETE, response);
+        mongoTemplate.updateFirst(
+                Query.query(Criteria.where(FIELD_ID).is(messageId)),
+                new Update().addToSet(FIELD_DELETED_BY, userId),
+                Message.class
+        );
     }
 
     public MessageResponse react(String messageId, String userId, String emoji) {
@@ -384,11 +400,12 @@ public class MessageService {
         String escapedKeyword = java.util.regex.Pattern.quote(keyword);
 
         Query query = new Query(
-                Criteria.where("conversationId").is(conversationId)
-                        .and("recalled").is(false)
-                        .and("content").regex(escapedKeyword, "i")
+                visibleMessagesCriteria(conversationId, userId)
+                        .and(FIELD_RECALLED).is(false)
+                        .and(FIELD_CONTENT).regex(escapedKeyword, "i")
         )
-                .with(org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC, "createdAt"))
+                .with(org.springframework.data.domain.Sort.by(
+                        org.springframework.data.domain.Sort.Direction.DESC, FIELD_CREATED_AT))
                 .skip((long) page * size)
                 .limit(size);
 
@@ -523,10 +540,10 @@ public class MessageService {
         }
 
         Query query = new Query(
-                Criteria.where("conversationId").is(conversationId)
-                        .and("pinned").is(true)
+                visibleMessagesCriteria(conversationId, userId)
+                        .and(FIELD_PINNED).is(true)
         ).with(org.springframework.data.domain.Sort.by(
-                org.springframework.data.domain.Sort.Direction.DESC, "pinnedAt"
+                org.springframework.data.domain.Sort.Direction.DESC, FIELD_PINNED_AT
         ));
 
         return mongoTemplate.find(query, Message.class).stream()
@@ -626,6 +643,15 @@ public class MessageService {
                 "/topic/conversation." + conversationId,
                 ChatEvent.builder().action(action).message(message).build()
         );
+    }
+
+    private Query visibleMessagesQuery(String conversationId, String userId) {
+        return new Query(visibleMessagesCriteria(conversationId, userId));
+    }
+
+    private Criteria visibleMessagesCriteria(String conversationId, String userId) {
+        return Criteria.where(FIELD_CONVERSATION_ID).is(conversationId)
+                .and(FIELD_DELETED_BY).nin(userId);
     }
 
         private Conversation getConversationForParticipant(String conversationId, String userId) {
