@@ -4,7 +4,6 @@ All routes here are protected by the X-API-Key header (same key used for
 MCP SSE endpoints).  They are never exposed to end-users directly.
 """
 
-import asyncio
 import logging
 
 from fastapi import APIRouter, BackgroundTasks, Depends, status
@@ -98,7 +97,7 @@ async def _run_assist(
     content: str,
     chat_service: ChatService,
 ) -> None:
-    """Background task: run the MentionAgent and deliver response via sendAiMessage."""
+    """Background task: run the GroupAgent and deliver response via sendAiMessage."""
     try:
         await chat_service.run_group_assist(
             user_id=user_id,
@@ -137,7 +136,8 @@ async def _run_social_mention_assist(
         )
     except Exception:
         logger.exception(
-            "social mention task failed user_id=%s session_id=%s post_id=%s comment_id=%s",
+            "social mention task failed user_id=%s session_id=%s "
+            "post_id=%s comment_id=%s",
             user_id,
             session_id,
             post_id,
@@ -325,7 +325,7 @@ async def trigger_briefing(
 
 
 class IndexFileRequest(BaseModel):
-    """Payload sent by the backend FileUploadService when an indexable file is uploaded."""
+    """Payload sent when the backend uploads an indexable file."""
 
     conversation_id: str = Field(
         ..., description="Group conversation that owns the file"

@@ -29,11 +29,10 @@ class UnifiedAgent(BaseAgent):
         self,
         llm: ChatGroq,
         tools: list[BaseTool],
-        checkpointer: Any | None = None,
     ) -> None:
         self._llm = llm
         self._tools = tools
-        self._graph = create_react_agent(llm, tools, checkpointer=checkpointer)
+        self._graph = create_react_agent(llm, tools)
         self.agent_type: str = "unified"
 
     def _build_messages(self, input: ChatInput) -> list[Any]:

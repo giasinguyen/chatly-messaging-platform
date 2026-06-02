@@ -3,10 +3,11 @@ from collections.abc import AsyncIterator
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from langchain_core.messages import AIMessageChunk
+from langchain_core.messages import AIMessageChunk, HumanMessage
 from langchain_core.tools import BaseTool
 
 from app.models.chat import ChatOutput, ChatRequest
+from app.services import chat_service as chat_service_module
 from app.services.chat_service import ChatService
 from app.services.tool_service import ToolService
 
@@ -82,6 +83,51 @@ async def test_chat_saves_user_and_assistant_messages() -> None:
     assert response.message_id == "m-assistant"
     assert response.agent_type == "chatbot"
     assert message_repo.create_message.await_count == 2
+
+
+@pytest.mark.asyncio
+async def test_chat_sends_trimmed_recent_history_to_agent() -> None:
+    session_service = AsyncMock()
+    message_repo = AsyncMock()
+    long_content = "x" * (chat_service_module.MAX_MODEL_HISTORY_MESSAGE_CHARS + 100)
+    message_repo.find_by_session.return_value = [
+        {"role": "user", "content": f"old-{index}"}
+        for index in range(20)
+    ] + [{"role": "user", "content": long_content}]
+    message_repo.create_message.side_effect = [{"id": "m-user"}, {"id": "m-assistant"}]
+
+    chatbot_agent = AsyncMock()
+    chatbot_agent.agent_type = "chatbot"
+    chatbot_agent.ainvoke.return_value = ChatOutput(
+        content="reply",
+        session_id="session-1",
+        agent_type="chatbot",
+    )
+
+    service = ChatService(
+        session_service=session_service,
+        message_repo=message_repo,
+        chatbot_agent=chatbot_agent,
+        vector_service=AsyncMock(has_context=AsyncMock(return_value=False)),
+    )
+
+    await service.chat(
+        user_id="user-1",
+        session_id="session-1",
+        request=ChatRequest(message="hello"),
+    )
+
+    chat_input = chatbot_agent.ainvoke.await_args.args[0]
+    history = chat_input.history
+    assert len(history) == chat_service_module.MAX_MODEL_HISTORY_MESSAGES
+    assert isinstance(history[0], HumanMessage)
+    assert history[0].content == "old-9"
+    assert str(history[-1].content).endswith(
+        chat_service_module.TRUNCATED_HISTORY_SUFFIX
+    )
+    assert len(str(history[-1].content)) == (
+        chat_service_module.MAX_MODEL_HISTORY_MESSAGE_CHARS
+    )
 
 
 @pytest.mark.asyncio

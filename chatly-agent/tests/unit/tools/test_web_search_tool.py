@@ -3,6 +3,7 @@
 from unittest.mock import patch
 
 import pytest
+from langchain_core.tools import BaseTool
 
 from app.tools.web_search_tool import create_web_search_tool, web_search_available
 
@@ -20,22 +21,23 @@ def test_web_search_available_returns_false_when_key_empty() -> None:
 
 
 def test_create_web_search_tool_returns_tavily_instance() -> None:
-    from langchain_tavily import TavilySearch
-
     with patch("app.tools.web_search_tool.settings") as mock_settings:
         mock_settings.tavily_api_key = "tvly-abc123"
         tool = create_web_search_tool()
-        assert isinstance(tool, TavilySearch)
+        assert isinstance(tool, BaseTool)
+        assert tool.name == "tavily_search"
 
 
-def test_create_web_search_tool_respects_max_results() -> None:
-    from langchain_tavily import TavilySearch
-
+def test_create_web_search_tool_exposes_only_query_schema() -> None:
     with patch("app.tools.web_search_tool.settings") as mock_settings:
         mock_settings.tavily_api_key = "tvly-abc123"
-        tool = create_web_search_tool(max_results=3)
-        assert isinstance(tool, TavilySearch)
-        assert tool.max_results == 3
+        tool = create_web_search_tool()
+        assert tool.args == {
+            "query": {
+                "title": "Query",
+                "type": "string",
+            }
+        }
 
 
 def test_create_web_search_tool_raises_when_key_missing() -> None:

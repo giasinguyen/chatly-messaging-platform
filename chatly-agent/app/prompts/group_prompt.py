@@ -1,4 +1,4 @@
-"""Prompt templates for group @AI mention workflows (MentionAgent).
+"""Prompt templates for group @AI mention workflows (GroupAgent).
 
 This prompt drives the agent that handles @AI mentions inside group conversations.
 The agent runs as a background task: it reads context, generates a reply, and calls
@@ -13,7 +13,7 @@ Design notes:
   of which skills are loaded.
 """
 
-MENTION_SYSTEM_PROMPT = (
+GROUP_SYSTEM_PROMPT = (
     # ── Identity ──────────────────────────────────────────────────────────
     "You are Chatly AI, responding to an @AI mention inside a group conversation.\n"
     "Current user ID: {user_id}.\n"
