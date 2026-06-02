@@ -57,6 +57,7 @@ import { AudioRecordingBar } from "./AudioRecordingBar";
 import { RichTextMessageEditor, type RichTextMessageEditorRef } from "./RichTextMessageEditor";
 import { toMessagePreviewText } from "./richTextMessage.utils";
 import { fileToAttachment, isUserUploadedCloudFile } from "@/utils/fileAttachment";
+import { useMessagePrefsStore } from "@/store/messagePrefs.store";
 
 const LazyMediaPicker = lazy(() => import("@/components/media-picker/MediaPicker").then(m => ({ default: m.MediaPicker })));
 
@@ -114,6 +115,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
 }, ref) => {
     const { t } = useTranslation();
     const { user } = useAuthStore();
+    const sendShortcut = useMessagePrefsStore((state) => state.sendShortcut);
     const [content, setContent] = useState("");
     const [inputMode, setInputMode] = useState<"plain" | "editor">("plain");
     const [editorHtmlContent, setEditorHtmlContent] = useState("");
@@ -471,7 +473,12 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
             return;
         }
 
-        if (e.key === "Enter" && !e.shiftKey) {
+        const shouldSend =
+            sendShortcut === "enter"
+                ? e.key === "Enter" && !e.shiftKey && !e.ctrlKey && !e.metaKey
+                : e.key === "Enter" && (e.ctrlKey || e.metaKey);
+
+        if (shouldSend) {
             e.preventDefault();
             handleSend();
         }
@@ -1158,6 +1165,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
                                     mode={inputMode}
                                     onChange={handleEditorChange}
                                     onSend={handleSend}
+                                    sendShortcut={sendShortcut}
                                 />
                             </div>
                         )}
