@@ -1216,6 +1216,15 @@
     "open_menu": "Mở menu"
   },
   "mobile": {
+    "language_onboarding": {
+      "title": "Chọn ngôn ngữ",
+      "subtitle": "Thiết lập ngôn ngữ bạn muốn dùng trước khi bắt đầu Chatly.",
+      "vietnamese_title": "Tiếng Việt",
+      "vietnamese_subtitle": "Dùng Chatly bằng tiếng Việt",
+      "english_title": "Tiếng Anh",
+      "english_subtitle": "Dùng Chatly bằng tiếng Anh",
+      "continue": "Tiếp tục"
+    },
     "common": {
       "info": "Thông tin",
       "success": "Thành công",

@@ -219,7 +219,9 @@ export function ChatInput({
       );
     } catch {
       setPendingFiles((prev) =>
-        prev.map((p) => (p.localId === localId ? { ...p, error: t('chat.composer.upload_failed') } : p))
+        prev.map((p) =>
+          p.localId === localId ? { ...p, error: t('chat.composer.upload_failed') } : p
+        )
       );
     }
   };
@@ -373,10 +375,7 @@ export function ChatInput({
       setShowOptionsSheet(false);
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert(
-          t('common.permission_denied'),
-          t('chat.composer.location_permission_body')
-        );
+        Alert.alert(t('common.permission_denied'), t('chat.composer.location_permission_body'));
         return;
       }
 
@@ -427,10 +426,7 @@ export function ChatInput({
       await startRecording();
     } catch (err) {
       if (err instanceof MicPermissionDeniedError) {
-        Alert.alert(
-          t('common.permission_denied'),
-          t('chat.composer.mic_permission_body')
-        );
+        Alert.alert(t('common.permission_denied'), t('chat.composer.mic_permission_body'));
       } else {
         Alert.alert(t('common.error'), t('chat.composer.recording_start_failed'));
       }
@@ -463,15 +459,6 @@ export function ChatInput({
   const handleCancelRecording = useCallback(async () => {
     await cancelRecording();
   }, [cancelRecording]);
-
-  useEffect(() => {
-    const focusDelayMs = 140;
-    const timer = setTimeout(() => {
-      composerRef.current?.focus(composerMode);
-    }, focusDelayMs);
-
-    return () => clearTimeout(timer);
-  }, [composerMode]);
 
   useEffect(() => {
     if (!prefilledText || !prefilledToken) return;

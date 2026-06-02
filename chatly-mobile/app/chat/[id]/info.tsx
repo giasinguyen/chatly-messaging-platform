@@ -38,6 +38,7 @@ import { useThemeStore } from '@/store/theme.store';
 import { buildWebJoinLink } from '@/lib/webConfig';
 import { Colors } from '@/constants/theme';
 import { Avatar } from '@/components/ui/Avatar';
+import { getCloudFileIcon, getCloudFileIconColor } from '@/utils/cloudFileDisplay';
 import type {
   GroupMemberResponse,
   GroupRole,
@@ -47,6 +48,8 @@ import type {
 } from '@/types/group';
 import type { ContactResponse } from '@/types/contact';
 import type { UserResponse } from '@/types/auth';
+
+const CONVERSATION_FILE_PAGE_SIZE = 20;
 
 export default function GroupInfoScreen() {
   const { t } = useTranslation();
@@ -104,12 +107,39 @@ export default function GroupInfoScreen() {
   // Lightbox
   const [lightboxVisible, setLightboxVisible] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
-  const mediaImageUrls = mediaFiles.slice(0, 4).map((f) => f.url);
+  const mediaImageUrls = mediaFiles.map((f) => f.url);
 
   const openMediaLightbox = (idx: number) => {
     setLightboxIndex(idx);
     setLightboxVisible(true);
   };
+
+  const loadAllConversationFiles = useCallback(
+    async (type: 'image' | 'file') => {
+      if (!conversationId) {
+        return [];
+      }
+
+      const allFiles: FileUploadResponse[] = [];
+      let page = 0;
+      let shouldContinue = true;
+
+      while (shouldContinue) {
+        const result = await fileService.getByConversation(
+          conversationId,
+          type,
+          page,
+          CONVERSATION_FILE_PAGE_SIZE
+        );
+        allFiles.push(...result);
+        shouldContinue = result.length === CONVERSATION_FILE_PAGE_SIZE;
+        page += 1;
+      }
+
+      return allFiles;
+    },
+    [conversationId]
+  );
 
   // Invite link
   const [inviteLink, setInviteLink] = useState<string | null>(null);
@@ -163,9 +193,16 @@ export default function GroupInfoScreen() {
   // Fetch media & files
   useEffect(() => {
     if (!conversationId) return;
-    fileService.getByConversation(conversationId, 'image').then(setMediaFiles).catch(console.error);
-    fileService.getByConversation(conversationId, 'file').then(setDocFiles).catch(console.error);
-  }, [conversationId]);
+    Promise.all([loadAllConversationFiles('image'), loadAllConversationFiles('file')])
+      .then(([loadedMedia, loadedFiles]) => {
+        setMediaFiles(loadedMedia);
+        setDocFiles(loadedFiles);
+      })
+      .catch(() => {
+        setMediaFiles([]);
+        setDocFiles([]);
+      });
+  }, [conversationId, loadAllConversationFiles]);
 
   const fetchContacts = async () => {
     try {
@@ -1026,6 +1063,8 @@ export default function GroupInfoScreen() {
               </TouchableOpacity>
             </View>
             {docFiles.slice(0, 5).map((file) => {
+              const iconName = getCloudFileIcon(file.fileType, file.fileName);
+              const iconColor = getCloudFileIconColor(file.fileType, file.fileName);
               const sizeStr = file.fileSize
                 ? file.fileSize > 1048576
                   ? `${(file.fileSize / 1048576).toFixed(1)} MB`
@@ -1047,12 +1086,12 @@ export default function GroupInfoScreen() {
                       width: 36,
                       height: 36,
                       borderRadius: 8,
-                      backgroundColor: Colors.ctaLight,
+                      backgroundColor: `${iconColor}1A`,
                       alignItems: 'center',
                       justifyContent: 'center',
                       marginRight: 10,
                     }}>
-                    <Ionicons name="document-text" size={18} color={Colors.cta} />
+                    <Ionicons name={iconName} size={18} color={iconColor} />
                   </View>
                   <View style={{ flex: 1 }}>
                     <Text
