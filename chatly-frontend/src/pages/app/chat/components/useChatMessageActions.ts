@@ -7,6 +7,7 @@ import { agentService } from "@/services/agent.service";
 import { agentFileService } from "@/services/agent-file.service";
 import { fileService } from "@/services/file.service";
 import { useChatbotStore } from "@/store/chatbot.store";
+import { requestConversationRefresh } from "@/utils/chatConversationEvents";
 import type {
     Attachment,
     ChatUser,
@@ -185,12 +186,13 @@ export function useChatMessageActions({
             try {
                 await messageService.delete(messageId);
                 setMessages((prev) => prev.filter((m) => m.id !== messageId));
+                requestConversationRefresh(id);
                 toast.success(t("chat.message_deleted"));
             } catch (error) {
                 toast.error(getErrorMessage(error, t("chat.delete_message_failed")));
             }
         },
-        [setMessages, t],
+        [id, setMessages, t],
     );
 
     const handleForward = useCallback((message: Message) => {
