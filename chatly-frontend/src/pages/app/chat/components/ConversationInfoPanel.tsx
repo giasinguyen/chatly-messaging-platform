@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { AddMembersDialog } from "./AddMembersDialog";
+import { ImageLightbox } from "./ImageLightbox";
 import { SharedMediaDialog } from "./SharedMediaDialog";
 import { NotesDialog } from "./NotesDialog";
 import { PinnedMessagesDialog } from "./PinnedMessagesDialog";
@@ -56,6 +57,8 @@ import { messageService } from "@/services/message.service";
 import { useConversationPrefsStore } from "@/store/conversationPrefs.store";
 import { useNotificationStore } from "@/store/notification.store";
 import { buildGroupInviteLink } from "@/utils/groupInviteLink";
+import type { LightboxImage } from "./messageList.utils";
+import { getFileTypeDisplay } from "./fileTypeDisplay";
 
 interface ConversationInfoPanelProps {
     conversation: ConversationResponse;
@@ -145,6 +148,18 @@ function mergeFiles(
             new Date(right.createdAt ?? 0).getTime() -
             new Date(left.createdAt ?? 0).getTime(),
     );
+}
+
+function getFileKey(file: FileUploadResponse): string {
+    return file.fileId || file.url;
+}
+
+function fileToLightboxImage(file: FileUploadResponse): LightboxImage {
+    return {
+        id: getFileKey(file),
+        url: file.url,
+        name: file.fileName ?? "image",
+    };
 }
 
 function extractLinksFromMessages(
@@ -249,6 +264,9 @@ export function ConversationInfoPanel({
     const [sharedMediaTab, setSharedMediaTab] = useState<
         "media" | "files" | "links"
     >("media");
+    const [mediaLightboxIndex, setMediaLightboxIndex] = useState<number | null>(
+        null,
+    );
 
     // Media & files from S3
     const [mediaFiles, setMediaFiles] = useState<FileUploadResponse[]>([]);
@@ -268,6 +286,29 @@ export function ConversationInfoPanel({
     const liveLinkMessages = useMemo(
         () => mergeLinks(linkMessages, extractLinksFromMessages(messages)),
         [linkMessages, messages],
+    );
+    const liveImageFiles = useMemo(
+        () =>
+            liveMediaFiles.filter((file) =>
+                file.fileType?.startsWith("image/"),
+            ),
+        [liveMediaFiles],
+    );
+    const liveImages = useMemo(
+        () => liveImageFiles.map(fileToLightboxImage),
+        [liveImageFiles],
+    );
+
+    const handleOpenMediaImage = useCallback(
+        (file: FileUploadResponse) => {
+            const imageIndex = liveImageFiles.findIndex(
+                (imageFile) => getFileKey(imageFile) === getFileKey(file),
+            );
+            if (imageIndex >= 0) {
+                setMediaLightboxIndex(imageIndex);
+            }
+        },
+        [liveImageFiles],
     );
 
     useEffect(() => {
@@ -1137,29 +1178,38 @@ export function ConversationInfoPanel({
                             </p>
                         ) : (
                             <div className="grid grid-cols-3 gap-1">
-                                {liveMediaFiles.slice(0, 6).map((file) => (
-                                    <a
-                                        key={file.fileId}
-                                        href={file.url}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="aspect-square rounded bg-muted/60 border border-border/40 overflow-hidden cursor-pointer hover:opacity-80 transition"
-                                    >
-                                        {file.fileType?.startsWith("video/") ? (
+                                {liveMediaFiles.slice(0, 6).map((file) =>
+                                    file.fileType?.startsWith("video/") ? (
+                                        <a
+                                            key={getFileKey(file)}
+                                            href={file.url}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="aspect-square rounded bg-muted/60 border border-border/40 overflow-hidden cursor-pointer hover:opacity-80 transition"
+                                        >
                                             <video
                                                 src={file.url}
                                                 className="w-full h-full object-cover"
                                                 muted
                                             />
-                                        ) : (
+                                        </a>
+                                    ) : (
+                                        <button
+                                            type="button"
+                                            key={getFileKey(file)}
+                                            onClick={() =>
+                                                handleOpenMediaImage(file)
+                                            }
+                                            className="aspect-square rounded bg-muted/60 border border-border/40 overflow-hidden cursor-pointer hover:opacity-80 transition"
+                                        >
                                             <img
                                                 src={file.url}
                                                 alt={file.fileName}
                                                 className="w-full h-full object-cover"
                                             />
-                                        )}
-                                    </a>
-                                ))}
+                                        </button>
+                                    ),
+                                )}
                             </div>
                         )}
                     </div>
@@ -1197,6 +1247,11 @@ export function ConversationInfoPanel({
                         ) : (
                             <div className="flex flex-col gap-2">
                                 {liveDocFiles.slice(0, 5).map((file) => {
+                                    const fileDisplay = getFileTypeDisplay(
+                                        file.fileName,
+                                        file.fileType,
+                                    );
+                                    const FileIcon = fileDisplay.Icon;
                                     const sizeStr = file.fileSize
                                         ? file.fileSize > 1048576
                                             ? `${(file.fileSize / 1048576).toFixed(1)} MB`
@@ -1219,11 +1274,13 @@ export function ConversationInfoPanel({
                                             rel="noopener noreferrer"
                                             className="flex items-center gap-2.5 p-2 rounded-lg bg-muted/30 border border-border/40 hover:bg-muted/50 cursor-pointer transition"
                                         >
-                                            <div className="h-8 w-8 rounded bg-brand/10 flex items-center justify-center shrink-0">
-                                                <FileText
-                                                    size={14}
-                                                    className="text-brand"
-                                                />
+                                            <div
+                                                className={`h-9 w-9 rounded text-white flex flex-col items-center justify-center shrink-0 ${fileDisplay.colorClass}`}
+                                            >
+                                                <FileIcon size={14} />
+                                                <span className="mt-0.5 max-w-full px-0.5 text-[7px] font-bold uppercase leading-none">
+                                                    {fileDisplay.extension}
+                                                </span>
                                             </div>
                                             <div className="flex-1 min-w-0">
                                                 <p className="text-xs font-medium text-foreground truncate">
@@ -1453,6 +1510,13 @@ export function ConversationInfoPanel({
                 onOpenChange={setSharedMediaOpen}
                 defaultTab={sharedMediaTab}
             />
+            {mediaLightboxIndex !== null && (
+                <ImageLightbox
+                    images={liveImages}
+                    index={mediaLightboxIndex}
+                    onIndexChange={setMediaLightboxIndex}
+                />
+            )}
         </aside>
     );
 }

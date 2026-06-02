@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import type { Message, ChatUser } from "@/types/message";
 import type { ConversationType } from "@/types/conversation";
@@ -15,6 +16,9 @@ import {
     type FailedMessageItem,
 } from "./messageList.utils";
 import { isRichTextHtml } from "./richTextMessage.utils";
+
+const ONE_YEAR_MS = 365 * 24 * 60 * 60 * 1000;
+const OLD_MESSAGE_TIME_THRESHOLD = Date.now() - ONE_YEAR_MS;
 
 interface MessageListProps {
     messages: Message[];
@@ -79,6 +83,7 @@ export function MessageList({
     contacts = [],
     onAddFriend,
 }: MessageListProps) {
+    const { i18n } = useTranslation();
     const { containerRef, sentinelRef, scrollEndRef } = useMessageListScroll({
         messageCount: messages.length,
         isLoadingMore,
@@ -163,8 +168,35 @@ export function MessageList({
         [allImages],
     );
 
+    const formatTimeSeparator = (createdAt: string): string => {
+        const date = new Date(createdAt);
+        const options: Intl.DateTimeFormatOptions = {
+            day: "2-digit",
+            hour: "2-digit",
+            minute: "2-digit",
+            month: "short",
+        };
+
+        if (date.getTime() < OLD_MESSAGE_TIME_THRESHOLD) {
+            options.year = "numeric";
+        }
+
+        return new Intl.DateTimeFormat(
+            i18n.language === "vi" ? "vi-VN" : "en-US",
+            options,
+        ).format(date);
+    };
+
     const renderTimeSeparator = (msg: Message, index: number) => {
-        if (index === 0) return null;
+        if (index === 0) {
+            return (
+                <div key={`time-sep-${msg.id}`} className="px-4 py-2 text-center">
+                    <span className="text-[11px] text-muted-foreground/70 whitespace-nowrap">
+                        {formatTimeSeparator(msg.createdAt)}
+                    </span>
+                </div>
+            );
+        }
         const prevMsg = messages[index - 1];
         if (!prevMsg) return null;
         const timeDiff =
@@ -173,10 +205,7 @@ export function MessageList({
         return (
             <div key={`time-sep-${msg.id}`} className="px-4 py-2 text-center">
                 <span className="text-[11px] text-muted-foreground/70 whitespace-nowrap">
-                    {new Date(msg.createdAt).toLocaleTimeString("en-US", {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                    })}
+                    {formatTimeSeparator(msg.createdAt)}
                 </span>
             </div>
         );

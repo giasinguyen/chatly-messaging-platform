@@ -22,6 +22,7 @@ import { useContactStore } from "@/store/contact.store";
 import type { Notification, NotificationEvent } from "@/types/notification";
 import { resolveNotificationRoute } from "@/utils/notificationRedirect";
 import { formatSystemMessage } from "@/utils/systemMessage";
+import { playNotificationSound } from "@/store/notificationPrefs.store";
 
 interface NotificationBellProps {
     collapsed?: boolean;
@@ -80,9 +81,7 @@ export function NotificationBell({ collapsed = false }: NotificationBellProps) {
                 const convId = event.notification.referenceId ?? "";
                 const isMuted = convPrefs[convId]?.isMuted ?? false;
                 if (!isMuted) {
-                    new Audio("/sounds/message_ting_ting.mp3")
-                        .play()
-                        .catch(() => {});
+                    playNotificationSound();
                 }
             }
             if (event.notification.type === "FRIEND_REQUEST") {

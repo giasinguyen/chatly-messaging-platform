@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
     ImageIcon,
@@ -171,6 +171,8 @@ export default function CloudPage() {
     // Lightbox state
     const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
     const [lightboxList, setLightboxList] = useState<FileUploadResponse[]>([]);
+    const lightboxPointerStartXRef = useRef<number | null>(null);
+    const activeLightboxThumbnailRef = useRef<HTMLButtonElement | null>(null);
 
     const openLightbox = (list: FileUploadResponse[], index: number) => {
         setLightboxList(list);
@@ -184,6 +186,19 @@ export default function CloudPage() {
 
     const lightboxNext = () =>
         setLightboxIndex((i) => (i !== null && i < lightboxList.length - 1 ? i + 1 : i));
+
+    const handleLightboxPointerUp = (clientX: number) => {
+        if (lightboxPointerStartXRef.current === null) return;
+        const distance = clientX - lightboxPointerStartXRef.current;
+        lightboxPointerStartXRef.current = null;
+
+        if (Math.abs(distance) < 60) return;
+        if (distance > 0) {
+            lightboxPrev();
+            return;
+        }
+        lightboxNext();
+    };
 
     // Auto-cleanup: delete oldest files when total size exceeds 1 GB
     useEffect(() => {
@@ -231,6 +246,15 @@ export default function CloudPage() {
         return () => window.removeEventListener("keydown", handler);
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [lightboxIndex, lightboxList]);
+
+    useEffect(() => {
+        if (lightboxIndex === null) return;
+        activeLightboxThumbnailRef.current?.scrollIntoView({
+            behavior: "smooth",
+            block: "nearest",
+            inline: "center",
+        });
+    }, [lightboxIndex]);
 
     const loadCloudData = useCallback(() => {
         let cancelled = false;
@@ -456,38 +480,49 @@ export default function CloudPage() {
             {/* Lightbox */}
             {lightboxIndex !== null && lightboxList[lightboxIndex] && (
                 <div
-                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-sm"
+                    className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/90 backdrop-blur-sm"
                     onClick={closeLightbox}
                 >
                     {lightboxIndex > 0 && (
                         <button
-                            className="absolute left-4 top-1/2 -translate-y-1/2 rounded-full bg-white/10 p-2.5 text-white backdrop-blur-sm hover:bg-white/20 transition-colors"
+                            className="absolute left-4 top-1/2 z-10 -translate-y-1/2 rounded-full bg-white/10 p-2.5 text-white backdrop-blur-sm hover:bg-white/20 transition-colors"
                             onClick={(e) => { e.stopPropagation(); lightboxPrev(); }}
                         >
                             <ChevronLeft className="h-5 w-5" />
                         </button>
                     )}
-                    <div className="relative max-h-[90vh] max-w-[90vw]" onClick={(e) => e.stopPropagation()}>
+                    <div
+                        className="relative flex min-h-0 flex-1 items-center justify-center px-14 pb-24 pt-16"
+                        onClick={(e) => e.stopPropagation()}
+                        onPointerDown={(e) => {
+                            lightboxPointerStartXRef.current = e.clientX;
+                        }}
+                        onPointerUp={(e) => handleLightboxPointerUp(e.clientX)}
+                        onPointerCancel={() => {
+                            lightboxPointerStartXRef.current = null;
+                        }}
+                    >
                         {isImage(lightboxList[lightboxIndex].fileType) ? (
                             <img
                                 src={lightboxList[lightboxIndex].url}
                                 alt={lightboxList[lightboxIndex].fileName}
-                                className="max-h-[86vh] max-w-[86vw] rounded-xl object-contain shadow-2xl"
+                                className="max-h-full max-w-full rounded-xl object-contain shadow-2xl"
+                                draggable={false}
                             />
                         ) : (
                             <video
                                 src={lightboxList[lightboxIndex].url}
                                 controls
-                                className="max-h-[86vh] max-w-[86vw] rounded-xl shadow-2xl"
+                                className="max-h-full max-w-full rounded-xl shadow-2xl"
                             />
                         )}
-                        <p className="mt-2 text-center text-xs text-white/50">
+                        <p className="absolute bottom-16 left-1/2 max-w-[80vw] -translate-x-1/2 truncate text-center text-xs text-white/60">
                             {lightboxList[lightboxIndex].fileName}
                         </p>
                     </div>
                     {lightboxIndex < lightboxList.length - 1 && (
                         <button
-                            className="absolute right-4 top-1/2 -translate-y-1/2 rounded-full bg-white/10 p-2.5 text-white backdrop-blur-sm hover:bg-white/20 transition-colors"
+                            className="absolute right-4 top-1/2 z-10 -translate-y-1/2 rounded-full bg-white/10 p-2.5 text-white backdrop-blur-sm hover:bg-white/20 transition-colors"
                             onClick={(e) => { e.stopPropagation(); lightboxNext(); }}
                         >
                             <ChevronRight className="h-5 w-5" />
@@ -500,8 +535,28 @@ export default function CloudPage() {
                         <X className="h-4 w-4" />
                     </button>
                     {lightboxList.length > 1 && (
-                        <div className="absolute bottom-5 left-1/2 -translate-x-1/2 rounded-full bg-black/50 px-3 py-1 text-xs text-white/80 backdrop-blur-sm">
-                            {lightboxIndex + 1} / {lightboxList.length}
+                        <div
+                            className="absolute bottom-0 inset-x-0 bg-black/50 px-4 py-3"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <div className="mx-auto flex max-w-4xl items-center gap-2 overflow-x-auto pb-1">
+                                {lightboxList.map((file, index) => (
+                                    <button
+                                        key={file.fileId}
+                                        type="button"
+                                        ref={index === lightboxIndex ? activeLightboxThumbnailRef : null}
+                                        className={cn(
+                                            "h-16 w-16 shrink-0 overflow-hidden rounded border bg-muted/40 transition",
+                                            index === lightboxIndex
+                                                ? "border-white opacity-100"
+                                                : "border-white/20 opacity-60 hover:opacity-100",
+                                        )}
+                                        onClick={() => setLightboxIndex(index)}
+                                    >
+                                        <FileThumbnail file={file} />
+                                    </button>
+                                ))}
+                            </div>
                         </div>
                     )}
                 </div>
@@ -1016,6 +1071,19 @@ function EmptyState({ icon, label }: { icon: React.ReactNode; label: string }) {
     );
 }
 
+function FileThumbnailIcon({ extension }: { extension: string }) {
+    if (["xls", "xlsx", "csv"].includes(extension)) {
+        return <FileSpreadsheet className="h-6 w-6" />;
+    }
+    if (["zip", "rar"].includes(extension)) {
+        return <FileArchive className="h-6 w-6" />;
+    }
+    if (["js", "ts", "tsx", "jsx", "py", "java", "sql"].includes(extension)) {
+        return <FileCode className="h-6 w-6" />;
+    }
+    return <FileText className="h-6 w-6" />;
+}
+
 function FileThumbnail({ file }: { file: FileUploadResponse }) {
     if (isImage(file.fileType)) {
         return (
@@ -1040,12 +1108,11 @@ function FileThumbnail({ file }: { file: FileUploadResponse }) {
     }
 
     const ext = getExtension(file.fileName);
-    const Icon = getFileIcon(ext);
 
     return (
         <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-muted/60">
             <div className={cn("flex h-14 w-14 flex-col items-center justify-center rounded-xl text-white shadow-sm", getExtensionColor(ext))}>
-                <Icon className="h-6 w-6" />
+                <FileThumbnailIcon extension={ext} />
                 <span className="mt-1 text-[10px] font-bold uppercase leading-none">{ext}</span>
             </div>
         </div>

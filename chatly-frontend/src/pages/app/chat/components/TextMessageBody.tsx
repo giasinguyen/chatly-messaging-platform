@@ -1,5 +1,6 @@
 import { cn } from "@/lib/utils";
 import type { ChatUser } from "@/types/message";
+import { useMessagePrefsStore } from "@/store/messagePrefs.store";
 import { isGroupInviteLink } from "@/utils/groupInviteLink";
 import { getYouTubePreview } from "@/utils/youtubePreview";
 import { useTranslation } from "react-i18next";
@@ -73,6 +74,9 @@ export function TextMessageBody({
     onOpenSenderProfile,
 }: TextMessageBodyProps) {
     const { t } = useTranslation();
+    const linkPreviewEnabled = useMessagePrefsStore(
+        (state) => state.linkPreviewEnabled,
+    );
 
     if (!content) return null;
 
@@ -103,7 +107,9 @@ export function TextMessageBody({
             {parts.map((part, i) => {
                 if (/^https?:\/\//.test(part)) {
                     const shouldOpenInCurrentTab = isGroupInviteLink(part);
-                    const youtubePreview = getYouTubePreview(part);
+                    const youtubePreview = linkPreviewEnabled
+                        ? getYouTubePreview(part)
+                        : null;
                     const linkLabel = youtubePreview ? formatUrlLabel(part) : part;
                     return (
                         <span key={i} className="inline-flex w-60 max-w-full flex-col gap-1 align-top">

@@ -25,6 +25,7 @@ import { getThemeColors } from '@/utils/themeColors';
 import { InAppMessageBanner } from '@/components/notifications/InAppMessageBanner';
 import type { NotificationResponse } from '@/types/notification';
 import { hydrateI18nLanguage } from '@/lib/i18n';
+import { useLanguageOnboardingStore } from '@/store/languageOnboarding.store';
 
 const CallScreenComponent = IS_CALL_ENABLED
   ? require('@/components/call/CallScreen').CallScreen
@@ -46,6 +47,9 @@ void SplashScreen.preventAutoHideAsync();
 
 function AuthGateInner({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, hydrated, hydrate, setAuth, clearAuth } = useAuthStore();
+  const languageOnboardingHydrated = useLanguageOnboardingStore((s) => s.hydrated);
+  const hasCompletedLanguageOnboarding = useLanguageOnboardingStore((s) => s.completed);
+  const hydrateLanguageOnboarding = useLanguageOnboardingStore((s) => s.hydrate);
   const segments = useSegments();
   const router = useRouter();
   const setScopedUnreadCount = useNotificationStore((s) => s.setScopedUnreadCount);
@@ -54,7 +58,8 @@ function AuthGateInner({ children }: { children: React.ReactNode }) {
   // Hydrate auth state from AsyncStorage on mount
   useEffect(() => {
     hydrate();
-  }, [hydrate]);
+    void hydrateLanguageOnboarding();
+  }, [hydrate, hydrateLanguageOnboarding]);
 
   // Setup axios interceptors
   useEffect(() => {
@@ -158,7 +163,16 @@ function AuthGateInner({ children }: { children: React.ReactNode }) {
 
   // Handle navigation based on auth state
   useEffect(() => {
-    if (!hydrated) return;
+    if (!hydrated || !languageOnboardingHydrated) return;
+
+    const inLanguageOnboarding = segments[0] === 'language';
+
+    if (!hasCompletedLanguageOnboarding) {
+      if (!inLanguageOnboarding) {
+        router.replace('/language');
+      }
+      return;
+    }
 
     const inAuth = segments[0] === '(auth)';
 
@@ -167,10 +181,17 @@ function AuthGateInner({ children }: { children: React.ReactNode }) {
     } else if (isAuthenticated && inAuth) {
       router.replace('/(tabs)/chats');
     }
-  }, [isAuthenticated, hydrated, segments, router]);
+  }, [
+    hasCompletedLanguageOnboarding,
+    isAuthenticated,
+    hydrated,
+    languageOnboardingHydrated,
+    segments,
+    router,
+  ]);
 
   // Show loading while hydrating
-  if (!hydrated) {
+  if (!hydrated || !languageOnboardingHydrated) {
     return (
       <View
         style={{

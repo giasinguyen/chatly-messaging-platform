@@ -1,9 +1,35 @@
 import { useTranslation } from "react-i18next";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import {
+    useMessagePrefsStore,
+    type MessageSendShortcut,
+} from "@/store/messagePrefs.store";
+
+function isMessageSendShortcut(value: string): value is MessageSendShortcut {
+    return value === "enter" || value === "ctrl-enter";
+}
 
 export function MessagesSettings() {
     const { t } = useTranslation();
+    const sendShortcut = useMessagePrefsStore((state) => state.sendShortcut);
+    const linkPreviewEnabled = useMessagePrefsStore(
+        (state) => state.linkPreviewEnabled,
+    );
+    const setSendShortcut = useMessagePrefsStore((state) => state.setSendShortcut);
+    const setLinkPreviewEnabled = useMessagePrefsStore(
+        (state) => state.setLinkPreviewEnabled,
+    );
+
+    const handleSendShortcutChange = (value: string) => {
+        if (isMessageSendShortcut(value)) {
+            setSendShortcut(value);
+        }
+    };
+
+    const handleLinkPreviewChange = (value: string) => {
+        setLinkPreviewEnabled(value === "enabled");
+    };
 
     return (
         <div className="flex-1 overflow-y-auto p-8">
@@ -17,14 +43,18 @@ export function MessagesSettings() {
                     </div>
 
                     <div className="rounded-xl border border-border bg-card/40 p-6 transition-all hover:border-border/80">
-                        <RadioGroup disabled defaultValue="enter-send" className="flex flex-col gap-5">
+                        <RadioGroup
+                            value={sendShortcut}
+                            onValueChange={handleSendShortcutChange}
+                            className="flex flex-col gap-5"
+                        >
                             <div className="flex items-center justify-between">
                                 <Label htmlFor="send-enter">{t("settings.messages.enter_send")}</Label>
-                                <RadioGroupItem value="enter-send" id="send-enter" />
+                                <RadioGroupItem value="enter" id="send-enter" />
                             </div>
                             <div className="flex items-center justify-between">
                                 <Label htmlFor="send-ctrl-enter">{t("settings.messages.ctrl_enter_send")}</Label>
-                                <RadioGroupItem value="ctrl-enter-send" id="send-ctrl-enter" />
+                                <RadioGroupItem value="ctrl-enter" id="send-ctrl-enter" />
                             </div>
                         </RadioGroup>
                     </div>
@@ -33,7 +63,11 @@ export function MessagesSettings() {
                 <section className="flex flex-col gap-4">
                     <h3 className="text-lg font-bold text-foreground">{t("settings.messages.link_preview_title")}</h3>
                     <div className="rounded-xl border border-border bg-card/40 p-6 transition-all hover:border-border/80">
-                        <RadioGroup disabled defaultValue="enabled" className="flex flex-col gap-5">
+                        <RadioGroup
+                            value={linkPreviewEnabled ? "enabled" : "disabled"}
+                            onValueChange={handleLinkPreviewChange}
+                            className="flex flex-col gap-5"
+                        >
                             <div className="flex items-center justify-between">
                                 <Label htmlFor="link-preview-enabled">{t("settings.messages.enable_preview")}</Label>
                                 <RadioGroupItem value="enabled" id="link-preview-enabled" />

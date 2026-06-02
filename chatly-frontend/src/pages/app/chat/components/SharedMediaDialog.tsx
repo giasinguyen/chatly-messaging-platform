@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import {
     Dialog,
     DialogContent,
@@ -11,6 +11,9 @@ import { Image, FileText, Link as LinkIcon, Download, Loader2, X } from "lucide-
 import { fileService, type FileUploadResponse } from "@/services/file.service";
 import { messageService } from "@/services/message.service";
 import { useTranslation } from "react-i18next";
+import { ImageLightbox } from "./ImageLightbox";
+import type { LightboxImage } from "./messageList.utils";
+import { getFileTypeDisplay } from "./fileTypeDisplay";
 
 type ActiveTab = "media" | "files" | "links";
 
@@ -44,6 +47,18 @@ function isStickerOrGifAsset(
     return normalizedUrl.includes("/sticker") || normalizedUrl.includes("/gif");
 }
 
+function getFileKey(file: FileUploadResponse): string {
+    return file.fileId || file.url;
+}
+
+function fileToLightboxImage(file: FileUploadResponse): LightboxImage {
+    return {
+        id: getFileKey(file),
+        url: file.url,
+        name: file.fileName ?? "image",
+    };
+}
+
 interface SharedMediaDialogProps {
     conversationId: string;
     open: boolean;
@@ -74,6 +89,15 @@ export function SharedMediaDialog({
     const [loadingFiles, setLoadingFiles] = useState(false);
     const [loadingLinks, setLoadingLinks] = useState(false);
     const [previewMedia, setPreviewMedia] = useState<FileUploadResponse | null>(null);
+    const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+
+    const mediaImages = useMemo(
+        () =>
+            media
+                .filter((file) => file.fileType?.startsWith("image/"))
+                .map(fileToLightboxImage),
+        [media],
+    );
 
     const tabTitle =
         activeTab === "media"
@@ -131,6 +155,23 @@ export function SharedMediaDialog({
         finally { setLoadingLinks(false); }
     }, [conversationId]);
 
+    const handleOpenMedia = useCallback(
+        (file: FileUploadResponse) => {
+            if (file.fileType?.startsWith("video/")) {
+                setPreviewMedia(file);
+                return;
+            }
+
+            const imageIndex = mediaImages.findIndex(
+                (image) => image.id === getFileKey(file),
+            );
+            if (imageIndex >= 0) {
+                setLightboxIndex(imageIndex);
+            }
+        },
+        [mediaImages],
+    );
+
     useEffect(() => {
         if (!open) return;
         setActiveTab(defaultTab);
@@ -161,19 +202,11 @@ export function SharedMediaDialog({
                         <X className="h-5 w-5" />
                     </button>
                     <div className="max-h-[88vh] max-w-[92vw]" onClick={(event) => event.stopPropagation()}>
-                        {previewMedia.fileType.startsWith("video/") ? (
-                            <video
-                                src={previewMedia.url}
-                                controls
-                                className="max-h-[86vh] max-w-[90vw] rounded-xl shadow-2xl"
-                            />
-                        ) : (
-                            <img
-                                src={previewMedia.url}
-                                alt={previewMedia.fileName}
-                                className="max-h-[86vh] max-w-[90vw] rounded-xl object-contain shadow-2xl"
-                            />
-                        )}
+                        <video
+                            src={previewMedia.url}
+                            controls
+                            className="max-h-[86vh] max-w-[90vw] rounded-xl shadow-2xl"
+                        />
                         <p className="mt-2 text-center text-xs text-white/70">
                             {previewMedia.fileName}
                         </p>
@@ -214,8 +247,8 @@ export function SharedMediaDialog({
                                         {media.map((file) => (
                                             <button
                                                 type="button"
-                                                key={file.fileId}
-                                                onClick={() => setPreviewMedia(file)}
+                                                key={getFileKey(file)}
+                                                onClick={() => handleOpenMedia(file)}
                                                 className="aspect-square rounded bg-muted/60 border border-border/40 overflow-hidden hover:opacity-80 transition"
                                             >
                                                 {file.fileType?.startsWith("video/") ? (
@@ -259,6 +292,11 @@ export function SharedMediaDialog({
                                 <>
                                     <div className="flex flex-col gap-2">
                                         {files.map((file) => {
+                                            const fileDisplay = getFileTypeDisplay(
+                                                file.fileName,
+                                                file.fileType,
+                                            );
+                                            const FileIcon = fileDisplay.Icon;
                                             const sizeStr = file.fileSize
                                                 ? file.fileSize > 1048576
                                                     ? `${(file.fileSize / 1048576).toFixed(1)} MB`
@@ -275,8 +313,13 @@ export function SharedMediaDialog({
                                                     rel="noopener noreferrer"
                                                     className="flex items-center gap-2.5 p-2 rounded-lg bg-muted/30 border border-border/40 hover:bg-muted/50 transition"
                                                 >
-                                                    <div className="h-8 w-8 rounded bg-brand/10 flex items-center justify-center shrink-0">
-                                                        <FileText size={14} className="text-brand" />
+                                                    <div
+                                                        className={`h-9 w-9 rounded text-white flex flex-col items-center justify-center shrink-0 ${fileDisplay.colorClass}`}
+                                                    >
+                                                        <FileIcon size={14} />
+                                                        <span className="mt-0.5 max-w-full px-0.5 text-[7px] font-bold uppercase leading-none">
+                                                            {fileDisplay.extension}
+                                                        </span>
                                                     </div>
                                                     <div className="flex-1 min-w-0">
                                                         <p className="text-xs font-medium text-foreground truncate">{file.fileName}</p>
@@ -350,6 +393,13 @@ export function SharedMediaDialog({
                     </TabsContent>
                 </Tabs>
             </DialogContent>
+            {lightboxIndex !== null && (
+                <ImageLightbox
+                    images={mediaImages}
+                    index={lightboxIndex}
+                    onIndexChange={setLightboxIndex}
+                />
+            )}
         </Dialog>
     );
 }

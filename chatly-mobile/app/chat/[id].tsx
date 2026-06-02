@@ -4,6 +4,7 @@ import {
   View,
   Text,
   FlatList,
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
@@ -118,6 +119,7 @@ export default function ChatScreen() {
   const [showSearch, setShowSearch] = useState(false);
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
   const [highlightKeyword, setHighlightKeyword] = useState('');
+  const [androidKeyboardInset, setAndroidKeyboardInset] = useState(0);
   const [blockDirection, setBlockDirection] = useState<'I_BLOCKED' | 'BLOCKED_ME' | null>(null);
   const [contacts, setContacts] = useState<ContactResponse[]>([]);
   const [mentionModalUser, setMentionModalUser] = useState<UserResponse | null>(null);
@@ -132,6 +134,24 @@ export default function ChatScreen() {
   const [currentPollIdx, setCurrentPollIdx] = useState(0);
   const [isPollBannerDismissed, setIsPollBannerDismissed] = useState(false);
   const [activePrefillToken, setActivePrefillToken] = useState<string | undefined>(prefill_token);
+
+  useEffect(() => {
+    if (Platform.OS !== 'android') {
+      return;
+    }
+
+    const showSubscription = Keyboard.addListener('keyboardDidShow', (event) => {
+      setAndroidKeyboardInset(Math.max(0, event.endCoordinates.height - insets.bottom));
+    });
+    const hideSubscription = Keyboard.addListener('keyboardDidHide', () => {
+      setAndroidKeyboardInset(0);
+    });
+
+    return () => {
+      showSubscription.remove();
+      hideSubscription.remove();
+    };
+  }, [insets.bottom]);
   const sendSeenRef = useRef<(messageId: string) => boolean>(() => false);
 
   useEffect(() => {
@@ -997,10 +1017,13 @@ export default function ChatScreen() {
     }
   }
 
+  const inputBottomInset =
+    Platform.OS === 'android' && androidKeyboardInset > 0 ? androidKeyboardInset : insets.bottom;
+
   return (
     <KeyboardAvoidingView
       className="flex-1"
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={0}
       style={{ backgroundColor: Colors.bg }}>
       {/* Header */}
@@ -1166,7 +1189,7 @@ export default function ChatScreen() {
       )}
 
       {/* Input — blocked banner or ChatInput */}
-      <View style={{ paddingBottom: insets.bottom }}>
+      <View style={{ paddingBottom: inputBottomInset }}>
         {!isGroup && blockDirection ? (
           <View
             style={{
