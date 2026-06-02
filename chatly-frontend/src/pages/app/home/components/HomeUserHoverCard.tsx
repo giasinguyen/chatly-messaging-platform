@@ -1,4 +1,5 @@
-import { MessageCircle, UserPlus, UserRound } from "lucide-react";
+import { MessageCircle, UserPlus } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { AdminBadge } from "@/components/customize/AdminBadge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -31,8 +32,9 @@ export function HomeUserHoverCard({
     onMessage,
     onAddFriend,
 }: HomeUserHoverCardProps) {
+    const { t } = useTranslation();
     return (
-        <div className="pointer-events-none absolute top-full left-0 z-50 w-80 pt-2 opacity-0 transition-all duration-150 group-hover:pointer-events-auto group-hover:opacity-100">
+        <div className="absolute inset-x-0 top-full z-50 mt-1 hidden group-hover:block">
             <div className="rounded-xl border border-border bg-popover p-3 text-popover-foreground shadow-2xl">
                 <div className="flex items-center gap-3">
                     <Avatar className="size-16 shrink-0">
@@ -66,8 +68,7 @@ export function HomeUserHoverCard({
                         className="h-9 rounded-lg"
                         onClick={onViewProfile}
                     >
-                        <UserRound className="mr-2 size-4" />
-                        View profile
+                        {t("home.view_profile")}
                     </Button>
 
                     {mode === "friend" ? (
@@ -79,7 +80,7 @@ export function HomeUserHoverCard({
                             onClick={onMessage}
                         >
                             <MessageCircle className="mr-2 size-4" />
-                            Message
+                            {t("home.message")}
                         </Button>
                     ) : (
                         <Button
@@ -91,7 +92,7 @@ export function HomeUserHoverCard({
                             onClick={onAddFriend}
                         >
                             <UserPlus className="mr-2 size-4" />
-                            {hasRequested ? "Requested" : "Add friend"}
+                            {hasRequested ? t("home.requested") : t("home.add_friend")}
                         </Button>
                     )}
                 </div>

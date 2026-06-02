@@ -1,17 +1,17 @@
-import { Download } from "lucide-react";
 import {
-    FilePdf,
-    MicrosoftWordLogo,
-    MicrosoftExcelLogo,
-    FileCsv,
-    MicrosoftPowerpointLogo,
-    FileImage as PhosphorFileImage,
-    FileVideo as PhosphorFileVideo,
-    FileAudio as PhosphorFileAudio,
-    FileZip,
-    FileCode as PhosphorFileCode,
-    File as PhosphorFile,
-} from "phosphor-react";
+    Archive,
+    Code2,
+    Download,
+    File,
+    FileAudio,
+    FileImage,
+    FileSpreadsheet,
+    FileText,
+    FileVideo,
+    FolderOpen,
+    Presentation,
+} from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 import type { Attachment } from "@/types/message";
 import {
@@ -23,79 +23,38 @@ import {
 function getFileIcon(mimeType?: string, fileName?: string) {
     const t = mimeType?.toLowerCase() ?? "";
     const ext = (fileName?.split(".").pop() ?? "").toLowerCase();
+    const iconClassName = "h-5 w-5";
     if (t.includes("pdf") || ext === "pdf")
-        return <FilePdf size={18} className="shrink-0" color="#ef4444" weight="duotone" />;
+        return { icon: <FileText className={iconClassName} />, className: "bg-red-500", label: "PDF" };
     if (
         t.includes("word") ||
         t.includes("document") ||
         ext === "docx" ||
         ext === "doc"
     )
-        return (
-            <MicrosoftWordLogo
-                size={18}
-                className="shrink-0"
-                color="#2563eb"
-                weight="duotone"
-            />
-        );
+        return { icon: <FileText className={iconClassName} />, className: "bg-blue-600", label: "DOC" };
     if (
         t.includes("sheet") ||
         t.includes("excel") ||
         ext === "xlsx" ||
         ext === "xls"
     )
-        return (
-            <MicrosoftExcelLogo
-                size={18}
-                className="shrink-0"
-                color="#16a34a"
-                weight="duotone"
-            />
-        );
+        return { icon: <FileSpreadsheet className={iconClassName} />, className: "bg-green-600", label: "XLS" };
     if (ext === "csv")
-        return <FileCsv size={18} className="shrink-0" color="#16a34a" weight="duotone" />;
+        return { icon: <FileSpreadsheet className={iconClassName} />, className: "bg-emerald-600", label: "CSV" };
     if (
         t.includes("presentation") ||
         t.includes("powerpoint") ||
         ext === "pptx" ||
         ext === "ppt"
     )
-        return (
-            <MicrosoftPowerpointLogo
-                size={18}
-                className="shrink-0"
-                color="#ea580c"
-                weight="duotone"
-            />
-        );
+        return { icon: <Presentation className={iconClassName} />, className: "bg-orange-500", label: "PPT" };
     if (t.startsWith("image/"))
-        return (
-            <PhosphorFileImage
-                size={18}
-                className="shrink-0"
-                color="#7c3aed"
-                weight="duotone"
-            />
-        );
+        return { icon: <FileImage className={iconClassName} />, className: "bg-violet-600", label: "IMG" };
     if (t.startsWith("video/"))
-        return (
-            <PhosphorFileVideo
-                size={18}
-                className="shrink-0"
-                color="#db2777"
-                weight="duotone"
-            />
-        );
+        return { icon: <FileVideo className={iconClassName} />, className: "bg-pink-600", label: "VID" };
     if (t.startsWith("audio/"))
-        return (
-            <PhosphorFileAudio
-                size={18}
-                className="shrink-0"
-                color="#d97706"
-                weight="duotone"
-            />
-        );
+        return { icon: <FileAudio className={iconClassName} />, className: "bg-amber-600", label: "AUD" };
     if (
         t.includes("zip") ||
         t.includes("rar") ||
@@ -105,7 +64,7 @@ function getFileIcon(mimeType?: string, fileName?: string) {
         ext === "rar" ||
         ext === "7z"
     )
-        return <FileZip size={18} className="shrink-0" color="#92400e" weight="duotone" />;
+        return { icon: <Archive className={iconClassName} />, className: "bg-yellow-600", label: "ZIP" };
     if (
         t.includes("json") ||
         t.includes("xml") ||
@@ -113,17 +72,17 @@ function getFileIcon(mimeType?: string, fileName?: string) {
         t.includes("typescript") ||
         ["js", "ts", "jsx", "tsx", "json", "xml", "html", "css", "py", "java"].includes(ext)
     )
-        return (
-            <PhosphorFileCode
-                size={18}
-                className="shrink-0"
-                color="#475569"
-                weight="duotone"
-            />
-        );
+        return { icon: <Code2 className={iconClassName} />, className: "bg-slate-600", label: "CODE" };
     if (t.includes("text") || ext === "txt")
-        return <PhosphorFile size={18} className="shrink-0" color="#94a3b8" weight="duotone" />;
-    return <PhosphorFile size={18} className="shrink-0" weight="duotone" />;
+        return { icon: <File className={iconClassName} />, className: "bg-slate-500", label: "TXT" };
+    return { icon: <File className={iconClassName} />, className: "bg-slate-500", label: ext ? ext.slice(0, 4).toUpperCase() : "FILE" };
+}
+
+function formatFileSize(size?: number): string {
+    if (!size) return "";
+    if (size < 1024) return `${size} B`;
+    if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
+    return `${(size / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 interface MessageAttachmentRendererProps {
@@ -141,6 +100,7 @@ export function MessageAttachmentRenderer({
     isMe,
     onOpenImage,
 }: MessageAttachmentRendererProps) {
+    const { t } = useTranslation();
     if (!attachments || attachments.length === 0) return null;
 
     return (
@@ -198,24 +158,53 @@ export function MessageAttachmentRenderer({
                         </div>
                     );
                 }
+                const fileIcon = getFileIcon(att.type, att.name);
+                const handleOpen = () => window.open(att.url, "_blank", "noopener,noreferrer");
+                const handleDownload = () => {
+                    const link = document.createElement("a");
+                    link.href = att.url;
+                    link.download = att.name ?? "file";
+                    link.target = "_blank";
+                    link.rel = "noreferrer";
+                    link.click();
+                };
                 return (
-                    <a
+                    <div
                         key={i}
-                        href={att.url}
-                        download={att.name}
                         className={cn(
-                            "flex items-center gap-2 rounded-xl px-3 py-2 text-xs no-underline border transition-colors",
-                            isMe
-                                ? "border-white/20 bg-black/15 text-white hover:bg-black/25"
-                                : "border-border/60 bg-background/80 text-foreground hover:bg-muted/70",
+                            "flex w-[23rem] max-w-full items-center gap-3 rounded-lg border-0 px-3 py-2.5 text-xs shadow-sm",
+                            isMe ? "bg-blue-50 text-slate-800" : "bg-background text-foreground",
                         )}
                     >
-                        {getFileIcon(att.type, att.name)}
-                        <span className="flex-1 truncate max-w-40">
-                            {att.name ?? "File"}
-                        </span>
-                        <Download size={14} className="shrink-0 opacity-60" />
-                    </a>
+                        <div className={cn("flex h-12 w-10 shrink-0 flex-col items-center justify-center gap-0.5 rounded text-white", fileIcon.className)}>
+                            {fileIcon.icon}
+                            <span className="text-[9px] font-bold leading-none">{fileIcon.label}</span>
+                        </div>
+                        <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-semibold leading-tight">
+                                {att.name ?? t("chat.file_fallback")}
+                            </p>
+                            <p className="mt-1 text-xs text-muted-foreground">
+                                {formatFileSize(att.size)}
+                            </p>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={handleOpen}
+                            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-border bg-background text-muted-foreground transition hover:bg-muted hover:text-foreground"
+                            title={t("common.open")}
+                        >
+                            <FolderOpen className="h-4 w-4" />
+                        </button>
+                        <button
+                            type="button"
+                            onClick={handleDownload}
+                            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-border bg-background text-muted-foreground transition hover:bg-muted hover:text-foreground"
+                            title={t("cloud.download")}
+                        >
+                            <Download className="h-4 w-4" />
+                        </button>
+                    </div>
                 );
             })}
         </div>

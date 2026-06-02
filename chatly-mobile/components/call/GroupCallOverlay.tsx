@@ -1,5 +1,6 @@
 import { View, Text, FlatList, TouchableOpacity, Alert } from 'react-native';
 import { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import { setAudioModeAsync } from 'expo-audio';
 import { Colors } from '@/constants/theme';
@@ -16,6 +17,7 @@ function formatDuration(seconds: number): string {
 }
 
 export function GroupCallOverlay() {
+  const { t } = useTranslation();
   const {
     callStatus,
     activeCall,
@@ -91,7 +93,7 @@ export function GroupCallOverlay() {
 
   const knownAgoraUidKeys = new Set<string>();
   const knownRemotePeers = Object.entries(groupParticipantInfo).map(([peerId, info]) => {
-    const agoraUid = Number(buildAgoraUidKey(peerId));
+    const agoraUid = info.agoraUid ?? Number(buildAgoraUidKey(peerId));
     knownAgoraUidKeys.add(String(agoraUid));
     return {
       peerId,
@@ -124,8 +126,8 @@ export function GroupCallOverlay() {
         await upgradeGroupCallToVideo();
       } catch (error) {
         const message =
-          error instanceof Error ? error.message : 'Failed to upgrade group call to video.';
-        Alert.alert('Camera Error', message);
+          error instanceof Error ? error.message : t('call.group_video_upgrade_failed');
+        Alert.alert(t('call.camera_error_title'), message);
       }
       return;
     }
@@ -166,7 +168,7 @@ export function GroupCallOverlay() {
           {formatDuration(callDuration)}
         </Text>
         <Text className="text-sm" style={{ color: Colors.textMuted }}>
-          {remotePeers.length + 1} participants
+          {t('call.participant_count', { count: remotePeers.length + 1 })}
         </Text>
       </View>
 
@@ -181,7 +183,7 @@ export function GroupCallOverlay() {
           <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
             <GroupParticipantTile
               peerId="local"
-              name="You"
+              name={t('call.you')}
               avatar={null}
               isVideoCall={isVideoCall}
               agoraUid={groupAgoraLocalUid}

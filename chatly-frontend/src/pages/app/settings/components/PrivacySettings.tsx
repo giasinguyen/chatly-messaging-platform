@@ -1,12 +1,14 @@
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { Loader2 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 import { settingsService } from "@/services/settings.service";
 import type { UserSettingsType, PrivacySettingsType } from "@/services/settings.service";
 import { toast } from "sonner";
 
 export function PrivacySettings() {
+    const { t } = useTranslation();
     const [loading, setLoading] = useState(true);
     const [settings, setSettings] = useState<UserSettingsType | null>(null);
 
@@ -18,7 +20,7 @@ export function PrivacySettings() {
                     setSettings(res.result);
                 }
             } catch {
-                toast.error("Could not load privacy settings");
+                toast.error(t("settings.privacy.load_failed"));
             } finally {
                 setLoading(false);
             }
@@ -47,14 +49,14 @@ export function PrivacySettings() {
             });
             if (res.code === 1000) {
                 setSettings(res.result);
-                toast.success("Settings updated");
+                toast.success(t("settings.privacy.updated"));
             } else {
                 setSettings(originalSettings);
-                toast.error("Could not update setting");
+                toast.error(t("settings.privacy.update_failed"));
             }
         } catch {
             setSettings(originalSettings);
-            toast.error("Could not update setting");
+            toast.error(t("settings.privacy.update_failed"));
         }
     };
 
@@ -76,27 +78,27 @@ export function PrivacySettings() {
             <div className="mx-auto flex w-full max-w-3xl flex-col gap-8">
                 <section className="space-y-3">
                     <h3 className="text-2xl font-bold tracking-tight text-foreground">
-                        Privacy
+                        {t("settings.privacy.title")}
                     </h3>
                     <p className="text-sm text-muted-foreground">
-                        Manage what information you display and who can contact you.
+                        {t("settings.privacy.description")}
                     </p>
                 </section>
 
                 <section className="space-y-4">
                     <h4 className="text-xl font-semibold text-foreground">
-                        Personal
+                        {t("settings.privacy.personal_title")}
                     </h4>
                     <div className="space-y-1 rounded-xl border border-border bg-card/40 p-4 md:p-5">
-                        <SettingRow label="Show online status">
+                        <SettingRow label={t("settings.privacy.show_online_status")}>
                             <SettingSwitch
                                 checked={showOnlineStatus}
                                 onToggle={() => void handleTogglePrivacy("showOnlineStatus")}
                             />
                         </SettingRow>
                         <SettingRow
-                            label="Allow others to view my friend list"
-                            description="When off, people who open your profile will see that your friend list is private."
+                            label={t("settings.privacy.show_friend_list")}
+                            description={t("settings.privacy.show_friend_list_desc")}
                         >
                             <SettingSwitch
                                 checked={showFriendList}
@@ -108,16 +110,16 @@ export function PrivacySettings() {
 
                 <section className="space-y-4">
                     <h4 className="text-xl font-semibold text-foreground">
-                        Messages and Calls
+                        {t("settings.privacy.messages_calls_title")}
                     </h4>
                     <div className="space-y-1 rounded-xl border border-border bg-card/40 p-4 md:p-5">
-                        <SettingRow label='Show "Seen" status'>
+                        <SettingRow label={t("settings.privacy.show_seen_status")}>
                             <SettingSwitch
                                 checked={showSeenStatus}
                                 onToggle={() => void handleTogglePrivacy("showReadReceipts")}
                             />
                         </SettingRow>
-                        <SettingRow label="Allow friend requests">
+                        <SettingRow label={t("settings.privacy.allow_friend_requests")}>
                             <SettingSwitch
                                 checked={allowFriendRequests}
                                 onToggle={() => void handleTogglePrivacy("allowFriendRequests")}

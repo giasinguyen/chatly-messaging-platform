@@ -1,5 +1,6 @@
 import { Alert, View, Text, TouchableOpacity, Modal } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -21,6 +22,7 @@ interface CallScreenProps {
 }
 
 export function CallScreen({ visible, incomingCall, onAccept, onReject }: CallScreenProps) {
+  const { t } = useTranslation();
   // Pulsing animation for circle around avatar
   const pulseScale = useSharedValue(1);
   const pulseOpacity = useSharedValue(0.6);
@@ -48,14 +50,11 @@ export function CallScreen({ visible, incomingCall, onAccept, onReject }: CallSc
     opacity: pulseOpacity.value,
   }));
 
-  const callLabel = incomingCall.type === 'VIDEO' ? 'Video call...' : 'Calling...';
+  const callLabel = incomingCall.type === 'VIDEO' ? t('call.video_calling') : t('call.calling');
 
   const handleAccept = () => {
     if (!IS_CALL_ENABLED) {
-      Alert.alert(
-        'Call unavailable in Expo Go',
-        'Calling is only available in a development build. Please build the app to use voice/video calls.'
-      );
+      Alert.alert(t('mobile.chat.call_unavailable_title'), t('mobile.chat.call_unavailable_body'));
       return;
     }
 
@@ -112,7 +111,7 @@ export function CallScreen({ visible, incomingCall, onAccept, onReject }: CallSc
               <Ionicons name="close" size={36} color={Colors.white} />
             </TouchableOpacity>
             <Text className="mt-2 text-sm" style={{ color: Colors.textLight }}>
-              Decline
+              {t('call.decline')}
             </Text>
           </View>
 
@@ -135,7 +134,7 @@ export function CallScreen({ visible, incomingCall, onAccept, onReject }: CallSc
               />
             </TouchableOpacity>
             <Text className="mt-2 text-sm" style={{ color: Colors.textLight }}>
-              Accept
+              {t('call.accept')}
             </Text>
           </View>
         </View>

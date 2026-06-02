@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
+import { AxiosError } from "axios";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -8,6 +10,7 @@ import { authService } from "@/services/auth.service";
 import { useAuthStore } from "@/store/auth.store";
 
 export function ChangePasswordSettings() {
+    const { t } = useTranslation();
     const navigate = useNavigate();
     const clearAuth = useAuthStore((s) => s.clearAuth);
     const [currentPassword, setCurrentPassword] = useState("");
@@ -17,15 +20,15 @@ export function ChangePasswordSettings() {
 
     const onChangePassword = async () => {
         if (!currentPassword || !newPassword || !confirmPassword) {
-            toast.error("Please fill in all information.");
+            toast.error(t("settings.change_password.fill_required"));
             return;
         }
         if (newPassword.length < 6) {
-            toast.error("The new password must be at least 6 characters long.");
+            toast.error(t("settings.change_password.too_short"));
             return;
         }
         if (newPassword !== confirmPassword) {
-            toast.error("Password confirmation does not match.");
+            toast.error(t("settings.change_password.not_match"));
             return;
         }
 
@@ -36,9 +39,7 @@ export function ChangePasswordSettings() {
                 newPassword,
                 confirmPassword,
             });
-            toast.success(
-                "Password updated. Please sign in again with your new password.",
-            );
+            toast.success(t("settings.change_password.success"));
             setCurrentPassword("");
             setNewPassword("");
             setConfirmPassword("");
@@ -49,10 +50,12 @@ export function ChangePasswordSettings() {
             }
             clearAuth();
             navigate("/auth/login", { replace: true });
-        } catch (error: any) {
-            toast.error(
-                error?.response?.data?.message || "Could not change password.",
-            );
+        } catch (error: unknown) {
+            const msg =
+                error instanceof AxiosError
+                    ? error.response?.data?.message ?? t("settings.change_password.failed")
+                    : t("settings.change_password.failed");
+            toast.error(msg);
         } finally {
             setChangingPassword(false);
         }
@@ -63,14 +66,14 @@ export function ChangePasswordSettings() {
             <div className="mx-auto flex max-w-2xl flex-col gap-6">
                 <section className="flex flex-col gap-4">
                     <div className="flex flex-col gap-1">
-                        <h3 className="text-lg font-bold text-foreground">Change Password</h3>
+                        <h3 className="text-lg font-bold text-foreground">{t("settings.change_password.title")}</h3>
                         <p className="text-sm text-muted-foreground">
-                            Update your password to increase account security.
+                            {t("settings.change_password.description")}
                         </p>
                     </div>
                     <div className="space-y-4 rounded-xl border border-border bg-card/40 p-6 transition-all hover:border-border/80">
                         <div className="space-y-2">
-                            <Label htmlFor="current-password">Current password</Label>
+                            <Label htmlFor="current-password">{t("settings.change_password.current")}</Label>
                             <Input
                                 id="current-password"
                                 type="password"
@@ -79,7 +82,7 @@ export function ChangePasswordSettings() {
                             />
                         </div>
                         <div className="space-y-2">
-                            <Label htmlFor="new-password">New password</Label>
+                            <Label htmlFor="new-password">{t("settings.change_password.new_password")}</Label>
                             <Input
                                 id="new-password"
                                 type="password"
@@ -88,7 +91,7 @@ export function ChangePasswordSettings() {
                             />
                         </div>
                         <div className="space-y-2">
-                            <Label htmlFor="confirm-password">Confirm new password</Label>
+                            <Label htmlFor="confirm-password">{t("settings.change_password.confirm")}</Label>
                             <Input
                                 id="confirm-password"
                                 type="password"
@@ -102,7 +105,9 @@ export function ChangePasswordSettings() {
                                 disabled={changingPassword}
                                 className="bg-brand text-white hover:bg-brand-hover disabled:opacity-70"
                             >
-                                {changingPassword ? "Processing..." : "Change Password"}
+                                {changingPassword
+                                    ? t("settings.change_password.processing")
+                                    : t("settings.change_password.update")}
                             </Button>
                         </div>
                     </div>

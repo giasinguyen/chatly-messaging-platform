@@ -1,4 +1,5 @@
 import { useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { contactService } from "@/services/contact.service";
 import { messageService } from "@/services/message.service";
@@ -21,8 +22,12 @@ interface UseChatMessageExtrasOptions {
     participantDirectory: Record<string, ChatUser>;
     allContacts: ContactResponse[];
     setAllContacts: React.Dispatch<React.SetStateAction<ContactResponse[]>>;
-    setContactStatus: React.Dispatch<React.SetStateAction<ContactStatus | null>>;
-    setSelectedProfileUser: React.Dispatch<React.SetStateAction<ChatUser | null>>;
+    setContactStatus: React.Dispatch<
+        React.SetStateAction<ContactStatus | null>
+    >;
+    setSelectedProfileUser: React.Dispatch<
+        React.SetStateAction<ChatUser | null>
+    >;
     setShowProfileDialog: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
@@ -41,6 +46,7 @@ export function useChatMessageExtras({
     setSelectedProfileUser,
     setShowProfileDialog,
 }: UseChatMessageExtrasOptions) {
+    const { t } = useTranslation();
     const { initiateCall, joinGroupCall } = useCallContext();
 
     const handleReact = useCallback(
@@ -49,11 +55,15 @@ export function useChatMessageExtras({
                 const res = await messageService.react(messageId, emoji);
                 setMessages((prev) =>
                     prev.map((m) =>
-                        m.id === messageId ? { ...m, reactions: res.result.reactions } : m,
+                        m.id === messageId
+                            ? { ...m, reactions: res.result.reactions }
+                            : m,
                     ),
                 );
             } catch (error) {
-                toast.error(getErrorMessage(error, "Could not react to message"));
+                toast.error(
+                    getErrorMessage(error, "Could not react to message"),
+                );
             }
         },
         [setMessages],
@@ -62,10 +72,15 @@ export function useChatMessageExtras({
     const handleVotePoll = useCallback(
         async (messageId: string, optionIndex: number) => {
             try {
-                const res = await messageService.votePoll(messageId, optionIndex);
+                const res = await messageService.votePoll(
+                    messageId,
+                    optionIndex,
+                );
                 setMessages((prev) =>
                     prev.map((m) =>
-                        m.id === messageId ? { ...m, poll: res.result.poll } : m,
+                        m.id === messageId
+                            ? { ...m, poll: res.result.poll }
+                            : m,
                     ),
                 );
             } catch (error) {
@@ -81,7 +96,9 @@ export function useChatMessageExtras({
                 const res = await messageService.closePoll(messageId);
                 setMessages((prev) =>
                     prev.map((m) =>
-                        m.id === messageId ? { ...m, poll: res.result.poll } : m,
+                        m.id === messageId
+                            ? { ...m, poll: res.result.poll }
+                            : m,
                     ),
                 );
             } catch (error) {
@@ -110,7 +127,9 @@ export function useChatMessageExtras({
                 const pinned = await messageService.getPinnedMessages(id);
                 setPinnedMessages(pinned.result);
                 setCurrentPinnedIdx(0);
-                toast.success(res.result.pinned ? "Message pinned" : "Message unpinned");
+                toast.success(
+                    res.result.pinned ? "Message pinned" : "Message unpinned",
+                );
             } catch (error) {
                 toast.error(getErrorMessage(error, "Could not pin message"));
             }
@@ -121,10 +140,15 @@ export function useChatMessageExtras({
     const handleTagPriority = useCallback(
         async (messageId: string, priority: string) => {
             try {
-                const res = await messageService.tagPriority(messageId, priority);
+                const res = await messageService.tagPriority(
+                    messageId,
+                    priority,
+                );
                 setMessages((prev) =>
                     prev.map((m) =>
-                        m.id === messageId ? { ...m, priority: res.result.priority } : m,
+                        m.id === messageId
+                            ? { ...m, priority: res.result.priority }
+                            : m,
                     ),
                 );
                 toast.success(
@@ -150,9 +174,10 @@ export function useChatMessageExtras({
         (callId: string) => {
             if (!conversation) return;
 
-            const realtimeState = useCallStore.getState().groupCallRealtimeState[callId];
+            const realtimeState =
+                useCallStore.getState().groupCallRealtimeState[callId];
             if (realtimeState?.ended) {
-                toast.error("This call has ended.");
+                toast.error(t("chat.call_ended"));
                 return;
             }
 
@@ -160,7 +185,10 @@ export function useChatMessageExtras({
                 if (m.type !== "CALL") return false;
                 try {
                     const d = JSON.parse(m.content);
-                    return d.callId === callId && (d.status === "RINGING" || d.status === "ONGOING");
+                    return (
+                        d.callId === callId &&
+                        (d.status === "RINGING" || d.status === "ONGOING")
+                    );
                 } catch {
                     return false;
                 }
@@ -178,7 +206,8 @@ export function useChatMessageExtras({
             }
 
             const initiatorInfo = participantDirectory[initiatorId];
-            const initiatorName = initiatorInfo?.displayName ?? "Group member";
+            const initiatorName =
+                initiatorInfo?.displayName ?? t("chat.group_member");
             const initiatorAvatar = initiatorInfo?.avatarUrl ?? null;
 
             useCallStore.getState().setIncomingGroupCall({
@@ -187,7 +216,7 @@ export function useChatMessageExtras({
                 initiatorId,
                 initiatorName,
                 initiatorAvatar,
-                groupName: conversation.name ?? "Group",
+                groupName: conversation.name ?? t("chat.group"),
                 groupAvatarUrl: conversation.avatarUrl ?? null,
                 type: callType,
                 participantCount: 0,
@@ -196,7 +225,7 @@ export function useChatMessageExtras({
             useCallStore.getState().setCallStatus("RINGING");
             joinGroupCall(true);
         },
-        [messages, id, conversation, participantDirectory, joinGroupCall],
+        [messages, id, conversation, participantDirectory, joinGroupCall, t],
     );
 
     const handleOpenSenderProfile = useCallback(
@@ -223,7 +252,8 @@ export function useChatMessageExtras({
 
             const relation = allContacts.find(
                 (c) =>
-                    (c.user.id === currentUserId && c.contact.id === senderId) ||
+                    (c.user.id === currentUserId &&
+                        c.contact.id === senderId) ||
                     (c.user.id === senderId && c.contact.id === currentUserId),
             );
             setContactStatus(relation?.status ?? null);
@@ -244,7 +274,11 @@ export function useChatMessageExtras({
             const existing = allContacts.find(
                 (c) => c.contact.id === userId || c.user.id === userId,
             );
-            if (existing?.status === "ACCEPTED" || existing?.status === "PENDING") return;
+            if (
+                existing?.status === "ACCEPTED" ||
+                existing?.status === "PENDING"
+            )
+                return;
             try {
                 await contactService.sendRequest({ contactId: userId });
                 setAllContacts((prev) =>

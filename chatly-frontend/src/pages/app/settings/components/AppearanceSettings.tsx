@@ -1,4 +1,5 @@
 import { Monitor, MoonStar, Sun } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useThemeStore, getResolvedTheme } from "@/store/theme.store";
 import { cn } from "@/lib/utils";
@@ -7,15 +8,16 @@ type ThemeMode = "light" | "dark" | "system";
 
 const appearanceOptions: Array<{
     value: ThemeMode;
-    title: string;
+    labelKey: string;
     Icon: typeof Sun;
 }> = [
-    { value: "light", title: "Light", Icon: Sun },
-    { value: "dark", title: "Dark", Icon: MoonStar },
-    { value: "system", title: "System", Icon: Monitor },
+    { value: "light", labelKey: "settings.appearance.light", Icon: Sun },
+    { value: "dark", labelKey: "settings.appearance.dark", Icon: MoonStar },
+    { value: "system", labelKey: "settings.appearance.system", Icon: Monitor },
 ];
 
 export function AppearanceSettings() {
+    const { t } = useTranslation();
     const theme = useThemeStore((s) => s.theme);
     const setTheme = useThemeStore((s) => s.setTheme);
     const resolvedTheme = getResolvedTheme(theme);
@@ -25,10 +27,10 @@ export function AppearanceSettings() {
             <div className="mx-auto flex w-full max-w-3xl flex-col gap-8">
                 <section className="space-y-3">
                     <h3 className="text-2xl font-bold tracking-tight text-foreground">
-                        Appearance Settings
+                        {t("settings.appearance.title")}
                     </h3>
                     <p className="text-sm text-muted-foreground">
-                        Select the theme you find most comfortable.
+                        {t("settings.appearance.description")}
                     </p>
                 </section>
 
@@ -59,7 +61,7 @@ export function AppearanceSettings() {
                                             value={option.value}
                                         />
                                         <span className="text-base font-medium text-foreground">
-                                            {option.title}
+                                            {t(option.labelKey)}
                                         </span>
                                         <option.Icon className="ml-auto h-4 w-4 text-muted-foreground" />
                                     </div>
@@ -69,18 +71,23 @@ export function AppearanceSettings() {
                     </RadioGroup>
 
                     <div className="mt-5 rounded-lg bg-background/60 px-4 py-3 text-sm text-muted-foreground">
-                        Current mode:{" "}
+                        {t("settings.appearance.current_mode")}{" "}
                         <span className="font-semibold text-foreground">
                             {theme === "light"
-                                ? "Light"
+                                ? t("settings.appearance.light")
                                 : theme === "dark"
-                                  ? "Dark"
-                                  : "System"}
+                                  ? t("settings.appearance.dark")
+                                  : t("settings.appearance.system")}
                         </span>
                         {theme === "system" && (
                             <>
                                 {" "}
-                                (currently displaying {resolvedTheme === "dark" ? "Dark" : "Light"})
+                                {t("settings.appearance.currently_displaying", {
+                                    mode:
+                                        resolvedTheme === "dark"
+                                            ? t("settings.appearance.dark")
+                                            : t("settings.appearance.light"),
+                                })}
                             </>
                         )}
                     </div>

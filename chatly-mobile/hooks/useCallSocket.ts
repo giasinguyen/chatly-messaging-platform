@@ -1,5 +1,6 @@
 import { useEffect, useCallback, useRef } from 'react';
 import { Alert } from 'react-native';
+import i18n from '@/lib/i18n';
 import { socketService } from '@/services/socket.service';
 import { useAuthStore } from '@/store/auth.store';
 import { useCallStore } from '@/store/call.store';
@@ -136,8 +137,8 @@ export function useCallSocket(groupSignalRef?: GroupSignalRef) {
                 })
                 .catch((error: unknown) => {
                   const message =
-                    error instanceof Error ? error.message : 'Unable to join the call.';
-                  Alert.alert('Call Error', message);
+                    error instanceof Error ? error.message : i18n.t('call.join_failed');
+                  Alert.alert(i18n.t('call.error_title'), message);
                   endCallStore();
                 });
             }
@@ -165,14 +166,15 @@ export function useCallSocket(groupSignalRef?: GroupSignalRef) {
           if (!receiverId) break;
 
           const remoteName =
-            useCallStore.getState().remoteParticipant?.name ?? 'The other participant';
+            useCallStore.getState().remoteParticipant?.name ??
+            i18n.t('call.remote_participant_fallback');
 
           Alert.alert(
-            'Video call request',
-            `${remoteName} wants to switch to a video call.`,
+            i18n.t('call.video_upgrade_title'),
+            i18n.t('call.video_upgrade_body', { name: remoteName }),
             [
               {
-                text: 'Decline',
+                text: i18n.t('call.decline'),
                 style: 'cancel',
                 onPress: () => {
                   socketService.publish('/app/call.renegotiate', {
@@ -184,7 +186,7 @@ export function useCallSocket(groupSignalRef?: GroupSignalRef) {
                 },
               },
               {
-                text: 'Accept',
+                text: i18n.t('call.accept'),
                 onPress: async () => {
                   const hasLocalVideo = await agoraMediaCallRef.current.enableVideo();
                   setCameraOff(!hasLocalVideo);
@@ -275,8 +277,8 @@ export function useCallSocket(groupSignalRef?: GroupSignalRef) {
           },
         });
       } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : 'Failed to initiate call.';
-        Alert.alert('Call Error', message);
+        const message = error instanceof Error ? error.message : i18n.t('call.initiate_failed');
+        Alert.alert(i18n.t('call.error_title'), message);
         endCallStore();
       }
     },
@@ -319,8 +321,8 @@ export function useCallSocket(groupSignalRef?: GroupSignalRef) {
             payload: { accepted: true },
           });
         } catch (error: unknown) {
-          const message = error instanceof Error ? error.message : 'Failed to answer call.';
-          Alert.alert('Call Error', message);
+          const message = error instanceof Error ? error.message : i18n.t('call.answer_failed');
+          Alert.alert(i18n.t('call.error_title'), message);
           endCallStore();
         }
       } else {
@@ -407,8 +409,8 @@ export function useCallSocket(groupSignalRef?: GroupSignalRef) {
         .toggleCamera(cameraOff)
         .then((cameraOn) => setCameraOff(!cameraOn))
         .catch((error: unknown) => {
-          const message = error instanceof Error ? error.message : 'Failed to toggle camera.';
-          Alert.alert('Camera Error', message);
+          const message = error instanceof Error ? error.message : i18n.t('call.camera_toggle_failed');
+          Alert.alert(i18n.t('call.camera_error_title'), message);
         });
     },
     [setCameraOff]

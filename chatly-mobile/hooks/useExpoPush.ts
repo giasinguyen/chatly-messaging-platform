@@ -3,69 +3,113 @@ import * as Device from 'expo-device';
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 import { useRouter } from 'expo-router';
+import type {
+  Notification,
+  NotificationBehavior,
+  NotificationResponse as ExpoNotificationResponse,
+} from 'expo-notifications';
 import { useAuthStore } from '@/store/auth.store';
 import axiosClient from '@/lib/axiosClient';
 import { useConversationPrefsStore, isConvMuted } from '@/store/conversationPrefs.store';
+import type { NotificationType } from '@/types/notification';
 
 // Lazy load expo-notifications to avoid side-effect crash in Expo Go
-let Notifications: any;
+type NotificationsModule = typeof import('expo-notifications');
+type NotificationSubscription = { remove: () => void };
+type PushNotificationData = {
+  type?: NotificationType;
+  referenceId?: string;
+};
+
+let Notifications: NotificationsModule | null = null;
 const isExpoGo = Constants.appOwnership === 'expo';
 
 if (!isExpoGo) {
   try {
-    Notifications = require('expo-notifications');
+    Notifications = require('expo-notifications') as NotificationsModule;
     // Configure how notifications are displayed when the app is in the foreground
     Notifications.setNotificationHandler({
-      handleNotification: async (notification: any) => {
-        const data = notification.request?.content?.data;
+      handleNotification: async (notification: Notification): Promise<NotificationBehavior> => {
+        const data = notification.request?.content?.data as PushNotificationData | undefined;
         if (data?.type === 'NEW_MESSAGE' && data?.referenceId) {
           const convPrefs = useConversationPrefsStore.getState().prefs[data.referenceId] ?? {};
           if (isConvMuted(convPrefs)) {
-            return { shouldShowAlert: false, shouldPlaySound: false, shouldSetBadge: false };
+            return {
+              shouldShowAlert: false,
+              shouldShowBanner: false,
+              shouldShowList: false,
+              shouldPlaySound: false,
+              shouldSetBadge: false,
+            };
           }
         }
-        return { shouldShowAlert: true, shouldPlaySound: true, shouldSetBadge: true };
+        return {
+          shouldShowAlert: true,
+          shouldShowBanner: true,
+          shouldShowList: true,
+          shouldPlaySound: true,
+          shouldSetBadge: true,
+        };
       },
     });
-  } catch (e) {
-    console.warn('Failed to load expo-notifications', e);
+  } catch (error: unknown) {
+    console.warn('Failed to load expo-notifications', error);
   }
 }
 
 export function useExpoPush() {
   const { isAuthenticated, user } = useAuthStore();
   const router = useRouter();
-  const notificationListener = useRef<any>(null);
-  const responseListener = useRef<any>(null);
+  const notificationListener = useRef<NotificationSubscription | null>(null);
+  const responseListener = useRef<NotificationSubscription | null>(null);
 
   useEffect(() => {
-    if (!isAuthenticated || !user || isExpoGo || !Notifications) return;
+    const notifications = Notifications;
+    if (!isAuthenticated || !user || isExpoGo || !notifications) return;
 
-    registerForPushNotificationsAsync().then(token => {
-      if (token) {
-        // Register token with backend
-        axiosClient.post('/users/device-token', { token })
-          .catch(err => console.error('Failed to register device token', err));
+    registerForPushNotificationsAsync()
+      .then((token) => {
+        if (token) {
+          axiosClient
+            .post('/api/users/device-token', { token })
+            .catch((error: unknown) => console.error('Failed to register device token', error));
+        }
+      })
+      .catch((error: unknown) => {
+        console.warn(
+          'Push notifications setup failed (Firebase/FCM may not be configured):',
+          error
+        );
+      });
+
+    notificationListener.current = notifications.addNotificationReceivedListener(() => {});
+
+    responseListener.current = notifications.addNotificationResponseReceivedListener(
+      (response: ExpoNotificationResponse) => {
+        const data = response.notification.request.content.data as PushNotificationData;
+        const { type, referenceId } = data;
+        if (
+          (type === 'NEW_MESSAGE' ||
+            type === 'GROUP_INVITE' ||
+            type === 'GROUP_UPDATED' ||
+            type === 'MEMBER_JOINED') &&
+          referenceId
+        ) {
+          router.push(`/chat/${referenceId}`);
+        } else if (type === 'FRIEND_REQUEST' || type === 'FRIEND_ACCEPTED') {
+          router.push('/(tabs)/contacts');
+        } else if (
+          (type === 'POST_LIKED' ||
+            type === 'POST_COMMENTED' ||
+            type === 'COMMENT_REPLIED' ||
+            type === 'POST_SHARED' ||
+            type === 'POST_MENTION') &&
+          referenceId
+        ) {
+          router.push(`/post/${getPostReferenceId(referenceId)}`);
+        }
       }
-    }).catch(err => {
-      console.warn('Push notifications setup failed (Firebase/FCM may not be configured):', err);
-      // App continues normally without FCM
-    });
-
-    // This listener is fired whenever a notification is received while the app is foregrounded
-    notificationListener.current = Notifications.addNotificationReceivedListener((notification: any) => {
-      // In-app handling if needed
-    });
-
-    // This listener is fired whenever a user taps on or interacts with a notification
-    responseListener.current = Notifications.addNotificationResponseReceivedListener((response: any) => {
-      const { type, referenceId } = response.notification.request.content.data;
-      if (type === 'NEW_MESSAGE' && referenceId) {
-        router.push(`/chat/${referenceId}`);
-      } else if (type === 'FRIEND_REQUEST') {
-        router.push('/(tabs)/contacts');
-      }
-    });
+    );
 
     return () => {
       if (notificationListener.current) {
@@ -75,47 +119,55 @@ export function useExpoPush() {
         responseListener.current.remove();
       }
     };
-  }, [isAuthenticated, user?.id, isExpoGo]);
+  }, [isAuthenticated, router, user]);
 }
 
-async function registerForPushNotificationsAsync() {
-  if (isExpoGo || !Notifications) return null;
-  
+function getPostReferenceId(referenceId: string): string {
+  return referenceId.split('_')[0] ?? referenceId;
+}
+
+async function registerForPushNotificationsAsync(): Promise<string | null> {
+  const notifications = Notifications;
+  if (isExpoGo || !notifications) return null;
+
   try {
-    let token;
+    let token: string | null = null;
 
     if (Platform.OS === 'android') {
-      await Notifications.setNotificationChannelAsync('default', {
+      await notifications.setNotificationChannelAsync('default', {
         name: 'default',
-        importance: Notifications.AndroidImportance.MAX,
+        importance: notifications.AndroidImportance.MAX,
         vibrationPattern: [0, 250, 250, 250],
         lightColor: '#FF231F7C',
       });
     }
 
     if (Device.isDevice) {
-      const { status: existingStatus } = await Notifications.getPermissionsAsync();
+      const { status: existingStatus } = await notifications.getPermissionsAsync();
       let finalStatus = existingStatus;
       if (existingStatus !== 'granted') {
-        const { status } = await Notifications.requestPermissionsAsync();
+        const { status } = await notifications.requestPermissionsAsync();
         finalStatus = status;
       }
       if (finalStatus !== 'granted') {
-        console.log('Failed to get push token for push notification!');
-        return;
+        return null;
       }
-      
+
       // Check if we have projectId for Expo push token
-      const projectId = Constants?.expoConfig?.extra?.eas?.projectId || Constants?.easConfig?.projectId;
-      
-      token = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
+      const projectId =
+        Constants?.expoConfig?.extra?.eas?.projectId || Constants?.easConfig?.projectId;
+
+      token = (await notifications.getExpoPushTokenAsync({ projectId })).data;
     } else {
-      console.log('Must use physical device for Push Notifications');
+      return null;
     }
 
     return token;
-  } catch (err) {
-    console.warn('Failed to register push notif token (Firebase/FCM likely not configured):', err);
+  } catch (error: unknown) {
+    console.warn(
+      'Failed to register push notif token (Firebase/FCM likely not configured):',
+      error
+    );
     return null;
   }
 }

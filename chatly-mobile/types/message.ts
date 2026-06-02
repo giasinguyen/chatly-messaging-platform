@@ -1,4 +1,5 @@
-import type { MessageType } from '@/types/conversation';
+import type { ConversationResponse, MessageType } from '@/types/conversation';
+import type { GroupMemberResponse } from '@/types/group';
 
 export type MessageStatus = 'SENT' | 'DELIVERED' | 'READ';
 
@@ -87,9 +88,19 @@ export interface Message {
   updatedAt: string;
 }
 
-export type ChatAction = 'SEND' | 'EDIT' | 'RECALL' | 'DELETE' | 'GROUP_UPDATE' | 'REACT' | 'ROLE_UPDATED';
+export type ChatAction =
+  | 'SEND'
+  | 'EDIT'
+  | 'RECALL'
+  | 'DELETE'
+  | 'GROUP_UPDATE'
+  | 'REACT'
+  | 'ROLE_UPDATED'
+  | 'GROUP_DISSOLVED';
 
 export interface ChatEvent {
   action: ChatAction;
-  message: Message;
+  message?: Message;
+  conversationData?: ConversationResponse;
+  updatedMember?: GroupMemberResponse;
 }

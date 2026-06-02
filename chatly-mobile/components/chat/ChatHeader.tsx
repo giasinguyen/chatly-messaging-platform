@@ -1,4 +1,5 @@
 import { View, Text, TouchableOpacity, Alert, Modal, Pressable } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -39,6 +40,7 @@ export function ChatHeader({
   onPressInfo,
   onAskAi,
 }: ChatHeaderProps) {
+  const { t } = useTranslation();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { initiateCall, initiateGroupCall } = useCallContext();
@@ -57,12 +59,16 @@ export function ChatHeader({
 
   const showCallUnavailableAlert = () => {
     Alert.alert(
-      'Call unavailable in Expo Go',
-      'Calling is only available in a development build. Please build the app to use voice/video calls.'
+      t('mobile.chat.call_unavailable_title'),
+      t('mobile.chat.call_unavailable_body'),
     );
   };
 
-  const subtitle = isGroup ? `${memberCount ?? 0} members` : isOnline ? 'Active now' : 'Offline';
+  const subtitle = isGroup
+    ? t('chat.members_count', { count: memberCount ?? 0 })
+    : isOnline
+      ? t('mobile.chat.active_now')
+      : t('common.offline');
 
   const handleStartGroupCall = (selectedMemberIds: string[]) => {
     if (!conversationId) return;
@@ -248,7 +254,7 @@ export function ChatHeader({
                 color={Colors.cta}
                 style={{ marginRight: 16 }}
               />
-              <Text style={{ fontSize: 16, color: Colors.text }}>Voice call</Text>
+              <Text style={{ fontSize: 16, color: Colors.text }}>{t('mobile.chat.voice_call')}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={{
@@ -267,7 +273,7 @@ export function ChatHeader({
                 color={Colors.cta}
                 style={{ marginRight: 16 }}
               />
-              <Text style={{ fontSize: 16, color: Colors.text }}>Video call</Text>
+              <Text style={{ fontSize: 16, color: Colors.text }}>{t('mobile.chat.video_call')}</Text>
             </TouchableOpacity>
           </Pressable>
         </Pressable>

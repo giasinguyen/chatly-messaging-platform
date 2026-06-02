@@ -14,6 +14,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '@/constants/theme';
 import { mcpService } from '@/services/mcp.service';
@@ -25,6 +26,7 @@ interface Props {
 }
 
 export function McpConfigModal({ visible, onClose }: Props) {
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const [servers, setServers] = useState<McpServer[]>([]);
   const [loading, setLoading] = useState(true);
@@ -64,27 +66,31 @@ export function McpConfigModal({ visible, onClose }: Props) {
       const updated = await mcpService.toggle(server.id, !server.is_active);
       setServers((prev) => prev.map((s) => (s.id === updated.id ? updated : s)));
     } catch {
-      Alert.alert('Error', 'Could not change status');
+      Alert.alert(t('common.error'), t('assistant.mcp.toggle_failed'));
     }
   };
 
   const handleDelete = (server: McpServer) => {
-    Alert.alert('Delete MCP Server?', `"${server.name}" will be permanently deleted.`, [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await mcpService.delete(server.id);
-            setServers((prev) => prev.filter((s) => s.id !== server.id));
-            if (expandedId === server.id) setExpandedId(null);
-          } catch {
-            Alert.alert('Error', 'Could not delete server');
-          }
+    Alert.alert(
+      t('assistant.mcp.delete_title'),
+      t('assistant.mcp.delete_body', { name: server.name }),
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('common.delete'),
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await mcpService.delete(server.id);
+              setServers((prev) => prev.filter((s) => s.id !== server.id));
+              if (expandedId === server.id) setExpandedId(null);
+            } catch {
+              Alert.alert(t('common.error'), t('assistant.mcp.delete_failed'));
+            }
+          },
         },
-      },
-    ]);
+      ],
+    );
   };
 
   const handleExpandTools = async (serverId: string) => {
@@ -108,7 +114,7 @@ export function McpConfigModal({ visible, onClose }: Props) {
     const trimName = name.trim();
     const trimUrl = url.trim();
     if (!trimName || !trimUrl) {
-      Alert.alert('Missing information', 'Please enter name and URL');
+      Alert.alert(t('assistant.mcp.missing_info'), t('assistant.mcp.missing_name_url'));
       return;
     }
     setCreating(true);
@@ -117,7 +123,7 @@ export function McpConfigModal({ visible, onClose }: Props) {
       setServers((prev) => [server, ...prev]);
       resetForm();
     } catch {
-      Alert.alert('Error', 'Could not add MCP server');
+      Alert.alert(t('common.error'), t('assistant.mcp.add_failed'));
     } finally {
       setCreating(false);
     }
@@ -217,7 +223,7 @@ export function McpConfigModal({ visible, onClose }: Props) {
               <ActivityIndicator size="small" color={Colors.cta} />
             ) : tools.length === 0 ? (
               <Text className="text-xs" style={{ color: Colors.textLight }}>
-                No tools available
+                {t('assistant.mcp.no_tools')}
               </Text>
             ) : (
               tools.map((t) => (
@@ -253,7 +259,7 @@ export function McpConfigModal({ visible, onClose }: Props) {
           }}
         >
           <Text className="text-lg font-bold" style={{ color: Colors.text }}>
-            MCP Servers
+            {t('assistant.mcp.servers_title')}
           </Text>
           <View className="flex-row items-center" style={{ gap: 8 }}>
             <TouchableOpacity
@@ -278,12 +284,12 @@ export function McpConfigModal({ visible, onClose }: Props) {
               keyboardShouldPersistTaps="handled"
             >
               <Text className="text-sm font-semibold mb-2" style={{ color: Colors.text }}>
-                Add MCP Server
+                {t('assistant.mcp.add_server')}
               </Text>
               <TextInput
                 value={name}
                 onChangeText={setName}
-                placeholder="Server name"
+                placeholder={t('assistant.mcp.server_name_placeholder')}
                 placeholderTextColor={Colors.textLight}
                 className="rounded-lg px-3 py-2.5 text-sm mb-2"
                 style={{ backgroundColor: Colors.bg, color: Colors.text, borderWidth: 0.5, borderColor: Colors.borderLight }}
@@ -291,7 +297,7 @@ export function McpConfigModal({ visible, onClose }: Props) {
               <TextInput
                 value={url}
                 onChangeText={setUrl}
-                placeholder="URL (https://...)"
+                placeholder={t('assistant.mcp.url_placeholder')}
                 placeholderTextColor={Colors.textLight}
                 autoCapitalize="none"
                 keyboardType="url"
@@ -301,7 +307,7 @@ export function McpConfigModal({ visible, onClose }: Props) {
 
               {/* Custom headers */}
               <Text className="text-xs font-medium mb-1.5" style={{ color: Colors.textMuted }}>
-                Headers (optional)
+                {t('assistant.mcp.headers_optional')}
               </Text>
               {Object.entries(headers).map(([k, v]) => (
                 <View key={k} className="flex-row items-center mb-1.5">
@@ -319,7 +325,7 @@ export function McpConfigModal({ visible, onClose }: Props) {
                 <TextInput
                   value={headerKey}
                   onChangeText={setHeaderKey}
-                  placeholder="Key"
+                  placeholder={t('assistant.mcp.key_placeholder')}
                   placeholderTextColor={Colors.textLight}
                   autoCapitalize="none"
                   className="flex-1 rounded-lg px-2.5 py-2 text-xs"
@@ -328,7 +334,7 @@ export function McpConfigModal({ visible, onClose }: Props) {
                 <TextInput
                   value={headerVal}
                   onChangeText={setHeaderVal}
-                  placeholder="Value"
+                  placeholder={t('assistant.mcp.value_placeholder')}
                   placeholderTextColor={Colors.textLight}
                   autoCapitalize="none"
                   className="flex-1 rounded-lg px-2.5 py-2 text-xs"
@@ -356,7 +362,7 @@ export function McpConfigModal({ visible, onClose }: Props) {
                   <ActivityIndicator size="small" color={Colors.white} />
                 ) : (
                   <Text className="text-sm font-semibold" style={{ color: Colors.white }}>
-                    Add server
+                    {t('assistant.mcp.add_server_btn')}
                   </Text>
                 )}
               </TouchableOpacity>
@@ -379,7 +385,7 @@ export function McpConfigModal({ visible, onClose }: Props) {
               <View className="flex-1 items-center justify-center py-20">
                 <Ionicons name="hardware-chip-outline" size={48} color={Colors.textLight} />
                 <Text className="text-sm mt-3" style={{ color: Colors.textMuted }}>
-                  No MCP servers yet
+                  {t('assistant.mcp.no_servers')}
                 </Text>
                 <TouchableOpacity
                   onPress={() => setShowAdd(true)}
@@ -388,7 +394,7 @@ export function McpConfigModal({ visible, onClose }: Props) {
                 >
                   <Ionicons name="add" size={16} color={Colors.white} />
                   <Text className="ml-1 text-sm font-semibold" style={{ color: Colors.white }}>
-                    Add server
+                    {t('assistant.mcp.add_server_btn')}
                   </Text>
                 </TouchableOpacity>
               </View>

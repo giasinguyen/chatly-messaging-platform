@@ -1,6 +1,7 @@
 import { ScrollView, Text, TextInput, TouchableOpacity, View, type NativeSyntheticEvent, type TextInputSelectionChangeEventData } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { MentionSuggestionsDropdown } from '@/components/mention/MentionSuggestionsDropdown';
 import { Colors } from '@/constants/theme';
 import type { PostVisibility } from '@/types/post';
@@ -55,6 +56,8 @@ export function CreatePostEditorFields({
   onPickImages,
   onChangeVisibility,
 }: CreatePostEditorFieldsProps) {
+  const { t } = useTranslation();
+
   return (
     <>
       <View className="relative">
@@ -65,7 +68,7 @@ export function CreatePostEditorFields({
           onSelectionChange={onSelectionChange}
           selection={selection}
           multiline
-          placeholder="Share something with everyone..."
+          placeholder={t('post.share_placeholder')}
           placeholderTextColor={Colors.textLight}
           style={{
             minHeight: 130,
@@ -132,11 +135,11 @@ export function CreatePostEditorFields({
         disabled={isSubmitting}>
         <Ionicons name="image-outline" size={18} color={Colors.cta} />
         <Text className="ml-2 text-sm font-semibold text-[#0071E3]">
-          Add images (optional) ({totalImageCount}/{maxPostImages})
+          {t('post.add_images', { current: totalImageCount, max: maxPostImages })}
         </Text>
       </TouchableOpacity>
 
-      <Text className="mb-2 mt-4 text-sm font-medium text-[#1D1D1F]">Visibility</Text>
+      <Text className="mb-2 mt-4 text-sm font-medium text-[#1D1D1F]">{t('post.visibility')}</Text>
       <View className="mb-5 flex-row flex-wrap gap-2">
         {visibilityOptions.map((option) => {
           const selected = option.value === visibility;

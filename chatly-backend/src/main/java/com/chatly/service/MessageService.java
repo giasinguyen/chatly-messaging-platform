@@ -207,6 +207,7 @@ public class MessageService {
                 .orElseThrow(() -> new AppException(ErrorCode.MESSAGE_NOT_FOUND));
 
         if (message.getSenderId().equals(userId)) return Optional.empty();
+        notificationService.markChatNotificationsAsRead(userId, message.getConversationId());
         if (!userSettingsService.isReadReceiptVisible(userId)) return Optional.empty();
 
         boolean alreadySeen = message.getReadBy().stream()

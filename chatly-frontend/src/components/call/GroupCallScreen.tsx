@@ -1,4 +1,5 @@
 import { PhoneOff, Phone, Video } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import type { IncomingGroupCall } from "@/types/call";
 
 interface GroupCallScreenProps {
@@ -8,11 +9,20 @@ interface GroupCallScreenProps {
     onDecline: () => void;
 }
 
-export function GroupCallScreen({ visible, incomingGroupCall, onJoin, onDecline }: GroupCallScreenProps) {
+export function GroupCallScreen({
+    visible,
+    incomingGroupCall,
+    onJoin,
+    onDecline,
+}: GroupCallScreenProps) {
+    const { t } = useTranslation();
+
     if (!visible || !incomingGroupCall) return null;
 
     const callLabel =
-        incomingGroupCall.type === "VIDEO" ? "Group video call" : "Group voice call";
+        incomingGroupCall.type === "VIDEO"
+            ? t("chat.group_video_call")
+            : t("chat.group_voice_call");
     const initial = incomingGroupCall.groupName.charAt(0).toUpperCase();
 
     return (
@@ -29,7 +39,9 @@ export function GroupCallScreen({ visible, incomingGroupCall, onJoin, onDecline 
                                 className="h-full w-full object-cover"
                             />
                         ) : (
-                            <span className="text-4xl font-bold text-white">{initial}</span>
+                            <span className="text-4xl font-bold text-white">
+                                {initial}
+                            </span>
                         )}
                     </div>
                 </div>
@@ -41,8 +53,10 @@ export function GroupCallScreen({ visible, incomingGroupCall, onJoin, onDecline 
                     </h2>
                     <p className="mt-1 text-sm text-gray-300">{callLabel}</p>
                     <p className="mt-1 text-xs text-gray-400">
-                        {incomingGroupCall.initiatorName} is calling &bull;{" "}
-                        {incomingGroupCall.participantCount} participants
+                        {t("chat.call_group_incoming_summary", {
+                            name: incomingGroupCall.initiatorName,
+                            count: incomingGroupCall.participantCount,
+                        })}
                     </p>
                 </div>
 
@@ -56,7 +70,9 @@ export function GroupCallScreen({ visible, incomingGroupCall, onJoin, onDecline 
                         >
                             <PhoneOff size={24} className="text-white" />
                         </button>
-                        <span className="text-xs text-gray-400">Decline</span>
+                        <span className="text-xs text-gray-400">
+                            {t("chat.call_decline")}
+                        </span>
                     </div>
 
                     {/* Join */}
@@ -71,7 +87,9 @@ export function GroupCallScreen({ visible, incomingGroupCall, onJoin, onDecline 
                                 <Phone size={24} className="text-white" />
                             )}
                         </button>
-                        <span className="text-xs text-gray-400">Join</span>
+                        <span className="text-xs text-gray-400">
+                            {t("chat.call_join")}
+                        </span>
                     </div>
                 </div>
             </div>

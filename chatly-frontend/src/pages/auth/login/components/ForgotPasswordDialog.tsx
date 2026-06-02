@@ -8,30 +8,37 @@ import {
 } from "@/components/ui/dialog";
 import { useState } from "react";
 import { toast } from "sonner";
+import { AxiosError } from "axios";
+import { useTranslation } from "react-i18next";
 import { authService } from "@/services/auth.service";
 
 export function ForgotPasswordDialog() {
+    const { t } = useTranslation();
     const [email, setEmail] = useState("");
     const [submitting, setSubmitting] = useState(false);
 
     const handleSubmit = async () => {
         const trimmed = email.trim();
         if (!trimmed) {
-            toast.error("Please enter your email.");
+            toast.error(t("auth.forgot_password.email"));
             return;
         }
         const simpleEmailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (!simpleEmailRegex.test(trimmed)) {
-            toast.error("Invalid email format.");
+            toast.error(t("validation.email_invalid"));
             return;
         }
 
         try {
             setSubmitting(true);
             const response = await authService.forgotPassword(trimmed);
-            toast.success(response.message || "Please check your email.");
-        } catch (error: any) {
-            toast.error(error?.response?.data?.message || "Failed to send request.");
+            toast.success(response.message || t("auth.forgot_password.code_sent"));
+        } catch (error: unknown) {
+            const msg =
+                error instanceof AxiosError
+                    ? error.response?.data?.message ?? t("errors.request_failed")
+                    : t("errors.unexpected");
+            toast.error(msg);
         } finally {
             setSubmitting(false);
         }
@@ -44,24 +51,23 @@ export function ForgotPasswordDialog() {
                     type="button"
                     className="mt-0.5 w-fit cursor-pointer border-none bg-transparent p-0 text-left text-[13px] text-brand no-underline transition-colors duration-200 hover:text-brand-light hover:underline dark:text-brand-light dark:hover:text-brand-light"
                 >
-                    Forgot your password?
+                    {t("auth.forgot_password.trigger")}
                 </button>
             </DialogTrigger>
             <DialogContent className="w-[90%] max-w-[420px] rounded-[24px] border-none bg-white p-6 shadow-2xl dark:bg-[rgba(30,33,40,0.98)] dark:text-white sm:rounded-[24px]">
                 <DialogHeader className="space-y-3 text-center sm:text-left">
                     <DialogTitle className="text-xl font-bold tracking-tight text-gray-900 dark:text-white">
-                        Forgot password
+                        {t("auth.forgot_password.title")}
                     </DialogTitle>
                     <DialogDescription className="text-[15px] leading-relaxed text-gray-600 dark:text-[#a0a3ab]">
-                        Enter your account email. If it exists, we email a new password — copy it from the message
-                        (don’t retype; some characters look alike).
+                        {t("auth.forgot_password.description")}
                     </DialogDescription>
                 </DialogHeader>
                 <input
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="Enter your email"
+                    placeholder={t("auth.forgot_password.email")}
                     className="mt-2 w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-brand dark:border-white/10 dark:bg-[#1a1c23] dark:text-white"
                 />
                 <div className="mt-4 flex w-full">
@@ -71,7 +77,7 @@ export function ForgotPasswordDialog() {
                         disabled={submitting}
                         className="w-full cursor-pointer rounded-full border-none bg-brand py-2.5 text-[15px] font-semibold text-white transition-all duration-300 hover:bg-brand-hover disabled:cursor-not-allowed disabled:opacity-70"
                     >
-                        {submitting ? "Sending..." : "Submit"}
+                        {submitting ? t("common.loading") : t("common.submit")}
                     </button>
                 </div>
             </DialogContent>

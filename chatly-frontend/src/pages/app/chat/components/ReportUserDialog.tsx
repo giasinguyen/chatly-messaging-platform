@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Flag } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import {
     Dialog,
@@ -15,11 +16,11 @@ import { Textarea } from "@/components/ui/textarea";
 import type { ReportReason } from "@/types/post";
 import type { CreateUserReportRequest } from "@/types/userReport";
 
-const REPORT_REASONS: { value: ReportReason; label: string }[] = [
-    { value: "SPAM", label: "Spam" },
-    { value: "HARASSMENT", label: "Harassment" },
-    { value: "INAPPROPRIATE", label: "Inappropriate" },
-    { value: "OTHER", label: "Other" },
+const REPORT_REASONS: { value: ReportReason; labelKey: string }[] = [
+    { value: "SPAM", labelKey: "chat.report_user_dialog.reason_spam" },
+    { value: "HARASSMENT", labelKey: "chat.report_user_dialog.reason_harassment" },
+    { value: "INAPPROPRIATE", labelKey: "chat.report_user_dialog.reason_inappropriate" },
+    { value: "OTHER", labelKey: "chat.report_user_dialog.reason_other" },
 ];
 
 interface ReportUserDialogProps {
@@ -37,6 +38,7 @@ export function ReportUserDialog({
     onOpenChange,
     onSubmit,
 }: ReportUserDialogProps) {
+    const { t } = useTranslation();
     const [reason, setReason] = useState<ReportReason>("SPAM");
     const [description, setDescription] = useState("");
 
@@ -61,9 +63,9 @@ export function ReportUserDialog({
                     <div className="mb-2 flex size-10 items-center justify-center rounded-full bg-destructive/10 text-destructive">
                         <Flag className="size-5" />
                     </div>
-                    <DialogTitle>Report {displayName}</DialogTitle>
+                    <DialogTitle>{t("chat.report_user_dialog.title", { name: displayName })}</DialogTitle>
                     <DialogDescription>
-                        Select a reason and add context for the moderation team.
+                        {t("chat.report_user_dialog.description")}
                     </DialogDescription>
                 </DialogHeader>
 
@@ -79,18 +81,18 @@ export function ReportUserDialog({
                             className="cursor-pointer gap-3 rounded-xl border border-border px-3 py-3 has-data-[state=checked]:border-primary has-data-[state=checked]:bg-primary/5"
                         >
                             <RadioGroupItem id={`chat-report-user-${item.value}`} value={item.value} />
-                            <span>{item.label}</span>
+                            <span>{t(item.labelKey)}</span>
                         </Label>
                     ))}
                 </RadioGroup>
 
                 <div className="space-y-2">
-                    <Label htmlFor="chat-report-user-description">Description</Label>
+                    <Label htmlFor="chat-report-user-description">{t("chat.report_user_dialog.description_label")}</Label>
                     <Textarea
                         id="chat-report-user-description"
                         value={description}
                         onChange={(event) => setDescription(event.target.value)}
-                        placeholder="Add details for review..."
+                        placeholder={t("chat.report_user_dialog.description_placeholder")}
                         rows={4}
                         maxLength={500}
                         disabled={isSubmitting}
@@ -100,10 +102,10 @@ export function ReportUserDialog({
 
                 <DialogFooter>
                     <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>
-                        Cancel
+                        {t("common.cancel")}
                     </Button>
                     <Button type="button" variant="destructive" onClick={handleSubmit} disabled={isSubmitting}>
-                        {isSubmitting ? "Submitting..." : "Submit report"}
+                        {isSubmitting ? t("chat.report_user_dialog.submitting") : t("chat.report_user_dialog.submit")}
                     </Button>
                 </DialogFooter>
             </DialogContent>

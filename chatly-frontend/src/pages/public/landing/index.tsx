@@ -1,8 +1,8 @@
 import { CallToAction } from "./components/CallToAction";
 import { Hero } from "./components/Hero";
 import { LogoTicker } from "./components/LogoTicker";
-import { Pricing } from "./components/Pricing";
 import { ProductShowcase } from "./components/ProductShowcase";
+import { SocialShowcase } from "./components/SocialShowcase";
 import { Testimonials } from "./components/Testimonials";
 
 export default function LandingPage() {
@@ -14,7 +14,7 @@ export default function LandingPage() {
             <Hero />
             <LogoTicker />
             <ProductShowcase />
-            <Pricing />
+            <SocialShowcase />
             <Testimonials />
             <CallToAction />
         </div>

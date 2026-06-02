@@ -1,0 +1,34 @@
+@startuml Chatly_Sequence_Simple_Create_Post
+title Create Post
+
+autonumber
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+
+actor "Authenticated User" as User
+boundary "Web or Mobile Client" as Client
+control "PostController" as PostController
+control "PostService" as PostService
+entity "Post" as PostEntity
+control "PostRepository" as PostRepo
+control "GlobalExceptionHandler" as ExceptionHandler
+
+User -> Client: Compose post
+Client -> PostController: CreatePostRequest{content, mediaUrls?}
+PostController -> PostService: create(userId, request)
+
+alt Invalid content
+	PostService -> ExceptionHandler: AppException(BAD_REQUEST)
+	ExceptionHandler --> Client: HTTP 400\nApiResponse{error}
+else Valid
+	PostService -> PostEntity: build post
+	PostEntity --> PostService: post
+	PostService -> PostRepo: save post
+	PostRepo --> PostService: postId
+	PostService --> PostController: PostResponse
+	PostController --> Client: HTTP 200\nApiResponse{code:1000, result}
+end
+
+Client --> User: Show new post
+
+@enduml

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
     ImageIcon,
     FileText,
@@ -7,6 +8,9 @@ import {
     Download,
     Loader2,
     X,
+    Send,
+    Trash2,
+    Upload,
     ChevronLeft,
     ChevronRight,
     Cloud,
@@ -15,7 +19,12 @@ import {
     File,
     ArrowDownUp,
     Eye,
+    UploadCloud,
+    FileArchive,
+    FileCode,
+    FileSpreadsheet,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,8 +37,12 @@ import {
 } from "@/components/ui/select";
 import { fileService, type FileUploadResponse } from "@/services/file.service";
 import { conversationService } from "@/services/conversation.service";
+import { messageService } from "@/services/message.service";
 import { cn } from "@/lib/utils";
 import { FilePreviewModal } from "./components/FilePreviewModal";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import type { ConversationResponse } from "@/types/conversation";
+import { fileToAttachment, isUserUploadedCloudFile } from "@/utils/fileAttachment";
 
 // --- Helpers ---
 
@@ -54,6 +67,7 @@ const getExtension = (fileName: string): string => {
 const isImage = (fileType: string) => fileType.startsWith("image/");
 const isVideo = (fileType: string) => fileType.startsWith("video/");
 const isMedia = (fileType: string) => isImage(fileType) || isVideo(fileType);
+const CLOUD_UPLOAD_SOURCE = "CLOUD";
 
 const FILE_ICON_COLORS: Record<string, string> = {
     pdf: "bg-red-500",
@@ -72,56 +86,83 @@ const FILE_ICON_COLORS: Record<string, string> = {
 
 const getExtensionColor = (ext: string): string => FILE_ICON_COLORS[ext] ?? "bg-slate-500";
 
-const formatSectionLabel = (timestamp: string) => {
+const getFileIcon = (ext: string): LucideIcon => {
+    if (["xls", "xlsx", "csv"].includes(ext)) return FileSpreadsheet;
+    if (["zip", "rar"].includes(ext)) return FileArchive;
+    if (["js", "ts", "tsx", "jsx", "py", "java", "sql"].includes(ext)) return FileCode;
+    return FileText;
+};
+
+const formatSectionLabel = (timestamp: string, locale: string) => {
     const date = new Date(timestamp);
     const day = date.getDate().toString().padStart(2, "0");
     const month = (date.getMonth() + 1).toString().padStart(2, "0");
     const year = date.getFullYear();
     const sameYear = year === new Date().getFullYear();
+    const dateLocale = locale === "vi" ? "vi-VN" : "en-US";
     return sameYear
-        ? `${day} ${new Date(timestamp).toLocaleString("en-US", { month: "long" })}`
+        ? `${day} ${new Date(timestamp).toLocaleString(dateLocale, { month: "long" })}`
         : `${day}/${month}/${year}`;
 };
 
-const groupByDate = (files: FileUploadResponse[]): Record<string, FileUploadResponse[]> => {
-    return files.reduce<Record<string, FileUploadResponse[]>>((acc, item) => {
-        const label = formatSectionLabel(item.createdAt ?? new Date().toISOString());
-        acc[label] = acc[label] ? [...acc[label], item] : [item];
-        return acc;
-    }, {});
-};
-
-// --- Constants ---
-
 const STORAGE_QUOTA = 1 * 1024 * 1024 * 1024; // 1 GB
-
-const sortOptions = [
-    { value: "latest", label: "Latest" },
-    { value: "oldest", label: "Oldest" },
-];
-
-const mediaTypeOptions = [
-    { value: "all", label: "All" },
-    { value: "images", label: "Images" },
-    { value: "videos", label: "Videos" },
-];
 
 // --- Component ---
 
 export default function CloudPage() {
+    const { t, i18n } = useTranslation();
     const [loading, setLoading] = useState(true);
+
+    const sortOptions = useMemo(
+        () => [
+            { value: "latest", label: t("cloud.latest") },
+            { value: "oldest", label: t("cloud.oldest") },
+        ],
+        [t],
+    );
+
+    const mediaTypeOptions = useMemo(
+        () => [
+            { value: "all", label: t("cloud.all") },
+            { value: "images", label: t("cloud.images") },
+            { value: "videos", label: t("cloud.videos") },
+        ],
+        [t],
+    );
+
+    const groupByDate = useCallback(
+        (files: FileUploadResponse[]): Record<string, FileUploadResponse[]> => {
+            return files.reduce<Record<string, FileUploadResponse[]>>((acc, item) => {
+                const label = formatSectionLabel(
+                    item.createdAt ?? new Date().toISOString(),
+                    i18n.language,
+                );
+                acc[label] = acc[label] ? [...acc[label], item] : [item];
+                return acc;
+            }, {});
+        },
+        [i18n.language],
+    );
     const [allFiles, setAllFiles] = useState<FileUploadResponse[]>([]);
     const [convMap, setConvMap] = useState<Record<string, string>>({});
+    const [conversations, setConversations] = useState<ConversationResponse[]>([]);
 
     const [searchTerm, setSearchTerm] = useState("");
     const [sortFilter, setSortFilter] = useState("latest");
-    const [categoryTab, setCategoryTab] = useState<"media" | "files">("media");
+    const [categoryTab, setCategoryTab] = useState<"media" | "files" | "uploads">("media");
     const [typeFilterByTab, setTypeFilterByTab] = useState<Record<string, string>>({
         media: "all",
         files: "all",
+        uploads: "all",
     });    
     // Cleanup state
     const [isCleaningUp, setIsCleaningUp] = useState(false);
+    const [isUploading, setIsUploading] = useState(false);
+    const [uploadProgress, setUploadProgress] = useState(0);
+    const [deletingFileId, setDeletingFileId] = useState<string | null>(null);
+    const [sendFile, setSendFile] = useState<FileUploadResponse | null>(null);
+    const [targetConversationId, setTargetConversationId] = useState("");
+    const [isSendingFile, setIsSendingFile] = useState(false);
 
     // Document preview state
     const [docPreviewFile, setDocPreviewFile] = useState<FileUploadResponse | null>(null);
@@ -164,7 +205,7 @@ export default function CloudPage() {
 
         setIsCleaningUp(true);
         toast.warning(
-            `Storage limit of 1 GB exceeded. Deleting ${toDelete.length} oldest files to free up space...`,
+            t("cloud.storage_exceeded", { quota: "1 GB", count: toDelete.length }),
             { duration: 5000 },
         );
         Promise.all(toDelete.map((f) => fileService.deleteFile(f.fileId)))
@@ -172,9 +213,9 @@ export default function CloudPage() {
                 setAllFiles((prev) =>
                     prev.filter((f) => !toDelete.some((d) => d.fileId === f.fileId)),
                 );
-                toast.success(`Deleted ${toDelete.length} oldest files to free up space.`);
+                toast.success(t("cloud.storage_cleaned", { count: toDelete.length }));
             })
-            .catch(() => toast.error("Failed to clean up old files. Please check again."))
+            .catch(() => toast.error(t("cloud.cleanup_failed")))
             .finally(() => setIsCleaningUp(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [allFiles]);
@@ -201,16 +242,17 @@ export default function CloudPage() {
             .then(([files, convsResp]) => {
                 if (cancelled) return;
                 setAllFiles(files);
+                setConversations(convsResp.result);
                 const map: Record<string, string> = {};
                 for (const c of convsResp.result) {
                     map[c.id] = c.nickname ?? c.name ?? c.id;
                 }
                 setConvMap(map);
             })
-            .catch(() => toast.error("Failed to load storage data"))
+            .catch(() => toast.error(t("cloud.load_failed")))
             .finally(() => { if (!cancelled) setLoading(false); });
         return () => { cancelled = true; };
-    }, []);
+    }, [t]);
 
     useEffect(() => {
         return loadCloudData();
@@ -235,14 +277,28 @@ export default function CloudPage() {
 
     const mediaFiles = useMemo(() => allFiles.filter((f) => isMedia(f.fileType)), [allFiles]);
     const docFiles = useMemo(() => allFiles.filter((f) => !isMedia(f.fileType)), [allFiles]);
+    const uploadedFiles = useMemo(
+        () => allFiles.filter(isUserUploadedCloudFile),
+        [allFiles],
+    );
 
     const docExtensions = useMemo(() => {
         const exts = new Set(docFiles.map((f) => getExtension(f.fileName)));
         return [
-            { value: "all", label: "All" },
+            { value: "all", label: t("cloud.all") },
             ...Array.from(exts).map((e) => ({ value: e, label: e.toUpperCase() })),
         ];
-    }, [docFiles]);
+    }, [docFiles, t]);
+
+    const uploadTypeOptions = useMemo(
+        () => [
+            { value: "all", label: t("cloud.all") },
+            { value: "images", label: t("cloud.images") },
+            { value: "videos", label: t("cloud.videos") },
+            { value: "files", label: t("cloud.documents") },
+        ],
+        [t],
+    );
 
     const totalSize = useMemo(
         () => allFiles.reduce((sum, f) => sum + (f.fileSize ?? 0), 0),
@@ -296,11 +352,27 @@ export default function CloudPage() {
         return applySort(result);
     }, [docFiles, typeFilterByTab, searchTerm, applySort]);
 
+    const filteredUploads = useMemo(() => {
+        const uploadType = typeFilterByTab.uploads;
+        const search = searchTerm.trim().toLowerCase();
+        const result = uploadedFiles.filter((f) => {
+            const matchSearch = !search || f.fileName.toLowerCase().includes(search);
+            const matchType =
+                uploadType === "all" ||
+                (uploadType === "images" && isImage(f.fileType)) ||
+                (uploadType === "videos" && isVideo(f.fileType)) ||
+                (uploadType === "files" && !isMedia(f.fileType));
+            return matchSearch && matchType;
+        });
+        return applySort(result);
+    }, [uploadedFiles, typeFilterByTab, searchTerm, applySort]);
+
     const sectionedMedia = useMemo(() => groupByDate(filteredMedia), [filteredMedia]);
     const sectionedDocs = useMemo(() => groupByDate(filteredDocs), [filteredDocs]);
+    const sectionedUploads = useMemo(() => groupByDate(filteredUploads), [filteredUploads]);
 
     const getConvName = (id?: string) =>
-        id ? (convMap[id] ?? id.slice(0, 8) + "...") : "—";
+        id ? (convMap[id] ?? id.slice(0, 8) + "...") : "-";
 
     const handleDownload = (file: FileUploadResponse) => {
         const a = document.createElement("a");
@@ -311,10 +383,77 @@ export default function CloudPage() {
         a.click();
     };
 
+    const handleUploadFiles = async (files: FileList | null) => {
+        const selectedFiles = Array.from(files ?? []);
+        if (selectedFiles.length === 0) return;
+        setIsUploading(true);
+        setUploadProgress(0);
+        try {
+            const uploadedFiles: FileUploadResponse[] = [];
+            for (const [index, file] of selectedFiles.entries()) {
+                const uploaded = await fileService.upload(
+                    file,
+                    undefined,
+                    (percent) => {
+                        const completed = index / selectedFiles.length;
+                        setUploadProgress(Math.round((completed + percent / 100 / selectedFiles.length) * 100));
+                    },
+                    CLOUD_UPLOAD_SOURCE,
+                );
+                uploadedFiles.push(uploaded);
+            }
+            setAllFiles((prev) => [...uploadedFiles, ...prev]);
+            toast.success(t("cloud.upload_success", { count: uploadedFiles.length }));
+        } catch {
+            toast.error(t("cloud.upload_failed"));
+        } finally {
+            setIsUploading(false);
+            setUploadProgress(0);
+        }
+    };
+
+    const handleDeleteFile = async (file: FileUploadResponse) => {
+        if (!window.confirm(t("cloud.delete_confirm"))) return;
+        setDeletingFileId(file.fileId);
+        try {
+            await fileService.deleteFile(file.fileId);
+            setAllFiles((prev) => prev.filter((item) => item.fileId !== file.fileId));
+            toast.success(t("cloud.delete_success"));
+        } catch {
+            toast.error(t("cloud.delete_failed"));
+        } finally {
+            setDeletingFileId(null);
+        }
+    };
+
+    const handleOpenSendDialog = (file: FileUploadResponse) => {
+        setSendFile(file);
+        setTargetConversationId(conversations[0]?.id ?? "");
+    };
+
+    const handleSendFile = async () => {
+        if (!sendFile || !targetConversationId) return;
+        setIsSendingFile(true);
+        try {
+            await messageService.send({
+                conversationId: targetConversationId,
+                content: "",
+                attachments: [fileToAttachment(sendFile)],
+            });
+            toast.success(t("cloud.send_success"));
+            setSendFile(null);
+            setTargetConversationId("");
+        } catch {
+            toast.error(t("cloud.send_failed"));
+        } finally {
+            setIsSendingFile(false);
+        }
+    };
+
     return (
         <div className="flex h-full overflow-hidden bg-background text-foreground">
 
-            {/* ── Lightbox ────────────────────────────────────────────────── */}
+            {/* Lightbox */}
             {lightboxIndex !== null && lightboxList[lightboxIndex] && (
                 <div
                     className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-sm"
@@ -368,46 +507,53 @@ export default function CloudPage() {
                 </div>
             )}
 
-            {/* ── Left Sidebar ─────────────────────────────────────────────── */}
+            {/* Left sidebar */}
             <aside className="flex w-full md:w-85 lg:w-[350px] shrink-0 flex-col gap-5 border-r border-border bg-card px-4 py-6 overflow-y-auto">
                 {/* Brand */}
                 <div className="flex items-center gap-2.5 px-1">
                     <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
                         <Cloud className="h-4 w-4 text-primary-foreground" />
                     </div>
-                    <span className="text-sm font-semibold tracking-tight">Cloud Storage</span>
+                    <span className="text-sm font-semibold tracking-tight">{t("cloud.title")}</span>
                 </div>
 
                 {/* Stats */}
                 {!loading && (
                     <div className="space-y-1.5">
-                        <p className="px-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">Overview</p>
+                        <p className="px-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">{t("cloud.overview")}</p>
                         <div className="rounded-xl border border-border/60 bg-muted/40 p-3 space-y-2.5">
-                            <StatRow label="Files" value={String(allFiles.length)} />
-                            <StatRow label="Images / Videos" value={String(mediaFiles.length)} />
-                            <StatRow label="Documents" value={String(docFiles.length)} />
-                            <StatRow label="Conversations" value={String(uniqueConvCount)} />
+                            <StatRow label={t("cloud.files")} value={String(allFiles.length)} />
+                            <StatRow label={t("cloud.images_videos")} value={String(mediaFiles.length)} />
+                            <StatRow label={t("cloud.documents")} value={String(docFiles.length)} />
+                            <StatRow label={t("cloud.conversations")} value={String(uniqueConvCount)} />
                         </div>
                     </div>
                 )}
 
                 {/* Nav tabs */}
                 <div className="space-y-1.5">
-                    <p className="px-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">Library</p>
+                    <p className="px-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">{t("cloud.library")}</p>
                     <nav className="space-y-0.5">
                         <NavItem
                             icon={<ImageIconLucide className="h-4 w-4" />}
-                            label="Images & Videos"
+                            label={t("cloud.images_videos_nav")}
                             count={mediaFiles.length}
                             active={categoryTab === "media"}
                             onClick={() => setCategoryTab("media")}
                         />
                         <NavItem
                             icon={<File className="h-4 w-4" />}
-                            label="Documents"
+                            label={t("cloud.documents")}
                             count={docFiles.length}
                             active={categoryTab === "files"}
                             onClick={() => setCategoryTab("files")}
+                        />
+                        <NavItem
+                            icon={<UploadCloud className="h-4 w-4" />}
+                            label={t("cloud.uploads")}
+                            count={uploadedFiles.length}
+                            active={categoryTab === "uploads"}
+                            onClick={() => setCategoryTab("uploads")}
                         />
                     </nav>
                 </div>
@@ -415,14 +561,19 @@ export default function CloudPage() {
                 {/* Filters */}
                 <div className="space-y-2">
                     <p className="px-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">
-                        <SlidersHorizontal className="inline h-3 w-3 mr-1" />Filters
+                        <SlidersHorizontal className="inline h-3 w-3 mr-1" />{t("cloud.filters")}
                     </p>
                     <Select value={currentTypeFilter} onValueChange={handleTypeChange}>
                         <SelectTrigger className="h-9 rounded-lg border-border bg-background text-xs">
-                            <SelectValue placeholder="File type" />
+                            <SelectValue placeholder={t("cloud.file_type")} />
                         </SelectTrigger>
                         <SelectContent>
-                            {(categoryTab === "media" ? mediaTypeOptions : docExtensions).map((opt) => (
+                            {(categoryTab === "media"
+                                ? mediaTypeOptions
+                                : categoryTab === "uploads"
+                                  ? uploadTypeOptions
+                                  : docExtensions
+                            ).map((opt) => (
                                 <SelectItem key={opt.value} value={opt.value} className="text-xs">{opt.label}</SelectItem>
                             ))}
                         </SelectContent>
@@ -430,7 +581,7 @@ export default function CloudPage() {
                     <Select value={sortFilter} onValueChange={setSortFilter}>
                         <SelectTrigger className="h-9 rounded-lg border-border bg-background text-xs">
                             <ArrowDownUp className="mr-1.5 h-3 w-3 text-muted-foreground" />
-                            <SelectValue placeholder="Sort" />
+                            <SelectValue placeholder={t("cloud.sort")} />
                         </SelectTrigger>
                         <SelectContent>
                             {sortOptions.map((opt) => (
@@ -443,29 +594,54 @@ export default function CloudPage() {
                 {/* Storage Quota Widget */}
                 {!loading && (
                     <div className="space-y-1.5 border-t border-border/40 pt-5 mt-auto">
-                        <p className="px-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">Storage</p>
+                        <Button
+                            type="button"
+                            className="mb-3 h-9 w-full gap-2"
+                            disabled={isUploading}
+                            onClick={() => document.getElementById("cloud-upload-input")?.click()}
+                        >
+                            {isUploading ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                                <Upload className="h-4 w-4" />
+                            )}
+                            {isUploading ? `${uploadProgress}%` : t("cloud.upload_button")}
+                        </Button>
+                        <p className="px-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">{t("cloud.storage")}</p>
                         <StorageWidget used={totalSize} quota={STORAGE_QUOTA} cleaning={isCleaningUp} />
                     </div>
                 )}
             </aside>
 
-            {/* ── Main Area ─────────────────────────────────────────────────── */}
+            {/* Main area */}
             <main className="flex flex-1 flex-col overflow-hidden">
                 {/* Top bar */}
                 <div className="flex shrink-0 items-center gap-3 border-b border-border bg-card px-6 py-3">
+                    <input
+                        id="cloud-upload-input"
+                        type="file"
+                        multiple
+                        className="hidden"
+                        onChange={(event) => {
+                            handleUploadFiles(event.target.files);
+                            event.target.value = "";
+                        }}
+                    />
                     <div className="relative flex-1 max-w-sm">
                         <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground/60" />
                         <Input
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            placeholder="Search file name..."
+                            placeholder={t("cloud.search_placeholder")}
                             className="h-9 rounded-lg border-border bg-background pl-9 text-sm"
                         />
                     </div>
                     <span className="ml-auto text-xs text-muted-foreground">
-                        {loading ? "—" : categoryTab === "media"
-                            ? `${filteredMedia.length} file`
-                            : `${filteredDocs.length} file`}
+                        {loading ? "-" : categoryTab === "media"
+                            ? t("cloud.file_count_one", { count: filteredMedia.length })
+                            : categoryTab === "uploads"
+                              ? t("cloud.file_count_one", { count: filteredUploads.length })
+                              : t("cloud.file_count_one", { count: filteredDocs.length })}
                     </span>
                 </div>
 
@@ -477,7 +653,7 @@ export default function CloudPage() {
                         </div>
                     ) : categoryTab === "media" ? (
                         filteredMedia.length === 0 ? (
-                            <EmptyState icon={<ImageIcon className="h-10 w-10" />} label="No images or videos found" />
+                            <EmptyState icon={<ImageIcon className="h-10 w-10" />} label={t("cloud.no_media")} />
                         ) : (
                             <div className="space-y-8">
                                 {Object.entries(sectionedMedia).map(([label, items]) => (
@@ -487,9 +663,17 @@ export default function CloudPage() {
                                             {items.map((item) => {
                                                 const idx = filteredMedia.findIndex((m) => m.fileId === item.fileId);
                                                 return (
-                                                    <button
+                                                    <div
                                                         key={item.fileId}
+                                                        role="button"
+                                                        tabIndex={0}
                                                         onClick={() => openLightbox(filteredMedia, idx)}
+                                                        onKeyDown={(event) => {
+                                                            if (event.key === "Enter" || event.key === " ") {
+                                                                event.preventDefault();
+                                                                openLightbox(filteredMedia, idx);
+                                                            }
+                                                        }}
                                                         className="group relative aspect-square overflow-hidden rounded-lg bg-muted focus:outline-none focus:ring-2 focus:ring-primary"
                                                     >
                                                         {isImage(item.fileType) ? (
@@ -507,17 +691,37 @@ export default function CloudPage() {
                                                         {/* Hover overlay */}
                                                         <div className="absolute inset-0 flex flex-col justify-end bg-gradient-to-t from-black/70 via-black/20 to-transparent opacity-0 transition-opacity duration-200 group-hover:opacity-100 p-1.5">
                                                             <p className="truncate text-[9px] font-medium text-white leading-tight">{item.fileName}</p>
-                                                            <div className="mt-1 flex items-center justify-between">
+                                                            <div className="mt-1 flex items-center justify-between gap-1">
                                                                 <span className="text-[8px] text-white/60">{formatFileSize(item.fileSize)}</span>
                                                                 <button
                                                                     className="rounded p-0.5 text-white/80 hover:text-white"
                                                                     onClick={(e) => { e.stopPropagation(); handleDownload(item); }}
+                                                                    title={t("cloud.download")}
                                                                 >
                                                                     <Download className="h-3 w-3" />
                                                                 </button>
+                                                                <button
+                                                                    className="rounded p-0.5 text-white/80 hover:text-white"
+                                                                    onClick={(e) => { e.stopPropagation(); handleOpenSendDialog(item); }}
+                                                                    title={t("cloud.send")}
+                                                                >
+                                                                    <Send className="h-3 w-3" />
+                                                                </button>
+                                                                <button
+                                                                    className="rounded p-0.5 text-white/80 hover:text-white disabled:opacity-60"
+                                                                    disabled={deletingFileId === item.fileId}
+                                                                    onClick={(e) => { e.stopPropagation(); handleDeleteFile(item); }}
+                                                                    title={t("cloud.delete")}
+                                                                >
+                                                                    {deletingFileId === item.fileId ? (
+                                                                        <Loader2 className="h-3 w-3 animate-spin" />
+                                                                    ) : (
+                                                                        <Trash2 className="h-3 w-3" />
+                                                                    )}
+                                                                </button>
                                                             </div>
                                                         </div>
-                                                    </button>
+                                                    </div>
                                                 );
                                             })}
                                         </div>
@@ -525,9 +729,104 @@ export default function CloudPage() {
                                 ))}
                             </div>
                         )
+                    ) : categoryTab === "uploads" ? (
+                        filteredUploads.length === 0 ? (
+                            <EmptyState icon={<UploadCloud className="h-10 w-10" />} label={t("cloud.no_uploads")} />
+                        ) : (
+                            <div className="space-y-8">
+                                {Object.entries(sectionedUploads).map(([label, items]) => (
+                                    <section key={label}>
+                                        <p className="mb-3 text-xs font-semibold text-muted-foreground/70 uppercase tracking-widest">{label}</p>
+                                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
+                                            {items.map((item) => (
+                                                <div
+                                                    key={item.fileId}
+                                                    className="overflow-hidden rounded-xl border border-border/60 bg-card shadow-sm transition-colors hover:bg-muted/30"
+                                                >
+                                                    <button
+                                                        type="button"
+                                                        className="block aspect-video w-full overflow-hidden bg-muted"
+                                                        onClick={() => {
+                                                            if (isMedia(item.fileType)) {
+                                                                const idx = filteredUploads.findIndex((file) => file.fileId === item.fileId);
+                                                                openLightbox(filteredUploads, idx);
+                                                                return;
+                                                            }
+                                                            setDocPreviewFile(item);
+                                                            setDocPreviewOpen(true);
+                                                        }}
+                                                    >
+                                                        <FileThumbnail file={item} />
+                                                    </button>
+                                                    <div className="space-y-3 p-3">
+                                                        <div className="min-w-0">
+                                                            <p className="truncate text-sm font-medium leading-tight">{item.fileName}</p>
+                                                            <p className="mt-1 text-xs text-muted-foreground">
+                                                                {formatFileSize(item.fileSize)} - {new Date(item.createdAt ?? "").toLocaleDateString(i18n.language === "vi" ? "vi-VN" : "en-US")}
+                                                            </p>
+                                                        </div>
+                                                        <div className="flex items-center justify-end gap-1">
+                                                            <Button
+                                                                size="icon"
+                                                                variant="ghost"
+                                                                className="h-8 w-8 rounded-lg"
+                                                                title={t("cloud.preview")}
+                                                                onClick={() => {
+                                                                    if (isMedia(item.fileType)) {
+                                                                        const idx = filteredUploads.findIndex((file) => file.fileId === item.fileId);
+                                                                        openLightbox(filteredUploads, idx);
+                                                                        return;
+                                                                    }
+                                                                    setDocPreviewFile(item);
+                                                                    setDocPreviewOpen(true);
+                                                                }}
+                                                            >
+                                                                <Eye className="h-3.5 w-3.5" />
+                                                            </Button>
+                                                            <Button
+                                                                size="icon"
+                                                                variant="ghost"
+                                                                className="h-8 w-8 rounded-lg"
+                                                                title={t("cloud.send")}
+                                                                onClick={() => handleOpenSendDialog(item)}
+                                                            >
+                                                                <Send className="h-3.5 w-3.5" />
+                                                            </Button>
+                                                            <Button
+                                                                size="icon"
+                                                                variant="ghost"
+                                                                className="h-8 w-8 rounded-lg text-destructive hover:text-destructive"
+                                                                disabled={deletingFileId === item.fileId}
+                                                                title={t("cloud.delete")}
+                                                                onClick={() => handleDeleteFile(item)}
+                                                            >
+                                                                {deletingFileId === item.fileId ? (
+                                                                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                                                ) : (
+                                                                    <Trash2 className="h-3.5 w-3.5" />
+                                                                )}
+                                                            </Button>
+                                                            <Button
+                                                                size="icon"
+                                                                variant="ghost"
+                                                                className="h-8 w-8 rounded-lg"
+                                                                title={t("cloud.download")}
+                                                                onClick={() => handleDownload(item)}
+                                                            >
+                                                                <Download className="h-3.5 w-3.5" />
+                                                            </Button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </section>
+                                ))}
+                            </div>
+                        )
                     ) : (
                         filteredDocs.length === 0 ? (
-                            <EmptyState icon={<FileText className="h-10 w-10" />} label="No documents found" />
+                            <EmptyState icon={<FileText className="h-10 w-10" />} label={t("cloud.no_documents")} />
                         ) : (
                             <div className="space-y-8">
                                 {Object.entries(sectionedDocs).map(([label, items]) => (
@@ -544,23 +843,27 @@ export default function CloudPage() {
                                                             i < items.length - 1 && "border-b border-border/40",
                                                         )}
                                                     >
-                                                        <div className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-[10px] font-bold uppercase text-white", getExtensionColor(ext))}>
-                                                            {ext}
+                                                        <div className={cn("flex h-10 w-10 shrink-0 flex-col items-center justify-center rounded-lg text-white", getExtensionColor(ext))}>
+                                                            {(() => {
+                                                                const Icon = getFileIcon(ext);
+                                                                return <Icon className="h-4 w-4" />;
+                                                            })()}
+                                                            <span className="mt-0.5 text-[8px] font-bold uppercase leading-none">{ext}</span>
                                                         </div>
                                                         <div className="flex-1 min-w-0">
                                                             <p className="text-sm font-medium leading-tight line-clamp-1">{item.fileName}</p>
                                                             <p className="text-xs text-muted-foreground mt-0.5">
-                                                                {formatFileSize(item.fileSize)} · {getConvName(item.conversationId)}
+                                                                {formatFileSize(item.fileSize)} - {getConvName(item.conversationId)}
                                                             </p>
                                                         </div>
                                                         <span className="hidden shrink-0 text-xs text-muted-foreground/60 md:block">
-                                                            {new Date(item.createdAt ?? "").toLocaleDateString("en-US")}
+                                                            {new Date(item.createdAt ?? "").toLocaleDateString(i18n.language === "vi" ? "vi-VN" : "en-US")}
                                                         </span>
                                                         <Button
                                                             size="icon"
                                                             variant="ghost"
                                                             className="h-7 w-7 shrink-0 rounded-lg"
-                                                            title="Xem trước"
+                                                            title={t("cloud.preview")}
                                                             onClick={() => {
                                                                 setDocPreviewFile(item);
                                                                 setDocPreviewOpen(true);
@@ -572,7 +875,30 @@ export default function CloudPage() {
                                                             size="icon"
                                                             variant="ghost"
                                                             className="h-7 w-7 shrink-0 rounded-lg"
-                                                            title="Tải xuống"
+                                                            title={t("cloud.send")}
+                                                            onClick={() => handleOpenSendDialog(item)}
+                                                        >
+                                                            <Send className="h-3.5 w-3.5" />
+                                                        </Button>
+                                                        <Button
+                                                            size="icon"
+                                                            variant="ghost"
+                                                            className="h-7 w-7 shrink-0 rounded-lg text-destructive hover:text-destructive"
+                                                            disabled={deletingFileId === item.fileId}
+                                                            title={t("cloud.delete")}
+                                                            onClick={() => handleDeleteFile(item)}
+                                                        >
+                                                            {deletingFileId === item.fileId ? (
+                                                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                                            ) : (
+                                                                <Trash2 className="h-3.5 w-3.5" />
+                                                            )}
+                                                        </Button>
+                                                        <Button
+                                                            size="icon"
+                                                            variant="ghost"
+                                                            className="h-7 w-7 shrink-0 rounded-lg"
+                                                            title={t("cloud.download")}
                                                             onClick={() => handleDownload(item)}
                                                         >
                                                             <Download className="h-3.5 w-3.5" />
@@ -594,9 +920,48 @@ export default function CloudPage() {
                 open={docPreviewOpen}
                 onOpenChange={setDocPreviewOpen}
                 file={docPreviewFile}
-                files={filteredDocs}
+                files={categoryTab === "uploads" ? filteredUploads.filter((file) => !isMedia(file.fileType)) : filteredDocs}
                 onNavigate={(f) => setDocPreviewFile(f)}
             />
+            <Dialog open={!!sendFile} onOpenChange={(open) => !open && setSendFile(null)}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>{t("cloud.send_file_title")}</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-3">
+                        <div className="rounded-lg border border-border bg-muted/30 px-3 py-2">
+                            <p className="truncate text-sm font-medium">{sendFile?.fileName}</p>
+                            <p className="text-xs text-muted-foreground">
+                                {sendFile ? formatFileSize(sendFile.fileSize) : ""}
+                            </p>
+                        </div>
+                        <Select value={targetConversationId} onValueChange={setTargetConversationId}>
+                            <SelectTrigger>
+                                <SelectValue placeholder={t("cloud.select_conversation")} />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {conversations.map((conversation) => (
+                                    <SelectItem key={conversation.id} value={conversation.id}>
+                                        {conversation.nickname ?? conversation.name ?? conversation.id}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="ghost" onClick={() => setSendFile(null)}>
+                            {t("common.cancel")}
+                        </Button>
+                        <Button
+                            disabled={!targetConversationId || isSendingFile}
+                            onClick={handleSendFile}
+                        >
+                            {isSendingFile && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                            {t("cloud.send")}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }
@@ -651,7 +1016,44 @@ function EmptyState({ icon, label }: { icon: React.ReactNode; label: string }) {
     );
 }
 
+function FileThumbnail({ file }: { file: FileUploadResponse }) {
+    if (isImage(file.fileType)) {
+        return (
+            <img
+                src={file.url}
+                alt={file.fileName}
+                className="h-full w-full object-cover"
+                loading="lazy"
+            />
+        );
+    }
+
+    if (isVideo(file.fileType)) {
+        return (
+            <video
+                src={file.url}
+                className="h-full w-full object-cover"
+                muted
+                preload="metadata"
+            />
+        );
+    }
+
+    const ext = getExtension(file.fileName);
+    const Icon = getFileIcon(ext);
+
+    return (
+        <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-muted/60">
+            <div className={cn("flex h-14 w-14 flex-col items-center justify-center rounded-xl text-white shadow-sm", getExtensionColor(ext))}>
+                <Icon className="h-6 w-6" />
+                <span className="mt-1 text-[10px] font-bold uppercase leading-none">{ext}</span>
+            </div>
+        </div>
+    );
+}
+
 function StorageWidget({ used, quota, cleaning }: { used: number; quota: number; cleaning: boolean }) {
+    const { t } = useTranslation();
     const pct = Math.min((used / quota) * 100, 100);
     const usedStr = formatTotalSize(used);
     const quotaStr = "1 GB";
@@ -680,18 +1082,19 @@ function StorageWidget({ used, quota, cleaning }: { used: number; quota: number;
                 {cleaning ? (
                     <span className="flex items-center gap-1">
                         <Loader2 className="h-3 w-3 animate-spin" />
-                        Cleaning up...
+                        {t("cloud.cleaning_up")}
                     </span>
                 ) : (
-                    <>Used <span className={cn("font-medium", textColor)}>{pct.toFixed(1)}%</span> of {quotaStr}</>
+                    t("cloud.used_percent", { percent: pct.toFixed(1), quota: quotaStr })
                 )}
             </p>
             {pct >= 90 && !cleaning && (
                 <p className="text-[10px] text-red-500/80">
-                    ⚠ Almost full — oldest files will be automatically deleted when limit is reached.
+                    {t("cloud.almost_full_warning")}
                 </p>
             )}
         </div>
     );
 }
+
 

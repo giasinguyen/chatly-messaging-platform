@@ -1,6 +1,13 @@
-import { useState, useEffect, useCallback, useRef, useLayoutEffect } from "react";
+import {
+    useState,
+    useEffect,
+    useCallback,
+    useRef,
+    useLayoutEffect,
+} from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
+import { Trans, useTranslation } from "react-i18next";
 import { groupService } from "@/services/group.service";
 import { conversationService } from "@/services/conversation.service";
 import { fileService } from "@/services/file.service";
@@ -47,7 +54,12 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import type { GroupMemberResponse, GroupRole, PendingJoinResponse } from "@/types/group";
+import { buildGroupInviteLink } from "@/utils/groupInviteLink";
+import type {
+    GroupMemberResponse,
+    GroupRole,
+    PendingJoinResponse,
+} from "@/types/group";
 import { QRCodeSVG } from "qrcode.react";
 
 interface GroupManagementPanelProps {
@@ -94,6 +106,7 @@ const ROLE_MENU_HEADER_HEIGHT = 34;
 const ROLE_MENU_ITEM_HEIGHT = 34;
 
 function RoleBadge({ role }: { role: GroupRole }) {
+    const { t } = useTranslation();
     const cfg = ROLE_CONFIG[role];
     return (
         <span
@@ -103,7 +116,7 @@ function RoleBadge({ role }: { role: GroupRole }) {
             )}
         >
             {cfg.icon}
-            {cfg.label}
+            {t(`chat.group_panel.${role.toLowerCase()}`)}
         </span>
     );
 }
@@ -120,6 +133,7 @@ export function GroupManagementPanel({
     onGroupUpdated,
     defaultTab = "members",
 }: GroupManagementPanelProps) {
+    const { t } = useTranslation();
     const navigate = useNavigate();
     const { user: currentUser } = useAuthStore();
     const { notifications, removeByTypeAndReference } = useNotificationStore();
@@ -136,16 +150,23 @@ export function GroupManagementPanel({
     const [showAddMembersDialog, setShowAddMembersDialog] = useState(false);
 
     // Remove member confirmation
-    const [removingMember, setRemovingMember] = useState<GroupMemberResponse | null>(null);
+    const [removingMember, setRemovingMember] =
+        useState<GroupMemberResponse | null>(null);
 
     // Group settings
     const [groupName, setGroupName] = useState(initialGroupName);
     const [groupAvatar, setGroupAvatar] = useState(initialGroupAvatar);
     const [settingsSaving, setSettingsSaving] = useState(false);
     const [avatarUploading, setAvatarUploading] = useState(false);
-    const [allowMembersUpdate, setAllowMembersUpdate] = useState(initialAllowMembersUpdate);
-    const [requireApproval, setRequireApproval] = useState(initialRequireApproval);
-    const [aiProactiveEnabled, setAiProactiveEnabled] = useState(initialAiProactiveEnabled);
+    const [allowMembersUpdate, setAllowMembersUpdate] = useState(
+        initialAllowMembersUpdate,
+    );
+    const [requireApproval, setRequireApproval] = useState(
+        initialRequireApproval,
+    );
+    const [aiProactiveEnabled, setAiProactiveEnabled] = useState(
+        initialAiProactiveEnabled,
+    );
     const avatarInputRef = useRef<HTMLInputElement>(null);
 
     // Invite link
@@ -155,7 +176,9 @@ export function GroupManagementPanel({
     const [showQrDialog, setShowQrDialog] = useState(false);
 
     // Pending requests
-    const [pendingRequests, setPendingRequests] = useState<PendingJoinResponse[]>([]);
+    const [pendingRequests, setPendingRequests] = useState<
+        PendingJoinResponse[]
+    >([]);
     const [, setPendingLoading] = useState(false);
 
     // Inline role dropdown
@@ -184,7 +207,7 @@ export function GroupManagementPanel({
             const res = await groupService.getMembers(conversationId);
             setMembers(res.result ?? []);
         } catch {
-            toast.error("Failed to load member list");
+            toast.error(t("chat.group_panel.load_members_failed"));
         } finally {
             setLoading(false);
         }
@@ -213,14 +236,21 @@ export function GroupManagementPanel({
             (frame) => {
                 try {
                     const event = JSON.parse(frame.body);
-                    if (event.action === "ROLE_UPDATED" || event.action === "GROUP_UPDATE") {
+                    if (
+                        event.action === "ROLE_UPDATED" ||
+                        event.action === "GROUP_UPDATE"
+                    ) {
                         fetchMembers();
                     }
-                } catch { /* ignore */ }
+                } catch {
+                    /* ignore */
+                }
             },
         );
 
-        return () => { sub.unsubscribe(); };
+        return () => {
+            sub.unsubscribe();
+        };
     }, [open, conversationId, fetchMembers]);
 
     // ── Actions ───────────────────────────────────────────────────────
@@ -233,9 +263,9 @@ export function GroupManagementPanel({
         try {
             const res = await fileService.upload(file);
             setGroupAvatar(res.url);
-            toast.success("Image uploaded");
+            toast.success(t("chat.group_panel.image_uploaded"));
         } catch {
-            toast.error("Failed to upload image");
+            toast.error(t("chat.group_panel.image_upload_failed"));
         } finally {
             setAvatarUploading(false);
             if (avatarInputRef.current) avatarInputRef.current.value = "";
@@ -250,11 +280,18 @@ export function GroupManagementPanel({
     const confirmRemoveMember = async () => {
         if (!removingMember) return;
         try {
-            await groupService.removeMember(conversationId, removingMember.userId);
-            toast.success(`Removed ${removingMember.displayName} from group`);
+            await groupService.removeMember(
+                conversationId,
+                removingMember.userId,
+            );
+            toast.success(
+                t("chat.group_panel.member_removed", {
+                    name: removingMember.displayName,
+                }),
+            );
             fetchMembers();
         } catch {
-            toast.error("Failed to remove member");
+            toast.error(t("chat.group_panel.remove_member_failed"));
         } finally {
             setRemovingMember(null);
         }
@@ -263,17 +300,17 @@ export function GroupManagementPanel({
     const handleUpdateRole = async (userId: string, role: GroupRole) => {
         try {
             await groupService.updateRole(conversationId, userId, { role });
-            toast.success("Role updated");
+            toast.success(t("chat.group_panel.role_updated"));
             setRoleMenuOpenFor(null);
             fetchMembers();
         } catch {
-            toast.error("Failed to update role");
+            toast.error(t("chat.group_panel.role_update_failed"));
         }
     };
 
     const handleSaveSettings = async () => {
         if (!groupName.trim()) {
-            toast.error("Group name cannot be empty");
+            toast.error(t("chat.group_panel.group_name_empty"));
             return;
         }
         setSettingsSaving(true);
@@ -285,10 +322,10 @@ export function GroupManagementPanel({
                 requireApproval,
                 aiProactiveEnabled,
             });
-            toast.success("Group info saved");
+            toast.success(t("chat.group_panel.info_saved"));
             onGroupUpdated?.(groupName.trim(), groupAvatar.trim() || undefined);
         } catch {
-            toast.error("Failed to update group");
+            toast.error(t("chat.group_panel.update_failed"));
         } finally {
             setSettingsSaving(false);
         }
@@ -297,13 +334,13 @@ export function GroupManagementPanel({
     const handleDissolveGroup = async () => {
         setDissolving(true);
         try {
-            await conversationService.delete(conversationId);
+            await conversationService.dissolve(conversationId);
             setDissolveOpen(false);
             onOpenChange(false);
-            toast.success("Group has been dissolved");
+            toast.success(t("chat.group_panel.dissolved"));
             navigate("/chat");
         } catch {
-            toast.error("Could not dissolve group");
+            toast.error(t("chat.group_panel.dissolve_failed"));
         } finally {
             setDissolving(false);
         }
@@ -312,7 +349,10 @@ export function GroupManagementPanel({
     const canManageMember = (target: GroupMemberResponse): boolean => {
         if (!isOwnerOrAdmin) return false;
         if (target.userId === currentUser?.id) return false;
-        if (myRole === "ADMIN" && (target.role === "OWNER" || target.role === "ADMIN"))
+        if (
+            myRole === "ADMIN" &&
+            (target.role === "OWNER" || target.role === "ADMIN")
+        )
             return false;
         return true;
     };
@@ -321,14 +361,15 @@ export function GroupManagementPanel({
     const fetchInviteLink = async () => {
         setInviteLinkLoading(true);
         try {
-            const res = await groupService.getOrCreateInviteLink(conversationId);
+            const res =
+                await groupService.getOrCreateInviteLink(conversationId);
             const data = res.result;
             if (data) {
                 setInviteToken(data.inviteToken);
-                setInviteLink(`${import.meta.env.VITE_WEB_BASE_URL || window.location.origin}/join/${data.inviteToken}`);
+                setInviteLink(buildGroupInviteLink(data.inviteToken));
             }
         } catch {
-            toast.error("Failed to create invite link");
+            toast.error(t("chat.group_panel.create_invite_failed"));
         } finally {
             setInviteLinkLoading(false);
         }
@@ -341,11 +382,11 @@ export function GroupManagementPanel({
             const data = res.result;
             if (data) {
                 setInviteToken(data.inviteToken);
-                setInviteLink(`${import.meta.env.VITE_WEB_BASE_URL || window.location.origin}/join/${data.inviteToken}`);
+                setInviteLink(buildGroupInviteLink(data.inviteToken));
             }
-            toast.success("Invite link reset");
+            toast.success(t("chat.group_panel.invite_reset"));
         } catch {
-            toast.error("Failed to reset invite link");
+            toast.error(t("chat.group_panel.invite_reset_failed"));
         } finally {
             setInviteLinkLoading(false);
         }
@@ -354,7 +395,7 @@ export function GroupManagementPanel({
     const handleCopyInviteLink = () => {
         if (inviteLink) {
             navigator.clipboard.writeText(inviteLink);
-            toast.success("Invite link copied");
+            toast.success(t("chat.group_panel.invite_copied"));
         }
     };
 
@@ -375,36 +416,37 @@ export function GroupManagementPanel({
     const handleApprovePending = async (userId: string) => {
         try {
             await groupService.approvePendingRequest(conversationId, userId);
-            toast.success("Request approved");
+            toast.success(t("chat.group_panel.request_approved"));
             removeByTypeAndReference("GROUP_JOIN_REQUEST", conversationId);
             fetchPendingRequests();
             fetchMembers();
         } catch {
-            toast.error("Failed to approve request");
+            toast.error(t("chat.group_panel.request_approve_failed"));
         }
     };
 
     const handleRejectPending = async (userId: string) => {
         try {
             await groupService.rejectPendingRequest(conversationId, userId);
-            toast.success("Request rejected");
+            toast.success(t("chat.group_panel.request_rejected"));
             removeByTypeAndReference("GROUP_JOIN_REQUEST", conversationId);
             fetchPendingRequests();
         } catch {
-            toast.error("Failed to reject request");
+            toast.error(t("chat.group_panel.request_reject_failed"));
         }
     };
 
     // Re-fetch pending requests when a GROUP_JOIN_REQUEST notification arrives for this conversation
     const joinRequestCount = notifications.filter(
-        (n) => n.type === "GROUP_JOIN_REQUEST" && n.referenceId === conversationId,
+        (n) =>
+            n.type === "GROUP_JOIN_REQUEST" && n.referenceId === conversationId,
     ).length;
 
     useEffect(() => {
         if (open && isOwnerOrAdmin) {
             fetchPendingRequests();
         }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [joinRequestCount]);
 
     // Fetch invite link + pending on settings tab open
@@ -413,502 +455,744 @@ export function GroupManagementPanel({
             fetchInviteLink();
             fetchPendingRequests();
         }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [open, isOwnerOrAdmin]);
 
     return (
         <>
-        <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-md p-0 gap-0 overflow-x-hidden overflow-y-auto max-h-[85vh] flex flex-col">
-                {/* Header */}
-                <DialogHeader className="px-5 pt-5 pb-3 shrink-0">
-                    <DialogTitle className="flex items-center gap-2 text-base">
-                        <div className="flex h-7 w-7 items-center justify-center rounded-full bg-brand/10 text-brand">
-                            <Users size={15} />
-                        </div>
-                        Group Management
-                    </DialogTitle>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                        {loading ? "Loading..." : `${members.length} members`}
-                    </p>
-                </DialogHeader>
-
-                <Tabs defaultValue={defaultTab} className="flex flex-1 min-h-0 flex-col">
-                    <div className="px-5 shrink-0">
-                        <TabsList className="h-9 w-full bg-muted/50">
-                            <TabsTrigger value="members" className="flex-1 gap-1.5 text-xs">
-                                <Users size={13} />
-                                Members
-                            </TabsTrigger>
-                            {isOwnerOrAdmin && (
-                                <TabsTrigger value="settings" className="flex-1 gap-1.5 text-xs relative">
-                                    <Settings size={13} />
-                                    Group Settings
-                                    {pendingRequests.length > 0 && (
-                                        <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-bold text-destructive-foreground">
-                                            {pendingRequests.length}
-                                        </span>
-                                    )}
-                                </TabsTrigger>
-                            )}
-                        </TabsList>
-                    </div>
-
-                    {/* ── Members Tab ─────────────────────── */}
-                    <TabsContent
-                        value="members"
-                        className="mt-0 flex flex-1 min-h-0 flex-col px-5 pb-5"
-                    >
-                        {/* Search bar + Add button */}
-                        <div className="flex items-center gap-2 pt-3 pb-2 shrink-0">
-                            <div className="relative flex-1">
-                                <Search
-                                    size={13}
-                                    className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
-                                />
-                                <Input
-                                    placeholder="Search members..."
-                                    value={memberSearch}
-                                    onChange={(e) => setMemberSearch(e.target.value)}
-                                    className="h-8 pl-8 text-sm bg-muted/40 border-transparent focus-visible:border-brand/50 focus-visible:ring-1 focus-visible:ring-brand/30"
-                                />
+            <Dialog open={open} onOpenChange={onOpenChange}>
+                <DialogContent className="sm:max-w-md p-0 gap-0 overflow-x-hidden overflow-y-auto max-h-[85vh] flex flex-col">
+                    {/* Header */}
+                    <DialogHeader className="px-5 pt-5 pb-3 shrink-0">
+                        <DialogTitle className="flex items-center gap-2 text-base">
+                            <div className="flex h-7 w-7 items-center justify-center rounded-full bg-brand/10 text-brand">
+                                <Users size={15} />
                             </div>
-                            {isOwnerOrAdmin && (
-                                <Button
-                                    size="sm"
-                                    variant="outline"
-                                    className="h-8 shrink-0 gap-1.5 border-brand/30 text-brand text-xs hover:bg-brand/10 hover:text-brand"
-                                    onClick={() => setShowAddMembersDialog(true)}
+                            {t("chat.group_panel.title")}
+                        </DialogTitle>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                            {loading
+                                ? t("common.loading")
+                                : t("chat.members_count", {
+                                      count: members.length,
+                                  })}
+                        </p>
+                    </DialogHeader>
+
+                    <Tabs
+                        defaultValue={defaultTab}
+                        className="flex flex-1 min-h-0 flex-col"
+                    >
+                        <div className="px-5 shrink-0">
+                            <TabsList className="h-9 w-full bg-muted/50">
+                                <TabsTrigger
+                                    value="members"
+                                    className="flex-1 gap-1.5 text-xs"
                                 >
-                                    <UserPlus size={13} />
-                                    Add
-                                </Button>
-                            )}
+                                    <Users size={13} />
+                                    {t("chat.group_panel.members_tab")}
+                                </TabsTrigger>
+                                {isOwnerOrAdmin && (
+                                    <TabsTrigger
+                                        value="settings"
+                                        className="flex-1 gap-1.5 text-xs relative"
+                                    >
+                                        <Settings size={13} />
+                                        {t("chat.group_settings")}
+                                        {pendingRequests.length > 0 && (
+                                            <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-bold text-destructive-foreground">
+                                                {pendingRequests.length}
+                                            </span>
+                                        )}
+                                    </TabsTrigger>
+                                )}
+                            </TabsList>
                         </div>
 
-                        {/* Member list */}
-                        <ScrollArea type="always" className="-mx-1 flex-1 min-h-0 px-1 pr-2">
-                            {loading ? (
-                                <div className="flex items-center justify-center py-10">
-                                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-                                </div>
-                            ) : filteredMembers.length === 0 ? (
-                                <div className="flex flex-col items-center gap-2 py-10 text-muted-foreground">
-                                    <Users size={24} className="opacity-30" />
-                                    <p className="text-xs">No members found</p>
-                                </div>
-                            ) : (
-                                <div className="space-y-px">
-                                    {filteredMembers.map((member) => (
-                                        <MemberRow
-                                            key={member.userId}
-                                            member={member}
-                                            isCurrentUser={member.userId === currentUser?.id}
-                                            canManage={canManageMember(member)}
-                                            myRole={myRole}
-                                            roleMenuOpenFor={roleMenuOpenFor}
-                                            onRoleMenuOpenChange={(nextOpen) =>
-                                                setRoleMenuOpenFor(
-                                                    nextOpen ? member.userId : null,
-                                                )
-                                            }
-                                            onUpdateRole={handleUpdateRole}
-                                            onRemove={() => handleRemoveMember(member)}
-                                        />
-                                    ))}
-                                </div>
-                            )}
-                        </ScrollArea>
-                    </TabsContent>
-
-                    {/* ── Settings Tab ────────────────────── */}
-                    {isOwnerOrAdmin && (
+                        {/* ── Members Tab ─────────────────────── */}
                         <TabsContent
-                            value="settings"
+                            value="members"
                             className="mt-0 flex flex-1 min-h-0 flex-col px-5 pb-5"
                         >
-                            <ScrollArea type="always" className="flex-1 min-h-0 -mx-1 px-1 pr-2">
-                            <div className="space-y-4 pt-3">
-                                <div className="space-y-1.5">
-                                    <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                                        Group Name
-                                    </label>
+                            {/* Search bar + Add button */}
+                            <div className="flex items-center gap-2 pt-3 pb-2 shrink-0">
+                                <div className="relative flex-1">
+                                    <Search
+                                        size={13}
+                                        className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
+                                    />
                                     <Input
-                                        value={groupName}
-                                        onChange={(e) => setGroupName(e.target.value)}
-                                        placeholder="Enter group name..."
-                                        className="h-9 text-sm"
+                                        placeholder={t(
+                                            "chat.group_panel_search_members",
+                                        )}
+                                        value={memberSearch}
+                                        onChange={(e) =>
+                                            setMemberSearch(e.target.value)
+                                        }
+                                        className="h-8 pl-8 text-sm bg-muted/40 border-transparent focus-visible:border-brand/50 focus-visible:ring-1 focus-visible:ring-brand/30"
                                     />
                                 </div>
-
-                                <div className="space-y-1.5">
-                                    <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                                        Group Avatar
-                                    </label>
-                                    <div className="flex items-center gap-3">
-                                        <Avatar className="h-14 w-14 shrink-0">
-                                            <AvatarImage src={groupAvatar} />
-                                            <AvatarFallback className="text-xl font-semibold">
-                                                {groupName.charAt(0).toUpperCase() || "?"}
-                                            </AvatarFallback>
-                                        </Avatar>
-                                        <div className="flex flex-col gap-2">
-                                            <input
-                                                ref={avatarInputRef}
-                                                type="file"
-                                                accept="image/*"
-                                                className="hidden"
-                                                onChange={handleAvatarFileChange}
-                                            />
-                                            <Button
-                                                type="button"
-                                                variant="outline"
-                                                size="sm"
-                                                onClick={() => avatarInputRef.current?.click()}
-                                                disabled={avatarUploading}
-                                                className="h-8 text-xs gap-1.5"
-                                            >
-                                                {avatarUploading ? (
-                                                    <Loader2 size={12} className="animate-spin" />
-                                                ) : (
-                                                    <Upload size={12} />
-                                                )}
-                                                {avatarUploading ? "Loading..." : "Select image"}
-                                            </Button>
-                                            {groupAvatar && (
-                                                <Button
-                                                    type="button"
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    onClick={() => setGroupAvatar("")}
-                                                    className="h-8 text-xs gap-1.5 text-muted-foreground hover:text-destructive"
-                                                >
-                                                    <X size={12} />
-                                                    Remove image
-                                                </Button>
-                                            )}
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <Separator />
-
-                                {/* ── Invite link section ── */}
-                                <div className="space-y-2">
-                                    <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
-                                        <LinkIcon size={12} /> Group Invite Link
-                                    </label>
-                                    {inviteLink ? (
-                                        <div className="space-y-2">
-                                            <div className="flex items-center gap-2">
-                                                <Input
-                                                    value={inviteLink}
-                                                    readOnly
-                                                    className="h-8 text-xs bg-muted/40 flex-1"
-                                                />
-                                                <Button
-                                                    size="icon"
-                                                    variant="outline"
-                                                    className="h-8 w-8 shrink-0"
-                                                    onClick={handleCopyInviteLink}
-                                                    title="Copy link"
-                                                >
-                                                    <Copy size={13} />
-                                                </Button>
-                                                <Button
-                                                    size="icon"
-                                                    variant="outline"
-                                                    className="h-8 w-8 shrink-0"
-                                                    onClick={() => setShowQrDialog(true)}
-                                                    title="QR Code"
-                                                >
-                                                    <QrCode size={13} />
-                                                </Button>
-                                            </div>
-                                            {isOwnerOrAdmin && (
-                                                <Button
-                                                    size="sm"
-                                                    variant="ghost"
-                                                    className="h-7 text-xs gap-1.5 text-muted-foreground"
-                                                    onClick={handleResetInviteLink}
-                                                    disabled={inviteLinkLoading}
-                                                >
-                                                    <RefreshCw size={11} />
-                                                    Reset link
-                                                </Button>
-                                            )}
-                                        </div>
-                                    ) : (
-                                        <Button
-                                            size="sm"
-                                            variant="outline"
-                                            className="h-8 text-xs gap-1.5"
-                                            onClick={fetchInviteLink}
-                                            disabled={inviteLinkLoading}
-                                        >
-                                            {inviteLinkLoading ? (
-                                                <Loader2 size={12} className="animate-spin" />
-                                            ) : (
-                                                <LinkIcon size={12} />
-                                            )}
-                                            Create invite link
-                                        </Button>
-                                    )}
-                                </div>
-
-                                <Separator />
-
-                                {/* ── Toggle switches ── */}
-                                <div className="flex items-center justify-between gap-3 rounded-lg border border-border/50 bg-muted/20 px-3 py-2.5">
-                                    <div className="flex-1 min-w-0">
-                                        <p className="text-sm font-medium text-foreground">
-                                            Allow members to update info
-                                        </p>
-                                        <p className="mt-1 text-xs text-muted-foreground">
-                                            If enabled, all members can change group name and avatar
-                                        </p>
-                                    </div>
-                                    <button
-                                        type="button"
-                                        onClick={() => setAllowMembersUpdate(!allowMembersUpdate)}
-                                        className={cn(
-                                            "relative h-6 w-10 shrink-0 rounded-full transition-colors",
-                                            allowMembersUpdate ? "bg-brand" : "bg-muted/40"
-                                        )}
+                                {isOwnerOrAdmin && (
+                                    <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="h-8 shrink-0 gap-1.5 border-brand/30 text-brand text-xs hover:bg-brand/10 hover:text-brand"
+                                        onClick={() =>
+                                            setShowAddMembersDialog(true)
+                                        }
                                     >
-                                        <div
-                                            className={cn(
-                                                "absolute top-1 h-4 w-4 rounded-full bg-white transition-transform",
-                                                allowMembersUpdate ? "translate-x-5" : "translate-x-1"
-                                            )}
-                                        />
-                                    </button>
-                                </div>
-
-                                <div className="flex items-center justify-between gap-3 rounded-lg border border-border/50 bg-muted/20 px-3 py-2.5">
-                                    <div className="flex-1 min-w-0">
-                                        <p className="text-sm font-medium text-foreground">
-                                            Approve new members
-                                        </p>
-                                        <p className="mt-1 text-xs text-muted-foreground">
-                                            Require owner approval before adding new members
-                                        </p>
-                                    </div>
-                                    <button
-                                        type="button"
-                                        onClick={() => setRequireApproval(!requireApproval)}
-                                        className={cn(
-                                            "relative h-6 w-10 shrink-0 rounded-full transition-colors",
-                                            requireApproval ? "bg-brand" : "bg-muted/40"
-                                        )}
-                                    >
-                                        <div
-                                            className={cn(
-                                                "absolute top-1 h-4 w-4 rounded-full bg-white transition-transform",
-                                                requireApproval ? "translate-x-5" : "translate-x-1"
-                                            )}
-                                        />
-                                    </button>
-                                </div>
-
-                                <div className="flex items-center justify-between gap-3 rounded-lg border border-border/50 bg-muted/20 px-3 py-2.5">
-                                    <div className="flex-1 min-w-0">
-                                        <p className="text-sm font-medium text-foreground">
-                                            AI proactive assistant
-                                        </p>
-                                        <p className="mt-1 text-xs text-muted-foreground">
-                                            Let AI suggest answers to unanswered questions in this group
-                                        </p>
-                                    </div>
-                                    <button
-                                        type="button"
-                                        onClick={() => setAiProactiveEnabled(!aiProactiveEnabled)}
-                                        disabled={!isOwnerOrAdmin}
-                                        className={cn(
-                                            "relative h-6 w-10 shrink-0 rounded-full transition-colors",
-                                            aiProactiveEnabled ? "bg-violet-500" : "bg-muted/40",
-                                            !isOwnerOrAdmin && "opacity-50 cursor-not-allowed"
-                                        )}
-                                    >
-                                        <div
-                                            className={cn(
-                                                "absolute top-1 h-4 w-4 rounded-full bg-white transition-transform",
-                                                aiProactiveEnabled ? "translate-x-5" : "translate-x-1"
-                                            )}
-                                        />
-                                    </button>
-                                </div>
-
-                                {/* ── Pending join requests ── */}
-                                {isOwnerOrAdmin && pendingRequests.length > 0 && (
-                                    <>
-                                        <Separator />
-                                        <div className="space-y-2">
-                                            <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
-                                                <UserCheck size={12} /> Pending requests ({pendingRequests.length})
-                                            </label>
-                                            <div className="space-y-1">
-                                                {pendingRequests.map((req) => (
-                                                    <div
-                                                        key={req.id}
-                                                        className="flex items-center gap-2.5 rounded-lg border border-border/50 bg-muted/20 px-3 py-2"
-                                                    >
-                                                        <Avatar className="h-8 w-8 shrink-0">
-                                                            <AvatarImage src={req.avatarUrl ?? undefined} />
-                                                            <AvatarFallback className="text-xs">
-                                                                {req.displayName.charAt(0).toUpperCase()}
-                                                            </AvatarFallback>
-                                                        </Avatar>
-                                                        <div className="flex-1 min-w-0">
-                                                            <div className="flex min-w-0 items-center gap-1.5">
-                                                                <p className="truncate text-sm font-medium">{req.displayName}</p>
-                                                                {req.userRole === "ADMIN" && (
-                                                                    <AdminBadge className="size-3.5" />
-                                                                )}
-                                                            </div>
-                                                            <p className="text-xs text-muted-foreground">@{req.username}</p>
-                                                        </div>
-                                                        <div className="flex gap-1 shrink-0">
-                                                            <Button
-                                                                size="icon"
-                                                                variant="ghost"
-                                                                className="h-7 w-7 text-green-600 hover:text-green-700 hover:bg-green-50"
-                                                                onClick={() => handleApprovePending(req.userId)}
-                                                                title="Approve"
-                                                            >
-                                                                <UserCheck size={14} />
-                                                            </Button>
-                                                            <Button
-                                                                size="icon"
-                                                                variant="ghost"
-                                                                className="h-7 w-7 text-destructive hover:text-destructive/90 hover:bg-destructive/10"
-                                                                onClick={() => handleRejectPending(req.userId)}
-                                                                title="Reject"
-                                                            >
-                                                                <UserX size={14} />
-                                                            </Button>
-                                                        </div>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    </>
-                                )}
-
-                                <Separator />
-
-                                <Button
-                                    onClick={handleSaveSettings}
-                                    disabled={settingsSaving}
-                                    size="sm"
-                                    className="w-full gap-2"
-                                >
-                                    {settingsSaving ? (
-                                        <Loader2 size={13} className="animate-spin" />
-                                    ) : (
-                                        <Save size={13} />
-                                    )}
-                                    Save changes
-                                </Button>
-
-                                {myRole === "OWNER" && (
-                                    <>
-                                        <Separator />
-                                        <div className="space-y-2">
-                                            <label className="text-xs font-medium uppercase tracking-wide text-destructive flex items-center gap-1.5">
-                                                <AlertTriangle size={12} /> Danger Zone
-                                            </label>
-                                            <Button
-                                                variant="destructive"
-                                                size="sm"
-                                                className="w-full gap-2"
-                                                onClick={() => setDissolveOpen(true)}
-                                            >
-                                                <AlertTriangle size={13} />
-                                                Dissolve Group
-                                            </Button>
-                                        </div>
-                                    </>
+                                        <UserPlus size={13} />
+                                        {t("common.add")}
+                                    </Button>
                                 )}
                             </div>
+
+                            {/* Member list */}
+                            <ScrollArea
+                                type="always"
+                                className="-mx-1 flex-1 min-h-0 px-1 pr-2"
+                            >
+                                {loading ? (
+                                    <div className="flex items-center justify-center py-10">
+                                        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                                    </div>
+                                ) : filteredMembers.length === 0 ? (
+                                    <div className="flex flex-col items-center gap-2 py-10 text-muted-foreground">
+                                        <Users
+                                            size={24}
+                                            className="opacity-30"
+                                        />
+                                        <p className="text-xs">
+                                            {t("chat.no_members_found")}
+                                        </p>
+                                    </div>
+                                ) : (
+                                    <div className="space-y-px">
+                                        {filteredMembers.map((member) => (
+                                            <MemberRow
+                                                key={member.userId}
+                                                member={member}
+                                                isCurrentUser={
+                                                    member.userId ===
+                                                    currentUser?.id
+                                                }
+                                                canManage={canManageMember(
+                                                    member,
+                                                )}
+                                                myRole={myRole}
+                                                roleMenuOpenFor={
+                                                    roleMenuOpenFor
+                                                }
+                                                onRoleMenuOpenChange={(
+                                                    nextOpen,
+                                                ) =>
+                                                    setRoleMenuOpenFor(
+                                                        nextOpen
+                                                            ? member.userId
+                                                            : null,
+                                                    )
+                                                }
+                                                onUpdateRole={handleUpdateRole}
+                                                onRemove={() =>
+                                                    handleRemoveMember(member)
+                                                }
+                                            />
+                                        ))}
+                                    </div>
+                                )}
                             </ScrollArea>
                         </TabsContent>
-                    )}
-                </Tabs>
-            </DialogContent>
-        </Dialog>
 
-        {/* Remove Member Confirmation */}
-        <Dialog open={!!removingMember} onOpenChange={(o) => !o && setRemovingMember(null)}>
-            <DialogContent className="sm:max-w-sm">
-                <DialogHeader>
-                    <DialogTitle>Remove Member</DialogTitle>
-                    <DialogDescription>
-                        Are you sure you want to remove <strong>{removingMember?.displayName}</strong> from the group?
-                    </DialogDescription>
-                </DialogHeader>
-                <DialogFooter className="gap-2 sm:gap-0">
-                    <Button variant="outline" size="sm" onClick={() => setRemovingMember(null)}>
-                        Cancel
-                    </Button>
-                    <Button variant="destructive" size="sm" onClick={confirmRemoveMember}>
-                        Remove
-                    </Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
+                        {/* ── Settings Tab ────────────────────── */}
+                        {isOwnerOrAdmin && (
+                            <TabsContent
+                                value="settings"
+                                className="mt-0 flex flex-1 min-h-0 flex-col px-5 pb-5"
+                            >
+                                <ScrollArea
+                                    type="always"
+                                    className="flex-1 min-h-0 -mx-1 px-1 pr-2"
+                                >
+                                    <div className="space-y-4 pt-3">
+                                        <div className="space-y-1.5">
+                                            <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                                                {t("chat.group_name")}
+                                            </label>
+                                            <Input
+                                                value={groupName}
+                                                onChange={(e) =>
+                                                    setGroupName(e.target.value)
+                                                }
+                                                placeholder={t(
+                                                    "chat.group_name_placeholder",
+                                                )}
+                                                className="h-9 text-sm"
+                                            />
+                                        </div>
 
-        {/* Dissolve Group Confirmation */}
-        <Dialog open={dissolveOpen} onOpenChange={(o) => !dissolving && setDissolveOpen(o)}>
-            <DialogContent className="sm:max-w-sm">
-                <DialogHeader>
-                    <DialogTitle className="flex items-center gap-2 text-destructive">
-                        <AlertTriangle size={16} />
-                        Dissolve Group
-                    </DialogTitle>
-                    <DialogDescription>
-                        This will permanently delete the group, all messages, and remove all members. This action cannot be undone.
-                    </DialogDescription>
-                </DialogHeader>
-                <DialogFooter className="gap-2 sm:gap-0">
-                    <Button variant="outline" size="sm" onClick={() => setDissolveOpen(false)} disabled={dissolving}>
-                        Cancel
-                    </Button>
-                    <Button variant="destructive" size="sm" onClick={handleDissolveGroup} disabled={dissolving}>
-                        {dissolving ? <Loader2 size={13} className="animate-spin" /> : <AlertTriangle size={13} />}
-                        Dissolve
-                    </Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
+                                        <div className="space-y-1.5">
+                                            <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                                                {t("chat.group_avatar")}
+                                            </label>
+                                            <div className="flex items-center gap-3">
+                                                <Avatar className="h-14 w-14 shrink-0">
+                                                    <AvatarImage
+                                                        src={groupAvatar}
+                                                    />
+                                                    <AvatarFallback className="text-xl font-semibold">
+                                                        {groupName
+                                                            .charAt(0)
+                                                            .toUpperCase() ||
+                                                            "?"}
+                                                    </AvatarFallback>
+                                                </Avatar>
+                                                <div className="flex flex-col gap-2">
+                                                    <input
+                                                        ref={avatarInputRef}
+                                                        type="file"
+                                                        accept="image/*"
+                                                        className="hidden"
+                                                        onChange={
+                                                            handleAvatarFileChange
+                                                        }
+                                                    />
+                                                    <Button
+                                                        type="button"
+                                                        variant="outline"
+                                                        size="sm"
+                                                        onClick={() =>
+                                                            avatarInputRef.current?.click()
+                                                        }
+                                                        disabled={
+                                                            avatarUploading
+                                                        }
+                                                        className="h-8 text-xs gap-1.5"
+                                                    >
+                                                        {avatarUploading ? (
+                                                            <Loader2
+                                                                size={12}
+                                                                className="animate-spin"
+                                                            />
+                                                        ) : (
+                                                            <Upload size={12} />
+                                                        )}
+                                                        {avatarUploading
+                                                            ? t(
+                                                                  "common.loading",
+                                                              )
+                                                            : t(
+                                                                  "chat.select_image",
+                                                              )}
+                                                    </Button>
+                                                    {groupAvatar && (
+                                                        <Button
+                                                            type="button"
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            onClick={() =>
+                                                                setGroupAvatar(
+                                                                    "",
+                                                                )
+                                                            }
+                                                            className="h-8 text-xs gap-1.5 text-muted-foreground hover:text-destructive"
+                                                        >
+                                                            <X size={12} />
+                                                            {t(
+                                                                "chat.remove_image",
+                                                            )}
+                                                        </Button>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
 
-        {/* QR Code Dialog */}
-        <Dialog open={showQrDialog} onOpenChange={setShowQrDialog}>
-            <DialogContent className="sm:max-w-xs">
-                <DialogHeader>
-                    <DialogTitle className="text-center">Group Invite QR Code</DialogTitle>
-                </DialogHeader>
-                <div className="flex flex-col items-center gap-4 py-4">
-                    {inviteLink && (
-                        <div className="rounded-xl bg-white p-4">
-                            <QRCodeSVG value={inviteLink} size={200} />
-                        </div>
-                    )}
-                    <p className="text-xs text-muted-foreground text-center">
-                        Scan QR code to join group
-                    </p>
-                </div>
-            </DialogContent>
-        </Dialog>
+                                        <Separator />
 
-        {/* Add Members Dialog */}
-        <AddMembersDialog
-            open={showAddMembersDialog}
-            onOpenChange={setShowAddMembersDialog}
-            conversationId={conversationId}
-            existingMemberIds={members.map((m) => m.userId)}
-            onAdded={fetchMembers}
-        />
+                                        {/* ── Invite link section ── */}
+                                        <div className="space-y-2">
+                                            <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
+                                                <LinkIcon size={12} />{" "}
+                                                {t("chat.group_invite_link")}
+                                            </label>
+                                            {inviteLink ? (
+                                                <div className="space-y-2">
+                                                    <div className="flex items-center gap-2">
+                                                        <Input
+                                                            value={inviteLink}
+                                                            readOnly
+                                                            className="h-8 text-xs bg-muted/40 flex-1"
+                                                        />
+                                                        <Button
+                                                            size="icon"
+                                                            variant="outline"
+                                                            className="h-8 w-8 shrink-0"
+                                                            onClick={
+                                                                handleCopyInviteLink
+                                                            }
+                                                            title={t(
+                                                                "chat.copy_link",
+                                                            )}
+                                                        >
+                                                            <Copy size={13} />
+                                                        </Button>
+                                                        <Button
+                                                            size="icon"
+                                                            variant="outline"
+                                                            className="h-8 w-8 shrink-0"
+                                                            onClick={() =>
+                                                                setShowQrDialog(
+                                                                    true,
+                                                                )
+                                                            }
+                                                            title={t(
+                                                                "chat.group_panel.qr_code",
+                                                            )}
+                                                        >
+                                                            <QrCode size={13} />
+                                                        </Button>
+                                                    </div>
+                                                    {isOwnerOrAdmin && (
+                                                        <Button
+                                                            size="sm"
+                                                            variant="ghost"
+                                                            className="h-7 text-xs gap-1.5 text-muted-foreground"
+                                                            onClick={
+                                                                handleResetInviteLink
+                                                            }
+                                                            disabled={
+                                                                inviteLinkLoading
+                                                            }
+                                                        >
+                                                            <RefreshCw
+                                                                size={11}
+                                                            />
+                                                            {t(
+                                                                "chat.group_panel.reset_link",
+                                                            )}
+                                                        </Button>
+                                                    )}
+                                                </div>
+                                            ) : (
+                                                <Button
+                                                    size="sm"
+                                                    variant="outline"
+                                                    className="h-8 text-xs gap-1.5"
+                                                    onClick={fetchInviteLink}
+                                                    disabled={inviteLinkLoading}
+                                                >
+                                                    {inviteLinkLoading ? (
+                                                        <Loader2
+                                                            size={12}
+                                                            className="animate-spin"
+                                                        />
+                                                    ) : (
+                                                        <LinkIcon size={12} />
+                                                    )}
+                                                    {t(
+                                                        "chat.group_panel.create_invite_link",
+                                                    )}
+                                                </Button>
+                                            )}
+                                        </div>
+
+                                        <Separator />
+
+                                        {/* ── Toggle switches ── */}
+                                        <div className="flex items-center justify-between gap-3 rounded-lg border border-border/50 bg-muted/20 px-3 py-2.5">
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-sm font-medium text-foreground">
+                                                    {t(
+                                                        "chat.group_panel.allow_members_update",
+                                                    )}
+                                                </p>
+                                                <p className="mt-1 text-xs text-muted-foreground">
+                                                    {t(
+                                                        "chat.group_panel.allow_members_update_desc",
+                                                    )}
+                                                </p>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={() =>
+                                                    setAllowMembersUpdate(
+                                                        !allowMembersUpdate,
+                                                    )
+                                                }
+                                                className={cn(
+                                                    "relative h-6 w-10 shrink-0 rounded-full transition-colors",
+                                                    allowMembersUpdate
+                                                        ? "bg-brand"
+                                                        : "bg-muted/40",
+                                                )}
+                                            >
+                                                <div
+                                                    className={cn(
+                                                        "absolute top-1 h-4 w-4 rounded-full bg-white transition-transform",
+                                                        allowMembersUpdate
+                                                            ? "translate-x-5"
+                                                            : "translate-x-1",
+                                                    )}
+                                                />
+                                            </button>
+                                        </div>
+
+                                        <div className="flex items-center justify-between gap-3 rounded-lg border border-border/50 bg-muted/20 px-3 py-2.5">
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-sm font-medium text-foreground">
+                                                    {t(
+                                                        "chat.group_panel.approve_new_members",
+                                                    )}
+                                                </p>
+                                                <p className="mt-1 text-xs text-muted-foreground">
+                                                    {t(
+                                                        "chat.group_panel.approve_new_members_desc",
+                                                    )}
+                                                </p>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={() =>
+                                                    setRequireApproval(
+                                                        !requireApproval,
+                                                    )
+                                                }
+                                                className={cn(
+                                                    "relative h-6 w-10 shrink-0 rounded-full transition-colors",
+                                                    requireApproval
+                                                        ? "bg-brand"
+                                                        : "bg-muted/40",
+                                                )}
+                                            >
+                                                <div
+                                                    className={cn(
+                                                        "absolute top-1 h-4 w-4 rounded-full bg-white transition-transform",
+                                                        requireApproval
+                                                            ? "translate-x-5"
+                                                            : "translate-x-1",
+                                                    )}
+                                                />
+                                            </button>
+                                        </div>
+
+                                        <div className="flex items-center justify-between gap-3 rounded-lg border border-border/50 bg-muted/20 px-3 py-2.5">
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-sm font-medium text-foreground">
+                                                    {t(
+                                                        "chat.group_panel.ai_proactive",
+                                                    )}
+                                                </p>
+                                                <p className="mt-1 text-xs text-muted-foreground">
+                                                    {t(
+                                                        "chat.group_panel.ai_proactive_desc",
+                                                    )}
+                                                </p>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={() =>
+                                                    setAiProactiveEnabled(
+                                                        !aiProactiveEnabled,
+                                                    )
+                                                }
+                                                disabled={!isOwnerOrAdmin}
+                                                className={cn(
+                                                    "relative h-6 w-10 shrink-0 rounded-full transition-colors",
+                                                    aiProactiveEnabled
+                                                        ? "bg-violet-500"
+                                                        : "bg-muted/40",
+                                                    !isOwnerOrAdmin &&
+                                                        "opacity-50 cursor-not-allowed",
+                                                )}
+                                            >
+                                                <div
+                                                    className={cn(
+                                                        "absolute top-1 h-4 w-4 rounded-full bg-white transition-transform",
+                                                        aiProactiveEnabled
+                                                            ? "translate-x-5"
+                                                            : "translate-x-1",
+                                                    )}
+                                                />
+                                            </button>
+                                        </div>
+
+                                        {/* ── Pending join requests ── */}
+                                        {isOwnerOrAdmin &&
+                                            pendingRequests.length > 0 && (
+                                                <>
+                                                    <Separator />
+                                                    <div className="space-y-2">
+                                                        <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
+                                                            <UserCheck
+                                                                size={12}
+                                                            />{" "}
+                                                            {t(
+                                                                "chat.group_panel.pending_requests",
+                                                                {
+                                                                    count: pendingRequests.length,
+                                                                },
+                                                            )}
+                                                        </label>
+                                                        <div className="space-y-1">
+                                                            {pendingRequests.map(
+                                                                (req) => (
+                                                                    <div
+                                                                        key={
+                                                                            req.id
+                                                                        }
+                                                                        className="flex items-center gap-2.5 rounded-lg border border-border/50 bg-muted/20 px-3 py-2"
+                                                                    >
+                                                                        <Avatar className="h-8 w-8 shrink-0">
+                                                                            <AvatarImage
+                                                                                src={
+                                                                                    req.avatarUrl ??
+                                                                                    undefined
+                                                                                }
+                                                                            />
+                                                                            <AvatarFallback className="text-xs">
+                                                                                {req.displayName
+                                                                                    .charAt(
+                                                                                        0,
+                                                                                    )
+                                                                                    .toUpperCase()}
+                                                                            </AvatarFallback>
+                                                                        </Avatar>
+                                                                        <div className="flex-1 min-w-0">
+                                                                            <div className="flex min-w-0 items-center gap-1.5">
+                                                                                <p className="truncate text-sm font-medium">
+                                                                                    {
+                                                                                        req.displayName
+                                                                                    }
+                                                                                </p>
+                                                                                {req.userRole ===
+                                                                                    "ADMIN" && (
+                                                                                    <AdminBadge className="size-3.5" />
+                                                                                )}
+                                                                            </div>
+                                                                            <p className="text-xs text-muted-foreground">
+                                                                                @
+                                                                                {
+                                                                                    req.username
+                                                                                }
+                                                                            </p>
+                                                                        </div>
+                                                                        <div className="flex gap-1 shrink-0">
+                                                                            <Button
+                                                                                size="icon"
+                                                                                variant="ghost"
+                                                                                className="h-7 w-7 text-green-600 hover:text-green-700 hover:bg-green-50"
+                                                                                onClick={() =>
+                                                                                    handleApprovePending(
+                                                                                        req.userId,
+                                                                                    )
+                                                                                }
+                                                                                title={t(
+                                                                                    "chat.group_panel.approve",
+                                                                                )}
+                                                                            >
+                                                                                <UserCheck
+                                                                                    size={
+                                                                                        14
+                                                                                    }
+                                                                                />
+                                                                            </Button>
+                                                                            <Button
+                                                                                size="icon"
+                                                                                variant="ghost"
+                                                                                className="h-7 w-7 text-destructive hover:text-destructive/90 hover:bg-destructive/10"
+                                                                                onClick={() =>
+                                                                                    handleRejectPending(
+                                                                                        req.userId,
+                                                                                    )
+                                                                                }
+                                                                                title={t(
+                                                                                    "chat.group_panel.reject",
+                                                                                )}
+                                                                            >
+                                                                                <UserX
+                                                                                    size={
+                                                                                        14
+                                                                                    }
+                                                                                />
+                                                                            </Button>
+                                                                        </div>
+                                                                    </div>
+                                                                ),
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                </>
+                                            )}
+
+                                        <Separator />
+
+                                        <Button
+                                            onClick={handleSaveSettings}
+                                            disabled={settingsSaving}
+                                            size="sm"
+                                            className="w-full gap-2"
+                                        >
+                                            {settingsSaving ? (
+                                                <Loader2
+                                                    size={13}
+                                                    className="animate-spin"
+                                                />
+                                            ) : (
+                                                <Save size={13} />
+                                            )}
+                                            {t("chat.group_panel.save_changes")}
+                                        </Button>
+
+                                        {myRole === "OWNER" && (
+                                            <>
+                                                <Separator />
+                                                <div className="space-y-2">
+                                                    <label className="text-xs font-medium uppercase tracking-wide text-destructive flex items-center gap-1.5">
+                                                        <AlertTriangle
+                                                            size={12}
+                                                        />{" "}
+                                                        {t(
+                                                            "chat.group_panel.danger_zone",
+                                                        )}
+                                                    </label>
+                                                    <Button
+                                                        variant="destructive"
+                                                        size="sm"
+                                                        className="w-full gap-2"
+                                                        onClick={() =>
+                                                            setDissolveOpen(
+                                                                true,
+                                                            )
+                                                        }
+                                                    >
+                                                        <AlertTriangle
+                                                            size={13}
+                                                        />
+                                                        {t(
+                                                            "chat.group_panel.dissolve_group",
+                                                        )}
+                                                    </Button>
+                                                </div>
+                                            </>
+                                        )}
+                                    </div>
+                                </ScrollArea>
+                            </TabsContent>
+                        )}
+                    </Tabs>
+                </DialogContent>
+            </Dialog>
+
+            {/* Remove Member Confirmation */}
+            <Dialog
+                open={!!removingMember}
+                onOpenChange={(o) => !o && setRemovingMember(null)}
+            >
+                <DialogContent className="sm:max-w-sm">
+                    <DialogHeader>
+                        <DialogTitle>
+                            {t("chat.group_panel.remove_member_title")}
+                        </DialogTitle>
+                        <DialogDescription>
+                            <Trans
+                                i18nKey="chat.group_panel.remove_member_desc"
+                                values={{
+                                    name: removingMember?.displayName ?? "",
+                                }}
+                                components={{ strong: <strong /> }}
+                            />
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter className="gap-2 sm:gap-0">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setRemovingMember(null)}
+                        >
+                            {t("common.cancel")}
+                        </Button>
+                        <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={confirmRemoveMember}
+                        >
+                            {t("chat.group_panel.remove")}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Dissolve Group Confirmation */}
+            <Dialog
+                open={dissolveOpen}
+                onOpenChange={(o) => !dissolving && setDissolveOpen(o)}
+            >
+                <DialogContent className="sm:max-w-sm">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2 text-destructive">
+                            <AlertTriangle size={16} />
+                            {t("chat.group_panel.dissolve_confirm_title")}
+                        </DialogTitle>
+                        <DialogDescription>
+                            {t("chat.group_panel.dissolve_confirm_desc")}
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter className="gap-2 sm:gap-0">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setDissolveOpen(false)}
+                            disabled={dissolving}
+                        >
+                            {t("common.cancel")}
+                        </Button>
+                        <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={handleDissolveGroup}
+                            disabled={dissolving}
+                        >
+                            {dissolving ? (
+                                <Loader2 size={13} className="animate-spin" />
+                            ) : (
+                                <AlertTriangle size={13} />
+                            )}
+                            {dissolving
+                                ? t("chat.group_panel.dissolving")
+                                : t("chat.group_panel.dissolve_group")}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* QR Code Dialog */}
+            <Dialog open={showQrDialog} onOpenChange={setShowQrDialog}>
+                <DialogContent className="sm:max-w-xs">
+                    <DialogHeader>
+                        <DialogTitle className="text-center">
+                            {t("chat.group_panel.qr_dialog_title")}
+                        </DialogTitle>
+                    </DialogHeader>
+                    <div className="flex flex-col items-center gap-4 py-4">
+                        {inviteLink && (
+                            <div className="rounded-xl bg-white p-4">
+                                <QRCodeSVG value={inviteLink} size={200} />
+                            </div>
+                        )}
+                        <p className="text-xs text-muted-foreground text-center">
+                            {t("chat.group_panel.qr_dialog_desc")}
+                        </p>
+                    </div>
+                </DialogContent>
+            </Dialog>
+
+            {/* Add Members Dialog */}
+            <AddMembersDialog
+                open={showAddMembersDialog}
+                onOpenChange={setShowAddMembersDialog}
+                conversationId={conversationId}
+                existingMemberIds={members.map((m) => m.userId)}
+                onAdded={fetchMembers}
+            />
         </>
     );
 }
@@ -935,6 +1219,7 @@ function MemberRow({
     onUpdateRole,
     onRemove,
 }: MemberRowProps) {
+    const { t } = useTranslation();
     const isRoleMenuOpen = roleMenuOpenFor === member.userId;
     const availableRoles: GroupRole[] =
         myRole === "OWNER" ? ["OWNER", "ADMIN", "MEMBER"] : ["ADMIN", "MEMBER"];
@@ -945,33 +1230,41 @@ function MemberRow({
         top: number;
     } | null>(null);
 
-    const updateRoleMenuPosition = useCallback((triggerOverride?: HTMLButtonElement | null) => {
-        const trigger = triggerOverride ?? roleButtonRef.current;
-        if (!trigger) {
-            return;
-        }
+    const updateRoleMenuPosition = useCallback(
+        (triggerOverride?: HTMLButtonElement | null) => {
+            const trigger = triggerOverride ?? roleButtonRef.current;
+            if (!trigger) {
+                return;
+            }
 
-        const triggerRect = trigger.getBoundingClientRect();
-        const estimatedMenuHeight =
-            ROLE_MENU_HEADER_HEIGHT + availableRoles.length * ROLE_MENU_ITEM_HEIGHT;
-        const availableBelow =
-            window.innerHeight - triggerRect.bottom - ROLE_MENU_VIEWPORT_PADDING;
-        const preferredTop =
-            availableBelow >= estimatedMenuHeight
-                ? triggerRect.bottom + ROLE_MENU_OFFSET
-                : triggerRect.top - estimatedMenuHeight - ROLE_MENU_OFFSET;
+            const triggerRect = trigger.getBoundingClientRect();
+            const estimatedMenuHeight =
+                ROLE_MENU_HEADER_HEIGHT +
+                availableRoles.length * ROLE_MENU_ITEM_HEIGHT;
+            const availableBelow =
+                window.innerHeight -
+                triggerRect.bottom -
+                ROLE_MENU_VIEWPORT_PADDING;
+            const preferredTop =
+                availableBelow >= estimatedMenuHeight
+                    ? triggerRect.bottom + ROLE_MENU_OFFSET
+                    : triggerRect.top - estimatedMenuHeight - ROLE_MENU_OFFSET;
 
-        setRoleMenuPosition({
-            left: Math.min(
-                Math.max(
-                    triggerRect.right - ROLE_MENU_WIDTH,
-                    ROLE_MENU_VIEWPORT_PADDING,
+            setRoleMenuPosition({
+                left: Math.min(
+                    Math.max(
+                        triggerRect.right - ROLE_MENU_WIDTH,
+                        ROLE_MENU_VIEWPORT_PADDING,
+                    ),
+                    window.innerWidth -
+                        ROLE_MENU_WIDTH -
+                        ROLE_MENU_VIEWPORT_PADDING,
                 ),
-                window.innerWidth - ROLE_MENU_WIDTH - ROLE_MENU_VIEWPORT_PADDING,
-            ),
-            top: Math.max(ROLE_MENU_VIEWPORT_PADDING, preferredTop),
-        });
-    }, [availableRoles.length]);
+                top: Math.max(ROLE_MENU_VIEWPORT_PADDING, preferredTop),
+            });
+        },
+        [availableRoles.length],
+    );
 
     useLayoutEffect(() => {
         if (!isRoleMenuOpen) {
@@ -1033,11 +1326,15 @@ function MemberRow({
                         <AdminBadge className="size-3.5" />
                     )}
                     {isCurrentUser && (
-                        <span className="text-[10px] text-muted-foreground">(You)</span>
+                        <span className="text-[10px] text-muted-foreground">
+                            {t("chat.group_panel.you_label")}
+                        </span>
                     )}
                     <RoleBadge role={member.role} />
                 </div>
-                <p className="mt-0.5 text-xs text-muted-foreground">@{member.username}</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                    @{member.username}
+                </p>
             </div>
 
             {/* Action buttons (appear on row hover) */}
@@ -1054,7 +1351,7 @@ function MemberRow({
                         variant="ghost"
                         size="icon"
                         className="h-7 w-7 text-muted-foreground hover:text-foreground"
-                        title="Change role"
+                        title={t("chat.group_panel.change_role_title")}
                         onClick={(event) => {
                             if (!isRoleMenuOpen) {
                                 updateRoleMenuPosition(event.currentTarget);
@@ -1078,7 +1375,9 @@ function MemberRow({
                             >
                                 <div className="px-2 py-1.5">
                                     <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                                        Update role
+                                        {t(
+                                            "chat.group_panel.change_role_title",
+                                        )}
                                     </p>
                                 </div>
                                 <div className="divide-y divide-border/50">
@@ -1088,7 +1387,10 @@ function MemberRow({
                                             key={role}
                                             onClick={() => {
                                                 onRoleMenuOpenChange(false);
-                                                onUpdateRole(member.userId, role);
+                                                onUpdateRole(
+                                                    member.userId,
+                                                    role,
+                                                );
                                             }}
                                             className={cn(
                                                 "flex w-full items-center gap-2 px-3 py-2 text-xs transition-colors hover:bg-muted/50",
@@ -1097,9 +1399,14 @@ function MemberRow({
                                             )}
                                         >
                                             {ROLE_CONFIG[role].icon}
-                                            {ROLE_CONFIG[role].label}
+                                            {t(
+                                                `chat.group_panel.${role.toLowerCase()}`,
+                                            )}
                                             {member.role === role && (
-                                                <Check size={10} className="ml-auto" />
+                                                <Check
+                                                    size={10}
+                                                    className="ml-auto"
+                                                />
                                             )}
                                         </button>
                                     ))}
@@ -1113,7 +1420,7 @@ function MemberRow({
                         variant="ghost"
                         size="icon"
                         className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                        title="Remove from group"
+                        title={t("chat.group_panel.remove_from_group")}
                         onClick={onRemove}
                     >
                         <UserMinus size={13} />

@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   View,
   Text,
@@ -32,6 +33,7 @@ const SCREEN_WIDTH = Dimensions.get('window').width;
 const IMAGE_SIZE = (SCREEN_WIDTH - 48 - 6) / 4;
 
 export default function SharedMediaScreen() {
+  const { t } = useTranslation();
   const { id: conversationId, tab: initialTab } = useLocalSearchParams<{
     id: string;
     tab?: string;
@@ -288,7 +290,7 @@ export default function SharedMediaScreen() {
     !loading ? (
       <View style={{ paddingVertical: 40, alignItems: 'center' }}>
         <Text style={{ fontSize: 13, color: Colors.textLight }}>
-          No {label} yet
+          {t('mobile.chat.no_items_yet', { label })}
         </Text>
       </View>
     ) : null;
@@ -324,16 +326,20 @@ export default function SharedMediaScreen() {
               color: Colors.text,
             }}
           >
-            {activeTab === 'media' ? 'Shared Media' : activeTab === 'files' ? 'Files' : 'Links'}
+            {activeTab === 'media'
+              ? t('mobile.chat.shared_media_title')
+              : activeTab === 'files'
+                ? t('mobile.chat.shared_tab_files')
+                : t('mobile.chat.shared_tab_links')}
           </Text>
           <View style={{ width: 24 }} />
         </View>
 
         {/* Tabs */}
         <View style={{ flexDirection: 'row' }}>
-          {renderTab('media', 'Media', media.length)}
-          {renderTab('files', 'Files', files.length)}
-          {renderTab('links', 'Links', links.length)}
+          {renderTab('media', t('mobile.chat.shared_tab_media'), media.length)}
+          {renderTab('files', t('mobile.chat.shared_tab_files'), files.length)}
+          {renderTab('links', t('mobile.chat.shared_tab_links'), links.length)}
         </View>
       </View>
 
@@ -345,7 +351,7 @@ export default function SharedMediaScreen() {
           keyExtractor={(item) => item.fileId}
           numColumns={4}
           contentContainerStyle={{ padding: 16 }}
-          ListEmptyComponent={renderEmpty(loadingMedia, 'media')}
+          ListEmptyComponent={renderEmpty(loadingMedia, t('mobile.chat.shared_tab_media').toLowerCase())}
           ListFooterComponent={
             loadingMedia ? (
               <ActivityIndicator
@@ -361,7 +367,7 @@ export default function SharedMediaScreen() {
                 }}
               >
                 <Text style={{ fontSize: 13, color: Colors.cta }}>
-                  Load more
+                  {t('mobile.chat.load_more')}
                 </Text>
               </TouchableOpacity>
             ) : null
@@ -375,7 +381,7 @@ export default function SharedMediaScreen() {
           renderItem={renderFileItem}
           keyExtractor={(item) => item.fileId}
           contentContainerStyle={{ backgroundColor: Colors.bgCard }}
-          ListEmptyComponent={renderEmpty(loadingFiles, 'files')}
+          ListEmptyComponent={renderEmpty(loadingFiles, t('mobile.chat.shared_tab_files').toLowerCase())}
           ListFooterComponent={
             loadingFiles ? (
               <ActivityIndicator
@@ -392,7 +398,7 @@ export default function SharedMediaScreen() {
                 }}
               >
                 <Text style={{ fontSize: 13, color: Colors.cta }}>
-                  Load more
+                  {t('mobile.chat.load_more')}
                 </Text>
               </TouchableOpacity>
             ) : null
@@ -406,7 +412,7 @@ export default function SharedMediaScreen() {
           renderItem={renderLinkItem}
           keyExtractor={(item, index) => `${item.url}-${index}`}
           contentContainerStyle={{ backgroundColor: Colors.bgCard }}
-          ListEmptyComponent={renderEmpty(loadingLinks, 'links')}
+          ListEmptyComponent={renderEmpty(loadingLinks, t('mobile.chat.shared_tab_links').toLowerCase())}
           ListFooterComponent={
             loadingLinks ? (
               <ActivityIndicator

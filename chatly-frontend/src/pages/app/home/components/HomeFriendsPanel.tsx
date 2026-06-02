@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { AdminBadge } from "@/components/customize/AdminBadge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -38,6 +39,7 @@ export function HomeFriendsPanel({
     user,
     userRolesById,
 }: HomeFriendsPanelProps) {
+    const { t } = useTranslation();
     const navigate = useNavigate();
     const contacts = useContactStore((state) => state.contacts);
     const loaded = useContactStore((state) => state.loaded);
@@ -93,12 +95,12 @@ export function HomeFriendsPanel({
                     navigate(`/chat/${response.result.id}`);
                 }
             } catch {
-                toast.error("Could not open conversation.");
+                toast.error(t("home.open_conversation_failed"));
             } finally {
                 setOpeningFriendId(null);
             }
         },
-        [navigate, openingFriendId, user],
+        [navigate, openingFriendId, user, t],
     );
 
     const friends = useMemo(() => {
@@ -126,7 +128,7 @@ export function HomeFriendsPanel({
     return (
         <section className="mt-6">
             <div className="mb-4 flex items-center justify-between">
-                <h3 className="font-semibold text-muted-foreground">Friends</h3>
+                <h3 className="font-semibold text-muted-foreground">{t("home.friends_section")}</h3>
                 <span className="text-xs text-muted-foreground">
                     {friends.length}
                 </span>
@@ -173,7 +175,7 @@ export function HomeFriendsPanel({
                                     </div>
                                     {isOnline && (
                                         <p className="text-xs text-emerald-600 dark:text-emerald-400">
-                                            Online
+                                            {t("common.online")}
                                         </p>
                                     )}
                                 </div>
@@ -185,7 +187,7 @@ export function HomeFriendsPanel({
                                     displayName: friend.displayName,
                                     username: friend.username,
                                     avatarUrl: friend.avatarUrl,
-                                    subtitle: isOnline ? "Online" : `@${friend.username}`,
+                                    subtitle: isOnline ? t("common.online") : `@${friend.username}`,
                                     role,
                                 }}
                                 mode="friend"

@@ -1,5 +1,6 @@
 import { memo } from "react";
 import { Loader2, ShieldOff, Upload } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { CustomAiIcon } from "@/components/customize/CustomAiIcon";
 import {
     AlertDialog,
@@ -14,15 +15,16 @@ import {
 import type { BlockStatusResponse } from "@/types/contact";
 
 export const DragDropOverlay = memo(function DragDropOverlay() {
+    const { t } = useTranslation();
     return (
         <div className="absolute inset-0 z-50 bg-background/80 backdrop-blur-sm flex items-center justify-center border-4 border-dashed border-brand m-2 rounded-xl transition-all pointer-events-none">
             <div className="flex flex-col items-center gap-4 text-brand">
                 <Upload size={48} className="animate-bounce" />
                 <h3 className="text-2xl font-bold tracking-tight">
-                    Drop files here
+                    {t("chat.drop_files")}
                 </h3>
                 <p className="text-muted-foreground">
-                    Supports images, videos, and documents
+                    {t("chat.drop_files_hint")}
                 </p>
             </div>
         </div>
@@ -38,6 +40,7 @@ export const TypingIndicator = memo(function TypingIndicator({
     typingDisplayName,
     isAi,
 }: TypingIndicatorProps) {
+    const { t } = useTranslation();
     return (
         <div className="absolute bottom-24 left-6 z-10 animate-in fade-in slide-in-from-bottom-2">
             <div className="flex items-center gap-2 bg-muted/80 backdrop-blur-sm px-3 py-1.5 rounded-full border border-border shadow-sm">
@@ -57,7 +60,7 @@ export const TypingIndicator = memo(function TypingIndicator({
                     />
                 </div>
                 <span className="text-[11px] font-medium text-muted-foreground italic">
-                    {typingDisplayName} is typing...
+                    {t("chat.typing_status", { name: typingDisplayName })}
                 </span>
             </div>
         </div>
@@ -73,13 +76,14 @@ export const BlockedConversationBanner = memo(function BlockedConversationBanner
     direction,
     onUnblock,
 }: BlockBannerProps) {
+    const { t } = useTranslation();
     return (
         <div className="border-t border-border bg-background px-6 py-4 flex items-center gap-3">
             <ShieldOff size={17} className="shrink-0 text-muted-foreground" />
             <p className="flex-1 text-sm text-muted-foreground">
                 {direction === "I_BLOCKED"
-                    ? "You have blocked this user. Unblock to send messages."
-                    : "You can't send messages to this user."}
+                    ? t("chat.user_blocked_by_me")
+                    : t("chat.user_blocked_by_them")}
             </p>
             {direction === "I_BLOCKED" && (
                 <button
@@ -87,7 +91,7 @@ export const BlockedConversationBanner = memo(function BlockedConversationBanner
                     onClick={onUnblock}
                     className="text-xs font-medium text-brand hover:underline shrink-0"
                 >
-                    Unblock
+                    {t("contact.unblock")}
                 </button>
             )}
         </div>
@@ -95,11 +99,12 @@ export const BlockedConversationBanner = memo(function BlockedConversationBanner
 });
 
 export const SuspendedConversationBanner = memo(function SuspendedConversationBanner() {
+    const { t } = useTranslation();
     return (
         <div className="border-t border-border bg-background px-6 py-4 flex items-center gap-3">
             <ShieldOff size={17} className="shrink-0 text-destructive" />
             <p className="flex-1 text-sm text-muted-foreground">
-                This user has been banned and cannot receive messages.
+                {t("chat.user_suspended")}
             </p>
         </div>
     );
@@ -118,6 +123,7 @@ export const BlockConfirmDialog = memo(function BlockConfirmDialog({
     onOpenChange,
     onConfirm,
 }: BlockConfirmDialogProps) {
+    const { t } = useTranslation();
     return (
         <AlertDialog
             open={!!action}
@@ -126,16 +132,16 @@ export const BlockConfirmDialog = memo(function BlockConfirmDialog({
             <AlertDialogContent>
                 <AlertDialogHeader>
                     <AlertDialogTitle>
-                        {action === "block" ? "Block user?" : "Unblock user?"}
+                        {action === "block" ? t("chat.block_user_q") : t("chat.unblock_user_q")}
                     </AlertDialogTitle>
                     <AlertDialogDescription>
                         {action === "block"
-                            ? `This user will no longer be able to message you or view your full profile. You can unblock them at any time.`
-                            : `This user will be restored as your friend and can message you again.`}
+                            ? t("chat.block_user_desc")
+                            : t("chat.unblock_user_desc")}
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
                     <AlertDialogAction
                         onClick={onConfirm}
                         className={
@@ -148,7 +154,7 @@ export const BlockConfirmDialog = memo(function BlockConfirmDialog({
                         {loading && (
                             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                         )}
-                        {action === "block" ? "Block" : "Unblock"}
+                        {action === "block" ? t("contact.block") : t("contact.unblock")}
                     </AlertDialogAction>
                 </AlertDialogFooter>
             </AlertDialogContent>
@@ -178,9 +184,10 @@ export const ChatLoadingSkeleton = memo(function ChatLoadingSkeleton() {
 });
 
 export const ChatNotFound = memo(function ChatNotFound() {
+    const { t } = useTranslation();
     return (
         <div className="flex-1 flex flex-col items-center justify-center bg-muted/10 text-muted-foreground gap-2">
-            <p className="text-sm">Conversation not found or access denied.</p>
+            <p className="text-sm">{t("chat.conversation_not_found")}</p>
         </div>
     );
 });

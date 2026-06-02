@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { UsersRound } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import type { ContactTab } from "../index";
 import { contactService } from "@/services/contact.service";
@@ -19,6 +20,7 @@ interface ContactDetailsProps {
 }
 
 export function ContactDetails({ activeTab }: ContactDetailsProps) {
+    const { t } = useTranslation();
     const { user: currentUser } = useAuthStore();
     const navigate = useNavigate();
     const invalidateContacts = useContactStore((s) => s.invalidate);
@@ -44,11 +46,11 @@ export function ContactDetails({ activeTab }: ContactDetailsProps) {
             if (activeTab === "requests") statusQuery = "PENDING";
             if (activeTab === "blocked") statusQuery = "BLOCKED";
 
-            const res = await contactService.getByStatus(statusQuery as any);
+            const res = await contactService.getByStatus(statusQuery as "ACCEPTED" | "PENDING" | "BLOCKED");
             if (res.result) setContacts(res.result);
         } catch (error) {
             console.error(error);
-            toast.error("Could not load contact list");
+            toast.error(t("contact.load_failed"));
         } finally {
             setLoading(false);
         }
@@ -72,21 +74,21 @@ export function ContactDetails({ activeTab }: ContactDetailsProps) {
     const handleAccept = async (id: string) => {
         try {
             await contactService.accept(id);
-            toast.success("Friend request accepted");
+            toast.success(t("contact.request_accepted"));
             invalidateContacts();
             fetchContacts();
         } catch {
-            toast.error("Error accepting friend request");
+            toast.error(t("contact.request_accept_error"));
         }
     };
 
     const handleReject = async (id: string) => {
         try {
             await contactService.delete(id);
-            toast.success("Friend request rejected");
+            toast.success(t("contact.request_declined"));
             fetchContacts();
         } catch {
-            toast.error("Error rejecting friend request");
+            toast.error(t("contact.request_reject_error"));
         }
     };
 
@@ -95,18 +97,18 @@ export function ContactDetails({ activeTab }: ContactDetailsProps) {
         try {
             if (confirmAction.type === "unblock") {
                 await contactService.unblock(confirmAction.contactId);
-                toast.success(`Unblocked ${confirmAction.name}`);
+                toast.success(t("contact.unblocked_user", { name: confirmAction.name }));
             } else if (confirmAction.type === "block") {
                 await contactService.block(confirmAction.contactId);
-                toast.success(`Blocked ${confirmAction.name}`);
+                toast.success(t("contact.blocked_user", { name: confirmAction.name }));
             } else if (confirmAction.type === "remove") {
                 await contactService.delete(confirmAction.contactId);
-                toast.success(`Removed ${confirmAction.name} from friends`);
+                toast.success(t("contact.removed_user", { name: confirmAction.name }));
             }
             invalidateContacts();
             fetchContacts();
         } catch {
-            toast.error("Action failed. Please try again.");
+            toast.error(t("contact.action_failed"));
         } finally {
             setConfirmAction(null);
         }
@@ -131,14 +133,14 @@ export function ContactDetails({ activeTab }: ContactDetailsProps) {
             });
             if (res.result) navigate(`/chat/${res.result.id}`);
         } catch {
-            toast.error("Could not create conversation");
+            toast.error(t("contact.create_conv_failed"));
         }
     };
 
     const getTitle = () => {
-        if (activeTab === "requests") return "Friend requests";
-        if (activeTab === "blocked") return "Blocked list";
-        return "Friends list";
+        if (activeTab === "requests") return t("contact.requests");
+        if (activeTab === "blocked") return t("contact.blocked_list");
+        return t("contact.friends_list");
     };
 
     const filteredContacts = contacts.filter((c) => {
@@ -195,7 +197,7 @@ export function ContactDetails({ activeTab }: ContactDetailsProps) {
                 <ScrollArea className="h-full">
                     {loading ? (
                         <div className="flex items-center justify-center p-8 text-muted-foreground">
-                            Loading...
+                            {t("common.loading")}
                         </div>
                     ) : (
                         <div className="py-2">
@@ -237,7 +239,7 @@ export function ContactDetails({ activeTab }: ContactDetailsProps) {
                                 ))}
                             {filteredContacts.length === 0 && (
                                 <div className="text-center p-8 text-muted-foreground">
-                                    No results found
+                                    {t("contact.no_results")}
                                 </div>
                             )}
                         </div>

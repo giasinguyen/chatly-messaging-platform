@@ -11,21 +11,21 @@ spring:
         sse-message-endpoint: ${SPRING_AI_MCP_SSE_MESSAGE_ENDPOINT:/api/ai/mcp/message}
 
   datasource:
-    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/chatly}
-    username: ${DATABASE_USERNAME:chatly}
-    password: ${DATABASE_PASSWORD}
+    url: ${DATABASE_URL:${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/chatly}}
+    username: ${DATABASE_USERNAME:${SPRING_DATASOURCE_USERNAME:chatly}}
+    password: ${DATABASE_PASSWORD:${SPRING_DATASOURCE_PASSWORD:}}
     driver-class-name: org.postgresql.Driver
 
   jpa:
     hibernate:
-      ddl-auto: ${JPA_DDL_AUTO:validate}
+      ddl-auto: ${JPA_DDL_AUTO:${SPRING_JPA_HIBERNATE_DDL_AUTO:validate}}
     open-in-view: false
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
 
   mongodb:
-    uri: ${MONGODB_URI:mongodb://localhost:27017/chatly}
+    uri: ${MONGODB_URI:${SPRING_DATA_MONGODB_URI:mongodb://localhost:27017/chatly}}
   data:
     redis:
       host: ${REDIS_HOST:localhost}
@@ -52,9 +52,9 @@ server:
 
 app:
   jwt:
-    secret: ${JWT_SECRET}
-    expiration-ms: ${JWT_EXPIRATION_MS:86400000}
-    refresh-expiration-ms: ${JWT_REFRESH_EXPIRATION_MS:604800000}
+    secret: ${JWT_SECRET:${APP_JWT_SECRET:}}
+    expiration-ms: ${JWT_EXPIRATION_MS:${APP_JWT_EXPIRATION_MS:86400000}}
+    refresh-expiration-ms: ${JWT_REFRESH_EXPIRATION_MS:${APP_JWT_REFRESH_EXPIRATION_MS:604800000}}
   auth:
     verification:
       expiration-minutes: ${APP_AUTH_VERIFICATION_EXPIRATION_MINUTES:15}

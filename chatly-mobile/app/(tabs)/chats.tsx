@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   View,
   Text,
@@ -22,10 +23,12 @@ import { usePresenceSocket } from '@/hooks/usePresenceSocket';
 import { Colors } from '@/constants/theme';
 import { isConvMuted, useConversationPrefsStore } from '@/store/conversationPrefs.store';
 import { useThemeStore } from '@/store/theme.store';
+import { getApiErrorMessage } from '@/utils/errorHandler';
 import type { ConversationResponse } from '@/types/conversation';
 import type { UserResponse } from '@/types/auth';
 
 export default function ChatsScreen() {
+  const { t } = useTranslation();
   const router = useRouter();
   useThemeStore((state) => state.isDarkMode);
   const insets = useSafeAreaInsets();
@@ -120,26 +123,30 @@ export default function ChatsScreen() {
       const name =
         conversation.type === 'PRIVATE'
           ? (participantMap[conversation.participantIds.find((id) => id !== user?.id) ?? '']
-              ?.displayName ?? 'this conversation')
-          : (conversation.name ?? 'this group');
-      Alert.alert('Delete Conversation', `Are you sure you want to delete "${name}"?`, [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await conversationService.delete(conversation.id);
-              removeConversation(conversation.id);
-            } catch (error: unknown) {
-              const msg = error instanceof Error ? error.message : 'Could not delete conversation.';
-              Alert.alert('Error', msg);
-            }
+              ?.displayName ?? t('common.you'))
+          : (conversation.name ?? t('chat.create_group'));
+      Alert.alert(
+        t('mobile.chat.delete_conversation_title'),
+        t('mobile.chat.delete_conversation_body', { name }),
+        [
+          { text: t('common.cancel'), style: 'cancel' },
+          {
+            text: t('common.delete'),
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                await conversationService.delete(conversation.id);
+                removeConversation(conversation.id);
+              } catch (error: unknown) {
+                const msg = getApiErrorMessage(error, t('chat.delete_conv_failed'));
+                Alert.alert(t('errors.request_failed'), msg);
+              }
+            },
           },
-        },
-      ]);
+        ],
+      );
     },
-    [participantMap, removeConversation, user?.id]
+    [participantMap, removeConversation, t, user?.id],
   );
 
   return (
@@ -154,7 +161,7 @@ export default function ChatsScreen() {
         }}>
         <View className="flex-row items-center justify-between px-4 py-3">
           <Text className="text-2xl font-bold" style={{ color: Colors.text }}>
-            Messages
+            {t('nav.messages')}
           </Text>
           <View className="flex-row items-center">
             <TouchableOpacity onPress={() => setIsModalVisible(true)} className="mr-1 p-2">
@@ -177,7 +184,7 @@ export default function ChatsScreen() {
             <Ionicons name="search-outline" size={18} color={Colors.textMuted} />
             <TextInput
               className="ml-2 flex-1 text-sm"
-              placeholder="Search conversations..."
+              placeholder={t('chat.search_placeholder')}
               placeholderTextColor={Colors.textLight}
               style={{ color: Colors.text }}
               value={searchQuery}
@@ -227,10 +234,14 @@ export default function ChatsScreen() {
             <View className="flex-1 items-center justify-center pt-20">
               <Ionicons name="chatbubbles-outline" size={64} color={Colors.borderLight} />
               <Text className="mt-4 text-base" style={{ color: Colors.textMuted }}>
-                {searchQuery ? 'No conversations found' : 'No messages yet'}
+                {searchQuery
+                  ? t('mobile.chat.no_conversations_found')
+                  : t('chat.no_messages_yet')}
               </Text>
               <Text className="mt-1 text-sm" style={{ color: Colors.textLight }}>
-                {searchQuery ? 'Try another keyword' : 'Start a new conversation!'}
+                {searchQuery
+                  ? t('mobile.chat.search_no_results_hint')
+                  : t('mobile.chat.start_conversation_hint')}
               </Text>
             </View>
           }

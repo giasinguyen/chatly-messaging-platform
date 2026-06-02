@@ -1,9 +1,22 @@
-import { useState, useRef } from 'react';
-import { View, Text, TouchableOpacity, Image, Linking, Modal, Pressable, FlatList, Dimensions, PanResponder, Animated } from 'react-native';
+import { useEffect, useState, useRef } from 'react';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  Image,
+  Linking,
+  Modal,
+  Pressable,
+  FlatList,
+  Dimensions,
+  PanResponder,
+  Animated,
+} from 'react-native';
 import { Image as ExpoImage } from 'expo-image';
 import { router } from 'expo-router';
 import RenderHtml from 'react-native-render-html';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import {
   FilePdf,
   MicrosoftWordLogo,
@@ -19,6 +32,9 @@ import {
 } from 'phosphor-react-native';
 import { Colors } from '@/constants/theme';
 import { formatMessageTime, isRichTextHtml, richTextToPlainText } from '@/utils/format';
+import { formatSystemMessage } from '@/utils/systemMessage';
+import { normalizeMediaUrl } from '@/utils/mediaUrl';
+import { openAppAwareUrl } from '@/utils/appLinking';
 import { ImageLightbox } from '@/components/ui/ImageLightbox';
 import { VideoPlayer } from '@/components/chat/VideoPlayer';
 import { AudioPlayer } from '@/components/chat/AudioPlayer';
@@ -26,7 +42,8 @@ import { Avatar } from '@/components/ui/Avatar';
 import { CoAuthorAvatar } from '@/components/ui/CoAuthorAvatar';
 import { UserQuickProfileDialog } from '@/components/profile/UserQuickProfileDialog';
 import { useCallStore } from '@/store/call.store';
-import type { Message } from '@/types/message';
+import { postService } from '@/services/post.service';
+import type { Attachment, Message } from '@/types/message';
 
 interface ParticipantInfo {
   id: string;
@@ -64,6 +81,11 @@ interface MessageBubbleProps {
   onSwipeReply?: (message: Message) => void;
 }
 
+const IMAGE_STACK_OFFSET = 10;
+const MAX_STACKED_IMAGE_COUNT = 3;
+const IMAGE_MESSAGE_PLACEHOLDER = '[IMAGE]';
+const SHARED_POST_MESSAGE_PLACEHOLDER = 'shared a post';
+
 export function MessageBubble({
   message,
   isMe,
@@ -92,6 +114,7 @@ export function MessageBubble({
   onScrollToMessage,
   onSwipeReply,
 }: MessageBubbleProps) {
+  const { t } = useTranslation();
   const { content, type, recalled, edited, createdAt, readBy, attachments } = message;
   const normalizedTextContent = richTextToPlainText(content);
   const groupCallRealtimeState = useCallStore((state) => state.groupCallRealtimeState);
@@ -99,16 +122,64 @@ export function MessageBubble({
   const screenWidth = Dimensions.get('window').width;
   const maxBubbleWidth = screenWidth * 0.78;
   const imageSize = Math.min(maxBubbleWidth - 32, 240);
+  const previewAttachments = (attachments ?? []).filter(
+    (attachment) =>
+      attachment.kind === 'POST_PREVIEW' ||
+      attachment.type === 'application/x-chatly-post-preview' ||
+      Boolean(attachment.postId) ||
+      attachment.kind === 'REEL_PREVIEW' ||
+      attachment.type === 'application/x-chatly-reel-preview' ||
+      Boolean(attachment.reelId)
+  );
+  const hasPreviewAttachment = previewAttachments.length > 0;
+  const previewAttachmentWidth = Math.min(screenWidth * 0.82, 340);
 
   const [lightboxVisible, setLightboxVisible] = useState(false);
   const [voterModal, setVoterModal] = useState<{ title: string; voterIds: string[] } | null>(null);
   const [quickProfileVisible, setQuickProfileVisible] = useState(false);
+  const [lightboxInitialIndex, setLightboxInitialIndex] = useState(0);
+  const [postPreviewImagesById, setPostPreviewImagesById] = useState<Record<string, string>>({});
   const pan = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
+
+  useEffect(() => {
+    const missingPostIds = previewAttachments
+      .filter(
+        (attachment) =>
+          attachment.postId && !attachment.postImageUrl && !postPreviewImagesById[attachment.postId]
+      )
+      .map((attachment) => attachment.postId)
+      .filter((postId): postId is string => !!postId);
+
+    if (missingPostIds.length === 0) {
+      return;
+    }
+
+    let isActive = true;
+    const uniquePostIds = [...new Set(missingPostIds)];
+
+    uniquePostIds.forEach((postId) => {
+      postService
+        .getById(postId)
+        .then((response) => {
+          const imageUrl = response.result?.mediaUrls?.[0];
+          if (!isActive || !imageUrl) {
+            return;
+          }
+          setPostPreviewImagesById((current) => ({ ...current, [postId]: imageUrl }));
+        })
+        .catch(() => undefined);
+    });
+
+    return () => {
+      isActive = false;
+    };
+  }, [postPreviewImagesById, previewAttachments]);
 
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => false,
-      onMoveShouldSetPanResponder: (_, gestureState) => Math.abs(gestureState.dx) > 8 && Math.abs(gestureState.dy) < 12,
+      onMoveShouldSetPanResponder: (_, gestureState) =>
+        Math.abs(gestureState.dx) > 8 && Math.abs(gestureState.dy) < 12,
       onPanResponderMove: Animated.event([null, { dx: pan.x }], { useNativeDriver: false }),
       onPanResponderRelease: (_, gestureState) => {
         // right swipe to reply
@@ -130,12 +201,10 @@ export function MessageBubble({
             backgroundColor: isMe ? Colors.bubbleSender : Colors.bubbleReceiver,
             opacity: 0.5,
             maxWidth: '75%',
-          }}
-        >
+          }}>
           <Text
             className="text-sm italic"
-            style={{ color: isMe ? Colors.bubbleSenderText : Colors.bubbleReceiverText }}
-          >
+            style={{ color: isMe ? Colors.bubbleSenderText : Colors.bubbleReceiverText }}>
             Message recalled
           </Text>
         </View>
@@ -148,28 +217,67 @@ export function MessageBubble({
     const images = (attachments ?? []).filter((attachment) => !!attachment.url);
     if (images.length === 0) return null;
     const imageUrls = images.map((attachment) => attachment.url);
+    const stackedImageSize = Math.max(120, imageSize - IMAGE_STACK_OFFSET * 2);
+    const visibleStackImages = images.slice(0, MAX_STACKED_IMAGE_COUNT).reverse();
+
+    const handleOpenImage = (index: number) => {
+      setLightboxInitialIndex(index);
+      setLightboxVisible(true);
+    };
+
     return (
       <>
         <ImageLightbox
           images={imageUrls}
-          initialIndex={0}
+          initialIndex={lightboxInitialIndex}
           visible={lightboxVisible}
           onClose={() => setLightboxVisible(false)}
         />
-        <View className="gap-1">
-          {images.map((img, idx) => (
-            <TouchableOpacity
-              key={idx}
-              onPress={() => setLightboxVisible(true)}
-              activeOpacity={0.85}
-            >
+        <View>
+          {images.length === 1 ? (
+            <TouchableOpacity onPress={() => handleOpenImage(0)} activeOpacity={0.85}>
               <Image
-                source={{ uri: img.url }}
+                source={{ uri: images[0].url }}
                 style={{ width: imageSize, height: imageSize, borderRadius: 12 }}
                 resizeMode="cover"
               />
             </TouchableOpacity>
-          ))}
+          ) : (
+            <TouchableOpacity
+              onPress={() => handleOpenImage(0)}
+              activeOpacity={0.85}
+              style={{
+                width: imageSize,
+                height: stackedImageSize + IMAGE_STACK_OFFSET * 2,
+              }}>
+              {visibleStackImages.map((img, reversedIndex) => {
+                const stackIndex = visibleStackImages.length - 1 - reversedIndex;
+                const offset = stackIndex * IMAGE_STACK_OFFSET;
+
+                return (
+                  <Image
+                    key={`${img.url}-${stackIndex}`}
+                    source={{ uri: img.url }}
+                    style={{
+                      position: 'absolute',
+                      left: offset,
+                      top: offset,
+                      width: stackedImageSize,
+                      height: stackedImageSize,
+                      borderRadius: 14,
+                      zIndex: reversedIndex,
+                    }}
+                    resizeMode="cover"
+                  />
+                );
+              })}
+              <View
+                className="absolute bottom-3 right-3 rounded-full px-2.5 py-1"
+                style={{ backgroundColor: 'rgba(0,0,0,0.58)' }}>
+                <Text className="text-xs font-semibold text-white">+{images.length - 1}</Text>
+              </View>
+            </TouchableOpacity>
+          )}
         </View>
       </>
     );
@@ -191,19 +299,20 @@ export function MessageBubble({
       return null;
     }
 
-    const avatarContent = type === 'AGENT' ? (
-      <View style={{ marginRight: 6, alignSelf: 'flex-end' }}>
-        <CoAuthorAvatar
-          userAvatarUrl={senderAvatarUrl}
-          userDisplayName={senderName ?? '?'}
-          size={28}
-        />
-      </View>
-    ) : (
-      <View style={{ marginRight: 6 }}>
-        <Avatar uri={senderAvatarUrl} name={senderName ?? '?'} size={28} />
-      </View>
-    );
+    const avatarContent =
+      type === 'AGENT' ? (
+        <View style={{ marginRight: 6, alignSelf: 'flex-end' }}>
+          <CoAuthorAvatar
+            userAvatarUrl={senderAvatarUrl}
+            userDisplayName={senderName ?? '?'}
+            size={28}
+          />
+        </View>
+      ) : (
+        <View style={{ marginRight: 6 }}>
+          <Avatar uri={senderAvatarUrl} name={senderName ?? '?'} size={28} />
+        </View>
+      );
 
     if (!canOpenQuickProfile) {
       return avatarContent;
@@ -227,25 +336,52 @@ export function MessageBubble({
   const renderAudioContent = () => {
     const audio = attachments?.[0];
     if (!audio?.url) return null;
-    return <AudioPlayer url={audio.url} name={audio.name} isMe={isMe} durationSeconds={audio.durationSeconds} />;
+    return (
+      <AudioPlayer
+        url={audio.url}
+        name={audio.name}
+        isMe={isMe}
+        durationSeconds={audio.durationSeconds}
+      />
+    );
   };
 
   // File message — show ALL files with proper names and type-based icons
-  type PhosphorIconComponent = React.ComponentType<{ size: number; color: string; weight?: 'thin' | 'light' | 'regular' | 'bold' | 'fill' | 'duotone' }>;
-  const getFileIconDetails = (mimeType?: string, fileName?: string): { IconComponent: PhosphorIconComponent; color: string } => {
+  type PhosphorIconComponent = React.ComponentType<{
+    size: number;
+    color: string;
+    weight?: 'thin' | 'light' | 'regular' | 'bold' | 'fill' | 'duotone';
+  }>;
+  const getFileIconDetails = (
+    mimeType?: string,
+    fileName?: string
+  ): { IconComponent: PhosphorIconComponent; color: string } => {
     const t = (mimeType ?? '').toLowerCase();
     const ext = (fileName?.split('.').pop() ?? '').toLowerCase();
-    if (t.includes('pdf') || ext === 'pdf') return { IconComponent: FilePdf, color: '#ef4444' };
-    if (t.includes('word') || t.includes('document') || ext === 'docx' || ext === 'doc') return { IconComponent: MicrosoftWordLogo, color: '#2563eb' };
-    if (t.includes('sheet') || t.includes('excel') || ext === 'xlsx' || ext === 'xls') return { IconComponent: MicrosoftExcelLogo, color: '#16a34a' };
-    if (ext === 'csv') return { IconComponent: FileCsv, color: '#16a34a' };
-    if (t.includes('presentation') || t.includes('powerpoint') || ext === 'pptx' || ext === 'ppt') return { IconComponent: MicrosoftPowerpointLogo, color: '#ea580c' };
-    if (t.startsWith('image/')) return { IconComponent: PhosphorFileImage, color: '#7c3aed' };
-    if (t.startsWith('video/')) return { IconComponent: PhosphorFileVideo, color: '#db2777' };
-    if (t.startsWith('audio/')) return { IconComponent: PhosphorFileAudio, color: '#d97706' };
-    if (t.includes('zip') || t.includes('rar') || t.includes('tar') || t.includes('7z') || ext === 'zip' || ext === 'rar' || ext === '7z') return { IconComponent: FileArchive, color: '#92400e' };
-    if (['js', 'ts', 'jsx', 'tsx', 'json', 'xml', 'html', 'css', 'py', 'java'].includes(ext)) return { IconComponent: PhosphorFileCode, color: '#475569' };
-    return { IconComponent: PhosphorFile, color: '#6b7280' };
+    if (t.includes('pdf') || ext === 'pdf') return { IconComponent: FilePdf, color: '#ef4444' }; // Red
+    if (t.includes('word') || t.includes('document') || ext === 'docx' || ext === 'doc')
+      return { IconComponent: MicrosoftWordLogo, color: '#3b82f6' }; // Light blue
+    if (t.includes('sheet') || t.includes('excel') || ext === 'xlsx' || ext === 'xls')
+      return { IconComponent: MicrosoftExcelLogo, color: '#0369a1' }; // Dark blue (navy)
+    if (ext === 'csv') return { IconComponent: FileCsv, color: '#0369a1' }; // Dark blue
+    if (t.includes('presentation') || t.includes('powerpoint') || ext === 'pptx' || ext === 'ppt')
+      return { IconComponent: MicrosoftPowerpointLogo, color: '#dc2626' }; // Red-orange
+    if (t.startsWith('image/')) return { IconComponent: PhosphorFileImage, color: '#a855f7' }; // Purple
+    if (t.startsWith('video/')) return { IconComponent: PhosphorFileVideo, color: '#e11d48' }; // Pink
+    if (t.startsWith('audio/')) return { IconComponent: PhosphorFileAudio, color: '#f59e0b' }; // Amber
+    if (
+      t.includes('zip') ||
+      t.includes('rar') ||
+      t.includes('tar') ||
+      t.includes('7z') ||
+      ext === 'zip' ||
+      ext === 'rar' ||
+      ext === '7z'
+    )
+      return { IconComponent: FileArchive, color: '#b45309' }; // Brown
+    if (['js', 'ts', 'jsx', 'tsx', 'json', 'xml', 'html', 'css', 'py', 'java'].includes(ext))
+      return { IconComponent: PhosphorFileCode, color: '#64748b' }; // Slate
+    return { IconComponent: PhosphorFile, color: '#9ca3af' }; // Gray
   };
 
   const renderFileContent = () => {
@@ -275,9 +411,16 @@ export function MessageBubble({
             return <AudioPlayer key={idx} url={file.url} name={file.name} isMe={isMe} />;
           }
 
-          const rawName = file.name
-            || (() => { try { return decodeURIComponent(file.url.split('/').pop() ?? ''); } catch { return file.url.split('/').pop(); } })()
-            || 'Attachment';
+          const rawName =
+            file.name ||
+            (() => {
+              try {
+                return decodeURIComponent(file.url.split('/').pop() ?? '');
+              } catch {
+                return file.url.split('/').pop();
+              }
+            })() ||
+            'Attachment';
           const fileName = rawName.length > 60 ? `${rawName.slice(0, 57)}...` : rawName;
           const sizeStr = file.size
             ? file.size > 1048576
@@ -293,29 +436,38 @@ export function MessageBubble({
                 flexDirection: 'row',
                 alignItems: 'center',
                 borderRadius: 12,
-                paddingHorizontal: 12,
-                paddingVertical: 8,
-                backgroundColor: isMe ? 'rgba(255,255,255,0.16)' : Colors.bgCard,
-                borderWidth: 1,
-                borderColor: isMe ? 'rgba(255,255,255,0.22)' : Colors.borderLight,
-              }}
-            >
+                paddingHorizontal: 4,
+                paddingVertical: 4,
+              }}>
               {/* Phosphor file icon */}
-              <View style={{ width: 36, height: 36, alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <IconComponent size={28} color={isMe ? 'rgba(255,255,255,0.85)' : iconColor} weight="duotone" />
+              <View
+                style={{
+                  width: 36,
+                  height: 36,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0,
+                }}>
+                <IconComponent size={28} color={iconColor} weight="duotone" />
               </View>
               <View style={{ marginLeft: 10, flex: 1, overflow: 'hidden' }}>
                 <Text
-                  style={{ fontSize: 14, fontWeight: '500', color: isMe ? Colors.bubbleSenderText : Colors.text }}
+                  style={{
+                    fontSize: 14,
+                    fontWeight: '500',
+                    color: isMe ? Colors.bubbleSenderText : Colors.text,
+                  }}
                   numberOfLines={1}
-                  ellipsizeMode="tail"
-                >
+                  ellipsizeMode="tail">
                   {fileName}
                 </Text>
                 {sizeStr ? (
                   <Text
-                    style={{ fontSize: 11, marginTop: 2, color: isMe ? 'rgba(255,255,255,0.6)' : Colors.textMuted }}
-                  >
+                    style={{
+                      fontSize: 11,
+                      marginTop: 2,
+                      color: isMe ? 'rgba(255,255,255,0.6)' : Colors.textMuted,
+                    }}>
                     {sizeStr}
                   </Text>
                 ) : null}
@@ -335,10 +487,20 @@ export function MessageBubble({
 
   // Text with URL detection
   const renderHighlightedText = (text: string, textColor: string, keyPrefix = 'hl') => {
-    if (!highlightKeyword?.trim()) return <Text key={keyPrefix} style={{ color: textColor }}>{text}</Text>;
+    if (!highlightKeyword?.trim())
+      return (
+        <Text key={keyPrefix} style={{ color: textColor }}>
+          {text}
+        </Text>
+      );
     const escaped = highlightKeyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const parts = text.split(new RegExp(`(${escaped})`, 'gi'));
-    if (parts.length === 1) return <Text key={keyPrefix} style={{ color: textColor }}>{text}</Text>;
+    if (parts.length === 1)
+      return (
+        <Text key={keyPrefix} style={{ color: textColor }}>
+          {text}
+        </Text>
+      );
     return (
       <Text key={keyPrefix} style={{ color: textColor }}>
         {parts.map((part, i) =>
@@ -348,18 +510,21 @@ export function MessageBubble({
             </Text>
           ) : (
             <Text key={i}>{part}</Text>
-          ),
+          )
         )}
       </Text>
     );
   };
 
-  const renderPostPreview = (att: any, idx: number) => {
+  const renderPostPreview = (att: Attachment, idx: number) => {
     const targetUrl = att.targetUrl ?? (att.postId ? `/post/${att.postId}` : att.url);
     const previewTitle = att.postTitle ?? att.name ?? 'Shared post';
-    const previewText = att.postExcerpt ?? 'Open this post to see the full content.';
+    const previewText = att.postExcerpt ?? previewTitle;
     const authorName = att.postAuthorName ?? 'Unknown author';
     const avatarUrl = att.postAuthorAvatarUrl;
+    const previewImageUrl = normalizeMediaUrl(
+      att.postImageUrl ?? (att.postId ? postPreviewImagesById[att.postId] : undefined)
+    );
 
     const handlePress = () => {
       if (att.postId) {
@@ -379,56 +544,57 @@ export function MessageBubble({
         key={idx}
         onPress={handlePress}
         activeOpacity={0.85}
-        className={`w-full max-w-[280px] rounded-2xl border p-3 mt-1.5 ${
-          isMe
-            ? 'border-white/20 bg-white/10'
-            : 'border-slate-200 bg-white dark:border-zinc-700 dark:bg-zinc-800'
-        }`}
-      >
-        <View className="flex-row items-start gap-3">
-          {att.postImageUrl ? (
-            <ExpoImage
-              source={{ uri: att.postImageUrl }}
-              className="h-16 w-16 rounded-xl"
-              contentFit="cover"
-            />
+        className="mt-1.5 rounded-2xl p-3"
+        style={{
+          width: previewAttachmentWidth,
+          maxWidth: '100%',
+          backgroundColor: Colors.bgCard,
+        }}>
+        <View>
+          {previewImageUrl ? (
+            <>
+              <ExpoImage
+                source={{ uri: previewImageUrl }}
+                className="h-32 w-full rounded-xl"
+                contentFit="cover"
+                onLoad={() => console.log('[ExpoImage] loaded:', previewImageUrl)}
+                onError={(error) => console.log('[ExpoImage] error:', error, previewImageUrl)}
+              />
+            </>
           ) : (
-            <View className={`h-16 w-16 items-center justify-center rounded-xl ${isMe ? 'bg-white/10' : 'bg-slate-100 dark:bg-zinc-700'}`}>
-              <Ionicons name="share-social-outline" size={20} color={isMe ? '#fff' : Colors.textMuted} />
+            <View
+              className="h-28 w-full items-center justify-center rounded-xl"
+              style={{ backgroundColor: Colors.bg }}>
+              <Ionicons name="share-social-outline" size={24} color={Colors.textMuted} />
             </View>
           )}
-          <View className="flex-1 min-w-0">
-            <View className="flex-row items-center gap-1">
-              <Text className={`text-[10px] font-bold uppercase tracking-wider ${isMe ? 'text-white/60' : 'text-slate-400'}`}>
-                Shared post
-              </Text>
-              <Ionicons name="open-outline" size={10} color={isMe ? 'rgba(255,255,255,0.6)' : Colors.textMuted} />
-            </View>
+
+          <View className="mt-2">
             <Text
-              className={`mt-0.5 text-sm font-semibold leading-4 ${isMe ? 'text-white' : 'text-slate-900 dark:text-white'}`}
-              numberOfLines={2}
-            >
-              {previewTitle}
-            </Text>
-            <Text
-              className={`mt-0.5 text-xs ${isMe ? 'text-white/60' : 'text-slate-500 dark:text-zinc-400'}`}
-              numberOfLines={2}
-            >
+              className="text-sm font-semibold leading-5"
+              numberOfLines={1}
+              style={{ color: Colors.text }}>
               {previewText}
             </Text>
 
             {/* Author row */}
             <View className="mt-2 flex-row items-center gap-1.5">
               {avatarUrl ? (
-                <ExpoImage source={{ uri: avatarUrl }} className="h-4 w-4 rounded-full" contentFit="cover" />
+                <ExpoImage
+                  source={{ uri: avatarUrl }}
+                  className="h-4 w-4 rounded-full"
+                  contentFit="cover"
+                />
               ) : (
-                <View className={`h-4 w-4 items-center justify-center rounded-full ${isMe ? 'bg-white/10' : 'bg-slate-200 dark:bg-zinc-700'}`}>
-                  <Text className={`text-[9px] font-bold ${isMe ? 'text-white' : 'text-slate-600 dark:text-zinc-300'}`}>
+                <View
+                  className="h-4 w-4 items-center justify-center rounded-full"
+                  style={{ backgroundColor: Colors.bg }}>
+                  <Text className="text-[9px] font-bold" style={{ color: Colors.textMuted }}>
                     {authorName.charAt(0).toUpperCase()}
                   </Text>
                 </View>
               )}
-              <Text className={`text-[10px] truncate ${isMe ? 'text-white/80' : 'text-slate-500 dark:text-zinc-400'}`} numberOfLines={1}>
+              <Text className="text-[10px]" style={{ color: Colors.textMuted }} numberOfLines={1}>
                 {authorName}
               </Text>
             </View>
@@ -457,14 +623,11 @@ export function MessageBubble({
         key={idx}
         onPress={handlePress}
         activeOpacity={0.85}
-        className={`w-full max-w-[280px] rounded-2xl border p-3 mt-1.5 ${
-          isMe
-            ? 'border-white/20 bg-white/10'
-            : 'border-slate-200 bg-white dark:border-zinc-700 dark:bg-zinc-800'
-        }`}
-      >
+        className={`mt-1.5 w-full max-w-[280px] rounded-2xl p-3 ${
+          isMe ? 'bg-white/10' : 'bg-white dark:bg-zinc-800'
+        }`}>
         <View className="flex-row items-start gap-3">
-          <View className="relative h-20 w-14 overflow-hidden rounded-xl bg-black items-center justify-center">
+          <View className="relative h-20 w-14 items-center justify-center overflow-hidden rounded-xl bg-black">
             {videoUrl ? (
               <ExpoImage
                 source={{ uri: videoUrl }}
@@ -481,32 +644,44 @@ export function MessageBubble({
             </View>
           </View>
 
-          <View className="flex-1 min-w-0">
+          <View className="min-w-0 flex-1">
             <View className="flex-row items-center gap-1">
-              <Text className={`text-[10px] font-bold uppercase tracking-wider ${isMe ? 'text-white/60' : 'text-slate-400'}`}>
+              <Text
+                className={`text-[10px] font-bold uppercase tracking-wider ${isMe ? 'text-white/60' : 'text-slate-400'}`}>
                 Shared reel
               </Text>
-              <Ionicons name="open-outline" size={10} color={isMe ? 'rgba(255,255,255,0.6)' : Colors.textMuted} />
+              <Ionicons
+                name="open-outline"
+                size={10}
+                color={isMe ? 'rgba(255,255,255,0.6)' : Colors.textMuted}
+              />
             </View>
             <Text
               className={`mt-0.5 text-sm font-semibold leading-4 ${isMe ? 'text-white' : 'text-slate-900 dark:text-white'}`}
-              numberOfLines={3}
-            >
+              numberOfLines={3}>
               {caption}
             </Text>
 
             {/* Author row */}
             <View className="mt-2 flex-row items-center gap-1.5">
               {avatarUrl ? (
-                <ExpoImage source={{ uri: avatarUrl }} className="h-4 w-4 rounded-full" contentFit="cover" />
+                <ExpoImage
+                  source={{ uri: avatarUrl }}
+                  className="h-4 w-4 rounded-full"
+                  contentFit="cover"
+                />
               ) : (
-                <View className={`h-4 w-4 items-center justify-center rounded-full ${isMe ? 'bg-white/10' : 'bg-slate-200 dark:bg-zinc-700'}`}>
-                  <Text className={`text-[9px] font-bold ${isMe ? 'text-white' : 'text-slate-600 dark:text-zinc-300'}`}>
+                <View
+                  className={`h-4 w-4 items-center justify-center rounded-full ${isMe ? 'bg-white/10' : 'bg-slate-200 dark:bg-zinc-700'}`}>
+                  <Text
+                    className={`text-[9px] font-bold ${isMe ? 'text-white' : 'text-slate-600 dark:text-zinc-300'}`}>
                     {authorName.charAt(0).toUpperCase()}
                   </Text>
                 </View>
               )}
-              <Text className={`text-[10px] truncate ${isMe ? 'text-white/80' : 'text-slate-500 dark:text-zinc-400'}`} numberOfLines={1}>
+              <Text
+                className={`truncate text-[10px] ${isMe ? 'text-white/80' : 'text-slate-500 dark:text-zinc-400'}`}
+                numberOfLines={1}>
                 {authorName}
               </Text>
             </View>
@@ -545,7 +720,7 @@ export function MessageBubble({
             a: {
               onPress: (_, href) => {
                 if (href) {
-                  Linking.openURL(href);
+                  void openAppAwareUrl(href);
                 }
               },
             },
@@ -555,11 +730,12 @@ export function MessageBubble({
     }
 
     // Build mention regex from known participant names (longest first to avoid partial matches)
-    const names = [...(participantNames ?? []), 'all'].filter(Boolean).sort((a, b) => b.length - a.length);
+    const names = [...(participantNames ?? []), 'all']
+      .filter(Boolean)
+      .sort((a, b) => b.length - a.length);
     const escaped = names.map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
-    const MENTION_REGEX = escaped.length > 0
-      ? new RegExp(`(@(?:${escaped.join('|')}))`, 'g')
-      : /(@\S+)/g;
+    const MENTION_REGEX =
+      escaped.length > 0 ? new RegExp(`(@(?:${escaped.join('|')}))`, 'g') : /(@\S+)/g;
 
     // Split by URLs first, then parse mentions within non-URL parts
     const urlParts = normalizedTextContent.split(URL_REGEX);
@@ -574,8 +750,7 @@ export function MessageBubble({
             <Text
               key={`m-${i}`}
               onPress={() => onMentionPress?.(part.slice(1).trim())}
-              style={{ color: isMe ? '#93c5fd' : Colors.cta, fontWeight: '600' }}
-            >
+              style={{ color: isMe ? '#93c5fd' : Colors.cta, fontWeight: '600' }}>
               {part}
             </Text>
           );
@@ -597,12 +772,13 @@ export function MessageBubble({
           /^https?:\/\//.test(part) ? (
             <Text
               key={i}
-              onPress={() => Linking.openURL(part)}
+              onPress={() => {
+                void openAppAwareUrl(part);
+              }}
               style={{
                 color: isMe ? 'rgba(255,255,255,0.9)' : Colors.cta,
                 textDecorationLine: 'underline',
-              }}
-            >
+              }}>
               {part}
             </Text>
           ) : (
@@ -625,23 +801,46 @@ export function MessageBubble({
 
     const deadlineStr = poll.deadline
       ? new Date(poll.deadline).toLocaleString('en-US', {
-          month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
+          month: 'short',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
         })
       : null;
     const isExpired = poll.deadline ? new Date(poll.deadline).getTime() < Date.now() : false;
     const isDisabled = isClosed || isExpired;
 
     return (
-      <View style={{ width: maxBubbleWidth, backgroundColor: '#fff', borderRadius: 16, overflow: 'hidden', borderWidth: 1, borderColor: Colors.borderLight }}>
+      <View
+        style={{
+          width: maxBubbleWidth,
+          backgroundColor: '#fff',
+          borderRadius: 16,
+          overflow: 'hidden',
+        }}>
         {/* Header */}
         <View style={{ backgroundColor: Colors.cta, paddingHorizontal: 16, paddingVertical: 10 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
             <Ionicons name="bar-chart-outline" size={14} color="rgba(255,255,255,0.85)" />
-            <Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: 11, fontWeight: '600', marginLeft: 5, letterSpacing: 0.3 }}>
+            <Text
+              style={{
+                color: 'rgba(255,255,255,0.85)',
+                fontSize: 11,
+                fontWeight: '600',
+                marginLeft: 5,
+                letterSpacing: 0.3,
+              }}>
               {isClosed || isExpired ? 'POLL ENDED' : 'VOTE NOW'}
             </Text>
           </View>
-          <Text style={{ color: '#fff', fontSize: 15, fontWeight: '700', lineHeight: 20, textAlign: 'center' }}>
+          <Text
+            style={{
+              color: '#fff',
+              fontSize: 15,
+              fontWeight: '700',
+              lineHeight: 20,
+              textAlign: 'center',
+            }}>
             {poll.question}
           </Text>
         </View>
@@ -659,35 +858,81 @@ export function MessageBubble({
                 onLongPress={onLongPress}
                 delayLongPress={300}
                 activeOpacity={isDisabled ? 1 : 0.7}
-                style={{ marginBottom: 10, opacity: isDisabled && !isVoted ? 0.75 : 1 }}
-              >
+                style={{ marginBottom: 10, opacity: isDisabled && !isVoted ? 0.75 : 1 }}>
                 {/* Option label row */}
                 <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
                   {isVoted ? (
-                    <View style={{ width: 18, height: 18, borderRadius: 9, backgroundColor: Colors.cta, alignItems: 'center', justifyContent: 'center', marginRight: 8 }}>
+                    <View
+                      style={{
+                        width: 18,
+                        height: 18,
+                        borderRadius: 9,
+                        backgroundColor: Colors.cta,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        marginRight: 8,
+                      }}>
                       <Ionicons name="checkmark" size={11} color="#fff" />
                     </View>
                   ) : (
-                    <View style={{ width: 18, height: 18, borderRadius: 9, borderWidth: 1.5, borderColor: isDisabled ? Colors.borderLight : Colors.cta, marginRight: 8 }} />
+                    <View
+                      style={{
+                        width: 18,
+                        height: 18,
+                        borderRadius: 9,
+                        borderWidth: 1.5,
+                        borderColor: isDisabled ? Colors.borderLight : Colors.cta,
+                        marginRight: 8,
+                      }}
+                    />
                   )}
-                  <Text style={{ flex: 1, fontSize: 14, color: Colors.text, fontWeight: isVoted ? '600' : '400' }} numberOfLines={2}>
+                  <Text
+                    style={{
+                      flex: 1,
+                      fontSize: 14,
+                      color: Colors.text,
+                      fontWeight: isVoted ? '600' : '400',
+                    }}
+                    numberOfLines={2}>
                     {option}
                   </Text>
                   <TouchableOpacity
-                    onPress={() => voterCount > 0 && setVoterModal({ title: option, voterIds: poll.votes?.[String(idx)] ?? [] })}
+                    onPress={() =>
+                      voterCount > 0 &&
+                      setVoterModal({ title: option, voterIds: poll.votes?.[String(idx)] ?? [] })
+                    }
                     onLongPress={onLongPress}
                     delayLongPress={300}
                     hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                    disabled={voterCount === 0}
-                  >
-                    <Text style={{ fontSize: 12, color: isVoted ? Colors.cta : Colors.textMuted, fontWeight: '500', minWidth: 44, textAlign: 'right' }}>
+                    disabled={voterCount === 0}>
+                    <Text
+                      style={{
+                        fontSize: 12,
+                        color: isVoted ? Colors.cta : Colors.textMuted,
+                        fontWeight: '500',
+                        minWidth: 44,
+                        textAlign: 'right',
+                      }}>
                       {pct}%
                     </Text>
                   </TouchableOpacity>
                 </View>
                 {/* Progress bar */}
-                <View style={{ height: 5, backgroundColor: '#F0F0F5', borderRadius: 3, overflow: 'hidden' }}>
-                  <View style={{ height: 5, width: `${pct}%` as `${number}%`, backgroundColor: isVoted ? Colors.cta : '#B0C4DE', borderRadius: 3 }} />
+                <View
+                  style={{
+                    height: 5,
+                    backgroundColor: '#F0F0F5',
+                    borderRadius: 3,
+                    overflow: 'hidden',
+                  }}>
+                  <View
+                    style={{
+                      height: 5,
+                      width: `${pct}%` as `${number}%`,
+                      backgroundColor: isVoted ? Colors.cta : '#B0C4DE',
+                      borderRadius: 3,
+                    }}
+                  />
                 </View>
               </TouchableOpacity>
             );
@@ -695,13 +940,26 @@ export function MessageBubble({
         </View>
 
         {/* Footer */}
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 14, paddingBottom: 10, paddingTop: 2 }}>
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            paddingHorizontal: 14,
+            paddingBottom: 10,
+            paddingTop: 2,
+          }}>
           <TouchableOpacity
-            onPress={() => totalVoters > 0 && setVoterModal({ title: 'All voters', voterIds: [...new Set(Object.values(poll.votes ?? {}).flat())] })}
+            onPress={() =>
+              totalVoters > 0 &&
+              setVoterModal({
+                title: 'All voters',
+                voterIds: [...new Set(Object.values(poll.votes ?? {}).flat())],
+              })
+            }
             onLongPress={onLongPress}
             delayLongPress={300}
-            disabled={totalVoters === 0}
-          >
+            disabled={totalVoters === 0}>
             <Text style={{ fontSize: 11, color: totalVoters > 0 ? Colors.cta : Colors.textMuted }}>
               {totalVoters} {totalVoters === 1 ? 'person' : 'people'} voted
             </Text>
@@ -709,8 +967,17 @@ export function MessageBubble({
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
             {deadlineStr && (
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <Ionicons name="time-outline" size={11} color={isExpired ? Colors.error : Colors.textMuted} />
-                <Text style={{ fontSize: 11, color: isExpired ? Colors.error : Colors.textMuted, marginLeft: 3 }}>
+                <Ionicons
+                  name="time-outline"
+                  size={11}
+                  color={isExpired ? Colors.error : Colors.textMuted}
+                />
+                <Text
+                  style={{
+                    fontSize: 11,
+                    color: isExpired ? Colors.error : Colors.textMuted,
+                    marginLeft: 3,
+                  }}>
                   {isExpired ? 'Expired' : `Ends ${deadlineStr}`}
                 </Text>
               </View>
@@ -719,17 +986,28 @@ export function MessageBubble({
               <TouchableOpacity
                 onPress={() => onClosePoll?.(message.id)}
                 onLongPress={onLongPress}
-                delayLongPress={300}
-              >
-                <Text style={{ fontSize: 11, fontWeight: '600', color: Colors.error }}>End poll</Text>
+                delayLongPress={300}>
+                <Text style={{ fontSize: 11, fontWeight: '600', color: Colors.error }}>
+                  End poll
+                </Text>
               </TouchableOpacity>
             )}
           </View>
         </View>
 
         {/* Time + status row */}
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', paddingHorizontal: 14, paddingBottom: 8, gap: 4 }}>
-          <Text style={{ fontSize: 10, color: Colors.textLight }}>{formatMessageTime(createdAt)}</Text>
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'flex-end',
+            paddingHorizontal: 14,
+            paddingBottom: 8,
+            gap: 4,
+          }}>
+          <Text style={{ fontSize: 10, color: Colors.textLight }}>
+            {formatMessageTime(createdAt)}
+          </Text>
           {isMe && (
             <Ionicons
               name={readBy && readBy.length > 0 ? 'checkmark-done' : 'checkmark'}
@@ -772,58 +1050,145 @@ export function MessageBubble({
         );
       case 'VCARD': {
         let card: { id?: string; displayName?: string; username?: string; avatarUrl?: string } = {};
-        try { card = JSON.parse(content); } catch { /* ignore */ }
+        try {
+          card = JSON.parse(content);
+        } catch {
+          /* ignore */
+        }
         const isSelf = card.id === currentUserId;
         const friendSt = card.id ? vcardFriendStatus?.(card.id) : null;
         return (
-          <View style={{ width: maxBubbleWidth - 32, borderRadius: 16, borderWidth: 1, borderColor: 'rgba(0,0,0,0.08)', backgroundColor: '#fff', overflow: 'hidden' }}>
+          <View
+            style={{
+              width: maxBubbleWidth - 32,
+              borderRadius: 16,
+              borderWidth: 1,
+              borderColor: 'rgba(0,0,0,0.08)',
+              backgroundColor: '#fff',
+              overflow: 'hidden',
+            }}>
             {/* Header */}
-            <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8, backgroundColor: 'rgba(0,0,0,0.03)', borderBottomWidth: 0.5, borderBottomColor: 'rgba(0,0,0,0.06)' }}>
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                paddingHorizontal: 12,
+                paddingVertical: 8,
+                backgroundColor: 'rgba(0,0,0,0.03)',
+                borderBottomWidth: 0.5,
+                borderBottomColor: 'rgba(0,0,0,0.06)',
+              }}>
               <Ionicons name="person-circle-outline" size={14} color={Colors.textMuted} />
-              <Text style={{ fontSize: 11, color: Colors.textMuted, fontWeight: '500', marginLeft: 4 }}>Contact card</Text>
+              <Text
+                style={{ fontSize: 11, color: Colors.textMuted, fontWeight: '500', marginLeft: 4 }}>
+                Contact card
+              </Text>
             </View>
             {/* Body */}
             <TouchableOpacity
               onPress={() => card.id && onVCardPress?.(card.id)}
               activeOpacity={0.7}
-              style={{ flexDirection: 'row', alignItems: 'center', padding: 12, gap: 10 }}
-            >
-              <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: Colors.cta, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+              style={{ flexDirection: 'row', alignItems: 'center', padding: 12, gap: 10 }}>
+              <View
+                style={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: 22,
+                  backgroundColor: Colors.cta,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  overflow: 'hidden',
+                }}>
                 {card.avatarUrl ? (
-                  <Image source={{ uri: card.avatarUrl }} style={{ width: 44, height: 44, borderRadius: 22 }} />
+                  <Image
+                    source={{ uri: card.avatarUrl }}
+                    style={{ width: 44, height: 44, borderRadius: 22 }}
+                  />
                 ) : (
-                  <Text style={{ color: '#fff', fontSize: 16, fontWeight: 'bold' }}>{(card.displayName ?? 'U').charAt(0).toUpperCase()}</Text>
+                  <Text style={{ color: '#fff', fontSize: 16, fontWeight: 'bold' }}>
+                    {(card.displayName ?? 'U').charAt(0).toUpperCase()}
+                  </Text>
                 )}
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: 14, fontWeight: '600', color: Colors.text }} numberOfLines={1}>{card.displayName ?? 'User'}</Text>
-                {card.username ? <Text style={{ fontSize: 11, color: Colors.textMuted, marginTop: 2 }} numberOfLines={1}>@{card.username}</Text> : null}
+                <Text
+                  style={{ fontSize: 14, fontWeight: '600', color: Colors.text }}
+                  numberOfLines={1}>
+                  {card.displayName ?? 'User'}
+                </Text>
+                {card.username ? (
+                  <Text
+                    style={{ fontSize: 11, color: Colors.textMuted, marginTop: 2 }}
+                    numberOfLines={1}>
+                    @{card.username}
+                  </Text>
+                ) : null}
               </View>
             </TouchableOpacity>
             {/* Footer — friend status */}
             {card.id && (
-              <View style={{ borderTopWidth: 0.5, borderTopColor: 'rgba(0,0,0,0.06)', flexDirection: 'row' }}>
-                {(isSelf || friendSt === 'ACCEPTED') ? (
-                  <Text style={{ flex: 1, paddingVertical: 8, fontSize: 12, fontWeight: '600', color: '#16a34a', textAlign: 'center' }}>
+              <View
+                style={{
+                  borderTopWidth: 0.5,
+                  borderTopColor: 'rgba(0,0,0,0.06)',
+                  flexDirection: 'row',
+                }}>
+                {isSelf || friendSt === 'ACCEPTED' ? (
+                  <Text
+                    style={{
+                      flex: 1,
+                      paddingVertical: 8,
+                      fontSize: 12,
+                      fontWeight: '600',
+                      color: '#16a34a',
+                      textAlign: 'center',
+                    }}>
                     ✓ Friends
                   </Text>
                 ) : friendSt === 'PENDING' ? (
-                  <Text style={{ flex: 1, paddingVertical: 8, fontSize: 12, fontWeight: '600', color: Colors.textMuted, textAlign: 'center' }}>
+                  <Text
+                    style={{
+                      flex: 1,
+                      paddingVertical: 8,
+                      fontSize: 12,
+                      fontWeight: '600',
+                      color: Colors.textMuted,
+                      textAlign: 'center',
+                    }}>
                     Request sent
                   </Text>
                 ) : (
                   <TouchableOpacity
                     onPress={() => onAddFriend?.(card.id!)}
-                    style={{ flex: 1, paddingVertical: 8 }}
-                  >
-                    <Text style={{ fontSize: 12, fontWeight: '600', color: Colors.cta, textAlign: 'center' }}>Add friend</Text>
+                    style={{ flex: 1, paddingVertical: 8 }}>
+                    <Text
+                      style={{
+                        fontSize: 12,
+                        fontWeight: '600',
+                        color: Colors.cta,
+                        textAlign: 'center',
+                      }}>
+                      Add friend
+                    </Text>
                   </TouchableOpacity>
                 )}
                 <TouchableOpacity
                   onPress={() => onVCardPress?.(card.id!)}
-                  style={{ flex: 1, paddingVertical: 8, borderLeftWidth: 0.5, borderLeftColor: 'rgba(0,0,0,0.06)' }}
-                >
-                  <Text style={{ fontSize: 12, fontWeight: '600', color: Colors.cta, textAlign: 'center' }}>View profile</Text>
+                  style={{
+                    flex: 1,
+                    paddingVertical: 8,
+                    borderLeftWidth: 0.5,
+                    borderLeftColor: 'rgba(0,0,0,0.06)',
+                  }}>
+                  <Text
+                    style={{
+                      fontSize: 12,
+                      fontWeight: '600',
+                      color: Colors.cta,
+                      textAlign: 'center',
+                    }}>
+                    View profile
+                  </Text>
                 </TouchableOpacity>
               </View>
             )}
@@ -839,35 +1204,75 @@ export function MessageBubble({
               const latlng = `${loc.latitude},${loc.longitude}`;
               const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${latlng}`;
 
-              Linking.canOpenURL(googleMapsUrl).then(supported => {
-                if (supported) {
+              Linking.canOpenURL(googleMapsUrl)
+                .then((supported) => {
+                  if (supported) {
+                    Linking.openURL(googleMapsUrl);
+                  } else {
+                    Linking.openURL(googleMapsUrl);
+                  }
+                })
+                .catch(() => {
                   Linking.openURL(googleMapsUrl);
-                } else {
-                  Linking.openURL(googleMapsUrl);
-                }
-              }).catch(() => {
-                Linking.openURL(googleMapsUrl);
-              });
+                });
             }}
             activeOpacity={0.8}
-            style={{ width: 220, borderRadius: 12, overflow: 'hidden', backgroundColor: 'rgba(0,0,0,0.05)' }}
-          >
-            <View style={{ height: 120, backgroundColor: '#e2e8f0', alignItems: 'center', justifyContent: 'center' }}>
-               <ExpoImage
-                  source={{ uri: `https://static-maps.yandex.ru/1.x/?ll=${loc.longitude},${loc.latitude}&size=450,300&z=14&l=map&pt=${loc.longitude},${loc.latitude},pm2rdl` }}
-                  style={{ width: '100%', height: '100%', position: 'absolute' }}
-                  contentFit="cover"
-               />
-               <Ionicons name="location" size={28} color="#ef4444" style={{ zIndex: 10, marginTop: -14 }} />
+            style={{
+              width: 220,
+              borderRadius: 12,
+              overflow: 'hidden',
+              backgroundColor: 'rgba(0,0,0,0.05)',
+            }}>
+            <View
+              style={{
+                height: 120,
+                backgroundColor: '#e2e8f0',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}>
+              <ExpoImage
+                source={{
+                  uri: `https://static-maps.yandex.ru/1.x/?ll=${loc.longitude},${loc.latitude}&size=450,300&z=14&l=map&pt=${loc.longitude},${loc.latitude},pm2rdl`,
+                }}
+                style={{ width: '100%', height: '100%', position: 'absolute' }}
+                contentFit="cover"
+              />
+              <Ionicons
+                name="location"
+                size={28}
+                color="#ef4444"
+                style={{ zIndex: 10, marginTop: -14 }}
+              />
             </View>
-            <View style={{ padding: 10, backgroundColor: isMe ? 'rgba(0,0,0,0.15)' : 'rgba(0,0,0,0.07)' }}>
+            <View
+              style={{
+                padding: 10,
+                backgroundColor: isMe ? 'rgba(0,0,0,0.15)' : 'rgba(0,0,0,0.07)',
+              }}>
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <Ionicons name="navigate-circle-outline" size={18} color={isMe ? Colors.bubbleSenderText : Colors.cta} />
-                <Text style={{ marginLeft: 6, fontSize: 13, fontWeight: '500', color: isMe ? Colors.bubbleSenderText : Colors.cta, flex: 1 }} numberOfLines={2}>
+                <Ionicons
+                  name="navigate-circle-outline"
+                  size={18}
+                  color={isMe ? Colors.bubbleSenderText : Colors.cta}
+                />
+                <Text
+                  style={{
+                    marginLeft: 6,
+                    fontSize: 13,
+                    fontWeight: '500',
+                    color: isMe ? Colors.bubbleSenderText : Colors.cta,
+                    flex: 1,
+                  }}
+                  numberOfLines={2}>
                   {loc.address || 'Shared Location'}
                 </Text>
               </View>
-              <Text style={{ marginTop: 4, fontSize: 11, color: isMe ? 'rgba(255,255,255,0.7)' : Colors.textMuted }}>
+              <Text
+                style={{
+                  marginTop: 4,
+                  fontSize: 11,
+                  color: isMe ? 'rgba(255,255,255,0.7)' : Colors.textMuted,
+                }}>
                 {loc.latitude.toFixed(5)}, {loc.longitude.toFixed(5)}
               </Text>
             </View>
@@ -877,21 +1282,28 @@ export function MessageBubble({
       case 'POLL':
         return renderPollContent();
       case 'CALL': {
-        let callData: { callType?: string; status?: string; duration?: number; callId?: string } = {};
-        try { callData = JSON.parse(content); } catch { /* ignore */ }
+        let callData: { callType?: string; status?: string; duration?: number; callId?: string } =
+          {};
+        try {
+          callData = JSON.parse(content);
+        } catch {
+          /* ignore */
+        }
         const normalizedCallStatus = (callData.status ?? '').toUpperCase();
         const isMissed = normalizedCallStatus === 'MISSED' || normalizedCallStatus === 'REJECTED';
-        const isGroupCallActiveStatus = normalizedCallStatus === 'RINGING' || normalizedCallStatus === 'ONGOING';
+        const isGroupCallActiveStatus =
+          normalizedCallStatus === 'RINGING' || normalizedCallStatus === 'ONGOING';
         const isVideo = callData.callType === 'VIDEO';
         const duration = callData.duration ?? 0;
         const realtimeState = callData.callId ? groupCallRealtimeState[callData.callId] : undefined;
         const isCallEnded = Boolean(
-          realtimeState?.ended
-          || (callData.callId && endedGroupCallIds?.has(callData.callId)),
+          realtimeState?.ended || (callData.callId && endedGroupCallIds?.has(callData.callId))
         );
         const formatDur = (s: number) =>
-          `${Math.floor(s / 60).toString().padStart(2, '0')}:${(s % 60).toString().padStart(2, '0')}`;
-        const typeLabel = isVideo ? 'video' : 'audio';
+          `${Math.floor(s / 60)
+            .toString()
+            .padStart(2, '0')}:${(s % 60).toString().padStart(2, '0')}`;
+        const groupCallLabel = isVideo ? t('chat.group_video_call') : t('chat.group_voice_call');
 
         if (isGroupCallActiveStatus && isGroupConversation && callData.callId) {
           if (isCallEnded || !onJoinGroupCall) {
@@ -909,8 +1321,7 @@ export function MessageBubble({
                     paddingVertical: 10,
                     minWidth: 190,
                     opacity: 0.8,
-                  }}
-                >
+                  }}>
                   <View
                     style={{
                       width: 36,
@@ -920,16 +1331,16 @@ export function MessageBubble({
                       justifyContent: 'center',
                       backgroundColor: Colors.borderLight,
                       marginRight: 10,
-                    }}
-                  >
+                    }}>
                     <Ionicons name="call" size={16} color={Colors.textMuted} />
                   </View>
                   <View style={{ flex: 1 }}>
                     <Text style={{ color: Colors.text, fontSize: 13, fontWeight: '600' }}>
-                      Group {typeLabel} call
+                      {groupCallLabel}
                     </Text>
-                    <Text style={{ color: Colors.textMuted, fontSize: 11, opacity: 0.8, marginTop: 1 }}>
-                      Call ended
+                    <Text
+                      style={{ color: Colors.textMuted, fontSize: 11, opacity: 0.8, marginTop: 1 }}>
+                      {t('call.ended')}
                     </Text>
                   </View>
                 </View>
@@ -952,8 +1363,7 @@ export function MessageBubble({
                   paddingHorizontal: 14,
                   paddingVertical: 10,
                   minWidth: 190,
-                }}
-              >
+                }}>
                 <View
                   style={{
                     width: 36,
@@ -963,16 +1373,16 @@ export function MessageBubble({
                     justifyContent: 'center',
                     backgroundColor: 'rgba(0,113,227,0.14)',
                     marginRight: 10,
-                  }}
-                >
+                  }}>
                   <Ionicons name="call" size={16} color={Colors.cta} />
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={{ color: Colors.cta, fontSize: 13, fontWeight: '600' }}>
-                    Group {typeLabel} call
+                    {groupCallLabel}
                   </Text>
-                  <Text style={{ color: Colors.textMuted, fontSize: 11, opacity: 0.85, marginTop: 1 }}>
-                    Tap to join
+                  <Text
+                    style={{ color: Colors.textMuted, fontSize: 11, opacity: 0.85, marginTop: 1 }}>
+                    {t('call.tap_to_join')}
                   </Text>
                 </View>
               </TouchableOpacity>
@@ -981,11 +1391,20 @@ export function MessageBubble({
         }
 
         const callLabel = isMissed
-          ? (isVideo ? 'Missed video call' : 'Missed audio call')
-          : (isVideo ? 'Video call' : 'Audio call');
+          ? isVideo
+            ? t('chat.missed_video_call')
+            : t('chat.missed_audio_call')
+          : isVideo
+            ? t('chat.video_call')
+            : t('chat.audio_call');
         const callColor = isMissed ? Colors.error : Colors.cta;
         return (
-          <View style={{ marginVertical: 4, paddingHorizontal: 16, alignItems: isMe ? 'flex-end' : 'flex-start' }}>
+          <View
+            style={{
+              marginVertical: 4,
+              paddingHorizontal: 16,
+              alignItems: isMe ? 'flex-end' : 'flex-start',
+            }}>
             <View
               style={{
                 backgroundColor: isMissed ? '#FFF2F0' : Colors.ctaLight,
@@ -995,18 +1414,21 @@ export function MessageBubble({
                 paddingHorizontal: 14,
                 paddingVertical: 10,
                 maxWidth: maxBubbleWidth * 0.7,
-              }}
-            >
+              }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                 <Ionicons
                   name={isMissed ? 'call' : isVideo ? 'videocam' : 'call'}
                   size={13}
                   color={callColor}
                 />
-                <Text style={{ color: callColor, fontSize: 12, fontWeight: '500' }}>{callLabel}</Text>
+                <Text style={{ color: callColor, fontSize: 12, fontWeight: '500' }}>
+                  {callLabel}
+                </Text>
               </View>
               {!isMissed && duration > 0 && (
-                <Text style={{ color: callColor, fontSize: 11, opacity: 0.7, marginTop: 2 }}>{formatDur(duration)}</Text>
+                <Text style={{ color: callColor, fontSize: 11, opacity: 0.7, marginTop: 2 }}>
+                  {formatDur(duration)}
+                </Text>
               )}
               {isMissed && !isMe && onCallAgain && calleeInfo && (
                 <TouchableOpacity
@@ -1021,11 +1443,11 @@ export function MessageBubble({
                     borderRadius: 10,
                     backgroundColor: 'rgba(255,59,48,0.12)',
                   }}
-                  activeOpacity={0.7}
-                >
+                  activeOpacity={0.7}>
                   <Ionicons name="call" size={12} color={Colors.error} />
-                  <Text style={{ color: Colors.error, fontSize: 11, fontWeight: '600', marginLeft: 4 }}>
-                    Call back
+                  <Text
+                    style={{ color: Colors.error, fontSize: 11, fontWeight: '600', marginLeft: 4 }}>
+                    {t('call.call_back')}
                   </Text>
                 </TouchableOpacity>
               )}
@@ -1036,23 +1458,16 @@ export function MessageBubble({
       case 'SYSTEM':
         return (
           <View className="my-1 items-center">
-            <Text className="rounded-lg px-3 py-1 text-xs" style={{ color: Colors.textMuted, backgroundColor: Colors.bg }}>
-              {content}
+            <Text
+              className="rounded-lg px-3 py-1 text-xs"
+              style={{ color: Colors.textMuted, backgroundColor: Colors.bg }}>
+              {formatSystemMessage(content)}
             </Text>
           </View>
         );
       case 'AGENT':
       default: {
         const textNode = renderTextContent();
-        const previewAttachments = (attachments ?? []).filter(
-          (a) =>
-            a.kind === 'POST_PREVIEW' ||
-            a.type === 'application/x-chatly-post-preview' ||
-            Boolean(a.postId) ||
-            a.kind === 'REEL_PREVIEW' ||
-            a.type === 'application/x-chatly-reel-preview' ||
-            Boolean(a.reelId)
-        );
 
         if (previewAttachments.length === 0) {
           return textNode;
@@ -1087,9 +1502,16 @@ export function MessageBubble({
   // Poll messages — white card, full-width, centered
   if (type === 'POLL') {
     return (
-      <View className="my-1 px-4 items-center">
+      <View className="my-1 items-center px-4">
         {!isMe && showAvatar && senderName && (
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginLeft: 34, marginBottom: 4, gap: 4 }}>
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              marginLeft: 34,
+              marginBottom: 4,
+              gap: 4,
+            }}>
             <Text className="text-xs" style={{ color: Colors.textMuted }}>
               {senderName}
             </Text>
@@ -1106,12 +1528,13 @@ export function MessageBubble({
         </View>
         {/* Reactions */}
         {message.reactions && message.reactions.length > 0 && (
-          <View className={`mt-1 flex-row flex-wrap gap-1 ${isMe ? 'justify-end' : 'justify-start'}`}>
+          <View
+            className={`mt-1 flex-row flex-wrap gap-1 ${isMe ? 'justify-end' : 'justify-start'}`}>
             {Object.entries(
               message.reactions.reduce<Record<string, string[]>>((acc, r) => {
                 (acc[r.emoji] ??= []).push(r.userId);
                 return acc;
-              }, {}),
+              }, {})
             ).map(([emoji, userIds]) => (
               <TouchableOpacity
                 key={emoji}
@@ -1119,14 +1542,21 @@ export function MessageBubble({
                 activeOpacity={0.7}
                 className="flex-row items-center rounded-full px-1.5 py-0.5"
                 style={{
-                  backgroundColor: currentUserId && userIds.includes(currentUserId) ? 'rgba(0,113,227,0.12)' : 'rgba(0,0,0,0.06)',
+                  backgroundColor:
+                    currentUserId && userIds.includes(currentUserId)
+                      ? 'rgba(0,113,227,0.12)'
+                      : 'rgba(0,0,0,0.06)',
                   borderWidth: 1,
-                  borderColor: currentUserId && userIds.includes(currentUserId) ? 'rgba(0,113,227,0.3)' : 'rgba(0,0,0,0.08)',
-                }}
-              >
+                  borderColor:
+                    currentUserId && userIds.includes(currentUserId)
+                      ? 'rgba(0,113,227,0.3)'
+                      : 'rgba(0,0,0,0.08)',
+                }}>
                 <Text className="text-xs">{emoji}</Text>
                 {userIds.length > 1 && (
-                  <Text className="ml-0.5 text-[10px]" style={{ color: Colors.textMuted }}>{userIds.length}</Text>
+                  <Text className="ml-0.5 text-[10px]" style={{ color: Colors.textMuted }}>
+                    {userIds.length}
+                  </Text>
                 )}
               </TouchableOpacity>
             ))}
@@ -1134,19 +1564,40 @@ export function MessageBubble({
         )}
         {/* Poll voter modal */}
         {voterModal && (
-          <Modal visible transparent animationType="fade" onRequestClose={() => setVoterModal(null)}>
-            <Pressable className="flex-1 justify-center items-center" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }} onPress={() => setVoterModal(null)}>
-              <Pressable className="rounded-2xl w-64 max-h-80 overflow-hidden" style={{ backgroundColor: Colors.bgCard }} onPress={() => {}}>
-                <View className="px-4 py-3" style={{ borderBottomWidth: 1, borderBottomColor: 'rgba(0,0,0,0.1)' }}>
-                  <Text className="text-sm font-semibold" style={{ color: Colors.text }} numberOfLines={1}>{voterModal.title}</Text>
-                  <Text className="text-xs mt-0.5" style={{ color: Colors.textMuted }}>
-                    {message.poll?.anonymous ? `${voterModal.voterIds.length} vote${voterModal.voterIds.length !== 1 ? 's' : ''} (anonymous)` : `${voterModal.voterIds.length} vote${voterModal.voterIds.length !== 1 ? 's' : ''}`}
+          <Modal
+            visible
+            transparent
+            animationType="fade"
+            onRequestClose={() => setVoterModal(null)}>
+            <Pressable
+              className="flex-1 items-center justify-center"
+              style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}
+              onPress={() => setVoterModal(null)}>
+              <Pressable
+                className="max-h-80 w-64 overflow-hidden rounded-2xl"
+                style={{ backgroundColor: Colors.bgCard }}
+                onPress={() => {}}>
+                <View
+                  className="px-4 py-3"
+                  style={{ borderBottomWidth: 1, borderBottomColor: 'rgba(0,0,0,0.1)' }}>
+                  <Text
+                    className="text-sm font-semibold"
+                    style={{ color: Colors.text }}
+                    numberOfLines={1}>
+                    {voterModal.title}
+                  </Text>
+                  <Text className="mt-0.5 text-xs" style={{ color: Colors.textMuted }}>
+                    {message.poll?.anonymous
+                      ? `${voterModal.voterIds.length} vote${voterModal.voterIds.length !== 1 ? 's' : ''} (anonymous)`
+                      : `${voterModal.voterIds.length} vote${voterModal.voterIds.length !== 1 ? 's' : ''}`}
                   </Text>
                 </View>
                 {message.poll?.anonymous ? (
-                  <View className="px-4 py-6 items-center">
+                  <View className="items-center px-4 py-6">
                     <Ionicons name="eye-off-outline" size={28} color={Colors.textMuted} />
-                    <Text className="text-xs mt-2 text-center" style={{ color: Colors.textMuted }}>This poll is anonymous.{'\n'}Voter identities are hidden.</Text>
+                    <Text className="mt-2 text-center text-xs" style={{ color: Colors.textMuted }}>
+                      This poll is anonymous.{'\n'}Voter identities are hidden.
+                    </Text>
                   </View>
                 ) : (
                   <FlatList
@@ -1158,20 +1609,34 @@ export function MessageBubble({
                       return (
                         <View className="flex-row items-center px-4 py-2">
                           {user?.avatarUrl ? (
-                            <Image source={{ uri: user.avatarUrl }} style={{ width: 24, height: 24, borderRadius: 12 }} />
+                            <Image
+                              source={{ uri: user.avatarUrl }}
+                              style={{ width: 24, height: 24, borderRadius: 12 }}
+                            />
                           ) : (
-                            <View className="items-center justify-center rounded-full" style={{ width: 24, height: 24, backgroundColor: Colors.cta }}>
-                              <Text className="text-[10px] font-bold" style={{ color: '#fff' }}>{name.charAt(0).toUpperCase()}</Text>
+                            <View
+                              className="items-center justify-center rounded-full"
+                              style={{ width: 24, height: 24, backgroundColor: Colors.cta }}>
+                              <Text className="text-[10px] font-bold" style={{ color: '#fff' }}>
+                                {name.charAt(0).toUpperCase()}
+                              </Text>
                             </View>
                           )}
-                          <Text className="ml-2 text-sm" style={{ color: Colors.text }}>{name}</Text>
+                          <Text className="ml-2 text-sm" style={{ color: Colors.text }}>
+                            {name}
+                          </Text>
                         </View>
                       );
                     }}
                   />
                 )}
-                <TouchableOpacity onPress={() => setVoterModal(null)} className="items-center py-3" style={{ borderTopWidth: 1, borderTopColor: 'rgba(0,0,0,0.1)' }}>
-                  <Text className="text-sm font-medium" style={{ color: Colors.cta }}>Close</Text>
+                <TouchableOpacity
+                  onPress={() => setVoterModal(null)}
+                  className="items-center py-3"
+                  style={{ borderTopWidth: 1, borderTopColor: 'rgba(0,0,0,0.1)' }}>
+                  <Text className="text-sm font-medium" style={{ color: Colors.cta }}>
+                    Close
+                  </Text>
                 </TouchableOpacity>
               </Pressable>
             </Pressable>
@@ -1181,13 +1646,350 @@ export function MessageBubble({
     );
   }
 
+  if (type === 'IMAGE') {
+    const captionText = normalizedTextContent.trim();
+    const hasCaption = captionText.length > 0 && captionText !== IMAGE_MESSAGE_PLACEHOLDER;
+
+    return (
+      <>
+        <Animated.View
+          {...panResponder.panHandlers}
+          style={{ transform: [{ translateX: pan.x }] }}
+          className={`my-0.5 px-4 ${isMe ? 'items-end' : 'items-start'}`}>
+          {!isMe && showAvatar && senderName && (
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                marginLeft: 38,
+                marginBottom: 2,
+                gap: 4,
+              }}>
+              <Text className="text-xs" style={{ color: Colors.textMuted }}>
+                {senderName}
+              </Text>
+              {senderRole === 'ADMIN' && (
+                <Ionicons name="shield-checkmark" size={12} color="#1877F2" />
+              )}
+            </View>
+          )}
+
+          <View style={{ flexDirection: 'row', alignItems: 'flex-end' }}>
+            {renderSenderAvatar()}
+            <View style={{ maxWidth: imageSize }}>
+              <TouchableOpacity activeOpacity={0.88} onLongPress={onLongPress} delayLongPress={300}>
+                {renderImageContent()}
+              </TouchableOpacity>
+
+              {hasCaption ? (
+                <TouchableOpacity
+                  activeOpacity={0.8}
+                  onLongPress={onLongPress}
+                  delayLongPress={300}
+                  className="mt-1.5 rounded-2xl px-4 py-2.5"
+                  style={{
+                    backgroundColor: isMe ? Colors.bubbleSender : Colors.bubbleReceiver,
+                    borderBottomRightRadius: isMe ? 6 : 20,
+                    borderBottomLeftRadius: isMe ? 20 : 6,
+                  }}>
+                  {renderTextContent()}
+                  <View className="mt-1 flex-row items-center justify-end">
+                    <Text
+                      className="text-[10px]"
+                      style={{ color: isMe ? 'rgba(255,255,255,0.6)' : Colors.textLight }}>
+                      {formatMessageTime(createdAt)}
+                    </Text>
+                    {isMe && (
+                      <Ionicons
+                        name={readBy && readBy.length > 0 ? 'checkmark-done' : 'checkmark'}
+                        size={14}
+                        color={readBy && readBy.length > 0 ? '#60D4F2' : 'rgba(255,255,255,0.6)'}
+                        style={{ marginLeft: 3 }}
+                      />
+                    )}
+                  </View>
+                </TouchableOpacity>
+              ) : (
+                <View
+                  className="mt-0.5 flex-row items-center"
+                  style={{ alignSelf: isMe ? 'flex-end' : 'flex-start' }}>
+                  <Text className="text-[10px]" style={{ color: Colors.textLight }}>
+                    {formatMessageTime(createdAt)}
+                  </Text>
+                  {isMe && (
+                    <Ionicons
+                      name={readBy && readBy.length > 0 ? 'checkmark-done' : 'checkmark'}
+                      size={14}
+                      color={readBy && readBy.length > 0 ? Colors.cta : Colors.textLight}
+                      style={{ marginLeft: 3 }}
+                    />
+                  )}
+                </View>
+              )}
+            </View>
+          </View>
+
+          {message.reactions && message.reactions.length > 0 && (
+            <View
+              className={`mt-1 flex-row flex-wrap gap-1 ${isMe ? 'justify-end' : 'justify-start'}`}>
+              {Object.entries(
+                message.reactions.reduce<Record<string, string[]>>((acc, r) => {
+                  (acc[r.emoji] ??= []).push(r.userId);
+                  return acc;
+                }, {})
+              ).map(([emoji, userIds]) => (
+                <TouchableOpacity
+                  key={emoji}
+                  onPress={() => onReact?.(message.id, emoji)}
+                  activeOpacity={0.7}
+                  className="flex-row items-center rounded-full px-1.5 py-0.5"
+                  style={{
+                    backgroundColor:
+                      currentUserId && userIds.includes(currentUserId)
+                        ? 'rgba(99,102,241,0.15)'
+                        : 'rgba(0,0,0,0.06)',
+                    borderWidth: 1,
+                    borderColor:
+                      currentUserId && userIds.includes(currentUserId)
+                        ? 'rgba(99,102,241,0.4)'
+                        : 'rgba(0,0,0,0.08)',
+                  }}>
+                  <Text className="text-xs">{emoji}</Text>
+                  {userIds.length > 1 && (
+                    <Text className="ml-0.5 text-[10px]" style={{ color: Colors.textMuted }}>
+                      {userIds.length}
+                    </Text>
+                  )}
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+        </Animated.View>
+        {quickProfileDialog}
+      </>
+    );
+  }
+
   // GIF & Sticker messages — no bubble background
+  if (hasPreviewAttachment) {
+    const captionText = normalizedTextContent.trim();
+    const hasCaption =
+      captionText.length > 0 && captionText.toLowerCase() !== SHARED_POST_MESSAGE_PLACEHOLDER;
+
+    return (
+      <>
+        <Animated.View
+          {...panResponder.panHandlers}
+          style={{ transform: [{ translateX: pan.x }] }}
+          className={`my-0.5 px-4 ${isMe ? 'items-end' : 'items-start'}`}>
+          {!isMe && showAvatar && senderName && (
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                marginLeft: 38,
+                marginBottom: 2,
+                gap: 4,
+              }}>
+              <Text className="text-xs" style={{ color: Colors.textMuted }}>
+                {senderName}
+              </Text>
+              {senderRole === 'ADMIN' && (
+                <Ionicons name="shield-checkmark" size={12} color="#1877F2" />
+              )}
+            </View>
+          )}
+
+          <View style={{ flexDirection: 'row', alignItems: 'flex-end' }}>
+            {renderSenderAvatar()}
+            <View style={{ maxWidth: previewAttachmentWidth }}>
+              {hasCaption ? (
+                <TouchableOpacity
+                  activeOpacity={0.8}
+                  onLongPress={onLongPress}
+                  delayLongPress={300}
+                  className="mb-1.5 rounded-2xl px-4 py-2.5"
+                  style={{
+                    backgroundColor: isMe ? Colors.bubbleSender : Colors.bubbleReceiver,
+                    borderBottomRightRadius: isMe ? 6 : 20,
+                    borderBottomLeftRadius: isMe ? 20 : 6,
+                  }}>
+                  {renderTextContent()}
+                </TouchableOpacity>
+              ) : null}
+
+              <TouchableOpacity activeOpacity={0.9} onLongPress={onLongPress} delayLongPress={300}>
+                <View style={{ gap: 6 }}>
+                  {previewAttachments.map((att, idx) => {
+                    const isPost =
+                      att.kind === 'POST_PREVIEW' ||
+                      att.type === 'application/x-chatly-post-preview' ||
+                      Boolean(att.postId);
+
+                    return isPost ? renderPostPreview(att, idx) : renderReelPreview(att, idx);
+                  })}
+                </View>
+              </TouchableOpacity>
+
+              <View
+                className="mt-0.5 flex-row items-center"
+                style={{ alignSelf: isMe ? 'flex-end' : 'flex-start' }}>
+                <Text className="text-[10px]" style={{ color: Colors.textLight }}>
+                  {formatMessageTime(createdAt)}
+                </Text>
+                {isMe && (
+                  <Ionicons
+                    name={readBy && readBy.length > 0 ? 'checkmark-done' : 'checkmark'}
+                    size={14}
+                    color={readBy && readBy.length > 0 ? Colors.cta : Colors.textLight}
+                    style={{ marginLeft: 3 }}
+                  />
+                )}
+              </View>
+            </View>
+          </View>
+
+          {message.reactions && message.reactions.length > 0 && (
+            <View
+              className={`mt-1 flex-row flex-wrap gap-1 ${isMe ? 'justify-end' : 'justify-start'}`}>
+              {Object.entries(
+                message.reactions.reduce<Record<string, string[]>>((acc, r) => {
+                  (acc[r.emoji] ??= []).push(r.userId);
+                  return acc;
+                }, {})
+              ).map(([emoji, userIds]) => (
+                <TouchableOpacity
+                  key={emoji}
+                  onPress={() => onReact?.(message.id, emoji)}
+                  activeOpacity={0.7}
+                  className="flex-row items-center rounded-full px-1.5 py-0.5"
+                  style={{
+                    backgroundColor:
+                      currentUserId && userIds.includes(currentUserId)
+                        ? 'rgba(99,102,241,0.15)'
+                        : 'rgba(0,0,0,0.06)',
+                    borderWidth: 1,
+                    borderColor:
+                      currentUserId && userIds.includes(currentUserId)
+                        ? 'rgba(99,102,241,0.4)'
+                        : 'rgba(0,0,0,0.08)',
+                  }}>
+                  <Text className="text-xs">{emoji}</Text>
+                  {userIds.length > 1 && (
+                    <Text className="ml-0.5 text-[10px]" style={{ color: Colors.textMuted }}>
+                      {userIds.length}
+                    </Text>
+                  )}
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+        </Animated.View>
+        {quickProfileDialog}
+      </>
+    );
+  }
+
   if (type === 'GIF' || type === 'STICKER') {
     return (
       <>
-      <Animated.View {...panResponder.panHandlers} style={{ transform: [{ translateX: pan.x }] }} className={`my-0.5 px-4 ${isMe ? 'items-end' : 'items-start'}`}>
+        <Animated.View
+          {...panResponder.panHandlers}
+          style={{ transform: [{ translateX: pan.x }] }}
+          className={`my-0.5 px-4 ${isMe ? 'items-end' : 'items-start'}`}>
+          {!isMe && showAvatar && senderName && (
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                marginLeft: 4,
+                marginBottom: 2,
+                gap: 4,
+              }}>
+              <Text className="text-xs" style={{ color: Colors.textMuted }}>
+                {senderName}
+              </Text>
+              {senderRole === 'ADMIN' && (
+                <Ionicons name="shield-checkmark" size={12} color="#1877F2" />
+              )}
+            </View>
+          )}
+          <TouchableOpacity activeOpacity={0.8} onLongPress={onLongPress} delayLongPress={300}>
+            {renderContent()}
+            <View
+              className="mt-0.5 flex-row items-center"
+              style={{ alignSelf: isMe ? 'flex-end' : 'flex-start' }}>
+              <Text className="text-[10px]" style={{ color: Colors.textLight }}>
+                {formatMessageTime(createdAt)}
+              </Text>
+              {isMe && (
+                <Ionicons
+                  name={readBy && readBy.length > 0 ? 'checkmark-done' : 'checkmark'}
+                  size={14}
+                  color={readBy && readBy.length > 0 ? '#60D4F2' : Colors.textLight}
+                  style={{ marginLeft: 3 }}
+                />
+              )}
+            </View>
+          </TouchableOpacity>
+
+          {/* Reaction badges */}
+          {message.reactions && message.reactions.length > 0 && (
+            <View
+              className={`mt-1 flex-row flex-wrap gap-1 ${isMe ? 'justify-end' : 'justify-start'}`}>
+              {Object.entries(
+                message.reactions.reduce<Record<string, string[]>>((acc, r) => {
+                  (acc[r.emoji] ??= []).push(r.userId);
+                  return acc;
+                }, {})
+              ).map(([emoji, userIds]) => (
+                <TouchableOpacity
+                  key={emoji}
+                  onPress={() => onReact?.(message.id, emoji)}
+                  activeOpacity={0.7}
+                  className="flex-row items-center rounded-full px-1.5 py-0.5"
+                  style={{
+                    backgroundColor:
+                      currentUserId && userIds.includes(currentUserId)
+                        ? 'rgba(99,102,241,0.15)'
+                        : 'rgba(0,0,0,0.06)',
+                    borderWidth: 1,
+                    borderColor:
+                      currentUserId && userIds.includes(currentUserId)
+                        ? 'rgba(99,102,241,0.4)'
+                        : 'rgba(0,0,0,0.08)',
+                  }}>
+                  <Text className="text-xs">{emoji}</Text>
+                  {userIds.length > 1 && (
+                    <Text className="ml-0.5 text-[10px]" style={{ color: Colors.textMuted }}>
+                      {userIds.length}
+                    </Text>
+                  )}
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+        </Animated.View>
+      </>
+    );
+  }
+
+  return (
+    <>
+      <Animated.View
+        {...panResponder.panHandlers}
+        style={{ transform: [{ translateX: pan.x }] }}
+        className={`my-0.5 px-4 ${isMe ? 'items-end' : 'items-start'}`}>
+        {/* Sender name for group chats */}
         {!isMe && showAvatar && senderName && (
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginLeft: 4, marginBottom: 2, gap: 4 }}>
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              marginLeft: 38,
+              marginBottom: 2,
+              gap: 4,
+            }}>
             <Text className="text-xs" style={{ color: Colors.textMuted }}>
               {senderName}
             </Text>
@@ -1196,31 +1998,118 @@ export function MessageBubble({
             )}
           </View>
         )}
-        <TouchableOpacity activeOpacity={0.8} onLongPress={onLongPress} delayLongPress={300}>
-          {renderContent()}
-          <View className="mt-0.5 flex-row items-center" style={{ alignSelf: isMe ? 'flex-end' : 'flex-start' }}>
-            <Text className="text-[10px]" style={{ color: Colors.textLight }}>
-              {formatMessageTime(createdAt)}
+
+        {/* Pinned indicator */}
+        {message.pinned && (
+          <View
+            className={`mb-0.5 flex-row items-center ${isMe ? 'justify-end' : 'justify-start'}`}>
+            <Ionicons name="pin" size={10} color={Colors.cta} />
+            <Text className="ml-1 text-[10px]" style={{ color: Colors.cta }}>
+              Pinned
             </Text>
-            {isMe && (
-              <Ionicons
-                name={readBy && readBy.length > 0 ? 'checkmark-done' : 'checkmark'}
-                size={14}
-                color={readBy && readBy.length > 0 ? '#60D4F2' : Colors.textLight}
-                style={{ marginLeft: 3 }}
-              />
-            )}
           </View>
-        </TouchableOpacity>
+        )}
+
+        <View style={{ flexDirection: 'row', alignItems: 'flex-end' }}>
+          {/* Avatar for group received messages */}
+          {renderSenderAvatar()}
+
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onLongPress={onLongPress}
+            delayLongPress={300}
+            style={{ maxWidth: hasPreviewAttachment ? '92%' : '78%' }}>
+            <View
+              className="rounded-2xl px-4 py-2.5"
+              style={{
+                backgroundColor: isMe ? Colors.bubbleSender : Colors.bubbleReceiver,
+                borderBottomRightRadius: isMe ? 6 : 20,
+                borderBottomLeftRadius: isMe ? 20 : 6,
+              }}>
+              {/* Reply preview */}
+              {replyToMessage && (
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  onPress={() => replyToMessage.id && onScrollToMessage?.(replyToMessage.id)}
+                  className="mb-2 rounded-xl px-3 py-2"
+                  style={{
+                    backgroundColor: isMe ? 'rgba(0,0,0,0.15)' : 'rgba(0,0,0,0.07)',
+                    borderLeftWidth: 3,
+                    borderLeftColor: isMe ? 'rgba(255,255,255,0.6)' : Colors.cta,
+                  }}>
+                  <Text
+                    className="mb-0.5 text-[11px] font-semibold"
+                    style={{ color: isMe ? 'rgba(255,255,255,0.75)' : Colors.cta }}
+                    numberOfLines={1}>
+                    {replyToMessage.recalled ? 'Message recalled' : (senderName ?? 'Message')}
+                  </Text>
+                  <Text
+                    className="text-[12px]"
+                    style={{ color: isMe ? 'rgba(255,255,255,0.65)' : Colors.textMuted }}
+                    numberOfLines={2}>
+                    {replyToMessage.recalled
+                      ? 'Message recalled'
+                      : replyToMessage.type === 'IMAGE'
+                        ? '🖼 Image'
+                        : replyToMessage.type === 'VIDEO'
+                          ? '🎥 Video'
+                          : replyToMessage.type === 'AUDIO'
+                            ? '🎵 Audio'
+                            : replyToMessage.type === 'FILE'
+                              ? '📎 Attachment'
+                              : replyToMessage.type === 'GIF'
+                                ? '🎬 GIF'
+                                : replyToMessage.type === 'STICKER'
+                                  ? '🎨 Sticker'
+                                  : replyToMessage.type === 'LOCATION'
+                                    ? '📍 Location'
+                                    : replyToMessage.type === 'POLL'
+                                      ? '📊 Poll'
+                                      : replyToMessage.type === 'VCARD'
+                                        ? '👤 Contact'
+                                        : richTextToPlainText(replyToMessage.content)}
+                  </Text>
+                </TouchableOpacity>
+              )}
+
+              {renderContent()}
+
+              {/* Time + status */}
+              <View className="mt-1 flex-row items-center justify-end">
+                {edited && (
+                  <Text
+                    className="mr-1 text-[10px]"
+                    style={{ color: isMe ? 'rgba(255,255,255,0.6)' : Colors.textLight }}>
+                    edited
+                  </Text>
+                )}
+                <Text
+                  className="text-[10px]"
+                  style={{ color: isMe ? 'rgba(255,255,255,0.6)' : Colors.textLight }}>
+                  {formatMessageTime(createdAt)}
+                </Text>
+                {isMe && (
+                  <Ionicons
+                    name={readBy && readBy.length > 0 ? 'checkmark-done' : 'checkmark'}
+                    size={14}
+                    color={readBy && readBy.length > 0 ? '#60D4F2' : 'rgba(255,255,255,0.6)'}
+                    style={{ marginLeft: 3 }}
+                  />
+                )}
+              </View>
+            </View>
+          </TouchableOpacity>
+        </View>
 
         {/* Reaction badges */}
         {message.reactions && message.reactions.length > 0 && (
-          <View className={`mt-1 flex-row flex-wrap gap-1 ${isMe ? 'justify-end' : 'justify-start'}`}>
+          <View
+            className={`mt-1 flex-row flex-wrap gap-1 ${isMe ? 'justify-end' : 'justify-start'}`}>
             {Object.entries(
               message.reactions.reduce<Record<string, string[]>>((acc, r) => {
                 (acc[r.emoji] ??= []).push(r.userId);
                 return acc;
-              }, {}),
+              }, {})
             ).map(([emoji, userIds]) => (
               <TouchableOpacity
                 key={emoji}
@@ -1228,15 +2117,16 @@ export function MessageBubble({
                 activeOpacity={0.7}
                 className="flex-row items-center rounded-full px-1.5 py-0.5"
                 style={{
-                  backgroundColor: currentUserId && userIds.includes(currentUserId)
-                    ? 'rgba(99,102,241,0.15)'
-                    : 'rgba(0,0,0,0.06)',
+                  backgroundColor:
+                    currentUserId && userIds.includes(currentUserId)
+                      ? 'rgba(99,102,241,0.15)'
+                      : 'rgba(0,0,0,0.06)',
                   borderWidth: 1,
-                  borderColor: currentUserId && userIds.includes(currentUserId)
-                    ? 'rgba(99,102,241,0.4)'
-                    : 'rgba(0,0,0,0.08)',
-                }}
-              >
+                  borderColor:
+                    currentUserId && userIds.includes(currentUserId)
+                      ? 'rgba(99,102,241,0.4)'
+                      : 'rgba(0,0,0,0.08)',
+                }}>
                 <Text className="text-xs">{emoji}</Text>
                 {userIds.length > 1 && (
                   <Text className="ml-0.5 text-[10px]" style={{ color: Colors.textMuted }}>
@@ -1247,245 +2137,87 @@ export function MessageBubble({
             ))}
           </View>
         )}
-      </Animated.View>
-      </>
-    );
-  }
 
-  return (
-    <>
-    <Animated.View {...panResponder.panHandlers} style={{ transform: [{ translateX: pan.x }] }} className={`my-0.5 px-4 ${isMe ? 'items-end' : 'items-start'}`}>
-      {/* Sender name for group chats */}
-      {!isMe && showAvatar && senderName && (
-        <View style={{ flexDirection: 'row', alignItems: 'center', marginLeft: 38, marginBottom: 2, gap: 4 }}>
-          <Text className="text-xs" style={{ color: Colors.textMuted }}>
-            {senderName}
-          </Text>
-          {senderRole === 'ADMIN' && (
-            <Ionicons name="shield-checkmark" size={12} color="#1877F2" />
-          )}
-        </View>
-      )}
-
-      {/* Pinned indicator */}
-      {message.pinned && (
-        <View className={`flex-row items-center mb-0.5 ${isMe ? 'justify-end' : 'justify-start'}`}>
-          <Ionicons name="pin" size={10} color={Colors.cta} />
-          <Text className="ml-1 text-[10px]" style={{ color: Colors.cta }}>Pinned</Text>
-        </View>
-      )}
-
-      <View style={{ flexDirection: 'row', alignItems: 'flex-end' }}>
-        {/* Avatar for group received messages */}
-        {renderSenderAvatar()}
-
-        <TouchableOpacity
-          activeOpacity={0.8}
-          onLongPress={onLongPress}
-          delayLongPress={300}
-          style={{ maxWidth: '78%' }}
-        >
-        <View
-          className="rounded-2xl px-4 py-2.5"
-          style={{
-            backgroundColor: isMe ? Colors.bubbleSender : Colors.bubbleReceiver,
-            borderBottomRightRadius: isMe ? 6 : 20,
-            borderBottomLeftRadius: isMe ? 20 : 6,
-          }}
-        >
-          {/* Reply preview */}
-          {replyToMessage && (
-            <TouchableOpacity
-              activeOpacity={0.7}
-              onPress={() => replyToMessage.id && onScrollToMessage?.(replyToMessage.id)}
-              className="mb-2 rounded-xl px-3 py-2"
-              style={{
-                backgroundColor: isMe
-                  ? 'rgba(0,0,0,0.15)'
-                  : 'rgba(0,0,0,0.07)',
-                borderLeftWidth: 3,
-                borderLeftColor: isMe ? 'rgba(255,255,255,0.6)' : Colors.cta,
-              }}
-            >
-              <Text
-                className="mb-0.5 text-[11px] font-semibold"
-                style={{ color: isMe ? 'rgba(255,255,255,0.75)' : Colors.cta }}
-                numberOfLines={1}
-              >
-                {replyToMessage.recalled ? 'Message recalled' : (senderName ?? 'Message')}
-              </Text>
-              <Text
-                className="text-[12px]"
-                style={{ color: isMe ? 'rgba(255,255,255,0.65)' : Colors.textMuted }}
-                numberOfLines={2}
-              >
-                {replyToMessage.recalled
-                  ? 'Message recalled'
-                  : replyToMessage.type === 'IMAGE'
-                  ? '🖼 Image'
-                  : replyToMessage.type === 'VIDEO'
-                  ? '🎥 Video'
-                  : replyToMessage.type === 'AUDIO'
-                  ? '🎵 Audio'
-                  : replyToMessage.type === 'FILE'
-                  ? '📎 Attachment'
-                  : replyToMessage.type === 'GIF'
-                  ? '🎬 GIF'
-                  : replyToMessage.type === 'STICKER'
-                  ? '🎨 Sticker'
-                  : replyToMessage.type === 'LOCATION'
-                  ? '📍 Location'
-                  : replyToMessage.type === 'POLL'
-                  ? '📊 Poll'
-                  : replyToMessage.type === 'VCARD'
-                  ? '👤 Contact'
-                  : richTextToPlainText(replyToMessage.content)}
-              </Text>
-            </TouchableOpacity>
-          )}
-
-          {renderContent()}
-
-          {/* Time + status */}
-          <View className="mt-1 flex-row items-center justify-end">
-            {edited && (
-              <Text
-                className="mr-1 text-[10px]"
-                style={{ color: isMe ? 'rgba(255,255,255,0.6)' : Colors.textLight }}
-              >
-                edited
-              </Text>
-            )}
-            <Text
-              className="text-[10px]"
-              style={{ color: isMe ? 'rgba(255,255,255,0.6)' : Colors.textLight }}
-            >
-              {formatMessageTime(createdAt)}
-            </Text>
-            {isMe && (
-              <Ionicons
-                name={readBy && readBy.length > 0 ? 'checkmark-done' : 'checkmark'}
-                size={14}
-                color={readBy && readBy.length > 0 ? '#60D4F2' : 'rgba(255,255,255,0.6)'}
-                style={{ marginLeft: 3 }}
-              />
-            )}
-          </View>
-        </View>
-      </TouchableOpacity>
-      </View>
-
-      {/* Reaction badges */}
-      {message.reactions && message.reactions.length > 0 && (
-        <View className={`mt-1 flex-row flex-wrap gap-1 ${isMe ? 'justify-end' : 'justify-start'}`}>
-          {Object.entries(
-            message.reactions.reduce<Record<string, string[]>>((acc, r) => {
-              (acc[r.emoji] ??= []).push(r.userId);
-              return acc;
-            }, {}),
-          ).map(([emoji, userIds]) => (
-            <TouchableOpacity
-              key={emoji}
-              onPress={() => onReact?.(message.id, emoji)}
-              activeOpacity={0.7}
-              className="flex-row items-center rounded-full px-1.5 py-0.5"
-              style={{
-                backgroundColor: currentUserId && userIds.includes(currentUserId)
-                  ? 'rgba(99,102,241,0.15)'
-                  : 'rgba(0,0,0,0.06)',
-                borderWidth: 1,
-                borderColor: currentUserId && userIds.includes(currentUserId)
-                  ? 'rgba(99,102,241,0.4)'
-                  : 'rgba(0,0,0,0.08)',
-              }}
-            >
-              <Text className="text-xs">{emoji}</Text>
-              {userIds.length > 1 && (
-                <Text className="ml-0.5 text-[10px]" style={{ color: Colors.textMuted }}>
-                  {userIds.length}
-                </Text>
-              )}
-            </TouchableOpacity>
-          ))}
-        </View>
-      )}
-
-      {/* Poll voter modal */}
-      {voterModal && (
-        <Modal
-          visible
-          transparent
-          animationType="fade"
-          onRequestClose={() => setVoterModal(null)}
-        >
-          <Pressable
-            className="flex-1 justify-center items-center"
-            style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}
-            onPress={() => setVoterModal(null)}
-          >
+        {/* Poll voter modal */}
+        {voterModal && (
+          <Modal
+            visible
+            transparent
+            animationType="fade"
+            onRequestClose={() => setVoterModal(null)}>
             <Pressable
-              className="rounded-2xl w-64 max-h-80 overflow-hidden"
-              style={{ backgroundColor: Colors.bgCard }}
-              onPress={() => {}}
-            >
-              <View className="px-4 py-3" style={{ borderBottomWidth: 1, borderBottomColor: 'rgba(0,0,0,0.1)' }}>
-                <Text className="text-sm font-semibold" style={{ color: Colors.text }} numberOfLines={1}>
-                  {voterModal.title}
-                </Text>
-                <Text className="text-xs mt-0.5" style={{ color: Colors.textMuted }}>
-                  {message.poll?.anonymous
-                    ? `${voterModal.voterIds.length} vote${voterModal.voterIds.length !== 1 ? 's' : ''} (anonymous)`
-                    : `${voterModal.voterIds.length} vote${voterModal.voterIds.length !== 1 ? 's' : ''}`}
-                </Text>
-              </View>
-              {message.poll?.anonymous ? (
-                <View className="px-4 py-6 items-center">
-                  <Ionicons name="eye-off-outline" size={28} color={Colors.textMuted} />
-                  <Text className="text-xs mt-2 text-center" style={{ color: Colors.textMuted }}>
-                    This poll is anonymous.{'\n'}Voter identities are hidden.
+              className="flex-1 items-center justify-center"
+              style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}
+              onPress={() => setVoterModal(null)}>
+              <Pressable
+                className="max-h-80 w-64 overflow-hidden rounded-2xl"
+                style={{ backgroundColor: Colors.bgCard }}
+                onPress={() => {}}>
+                <View
+                  className="px-4 py-3"
+                  style={{ borderBottomWidth: 1, borderBottomColor: 'rgba(0,0,0,0.1)' }}>
+                  <Text
+                    className="text-sm font-semibold"
+                    style={{ color: Colors.text }}
+                    numberOfLines={1}>
+                    {voterModal.title}
+                  </Text>
+                  <Text className="mt-0.5 text-xs" style={{ color: Colors.textMuted }}>
+                    {message.poll?.anonymous
+                      ? `${voterModal.voterIds.length} vote${voterModal.voterIds.length !== 1 ? 's' : ''} (anonymous)`
+                      : `${voterModal.voterIds.length} vote${voterModal.voterIds.length !== 1 ? 's' : ''}`}
                   </Text>
                 </View>
-              ) : (
-                <FlatList
-                data={voterModal.voterIds}
-                keyExtractor={(id) => id}
-                renderItem={({ item: userId }) => {
-                  const user = participantMap?.[userId];
-                  const name = user?.displayName ?? 'Unknown';
-                  return (
-                    <View className="flex-row items-center px-4 py-2">
-                      {user?.avatarUrl ? (
-                        <Image
-                          source={{ uri: user.avatarUrl }}
-                          style={{ width: 24, height: 24, borderRadius: 12 }}
-                        />
-                      ) : (
-                        <View
-                          className="items-center justify-center rounded-full"
-                          style={{ width: 24, height: 24, backgroundColor: Colors.cta }}
-                        >
-                          <Text className="text-[10px] font-bold" style={{ color: '#fff' }}>
-                            {name.charAt(0).toUpperCase()}
+                {message.poll?.anonymous ? (
+                  <View className="items-center px-4 py-6">
+                    <Ionicons name="eye-off-outline" size={28} color={Colors.textMuted} />
+                    <Text className="mt-2 text-center text-xs" style={{ color: Colors.textMuted }}>
+                      This poll is anonymous.{'\n'}Voter identities are hidden.
+                    </Text>
+                  </View>
+                ) : (
+                  <FlatList
+                    data={voterModal.voterIds}
+                    keyExtractor={(id) => id}
+                    renderItem={({ item: userId }) => {
+                      const user = participantMap?.[userId];
+                      const name = user?.displayName ?? 'Unknown';
+                      return (
+                        <View className="flex-row items-center px-4 py-2">
+                          {user?.avatarUrl ? (
+                            <Image
+                              source={{ uri: user.avatarUrl }}
+                              style={{ width: 24, height: 24, borderRadius: 12 }}
+                            />
+                          ) : (
+                            <View
+                              className="items-center justify-center rounded-full"
+                              style={{ width: 24, height: 24, backgroundColor: Colors.cta }}>
+                              <Text className="text-[10px] font-bold" style={{ color: '#fff' }}>
+                                {name.charAt(0).toUpperCase()}
+                              </Text>
+                            </View>
+                          )}
+                          <Text className="ml-2 text-sm" style={{ color: Colors.text }}>
+                            {name}
                           </Text>
                         </View>
-                      )}
-                      <Text className="ml-2 text-sm" style={{ color: Colors.text }}>{name}</Text>
-                    </View>
-                  );
-                }}
-              />
-              )}
-              <TouchableOpacity
-                onPress={() => setVoterModal(null)}
-                className="items-center py-3"
-                style={{ borderTopWidth: 1, borderTopColor: 'rgba(0,0,0,0.1)' }}
-              >
-                <Text className="text-sm font-medium" style={{ color: Colors.cta }}>Close</Text>
-              </TouchableOpacity>
+                      );
+                    }}
+                  />
+                )}
+                <TouchableOpacity
+                  onPress={() => setVoterModal(null)}
+                  className="items-center py-3"
+                  style={{ borderTopWidth: 1, borderTopColor: 'rgba(0,0,0,0.1)' }}>
+                  <Text className="text-sm font-medium" style={{ color: Colors.cta }}>
+                    Close
+                  </Text>
+                </TouchableOpacity>
+              </Pressable>
             </Pressable>
-          </Pressable>
-        </Modal>
-      )}
+          </Modal>
+        )}
       </Animated.View>
       {quickProfileDialog}
     </>

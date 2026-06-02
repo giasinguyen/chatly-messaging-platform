@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Modal,
   Pressable,
@@ -12,6 +13,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { Avatar } from '@/components/ui/Avatar';
 import { Colors } from '@/constants/theme';
+import i18n from '@/lib/i18n';
 import { conversationService } from '@/services/conversation.service';
 import { userService } from '@/services/user.service';
 import type { ConversationResponse } from '@/types/conversation';
@@ -32,6 +34,7 @@ export function ForwardMessageModal({
   onClose,
   onConfirm,
 }: ForwardMessageModalProps) {
+  const { t } = useTranslation();
   const [conversations, setConversations] = useState<ConversationResponse[]>([]);
   const [users, setUsers] = useState<Record<string, UserResponse>>({});
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -122,10 +125,10 @@ export function ForwardMessageModal({
           />
 
           <Text className="text-xl font-bold" style={{ color: Colors.text }}>
-            Forward Message
+            {t('chat.forward_message')}
           </Text>
           <Text className="mt-1 text-sm" style={{ color: Colors.textMuted }}>
-            Select one or more conversations to forward.
+            {t('chat.forward_message_desc')}
           </Text>
 
           <View
@@ -135,7 +138,7 @@ export function ForwardMessageModal({
             <Ionicons name="search-outline" size={18} color={Colors.textMuted} />
             <TextInput
               className="ml-2 flex-1 text-sm"
-              placeholder="Search conversations..."
+              placeholder={t('chat.search_conversations')}
               placeholderTextColor={Colors.textLight}
               style={{ color: Colors.text }}
               value={searchQuery}
@@ -148,13 +151,13 @@ export function ForwardMessageModal({
               <View className="items-center justify-center py-10">
                 <ActivityIndicator size="small" color={Colors.cta} />
                 <Text className="mt-3 text-sm" style={{ color: Colors.textMuted }}>
-                  Loading conversations...
+                  {t('chat.loading_conversations')}
                 </Text>
               </View>
             ) : filteredConversations.length === 0 ? (
               <View className="items-center justify-center py-10">
                 <Text className="text-sm" style={{ color: Colors.textMuted }}>
-                  No matching conversations found.
+                  {t('chat.no_matching_conversations')}
                 </Text>
               </View>
             ) : (
@@ -186,7 +189,9 @@ export function ForwardMessageModal({
                         {displayName}
                       </Text>
                       <Text className="mt-0.5 text-xs" style={{ color: Colors.textMuted }} numberOfLines={1}>
-                        {conversation.type === 'GROUP' ? 'Group chat' : 'Direct chat'}
+                        {conversation.type === 'GROUP'
+                          ? t('chat.group_chat_short')
+                          : t('chat.private_chat')}
                       </Text>
                     </View>
                   </TouchableOpacity>
@@ -204,7 +209,7 @@ export function ForwardMessageModal({
               disabled={submitting}
             >
               <Text className="font-semibold" style={{ color: Colors.text }}>
-                Cancel
+                {t('common.cancel')}
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -221,7 +226,7 @@ export function ForwardMessageModal({
               ) : (
                 <>
                   <Ionicons name="arrow-redo-outline" size={18} color={Colors.white} />
-                  <Text className="ml-2 font-semibold text-white">Forward</Text>
+                  <Text className="ml-2 font-semibold text-white">{t('chat.forward_action')}</Text>
                 </>
               )}
             </TouchableOpacity>
@@ -240,11 +245,11 @@ function getConversationDisplayName(
   if (conversation.type === 'PRIVATE') {
     const otherId = conversation.participantIds.find((id) => id !== currentUserId);
     if (otherId) {
-      return users[otherId]?.displayName ?? 'User';
+      return users[otherId]?.displayName ?? i18n.t('profile.user_fallback');
     }
   }
 
-  return conversation.name ?? 'Group chat';
+  return conversation.name ?? i18n.t('chat.group_chat_short');
 }
 
 function getConversationAvatar(

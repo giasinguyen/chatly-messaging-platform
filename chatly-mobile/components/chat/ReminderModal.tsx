@@ -13,8 +13,10 @@ import {
 } from 'react-native';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { Colors } from '@/constants/theme';
 import { groupService } from '@/services/group.service';
+import { getApiErrorMessage } from '@/utils/errorHandler';
 
 interface ReminderModalProps {
   visible: boolean;
@@ -33,6 +35,7 @@ function formatTime(d: Date): string {
 }
 
 export function ReminderModal({ visible, conversationId, onClose }: ReminderModalProps) {
+  const { t } = useTranslation();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [selectedDate, setSelectedDate] = useState(new Date(Date.now() + 3600_000));
@@ -55,12 +58,12 @@ export function ReminderModal({ visible, conversationId, onClose }: ReminderModa
 
   const handleCreate = async () => {
     if (!title.trim()) {
-      Alert.alert('Error', 'The title must not be blank.');
+      Alert.alert(t('common.error'), t('chat.reminders_dialog.title_empty'));
       return;
     }
 
     if (selectedDate <= new Date()) {
-      Alert.alert('Error', 'The reminder time must be in the future.');
+      Alert.alert(t('common.error'), t('chat.reminders_dialog.time_in_future'));
       return;
     }
 
@@ -71,12 +74,14 @@ export function ReminderModal({ visible, conversationId, onClose }: ReminderModa
         description: description.trim() || undefined,
         remindAt: selectedDate.toISOString(),
       });
-      Alert.alert('Success', 'Reminder created');
+      Alert.alert(t('common.success'), t('chat.reminders_dialog.created'));
       reset();
       onClose();
-    } catch (err: any) {
-      const msg = err?.response?.data?.message ?? 'Unable to create a reminder.';
-      Alert.alert('Error', msg);
+    } catch (error: unknown) {
+      Alert.alert(
+        t('common.error'),
+        getApiErrorMessage(error, t('chat.reminders_dialog.create_failed')),
+      );
     } finally {
       setLoading(false);
     }
@@ -139,7 +144,7 @@ export function ReminderModal({ visible, conversationId, onClose }: ReminderModa
                 <Ionicons name="alarm-outline" size={20} color={Colors.cta} />
               </View>
               <Text style={{ fontSize: 17, fontWeight: '600', color: Colors.text }}>
-                Create reminders
+                {t('chat.reminders_dialog.create_title')}
               </Text>
               <TouchableOpacity onPress={handleClose} style={{ marginLeft: 'auto', padding: 4 }}>
                 <Ionicons name="close" size={22} color={Colors.textMuted} />
@@ -148,12 +153,13 @@ export function ReminderModal({ visible, conversationId, onClose }: ReminderModa
 
             {/* Title */}
             <Text style={{ fontSize: 13, fontWeight: '500', color: Colors.text, marginBottom: 6 }}>
-              Title <Text style={{ color: Colors.error }}>*</Text>
+              {t('chat.reminders_dialog.title_label')}{' '}
+              <Text style={{ color: Colors.error }}>*</Text>
             </Text>
             <TextInput
               value={title}
               onChangeText={setTitle}
-              placeholder="Enter a title for the reminder..."
+              placeholder={t('chat.reminders_dialog.reminder_title_placeholder')}
               placeholderTextColor={Colors.textLight}
               style={{
                 borderWidth: 1,
@@ -169,12 +175,12 @@ export function ReminderModal({ visible, conversationId, onClose }: ReminderModa
 
             {/* Description */}
             <Text style={{ fontSize: 13, fontWeight: '500', color: Colors.text, marginBottom: 6 }}>
-              Description (optional)
+              {t('chat.reminders_dialog.description_optional')}
             </Text>
             <TextInput
               value={description}
               onChangeText={setDescription}
-              placeholder="Enter a description..."
+              placeholder={t('chat.reminders_dialog.description_placeholder')}
               placeholderTextColor={Colors.textLight}
               multiline
               numberOfLines={2}
@@ -197,7 +203,7 @@ export function ReminderModal({ visible, conversationId, onClose }: ReminderModa
               <View style={{ flex: 1 }}>
                 <Text
                   style={{ fontSize: 13, fontWeight: '500', color: Colors.text, marginBottom: 6 }}>
-                  Day
+                  {t('chat.reminders_dialog.day')}
                 </Text>
                 <TouchableOpacity
                   onPress={() => setShowDatePicker(true)}
@@ -220,7 +226,7 @@ export function ReminderModal({ visible, conversationId, onClose }: ReminderModa
               <View style={{ flex: 1 }}>
                 <Text
                   style={{ fontSize: 13, fontWeight: '500', color: Colors.text, marginBottom: 6 }}>
-                  Time
+                  {t('chat.reminders_dialog.time')}
                 </Text>
                 <TouchableOpacity
                   onPress={() => setShowTimePicker(true)}
@@ -273,7 +279,7 @@ export function ReminderModal({ visible, conversationId, onClose }: ReminderModa
                   alignItems: 'center',
                 }}>
                 <Text style={{ fontSize: 15, color: Colors.textMuted, fontWeight: '500' }}>
-                  Cancel
+                  {t('common.cancel')}
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
@@ -292,7 +298,7 @@ export function ReminderModal({ visible, conversationId, onClose }: ReminderModa
                 }}>
                 {loading && <ActivityIndicator size="small" color="white" />}
                 <Text style={{ fontSize: 15, color: 'white', fontWeight: '600' }}>
-                  Create reminders
+                  {t('chat.reminders_dialog.create_title')}
                 </Text>
               </TouchableOpacity>
             </View>

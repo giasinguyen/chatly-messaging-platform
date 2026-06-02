@@ -11,6 +11,8 @@ import {
     Minimize2,
     PhoneOff,
 } from "lucide-react";
+import { useTranslation } from "react-i18next";
+
 import { useCallStore } from "@/store/call.store";
 
 function formatDuration(seconds: number): string {
@@ -36,6 +38,8 @@ export function ActiveCallOverlay({
     onToggleCamera,
     onUpgradeToVideo,
 }: ActiveCallOverlayProps) {
+    const { t } = useTranslation();
+
     // Video refs nội bộ — đảm bảo stream được attach đúng thời điểm overlay mount
     const localVideoRef = useRef<HTMLVideoElement | null>(null);
     const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
@@ -184,18 +188,15 @@ export function ActiveCallOverlay({
         try {
             const result = await onUpgradeToVideo?.();
             if (result?.hasLocalVideoTrack === false) {
-                toast.success(
-                    "No local camera detected. Upgraded to video call with camera off",
-                );
+                toast.success(t("chat.call_camera_unavailable_upgraded"));
                 return;
             }
-            toast.success("Camera enabled, upgrading to video call");
+            toast.success(t("chat.call_camera_enabled_upgrading"));
         } catch (error) {
             const message =
                 error instanceof Error
                     ? error.message
-                    : "Failed to upgrade to video call";
-            console.error("Upgrade to video error:", error);
+                    : t("chat.call_upgrade_failed");
             toast.error(message);
         }
     };
@@ -297,7 +298,7 @@ export function ActiveCallOverlay({
                             ) : (
                                 <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-gray-800 text-[11px] text-gray-300">
                                     <VideoOff size={16} />
-                                    <span>Camera off</span>
+                                    <span>{t("chat.call_camera_off")}</span>
                                 </div>
                             )}
                         </div>
@@ -363,7 +364,7 @@ export function ActiveCallOverlay({
                             <button
                                 onClick={handleUpgradeToVideo}
                                 className="flex h-12 w-12 items-center justify-center rounded-full bg-red-500 transition-colors hover:bg-red-600"
-                                title="Turn camera on and upgrade to video call"
+                                title={t("chat.call_upgrade_to_video_title")}
                             >
                                 <VideoOff size={22} />
                             </button>
@@ -485,7 +486,7 @@ export function ActiveCallOverlay({
                     <button
                         onClick={handleUpgradeToVideo}
                         className="rounded-lg p-1.5 transition-colors hover:bg-white/10"
-                        title="Turn camera on and upgrade to video call"
+                        title={t("chat.call_upgrade_to_video_title")}
                     >
                         <VideoOff size={18} className="text-red-400" />
                     </button>

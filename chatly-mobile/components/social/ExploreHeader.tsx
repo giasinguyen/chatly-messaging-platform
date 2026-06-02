@@ -1,4 +1,5 @@
 import { useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   FlatList,
   Text,
@@ -35,9 +36,27 @@ export function ExploreHeader({
   onSelectCategory,
   onSelectTrendingHashtag,
 }: ExploreHeaderProps) {
+  const { t } = useTranslation();
+
+  const getCategoryLabel = useCallback(
+    (item: ExploreCategory) => {
+      const keyByHashtag: Record<string, string> = {
+        trending: 'explore.category.trending',
+        photography: 'explore.category.photography',
+        digitalart: 'explore.category.digital_art',
+        travel: 'explore.category.travel',
+        architecture: 'explore.category.architecture',
+      };
+      if (!item.hashtag) return t('explore.category.for_you');
+      return t(keyByHashtag[item.hashtag] ?? item.label);
+    },
+    [t],
+  );
+
   const renderCategory = useCallback(
     ({ item }: ListRenderItemInfo<ExploreCategory>) => {
       const isSelected = item.label === selectedCategory;
+      const label = getCategoryLabel(item);
       return (
         <TouchableOpacity
           onPress={() => onSelectCategory(item.label)}
@@ -53,12 +72,12 @@ export function ExploreHeader({
                 ? 'text-sm font-semibold text-white'
                 : 'text-sm font-semibold text-[#6E6E73]'
             }>
-            {item.label}
+            {label}
           </Text>
         </TouchableOpacity>
       );
     },
-    [onSelectCategory, selectedCategory]
+    [getCategoryLabel, onSelectCategory, selectedCategory],
   );
 
   return (
@@ -68,7 +87,7 @@ export function ExploreHeader({
           <TouchableOpacity onPress={onBack} className="rounded-full p-2" activeOpacity={0.75}>
             <Ionicons name="chevron-back" size={24} color={Colors.text} />
           </TouchableOpacity>
-          <Text className="text-xl font-bold text-[#1D1D1F]">Explore</Text>
+          <Text className="text-xl font-bold text-[#1D1D1F]">{t('explore.title')}</Text>
           <View className="h-10 w-10" />
         </View>
 
@@ -76,7 +95,7 @@ export function ExploreHeader({
           <Ionicons name="search-outline" size={18} color={Colors.textMuted} />
           <TextInput
             className="ml-2 flex-1 text-base text-[#1D1D1F]"
-            placeholder="Search posts..."
+            placeholder={t('mobile.explore.search_posts_placeholder')}
             placeholderTextColor={Colors.textLight}
             value={searchInput}
             onChangeText={onChangeSearch}
@@ -106,7 +125,7 @@ export function ExploreHeader({
         <View className="border-b border-[#E5E5EA] bg-white py-3 pl-4">
           <View className="mb-2 flex-row items-center">
             <Ionicons name="trending-up-outline" size={16} color={Colors.cta} />
-            <Text className="ml-1 text-sm font-semibold text-[#1D1D1F]">Trending hashtags</Text>
+            <Text className="ml-1 text-sm font-semibold text-[#1D1D1F]">{t('explore.trending_hashtags')}</Text>
           </View>
           <FlatList
             data={trendingHashtags}

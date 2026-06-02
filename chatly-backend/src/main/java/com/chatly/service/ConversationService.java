@@ -19,6 +19,7 @@ import com.chatly.repository.mongo.ConversationRepository;
 import com.chatly.repository.mongo.NotificationRepository;
 import com.chatly.repository.postgres.GroupMemberRepository;
 import com.chatly.repository.postgres.UserRepository;
+import com.chatly.websocket.ChatEvent;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -28,6 +29,7 @@ import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.mongodb.core.query.Update;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -50,6 +52,8 @@ public class ConversationService {
     private final UserRepository userRepository;
     private final ConversationMapper conversationMapper;
     private final MongoTemplate mongoTemplate;
+    private final NotificationService notificationService;
+    private final SimpMessagingTemplate messagingTemplate;
 
     @Transactional
     public ConversationResponse create(String creatorId, ConversationRequest request) {
@@ -75,6 +79,7 @@ public class ConversationService {
 
         if (request.getType() == ConversationType.GROUP) {
             createGroupMembers(conversation.getId(), creatorId, participantIds);
+            notifyCreatedGroupParticipants(conversation, creatorId);
         }
 
         return conversationMapper.toResponse(conversation);
@@ -208,6 +213,8 @@ public class ConversationService {
             throw new AppException(ErrorCode.GROUP_PERMISSION_DENIED);
         }
 
+        broadcastGroupDissolved(id);
+
         // Delete all group memberships in Postgres
         List<GroupMember> members = groupMemberRepository.findByConversationId(id);
         groupMemberRepository.deleteAllInBatch(members);
@@ -218,6 +225,15 @@ public class ConversationService {
 
         // Delete the conversation itself
         conversationRepository.delete(conversation);
+    }
+
+    private void broadcastGroupDissolved(String conversationId) {
+        messagingTemplate.convertAndSend(
+                "/topic/conversation." + conversationId,
+                ChatEvent.builder()
+                        .action(ChatEvent.ChatAction.GROUP_DISSOLVED)
+                        .build()
+        );
     }
 
     private long getConversationUnreadCount(String conversationId, String userId) {
@@ -241,6 +257,25 @@ public class ConversationService {
 
             groupMemberRepository.save(member);
         }
+    }
+
+    private void notifyCreatedGroupParticipants(Conversation conversation, String creatorId) {
+        User creator = userRepository.findById(UUID.fromString(creatorId)).orElse(null);
+        String creatorName = creator != null ? creator.getDisplayName() : "Someone";
+        String groupName = conversation.getName() != null && !conversation.getName().isBlank()
+                ? conversation.getName()
+                : "a group chat";
+        String content = creatorName + " added you to " + groupName;
+
+        conversation.getParticipantIds().stream()
+                .filter(participantId -> !participantId.equals(creatorId))
+                .forEach(participantId -> notificationService.createAndPush(
+                        NotificationType.GROUP_INVITE,
+                        creatorId,
+                        participantId,
+                        content,
+                        conversation.getId()
+                ));
     }
 
     // ==================== Pin / Unpin ====================

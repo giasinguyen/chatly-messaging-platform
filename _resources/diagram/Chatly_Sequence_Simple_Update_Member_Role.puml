@@ -1,0 +1,35 @@
+@startuml Chatly_Sequence_Simple_Update_Member_Role
+title Update Member Role
+
+autonumber
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+
+actor "Group Owner or Admin" as Manager
+boundary "Web or Mobile Client" as Client
+control "GroupController" as GroupController
+control "GroupService" as GroupService
+control "ConversationRepository" as ConversationRepo
+control "GroupMemberRepository" as GroupMemberRepo
+control "GlobalExceptionHandler" as ExceptionHandler
+
+Manager -> Client: Change member role
+Client -> GroupController: UpdateRoleRequest{role}
+GroupController -> GroupService: updateRole(conversationId, userId, request, managerId)
+
+GroupService -> ConversationRepo: find group
+ConversationRepo --> GroupService: group?
+
+alt Not found or permission denied
+  GroupService -> ExceptionHandler: AppException(FORBIDDEN)
+  ExceptionHandler --> Client: HTTP 403\nApiResponse{error}
+else Allowed
+  GroupService -> GroupMemberRepo: update member role
+  GroupMemberRepo --> GroupService: updated member
+  GroupService --> GroupController: GroupMemberResponse
+  GroupController --> Client: HTTP 200\nApiResponse{code:1000, result}
+end
+
+Client --> Manager: Show new role
+
+@enduml

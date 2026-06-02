@@ -135,7 +135,7 @@ export function NotesDialog({
             <DialogContent className="sm:max-w-md p-0 gap-0 overflow-hidden max-h-[80vh] flex flex-col">
                 <DialogHeader className="px-5 pt-5 pb-3 shrink-0">
                     <DialogTitle className="flex items-center gap-2 text-base">
-                        <FileText size={16} className="text-brand" />
+                        <FileText size={16} className="text-[#1a146b] dark:text-[#818cf8]" />
                         Notes
                     </DialogTitle>
                 </DialogHeader>
@@ -171,7 +171,7 @@ export function NotesDialog({
                             <div className="flex gap-2">
                                 <Button
                                     size="sm"
-                                    className="h-7 text-xs flex-1 gap-1"
+                                    className="h-7 text-xs flex-1 gap-1 bg-[#1a146b] hover:bg-[#312e81]"
                                     onClick={handleSave}
                                     disabled={saving}
                                 >
@@ -209,14 +209,14 @@ export function NotesDialog({
                                     className={cn(
                                         "group rounded-lg border px-3 py-2.5 transition-colors hover:bg-muted/30",
                                         note.pinned
-                                            ? "border-brand/30 bg-brand/5"
+                                            ? "border-[#1a146b]/30 bg-[#1a146b]/5 dark:border-[#818cf8]/30 dark:bg-[#818cf8]/5"
                                             : "border-border/50",
                                     )}
                                 >
                                     <div className="flex items-start gap-2">
                                         <div className="flex-1 min-w-0">
                                             <div className="flex items-center gap-1.5">
-                                                {note.pinned && <Pin size={11} className="text-brand shrink-0" />}
+                                                {note.pinned && <Pin size={11} className="text-[#1a146b] dark:text-[#818cf8] shrink-0" />}
                                                 <p className="text-sm font-medium truncate">{note.title}</p>
                                             </div>
                                             {note.content && (
@@ -232,7 +232,7 @@ export function NotesDialog({
                                             <Button
                                                 size="icon"
                                                 variant="ghost"
-                                                className="h-6 w-6 text-muted-foreground hover:text-brand"
+                                                className="h-6 w-6 text-muted-foreground hover:text-[#1a146b] dark:hover:text-[#818cf8]"
                                                 onClick={() => handleTogglePin(note)}
                                                 title={note.pinned ? "Unpin" : "Pin"}
                                             >

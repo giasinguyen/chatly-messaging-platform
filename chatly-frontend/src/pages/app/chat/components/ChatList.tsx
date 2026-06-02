@@ -1,4 +1,12 @@
-import { useCallback, useEffect, useState, useRef, useMemo, forwardRef, useImperativeHandle } from "react";
+import {
+    useCallback,
+    useEffect,
+    useState,
+    useRef,
+    useMemo,
+    forwardRef,
+    useImperativeHandle,
+} from "react";
 import { NavLink, useNavigate, useParams } from "react-router-dom";
 import {
     Search,
@@ -15,6 +23,8 @@ import {
     Check,
     ShieldOff,
 } from "lucide-react";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -51,7 +61,10 @@ import { conversationService } from "@/services/conversation.service";
 import { socketService } from "@/services/socket.service";
 import { userService } from "@/services/user.service";
 import { useAuthStore } from "@/store/auth.store";
-import { useConversationPrefsStore, CATEGORY_META } from "@/store/conversationPrefs.store";
+import {
+    useConversationPrefsStore,
+    CATEGORY_META,
+} from "@/store/conversationPrefs.store";
 import type { ConversationCategory } from "@/store/conversationPrefs.store";
 import {
     getConversationDisplayName,
@@ -68,27 +81,24 @@ import { useNotificationStore } from "@/store/notification.store";
 import { useUiStore } from "@/store/ui.store";
 import { useContactStore } from "@/store/contact.store";
 
-function formatZaloTime(dateString: string) {
+function formatZaloTime(dateString: string, t: TFunction) {
     const date = new Date(dateString);
     const now = new Date();
     const diffMs = now.getTime() - date.getTime();
 
-    // Calculate day difference based on current date, not 24h interval
-    // So "Yesterday" works even if it's only 1 hour ago but past midnight
-    // But simpler:
     const diffMins = Math.floor(diffMs / (1000 * 60));
     const diffHours = Math.floor(diffMins / 60);
     const diffDays = Math.floor(diffHours / 24);
 
     if (diffMins < 60) {
-        if (diffMins <= 0) return "Just now";
-        return `${diffMins} min`;
+        if (diffMins <= 0) return t("common.just_now");
+        return `${diffMins} ${t("chat.minute_short")}`;
     }
     if (diffHours < 24) {
-        return `${diffHours} hour`;
+        return `${diffHours} ${t("chat.hour_short")}`;
     }
     if (diffDays < 7) {
-        return `${diffDays} day`;
+        return `${diffDays} ${t("chat.day_short")}`;
     }
 
     const day = date.getDate().toString().padStart(2, "0");
@@ -112,7 +122,12 @@ function getFirstMeaningfulChunk(content: string): string {
     if (!content) return "";
 
     if (!/<[a-z][\s\S]*>/i.test(content)) {
-        return content.split(/\r?\n+/).map((line) => line.trim()).find(Boolean) ?? "";
+        return (
+            content
+                .split(/\r?\n+/)
+                .map((line) => line.trim())
+                .find(Boolean) ?? ""
+        );
     }
 
     const parser = new DOMParser();
@@ -139,7 +154,7 @@ function truncatePreview(text: string): string {
     return `${normalizedText.slice(0, PREVIEW_MAX_LENGTH).trimEnd()}...`;
 }
 
-function formatCallPreview(content: string): string {
+function formatCallPreview(content: string, t: TFunction): string {
     try {
         const callData = JSON.parse(content) as {
             status?: string;
@@ -149,31 +164,36 @@ function formatCallPreview(content: string): string {
             callData.status === "MISSED" || callData.status === "REJECTED";
         const isVideo = callData.callType === "VIDEO";
         if (isMissed) {
-            return isVideo ? "📵 Missed video call" : "📵 Missed audio call";
+            return isVideo
+                ? t("chat.missed_video_call")
+                : t("chat.missed_audio_call");
         }
-        return isVideo ? "🎥 Video call" : "📞 Audio call";
+        return isVideo ? t("chat.video_call") : t("chat.audio_call");
     } catch {
-        return "📞 Call";
+        return t("chat.call_generic");
     }
 }
 
 function formatLastMessagePreview(
     lastMessage: ConversationResponse["lastMessage"],
+    t: TFunction,
 ): string {
     if (!lastMessage) {
-        return "No messages yet";
+        return t("chat.no_messages_yet");
     }
 
-    if (lastMessage.type === "IMAGE") return "📷 Photo";
+    if (lastMessage.type === "IMAGE") return t("chat.last_message_photo");
     if (lastMessage.type === "FILE")
-        return `📎 ${stripHtmlToText(lastMessage.content) || "File"}`;
-    if (lastMessage.type === "STICKER") return "🎭 Sticker";
-    if (lastMessage.type === "VCARD") return "📇 Contact card";
-    if (lastMessage.type === "GIF") return "🎬 GIF";
-    if (lastMessage.type === "CALL") return formatCallPreview(lastMessage.content);
+        return `📎 ${stripHtmlToText(lastMessage.content) || t("chat.file_fallback")}`;
+    if (lastMessage.type === "STICKER")
+        return `🎭 ${t("chat.last_message_sticker")}`;
+    if (lastMessage.type === "VCARD") return t("chat.contact_card");
+    if (lastMessage.type === "GIF") return `🎬 ${t("chat.last_message_gif")}`;
+    if (lastMessage.type === "CALL")
+        return formatCallPreview(lastMessage.content, t);
 
     const text = truncatePreview(getFirstMeaningfulChunk(lastMessage.content));
-    return text || "Message";
+    return text || t("chat.message_fallback");
 }
 
 function upsertConversation(
@@ -190,6 +210,7 @@ function upsertConversation(
 }
 
 export const ChatList = forwardRef(function ChatListComponent(_, ref) {
+    const { t } = useTranslation();
     const { user: currentUser } = useAuthStore();
     const navigate = useNavigate();
     const { id: activeId } = useParams<{ id: string }>();
@@ -198,7 +219,9 @@ export const ChatList = forwardRef(function ChatListComponent(_, ref) {
     );
     const [createGroupOpen, setCreateGroupOpen] = useState(false);
     const [addFriendOpen, setAddFriendOpen] = useState(false);
-    const subscriptionsRef = useRef<Map<string, { unsubscribe: () => void }>>(new Map());
+    const subscriptionsRef = useRef<Map<string, { unsubscribe: () => void }>>(
+        new Map(),
+    );
     const processedNotifIdsRef = useRef<Set<string>>(new Set());
     const [users, setUsers] = useState<UserResponse[]>([]);
     const [loading, setLoading] = useState(true);
@@ -206,7 +229,11 @@ export const ChatList = forwardRef(function ChatListComponent(_, ref) {
     const toggleMobileDrawer = useUiStore((s) => s.toggleMobileDrawer);
     const notifications = useNotificationStore((s) => s.notifications);
     const addNotification = useNotificationStore((s) => s.addNotification);
-    const { fetchContacts, loaded: contactsLoaded, getBlockDirection } = useContactStore();
+    const {
+        fetchContacts,
+        loaded: contactsLoaded,
+        getBlockDirection,
+    } = useContactStore();
 
     // Lazy-initialize contact store once per session for blocked indicators
     useEffect(() => {
@@ -214,11 +241,16 @@ export const ChatList = forwardRef(function ChatListComponent(_, ref) {
             fetchContacts();
         }
     }, [currentUser?.id, contactsLoaded, fetchContacts]);
-    const unreadMsgNotifications = useMemo(() => 
-        notifications.filter((n) => n.type === "NEW_MESSAGE" && !n.read),
-    [notifications]);
+    const unreadMsgNotifications = useMemo(
+        () => notifications.filter((n) => n.type === "NEW_MESSAGE" && !n.read),
+        [notifications],
+    );
     const convPrefs = useConversationPrefsStore((s) => s.prefs);
-    const { setPin: storeSetPin, setMute: storeSetMute, setCategory: storeSetCategory } = useConversationPrefsStore();
+    const {
+        setPin: storeSetPin,
+        setMute: storeSetMute,
+        setCategory: storeSetCategory,
+    } = useConversationPrefsStore();
     const conversationIdsKey = [...conversations]
         .map((conv) => conv.id)
         .sort()
@@ -232,7 +264,7 @@ export const ChatList = forwardRef(function ChatListComponent(_, ref) {
     useImperativeHandle(ref, () => ({
         updateConversation: (updated: ConversationResponse) => {
             setConversations((prev) =>
-                prev.map((conv) => (conv.id === updated.id ? updated : conv))
+                prev.map((conv) => (conv.id === updated.id ? updated : conv)),
             );
         },
     }));
@@ -284,11 +316,13 @@ export const ChatList = forwardRef(function ChatListComponent(_, ref) {
                         event.notification.type === "GROUP_LEAVE"
                     ) {
                         processedNotifIdsRef.current.add(event.notification.id);
-                        
+
                         if (event.notification.type === "GROUP_LEAVE") {
                             const removedId = event.notification.referenceId;
                             if (removedId) {
-                                setConversations((prev) => prev.filter((c) => c.id !== removedId));
+                                setConversations((prev) =>
+                                    prev.filter((c) => c.id !== removedId),
+                                );
                             }
                         }
 
@@ -298,7 +332,7 @@ export const ChatList = forwardRef(function ChatListComponent(_, ref) {
                             event.notification.type === "GROUP_LEAVE" &&
                             event.notification.referenceId === activeId
                         ) {
-                            toast.error("You have been removed from the group");
+                            toast.error(t("chat.removed_from_group"));
                             navigate("/chat");
                         }
                     }
@@ -314,19 +348,42 @@ export const ChatList = forwardRef(function ChatListComponent(_, ref) {
             disposed = true;
             cleanupPromise.then((cleanup) => cleanup?.());
         };
-    }, [addNotification, currentUser?.id, refreshConversations, activeId, navigate]);
+    }, [
+        addNotification,
+        currentUser?.id,
+        refreshConversations,
+        activeId,
+        navigate,
+        t,
+    ]);
 
-    // Notifications keep previews fresh when the list subscription misses a message.
+    // Notifications keep previews and newly added groups fresh when the list subscription misses an event.
     useEffect(() => {
-        const newMsgNotifs = notifications.filter(
-            (n) => n.type === "NEW_MESSAGE" && n.referenceId && !processedNotifIdsRef.current.has(n.id),
+        const relevantNotifications = notifications.filter(
+            (n) =>
+                (n.type === "NEW_MESSAGE" ||
+                    n.type === "GROUP_INVITE" ||
+                    n.type === "MEMBER_JOINED" ||
+                    n.type === "GROUP_UPDATED" ||
+                    n.type === "GROUP_LEAVE") &&
+                n.referenceId &&
+                !processedNotifIdsRef.current.has(n.id),
         );
-        if (newMsgNotifs.length === 0) return;
+        if (relevantNotifications.length === 0) return;
 
-        for (const notif of newMsgNotifs) {
+        for (const notif of relevantNotifications) {
             processedNotifIdsRef.current.add(notif.id);
             const conversationId = notif.referenceId;
             if (!conversationId) continue;
+
+            if (notif.type === "GROUP_LEAVE") {
+                setConversations((current) =>
+                    current.filter(
+                        (conversation) => conversation.id !== conversationId,
+                    ),
+                );
+                continue;
+            }
 
             conversationService
                 .getById(conversationId)
@@ -346,11 +403,21 @@ export const ChatList = forwardRef(function ChatListComponent(_, ref) {
 
         let disposed = false;
 
-        const createSubscription = (client: import("@stomp/stompjs").Client, conv: ConversationResponse) => {
+        const createSubscription = (
+            client: import("@stomp/stompjs").Client,
+            conv: ConversationResponse,
+        ) => {
             return client.subscribe(
                 `/topic/conversation.${conv.id}`,
                 (payload) => {
                     const event = JSON.parse(payload.body) as ChatEvent;
+
+                    if (event.action === "GROUP_DISSOLVED") {
+                        setConversations((prev) =>
+                            prev.filter((item) => item.id !== conv.id),
+                        );
+                        return;
+                    }
 
                     // Handle SEND actions - update last message preview
                     if (event.action === "SEND") {
@@ -377,7 +444,8 @@ export const ChatList = forwardRef(function ChatListComponent(_, ref) {
                             return [
                                 updatedConversation,
                                 ...prev.filter(
-                                    (item) => item.id !== message.conversationId,
+                                    (item) =>
+                                        item.id !== message.conversationId,
                                 ),
                             ];
                         });
@@ -385,14 +453,17 @@ export const ChatList = forwardRef(function ChatListComponent(_, ref) {
                     }
 
                     // Handle GROUP_UPDATE / ROLE_UPDATED actions - update group info
-                    if (event.action === "GROUP_UPDATE" || event.action === "ROLE_UPDATED") {
+                    if (
+                        event.action === "GROUP_UPDATE" ||
+                        event.action === "ROLE_UPDATED"
+                    ) {
                         const updatedConv = event.conversationData;
                         if (!updatedConv) return;
 
                         setConversations((prev) =>
                             prev.map((c) =>
-                                c.id === updatedConv.id ? updatedConv : c
-                            )
+                                c.id === updatedConv.id ? updatedConv : c,
+                            ),
                         );
                         return;
                     }
@@ -417,7 +488,10 @@ export const ChatList = forwardRef(function ChatListComponent(_, ref) {
                 // Subscribe to new conversations
                 for (const conv of conversations) {
                     if (!subscribedIds.has(conv.id)) {
-                        subscriptionsRef.current.set(conv.id, createSubscription(client, conv));
+                        subscriptionsRef.current.set(
+                            conv.id,
+                            createSubscription(client, conv),
+                        );
                     }
                 }
 
@@ -453,7 +527,9 @@ export const ChatList = forwardRef(function ChatListComponent(_, ref) {
                 ? getConversationDisplayName(conv, currentUser.id, users)
                 : "";
             const displayName = prefs.nickname || baseName;
-            return displayName.toLowerCase().includes(searchQuery.toLowerCase());
+            return displayName
+                .toLowerCase()
+                .includes(searchQuery.toLowerCase());
         });
 
         // Sort by local pinned status (pinned first), then by updatedAt
@@ -461,7 +537,10 @@ export const ChatList = forwardRef(function ChatListComponent(_, ref) {
             const aPinned = (convPrefs[a.id]?.isPinned ?? a.isPinned) ? 1 : 0;
             const bPinned = (convPrefs[b.id]?.isPinned ?? b.isPinned) ? 1 : 0;
             if (aPinned !== bPinned) return bPinned - aPinned;
-            return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+            return (
+                new Date(b.updatedAt).getTime() -
+                new Date(a.updatedAt).getTime()
+            );
         });
 
         return result;
@@ -469,7 +548,10 @@ export const ChatList = forwardRef(function ChatListComponent(_, ref) {
 
     const renderSkeleton = () =>
         Array.from({ length: 6 }).map((_, i) => (
-            <div key={`skeleton-${i}`} className="flex items-center gap-3 px-4 py-3 opacity-60">
+            <div
+                key={`skeleton-${i}`}
+                className="flex items-center gap-3 px-4 py-3 opacity-60"
+            >
                 <div className="h-12 w-12 rounded-full bg-border animate-pulse shrink-0" />
                 <div className="flex-1 space-y-2">
                     <div className="h-4 w-[60%] rounded bg-border animate-pulse" />
@@ -482,10 +564,10 @@ export const ChatList = forwardRef(function ChatListComponent(_, ref) {
         try {
             await conversationService.delete(id);
             setConversations((prev) => prev.filter((c) => c.id !== id));
-            toast.success("Conversation deleted");
+            toast.success(t("chat.conv_deleted"));
         } catch (error) {
             console.error("Delete conversation error:", error);
-            toast.error("Could not delete conversation. Please try again.");
+            toast.error(t("chat.delete_conv_failed"));
         }
     };
 
@@ -502,7 +584,7 @@ export const ChatList = forwardRef(function ChatListComponent(_, ref) {
         const initials = displayName.charAt(0).toUpperCase();
         const isGroup = conv.type === "GROUP";
         const unreadCount = unreadMsgNotifications.filter(
-            (n) => n.referenceId === conv.id
+            (n) => n.referenceId === conv.id,
         ).length;
         const isPinned = prefs.isPinned ?? conv.isPinned ?? false;
         const isMuted = prefs.isMuted ?? conv.isMuted ?? false;
@@ -522,73 +604,103 @@ export const ChatList = forwardRef(function ChatListComponent(_, ref) {
 
         const menuContent = (isDropdown: boolean) => {
             const Item = isDropdown ? DropdownMenuItem : ContextMenuItem;
-            const Separator = isDropdown ? DropdownMenuSeparator : ContextMenuSeparator;
+            const Separator = isDropdown
+                ? DropdownMenuSeparator
+                : ContextMenuSeparator;
             const Sub = isDropdown ? DropdownMenuSub : ContextMenuSub;
-            const SubTrigger = isDropdown ? DropdownMenuSubTrigger : ContextMenuSubTrigger;
-            const SubContent = isDropdown ? DropdownMenuSubContent : ContextMenuSubContent;
+            const SubTrigger = isDropdown
+                ? DropdownMenuSubTrigger
+                : ContextMenuSubTrigger;
+            const SubContent = isDropdown
+                ? DropdownMenuSubContent
+                : ContextMenuSubContent;
 
             return (
                 <>
                     <Item
                         onClick={() => {
-                            const pinnedCount = Object.values(convPrefs).filter((p) => p.isPinned).length;
+                            const pinnedCount = Object.values(convPrefs).filter(
+                                (p) => p.isPinned,
+                            ).length;
                             if (!isPinned && pinnedCount >= 5) {
-                                toast.warning("You can only pin up to 5 conversations");
+                                toast.warning(t("chat.pin_limit_warning"));
                                 return;
                             }
                             storeSetPin(conv.id, !isPinned);
-                            toast.success(isPinned ? "Conversation unpinned" : "Conversation pinned");
+                            toast.success(
+                                isPinned
+                                    ? t("chat.conv_unpinned")
+                                    : t("chat.conv_pinned"),
+                            );
                         }}
                     >
                         <Pin className="mr-2 h-4 w-4" />
-                        <span>{isPinned ? "Unpin" : "Pin"}</span>
+                        <span>
+                            {isPinned ? t("chat.unpin") : t("chat.pin")}
+                        </span>
                     </Item>
 
                     <Sub>
                         <SubTrigger>
                             <Tags className="mr-2 h-4 w-4" />
-                            <span>Category</span>
+                            <span>{t("chat.category")}</span>
                         </SubTrigger>
                         <SubContent className="w-48">
-                            {(Object.entries(CATEGORY_META) as [ConversationCategory, { label: string; color: string }][]).map(
-                                ([key, meta]) => (
-                                    <Item
-                                        key={key}
-                                        onClick={() => {
-                                            const isSelected = categories.includes(key);
-                                            // Single-select: deselect if same, otherwise select new
-                                            storeSetCategory(conv.id, key, !isSelected);
-                                        }}
-                                    >
-                                        <span
-                                            className="mr-2 h-3 w-3 rounded-full shrink-0"
-                                            style={{ background: meta.color }}
-                                        />
-                                        <span className="flex-1">{meta.label}</span>
-                                        {categories.includes(key) && (
-                                            <Check className="ml-1 h-3.5 w-3.5 text-foreground shrink-0" />
-                                        )}
-                                    </Item>
-                                )
-                            )}
+                            {(
+                                Object.entries(CATEGORY_META) as [
+                                    ConversationCategory,
+                                    { label: string; color: string },
+                                ][]
+                            ).map(([key, meta]) => (
+                                <Item
+                                    key={key}
+                                    onClick={() => {
+                                        const isSelected =
+                                            categories.includes(key);
+                                        // Single-select: deselect if same, otherwise select new
+                                        storeSetCategory(
+                                            conv.id,
+                                            key,
+                                            !isSelected,
+                                        );
+                                    }}
+                                >
+                                    <span
+                                        className="mr-2 h-3 w-3 rounded-full shrink-0"
+                                        style={{ background: meta.color }}
+                                    />
+                                    <span className="flex-1">{meta.label}</span>
+                                    {categories.includes(key) && (
+                                        <Check className="ml-1 h-3.5 w-3.5 text-foreground shrink-0" />
+                                    )}
+                                </Item>
+                            ))}
                         </SubContent>
                     </Sub>
 
                     <Item
                         onClick={() => {
                             storeSetMute(conv.id, !isMuted);
-                            toast.success(isMuted ? "Notifications turned on" : "Notifications silenced");
+                            toast.success(
+                                isMuted
+                                    ? t("chat.notifications_on")
+                                    : t("chat.notifications_silenced"),
+                            );
                         }}
                     >
                         <BellOff className="mr-2 h-4 w-4" />
-                        <span>{isMuted ? "Turn on notifications" : "Silence notifications"}</span>
+                        <span>
+                            {isMuted
+                                ? t("chat.turn_on_notifications")
+                                : t("chat.silence_notifications")}
+                        </span>
                     </Item>
 
                     <Separator />
 
                     <Item disabled>
                         <Flag className="mr-2 h-4 w-4" />
-                        <span>Report</span>
+                        <span>{t("chat.report")}</span>
                     </Item>
 
                     <Item
@@ -599,7 +711,7 @@ export const ChatList = forwardRef(function ChatListComponent(_, ref) {
                         }}
                     >
                         <Trash2 className="mr-2 h-4 w-4" />
-                        <span>Delete conversation</span>
+                        <span>{t("chat.delete_conversation")}</span>
                     </Item>
                 </>
             );
@@ -615,7 +727,7 @@ export const ChatList = forwardRef(function ChatListComponent(_, ref) {
                                 cn(
                                     "flex items-center gap-3 px-4 py-3 cursor-pointer select-none transition-colors rounded-lg mx-2",
                                     isActive
-                                        ? "bg-brand/20 border border-brand/30"
+                                        ? "bg-[#1a146b]/10 border border-[#1a146b]/20 dark:bg-[#312e81]/15 dark:border-[#312e81]/30"
                                         : "hover:bg-muted/40",
                                 )
                             }
@@ -636,7 +748,7 @@ export const ChatList = forwardRef(function ChatListComponent(_, ref) {
                                     </AvatarFallback>
                                 </Avatar>
                                 {isGroup && (
-                                    <span className="absolute -bottom-0.5 -right-0.5 h-4.5 w-4.5 rounded-full bg-brand flex items-center justify-center ring-2 ring-background">
+                                    <span className="absolute -bottom-0.5 -right-0.5 h-4.5 w-4.5 rounded-full bg-[#1a146b] flex items-center justify-center ring-2 ring-background">
                                         <Users
                                             size={10}
                                             className="text-white"
@@ -652,25 +764,35 @@ export const ChatList = forwardRef(function ChatListComponent(_, ref) {
                                         <span className="font-normal truncate block text-[15px] text-foreground">
                                             {displayName}
                                         </span>
-                                        {!isGroup && otherUser?.role === "ADMIN" && (
-                                            <AdminBadge className="size-3.5" />
-                                        )}
+                                        {!isGroup &&
+                                            otherUser?.role === "ADMIN" && (
+                                                <AdminBadge className="size-3.5" />
+                                            )}
                                         {/* Category tag icons next to name */}
                                         {categories.length > 0 && (
                                             <TooltipProvider>
                                                 <div className="flex items-center gap-0.5 shrink-0">
                                                     {categories.map((cat) => {
-                                                        const meta = CATEGORY_META[cat];
+                                                        const meta =
+                                                            CATEGORY_META[cat];
                                                         if (!meta) return null;
                                                         return (
                                                             <Tooltip key={cat}>
-                                                                <TooltipTrigger asChild>
+                                                                <TooltipTrigger
+                                                                    asChild
+                                                                >
                                                                     <span
                                                                         className="h-3 w-3 rounded-full shrink-0 cursor-default inline-block"
-                                                                        style={{ background: meta.color }}
+                                                                        style={{
+                                                                            background:
+                                                                                meta.color,
+                                                                        }}
                                                                     />
                                                                 </TooltipTrigger>
-                                                                <TooltipContent side="top" className="text-xs px-2 py-1">
+                                                                <TooltipContent
+                                                                    side="top"
+                                                                    className="text-xs px-2 py-1"
+                                                                >
                                                                     {meta.label}
                                                                 </TooltipContent>
                                                             </Tooltip>
@@ -679,16 +801,34 @@ export const ChatList = forwardRef(function ChatListComponent(_, ref) {
                                                 </div>
                                             </TooltipProvider>
                                         )}
-                                        {isPinned && <Pin size={14} className="text-brand shrink-0" />}
-                                        {isMuted && <BellOff size={14} className="text-muted-foreground shrink-0" />}
+                                        {isPinned && (
+                                            <Pin
+                                                size={14}
+                                                className="text-[#1a146b] shrink-0"
+                                            />
+                                        )}
+                                        {isMuted && (
+                                            <BellOff
+                                                size={14}
+                                                className="text-muted-foreground shrink-0"
+                                            />
+                                        )}
                                         {blockDirection === "I_BLOCKED" && (
                                             <TooltipProvider>
                                                 <Tooltip>
                                                     <TooltipTrigger asChild>
-                                                        <ShieldOff size={13} className="text-destructive/60 shrink-0" />
+                                                        <ShieldOff
+                                                            size={13}
+                                                            className="text-destructive/60 shrink-0"
+                                                        />
                                                     </TooltipTrigger>
-                                                    <TooltipContent side="top" className="text-xs px-2 py-1">
-                                                        Blocked
+                                                    <TooltipContent
+                                                        side="top"
+                                                        className="text-xs px-2 py-1"
+                                                    >
+                                                        {t(
+                                                            "chat.blocked_label",
+                                                        )}
                                                     </TooltipContent>
                                                 </Tooltip>
                                             </TooltipProvider>
@@ -696,7 +836,7 @@ export const ChatList = forwardRef(function ChatListComponent(_, ref) {
                                     </div>
                                     {conv.updatedAt && (
                                         <span className="text-[12px] text-muted-foreground/80 whitespace-nowrap ml-2">
-                                            {formatZaloTime(conv.updatedAt)}
+                                            {formatZaloTime(conv.updatedAt, t)}
                                         </span>
                                     )}
                                 </div>
@@ -706,19 +846,26 @@ export const ChatList = forwardRef(function ChatListComponent(_, ref) {
                                             <>
                                                 {conv.lastMessage.senderId ===
                                                     currentUser?.id && (
-                                                    <span>You: </span>
+                                                    <span>
+                                                        {t(
+                                                            "chat.you_prefix",
+                                                        )}{" "}
+                                                    </span>
                                                 )}
                                                 {formatLastMessagePreview(
                                                     conv.lastMessage,
+                                                    t,
                                                 )}
                                             </>
                                         ) : (
-                                            "No messages yet"
+                                            t("chat.no_messages_yet")
                                         )}
                                     </span>
                                     {unreadCount > 0 && (
                                         <span className="min-w-[18px] h-[18px] shrink-0 text-[10px] font-bold bg-red-500 text-white rounded-full flex items-center justify-center px-1 ml-2">
-                                            {unreadCount > 99 ? '99+' : unreadCount}
+                                            {unreadCount > 99
+                                                ? "99+"
+                                                : unreadCount}
                                         </span>
                                     )}
                                 </div>
@@ -731,7 +878,7 @@ export const ChatList = forwardRef(function ChatListComponent(_, ref) {
                                 <button
                                     className="absolute right-3 top-1/2 -translate-y-1/2 h-7 w-7 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 hover:bg-muted/60 transition-opacity focus:outline-none focus:opacity-100"
                                     onClick={(e) => e.preventDefault()}
-                                    title="Options"
+                                    title={t("chat.options")}
                                 >
                                     <MoreHorizontal size={15} />
                                 </button>
@@ -759,17 +906,17 @@ export const ChatList = forwardRef(function ChatListComponent(_, ref) {
                         variant="ghost"
                         size="icon"
                         className="md:hidden h-8 w-8 rounded-full shrink-0 -ml-2"
-                        title="Open menu"
+                        title={t("chat.open_menu")}
                     >
                         <Menu size={18} />
                     </Button>
                     <div className="relative flex-1">
                         <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                         <Input
-                            placeholder="Search"
+                            placeholder={t("chat.search_placeholder")}
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className="h-8 pl-8 bg-muted/30 border-border/40 focus-visible:ring-1 focus-visible:ring-brand focus-visible:border-brand rounded-full text-sm"
+                            className="h-8 pl-8 bg-muted/30 border-border/40 focus-visible:ring-1 focus-visible:ring-[#1a146b] focus-visible:border-[#1a146b] rounded-full text-sm"
                         />
                     </div>
                     <div className="flex items-center gap-1">
@@ -778,7 +925,7 @@ export const ChatList = forwardRef(function ChatListComponent(_, ref) {
                             variant="ghost"
                             size="icon"
                             className="h-8 w-8 rounded-full"
-                            title="Add friends"
+                            title={t("chat.add_friends")}
                         >
                             <UserPlus size={16} />
                         </Button>
@@ -787,7 +934,7 @@ export const ChatList = forwardRef(function ChatListComponent(_, ref) {
                             variant="ghost"
                             size="icon"
                             className="h-8 w-8 rounded-full"
-                            title="Create Group"
+                            title={t("chat.create_group")}
                         >
                             <UsersRound size={16} />
                         </Button>
@@ -802,19 +949,18 @@ export const ChatList = forwardRef(function ChatListComponent(_, ref) {
                                 renderSkeleton()
                             ) : filteredConversations.length === 0 ? (
                                 <div className="flex flex-col items-center justify-center py-16 gap-4 text-muted-foreground">
-                                    <div className="h-20 w-20 rounded-full bg-primary/5 flex items-center justify-center mb-2">
+                                    <div className="h-20 w-20 rounded-full bg-[#1a146b]/5 flex items-center justify-center mb-2">
                                         <UsersRound
                                             size={40}
                                             strokeWidth={1.5}
-                                            className="text-primary/40"
+                                            className="text-[#1a146b]/40"
                                         />
                                     </div>
                                     <p className="text-[14px] font-medium text-foreground/70">
-                                        No conversations yet
+                                        {t("chat.no_conversations_yet")}
                                     </p>
                                     <p className="text-[12px] text-center max-w-[200px] text-muted-foreground/80">
-                                        Search for friends or create a group to
-                                        start chatting.
+                                        {t("chat.no_conversations_hint")}
                                     </p>
                                 </div>
                             ) : (

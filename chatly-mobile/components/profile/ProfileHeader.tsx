@@ -1,4 +1,5 @@
 import { ActivityIndicator, Text, TouchableOpacity, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import { Avatar } from '@/components/ui/Avatar';
 import { Colors } from '@/constants/theme';
@@ -16,13 +17,13 @@ interface ProfileHeaderProps {
   onMessage?: () => void;
 }
 
-const ACTION_LABELS: Record<ProfileAction, string> = {
-  add: 'Add friend',
-  accept: 'Accept request',
-  blocked: 'Blocked',
-  cancel: 'Cancel request',
-  edit: 'Edit profile',
-  unfriend: 'Unfriend',
+const ACTION_LABEL_KEYS: Record<ProfileAction, string> = {
+  add: 'profile.add_friend',
+  accept: 'mobile.profile.accept_request',
+  blocked: 'mobile.profile.action_blocked',
+  cancel: 'profile.cancel_request',
+  edit: 'profile.edit_profile',
+  unfriend: 'profile.unfriend',
 };
 
 const ACTION_ICONS: Record<ProfileAction, keyof typeof Ionicons.glyphMap> = {
@@ -43,13 +44,15 @@ export function ProfileHeader({
   onPrimaryAction,
   onMessage,
 }: ProfileHeaderProps) {
+  const { t } = useTranslation();
+
   return (
     <View className="border-b px-4 pb-5 pt-4" style={{ backgroundColor: Colors.bgCard, borderBottomColor: Colors.borderLight }}>
       <View className="flex-row items-center">
         <Avatar uri={profile.avatarUrl} name={profile.displayName} size={84} />
         <View className="ml-5 flex-1 flex-row justify-around">
-          <ProfileStat count={postCount} label="Posts" />
-          <ProfileStat count={friendCount} label="Friends" />
+          <ProfileStat count={postCount} label={t('profile.posts')} />
+          <ProfileStat count={friendCount} label={t('mobile.profile.friends_label')} />
         </View>
       </View>
 
@@ -72,7 +75,7 @@ export function ProfileHeader({
             <>
               <Ionicons name={ACTION_ICONS[primaryAction]} size={16} color={Colors.white} />
               <Text className="ml-1.5 text-sm font-semibold text-white">
-                {ACTION_LABELS[primaryAction]}
+                {t(ACTION_LABEL_KEYS[primaryAction])}
               </Text>
             </>
           )}
@@ -84,14 +87,16 @@ export function ProfileHeader({
             className="h-10 flex-1 flex-row items-center justify-center rounded-lg border px-3 active:opacity-75"
             style={{ borderColor: Colors.borderLight }}>
             <Ionicons name="chatbubble-outline" size={16} color={Colors.text} />
-            <Text className="ml-1.5 text-sm font-semibold" style={{ color: Colors.text }}>Message</Text>
+            <Text className="ml-1.5 text-sm font-semibold" style={{ color: Colors.text }}>
+              {t('profile.message')}
+            </Text>
           </TouchableOpacity>
         ) : null}
       </View>
 
       <View className="mt-5 flex-row items-center border-t pt-4" style={{ borderTopColor: Colors.borderLight }}>
         <Ionicons name="grid-outline" size={18} color={Colors.text} />
-        <Text className="ml-2 text-sm font-semibold" style={{ color: Colors.text }}>Posts</Text>
+        <Text className="ml-2 text-sm font-semibold" style={{ color: Colors.text }}>{t('profile.posts')}</Text>
       </View>
     </View>
   );

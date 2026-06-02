@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   ActivityIndicator,
   Alert,
@@ -30,12 +31,6 @@ interface CreatePostModalProps {
   onUpdated?: (post: Post) => void;
 }
 
-const VISIBILITY_OPTIONS: { label: string; value: PostVisibility; icon: keyof typeof Ionicons.glyphMap }[] = [
-  { label: 'Everyone', value: 'PUBLIC', icon: 'earth-outline' },
-  { label: 'Friends', value: 'FRIENDS_ONLY', icon: 'person-add-outline' },
-  { label: 'Only me', value: 'ONLY_ME', icon: 'lock-closed-outline' },
-];
-
 export function CreatePostModal({
   visible,
   onClose,
@@ -43,7 +38,17 @@ export function CreatePostModal({
   editingPost,
   onUpdated,
 }: CreatePostModalProps) {
+  const { t } = useTranslation();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const visibilityOptions = useMemo(
+    () =>
+      [
+        { label: t('mobile.reels.visibility_everyone'), value: 'PUBLIC' as const, icon: 'earth-outline' as const },
+        { label: t('mobile.reels.visibility_friends'), value: 'FRIENDS_ONLY' as const, icon: 'person-add-outline' as const },
+        { label: t('mobile.reels.visibility_only_me'), value: 'ONLY_ME' as const, icon: 'lock-closed-outline' as const },
+      ],
+    [t],
+  );
   const {
     content,
     visibility,
@@ -88,12 +93,12 @@ export function CreatePostModal({
 
   const handleSubmit = async () => {
     if (!trimmedContent) {
-      setContentError('Post content cannot be empty.');
+      setContentError(t('post.content_empty'));
       return;
     }
 
     if (trimmedContent.length > MAX_POST_CONTENT_LENGTH) {
-      setContentError('Content must not exceed 2000 characters.');
+      setContentError(t('post.content_max_length'));
       return;
     }
 
@@ -133,11 +138,11 @@ export function CreatePostModal({
         reset();
         onClose();
       } else {
-        Alert.alert('Could not post', response.message ?? 'Please try again.');
+        Alert.alert(t('post.could_not_post'), response.message ?? t('post.try_again'));
       }
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'Please try again.';
-      Alert.alert('Could not post', message);
+      const message = error instanceof Error ? error.message : t('post.try_again');
+      Alert.alert(t('post.could_not_post'), message);
     } finally {
       setIsSubmitting(false);
     }
@@ -173,7 +178,7 @@ export function CreatePostModal({
             >
               <View className="mb-4 flex-row items-center justify-between">
                 <Text className="text-lg font-semibold text-[#1D1D1F]">
-                  {isEditing ? 'Edit post' : 'Create post'}
+                  {isEditing ? t('post.edit_post') : t('post.create_title')}
                 </Text>
                 <TouchableOpacity onPress={handleClose} className="rounded-full bg-[#F5F5F7] p-2">
                   <Ionicons name="close" size={18} color={Colors.textMuted} />
@@ -192,7 +197,7 @@ export function CreatePostModal({
                 images={images}
                 isSubmitting={isSubmitting}
                 inputRef={inputRef}
-                visibilityOptions={VISIBILITY_OPTIONS}
+                visibilityOptions={visibilityOptions}
                 onChangeContent={handleChangeContent}
                 onSelectionChange={handleSelectionChange}
                 onSelectMention={handleSelectMention}
@@ -213,7 +218,7 @@ export function CreatePostModal({
                   <ActivityIndicator color={Colors.white} />
                 ) : (
                   <Text className="text-sm font-semibold text-white">
-                    {isEditing ? 'Save changes' : 'Post'}
+                    {isEditing ? t('common.save_changes') : t('nav.create_post')}
                   </Text>
                 )}
               </TouchableOpacity>

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { messageService } from "@/services/message.service";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -29,6 +30,7 @@ export function PinnedMessagesDialog({
     onUnpin,
     onScrollToMessage,
 }: PinnedMessagesDialogProps) {
+    const { t, i18n } = useTranslation();
     const [pinnedMessages, setPinnedMessages] = useState<Message[]>([]);
     const [loading, setLoading] = useState(false);
 
@@ -39,11 +41,11 @@ export function PinnedMessagesDialog({
             const res = await messageService.getPinnedMessages(conversationId);
             setPinnedMessages(res.result ?? []);
         } catch {
-            toast.error("Could not load pinned messages");
+            toast.error(t("chat.pinned_messages_dialog.load_failed"));
         } finally {
             setLoading(false);
         }
-    }, [conversationId]);
+    }, [conversationId, t]);
 
     useEffect(() => {
         if (open) fetchPinned();
@@ -52,11 +54,11 @@ export function PinnedMessagesDialog({
     const handleUnpin = async (msgId: string) => {
         try {
             await messageService.togglePin(msgId);
-            toast.success("Message unpinned");
+            toast.success(t("chat.pinned_messages_dialog.unpinned"));
             onUnpin?.(msgId);
             fetchPinned();
         } catch {
-            toast.error("Could not unpin message");
+            toast.error(t("chat.pinned_messages_dialog.unpin_failed"));
         }
     };
 
@@ -76,11 +78,11 @@ export function PinnedMessagesDialog({
                 return att.name;
             }
             if (att.type?.startsWith("image/")) {
-                return "Image";
+                return t("chat.pinned_messages_dialog.image");
             }
-            return "Attachment";
+            return t("chat.attachment_fallback");
         }
-        return "Message";
+        return t("chat.message_short_fallback");
     };
 
     return (
@@ -89,7 +91,7 @@ export function PinnedMessagesDialog({
                 <DialogHeader className="px-5 pt-5 pb-3 shrink-0">
                     <DialogTitle className="flex items-center gap-2 text-base">
                         <Pin size={16} className="text-amber-500" />
-                        Pinned messages
+                        {t("chat.pinned_messages_dialog.title")}
                     </DialogTitle>
                 </DialogHeader>
 
@@ -101,7 +103,7 @@ export function PinnedMessagesDialog({
                     ) : pinnedMessages.length === 0 ? (
                         <div className="flex flex-col items-center gap-2 py-10 text-muted-foreground">
                             <Pin size={24} className="opacity-30" />
-                            <p className="text-xs">No pinned messages yet</p>
+                            <p className="text-xs">{t("chat.pinned_messages_dialog.empty")}</p>
                         </div>
                     ) : (
                         <div className="space-y-1.5">
@@ -116,9 +118,9 @@ export function PinnedMessagesDialog({
                                 >
                                     <div className="mt-0.5 shrink-0">
                                         {msg.attachments?.some((a) => a.type?.startsWith("image/")) ? (
-                                            <ImageIcon size={16} className="text-brand" />
+                                            <ImageIcon size={16} className="text-[#1a146b] dark:text-[#818cf8]" />
                                         ) : msg.attachments?.length ? (
-                                            <FileText size={16} className="text-brand" />
+                                            <FileText size={16} className="text-[#1a146b] dark:text-[#818cf8]" />
                                         ) : (
                                             <Pin size={14} className="text-amber-500" />
                                         )}
@@ -128,7 +130,7 @@ export function PinnedMessagesDialog({
                                             {getPreview(msg)}
                                         </p>
                                         <p className="text-[10px] text-muted-foreground mt-1">
-                                            {msg.createdAt && new Date(msg.createdAt).toLocaleString("en-US")}
+                                            {msg.createdAt && new Date(msg.createdAt).toLocaleString(i18n.language === "vi" ? "vi-VN" : "en-US")}
                                         </p>
                                     </div>
                                     <Button
@@ -143,7 +145,7 @@ export function PinnedMessagesDialog({
                                             handleUnpin(msg.id);
                                         }}
                                     >
-                                        Unpin
+                                        {t("chat.pinned_messages_dialog.unpin")}
                                     </Button>
                                 </div>
                             ))}

@@ -83,6 +83,7 @@ export interface IncomingGroupCall {
   initiatorId: string;
   initiatorName: string;
   initiatorAvatar: string | null;
+  initiatorAgoraUid?: number | null;
   groupName: string;
   groupAvatarUrl: string | null;
   type: CallType;
@@ -93,4 +94,5 @@ export interface IncomingGroupCall {
 export interface GroupParticipantInfo {
   name: string;
   avatar: string | null;
+  agoraUid?: number | null;
 }

@@ -1,4 +1,5 @@
 import { Copy, Play } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import type { Post } from "@/types/post";
 
 interface ExploreCardProps {
@@ -7,6 +8,7 @@ interface ExploreCardProps {
 }
 
 export function ExploreCard({ post, onClick }: ExploreCardProps) {
+    const { t } = useTranslation();
     const hasMedia = post.mediaUrls.length > 0;
     const isAlbum = post.mediaUrls.length > 1;
 
@@ -14,21 +16,40 @@ export function ExploreCard({ post, onClick }: ExploreCardProps) {
         <button
             type="button"
             onClick={onClick}
-            className="group relative aspect-square w-full cursor-pointer overflow-hidden rounded-3xl bg-muted text-left shadow-sm transition-all duration-300 hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
+            className="group relative w-full cursor-pointer overflow-hidden rounded-3xl bg-card border border-border/40 text-left iv-shadow-sm transition-all duration-300 hover:shadow-xl hover:shadow-[#312e81]/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1a146b] focus-visible:ring-offset-2 flex flex-col mb-6"
         >
             {hasMedia ? (
-                <img
-                    src={post.mediaUrls[0]}
-                    alt="Post media"
-                    className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
-                />
+                <div className="w-full aspect-[4/5] overflow-hidden bg-muted">
+                    <img
+                        src={post.mediaUrls[0]}
+                        alt={t("post.media_alt")}
+                        className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                        loading="lazy"
+                    />
+                </div>
             ) : (
-                <div className="flex h-full w-full items-center justify-center p-4 text-sm text-muted-foreground line-clamp-5">
-                    {post.content}
+                <div className="flex w-full flex-col justify-between p-6 text-sm leading-relaxed min-h-[160px] bg-linear-to-br from-card to-[#1a146b]/5 dark:to-[#312e81]/5">
+                    <p className="line-clamp-6 text-zinc-700 dark:text-zinc-300 font-medium">
+                        {post.content}
+                    </p>
+                    {post.hashtags.length > 0 && (
+                        <p className="mt-4 text-xs font-semibold text-[#1a146b] dark:text-[#818cf8] truncate">
+                            {post.hashtags.map((hashtag) => `#${hashtag}`).join(" ")}
+                        </p>
+                    )}
                 </div>
             )}
 
-            <div className="absolute inset-0 bg-black/20 opacity-0 transition-opacity group-hover:opacity-100" />
+            {/* Hover overlay for media posts */}
+            {hasMedia && (
+                <div className="absolute inset-0 bg-linear-to-t from-black/50 via-transparent to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100 flex flex-col justify-end p-4">
+                    {post.hashtags.length > 0 && (
+                        <p className="truncate text-xs font-semibold text-white/90">
+                            {post.hashtags.map((hashtag) => `#${hashtag}`).join(" ")}
+                        </p>
+                    )}
+                </div>
+            )}
 
             {isAlbum && (
                 <div className="absolute top-4 right-4 rounded-full bg-black/40 p-1.5 backdrop-blur-md">
@@ -36,13 +57,6 @@ export function ExploreCard({ post, onClick }: ExploreCardProps) {
                 </div>
             )}
 
-            {post.hashtags.length > 0 && (
-                <div className="absolute right-0 bottom-0 left-0 bg-linear-to-t from-black/60 to-transparent px-3 py-2 opacity-0 transition-opacity group-hover:opacity-100">
-                    <p className="truncate text-xs text-white">
-                        {post.hashtags.map((hashtag) => `#${hashtag}`).join(" ")}
-                    </p>
-                </div>
-            )}
             <Play className="hidden" />
         </button>
     );

@@ -1,0 +1,36 @@
+@startuml Chatly_Sequence_Simple_Mark_Message_Read
+title Mark Message Read
+
+autonumber
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+
+actor "Authenticated User" as User
+boundary "Web or Mobile Client" as Client
+control "MessageController" as MessageController
+control "MessageService" as MessageService
+entity "Message" as MessageEntity
+control "MessageRepository" as MessageRepo
+control "GlobalExceptionHandler" as ExceptionHandler
+
+User -> Client: Read message
+Client -> MessageController: markAsSeen(messageId)
+MessageController -> MessageService: markAsSeen(messageId, userId)
+
+MessageService -> MessageRepo: findById(messageId)
+MessageRepo --> MessageService: message?
+
+alt Not participant
+  MessageService -> ExceptionHandler: AppException(FORBIDDEN)
+  ExceptionHandler --> Client: HTTP 403\nApiResponse{error}
+else Allowed
+  MessageService -> MessageEntity: update seenBy
+  MessageEntity --> MessageService: updated message
+  MessageService -> MessageRepo: save
+  MessageRepo --> MessageService: saved
+  MessageController --> Client: HTTP 200\nApiResponse{code:1000, result}
+end
+
+Client --> User: Update read receipt
+
+@enduml

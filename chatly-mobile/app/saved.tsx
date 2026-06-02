@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   ActivityIndicator,
   FlatList,
@@ -36,6 +37,7 @@ function SavedPostsEmptyState({
   message: string | null;
   onRetry: () => void;
 }) {
+  const { t } = useTranslation();
   useThemeStore((state) => state.isDarkMode);
   return (
     <View className="items-center px-8 py-16">
@@ -45,16 +47,16 @@ function SavedPostsEmptyState({
         color={Colors.textMuted}
       />
       <Text className="mt-3 text-base font-semibold" style={{ color: Colors.text }}>
-        {message ? 'Could not load saved posts' : 'No saved posts yet'}
+        {message ? t('settings.saved_posts.load_failed') : t('settings.saved_posts.empty_title')}
       </Text>
       <Text className="mt-1 text-center text-sm" style={{ color: Colors.textMuted }}>
-        {message ?? 'Posts you save from the feed will show up here.'}
+        {message ?? t('mobile.home.saved_empty_hint')}
       </Text>
       {message && (
         <Pressable
           className="mt-4 rounded-full bg-[#0A7AFF] px-4 py-2 active:opacity-85"
           onPress={onRetry}>
-          <Text className="text-sm font-semibold text-white">Try again</Text>
+          <Text className="text-sm font-semibold text-white">{t('common.retry')}</Text>
         </Pressable>
       )}
     </View>
@@ -68,6 +70,8 @@ interface SavedPostsFooterProps {
 }
 
 function SavedPostsFooter({ isLoadingMore, hasMorePosts, postCount }: SavedPostsFooterProps) {
+  const { t } = useTranslation();
+
   if (isLoadingMore) {
     return (
       <View className="items-center pb-24 pt-4">
@@ -80,7 +84,7 @@ function SavedPostsFooter({ isLoadingMore, hasMorePosts, postCount }: SavedPosts
     return (
       <View className="items-center pb-24 pt-4">
         <Text className="text-sm" style={{ color: Colors.textMuted }}>
-          You are all caught up.
+          {t('home.all_caught_up')}
         </Text>
       </View>
     );
@@ -90,6 +94,7 @@ function SavedPostsFooter({ isLoadingMore, hasMorePosts, postCount }: SavedPosts
 }
 
 export default function SavedPostsScreen() {
+  const { t } = useTranslation();
   const router = useRouter();
   useThemeStore((state) => state.isDarkMode);
   const params = useLocalSearchParams<{ returnTo?: string }>();
@@ -153,16 +158,16 @@ export default function SavedPostsScreen() {
           <Ionicons name="chevron-back" size={26} color={Colors.text} onPress={handleBack} />
           <View className="ml-3">
             <Text className="text-[22px] font-bold" style={{ color: Colors.text }}>
-              Saved posts
+              {t('settings.saved_posts.title')}
             </Text>
             <Text className="mt-0.5 text-sm" style={{ color: Colors.textMuted }}>
-              Revisit posts you bookmarked.
+              {t('settings.saved_posts.description')}
             </Text>
           </View>
         </View>
       </View>
     ),
-    [handleBack]
+    [handleBack, t]
   );
 
   const listFooter = useMemo(
@@ -183,7 +188,7 @@ export default function SavedPostsScreen() {
         <View className="flex-1 items-center justify-center">
           <ActivityIndicator size="large" color={Colors.cta} />
           <Text className="mt-2 text-sm" style={{ color: Colors.textMuted }}>
-            Loading saved posts...
+            {t('common.loading')}
           </Text>
         </View>
       ) : (

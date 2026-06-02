@@ -1,0 +1,34 @@
+@startuml Chatly_Sequence_Simple_Create_Story
+title Create Story
+
+autonumber
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+
+actor "Authenticated User" as User
+boundary "Web or Mobile Client" as Client
+control "StoryController" as StoryController
+control "StoryService" as StoryService
+entity "Story" as StoryEntity
+control "StoryRepository" as StoryRepo
+control "GlobalExceptionHandler" as ExceptionHandler
+
+User -> Client: Create story
+Client -> StoryController: StoryCreationRequest{mediaUrl,\ncaption?, privacy}
+StoryController -> StoryService: createStory(userId, request)
+
+alt Invalid content
+	StoryService -> ExceptionHandler: AppException(BAD_REQUEST)
+	ExceptionHandler --> Client: HTTP 400\nApiResponse{error}
+else Valid
+	StoryService -> StoryEntity: build story
+	StoryEntity --> StoryService: story
+	StoryService -> StoryRepo: save story
+	StoryRepo --> StoryService: storyId
+	StoryService --> StoryController: StoryResponse
+	StoryController --> Client: HTTP 200\nApiResponse{code:1000, result}
+end
+
+Client --> User: Show story in feed
+
+@enduml

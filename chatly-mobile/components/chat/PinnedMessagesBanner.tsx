@@ -1,4 +1,5 @@
 import { View, Text, TouchableOpacity } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/theme';
 import type { Message } from '@/types/message';
@@ -23,13 +24,17 @@ export function PinnedMessagesBanner({
   onUnpin,
   onViewAll,
 }: PinnedMessagesBannerProps) {
+  const { t } = useTranslation();
+
   if (pinnedMessages.length === 0) return null;
   const current = pinnedMessages[currentIdx];
   if (!current) return null;
 
   const preview =
     firstMeaningfulPreview(current.content, 120) ||
-    (current.type === 'POLL' ? `Poll: ${current.poll?.question}` : '[attachment]');
+    (current.type === 'POLL'
+      ? t('mobile.chat.poll_preview', { question: current.poll?.question ?? '' })
+      : t('mobile.chat.attachment_preview'));
 
   return (
     <View
@@ -59,7 +64,9 @@ export function PinnedMessagesBanner({
 
       <TouchableOpacity style={{ flex: 1 }} onPress={() => onPress(current.id)} activeOpacity={0.7}>
         <Text style={{ fontSize: 11, color: Colors.cta, fontWeight: '700' }} numberOfLines={1}>
-          Pinned {pinnedMessages.length > 1 ? `(${pinnedMessages.length})` : ''}
+          {pinnedMessages.length > 1
+            ? t('chat.pinned_count', { count: pinnedMessages.length })
+            : t('chat.pinned_label')}
         </Text>
         <Text style={{ fontSize: 12, color: Colors.textMuted }} numberOfLines={1}>
           {preview}

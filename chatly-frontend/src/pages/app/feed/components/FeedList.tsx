@@ -1,4 +1,5 @@
 import type { RefObject } from "react";
+import { useTranslation } from "react-i18next";
 import { Loader2 } from "lucide-react";
 import { PostCard } from "@/features/social/components/PostCard";
 import { HOME_FEED_INITIAL_SKELETONS } from "@/constants/feed";
@@ -26,6 +27,8 @@ export function FeedList({
     onPostUpdate,
     onPostRemove,
 }: FeedListProps) {
+    const { t } = useTranslation();
+
     if (isLoading && posts.length === 0) {
         return (
             <div className="flex flex-col gap-4">
@@ -42,11 +45,10 @@ export function FeedList({
         return (
             <div className="rounded-lg border border-dashed border-border bg-card/60 px-6 py-10 text-center">
                 <p className="text-sm font-semibold text-foreground">
-                    {error ? "Could not load feed" : "No posts yet"}
+                    {error ? t("home.feed_load_failed") : t("home.no_posts_yet")}
                 </p>
                 <p className="mt-1 text-sm text-muted-foreground">
-                    {error ??
-                        "Create a post or check back after following more people."}
+                    {error ?? t("home.no_posts_hint")}
                 </p>
             </div>
         );
@@ -73,7 +75,7 @@ export function FeedList({
 
             {!hasMore && posts.length > 0 && (
                 <p className="py-4 text-center text-xs text-muted-foreground">
-                    You are all caught up.
+                    {t("home.all_caught_up")}
                 </p>
             )}
         </div>

@@ -1,4 +1,5 @@
 import { useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 import type { Message, ChatUser } from "@/types/message";
 import { toMessagePreviewText } from "./richTextMessage.utils";
@@ -13,6 +14,7 @@ interface ReplyPreviewProps {
 }
 
 export function ReplyPreview({ replyMessage, participant, currentUserId, senderName, isMe }: ReplyPreviewProps) {
+    const { t } = useTranslation();
     const previewText = toMessagePreviewText(replyMessage.content);
     const imageAttachment = replyMessage.attachments?.find((attachment) =>
         attachment.type?.startsWith("image/"),
@@ -20,7 +22,7 @@ export function ReplyPreview({ replyMessage, participant, currentUserId, senderN
     const resolvedSenderName =
         senderName ??
         (replyMessage.senderId === currentUserId
-            ? "You"
+            ? t("common.you")
             : participant.displayName.split(" ").slice(-1)[0]);
 
     const handleScrollToOriginal = useCallback(() => {
@@ -39,10 +41,10 @@ export function ReplyPreview({ replyMessage, participant, currentUserId, senderN
                 "w-full text-left rounded-lg px-2.5 py-1.5 mb-1.5 border-l-2 text-xs max-w-full overflow-hidden cursor-pointer transition-opacity hover:opacity-75",
                 isMe
                     ? "bg-white/15 border-white/50 text-white/80"
-                    : "bg-muted/50 border-brand/60 text-muted-foreground",
+                    : "bg-muted/50 border-[#1a146b]/60 text-muted-foreground",
             )}
         >
-            <p className={cn("font-semibold text-[10px] mb-0.5", isMe ? "text-white/90" : "text-brand")}>
+            <p className={cn("font-semibold text-[10px] mb-0.5", isMe ? "text-white/90" : "text-[#1a146b] dark:text-[#818cf8]")}>
                 {resolvedSenderName}
             </p>
             <div className="flex items-center gap-2">

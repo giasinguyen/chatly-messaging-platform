@@ -1,9 +1,13 @@
-import productImage from "@/mocks/images/pc.png";
 import pyramidImage from "@/assets/landing/pyramid.png";
 import tubeImage from "@/assets/landing/tube.png";
 import { motion, useScroll, useTransform } from "framer-motion";
 import { useRef } from "react";
+import { useTranslation } from "react-i18next";
+
+const productImage = "/chatly-image-show.png";
+
 export const ProductShowcase = () => {
+    const { t } = useTranslation();
     const sectionRef = useRef(null);
     const { scrollYProgress } = useScroll({
         target: sectionRef,
@@ -18,26 +22,24 @@ export const ProductShowcase = () => {
             <div className="container">
                 <div className="section-heading">
                     <div className="flex justify-center">
-                        <div className="tag">Boost your productivity</div>
+                        <div className="tag">{t("landing.product.tag")}</div>
                     </div>
                     <h2 className="section-title mt-5">
-                        A more effective way to track progress
+                        {t("landing.product.title")}
                     </h2>
                     <p className="section-description mt-5">
-                        Effortlessly turn your ideas into a fully functional,
-                        responsive, SAAS website in just minutes with this
-                        template
+                        {t("landing.product.description")}
                     </p>
                 </div>
                 <div className="relative">
                     <img
                         src={productImage}
-                        alt="Product image"
+                        alt={t("landing.product.image_alt")}
                         className="mt-10 w-full"
                     />
                     <motion.img
                         src={pyramidImage}
-                        alt="pyramid image"
+                        alt=""
                         className="hidden md:block absolute -right-36 -top-32"
                         height={262}
                         width={262}
@@ -47,7 +49,7 @@ export const ProductShowcase = () => {
                     />
                     <motion.img
                         src={tubeImage}
-                        alt="tube image"
+                        alt=""
                         className="hidden md:block absolute bottom-24 -left-36"
                         height={248}
                         width={248}

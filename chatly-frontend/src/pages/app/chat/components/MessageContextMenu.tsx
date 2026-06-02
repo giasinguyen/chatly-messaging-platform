@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/context-menu";
 import type { Message } from "@/types/message";
 import { canEdit, canForward, canRecall } from "./messageList.utils";
+import { useTranslation } from "react-i18next";
 
 interface MessageContextMenuProps {
     msg: Message;
@@ -49,9 +50,11 @@ export function MessageContextMenu({
     onTogglePin,
     onTagPriority,
 }: MessageContextMenuProps) {
+    const { t } = useTranslation();
+
     const handleCopy = () => {
         navigator.clipboard.writeText(msg.content);
-        toast.success("Message copied");
+        toast.success(t("chat.message_copied"));
     };
 
     return (
@@ -61,25 +64,25 @@ export function MessageContextMenu({
                 {!msg.recalled && (
                     <ContextMenuItem onClick={() => onReply(msg)} className="gap-2">
                         <Reply size={14} />
-                        Reply
+                        {t("chat.reply")}
                     </ContextMenuItem>
                 )}
                 {canForward(msg) && (
                     <ContextMenuItem onClick={() => onForward(msg)} className="gap-2">
                         <Forward size={14} />
-                        Forward
+                        {t("chat.forward")}
                     </ContextMenuItem>
                 )}
                 {!msg.recalled && onForwardToAi && (
                     <ContextMenuItem onClick={() => onForwardToAi(msg)} className="gap-2 text-violet-600 focus:text-violet-600">
                         <Bot size={14} />
-                        Ask AI
+                        {t("chat.forward_to_ai")}
                     </ContextMenuItem>
                 )}
                 {(msg.type === "TEXT" || msg.type === "AGENT") && !msg.recalled && (
                     <ContextMenuItem onClick={handleCopy} className="gap-2">
                         <Copy size={14} />
-                        Copy message
+                        {t("chat.copy_message")}
                     </ContextMenuItem>
                 )}
                 {canEdit(msg, currentUserId) && (
@@ -88,7 +91,7 @@ export function MessageContextMenu({
                         className="gap-2"
                     >
                         <Pencil size={14} />
-                        Edit
+                        {t("common.edit")}
                     </ContextMenuItem>
                 )}
                 {!msg.recalled && onTogglePin && (
@@ -97,7 +100,7 @@ export function MessageContextMenu({
                         className="gap-2"
                     >
                         <Pin size={14} />
-                        {msg.pinned ? "Unpin" : "Pin message"}
+                        {msg.pinned ? t("chat.unpin") : t("chat.pin_message")}
                     </ContextMenuItem>
                 )}
                 {!msg.recalled && onTagPriority && (
@@ -108,8 +111,8 @@ export function MessageContextMenu({
                         >
                             <Star size={14} />
                             {msg.priority === "IMPORTANT"
-                                ? "Remove important"
-                                : "Mark important"}
+                                ? t("chat.remove_important")
+                                : t("chat.mark_important")}
                         </ContextMenuItem>
                         <ContextMenuItem
                             onClick={() => onTagPriority(msg.id, "URGENT")}
@@ -117,8 +120,8 @@ export function MessageContextMenu({
                         >
                             <AlertTriangle size={14} />
                             {msg.priority === "URGENT"
-                                ? "Remove urgent"
-                                : "Mark urgent"}
+                                ? t("chat.remove_urgent")
+                                : t("chat.mark_urgent")}
                         </ContextMenuItem>
                     </>
                 )}
@@ -130,7 +133,7 @@ export function MessageContextMenu({
                             className="gap-2"
                         >
                             <RotateCcw size={14} />
-                            Recall
+                            {t("chat.recall")}
                         </ContextMenuItem>
                     </>
                 )}
@@ -140,7 +143,7 @@ export function MessageContextMenu({
                     className="gap-2 text-destructive focus:text-destructive"
                 >
                     <Trash2 size={14} />
-                    Delete for me
+                    {t("chat.delete_for_me")}
                 </ContextMenuItem>
             </ContextMenuContent>
         </ContextMenu>

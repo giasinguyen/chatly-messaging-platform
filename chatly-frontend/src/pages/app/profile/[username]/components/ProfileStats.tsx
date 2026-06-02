@@ -1,3 +1,5 @@
+import { useTranslation } from "react-i18next";
+
 interface ProfileStatsProps {
     postCount: number;
     friendCount: number;
@@ -9,17 +11,16 @@ export function ProfileStats({
     friendCount,
     onOpenFriends,
 }: ProfileStatsProps) {
+    const { t } = useTranslation();
     return (
         <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-foreground md:gap-x-8">
-            <p>
-                <span className="font-semibold">{postCount}</span> posts
-            </p>
+            <p>{t("profile.posts_count", { count: postCount })}</p>
             <button
                 type="button"
                 className="transition-opacity hover:opacity-70"
                 onClick={onOpenFriends}
             >
-                <span className="font-semibold">{friendCount}</span> friends
+                {t("profile.friends_count", { count: friendCount })}
             </button>
         </div>
     );

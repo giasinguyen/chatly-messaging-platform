@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   View,
   Text,
@@ -18,6 +19,7 @@ import { useNotificationStore } from '@/store/notification.store';
 import type { PendingJoinResponse } from '@/types/group';
 
 export default function PendingRequestsScreen() {
+  const { t } = useTranslation();
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -33,12 +35,12 @@ export default function PendingRequestsScreen() {
       const res = await groupService.getPendingRequests(id);
       setRequests(res.result ?? []);
     } catch {
-      Alert.alert('Error', 'Failed to load pending requests');
+      Alert.alert(t('errors.request_failed'), t('mobile.chat.load_pending_failed'));
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [id]);
+  }, [id, t]);
 
   useEffect(() => {
     fetchRequests();
@@ -59,7 +61,7 @@ export default function PendingRequestsScreen() {
       await groupService.approvePendingRequest(id, userId);
       setRequests((prev) => prev.filter((r) => r.userId !== userId));
     } catch {
-      Alert.alert('Error', 'Failed to approve request');
+      Alert.alert(t('errors.request_failed'), t('mobile.chat.approve_failed'));
     } finally {
       setProcessingIds((prev) => {
         const next = new Set(prev);
@@ -76,7 +78,7 @@ export default function PendingRequestsScreen() {
       await groupService.rejectPendingRequest(id, userId);
       setRequests((prev) => prev.filter((r) => r.userId !== userId));
     } catch {
-      Alert.alert('Error', 'Failed to reject request');
+      Alert.alert(t('errors.request_failed'), t('mobile.chat.reject_failed'));
     } finally {
       setProcessingIds((prev) => {
         const next = new Set(prev);
@@ -147,7 +149,7 @@ export default function PendingRequestsScreen() {
             className="flex-1 text-center text-lg font-bold"
             style={{ color: Colors.text }}
           >
-            Pending Requests ({requests.length})
+            {t('mobile.chat.pending_requests_title', { count: requests.length })}
           </Text>
           <View className="w-8" />
         </View>
@@ -164,7 +166,7 @@ export default function PendingRequestsScreen() {
             className="text-base mt-4 text-center"
             style={{ color: Colors.textMuted }}
           >
-            No pending requests
+            {t('mobile.chat.no_pending_requests')}
           </Text>
         </View>
       ) : (

@@ -6,7 +6,6 @@ import { normalizeMediaUrl } from '@/utils/mediaUrl';
 export const FALLBACK_ASPECT_RATIO = 1;
 const DOUBLE_TAP_GAP_MS = 280;
 const SWIPE_VELOCITY_THRESHOLD = 0.5;
-const TAP_VELOCITY_THRESHOLD = 0.2;
 const DOUBLE_TAP_DELAY_MS = 420;
 const HEART_FADE_DURATION_MS = 220;
 
@@ -62,35 +61,36 @@ export function usePostImageCarousel({
     onDoubleTap?.();
   }, [heartOpacity, heartScale, onDoubleTap]);
 
+  const handleFramePress = useCallback(() => {
+    const idx = currentIndexRef.current;
+    const now = Date.now();
+
+    if (now - lastTapRef.current <= DOUBLE_TAP_GAP_MS) {
+      lastTapRef.current = 0;
+      triggerDoubleTap();
+      return;
+    }
+
+    lastTapRef.current = now;
+    if (tapTimeoutRef.current) {
+      clearTimeout(tapTimeoutRef.current);
+    }
+    tapTimeoutRef.current = setTimeout(() => {
+      tapTimeoutRef.current = null;
+      onPressImage?.(idx);
+    }, DOUBLE_TAP_GAP_MS);
+  }, [onPressImage, triggerDoubleTap]);
+
   const panResponder = useMemo(
     () =>
       PanResponder.create({
-        onStartShouldSetPanResponder: () => normalizedImages.length > 1 || Boolean(onDoubleTap),
+        onStartShouldSetPanResponder: () => false,
         onMoveShouldSetPanResponder: (_, gestureState) =>
-          Math.abs(gestureState.dx) > 8 &&
-          Math.abs(gestureState.dy) < 12 &&
+          Math.abs(gestureState.dx) > 10 &&
+          Math.abs(gestureState.dx) > Math.abs(gestureState.dy) * 1.35 &&
           normalizedImages.length > 1,
         onPanResponderRelease: (evt, { vx }) => {
           const idx = currentIndexRef.current;
-          const now = Date.now();
-
-          if (Math.abs(vx) < TAP_VELOCITY_THRESHOLD) {
-            if (now - lastTapRef.current <= DOUBLE_TAP_GAP_MS) {
-              lastTapRef.current = 0;
-              triggerDoubleTap();
-              return;
-            }
-
-            lastTapRef.current = now;
-            if (tapTimeoutRef.current) {
-              clearTimeout(tapTimeoutRef.current);
-            }
-            tapTimeoutRef.current = setTimeout(() => {
-              tapTimeoutRef.current = null;
-              onPressImage?.(idx);
-            }, DOUBLE_TAP_GAP_MS);
-            return;
-          }
 
           if (tapTimeoutRef.current) {
             clearTimeout(tapTimeoutRef.current);
@@ -104,7 +104,7 @@ export function usePostImageCarousel({
           }
         },
       }),
-    [normalizedImages.length, onDoubleTap, onPressImage, triggerDoubleTap]
+    [normalizedImages.length]
   );
 
   useEffect(() => {
@@ -177,6 +177,7 @@ export function usePostImageCarousel({
     heartScale,
     normalizedImages,
     panHandlers: panResponder.panHandlers,
+    handleFramePress,
     handleImageError,
     setCurrentIndex,
   };

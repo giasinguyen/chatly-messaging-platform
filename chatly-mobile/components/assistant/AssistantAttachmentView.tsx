@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { Colors } from '@/constants/theme';
 import { agentFileService, buildFileRequestHeaders } from '@/services/agent-file.service';
 import { getApiBaseUrl } from '@/lib/apiConfig';
@@ -29,11 +30,14 @@ const FILE_TYPE_META: Record<string, { icon: string; label: string }> = {
   'text/markdown': { icon: 'code-outline', label: 'MD' },
 };
 
-function getFileMeta(contentType: string): { icon: string; label: string } {
-  if (contentType.startsWith('image/')) return { icon: 'image-outline', label: 'Image' };
-  if (contentType.startsWith('video/')) return { icon: 'videocam-outline', label: 'Video' };
-  if (contentType.startsWith('audio/')) return { icon: 'musical-note-outline', label: 'Audio' };
-  return FILE_TYPE_META[contentType] ?? { icon: 'document-outline', label: 'File' };
+function getFileMeta(
+  contentType: string,
+  labels: { image: string; video: string; audio: string; file: string },
+): { icon: string; label: string } {
+  if (contentType.startsWith('image/')) return { icon: 'image-outline', label: labels.image };
+  if (contentType.startsWith('video/')) return { icon: 'videocam-outline', label: labels.video };
+  if (contentType.startsWith('audio/')) return { icon: 'musical-note-outline', label: labels.audio };
+  return FILE_TYPE_META[contentType] ?? { icon: 'document-outline', label: labels.file };
 }
 
 function formatFileSize(bytes: number): string {
@@ -49,7 +53,7 @@ interface Props {
 }
 
 function ImageAttachment({ attachment, sessionId, role }: Props) {
-  // Build auth headers once — expo-image passes them on every request (including cache revalidation)
+  const { t } = useTranslation();
   const [headers, setHeaders] = useState<Record<string, string> | null>(null);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [downloading, setDownloading] = useState(false);
@@ -70,11 +74,11 @@ function ImageAttachment({ attachment, sessionId, role }: Props) {
     try {
       await agentFileService.shareFile(sessionId, attachment.file_id, attachment.filename);
     } catch {
-      Alert.alert('Error', 'Could not download file');
+      Alert.alert(t('common.error'), t('assistant.download_failed'));
     } finally {
       setDownloading(false);
     }
-  }, [sessionId, attachment.file_id, attachment.filename]);
+  }, [sessionId, attachment.file_id, attachment.filename, t]);
 
   const isUser = role === 'user';
 
@@ -158,7 +162,9 @@ function ImageAttachment({ attachment, sessionId, role }: Props) {
           onPress={handleDownload}
         >
           <Ionicons name="download-outline" size={18} color={Colors.white} />
-          <Text style={{ color: Colors.white, fontSize: 14, fontWeight: '500' }}>Save / Share</Text>
+          <Text style={{ color: Colors.white, fontSize: 14, fontWeight: '500' }}>
+            {t('assistant.save_share')}
+          </Text>
         </TouchableOpacity>
       </Modal>
     </View>
@@ -166,8 +172,14 @@ function ImageAttachment({ attachment, sessionId, role }: Props) {
 }
 
 function FileAttachment({ attachment, sessionId, role }: Props) {
+  const { t } = useTranslation();
   const [downloading, setDownloading] = useState(false);
-  const { icon, label } = getFileMeta(attachment.content_type);
+  const { icon, label } = getFileMeta(attachment.content_type, {
+    image: t('assistant.file_type_image'),
+    video: t('assistant.file_type_video'),
+    audio: t('assistant.file_type_audio'),
+    file: t('assistant.file_type_file'),
+  });
   const isUser = role === 'user';
 
   const handleDownload = useCallback(async () => {
@@ -175,11 +187,11 @@ function FileAttachment({ attachment, sessionId, role }: Props) {
     try {
       await agentFileService.shareFile(sessionId, attachment.file_id, attachment.filename);
     } catch {
-      Alert.alert('Error', 'Could not download file');
+      Alert.alert(t('common.error'), t('assistant.download_failed'));
     } finally {
       setDownloading(false);
     }
-  }, [sessionId, attachment.file_id, attachment.filename]);
+  }, [sessionId, attachment.file_id, attachment.filename, t]);
 
   return (
     <View

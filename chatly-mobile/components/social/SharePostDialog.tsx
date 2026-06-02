@@ -13,12 +13,15 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
+import i18n from '@/lib/i18n';
 import { Colors } from '@/constants/theme';
 import { useShareTargets } from '@/hooks/useShareTargets';
 import { conversationService } from '@/services/conversation.service';
 import { messageService } from '@/services/message.service';
 import { postService } from '@/services/post.service';
 import { useAuthStore } from '@/store/auth.store';
+import { useMessageStore } from '@/store/message.store';
 import type { Attachment } from '@/types/message';
 import type { Post } from '@/types/post';
 import { PostSharePreview } from './PostSharePreview';
@@ -45,17 +48,18 @@ function buildPreviewAttachment(post: Post): Attachment {
     type: 'application/x-chatly-post-preview',
     url: `/post/${post.id}`,
     targetUrl: `/post/${post.id}`,
-    name: post.content.slice(0, 60) || 'Shared post',
+    name: post.content.slice(0, 60) || i18n.t('post.share_dialog.shared_post_name'),
     postId: post.id,
-    postTitle: previewText.slice(0, 80) || 'Shared post',
-    postExcerpt: previewText.slice(0, 180) || 'Open this post to see the full content.',
+    postTitle: previewText.slice(0, 80) || i18n.t('post.share_dialog.shared_post_name'),
+    postExcerpt: previewText.slice(0, 180) || i18n.t('post.share_dialog.post_excerpt'),
     postImageUrl: post.mediaUrls[0],
-    postAuthorName: post.authorDisplayName ?? 'Unknown author',
+    postAuthorName: post.authorDisplayName ?? i18n.t('post.share_dialog.unknown_author'),
     postAuthorAvatarUrl: post.authorAvatarUrl,
   };
 }
 
 export function SharePostDialog({ post, visible, onClose, onShared }: SharePostDialogProps) {
+  const { t } = useTranslation();
   const currentUser = useAuthStore((state) => state.user);
   const { friends, privateConversations, groupConversations, isLoadingTargets } = useShareTargets(
     visible,
@@ -85,11 +89,11 @@ export function SharePostDialog({ post, visible, onClose, onShared }: SharePostD
       ...groupConversations.map((conversation) => ({
         key: toTargetKey('GROUP', conversation.id),
         title: conversation.name,
-        subtitle: 'Group chat',
+        subtitle: t('post.share_dialog.group_chat'),
         avatarUrl: conversation.avatarUrl,
       })),
     ],
-    [friends, groupConversations],
+    [friends, groupConversations, t],
   );
 
   const filteredTargets = useMemo(() => {
@@ -112,12 +116,12 @@ export function SharePostDialog({ post, visible, onClose, onShared }: SharePostD
 
   const handleShare = async () => {
     if (!currentUser?.id) {
-      Alert.alert('Error', 'You need to sign in to share posts.');
+      Alert.alert(t('common.error'), t('post.share_dialog.sign_in_required'));
       return;
     }
 
     if (selectedTargetKeys.length === 0) {
-      Alert.alert('Error', 'Select at least one friend or group.');
+      Alert.alert(t('common.error'), t('post.share_dialog.select_target'));
       return;
     }
 
@@ -148,7 +152,9 @@ export function SharePostDialog({ post, visible, onClose, onShared }: SharePostD
           });
 
           if (createdConversationResponse.code !== 1000 || !createdConversationResponse.result) {
-            throw new Error(createdConversationResponse.message ?? 'Unable to open conversation.');
+            throw new Error(
+              createdConversationResponse.message ?? t('post.share_dialog.open_conversation_failed'),
+            );
           }
 
           return createdConversationResponse.result.id;
@@ -162,40 +168,55 @@ export function SharePostDialog({ post, visible, onClose, onShared }: SharePostD
         ]),
       ];
 
+      const { addMessage } = useMessageStore.getState();
+
       await Promise.all(
         targetConversationIds.map(async (conversationId) => {
           const response = await messageService.send({
             conversationId,
-            content: 'Shared a post',
+            content: '',
             attachments: [previewAttachment],
           });
 
           if (response.code !== 1000 || !response.result) {
-            throw new Error(response.message ?? 'Could not share post.');
+            throw new Error(response.message ?? t('post.share_dialog.share_failed'));
           }
+
+          // Add message to store immediately with attachment data from API response
+          addMessage(conversationId, response.result);
         }),
       );
 
       const shareResponse = await postService.sharePost(post.id);
       if (shareResponse.code !== 1000 || !shareResponse.result) {
-        throw new Error(shareResponse.message ?? 'Could not share post.');
+        throw new Error(shareResponse.message ?? t('post.share_dialog.share_failed'));
       }
 
       onShared?.(shareResponse.result);
 
       const summaryParts: string[] = [];
       if (targetFriends.length > 0) {
-        summaryParts.push(`${targetFriends.length} friend${targetFriends.length > 1 ? 's' : ''}`);
+        summaryParts.push(
+          t('post.share_dialog.friends_count', { count: targetFriends.length }),
+        );
       }
       if (targetGroups.length > 0) {
-        summaryParts.push(`${targetGroups.length} group${targetGroups.length > 1 ? 's' : ''}`);
+        summaryParts.push(
+          t('post.share_dialog.groups_count', { count: targetGroups.length }),
+        );
       }
 
-      Alert.alert('Shared', `Shared with ${summaryParts.join(' and ')}.`);
+      Alert.alert(
+        t('post.share_dialog.shared_title'),
+        t('post.share_dialog.shared_with', {
+          summary: summaryParts.join(` ${t('post.share_dialog.summary_and')} `),
+        }),
+      );
       onClose();
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'Could not share post.';
-      Alert.alert('Error', message);
+      const message =
+        error instanceof Error ? error.message : t('post.share_dialog.share_failed');
+      Alert.alert(t('common.error'), message);
     } finally {
       setIsSharing(false);
     }
@@ -215,9 +236,9 @@ export function SharePostDialog({ post, visible, onClose, onShared }: SharePostD
 
           <View className="mb-4 flex-row items-start justify-between gap-4">
             <View className="flex-1">
-              <Text className="text-xl font-bold text-[#1D1D1F]">Share post</Text>
+              <Text className="text-xl font-bold text-[#1D1D1F]">{t('post.share_dialog.title')}</Text>
               <Text className="mt-1 text-sm leading-5 text-[#6E6E73]">
-                Choose friends or groups. They will receive a preview that opens this post.
+                {t('post.share_dialog.subtitle')}
               </Text>
             </View>
             <TouchableOpacity
@@ -236,7 +257,7 @@ export function SharePostDialog({ post, visible, onClose, onShared }: SharePostD
             <TextInput
               value={searchQuery}
               onChangeText={setSearchQuery}
-              placeholder="Search friends or groups"
+              placeholder={t('post.share_dialog.search_placeholder')}
               placeholderTextColor={Colors.textLight}
               className="ml-2 h-12 flex-1 text-sm text-[#1D1D1F]"
             />
@@ -245,7 +266,9 @@ export function SharePostDialog({ post, visible, onClose, onShared }: SharePostD
           {isLoadingTargets ? (
             <View className="items-center justify-center py-12">
               <ActivityIndicator size="small" color={Colors.cta} />
-              <Text className="mt-2 text-sm text-[#6E6E73]">Loading friends and groups...</Text>
+              <Text className="mt-2 text-sm text-[#6E6E73]">
+                {t('post.share_dialog.loading_targets')}
+              </Text>
             </View>
           ) : (
             <FlatList
@@ -254,7 +277,7 @@ export function SharePostDialog({ post, visible, onClose, onShared }: SharePostD
               style={{ maxHeight: 320 }}
               ListEmptyComponent={
                 <View className="items-center py-10">
-                  <Text className="text-sm text-[#6E6E73]">No friends or groups found.</Text>
+                  <Text className="text-sm text-[#6E6E73]">{t('post.share_dialog.no_targets')}</Text>
                 </View>
               }
               renderItem={({ item }) => {
@@ -278,7 +301,7 @@ export function SharePostDialog({ post, visible, onClose, onShared }: SharePostD
               disabled={isSharing}
               className="h-12 flex-1 items-center justify-center rounded-2xl border border-[#D1D1D6] bg-white"
               activeOpacity={0.8}>
-              <Text className="text-sm font-semibold text-[#1D1D1F]">Cancel</Text>
+              <Text className="text-sm font-semibold text-[#1D1D1F]">{t('common.cancel')}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               onPress={handleShare}
@@ -289,7 +312,9 @@ export function SharePostDialog({ post, visible, onClose, onShared }: SharePostD
               activeOpacity={0.8}>
               {isSharing ? <ActivityIndicator color="#FFFFFF" /> : null}
               <Text className="ml-2 text-sm font-semibold text-white">
-                Share{selectedTargetKeys.length > 0 ? ` (${selectedTargetKeys.length})` : ''}
+                {selectedTargetKeys.length > 0
+                  ? t('mobile.reels.share_with_count', { count: selectedTargetKeys.length })
+                  : t('common.share')}
               </Text>
             </TouchableOpacity>
           </View>

@@ -18,5 +18,6 @@ public class FileUploadResponse {
     private String fileType;
     private Long fileSize;
     private String conversationId;
+    private String uploadSource;
     private Instant createdAt;
 }

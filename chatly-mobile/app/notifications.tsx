@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   View,
   Text,
@@ -14,6 +15,10 @@ import { Avatar } from '@/components/ui/Avatar';
 import { Colors } from '@/constants/theme';
 import { notificationService } from '@/services/notification.service';
 import { useNotificationStore } from '@/store/notification.store';
+import {
+  getNotificationDisplayContent,
+  getPostNotificationReferenceId,
+} from '@/utils/notificationDisplay';
 import type {
   NotificationResponse,
   NotificationScope,
@@ -31,6 +36,7 @@ function parseNotificationScope(scopeParam: string | string[] | undefined): Noti
 }
 
 export default function NotificationsScreen() {
+  const { t } = useTranslation();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { scope: scopeParam } = useLocalSearchParams<{ scope?: string | string[] }>();
@@ -104,9 +110,21 @@ export default function NotificationsScreen() {
       });
     } else if (notification.type === 'FRIEND_REQUEST') {
       router.push('/(tabs)/contacts');
+    } else if (
+      (notification.type === 'POST_LIKED' ||
+        notification.type === 'POST_COMMENTED' ||
+        notification.type === 'COMMENT_REPLIED' ||
+        notification.type === 'POST_SHARED' ||
+        notification.type === 'POST_MENTION') &&
+      notification.referenceId
+    ) {
+      router.push(`/post/${getPostNotificationReferenceId(notification.referenceId)}`);
     } else if (notification.type === 'GROUP_JOIN_REQUEST' && notification.referenceId) {
       router.push(`/chat/${notification.referenceId}/pending-requests`);
-    } else if (notification.type === 'MEMBER_JOINED' && notification.referenceId) {
+    } else if (
+      (notification.type === 'MEMBER_JOINED' || notification.type === 'GROUP_UPDATED') &&
+      notification.referenceId
+    ) {
       router.push({
         pathname: '/chat/[id]',
         params: { id: notification.referenceId, returnTo: 'notifications' },
@@ -120,8 +138,12 @@ export default function NotificationsScreen() {
         return { name: 'chatbubble-ellipses', color: Colors.cta };
       case 'FRIEND_REQUEST':
         return { name: 'person-add', color: '#4CAF50' };
+      case 'FRIEND_ACCEPTED':
+        return { name: 'person', color: '#34C759' };
       case 'GROUP_JOIN_REQUEST':
         return { name: 'person-add', color: '#FF9800' };
+      case 'GROUP_UPDATED':
+        return { name: 'image', color: '#5856D6' };
       case 'MEMBER_JOINED':
         return { name: 'people', color: '#2196F3' };
       case 'CALL_MISSED':
@@ -147,7 +169,7 @@ export default function NotificationsScreen() {
     }
   };
 
-  const title = scope === 'social' ? 'Feed notifications' : 'Notifications';
+  const title = t('notifications.title');
 
   const handleBack = () => {
     if (scope === 'social') {
@@ -181,7 +203,9 @@ export default function NotificationsScreen() {
             {title}
           </Text>
           <TouchableOpacity onPress={handleMarkAllRead}>
-            <Text style={{ color: Colors.cta, fontWeight: '500' }}>Mark all read</Text>
+            <Text style={{ color: Colors.cta, fontWeight: '500' }}>
+              {t('notifications.mark_all_read')}
+            </Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -209,7 +233,11 @@ export default function NotificationsScreen() {
                   borderBottomColor: Colors.borderLight,
                 }}>
                 <View className="relative">
-                  <Avatar uri={item.senderAvatar} name={item.senderName || 'User'} size={48} />
+                  <Avatar
+                    uri={item.senderAvatar}
+                    name={item.senderName || t('profile.user_fallback')}
+                    size={48}
+                  />
                   <View
                     className="absolute -bottom-1 -right-1 rounded-full p-1"
                     style={{
@@ -228,7 +256,7 @@ export default function NotificationsScreen() {
                     <Text
                       className={`flex-1 text-sm ${item.read ? 'font-normal' : 'font-bold'}`}
                       style={{ color: Colors.text }}>
-                      {item.content}
+                      {getNotificationDisplayContent(item)}
                     </Text>
                     {!item.read && (
                       <View
@@ -252,7 +280,7 @@ export default function NotificationsScreen() {
             <View className="flex-1 items-center justify-center pt-20">
               <Ionicons name="notifications-off-outline" size={64} color={Colors.borderLight} />
               <Text className="mt-4 text-base" style={{ color: Colors.textMuted }}>
-                No notifications yet
+                {t('notifications.empty_short')}
               </Text>
             </View>
           }

@@ -1,4 +1,5 @@
 import { useEffect, useCallback, useState, useRef, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   View,
   Text,
@@ -43,7 +44,8 @@ import { useNotificationStore } from '@/store/notification.store';
 import { usePresenceSocket } from '@/hooks/usePresenceSocket';
 import { Colors } from '@/constants/theme';
 import { formatDateSeparator, isRichTextHtml, richTextToPlainText } from '@/utils/format';
-import type { Message, ChatEvent, Attachment, Poll } from '@/types/message';
+import { getApiErrorMessage } from '@/utils/errorHandler';
+import type { Message, ChatEvent, Attachment, Poll, LocationPayload } from '@/types/message';
 import type { ConversationResponse } from '@/types/conversation';
 import type { UserResponse } from '@/types/auth';
 import type { ContactResponse } from '@/types/contact';
@@ -68,6 +70,7 @@ function parseCallMessagePayload(rawContent: string): CallMessagePayload | null 
 }
 
 export default function ChatScreen() {
+  const { t } = useTranslation();
   const {
     id: conversationId,
     prefill,
@@ -175,7 +178,7 @@ export default function ChatScreen() {
   const currentPage = page[conversationId ?? ''] ?? 0;
   const canLoadMore = hasMore[conversationId ?? ''] ?? true;
 
-  const { updateConversation } = useConversationStore();
+  const { updateConversation, removeConversation } = useConversationStore();
 
   const scrollToLatestMessage = useCallback((animated: boolean) => {
     flatListRef.current?.scrollToOffset({ offset: 0, animated });
@@ -188,11 +191,26 @@ export default function ChatScreen() {
     }
   }, [scrollToLatestMessage]);
 
+  const latestMessageId = messages[0]?.id;
+
+  useEffect(() => {
+    if (!latestMessageId || !shouldScrollToLatestRef.current) {
+      return;
+    }
+
+    const timeoutId = setTimeout(() => {
+      scrollToLatestMessage(true);
+    }, 50);
+
+    return () => clearTimeout(timeoutId);
+  }, [latestMessageId, scrollToLatestMessage]);
+
   const handleChatEvent = useCallback(
     (event: ChatEvent) => {
       if (!conversationId) return;
       switch (event.action) {
         case 'SEND':
+          if (!event.message) return;
           shouldScrollToLatestRef.current = true;
           addMessage(conversationId, event.message);
 
@@ -215,20 +233,22 @@ export default function ChatScreen() {
         case 'EDIT':
         case 'RECALL':
         case 'REACT':
-          updateMessage(conversationId, event.message.id, event.message);
+          if (!event.message) return;
+          const updatedMessage = event.message;
+          updateMessage(conversationId, updatedMessage.id, updatedMessage);
           // Sync pinned messages list when pin status changes
-          if (event.message.pinned !== undefined) {
+          if (updatedMessage.pinned !== undefined) {
             setPinnedMessages((prev) => {
-              const exists = prev.some((m) => m.id === event.message.id);
-              if (event.message.pinned && !exists) {
-                return [...prev, event.message];
+              const exists = prev.some((m) => m.id === updatedMessage.id);
+              if (updatedMessage.pinned && !exists) {
+                return [...prev, updatedMessage];
               }
-              if (!event.message.pinned && exists) {
-                return prev.filter((m) => m.id !== event.message.id);
+              if (!updatedMessage.pinned && exists) {
+                return prev.filter((m) => m.id !== updatedMessage.id);
               }
               if (exists) {
                 return prev.map((m) =>
-                  m.id === event.message.id ? { ...m, ...event.message } : m
+                  m.id === updatedMessage.id ? { ...m, ...updatedMessage } : m
                 );
               }
               return prev;
@@ -236,15 +256,32 @@ export default function ChatScreen() {
           }
           break;
         case 'DELETE':
+          if (!event.message) return;
           removeMessage(conversationId, event.message.id);
+          break;
+        case 'GROUP_DISSOLVED':
+          removeConversation(conversationId);
+          router.dismissAll();
           break;
         case 'GROUP_UPDATE':
         case 'ROLE_UPDATED':
-          // Handled at conversation list level, ignore here
+          if (event.conversationData) {
+            setConversation(event.conversationData);
+            updateConversation(conversationId, event.conversationData);
+          }
           break;
       }
     },
-    [conversationId, user?.id, addMessage, updateMessage, removeMessage, updateConversation]
+    [
+      conversationId,
+      user?.id,
+      addMessage,
+      updateMessage,
+      removeMessage,
+      updateConversation,
+      removeConversation,
+      router,
+    ]
   );
 
   const handleTyping = useCallback(
@@ -462,7 +499,7 @@ export default function ChatScreen() {
       messageType?: string,
       priority?: 'IMPORTANT' | 'URGENT',
       poll?: Poll,
-      location?: any
+      location?: LocationPayload
     ) => {
       if (!conversationId || !user) return;
       const replyToId = replyingTo?.id ?? null;
@@ -527,7 +564,7 @@ export default function ChatScreen() {
         });
         setReplyingTo(null);
       } catch {
-        Alert.alert('Error', 'Could not send message. Please try again.');
+        Alert.alert(t('errors.request_failed'), t('mobile.chat.send_message_failed'));
       }
     },
     [
@@ -550,7 +587,7 @@ export default function ChatScreen() {
   const handleCopy = useCallback(async () => {
     if (!selectedMessage) return;
     // Clipboard copy - no external dependency needed
-    Alert.alert('Copied', selectedMessage.content);
+    Alert.alert(t('common.copied'), selectedMessage.content);
   }, [selectedMessage]);
 
   const handleAskAi = useCallback(async () => {
@@ -567,9 +604,9 @@ export default function ChatScreen() {
       const token = `ai-${Date.now()}`;
       router.push(`/assistant/${sessionId}?prefill=${encoded}&prefill_token=${token}`);
     } catch {
-      Alert.alert('Error', 'Could not start AI session.');
+      Alert.alert(t('errors.request_failed'), t('mobile.chat.ai_session_failed'));
     }
-  }, [selectedMessage, conversationId, conversation?.name, router]);
+  }, [selectedMessage, conversationId, conversation?.name, router, t]);
 
   const handleAskAiFromHeader = useCallback(async () => {
     if (!conversationId) return;
@@ -582,9 +619,9 @@ export default function ChatScreen() {
       if (!sessionId) return;
       router.push(`/assistant/${sessionId}`);
     } catch {
-      Alert.alert('Error', 'Could not start AI session.');
+      Alert.alert(t('errors.request_failed'), t('mobile.chat.ai_session_failed'));
     }
-  }, [conversationId, conversation?.name, router]);
+  }, [conversationId, conversation?.name, router, t]);
 
   const handleEdit = useCallback(async () => {
     if (!selectedMessage || !conversationId) return;
@@ -618,49 +655,55 @@ export default function ChatScreen() {
         typeof (error as { response?: { data?: { message?: string } } }).response?.data?.message ===
           'string'
           ? ((error as { response?: { data?: { message?: string } } }).response?.data?.message ??
-            'Could not edit message.')
-          : 'Could not edit message.';
-      Alert.alert('Error', msg);
+            t('mobile.chat.edit_failed'))
+          : t('mobile.chat.edit_failed');
+      Alert.alert(t('errors.request_failed'), msg);
     }
-  }, [selectedMessage, conversationId, editMode, editRichDraft, editPlainDraft, updateMessage]);
+  }, [selectedMessage, conversationId, editMode, editRichDraft, editPlainDraft, updateMessage, t]);
 
   const handleRecall = useCallback(async () => {
     if (!selectedMessage || !conversationId) return;
-    Alert.alert('Recall Message', 'Are you sure you want to recall this message?', [
-      { text: 'Cancel', style: 'cancel' },
+    Alert.alert(t('mobile.chat.recall_title'), t('mobile.chat.recall_body'), [
+      { text: t('common.cancel'), style: 'cancel' },
       {
-        text: 'Recall',
+        text: t('chat.recall'),
         style: 'destructive',
         onPress: async () => {
           try {
             const res = await messageService.recall(selectedMessage.id);
             updateMessage(conversationId, selectedMessage.id, res.result);
-          } catch (error: any) {
-            Alert.alert('Error', error?.response?.data?.message ?? 'Could not recall message.');
+          } catch (error: unknown) {
+            Alert.alert(
+              t('errors.request_failed'),
+              getApiErrorMessage(error, t('mobile.chat.recall_failed'))
+            );
           }
         },
       },
     ]);
-  }, [selectedMessage, conversationId, updateMessage]);
+  }, [selectedMessage, conversationId, updateMessage, t]);
 
   const handleDelete = useCallback(async () => {
     if (!selectedMessage || !conversationId) return;
-    Alert.alert('Delete Message', 'Are you sure you want to delete this message?', [
-      { text: 'Cancel', style: 'cancel' },
+    Alert.alert(t('mobile.chat.delete_message_title'), t('mobile.chat.delete_message_body'), [
+      { text: t('common.cancel'), style: 'cancel' },
       {
-        text: 'Delete',
+        text: t('common.delete'),
         style: 'destructive',
         onPress: async () => {
           try {
             await messageService.delete(selectedMessage.id);
             removeMessage(conversationId, selectedMessage.id);
-          } catch (error: any) {
-            Alert.alert('Error', error?.response?.data?.message ?? 'Could not delete message.');
+          } catch (error: unknown) {
+            Alert.alert(
+              t('errors.request_failed'),
+              getApiErrorMessage(error, t('mobile.chat.delete_failed'))
+            );
           }
         },
       },
     ]);
-  }, [selectedMessage, conversationId, removeMessage]);
+  }, [selectedMessage, conversationId, removeMessage, t]);
 
   const handleForward = useCallback(
     async (targetConversationIds: string[]) => {
@@ -670,12 +713,15 @@ export default function ChatScreen() {
         await messageService.forward(selectedMessage.id, targetConversationIds);
         setForwardVisible(false);
         setSelectedMessage(null);
-      } catch (error: any) {
-        Alert.alert('Error', error?.response?.data?.message ?? 'Could not forward message.');
+      } catch (error: unknown) {
+        Alert.alert(
+          t('errors.request_failed'),
+          getApiErrorMessage(error, t('mobile.chat.forward_failed'))
+        );
         throw error;
       }
     },
-    [selectedMessage]
+    [selectedMessage, t]
   );
 
   const handleReact = useCallback(
@@ -685,7 +731,7 @@ export default function ChatScreen() {
         const res = await messageService.react(messageId, emoji);
         updateMessage(conversationId, messageId, res.result);
       } catch {
-        Alert.alert('Error', 'Could not react to message.');
+        Alert.alert(t('errors.request_failed'), t('mobile.chat.react_failed'));
       }
     },
     [conversationId, user, updateMessage]
@@ -698,7 +744,7 @@ export default function ChatScreen() {
         const res = await messageService.votePoll(messageId, optionIndex);
         updateMessage(conversationId, messageId, res.result);
       } catch {
-        Alert.alert('Error', 'Could not vote.');
+        Alert.alert(t('errors.request_failed'), t('mobile.chat.vote_failed'));
       }
     },
     [conversationId, user, updateMessage]
@@ -711,7 +757,7 @@ export default function ChatScreen() {
         const res = await messageService.closePoll(messageId);
         updateMessage(conversationId, messageId, res.result);
       } catch {
-        Alert.alert('Error', 'Could not close poll.');
+        Alert.alert(t('errors.request_failed'), t('mobile.chat.close_poll_failed'));
       }
     },
     [conversationId, user, updateMessage]
@@ -732,7 +778,7 @@ export default function ChatScreen() {
           return prev.filter((m) => m.id !== updated.id);
         });
       } catch {
-        Alert.alert('Error', 'Could not pin message.');
+        Alert.alert(t('errors.request_failed'), t('mobile.chat.pin_failed'));
       }
     },
     [conversationId, user, updateMessage]
@@ -751,12 +797,12 @@ export default function ChatScreen() {
 
       const realtimeState = useCallStore.getState().groupCallRealtimeState[callId];
       if (realtimeState?.ended) {
-        Alert.alert('Call ended', 'This call has already ended.');
+        Alert.alert(t('mobile.chat.call_ended_title'), t('mobile.chat.call_ended_body'));
         return;
       }
 
       if (endedGroupCallIds.has(callId)) {
-        Alert.alert('Call ended', 'This call has already ended.');
+        Alert.alert(t('mobile.chat.call_ended_title'), t('mobile.chat.call_ended_body'));
         return;
       }
 
@@ -794,9 +840,9 @@ export default function ChatScreen() {
         callId,
         conversationId,
         initiatorId,
-        initiatorName: initiator?.displayName ?? 'Unknown',
+        initiatorName: initiator?.displayName ?? t('mobile.chat.unknown_fallback'),
         initiatorAvatar: initiator?.avatarUrl ?? null,
-        groupName: conversation.name ?? 'Group',
+        groupName: conversation.name ?? t('chat.group_chat_short'),
         groupAvatarUrl: conversation.avatarUrl ?? null,
         type: callType,
         mediaProvider,
@@ -821,17 +867,20 @@ export default function ChatScreen() {
     [participantMap]
   );
 
-  const handleAddFriend = useCallback(async (contactId: string) => {
-    try {
-      await contactService.sendRequest({ contactId });
-      // Refresh contacts
-      const res = await contactService.getAll();
-      setContacts(res.result ?? []);
-      Alert.alert('Success', 'Friend request sent');
-    } catch {
-      Alert.alert('Error', 'Could not send friend request');
-    }
-  }, []);
+  const handleAddFriend = useCallback(
+    async (contactId: string) => {
+      try {
+        await contactService.sendRequest({ contactId });
+        // Refresh contacts
+        const res = await contactService.getAll();
+        setContacts(res.result ?? []);
+        Alert.alert(t('mobile.common.success'), t('contact.request_sent'));
+      } catch {
+        Alert.alert(t('errors.request_failed'), t('contact.add_friend_dialog.request_failed'));
+      }
+    },
+    [t]
+  );
 
   const getMentionFriendStatus = useCallback(
     (userId: string) => {
@@ -937,7 +986,7 @@ export default function ChatScreen() {
 
   // Resolve chat header info
   const isGroup = conversation?.type === 'GROUP';
-  let chatName = conversation?.name ?? 'Conversation';
+  let chatName = conversation?.name ?? t('mobile.chat.conversation_fallback');
   let chatAvatar = conversation?.avatarUrl;
 
   if (!isGroup && conversation) {
@@ -1067,7 +1116,7 @@ export default function ChatScreen() {
                         ? null
                         : {
                             id: msg.senderId,
-                            name: sender?.displayName ?? 'User',
+                            name: sender?.displayName ?? t('mobile.chat.user_fallback'),
                             avatar: sender?.avatarUrl,
                           }
                     }
@@ -1137,35 +1186,31 @@ export default function ChatScreen() {
             />
             <Text style={{ flex: 1, fontSize: 14, color: Colors.textMuted }}>
               {blockDirection === 'I_BLOCKED'
-                ? "You can't send messages to this user."
-                : "You can't send messages to this user."}
+                ? t('chat.user_blocked_by_me')
+                : t('chat.user_blocked_by_them')}
             </Text>
             {blockDirection === 'I_BLOCKED' && (
               <TouchableOpacity
                 onPress={() => {
                   if (!otherUserId || !user) return;
-                  Alert.alert(
-                    'Unblock user?',
-                    'They will be able to message you and send friend requests again.',
-                    [
-                      { text: 'Cancel', style: 'cancel' },
-                      {
-                        text: 'Unblock',
-                        onPress: async () => {
-                          try {
-                            await contactService.unblockByUser(otherUserId);
-                            invalidateContacts();
-                            setBlockDirection(null);
-                          } catch (e: any) {
-                            Alert.alert(
-                              'Error',
-                              e?.response?.data?.message ?? 'Could not unblock.'
-                            );
-                          }
-                        },
+                  Alert.alert(t('chat.unblock_user_q'), t('mobile.chat.unblock_short_desc'), [
+                    { text: t('common.cancel'), style: 'cancel' },
+                    {
+                      text: t('contact.unblock'),
+                      onPress: async () => {
+                        try {
+                          await contactService.unblockByUser(otherUserId);
+                          invalidateContacts();
+                          setBlockDirection(null);
+                        } catch (error: unknown) {
+                          Alert.alert(
+                            t('errors.request_failed'),
+                            getApiErrorMessage(error, t('mobile.chat.unblock_failed'))
+                          );
+                        }
                       },
-                    ]
-                  );
+                    },
+                  ]);
                 }}
                 style={{
                   paddingHorizontal: 14,
@@ -1173,7 +1218,9 @@ export default function ChatScreen() {
                   borderRadius: 20,
                   backgroundColor: Colors.ctaLight,
                 }}>
-                <Text style={{ fontSize: 13, fontWeight: '600', color: Colors.cta }}>Unblock</Text>
+                <Text style={{ fontSize: 13, fontWeight: '600', color: Colors.cta }}>
+                  {t('contact.unblock')}
+                </Text>
               </TouchableOpacity>
             )}
           </View>
@@ -1267,7 +1314,7 @@ export default function ChatScreen() {
             }}
             onPress={() => {}}>
             <Text style={{ fontSize: 18, fontWeight: '700', color: Colors.text, marginBottom: 10 }}>
-              Edit message
+              {t('mobile.chat.edit_message_title')}
             </Text>
 
             <TextRichComposer
@@ -1277,7 +1324,7 @@ export default function ChatScreen() {
               onPlainTextChange={setEditPlainDraft}
               richHtml={editRichDraft}
               onRichHtmlChange={setEditRichDraft}
-              placeholder="Edit message..."
+              placeholder={t('mobile.chat.edit_message_placeholder')}
               minHeight={120}
               showToolbar={editMode === 'editor'}
               editorKey={selectedMessage?.id ?? 'edit-message'}
@@ -1298,7 +1345,9 @@ export default function ChatScreen() {
                   borderRadius: 10,
                   backgroundColor: Colors.bg,
                 }}>
-                <Text style={{ color: Colors.textMuted, fontWeight: '600' }}>Cancel</Text>
+                <Text style={{ color: Colors.textMuted, fontWeight: '600' }}>
+                  {t('common.cancel')}
+                </Text>
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={handleConfirmEdit}
@@ -1308,7 +1357,7 @@ export default function ChatScreen() {
                   borderRadius: 10,
                   backgroundColor: Colors.cta,
                 }}>
-                <Text style={{ color: '#fff', fontWeight: '700' }}>Save</Text>
+                <Text style={{ color: '#fff', fontWeight: '700' }}>{t('common.save')}</Text>
               </TouchableOpacity>
             </View>
           </Pressable>
@@ -1366,7 +1415,7 @@ export default function ChatScreen() {
               contentContainerStyle={{ paddingVertical: 8 }}
               renderItem={({ item: msg }) => {
                 const sender = participantMap[msg.senderId];
-                const senderName = sender?.displayName ?? 'Unknown';
+                const senderName = sender?.displayName ?? t('mobile.chat.unknown_fallback');
                 const msgPreview =
                   msg.content ||
                   (msg.type === 'POLL'

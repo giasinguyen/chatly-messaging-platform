@@ -121,6 +121,23 @@ public class NotificationService {
         );
     }
 
+    public void markChatNotificationsAsRead(String receiverId, String conversationId) {
+        if (receiverId == null || conversationId == null) {
+            return;
+        }
+
+        Criteria criteria = Criteria.where("receiverId").is(receiverId)
+                .and("type").is(NotificationType.NEW_MESSAGE)
+                .and("referenceId").is(conversationId)
+                .and("read").is(false);
+
+        mongoTemplate.updateMulti(
+                Query.query(criteria),
+                new Update().set("read", true),
+                Notification.class
+        );
+    }
+
     private NotificationResponse toResponse(Notification notification) {
         NotificationResponse response = notificationMapper.toResponse(notification);
         if (notification.getSenderId() != null) {
@@ -167,6 +184,8 @@ public class NotificationService {
                             title = "Friend request accepted";
                         } else if (notification.getType() == NotificationType.GROUP_JOIN_REQUEST) {
                             title = "New join request";
+                        } else if (notification.getType() == NotificationType.GROUP_UPDATED) {
+                            title = "Group updated";
                         } else if (notification.getType() == NotificationType.GROUP_INVITE) {
                             title = "Added to group";
                         } else if (notification.getType() == NotificationType.GROUP_LEAVE) {

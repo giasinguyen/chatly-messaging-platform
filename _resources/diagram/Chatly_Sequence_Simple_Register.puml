@@ -1,0 +1,52 @@
+@startuml Chatly_Sequence_Simple_Register
+title Register
+
+autonumber
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+
+actor "Guest" as Guest
+boundary "Web or Mobile Client" as Client
+control "AuthController" as AuthController
+control "AuthService" as AuthService
+entity "User" as UserEntity
+entity "EmailVerificationOtp" as OtpEntity
+control "UserRepository" as UserRepo
+control "EmailVerificationOtpRepository" as OtpRepo
+control "EmailVerificationMailService" as MailService
+boundary "Email Provider" as EmailProvider
+control "GlobalExceptionHandler" as ExceptionHandler
+
+Guest -> Client: Enter registration data
+Client -> AuthController: RegisterRequest{email, username,\npassword, displayName,\nphone?, dob?}
+AuthController -> AuthService: register(request)
+
+alt 
+  AuthService -> ExceptionHandler: MethodArgumentNotValidException
+  ExceptionHandler --> Client: HTTP 400\nApiResponse{error}
+else
+  AuthService -> UserRepo: existsByEmail, username, phone
+  alt
+    AuthService -> ExceptionHandler: AppException(DUPLICATE)
+    ExceptionHandler --> Client: HTTP 409\nApiResponse{error}
+  else
+    AuthService -> UserEntity: normalize + hash password
+    UserEntity --> AuthService: user
+    AuthService -> UserRepo: save(user)
+    UserRepo --> AuthService: userId
+    AuthService -> OtpEntity: generate{userId, ttl}
+    OtpEntity --> AuthService: otp
+    AuthService -> OtpRepo: save(otp)
+    OtpRepo --> AuthService: saved
+    AuthService -> MailService: sendVerificationEmail\n(user, link)
+    MailService -> EmailProvider: send email
+    EmailProvider --> MailService: accepted
+    MailService --> AuthService: sent
+    AuthService --> AuthController: RegisterResponse\n{message, userId, emailVerified:false}
+    AuthController --> Client: HTTP 200\nApiResponse{code:1000, result}
+  end
+end
+
+Client --> Guest: Show success or\nerror message
+
+@enduml

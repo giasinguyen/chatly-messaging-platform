@@ -30,10 +30,11 @@ public class FileUploadController {
     @PostMapping("/upload")
     public ApiResponse<FileUploadResponse> upload(
             @RequestParam("file") MultipartFile file,
-            @RequestParam(value = "conversationId", required = false) String conversationId) {
+            @RequestParam(value = "conversationId", required = false) String conversationId,
+            @RequestParam(value = "uploadSource", required = false) String uploadSource) {
 
         String userId = getAuthenticatedUserId();
-        FileUploadResponse response = fileUploadService.upload(file, conversationId, userId);
+        FileUploadResponse response = fileUploadService.upload(file, conversationId, userId, uploadSource);
 
         return ApiResponse.<FileUploadResponse>builder()
                 .result(response)

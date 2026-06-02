@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { Search, X, ChevronUp, ChevronDown, Loader2 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { messageService } from "@/services/message.service";
@@ -13,6 +14,7 @@ interface MessageSearchProps {
 }
 
 export function MessageSearch({ conversationId, onClose, onNavigateToMessage, onKeywordChange }: MessageSearchProps) {
+    const { t } = useTranslation();
     const [keyword, setKeyword] = useState("");
     const [results, setResults] = useState<Message[]>([]);
     const [currentIndex, setCurrentIndex] = useState(0);
@@ -85,7 +87,7 @@ export function MessageSearch({ conversationId, onClose, onNavigateToMessage, on
                 value={keyword}
                 onChange={(e) => handleChange(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="Search messages..."
+                placeholder={t("chat.search_messages_placeholder")}
                 className="h-8 text-sm flex-1 bg-transparent border-transparent focus-visible:ring-0 shadow-none"
             />
             {loading && <Loader2 size={14} className="animate-spin text-muted-foreground shrink-0" />}
@@ -95,7 +97,7 @@ export function MessageSearch({ conversationId, onClose, onNavigateToMessage, on
                 </span>
             )}
             {searched && !loading && results.length === 0 && keyword.trim() && (
-                <span className="text-xs text-muted-foreground whitespace-nowrap">Not found</span>
+                <span className="text-xs text-muted-foreground whitespace-nowrap">{t("chat.search_not_found")}</span>
             )}
             <div className="flex items-center gap-0.5">
                 <Button

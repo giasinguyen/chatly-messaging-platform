@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { MessageSquare, MoreHorizontal, ShieldOff, UserMinus, UserCircle } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -12,6 +13,7 @@ interface FriendActionsProps {
 
 // Shadcn DropdownMenu not work here!. Implement DropdownMenu with html/Tailwind. 
 export function FriendActions({ onMessage, onPreviewProfile, onBlock, onRemove }: FriendActionsProps) {
+    const { t } = useTranslation();
     const [open, setOpen] = useState(false);
     const menuRef = useRef<HTMLDivElement>(null);
 
@@ -29,7 +31,7 @@ export function FriendActions({ onMessage, onPreviewProfile, onBlock, onRemove }
     return (
         <div className={cn("flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity", open && "opacity-100")}>
             <Button size="sm" variant="ghost" onClick={onMessage} className="h-8 rounded-full px-3">
-                <MessageSquare className="h-4 w-4 mr-1" /> Message
+                <MessageSquare className="h-4 w-4 mr-1" /> {t("contact.message")}
             </Button>
 
             <div ref={menuRef} className="relative">
@@ -52,7 +54,7 @@ export function FriendActions({ onMessage, onPreviewProfile, onBlock, onRemove }
                                 onPreviewProfile();
                             }}
                         >
-                            <UserCircle className="h-4 w-4" /> View Profile
+                            <UserCircle className="h-4 w-4" /> {t("contact.view_profile")}
                         </button>
                         <button
                             className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-destructive hover:bg-destructive/10 transition-colors"
@@ -62,7 +64,7 @@ export function FriendActions({ onMessage, onPreviewProfile, onBlock, onRemove }
                                 onBlock();
                             }}
                         >
-                            <ShieldOff className="h-4 w-4" /> Block
+                            <ShieldOff className="h-4 w-4" /> {t("contact.block")}
                         </button>
                         <button
                             className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-destructive hover:bg-destructive/10 transition-colors"
@@ -72,7 +74,7 @@ export function FriendActions({ onMessage, onPreviewProfile, onBlock, onRemove }
                                 onRemove();
                             }}
                         >
-                            <UserMinus className="h-4 w-4" /> Remove
+                            <UserMinus className="h-4 w-4" /> {t("contact.remove")}
                         </button>
                     </div>
                 )}

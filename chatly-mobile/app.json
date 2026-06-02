@@ -1,6 +1,7 @@
 {
   "expo": {
-    "name": "chatly-mobile",
+    "name": "Chatly",
+    "displayName": "Chatly",
     "slug": "chatly-mobile",
     "version": "1.0.0",
     "newArchEnabled": true,
@@ -50,7 +51,7 @@
     ],
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
+        "foregroundImage": "./assets/icon.png",
         "backgroundColor": "#ffffff"
       },
       "permissions": [

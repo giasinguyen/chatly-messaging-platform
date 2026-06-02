@@ -3,6 +3,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { AxiosError } from "axios";
+import { Trans, useTranslation } from "react-i18next";
 
 import {
     registerSchema,
@@ -20,6 +21,7 @@ import { useAuthStore } from "@/store/auth.store";
 import "../login/login.css";
 
 export default function RegisterPage() {
+    const { t, i18n } = useTranslation();
     const form = useForm<RegisterFormValues>({
         resolver: zodResolver(registerSchema),
         mode: "onChange",
@@ -63,16 +65,16 @@ export default function RegisterPage() {
             const response = await authService.register(payload);
 
             if (response.code === 1000) {
-                toast.success("Registration successful! Please log in.");
+                toast.success(t("auth.register.success"));
                 navigate("/auth/login");
             } else {
-                toast.error(response.message || "Registration failed");
+                toast.error(response.message || t("auth.register.failed"));
             }
         } catch (error: unknown) {
             const msg =
                 error instanceof AxiosError
-                    ? error.response?.data?.message ?? "Registration failed"
-                    : "An unexpected error occurred";
+                    ? error.response?.data?.message ?? t("auth.register.failed")
+                    : t("auth.register.unexpected_error");
             toast.error(msg);
         } finally {
             setGlobalLoading(false);
@@ -107,7 +109,7 @@ export default function RegisterPage() {
             {/* Center card */}
             <div className="login-card-enter mt-10 relative z-5 flex w-[90%] max-w-[480px] flex-col overflow-hidden rounded-[20px] border border-black/10 bg-white/90 p-8 shadow-[0_4px_20px_rgba(0,0,0,0.08)] backdrop-blur-[20px] dark:border-white/8 dark:bg-[rgba(30,33,40,0.92)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.4)]">
                 <h1 className="mb-6 text-center text-[22px] font-bold tracking-tight text-gray-900 dark:text-white">
-                    Create an account
+                    {t("auth.register.title")}
                 </h1>
 
                 <form
@@ -122,7 +124,7 @@ export default function RegisterPage() {
                             render={({ field, fieldState }) => (
                                 <Field data-invalid={fieldState.invalid}>
                                     <FieldLabel className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-[#b0b3bc]">
-                                        Email or Phone{" "}
+                                        {t("auth.register.identifier")}{" "}
                                         <span className="text-red-400">*</span>
                                     </FieldLabel>
                                     <Input
@@ -137,7 +139,7 @@ export default function RegisterPage() {
                                         onBlur={field.onBlur}
                                         ref={field.ref}
                                         type="text"
-                                        placeholder="Enter your email or phone"
+                                        placeholder={t("auth.register.identifier_placeholder")}
                                         aria-invalid={fieldState.invalid}
                                         className="h-auto w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-[15px] text-gray-900 outline-none transition-all duration-200 focus:border-brand focus:shadow-[0_0_0_3px_rgba(0,113_227,0.15)] dark:border-white/8 dark:bg-[#1a1c23] dark:text-white dark:focus:shadow-[0_0_0_3px_rgba(0,113_227,0.2)] focus-visible:ring-0 focus-visible:ring-offset-0"
                                     />
@@ -157,7 +159,7 @@ export default function RegisterPage() {
                             render={({ field, fieldState }) => (
                                 <Field data-invalid={fieldState.invalid}>
                                     <FieldLabel className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-[#b0b3bc]">
-                                        Display Name{" "}
+                                        {t("auth.register.display_name")}{" "}
                                         <span className="text-red-400">*</span>
                                     </FieldLabel>
                                     <Input
@@ -182,7 +184,7 @@ export default function RegisterPage() {
                             render={({ field, fieldState }) => (
                                 <Field data-invalid={fieldState.invalid}>
                                     <FieldLabel className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-[#b0b3bc]">
-                                        Username{" "}
+                                        {t("auth.register.username")}{" "}
                                         <span className="text-red-400">*</span>
                                     </FieldLabel>
                                     <Input
@@ -207,7 +209,7 @@ export default function RegisterPage() {
                             render={({ field, fieldState }) => (
                                 <Field data-invalid={fieldState.invalid}>
                                     <FieldLabel className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-[#b0b3bc]">
-                                        Password{" "}
+                                        {t("auth.register.password")}{" "}
                                         <span className="text-red-400">*</span>
                                     </FieldLabel>
                                     <Input
@@ -228,7 +230,7 @@ export default function RegisterPage() {
                         {/* Date of Birth Group */}
                         <div className="flex flex-col gap-1.5">
                             <FieldLabel className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-[#b0b3bc]">
-                                Date of Birth{" "}
+                                {t("auth.register.dob")}{" "}
                                 <span className="text-red-400">*</span>
                             </FieldLabel>
                             <div className="flex gap-3">
@@ -247,7 +249,7 @@ export default function RegisterPage() {
                                                     disabled
                                                     hidden
                                                 >
-                                                    Month
+                                                    {t("auth.register.month")}
                                                 </option>
                                                 {Array.from({ length: 12 }).map(
                                                     (_, i) => (
@@ -259,7 +261,7 @@ export default function RegisterPage() {
                                                                 0,
                                                                 i,
                                                             ).toLocaleString(
-                                                                "en",
+                                                                i18n.language,
                                                                 {
                                                                     month: "long",
                                                                 },
@@ -300,7 +302,7 @@ export default function RegisterPage() {
                                                     disabled
                                                     hidden
                                                 >
-                                                    Day
+                                                    {t("auth.register.day")}
                                                 </option>
                                                 {Array.from({ length: 31 }).map(
                                                     (_, i) => (
@@ -345,7 +347,7 @@ export default function RegisterPage() {
                                                     disabled
                                                     hidden
                                                 >
-                                                    Year
+                                                    {t("auth.register.year")}
                                                 </option>
                                                 {Array.from({
                                                     length: 100,
@@ -388,8 +390,7 @@ export default function RegisterPage() {
                                 <FieldError
                                     errors={[
                                         {
-                                            message:
-                                                "Please enter your full date of birth.",
+                                            message: t("auth.register.dob_full_required"),
                                         },
                                     ]}
                                 />
@@ -400,19 +401,21 @@ export default function RegisterPage() {
                     {/* Terms and Submit */}
                     <div className="mt-1 flex flex-col gap-4">
                         <p className="text-[12px] leading-snug text-gray-500 dark:text-[#a0a3ab]">
-                            By clicking "Create Account," you agree to Chatly's{" "}
+                            <Trans
+                                i18nKey="auth.register.terms_prefix"
+                            />{" "}
                             <Link
                                 to="/terms"
                                 className="font-medium text-brand hover:underline"
                             >
-                                Terms of Service
+                                {t("auth.register.terms_link")}
                             </Link>{" "}
-                            and have read the{" "}
+                            {t("auth.register.terms_and")}{" "}
                             <Link
                                 to="/privacy"
                                 className="font-medium text-brand hover:underline"
                             >
-                                Privacy Policy
+                                {t("auth.register.privacy_link")}
                             </Link>
                         </p>
 
@@ -425,7 +428,7 @@ export default function RegisterPage() {
                                 <div className="h-5 w-5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
                             ) : (
                                 <>
-                                    <span>Create Account</span>
+                                    <span>{t("auth.register.create_account_button")}</span>
                                 </>
                             )}
                         </button>
@@ -434,7 +437,7 @@ export default function RegisterPage() {
                             to="/auth/login"
                             className="text-left text-[13px] font-medium text-brand no-underline transition-colors duration-200 hover:text-brand-light hover:underline dark:text-brand-light dark:hover:text-brand-light"
                         >
-                            Already have an account? Log in
+                            {t("auth.register.already_have_account")}
                         </Link>
                     </div>
                 </form>

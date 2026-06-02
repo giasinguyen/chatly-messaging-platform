@@ -1,4 +1,5 @@
 import { useCallback, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   ActivityIndicator,
   FlatList,
@@ -22,6 +23,8 @@ interface ExploreFooterProps {
 }
 
 function ExploreFooter({ isLoadingMore, hasMore, postCount }: ExploreFooterProps) {
+  const { t } = useTranslation();
+
   if (isLoadingMore) {
     return (
       <View className="items-center pb-10 pt-4">
@@ -33,7 +36,7 @@ function ExploreFooter({ isLoadingMore, hasMore, postCount }: ExploreFooterProps
   if (postCount > 0 && !hasMore) {
     return (
       <View className="items-center pb-10 pt-4">
-        <Text className="text-sm text-[#6E6E73]">No more posts.</Text>
+        <Text className="text-sm text-[#6E6E73]">{t('mobile.home.explore_no_more')}</Text>
       </View>
     );
   }
@@ -42,6 +45,8 @@ function ExploreFooter({ isLoadingMore, hasMore, postCount }: ExploreFooterProps
 }
 
 function ExploreEmptyState({ isLoading, message }: { isLoading: boolean; message: string | null }) {
+  const { t } = useTranslation();
+
   if (isLoading) {
     return (
       <View className="flex-row flex-wrap px-3 pt-3">
@@ -57,10 +62,10 @@ function ExploreEmptyState({ isLoading, message }: { isLoading: boolean; message
   return (
     <View className="items-center px-8 py-16">
       <Text className="text-base font-semibold text-[#1D1D1F]">
-        {message ? 'Could not load explore' : 'No posts found'}
+        {message ? t('explore.load_failed_title') : t('explore.no_posts')}
       </Text>
       <Text className="mt-1 text-center text-sm text-[#6E6E73]">
-        {message ?? 'Try a different search or category.'}
+        {message ?? t('explore.no_posts_hint')}
       </Text>
     </View>
   );
@@ -73,15 +78,17 @@ function ExploreErrorState({
   message: string;
   onRetry: () => void;
 }) {
+  const { t } = useTranslation();
+
   return (
     <View className="items-center px-8 py-16">
-      <Text className="text-base font-semibold text-[#1D1D1F]">Could not load explore</Text>
+      <Text className="text-base font-semibold text-[#1D1D1F]">{t('explore.load_failed_title')}</Text>
       <Text className="mt-1 text-center text-sm text-[#6E6E73]">{message}</Text>
       <TouchableOpacity
         className="mt-4 rounded-full bg-[#0A7AFF] px-4 py-2 active:opacity-85"
         onPress={onRetry}
       >
-        <Text className="text-sm font-semibold text-white">Try again</Text>
+        <Text className="text-sm font-semibold text-white">{t('common.retry')}</Text>
       </TouchableOpacity>
     </View>
   );

@@ -22,8 +22,10 @@ import {
     Mic,
     Type,
     PencilLine,
+    Cloud,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 import Picker from "@emoji-mart/react";
 import data from "@emoji-mart/data";
 import { Input } from "@/components/ui/input";
@@ -37,7 +39,7 @@ import {
     DialogTitle,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { fileService } from "@/services/file.service";
+import { fileService, type FileUploadResponse } from "@/services/file.service";
 import { getDisplayUrl, type KlipyItem } from "@/services/klipy.service";
 import { groupService } from "@/services/group.service";
 import { contactService } from "@/services/contact.service";
@@ -54,6 +56,7 @@ import {
 import { AudioRecordingBar } from "./AudioRecordingBar";
 import { RichTextMessageEditor, type RichTextMessageEditorRef } from "./RichTextMessageEditor";
 import { toMessagePreviewText } from "./richTextMessage.utils";
+import { fileToAttachment, isUserUploadedCloudFile } from "@/utils/fileAttachment";
 
 const LazyMediaPicker = lazy(() => import("@/components/media-picker/MediaPicker").then(m => ({ default: m.MediaPicker })));
 
@@ -90,6 +93,12 @@ const TYPING_STOP_DELAY = 2000;
 const ACCEPTED_TYPES =
     "image/*,video/*,audio/*,application/pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip";
 
+const formatCloudFileSize = (bytes: number): string => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+};
+
 export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
     conversationId,
     conversationType,
@@ -103,6 +112,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
     currentUserId,
     isAiProactiveEnabled = false,
 }, ref) => {
+    const { t } = useTranslation();
     const { user } = useAuthStore();
     const [content, setContent] = useState("");
     const [inputMode, setInputMode] = useState<"plain" | "editor">("plain");
@@ -135,6 +145,10 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
     const [vCardUser, setVCardUser] = useState<ChatUser | null>(null);
     const [vCardContacts, setVCardContacts] = useState<ChatUser[]>([]);
     const [vCardLoading, setVCardLoading] = useState(false);
+    const [showCloudFileDialog, setShowCloudFileDialog] = useState(false);
+    const [cloudFiles, setCloudFiles] = useState<FileUploadResponse[]>([]);
+    const [cloudFileLoading, setCloudFileLoading] = useState(false);
+    const [selectedCloudFileIds, setSelectedCloudFileIds] = useState<string[]>([]);
     // Location dialog state
     const [showLocationDialog, setShowLocationDialog] = useState(false);
     const [pendingLocation, setPendingLocation] = useState<LocationPayload | null>(null);
@@ -494,6 +508,47 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
         setActivePicker(null);
     };
 
+    const handleOpenCloudFiles = async () => {
+        setShowPriorityMenu(false);
+        setShowCloudFileDialog(true);
+        setSelectedCloudFileIds([]);
+        setCloudFileLoading(true);
+        try {
+            const files = await fileService.getMyFiles();
+            setCloudFiles(files.filter(isUserUploadedCloudFile));
+        } catch {
+            toast.error(t("chat.no_cloud_files"));
+        } finally {
+            setCloudFileLoading(false);
+        }
+    };
+
+    const handleToggleCloudFile = (fileId: string) => {
+        setSelectedCloudFileIds((prev) =>
+            prev.includes(fileId)
+                ? prev.filter((id) => id !== fileId)
+                : [...prev, fileId],
+        );
+    };
+
+    const handleAttachCloudFiles = () => {
+        const selectedFiles = cloudFiles.filter((file) =>
+            selectedCloudFileIds.includes(file.fileId),
+        );
+        if (selectedFiles.length === 0) return;
+        const attachments = selectedFiles.map(fileToAttachment);
+        const items: PendingFile[] = attachments.map((att) => ({
+            localId: `cloud-${att.fileId ?? att.url}-${Date.now()}`,
+            file: new File([], att.name ?? "file"),
+            previewUrl: att.type?.startsWith("image/") ? att.url : "",
+            progress: 100,
+            uploaded: att,
+        }));
+        setPendingFiles((prev) => [...prev, ...items]);
+        setShowCloudFileDialog(false);
+        setSelectedCloudFileIds([]);
+    };
+
     const handleCreateReminder = async () => {
         if (!conversationId || !reminderTitle.trim()) return;
         setReminderSubmitting(true);
@@ -635,7 +690,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
                         <div className="absolute bottom-14.5 left-0 right-0 h-97.5 bg-background border-t border-border flex items-center justify-center z-20">
                             <Loader2
                                 size={24}
-                                className="animate-spin text-brand"
+                                className="animate-spin text-[#1a146b]"
                             />
                         </div>
                     }
@@ -651,10 +706,10 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
             {/* Reply preview bar */}
             {replyingTo && (
                 <div className="flex items-center gap-2 px-4 pt-2.5 pb-1.5 bg-muted/30 border-b border-border/50">
-                    <CornerUpLeft size={14} className="text-brand shrink-0" />
+                    <CornerUpLeft size={14} className="text-[#1a146b] shrink-0" />
                     <div className="flex-1 min-w-0">
-                        <p className="text-[10px] font-semibold text-brand">
-                            {senderName ?? "You"}
+                        <p className="text-[10px] font-semibold text-[#1a146b]">
+                            {senderName ?? t("common.you")}
                         </p>
                         <p className="text-[11px] text-muted-foreground truncate">
                             {replyPreviewText}
@@ -706,7 +761,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
                                 ) : (
                                     <div className="mt-1 h-1 w-full rounded-full bg-muted-foreground/20">
                                         <div
-                                            className="h-1 rounded-full bg-brand transition-all"
+                                            className="h-1 rounded-full bg-[#1a146b] transition-all"
                                             style={{ width: `${p.progress}%` }}
                                         />
                                     </div>
@@ -781,7 +836,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
                         size="icon"
                         className="h-9 w-9 shrink-0 text-muted-foreground hover:text-foreground"
                         onClick={() => imageInputRef.current?.click()}
-                        title="Send image/video"
+                        title={t("chat.send_image_video", { defaultValue: "Send image/video" })}
                     >
                         <ImagePlus size={18} />
                     </Button>
@@ -792,7 +847,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
                         size="icon"
                         className="h-9 w-9 shrink-0 text-muted-foreground hover:text-foreground"
                         onClick={() => fileInputRef.current?.click()}
-                        title="Attach file"
+                        title={t("chat.attach_file", { defaultValue: "Attach file" })}
                     >
                         <Paperclip size={18} />
                     </Button>
@@ -805,7 +860,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
                             className={cn(
                                 "h-9 w-9 shrink-0",
                                 showEmojiPicker || activePicker
-                                    ? "text-brand bg-brand/10"
+                                    ? "text-[#1a146b] bg-[#1a146b]/10"
                                     : "text-muted-foreground hover:text-foreground",
                             )}
                             onClick={() => {
@@ -815,14 +870,14 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
                                     setShowEmojiPicker((prev) => !prev);
                                 }
                             }}
-                            title="Emoji / GIF / Sticker"
+                            title={t("chat.emoji_gif_sticker", { defaultValue: "Emoji / GIF / Sticker" })}
                         >
                             <Smile size={18} />
                         </Button>
                         {showEmojiPicker && (
                             <div className="absolute bottom-full mb-2 left-0 z-50 bg-popover border border-border rounded-xl shadow-lg overflow-hidden">
                                 <div className="flex items-center border-b border-border bg-muted/30">
-                                    <span className="px-3 py-1.5 text-xs font-semibold text-brand border-b-2 border-brand">
+                                    <span className="px-3 py-1.5 text-xs font-semibold text-[#1a146b] border-b-2 border-[#1a146b]">
                                         😀 Emoji
                                     </span>
                                     <button
@@ -876,7 +931,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
                                     "text-muted-foreground hover:text-foreground",
                             )}
                             onClick={() => setShowPriorityMenu((prev) => !prev)}
-                            title="More options"
+                            title={t("common.more")}
                         >
                             <MoreHorizontal size={18} />
                         </Button>
@@ -948,7 +1003,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
                                     >
                                         <BarChart3
                                             size={15}
-                                            className="text-brand shrink-0"
+                                            className="text-[#1a146b] shrink-0"
                                         />
                                         Create a poll
                                     </button>
@@ -966,6 +1021,17 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
                                         className="text-muted-foreground shrink-0"
                                     />
                                     Create reminders
+                                </button>
+                                <button
+                                    type="button"
+                                    className="flex items-center gap-2.5 w-full px-3 py-2.5 text-sm text-left hover:bg-accent transition-colors"
+                                    onClick={handleOpenCloudFiles}
+                                >
+                                    <Cloud
+                                        size={15}
+                                        className="text-muted-foreground shrink-0"
+                                    />
+                                    {t("chat.cloud_upload_title")}
                                 </button>
                                 <button
                                     type="button"
@@ -1068,7 +1134,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
                         {inputMode === "plain" ? (
                             <Input
                                 ref={inputRef}
-                                placeholder="Type a message. Use @ to mention"
+                                placeholder={t("chat.type_message_placeholder")}
                                 value={content}
                                 onChange={(e) =>
                                     handleContentChange(e.target.value)
@@ -1100,8 +1166,8 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
                         <Button
                             type="button"
                             onClick={handleStartRecording}
-                            className="h-10 w-10 shrink-0 bg-brand text-white hover:bg-brand/90 rounded-full p-0 transition-all active:scale-95"
-                            title="Record voice message"
+                            className="h-10 w-10 shrink-0 bg-[#1a146b] text-white hover:bg-[#312e81] rounded-full p-0 transition-all active:scale-95"
+                            title={t("chat.record_voice", { defaultValue: "Record voice message" })}
                         >
                             <Mic size={18} />
                         </Button>
@@ -1109,14 +1175,14 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
                         <Button
                             onClick={handleSend}
                             disabled={!canSend}
-                            className="h-10 px-6 bg-brand text-white hover:bg-brand/90 transition-all active:scale-95 disabled:opacity-50 disabled:scale-100"
+                            className="h-10 px-6 bg-[#1a146b] text-white hover:bg-[#312e81] transition-all active:scale-95 disabled:opacity-50 disabled:scale-100"
                         >
                             {isUploading ? (
                                 <Loader2 size={18} className="mr-2 animate-spin" />
                             ) : (
                                 <SendHorizontal size={18} className="mr-2" />
                             )}
-                            <span className="font-medium text-sm">Send</span>
+                            <span className="font-medium text-sm">{t("chat.send_button")}</span>
                         </Button>
                     )}
                 </div>
@@ -1196,7 +1262,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
                                 onChange={(e) =>
                                     setPollMultipleChoice(e.target.checked)
                                 }
-                                className="h-4 w-4 rounded border-border text-brand focus:ring-brand"
+                                className="h-4 w-4 rounded border-border text-[#1a146b] focus:ring-[#1a146b]"
                             />
                             <Label htmlFor="poll-multiple">
                                 Allow multiple choice
@@ -1210,7 +1276,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
                                 onChange={(e) =>
                                     setPollAnonymous(e.target.checked)
                                 }
-                                className="h-4 w-4 rounded border-border text-brand focus:ring-brand"
+                                className="h-4 w-4 rounded border-border text-[#1a146b] focus:ring-[#1a146b]"
                             />
                             <Label htmlFor="poll-anonymous">
                                 Anonymous voting
@@ -1322,6 +1388,75 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
                 </DialogContent>
             </Dialog>
 
+            <Dialog open={showCloudFileDialog} onOpenChange={setShowCloudFileDialog}>
+                <DialogContent className="sm:max-w-lg">
+                    <DialogHeader>
+                        <DialogTitle>{t("chat.cloud_upload_title")}</DialogTitle>
+                    </DialogHeader>
+                    <div className="max-h-80 overflow-y-auto space-y-1">
+                        {cloudFileLoading && (
+                            <div className="flex items-center justify-center py-8">
+                                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                            </div>
+                        )}
+                        {!cloudFileLoading && cloudFiles.length === 0 && (
+                            <p className="py-8 text-center text-sm text-muted-foreground">
+                                {t("chat.no_cloud_files")}
+                            </p>
+                        )}
+                        {!cloudFileLoading && cloudFiles.map((file) => {
+                            const selected = selectedCloudFileIds.includes(file.fileId);
+                            return (
+                                <button
+                                    key={file.fileId}
+                                    type="button"
+                                    className={cn(
+                                        "flex w-full items-center gap-3 rounded-lg border px-3 py-2 text-left transition-colors hover:bg-accent",
+                                        selected
+                                            ? "border-[#1a146b] bg-[#1a146b]/5"
+                                            : "border-transparent",
+                                    )}
+                                    onClick={() => handleToggleCloudFile(file.fileId)}
+                                >
+                                    {file.fileType.startsWith("image/") ? (
+                                        <img
+                                            src={file.url}
+                                            alt=""
+                                            className="h-10 w-10 shrink-0 rounded object-cover"
+                                        />
+                                    ) : (
+                                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded bg-muted">
+                                            <FileText className="h-5 w-5 text-muted-foreground" />
+                                        </div>
+                                    )}
+                                    <div className="min-w-0 flex-1">
+                                        <p className="truncate text-sm font-medium">{file.fileName}</p>
+                                        <p className="text-xs text-muted-foreground">
+                                            {formatCloudFileSize(file.fileSize)}
+                                        </p>
+                                    </div>
+                                    {selected && <Check className="h-4 w-4 shrink-0 text-[#1a146b]" />}
+                                </button>
+                            );
+                        })}
+                    </div>
+                    <DialogFooter>
+                        <Button
+                            variant="ghost"
+                            onClick={() => setShowCloudFileDialog(false)}
+                        >
+                            {t("common.cancel")}
+                        </Button>
+                        <Button
+                            disabled={selectedCloudFileIds.length === 0}
+                            onClick={handleAttachCloudFiles}
+                        >
+                            {t("chat.attach_selected")}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
             {/* Business card (VCard) dialog */}
             <Dialog open={showVCardDialog} onOpenChange={setShowVCardDialog}>
                 <DialogContent className="sm:max-w-sm">
@@ -1346,12 +1481,12 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
                                 className={cn(
                                     "flex items-center gap-3 w-full px-3 py-2 rounded-lg text-left hover:bg-accent transition-colors border",
                                     vCardUser?.id === user.id
-                                        ? "border-brand bg-brand/5"
+                                        ? "border-[#1a146b] bg-[#1a146b]/5"
                                         : "border-transparent",
                                 )}
                                 onClick={() => setVCardUser(user)}
                             >
-                                <div className="w-9 h-9 rounded-full bg-brand/20 flex items-center justify-center text-sm font-semibold text-brand shrink-0">
+                                <div className="w-9 h-9 rounded-full bg-[#1a146b]/20 flex items-center justify-center text-sm font-semibold text-[#1a146b] shrink-0">
                                     {user.avatarUrl ? (
                                         <img
                                             src={user.avatarUrl}
@@ -1367,7 +1502,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
                                         {user.displayName}
                                         {user.id === currentUserId && (
                                             <span className="ml-1.5 text-xs text-muted-foreground">
-                                                (You)
+                                                ({t("common.you")})
                                             </span>
                                         )}
                                     </p>
@@ -1378,7 +1513,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
                                 {vCardUser?.id === user.id && (
                                     <Check
                                         size={15}
-                                        className="text-brand shrink-0"
+                                        className="text-[#1a146b] shrink-0"
                                     />
                                 )}
                             </button>
