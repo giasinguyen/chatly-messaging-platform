@@ -228,28 +228,39 @@ export function GroupManagementPanel({
     // Listen for ROLE_UPDATED events to refresh the member list in realtime
     useEffect(() => {
         if (!open || !conversationId) return;
-        const client = socketService.getClient();
-        if (!client?.connected) return;
 
-        const sub = client.subscribe(
-            `/topic/conversation.${conversationId}`,
-            (frame) => {
-                try {
-                    const event = JSON.parse(frame.body);
-                    if (
-                        event.action === "ROLE_UPDATED" ||
-                        event.action === "GROUP_UPDATE"
-                    ) {
-                        fetchMembers();
+        let disposed = false;
+
+        const setup = async () => {
+            const token = localStorage.getItem("access_token");
+            if (!token) return;
+
+            await socketService.connect(token);
+            if (disposed) return;
+
+            return socketService.subscribe(
+                `/topic/conversation.${conversationId}`,
+                (frame) => {
+                    try {
+                        const event = JSON.parse(frame.body);
+                        if (
+                            event.action === "ROLE_UPDATED" ||
+                            event.action === "GROUP_UPDATE"
+                        ) {
+                            fetchMembers();
+                        }
+                    } catch {
+                        /* ignore */
                     }
-                } catch {
-                    /* ignore */
-                }
-            },
-        );
+                },
+            );
+        };
+
+        const cleanupPromise = setup();
 
         return () => {
-            sub.unsubscribe();
+            disposed = true;
+            cleanupPromise.then((cleanup) => cleanup?.());
         };
     }, [open, conversationId, fetchMembers]);
 
@@ -1268,11 +1279,16 @@ function MemberRow({
 
     useLayoutEffect(() => {
         if (!isRoleMenuOpen) {
-            setRoleMenuPosition(null);
             return;
         }
 
-        updateRoleMenuPosition();
+        const animationFrameId = window.requestAnimationFrame(() => {
+            updateRoleMenuPosition();
+        });
+
+        return () => {
+            window.cancelAnimationFrame(animationFrameId);
+        };
     }, [isRoleMenuOpen, updateRoleMenuPosition]);
 
     useEffect(() => {
