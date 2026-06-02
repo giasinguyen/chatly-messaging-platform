@@ -87,13 +87,21 @@ def test_regular_tools_remain_in_research_tools() -> None:
     tool_names = [
         "readRecentMessages",
         "getGroupInfo",
+        "listGroupReminders",
+        "createGroupReminder",
         "createGroupPoll",
         SEND_TEXT_MESSAGE_TOOL_NAME,
         SEND_AI_MESSAGE_TOOL_NAME,
     ]
     agent = _build_agent(tool_names)
     research_names = _research_tool_names(agent)
-    for name in ["readRecentMessages", "getGroupInfo", "createGroupPoll"]:
+    for name in [
+        "readRecentMessages",
+        "getGroupInfo",
+        "listGroupReminders",
+        "createGroupReminder",
+        "createGroupPoll",
+    ]:
         assert name in research_names
 
 

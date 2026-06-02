@@ -1,7 +1,7 @@
 """Agent for @AI mentions in group conversations.
 
 Architecture:
-  1. ReAct loop with read-only tools to gather context (messages, group info, etc.)
+  1. ReAct loop with research/action tools for group context and tasks
   2. LLM generates a response as normal text
   3. Deterministic final step: call ``sendAiMessage`` MCP tool to deliver the response
 

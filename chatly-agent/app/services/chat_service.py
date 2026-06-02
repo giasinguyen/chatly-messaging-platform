@@ -1,7 +1,9 @@
 import asyncio
 import logging
 from collections.abc import AsyncIterator
+from datetime import datetime
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from langchain_core.messages import (
     AIMessage,
@@ -50,6 +52,7 @@ TIMEOUT_PATTERNS = (
 MAX_MODEL_HISTORY_MESSAGES = 12
 MAX_MODEL_HISTORY_MESSAGE_CHARS = 4000
 TRUNCATED_HISTORY_SUFFIX = "\n\n[Earlier content truncated to fit model limits.]"
+LOCAL_TIMEZONE = ZoneInfo("Asia/Ho_Chi_Minh")
 
 
 class ChatService:
@@ -197,10 +200,15 @@ class ChatService:
                 parts.append(skill_context)
 
         if context_conversation_id is not None:
+            local_now = datetime.now(LOCAL_TIMEZONE)
             parts.append(
                 f"\n\n## Active Conversation Context\n"
                 "You are currently assisting inside conversation ID: "
                 f"`{context_conversation_id}`.\n"
+                "Current local datetime: "
+                f"{local_now.isoformat(timespec='minutes')} "
+                "(Asia/Ho_Chi_Minh). Use this to resolve relative dates like "
+                "'today', 'tomorrow', 'hôm nay', and 'ngày mai'.\n"
                 "When the user says 'this group', 'here', 'this conversation', "
                 "or similar, they are referring to conversation ID: "
                 f"`{context_conversation_id}`.\n"
@@ -477,8 +485,8 @@ class ChatService:
     ) -> None:
         """Handle an @AI mention in a group conversation.
 
-        Creates a :class:`GroupAgent` that gathers context via read-only
-        MCP tools, generates a response, and deterministically delivers it
+        Creates a :class:`GroupAgent` that gathers context, performs group
+        actions when requested, generates a response, and deterministically delivers it
         to the group via ``sendAiMessage``.
         """
         rows = await self._message_repo.find_by_session(session_id)
@@ -500,7 +508,7 @@ class ChatService:
         # Assemble MCP tools (full set — GroupAgent partitions internally).
         tools: list[BaseTool] = []
         if self._tool_service:
-            tools = await self._tool_service.assemble_tools(user_id, [], False)
+            tools = await self._tool_service.assemble_tools(user_id, [], True)
         tools.extend(image_tools)
         logger.info(
             "Group assist assembled tools: count=%d names=%s",
@@ -531,7 +539,6 @@ class ChatService:
         self,
         *,
         user_id: str,
-        session_id: str,
         post_id: str,
         comment_id: str,
         content: str,
@@ -539,10 +546,7 @@ class ChatService:
         post_context: str,
         thread_context: str,
     ) -> None:
-        """Handle social mention-in-comment flow and publish AI reply."""
-        rows = await self._message_repo.find_by_session(session_id)
-        history = self._to_langchain_history(rows)
-
+        """Handle stateless social mention-in-comment flow and publish AI reply."""
         session_context = (
             "\n\n## Active Social Context\n"
             f"You are assisting on post ID: `{post_id}`.\n"
@@ -552,7 +556,7 @@ class ChatService:
         generated_attachments: list[dict[str, Any]] = []
         image_tools = self._build_image_tools(
             user_id,
-            session_id,
+            f"social:post:{post_id}",
             generated_attachments,
         )
 
@@ -575,8 +579,7 @@ class ChatService:
             generated_attachments=generated_attachments,
         )
 
-        await self._message_repo.create_message(session_id, "user", content)
-        response_text = await agent.run_mention_in_comment(
+        await agent.run_mention_in_comment(
             message=content,
             user_id=user_id,
             post_id=post_id,
@@ -585,24 +588,19 @@ class ChatService:
             post_context=post_context,
             thread_context=thread_context,
             session_context=session_context,
-            history=history,
+            history=[],
         )
-        await self._message_repo.create_message(session_id, "assistant", response_text)
 
     async def run_social_post_command_assist(
         self,
         *,
         user_id: str,
-        session_id: str,
         post_id: str,
         command_content: str,
         post_context: str,
         thread_context: str,
     ) -> None:
-        """Handle social post-command flow and publish AI reply."""
-        rows = await self._message_repo.find_by_session(session_id)
-        history = self._to_langchain_history(rows)
-
+        """Handle stateless social post-command flow and publish AI reply."""
         session_context = (
             "\n\n## Active Social Context\n"
             f"You are assisting on post ID: `{post_id}`.\n"
@@ -612,7 +610,7 @@ class ChatService:
         generated_attachments: list[dict[str, Any]] = []
         image_tools = self._build_image_tools(
             user_id,
-            session_id,
+            f"social:post:{post_id}",
             generated_attachments,
         )
 
@@ -630,14 +628,12 @@ class ChatService:
             generated_attachments=generated_attachments,
         )
 
-        await self._message_repo.create_message(session_id, "user", command_content)
-        response_text = await agent.run_post_command(
+        await agent.run_post_command(
             message=command_content,
             user_id=user_id,
             post_id=post_id,
             post_context=post_context,
             thread_context=thread_context,
             session_context=session_context,
-            history=history,
+            history=[],
         )
-        await self._message_repo.create_message(session_id, "assistant", response_text)

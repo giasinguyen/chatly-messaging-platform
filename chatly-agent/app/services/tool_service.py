@@ -75,11 +75,13 @@ class ToolService:
                 tools.append(create_web_search_tool())
             else:
                 logger.warning(
-                    "use_web_search=True but TAVILY_API_KEY is not configured — skipping"
+                    "use_web_search=True but TAVILY_API_KEY is not configured "
+                    "— skipping"
                 )
 
         logger.info(
-            "Tool assembly complete for user_id=%s: system_mcp=%d user_mcp=%d web_search=%s total=%d",
+            "Tool assembly complete for user_id=%s: system_mcp=%d "
+            "user_mcp=%d web_search=%s total=%d",
             user_id,
             len(system_infos) if self._system_mcp_service else 0,
             len(user_infos) if self._mcp_service and mcp_server_ids else 0,

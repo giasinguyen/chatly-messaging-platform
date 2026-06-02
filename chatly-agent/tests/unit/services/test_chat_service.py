@@ -86,6 +86,127 @@ async def test_chat_saves_user_and_assistant_messages() -> None:
 
 
 @pytest.mark.asyncio
+async def test_group_assist_enables_web_search_by_default() -> None:
+    message_repo = AsyncMock()
+    message_repo.find_by_session.return_value = []
+    message_repo.create_message.side_effect = [{"id": "m-user"}, {"id": "m-assistant"}]
+
+    tool_service = AsyncMock(spec=ToolService)
+    tool_service.assemble_tools = AsyncMock(return_value=[])
+    fake_group_agent = AsyncMock()
+    fake_group_agent.run.return_value = "group reply"
+
+    with patch("app.services.chat_service.GroupAgent", return_value=fake_group_agent):
+        service = ChatService(
+            session_service=AsyncMock(),
+            message_repo=message_repo,
+            chatbot_agent=AsyncMock(),
+            vector_service=AsyncMock(),
+            tool_service=tool_service,
+            llm=MagicMock(),
+        )
+
+        await service.run_group_assist(
+            user_id="user-1",
+            session_id="session-1",
+            conversation_id="conversation-1",
+            content="@ai check latest info",
+        )
+
+    tool_service.assemble_tools.assert_awaited_once_with("user-1", [], True)
+    fake_group_agent.run.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_social_mention_assist_enables_web_search_by_default() -> None:
+    message_repo = AsyncMock()
+
+    tool_service = AsyncMock(spec=ToolService)
+    tool_service.assemble_tools = AsyncMock(return_value=[])
+    fake_social_agent = AsyncMock()
+    fake_social_agent.run_mention_in_comment.return_value = "social reply"
+
+    with patch("app.services.chat_service.SocialAgent", return_value=fake_social_agent):
+        service = ChatService(
+            session_service=AsyncMock(),
+            message_repo=message_repo,
+            chatbot_agent=AsyncMock(),
+            vector_service=AsyncMock(),
+            tool_service=tool_service,
+            llm=MagicMock(),
+        )
+
+        await service.run_social_mention_assist(
+            user_id="user-1",
+            post_id="post-1",
+            comment_id="comment-1",
+            content="@ai check latest info",
+            mention_command="@ai",
+            post_context="post",
+            thread_context="thread",
+        )
+
+    tool_service.assemble_tools.assert_awaited_once_with("user-1", [], True)
+    fake_social_agent.run_mention_in_comment.assert_awaited_once()
+    message_repo.find_by_session.assert_not_awaited()
+    message_repo.create_message.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_social_post_command_assist_enables_web_search_by_default() -> None:
+    message_repo = AsyncMock()
+
+    tool_service = AsyncMock(spec=ToolService)
+    tool_service.assemble_tools = AsyncMock(return_value=[])
+    fake_social_agent = AsyncMock()
+    fake_social_agent.run_post_command.return_value = "post reply"
+
+    with patch("app.services.chat_service.SocialAgent", return_value=fake_social_agent):
+        service = ChatService(
+            session_service=AsyncMock(),
+            message_repo=message_repo,
+            chatbot_agent=AsyncMock(),
+            vector_service=AsyncMock(),
+            tool_service=tool_service,
+            llm=MagicMock(),
+        )
+
+        await service.run_social_post_command_assist(
+            user_id="user-1",
+            post_id="post-1",
+            command_content="@ai check latest info",
+            post_context="post",
+            thread_context="thread",
+        )
+
+    tool_service.assemble_tools.assert_awaited_once_with("user-1", [], True)
+    fake_social_agent.run_post_command.assert_awaited_once()
+    message_repo.find_by_session.assert_not_awaited()
+    message_repo.create_message.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_session_context_includes_local_datetime_for_group_assist() -> None:
+    service = ChatService(
+        session_service=AsyncMock(),
+        message_repo=AsyncMock(),
+        chatbot_agent=AsyncMock(),
+        vector_service=AsyncMock(),
+    )
+
+    context = await service._build_session_context(
+        user_id="user-1",
+        session_id="session-1",
+        context_conversation_id="conversation-1",
+    )
+
+    assert "Current local datetime:" in context
+    assert "Asia/Ho_Chi_Minh" in context
+    assert "ngày mai" in context
+    assert "`conversation-1`" in context
+
+
+@pytest.mark.asyncio
 async def test_chat_sends_trimmed_recent_history_to_agent() -> None:
     session_service = AsyncMock()
     message_repo = AsyncMock()
