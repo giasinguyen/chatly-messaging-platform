@@ -111,7 +111,7 @@ export default function SavedPage({ embedded = false }: SavedPageProps) {
                 <main
                     className={cn(
                         "mx-auto flex w-full flex-col gap-4 px-4 py-8",
-                        embedded ? "max-w-none pb-8" : "max-w-2xl pb-32",
+                        embedded ? "max-w-xl pb-8" : "max-w-2xl pb-32",
                     )}
                 >
                     <header className="flex items-center gap-3">
