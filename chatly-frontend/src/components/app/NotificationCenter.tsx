@@ -18,6 +18,7 @@ import {
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { resolveNotificationRoute } from "@/utils/notificationRedirect";
+import { useNotificationPrefsStore } from "@/store/notificationPrefs.store";
 
 function getIcon(type: NotificationType) {
     switch (type) {
@@ -79,7 +80,12 @@ export function NotificationCenter() {
         }
 
         // Browser push notification when tab is hidden
-        if (document.hidden && "Notification" in window && Notification.permission === "granted") {
+        if (
+            document.hidden &&
+            useNotificationPrefsStore.getState().browserNotificationsEnabled &&
+            "Notification" in window &&
+            Notification.permission === "granted"
+        ) {
             const browserNotif = new window.Notification("Chatly", {
                 body: event.notification.content ?? "You have a new notification",
                 icon: "/favicon.ico",
@@ -97,7 +103,11 @@ export function NotificationCenter() {
     useEffect(() => {
         if (!user?.id) return;
 
-        if ("Notification" in window && Notification.permission === "default") {
+        if (
+            useNotificationPrefsStore.getState().browserNotificationsEnabled &&
+            "Notification" in window &&
+            Notification.permission === "default"
+        ) {
             Notification.requestPermission();
         }
 

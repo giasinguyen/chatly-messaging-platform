@@ -4,6 +4,7 @@ import { socketService } from "@/services/socket.service";
 import { useAuthStore } from "@/store/auth.store";
 import type { NotificationEvent } from "@/types/notification";
 import { resolveNotificationRoute } from "@/utils/notificationRedirect";
+import { useNotificationPrefsStore } from "@/store/notificationPrefs.store";
 
 interface UseNotificationSocketProps {
     onEvent: (event: NotificationEvent) => void;
@@ -15,7 +16,11 @@ export function useNotificationSocket({ onEvent }: UseNotificationSocketProps) {
     useEffect(() => {
         if (!user) return;
 
-        if ("Notification" in window && Notification.permission === "default") {
+        if (
+            useNotificationPrefsStore.getState().browserNotificationsEnabled &&
+            "Notification" in window &&
+            Notification.permission === "default"
+        ) {
             Notification.requestPermission();
         }
 
@@ -40,6 +45,8 @@ export function useNotificationSocket({ onEvent }: UseNotificationSocketProps) {
 
                     if (
                         document.hidden &&
+                        useNotificationPrefsStore.getState()
+                            .browserNotificationsEnabled &&
                         "Notification" in window &&
                         Notification.permission === "granted"
                     ) {
