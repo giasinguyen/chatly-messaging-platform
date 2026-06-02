@@ -22,7 +22,7 @@ class ToolPartition:
     research_tools: list[BaseTool]
 
 
-def partition_mention_tools(tools: list[BaseTool]) -> ToolPartition:
+def partition_group_tools(tools: list[BaseTool]) -> ToolPartition:
     """Separate deterministic group-message delivery from research tools."""
     delivery_tool: BaseTool | None = None
     research_tools: list[BaseTool] = []

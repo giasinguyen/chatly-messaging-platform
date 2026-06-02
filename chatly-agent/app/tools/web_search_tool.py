@@ -2,6 +2,7 @@
 
 import os
 
+from langchain_core.tools import BaseTool, tool
 from langchain_tavily import TavilySearch
 
 from app.config import settings
@@ -16,7 +17,7 @@ def web_search_available() -> bool:
     return bool(settings.tavily_api_key)
 
 
-def create_web_search_tool(max_results: int = _MAX_RESULTS) -> TavilySearch:
+def create_web_search_tool(max_results: int = _MAX_RESULTS) -> BaseTool:
     """
     Return a TavilySearch tool configured with the project API key.
 
@@ -29,9 +30,21 @@ def create_web_search_tool(max_results: int = _MAX_RESULTS) -> TavilySearch:
     if not settings.tavily_api_key:
         raise ValueError("Tavily API key not configured — set TAVILY_API_KEY in .env")
     os.environ["TAVILY_API_KEY"] = settings.tavily_api_key
-    return TavilySearch(
+    tavily_tool = TavilySearch(
         max_results=max_results,
         search_depth=_SEARCH_DEPTH,
         include_answer=True,
         include_raw_content=False,
     )
+
+    @tool
+    async def tavily_search(query: str) -> str:
+        """Search the internet for current or factual information.
+
+        Args:
+            query: Search query to look up.
+        """
+        result = await tavily_tool.ainvoke({"query": query})
+        return str(result)
+
+    return tavily_search

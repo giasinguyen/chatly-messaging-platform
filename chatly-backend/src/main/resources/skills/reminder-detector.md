@@ -55,20 +55,20 @@ Compare the candidate reminder against existing ones:
   "Đã có nhắc nhở tương tự: **[title]** vào **[readable datetime]**. Bạn muốn tạo thêm không?"
 - Different title or significantly different time → proceed to step 4.
 
-### 4. Confirm before creating
-Present the reminder details for confirmation in plain language:
+### 4. Create immediately when the request is explicit
+If the user's original message is an explicit, unambiguous reminder command with
+all required fields, call `createGroupReminder` immediately after the duplicate
+check. Examples:
+- "Đặt nhắc hẹn đi ăn tối ngày mai lúc 8h."
+- "Remind the group about sprint planning next Monday at 9am."
+
+Only ask for confirmation when the time, date, title, or target is missing or
+ambiguous. In that case, present the reminder details in plain language:
 
 > Mình sẽ đặt nhắc nhở:
 > **Họp sprint planning** — thứ Hai 26/5 lúc 9:00 sáng
 > Mô tả: Chuẩn bị agenda và điểm tồn đọng từ sprint trước.
 > Bạn xác nhận nhé?
-
-Wait for explicit confirmation before calling `createGroupReminder`.
-
-**Exception — skip confirmation if**:
-- The user's original message was already an explicit, unambiguous reminder command
-  with all required fields: "Đặt nhắc họp sprint planning thứ Hai 26/5 lúc 9 giờ sáng."
-  In this case, create immediately and confirm after.
 
 ### 5. Create the reminder
 Call `createGroupReminder(conversationId, title, description, remindAt)`.
@@ -80,7 +80,8 @@ Call `createGroupReminder(conversationId, title, description, remindAt)`.
 | `remindAt` | ISO-8601 UTC string, e.g. `2026-05-26T02:00:00Z` for 9:00 AM UTC+7 |
 
 ### 6. Confirm to the user
-After successful creation, reply in plain language:
+After successful creation, reply in plain language. Never say the reminder was
+created if the tool was not called or failed.
 > Đã đặt nhắc nhở **Họp sprint planning** vào **thứ Hai 26/5 lúc 9:00 sáng**. ✓
 
 ---

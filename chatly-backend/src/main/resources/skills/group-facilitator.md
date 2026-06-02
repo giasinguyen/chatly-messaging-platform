@@ -54,11 +54,12 @@ logic below.
 #### Creating a reminder
 1. Call `listGroupReminders(conversationId)` to check for duplicates.
 2. If a similar reminder exists, surface it: "Đã có nhắc nhở tương tự: [title] vào [time]."
-3. If no duplicate, confirm the details in your reply before creating:
+3. If no duplicate and the user's original mention is explicit enough, call
+   `createGroupReminder(conversationId, title, description, remindAt)` immediately.
+4. Only ask for confirmation when required details are missing or ambiguous:
    "Mình sẽ đặt nhắc nhở: [title] vào [readable datetime]. Xác nhận nhé?"
-4. After confirmation (or if the original mention was already explicit enough), call
-   `createGroupReminder(conversationId, title, description, remindAt)`.
-5. Confirm: "Đã đặt nhắc nhở [title] vào [readable datetime]."
+5. Confirm creation only after the tool succeeds:
+   "Đã đặt nhắc nhở [title] vào [readable datetime]."
 
 #### Answering a question
 1. Read the relevant messages and member list.
