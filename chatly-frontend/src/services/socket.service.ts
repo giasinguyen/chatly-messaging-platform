@@ -18,6 +18,26 @@ class SocketService {
         return () => this.connectListeners.delete(cb);
     }
 
+    subscribe(
+        destination: string,
+        callback: (message: IMessage) => void,
+    ): () => void {
+        let currentSubscription: StompSubscription | null = null;
+
+        const subscribe = () => {
+            if (!this.client?.connected) return;
+            currentSubscription?.unsubscribe();
+            currentSubscription = this.client.subscribe(destination, callback);
+        };
+
+        const removeConnectListener = this.onConnect(subscribe);
+
+        return () => {
+            removeConnectListener();
+            currentSubscription?.unsubscribe();
+        };
+    }
+
     /**
      * Initialize and connect
      */
@@ -42,12 +62,15 @@ class SocketService {
             };
 
             client.onStompError = (frame) => {
-                console.error('[SocketService] STOMP Error:', frame.headers['message']);
+                console.error(
+                    "[SocketService] STOMP Error:",
+                    frame.headers["message"],
+                );
                 reject(new Error(frame.headers["message"]));
             };
 
             client.onWebSocketClose = (evt) => {
-                console.warn('[SocketService] WebSocket Closed:', evt);
+                console.warn("[SocketService] WebSocket Closed:", evt);
             };
 
             client.activate();
@@ -59,25 +82,10 @@ class SocketService {
 
     subscribeToFeed(userId: string, onPost: (post: Post) => void): () => void {
         const destination = `/topic/feed/${userId}`;
-        let currentSubscription: StompSubscription | null = null;
-
-        const subscribe = () => {
-            if (!this.client?.connected) return;
-            currentSubscription?.unsubscribe();
-            currentSubscription = this.client.subscribe(
-                destination,
-                (message) => {
-                    const post = this.parsePost(message);
-                    if (post) onPost(post);
-                },
-            );
-        };
-
-        const removeConnectListener = this.onConnect(subscribe);
-        return () => {
-            removeConnectListener();
-            currentSubscription?.unsubscribe();
-        };
+        return this.subscribe(destination, (message) => {
+            const post = this.parsePost(message);
+            if (post) onPost(post);
+        });
     }
 
     /**

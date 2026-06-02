@@ -31,13 +31,12 @@ export function useNotificationSocket({ onEvent }: UseNotificationSocketProps) {
             if (!token) return;
 
             await socketService.connect(token);
-            const client = socketService.getClient();
 
-            if (!client || !isMounted) return;
+            if (!isMounted) return;
 
             // Subscribe to the user-specific notification queue.
             // Spring maps /user/queue/notifications → user's own session channel.
-            const sub = client.subscribe(
+            const unsubscribe = socketService.subscribe(
                 "/user/queue/notifications",
                 (payload) => {
                     const event = JSON.parse(payload.body) as NotificationEvent;
@@ -101,7 +100,7 @@ export function useNotificationSocket({ onEvent }: UseNotificationSocketProps) {
             );
 
             return () => {
-                sub.unsubscribe();
+                unsubscribe();
             };
         };
 

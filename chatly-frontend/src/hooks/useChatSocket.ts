@@ -29,10 +29,13 @@ export function useChatSocket({
     const onTypingRef = useRef(onTyping);
     const onReadRef = useRef(onRead);
     const onErrorRef = useRef(onError);
-    onEventRef.current = onEvent;
-    onTypingRef.current = onTyping;
-    onReadRef.current = onRead;
-    onErrorRef.current = onError;
+
+    useEffect(() => {
+        onEventRef.current = onEvent;
+        onTypingRef.current = onTyping;
+        onReadRef.current = onRead;
+        onErrorRef.current = onError;
+    }, [onEvent, onTyping, onRead, onError]);
 
     useEffect(() => {
         if (!conversationId || !user) return;
@@ -44,54 +47,57 @@ export function useChatSocket({
             if (!token) return;
 
             await socketService.connect(token);
-            const client = socketService.getClient();
-
-            if (!client || !isMounted) return;
+            if (!isMounted) return;
 
             // 1. Subscribe to chat events (SEND, EDIT, RECALL, DELETE)
-            const eventSub = client.subscribe(
+            const removeEventSub = socketService.subscribe(
                 `/topic/conversation.${conversationId}`,
                 (payload) => {
                     const event = JSON.parse(payload.body) as ChatEvent;
                     onEventRef.current(event);
-                }
+                },
             );
 
             // 2. Subscribe to typing indicators
-            const typingSub = client.subscribe(
+            const removeTypingSub = socketService.subscribe(
                 `/topic/conversation.${conversationId}.typing`,
                 (payload) => {
                     const data = JSON.parse(payload.body);
                     onTypingRef.current(data);
-                }
+                },
             );
 
             // 3. Subscribe to read receipts
-            const readSub = client.subscribe(
+            const removeReadSub = socketService.subscribe(
                 `/topic/conversation.${conversationId}.read`,
                 (payload) => {
                     const msg = JSON.parse(payload.body);
                     onReadRef.current(msg);
-                }
+                },
             );
 
-            const errorSub = client.subscribe("/user/queue/errors", (payload) => {
-                try {
-                    const errorPayload = JSON.parse(payload.body) as {
-                        code?: number;
-                        message?: string;
-                    };
-                    onErrorRef.current?.(errorPayload);
-                } catch {
-                    onErrorRef.current?.({ message: "Failed to send message" });
-                }
-            });
+            const removeErrorSub = socketService.subscribe(
+                "/user/queue/errors",
+                (payload) => {
+                    try {
+                        const errorPayload = JSON.parse(payload.body) as {
+                            code?: number;
+                            message?: string;
+                        };
+                        onErrorRef.current?.(errorPayload);
+                    } catch {
+                        onErrorRef.current?.({
+                            message: "Failed to send message",
+                        });
+                    }
+                },
+            );
 
             return () => {
-                eventSub.unsubscribe();
-                typingSub.unsubscribe();
-                readSub.unsubscribe();
-                errorSub.unsubscribe();
+                removeEventSub();
+                removeTypingSub();
+                removeReadSub();
+                removeErrorSub();
             };
         };
 
@@ -106,11 +112,26 @@ export function useChatSocket({
     }, [conversationId, user]);
 
     const sendMessage = useCallback(
-        (content: string, replyToId: string | null = null, attachments?: Attachment[], poll?: Poll, priority?: string, mentions?: string[], messageType?: string, location?: import("@/types/message").LocationPayload): boolean => {
+        (
+            content: string,
+            replyToId: string | null = null,
+            attachments?: Attachment[],
+            poll?: Poll,
+            priority?: string,
+            mentions?: string[],
+            messageType?: string,
+            location?: import("@/types/message").LocationPayload,
+        ): boolean => {
             const client = socketService.getClient();
             if (client?.connected) {
                 const hasAttachments = attachments && attachments.length > 0;
-                const type = messageType ?? (poll ? "POLL" : (hasAttachments ? resolveMessageType(attachments![0].type) : "TEXT"));
+                const type =
+                    messageType ??
+                    (poll
+                        ? "POLL"
+                        : hasAttachments
+                          ? resolveMessageType(attachments![0].type)
+                          : "TEXT");
                 client.publish({
                     destination: "/app/chat.send",
                     body: JSON.stringify({
@@ -121,7 +142,10 @@ export function useChatSocket({
                         attachments: hasAttachments ? attachments : undefined,
                         poll: poll ?? undefined,
                         priority: priority ?? undefined,
-                        mentions: mentions && mentions.length > 0 ? mentions : undefined,
+                        mentions:
+                            mentions && mentions.length > 0
+                                ? mentions
+                                : undefined,
                         location: location ?? undefined,
                     }),
                 });
@@ -129,7 +153,7 @@ export function useChatSocket({
             }
             return false;
         },
-        [conversationId]
+        [conversationId],
     );
 
     const sendTyping = useCallback(
@@ -145,7 +169,7 @@ export function useChatSocket({
                 });
             }
         },
-        [conversationId]
+        [conversationId],
     );
 
     const sendSeen = useCallback((messageId: string) => {
