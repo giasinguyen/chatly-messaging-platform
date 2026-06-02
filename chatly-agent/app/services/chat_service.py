@@ -1,4 +1,3 @@
-import asyncio
 import logging
 from collections.abc import AsyncIterator
 from datetime import datetime
@@ -18,6 +17,7 @@ from minio import Minio
 from app.agents.chatbot_agent import ChatbotAgent
 from app.agents.group_agent import GroupAgent
 from app.agents.social_agent import SocialAgent
+from app.agents.tool_selection import SEND_AI_MESSAGE_TOOL_NAME
 from app.agents.unified_agent import UnifiedAgent
 from app.models.chat import ChatInput, ChatRequest, ChatResponse
 from app.models.stream import (
@@ -29,6 +29,7 @@ from app.models.stream import (
 )
 from app.repositories.file_repo import FileRepository
 from app.repositories.message_repo import MessageRepository
+from app.services.group_action_service import handle_explicit_group_action
 from app.services.session_service import SessionService
 from app.services.system_mcp import SystemMCPService
 from app.services.tool_service import ToolService
@@ -109,6 +110,7 @@ class ChatService:
         use_web_search: bool,
         extra_tools: list[BaseTool] | None = None,
         context_conversation_id: str | None = None,
+        platform_tools: list[BaseTool] | None = None,
     ) -> ChatbotAgent | UnifiedAgent:
         """
         Agent selection priority:
@@ -116,8 +118,8 @@ class ChatService:
            extra_tools present (e.g. image gen) → UnifiedAgent
         2. Fallback → ChatbotAgent
         """
-        tools: list[BaseTool] = []
-        if self._tool_service:
+        tools: list[BaseTool] = list(platform_tools) if platform_tools else []
+        if platform_tools is None and self._tool_service:
             tools = await self._tool_service.assemble_tools(
                 user_id, mcp_server_ids, use_web_search
             )
@@ -257,6 +259,31 @@ class ChatService:
             generated_attachments=generated_attachments,
         )
 
+    async def _send_group_action_response(
+        self,
+        tools: list[BaseTool],
+        conversation_id: str,
+        content: str,
+    ) -> None:
+        """Publish a deterministic group action confirmation."""
+        send_tool = next(
+            (tool for tool in tools if tool.name == SEND_AI_MESSAGE_TOOL_NAME),
+            None,
+        )
+        if send_tool is None:
+            logger.error(
+                "No sendAiMessage tool available for group action response "
+                "conversation=%s",
+                conversation_id,
+            )
+            return
+        await send_tool.ainvoke(
+            {
+                "conversationId": conversation_id,
+                "content": content,
+            }
+        )
+
     def _classify_stream_error(
         self,
         exc: Exception,
@@ -325,18 +352,16 @@ class ChatService:
         image_tools = self._build_image_tools(
             user_id, session_id, generated_attachments
         )
-        session_context, agent = await asyncio.gather(
-            self._build_session_context(
-                user_id, session_id, context_conversation_id=conv_id
-            ),
-            self._select_agent(
+        platform_tools: list[BaseTool] = []
+        if self._tool_service:
+            platform_tools = await self._tool_service.assemble_tools(
                 user_id,
-                session_id,
                 request.mcp_server_ids,
                 request.use_web_search,
-                extra_tools=image_tools,
-                context_conversation_id=conv_id,
-            ),
+            )
+
+        session_context = await self._build_session_context(
+            user_id, session_id, context_conversation_id=conv_id
         )
 
         attachments = await self._resolve_attachments(session_id, request.file_ids)
@@ -345,6 +370,36 @@ class ChatService:
             "user",
             request.message,
             attachments=attachments,
+        )
+        all_tools = [*platform_tools, *image_tools]
+        if conv_id is not None:
+            action = await handle_explicit_group_action(
+                all_tools,
+                request.message,
+                conv_id,
+            )
+            if action is not None:
+                assistant = await self._message_repo.create_message(
+                    session_id,
+                    "assistant",
+                    action.content,
+                    attachments=None,
+                )
+                return ChatResponse(
+                    content=action.content,
+                    session_id=session_id,
+                    message_id=str(assistant["id"]),
+                    agent_type="group_action",
+                )
+
+        agent = await self._select_agent(
+            user_id,
+            session_id,
+            request.mcp_server_ids,
+            request.use_web_search,
+            extra_tools=image_tools,
+            context_conversation_id=conv_id,
+            platform_tools=platform_tools,
         )
         output = await agent.ainvoke(
             ChatInput(
@@ -386,18 +441,51 @@ class ChatService:
         image_tools = self._build_image_tools(
             user_id, session_id, generated_attachments
         )
-        session_context, agent = await asyncio.gather(
-            self._build_session_context(
-                user_id, session_id, context_conversation_id=conv_id
-            ),
-            self._select_agent(
+        platform_tools: list[BaseTool] = []
+        if self._tool_service:
+            platform_tools = await self._tool_service.assemble_tools(
                 user_id,
-                session_id,
                 request.mcp_server_ids,
                 request.use_web_search,
-                extra_tools=image_tools,
-                context_conversation_id=conv_id,
-            ),
+            )
+
+        session_context = await self._build_session_context(
+            user_id, session_id, context_conversation_id=conv_id
+        )
+
+        attachments = await self._resolve_attachments(session_id, request.file_ids)
+        await self._message_repo.create_message(
+            session_id,
+            "user",
+            request.message,
+            attachments=attachments,
+        )
+        all_tools = [*platform_tools, *image_tools]
+        if conv_id is not None:
+            action = await handle_explicit_group_action(
+                all_tools,
+                request.message,
+                conv_id,
+            )
+            if action is not None:
+                assistant = await self._message_repo.create_message(
+                    session_id,
+                    "assistant",
+                    action.content,
+                    attachments=None,
+                )
+                yield token_event(action.content)
+                yield done_event("group_action", str(assistant["id"]), None)
+                return
+
+        agent = await self._select_agent(
+            user_id,
+            session_id,
+            request.mcp_server_ids,
+            request.use_web_search,
+            extra_tools=image_tools,
+            context_conversation_id=conv_id,
+            platform_tools=platform_tools,
         )
         agent_type = agent.agent_type
         chat_input = ChatInput(
@@ -408,14 +496,6 @@ class ChatService:
             session_context=session_context,
         )
         config = {"configurable": {"thread_id": session_id}}
-
-        attachments = await self._resolve_attachments(session_id, request.file_ids)
-        await self._message_repo.create_message(
-            session_id,
-            "user",
-            request.message,
-            attachments=attachments,
-        )
 
         full_content = [""]
         try:
@@ -519,6 +599,25 @@ class ChatService:
         if self._llm is None:
             raise ValueError("LLM is required for GroupAgent")
 
+        await self._message_repo.create_message(session_id, "user", content)
+        action = await handle_explicit_group_action(
+            tools,
+            content,
+            conversation_id,
+        )
+        if action is not None:
+            await self._send_group_action_response(
+                tools,
+                conversation_id,
+                action.content,
+            )
+            await self._message_repo.create_message(
+                session_id,
+                "assistant",
+                action.content,
+            )
+            return
+
         agent = GroupAgent(
             llm=self._llm,
             tools=tools,
@@ -526,7 +625,6 @@ class ChatService:
             generated_attachments=generated_attachments,
         )
 
-        await self._message_repo.create_message(session_id, "user", content)
         response_text = await agent.run(
             message=content,
             user_id=user_id,

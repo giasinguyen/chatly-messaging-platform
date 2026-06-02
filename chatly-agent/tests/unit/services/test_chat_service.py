@@ -19,6 +19,19 @@ async def _iter_events(tokens: list[str]) -> AsyncIterator[dict]:
         yield {"event": "on_chat_model_stream", "data": {"chunk": chunk}}
 
 
+class RecordingTool(BaseTool):
+    name: str
+    description: str = ""
+    calls: list[dict[str, object]]
+
+    def _run(self, *args: object, **kwargs: object) -> str:
+        raise NotImplementedError
+
+    async def _arun(self, *args: object, **kwargs: object) -> str:
+        self.calls.append(kwargs)
+        return "{}"
+
+
 @pytest.mark.asyncio
 async def test_chat_verifies_ownership_before_agent_call() -> None:
     session_service = AsyncMock()
@@ -115,6 +128,255 @@ async def test_group_assist_enables_web_search_by_default() -> None:
 
     tool_service.assemble_tools.assert_awaited_once_with("user-1", [], True)
     fake_group_agent.run.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_group_assist_executes_clear_reminder_without_llm_confirmation() -> None:
+    message_repo = AsyncMock()
+    message_repo.find_by_session.return_value = []
+    message_repo.create_message.side_effect = [{"id": "m-user"}, {"id": "m-assistant"}]
+
+    list_tool = RecordingTool(name="listGroupReminders", calls=[])
+    create_tool = RecordingTool(name="createGroupReminder", calls=[])
+    send_tool = RecordingTool(name="sendAiMessage", calls=[])
+    tool_service = AsyncMock(spec=ToolService)
+    tool_service.assemble_tools = AsyncMock(
+        return_value=[list_tool, create_tool, send_tool]
+    )
+    fake_group_agent = AsyncMock()
+
+    with patch("app.services.chat_service.GroupAgent", return_value=fake_group_agent):
+        service = ChatService(
+            session_service=AsyncMock(),
+            message_repo=message_repo,
+            chatbot_agent=AsyncMock(),
+            vector_service=AsyncMock(),
+            tool_service=tool_service,
+            llm=MagicMock(),
+        )
+
+        await service.run_group_assist(
+            user_id="user-1",
+            session_id="session-1",
+            conversation_id="conversation-1",
+            content="@AI hãy tạo lịch nhắc hẹn ngày mai đi ăn tối lúc 8h",
+        )
+
+    assert list_tool.calls == [{"conversationId": "conversation-1"}]
+    assert create_tool.calls[0]["conversationId"] == "conversation-1"
+    assert create_tool.calls[0]["title"] == "Ăn tối"
+    assert send_tool.calls[0]["conversationId"] == "conversation-1"
+    assert "Mình đã tạo nhắc hẹn" in send_tool.calls[0]["content"]
+    fake_group_agent.run.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_group_assist_executes_clear_poll_without_llm_confirmation() -> None:
+    message_repo = AsyncMock()
+    message_repo.find_by_session.return_value = []
+    message_repo.create_message.side_effect = [{"id": "m-user"}, {"id": "m-assistant"}]
+
+    create_tool = RecordingTool(name="createGroupPoll", calls=[])
+    send_tool = RecordingTool(name="sendAiMessage", calls=[])
+    tool_service = AsyncMock(spec=ToolService)
+    tool_service.assemble_tools = AsyncMock(return_value=[create_tool, send_tool])
+    fake_group_agent = AsyncMock()
+
+    with patch("app.services.chat_service.GroupAgent", return_value=fake_group_agent):
+        service = ChatService(
+            session_service=AsyncMock(),
+            message_repo=message_repo,
+            chatbot_agent=AsyncMock(),
+            vector_service=AsyncMock(),
+            tool_service=tool_service,
+            llm=MagicMock(),
+        )
+
+        await service.run_group_assist(
+            user_id="user-1",
+            session_id="session-1",
+            conversation_id="conversation-1",
+            content='@AI tạo cuộc bình chọn: "Chủ nhật đi đâu?" A) Đi nhậu B) Đi spa',
+        )
+
+    assert create_tool.calls == [
+        {
+            "conversationId": "conversation-1",
+            "question": "Chủ nhật đi đâu?",
+            "options": ["Đi nhậu", "Đi spa"],
+            "multipleChoice": False,
+        }
+    ]
+    assert send_tool.calls[0]["conversationId"] == "conversation-1"
+    assert "Mình đã tạo poll" in send_tool.calls[0]["content"]
+    fake_group_agent.run.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_group_assist_executes_yes_no_poll_without_llm_confirmation() -> None:
+    message_repo = AsyncMock()
+    message_repo.find_by_session.return_value = []
+    message_repo.create_message.side_effect = [{"id": "m-user"}, {"id": "m-assistant"}]
+
+    create_tool = RecordingTool(name="createGroupPoll", calls=[])
+    send_tool = RecordingTool(name="sendAiMessage", calls=[])
+    tool_service = AsyncMock(spec=ToolService)
+    tool_service.assemble_tools = AsyncMock(return_value=[create_tool, send_tool])
+    fake_group_agent = AsyncMock()
+
+    with patch("app.services.chat_service.GroupAgent", return_value=fake_group_agent):
+        service = ChatService(
+            session_service=AsyncMock(),
+            message_repo=message_repo,
+            chatbot_agent=AsyncMock(),
+            vector_service=AsyncMock(),
+            tool_service=tool_service,
+            llm=MagicMock(),
+        )
+
+        await service.run_group_assist(
+            user_id="user-1",
+            session_id="session-1",
+            conversation_id="conversation-1",
+            content="@AI tạo poll thứ bảy đi quẩy ở bar hay không",
+        )
+
+    assert create_tool.calls == [
+        {
+            "conversationId": "conversation-1",
+            "question": "thứ bảy đi quẩy ở bar",
+            "options": ["Có", "Không"],
+            "multipleChoice": False,
+        }
+    ]
+    assert send_tool.calls[0]["conversationId"] == "conversation-1"
+    fake_group_agent.run.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_group_assist_executes_binary_poll_without_llm_confirmation() -> None:
+    message_repo = AsyncMock()
+    message_repo.find_by_session.return_value = []
+    message_repo.create_message.side_effect = [{"id": "m-user"}, {"id": "m-assistant"}]
+
+    create_tool = RecordingTool(name="createGroupPoll", calls=[])
+    send_tool = RecordingTool(name="sendAiMessage", calls=[])
+    tool_service = AsyncMock(spec=ToolService)
+    tool_service.assemble_tools = AsyncMock(return_value=[create_tool, send_tool])
+    fake_group_agent = AsyncMock()
+
+    with patch("app.services.chat_service.GroupAgent", return_value=fake_group_agent):
+        service = ChatService(
+            session_service=AsyncMock(),
+            message_repo=message_repo,
+            chatbot_agent=AsyncMock(),
+            vector_service=AsyncMock(),
+            tool_service=tool_service,
+            llm=MagicMock(),
+        )
+
+        await service.run_group_assist(
+            user_id="user-1",
+            session_id="session-1",
+            conversation_id="conversation-1",
+            content="@AI tạo poll chọn tối nay chơi ke hay chơi đá",
+        )
+
+    assert create_tool.calls == [
+        {
+            "conversationId": "conversation-1",
+            "question": "chọn tối nay",
+            "options": ["Chơi ke", "Chơi đá"],
+            "multipleChoice": False,
+        }
+    ]
+    assert send_tool.calls[0]["conversationId"] == "conversation-1"
+    fake_group_agent.run.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_group_assist_executes_tonight_reminder_without_llm_confirmation() -> None:
+    message_repo = AsyncMock()
+    message_repo.find_by_session.return_value = []
+    message_repo.create_message.side_effect = [{"id": "m-user"}, {"id": "m-assistant"}]
+
+    list_tool = RecordingTool(name="listGroupReminders", calls=[])
+    create_tool = RecordingTool(name="createGroupReminder", calls=[])
+    send_tool = RecordingTool(name="sendAiMessage", calls=[])
+    tool_service = AsyncMock(spec=ToolService)
+    tool_service.assemble_tools = AsyncMock(
+        return_value=[list_tool, create_tool, send_tool]
+    )
+    fake_group_agent = AsyncMock()
+
+    with patch("app.services.chat_service.GroupAgent", return_value=fake_group_agent):
+        service = ChatService(
+            session_service=AsyncMock(),
+            message_repo=message_repo,
+            chatbot_agent=AsyncMock(),
+            vector_service=AsyncMock(),
+            tool_service=tool_service,
+            llm=MagicMock(),
+        )
+
+        await service.run_group_assist(
+            user_id="user-1",
+            session_id="session-1",
+            conversation_id="conversation-1",
+            content="@AI tạo nhắc hẹn đi bay tối nay 10h",
+        )
+
+    assert list_tool.calls == [{"conversationId": "conversation-1"}]
+    assert create_tool.calls[0]["conversationId"] == "conversation-1"
+    assert create_tool.calls[0]["title"] == "Bay"
+    assert send_tool.calls[0]["conversationId"] == "conversation-1"
+    fake_group_agent.run.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_chat_executes_clear_group_poll_without_unified_agent() -> None:
+    session_service = AsyncMock()
+    session_service.get_session.return_value = {
+        "context_conversation_id": "conversation-1"
+    }
+    message_repo = AsyncMock()
+    message_repo.find_by_session.return_value = []
+    message_repo.create_message.side_effect = [{"id": "m-user"}, {"id": "m-assistant"}]
+
+    create_tool = RecordingTool(name="createGroupPoll", calls=[])
+    tool_service = AsyncMock(spec=ToolService)
+    tool_service.assemble_tools = AsyncMock(return_value=[create_tool])
+    vector_service = AsyncMock(has_context=AsyncMock(return_value=False))
+    fake_unified_agent = AsyncMock()
+
+    with patch("app.services.chat_service.UnifiedAgent", return_value=fake_unified_agent):
+        service = ChatService(
+            session_service=session_service,
+            message_repo=message_repo,
+            chatbot_agent=AsyncMock(),
+            vector_service=vector_service,
+            tool_service=tool_service,
+            llm=MagicMock(),
+        )
+
+        response = await service.chat(
+            user_id="user-1",
+            session_id="session-1",
+            request=ChatRequest(
+                message="@AI tạo poll ăn gì tối nay: phở, bún bò, cơm tấm"
+            ),
+        )
+
+    assert response.agent_type == "group_action"
+    assert create_tool.calls == [
+        {
+            "conversationId": "conversation-1",
+            "question": "ăn gì tối nay",
+            "options": ["phở", "bún bò", "cơm tấm"],
+            "multipleChoice": False,
+        }
+    ]
+    fake_unified_agent.ainvoke.assert_not_awaited()
 
 
 @pytest.mark.asyncio
