@@ -4,7 +4,6 @@ import {
     Palette,
     Bell,
     MessageSquare,
-    LayoutGrid,
     KeyRound,
     MonitorSmartphone,
     Bookmark,
@@ -31,7 +30,6 @@ export function SettingsSidebar({
         { id: "appearance", labelKey: "settings.categories.appearance", icon: Palette },
         { id: "notifications", labelKey: "settings.categories.notifications", icon: Bell },
         { id: "messages", labelKey: "settings.categories.messages", icon: MessageSquare },
-        { id: "utilities", labelKey: "settings.categories.utilities", icon: LayoutGrid },
     ];
 
     return (

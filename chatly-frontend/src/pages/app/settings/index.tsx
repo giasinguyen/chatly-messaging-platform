@@ -7,7 +7,6 @@ import { NotificationsSettings } from "./components/NotificationsSettings";
 import { MessagesSettings } from "./components/MessagesSettings";
 import { ChangePasswordSettings } from "./components/ChangePasswordSettings";
 import { SessionSettings } from "./components/SessionSettings";
-import { UtilitiesSettings } from "./components/UtilitiesSettings";
 import SavedPage from "@/pages/app/saved";
 
 export default function SettingPage() {
@@ -31,8 +30,6 @@ export default function SettingPage() {
                 return <SessionSettings />;
             case "saved-posts":
                 return <SavedPage embedded />;
-            case "utilities":
-                return <UtilitiesSettings />;
             default:
                 return <GeneralSettings />;
         }

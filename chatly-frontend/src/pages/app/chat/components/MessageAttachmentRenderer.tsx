@@ -1,15 +1,5 @@
 import {
-    Archive,
-    Code2,
     Download,
-    File,
-    FileAudio,
-    FileImage,
-    FileSpreadsheet,
-    FileText,
-    FileVideo,
-    FolderOpen,
-    Presentation,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
@@ -19,64 +9,7 @@ import {
     ReelPreviewAttachment,
     StoryReplyAttachmentPreview,
 } from "./MessagePreviewAttachment";
-
-function getFileIcon(mimeType?: string, fileName?: string) {
-    const t = mimeType?.toLowerCase() ?? "";
-    const ext = (fileName?.split(".").pop() ?? "").toLowerCase();
-    const iconClassName = "h-5 w-5";
-    if (t.includes("pdf") || ext === "pdf")
-        return { icon: <FileText className={iconClassName} />, className: "bg-red-500", label: "PDF" };
-    if (
-        t.includes("word") ||
-        t.includes("document") ||
-        ext === "docx" ||
-        ext === "doc"
-    )
-        return { icon: <FileText className={iconClassName} />, className: "bg-blue-600", label: "DOC" };
-    if (
-        t.includes("sheet") ||
-        t.includes("excel") ||
-        ext === "xlsx" ||
-        ext === "xls"
-    )
-        return { icon: <FileSpreadsheet className={iconClassName} />, className: "bg-green-600", label: "XLS" };
-    if (ext === "csv")
-        return { icon: <FileSpreadsheet className={iconClassName} />, className: "bg-emerald-600", label: "CSV" };
-    if (
-        t.includes("presentation") ||
-        t.includes("powerpoint") ||
-        ext === "pptx" ||
-        ext === "ppt"
-    )
-        return { icon: <Presentation className={iconClassName} />, className: "bg-orange-500", label: "PPT" };
-    if (t.startsWith("image/"))
-        return { icon: <FileImage className={iconClassName} />, className: "bg-violet-600", label: "IMG" };
-    if (t.startsWith("video/"))
-        return { icon: <FileVideo className={iconClassName} />, className: "bg-pink-600", label: "VID" };
-    if (t.startsWith("audio/"))
-        return { icon: <FileAudio className={iconClassName} />, className: "bg-amber-600", label: "AUD" };
-    if (
-        t.includes("zip") ||
-        t.includes("rar") ||
-        t.includes("tar") ||
-        t.includes("7z") ||
-        ext === "zip" ||
-        ext === "rar" ||
-        ext === "7z"
-    )
-        return { icon: <Archive className={iconClassName} />, className: "bg-yellow-600", label: "ZIP" };
-    if (
-        t.includes("json") ||
-        t.includes("xml") ||
-        t.includes("javascript") ||
-        t.includes("typescript") ||
-        ["js", "ts", "jsx", "tsx", "json", "xml", "html", "css", "py", "java"].includes(ext)
-    )
-        return { icon: <Code2 className={iconClassName} />, className: "bg-slate-600", label: "CODE" };
-    if (t.includes("text") || ext === "txt")
-        return { icon: <File className={iconClassName} />, className: "bg-slate-500", label: "TXT" };
-    return { icon: <File className={iconClassName} />, className: "bg-slate-500", label: ext ? ext.slice(0, 4).toUpperCase() : "FILE" };
-}
+import { getFileTypeDisplay } from "./fileTypeDisplay";
 
 function formatFileSize(size?: number): string {
     if (!size) return "";
@@ -158,8 +91,8 @@ export function MessageAttachmentRenderer({
                         </div>
                     );
                 }
-                const fileIcon = getFileIcon(att.type, att.name);
-                const handleOpen = () => window.open(att.url, "_blank", "noopener,noreferrer");
+                const fileDisplay = getFileTypeDisplay(att.name, att.type);
+                const FileIcon = fileDisplay.Icon;
                 const handleDownload = () => {
                     const link = document.createElement("a");
                     link.href = att.url;
@@ -176,9 +109,9 @@ export function MessageAttachmentRenderer({
                             isMe ? "bg-blue-50 text-slate-800" : "bg-background text-foreground",
                         )}
                     >
-                        <div className={cn("flex h-12 w-10 shrink-0 flex-col items-center justify-center gap-0.5 rounded text-white", fileIcon.className)}>
-                            {fileIcon.icon}
-                            <span className="text-[9px] font-bold leading-none">{fileIcon.label}</span>
+                        <div className={cn("flex h-12 w-10 shrink-0 flex-col items-center justify-center gap-0.5 rounded text-white", fileDisplay.colorClass)}>
+                            <FileIcon className="h-5 w-5" />
+                            <span className="text-[9px] font-bold leading-none uppercase">{fileDisplay.extension}</span>
                         </div>
                         <div className="min-w-0 flex-1">
                             <p className="truncate text-sm font-semibold leading-tight">
@@ -188,14 +121,6 @@ export function MessageAttachmentRenderer({
                                 {formatFileSize(att.size)}
                             </p>
                         </div>
-                        <button
-                            type="button"
-                            onClick={handleOpen}
-                            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-border bg-background text-muted-foreground transition hover:bg-muted hover:text-foreground"
-                            title={t("common.open")}
-                        >
-                            <FolderOpen className="h-4 w-4" />
-                        </button>
                         <button
                             type="button"
                             onClick={handleDownload}
