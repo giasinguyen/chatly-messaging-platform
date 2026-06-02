@@ -70,6 +70,10 @@ import {
     getConversationDisplayName,
     getConversationAvatar,
 } from "@/utils/conversation";
+import {
+    listenForConversationRefresh,
+    upsertConversation,
+} from "@/utils/chatConversationEvents";
 import type { ConversationResponse } from "@/types/conversation";
 import type { ChatEvent } from "@/types/message";
 import type { NotificationEvent } from "@/types/notification";
@@ -196,19 +200,6 @@ function formatLastMessagePreview(
     return text || t("chat.message_fallback");
 }
 
-function upsertConversation(
-    conversations: ConversationResponse[],
-    conversation: ConversationResponse,
-): ConversationResponse[] {
-    if (!conversations.some((item) => item.id === conversation.id)) {
-        return [conversation, ...conversations];
-    }
-
-    return conversations.map((item) =>
-        item.id === conversation.id ? conversation : item,
-    );
-}
-
 export const ChatList = forwardRef(function ChatListComponent(_, ref) {
     const { t } = useTranslation();
     const { user: currentUser } = useAuthStore();
@@ -260,6 +251,12 @@ export const ChatList = forwardRef(function ChatListComponent(_, ref) {
         const response = await conversationService.getMyConversations();
         setConversations(response.result ?? []);
     }, []);
+
+    useEffect(() => {
+        return listenForConversationRefresh(() => {
+            void refreshConversations();
+        });
+    }, [refreshConversations]);
 
     useImperativeHandle(ref, () => ({
         updateConversation: (updated: ConversationResponse) => {

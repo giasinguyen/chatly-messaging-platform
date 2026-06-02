@@ -11,6 +11,7 @@ import com.chatly.model.enums.ConversationType;
 import com.chatly.model.enums.GroupRole;
 import com.chatly.model.enums.NotificationType;
 import com.chatly.model.mongo.Conversation;
+import com.chatly.model.mongo.LastMessage;
 import com.chatly.model.mongo.Message;
 import com.chatly.model.mongo.Notification;
 import com.chatly.model.postgres.GroupMember;
@@ -45,6 +46,10 @@ import java.util.regex.Pattern;
 @Service
 @RequiredArgsConstructor
 public class ConversationService {
+
+    private static final String FIELD_CONVERSATION_ID = "conversationId";
+    private static final String FIELD_CREATED_AT = "createdAt";
+    private static final String FIELD_DELETED_BY = "deletedBy";
 
     private final ConversationRepository conversationRepository;
     private final NotificationRepository notificationRepository;
@@ -95,6 +100,7 @@ public class ConversationService {
 
         ConversationResponse response = conversationMapper.toResponse(conversation);
         response.setUnreadCount(getConversationUnreadCount(id, userId));
+        applyVisibleLastMessage(response, id, userId);
         enrichPinMuteFlags(response, conversation, userId);
         return response;
     }
@@ -107,6 +113,7 @@ public class ConversationService {
                 .map(c -> {
                     ConversationResponse res = conversationMapper.toResponse(c);
                     res.setUnreadCount(getConversationUnreadCount(c.getId(), userId));
+                    applyVisibleLastMessage(res, c.getId(), userId);
                     enrichPinMuteFlags(res, c, userId);
                     return res;
                 })
@@ -161,6 +168,7 @@ public class ConversationService {
                 .map(c -> {
                     ConversationResponse res = conversationMapper.toResponse(c);
                     res.setUnreadCount(getConversationUnreadCount(c.getId(), userId));
+                    applyVisibleLastMessage(res, c.getId(), userId);
                     return res;
                 })
                 .toList();
@@ -379,5 +387,27 @@ public class ConversationService {
             muted = (until == null || until.isAfter(Instant.now()));
         }
         response.setMuted(muted);
+    }
+
+    private void applyVisibleLastMessage(ConversationResponse response, String conversationId, String userId) {
+        Query query = Query.query(new Criteria().andOperator(
+                Criteria.where(FIELD_CONVERSATION_ID).is(conversationId),
+                Criteria.where(FIELD_DELETED_BY).nin(userId)
+        ));
+        query.with(Sort.by(Sort.Direction.DESC, FIELD_CREATED_AT));
+        query.limit(1);
+
+        Message message = mongoTemplate.findOne(query, Message.class);
+        if (message == null) {
+            response.setLastMessage(null);
+            return;
+        }
+
+        response.setLastMessage(LastMessage.builder()
+                .senderId(message.getSenderId())
+                .content(message.getContent())
+                .type(message.getType())
+                .timestamp(message.getCreatedAt())
+                .build());
     }
 }
