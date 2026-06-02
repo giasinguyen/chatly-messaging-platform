@@ -85,6 +85,9 @@ public class Message {
     @Builder.Default
     private List<String> mentions = new ArrayList<>();
 
+    @Builder.Default
+    private List<String> deletedBy = new ArrayList<>();
+
     @CreatedDate
     private Instant createdAt;
 
