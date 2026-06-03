@@ -1,14 +1,5 @@
-import { useEffect, useState } from "react";
-import {
-    Paperclip,
-    SendHorizontal,
-    Globe,
-    Cpu,
-    Loader2,
-    X,
-    FileText,
-    Square,
-} from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Cpu, FileText, Globe, Loader2, Paperclip, SendHorizontal, Square, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useChatbotStore } from "@/store/chatbot.store";
 import { McpPickerDialog } from "./McpPickerDialog";
@@ -16,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { agentFileService } from "@/services/agent-file.service";
 import { toast } from "sonner";
 import type { MessageAttachment } from "@/types/agent";
+import { DRAFT_AGENT_SESSION_ID } from "@/constants/ai";
 
 interface Props {
     sessionId: string;
@@ -23,6 +15,7 @@ interface Props {
     disabled?: boolean;
     isStreaming?: boolean;
     onCancel?: () => void;
+    onEnsureSession?: () => Promise<string | null>;
 }
 
 interface PendingFile {
@@ -37,7 +30,7 @@ interface PendingFile {
 const ACCEPTED_TYPES =
     "image/*,application/pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.md";
 
-export function ChatbotComposer({ sessionId, onSend, disabled, isStreaming, onCancel }: Props) {
+export function ChatbotComposer({ sessionId, onSend, disabled, isStreaming, onCancel, onEnsureSession }: Props) {
     const {
         useWebSearch,
         setUseWebSearch,
@@ -47,31 +40,35 @@ export function ChatbotComposer({ sessionId, onSend, disabled, isStreaming, onCa
     } = useChatbotStore();
 
     const draft = draftsBySession[sessionId] ?? "";
+    const uploadIdCounter = useRef(0);
     const [mcpOpen, setMcpOpen] = useState(false);
     const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([]);
     const isUploading = pendingFiles.some((p) => !p.done && !p.error);
 
-    // Consume draft attachments stored by forward-to-AI flow
     useEffect(() => {
         const store = useChatbotStore.getState();
         const draftAtts = store.draftAttachmentsBySession[sessionId];
         if (!draftAtts?.length) return;
-        // Clear immediately to prevent StrictMode double-fire duplicates
         store.setDraftAttachments(sessionId, []);
         const prefilled: PendingFile[] = draftAtts.map((att) => ({
-            localId: `draft-${att.file_id}-${Date.now()}`,
+            localId: `draft-${att.file_id}`,
             file: new File([], att.filename, { type: att.content_type }),
             progress: 100,
             done: true,
             fileId: att.file_id,
         }));
-        setPendingFiles((prev) => [...prev, ...prefilled]);
-    }, [sessionId]); // eslint-disable-line react-hooks/exhaustive-deps
+        let isActive = true;
+        queueMicrotask(() => {
+            if (isActive) setPendingFiles((prev) => [...prev, ...prefilled]);
+        });
+        return () => {
+            isActive = false;
+        };
+    }, [sessionId]);
 
     const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
         setDraft(sessionId, e.target.value);
 
-        // Auto-resize textarea
         const el = e.target;
         el.style.height = "auto";
         el.style.height = Math.min(el.scrollHeight, 160) + "px";
@@ -104,7 +101,6 @@ export function ChatbotComposer({ sessionId, onSend, disabled, isStreaming, onCa
         onSend(text, attachments);
         setDraft(sessionId, "");
         setPendingFiles([]);
-        // Reset textarea height
         const textarea = document.getElementById("chatbot-composer-input") as HTMLTextAreaElement | null;
         if (textarea) textarea.style.height = "auto";
     };
@@ -116,13 +112,18 @@ export function ChatbotComposer({ sessionId, onSend, disabled, isStreaming, onCa
     };
 
     const processFiles = async (files: File[]) => {
+        if (!files.length) return;
+        const targetSessionId = await getUploadSessionId();
+        if (!targetSessionId) return;
+
         for (const file of files) {
-            const localId = `${Date.now()}-${Math.random()}`;
+            uploadIdCounter.current += 1;
+            const localId = `upload-${uploadIdCounter.current}`;
             const pending: PendingFile = { localId, file, progress: 0, done: false };
             setPendingFiles((prev) => [...prev, pending]);
 
             try {
-                const uploaded = await agentFileService.upload(sessionId, file, (pct) => {
+                const uploaded = await agentFileService.upload(targetSessionId, file, (pct) => {
                     setPendingFiles((prev) =>
                         prev.map((p) =>
                             p.localId === localId ? { ...p, progress: pct } : p,
@@ -149,6 +150,11 @@ export function ChatbotComposer({ sessionId, onSend, disabled, isStreaming, onCa
         }
     };
 
+    const getUploadSessionId = async () => {
+        if (sessionId !== DRAFT_AGENT_SESSION_ID) return sessionId;
+        return onEnsureSession?.() ?? null;
+    };
+
     const removePending = (localId: string) => {
         setPendingFiles((prev) => prev.filter((p) => p.localId !== localId));
     };
@@ -157,7 +163,6 @@ export function ChatbotComposer({ sessionId, onSend, disabled, isStreaming, onCa
 
     return (
         <div className="border-t border-border bg-background shrink-0">
-            {/* Pending file chips */}
             {pendingFiles.length > 0 && (
                 <div className="flex flex-wrap gap-2 px-4 pt-3">
                     {pendingFiles.map((p) => (
@@ -198,9 +203,7 @@ export function ChatbotComposer({ sessionId, onSend, disabled, isStreaming, onCa
                 </div>
             )}
 
-            {/* Toolbar row */}
             <div className="flex items-center gap-1 px-4 pt-2">
-                {/* File upload */}
                 <label title="Upload document">
                     <input
                         type="file"
@@ -214,7 +217,6 @@ export function ChatbotComposer({ sessionId, onSend, disabled, isStreaming, onCa
                     </div>
                 </label>
 
-                {/* Web search toggle */}
                 <Button
                     variant="ghost"
                     size="icon"
@@ -234,7 +236,6 @@ export function ChatbotComposer({ sessionId, onSend, disabled, isStreaming, onCa
                     <Globe className="h-4 w-4" />
                 </Button>
 
-                {/* MCP picker */}
                 <Button
                     variant="ghost"
                     size="icon"
@@ -257,7 +258,6 @@ export function ChatbotComposer({ sessionId, onSend, disabled, isStreaming, onCa
                 )}
             </div>
 
-            {/* Input row */}
             <div className="flex items-end gap-3 p-4 pt-2">
                 <textarea
                     id="chatbot-composer-input"
@@ -291,7 +291,6 @@ export function ChatbotComposer({ sessionId, onSend, disabled, isStreaming, onCa
                 )}
             </div>
 
-            {/* MCP Picker Dialog */}
             <McpPickerDialog open={mcpOpen} onOpenChange={setMcpOpen} />
         </div>
     );

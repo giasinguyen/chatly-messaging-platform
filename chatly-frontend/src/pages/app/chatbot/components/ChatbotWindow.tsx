@@ -1,24 +1,23 @@
 import { useEffect, useCallback, useRef, useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
-import { ArrowLeft } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { ChatbotHeader } from "./ChatbotHeader";
 import { ChatbotMessageList } from "./ChatbotMessageList";
 import { ChatbotComposer } from "./ChatbotComposer";
 import { ChatbotEmptyState } from "./ChatbotEmptyState";
+import { ChatbotMobileBackButton } from "./ChatbotMobileBackButton";
 import { useChatbotStore } from "@/store/chatbot.store";
 import { useAgentStream } from "@/hooks/useAgentStream";
 import { agentService } from "@/services/agent.service";
 import { conversationService } from "@/services/conversation.service";
 import { fileService } from "@/services/file.service";
 import { ForwardToChatDialog } from "./ForwardToChatDialog";
+import { useEnsureAgentSession } from "./useEnsureAgentSession";
 import { useAuthStore } from "@/store/auth.store";
 import { AgentThinking } from "./AgentThinking";
 import { toast } from "sonner";
 import type { AgentMessage, MessageAttachment } from "@/types/agent";
 import type { Attachment } from "@/types/message";
-
-const DRAFT_SESSION_PLACEHOLDER = "__new__";
+import { DRAFT_AGENT_SESSION_ID } from "@/constants/ai";
 const SOCIAL_POST_CONTEXT_PREFIX = "social:post:";
 
 interface ChatbotNavigationState {
@@ -57,6 +56,7 @@ export function ChatbotWindow({ sessionId, sidebarCollapsed, onToggleSidebar }: 
     } = useChatbotStore();
 
     const { startStream, cancelStream, toolCalls } = useAgentStream(sessionId);
+    const ensureSession = useEnsureAgentSession(sessionId);
     const messages = sessionId ? (messagesBySession[sessionId] ?? []) : [];
     const session = sessions.find((s) => s.id === sessionId);
     const isPostContextSession = !!session?.context_conversation_id?.startsWith(SOCIAL_POST_CONTEXT_PREFIX);
@@ -69,7 +69,6 @@ export function ChatbotWindow({ sessionId, sidebarCollapsed, onToggleSidebar }: 
     const navigationState = (location.state as ChatbotNavigationState | null) ?? null;
     const isNavigationPostContext = navigationState?.contextMode === "post";
 
-    // Load context label for group sessions; social post sessions use the session title/snippet.
     useEffect(() => {
         if (!session?.context_conversation_id) {
             setContextConversationName(isNavigationPostContext ? navigationState?.title ?? "Post context" : undefined);
@@ -90,7 +89,6 @@ export function ChatbotWindow({ sessionId, sidebarCollapsed, onToggleSidebar }: 
             });
     }, [session?.context_conversation_id, session?.title, isNavigationPostContext, navigationState?.title]);
 
-    // Set active session and load history
     useEffect(() => {
         autoSendFired.current = false;
 
@@ -112,7 +110,6 @@ export function ChatbotWindow({ sessionId, sidebarCollapsed, onToggleSidebar }: 
             try {
                 const data = await agentService.getHistory(sessionId);
                 if (!cancelled) {
-                    // Guard: don't overwrite messages that were already added optimistically
                     const current = useChatbotStore.getState().messagesBySession[sessionId];
                     if (!current?.length) {
                         setMessages(sessionId, data.messages);
@@ -176,7 +173,6 @@ export function ChatbotWindow({ sessionId, sidebarCollapsed, onToggleSidebar }: 
     const handleSend = useCallback(
         async (content: string, attachments: MessageAttachment[] = []) => {
             if (!sessionId) {
-                // No session yet — create one, store the draft, then navigate and auto-send
                 try {
                     const newSession = await agentService.createSession();
                     addSession(newSession);
@@ -210,7 +206,6 @@ export function ChatbotWindow({ sessionId, sidebarCollapsed, onToggleSidebar }: 
         [sessionId, useWebSearch, selectedMcpIds, appendMessage, addSession, startStream, setLastUserPrompt, setDraft, navigate],
     );
 
-    // Auto-send draft when navigated with ?autoSend=1
     useEffect(() => {
         if (!sessionId) return;
         if (autoSendFired.current) return;
@@ -248,18 +243,8 @@ export function ChatbotWindow({ sessionId, sidebarCollapsed, onToggleSidebar }: 
 
     return (
         <div className="flex flex-col h-full">
-            {/* Mobile back button */}
             {sessionId && (
-                <div className="flex items-center md:hidden px-2 pt-2">
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() => navigate("/chatbot")}
-                    >
-                        <ArrowLeft className="h-4 w-4" />
-                    </Button>
-                </div>
+                <ChatbotMobileBackButton onBack={() => navigate("/chatbot")} />
             )}
             <ChatbotHeader
                 title={session?.title ?? navigationState?.title ?? "AI Chat"}
@@ -268,7 +253,6 @@ export function ChatbotWindow({ sessionId, sidebarCollapsed, onToggleSidebar }: 
                 onToggleSidebar={onToggleSidebar}
             />
 
-            {/* Messages or empty state */}
             {showEmptyState ? (
                 <ChatbotEmptyState
                     sidebarCollapsed={sidebarCollapsed}
@@ -288,23 +272,21 @@ export function ChatbotWindow({ sessionId, sidebarCollapsed, onToggleSidebar }: 
                 />
             ) : null}
 
-            {/* Tool call progress while streaming */}
             {isStreaming && toolCalls.length > 0 && (
                 <div className="px-4">
                     <AgentThinking toolCalls={toolCalls} />
                 </div>
             )}
 
-            {/* Composer — always visible */}
             <ChatbotComposer
-                sessionId={sessionId ?? DRAFT_SESSION_PLACEHOLDER}
+                sessionId={sessionId ?? DRAFT_AGENT_SESSION_ID}
                 isStreaming={isStreaming}
                 onCancel={cancelStream}
                 onSend={handleSend}
+                onEnsureSession={ensureSession}
                 disabled={isStreaming}
             />
 
-            {/* Forward agent message to chat conversation */}
             <ForwardToChatDialog
                 open={!!forwardingAgentMessage}
                 currentUserId={user?.id ?? ""}
@@ -313,7 +295,6 @@ export function ChatbotWindow({ sessionId, sidebarCollapsed, onToggleSidebar }: 
                 }}
                 onConfirm={handleForwardToChatConfirm}
             />
-
         </div>
     );
 }
