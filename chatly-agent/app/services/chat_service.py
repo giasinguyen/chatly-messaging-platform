@@ -1,25 +1,23 @@
-import asyncio
 import logging
 from collections.abc import AsyncIterator
+from datetime import datetime
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from langchain_core.messages import (
-    AIMessageChunk,
     AIMessage,
+    AIMessageChunk,
     BaseMessage,
     HumanMessage,
-    ToolMessage,
 )
 from langchain_core.tools import BaseTool
 from langchain_groq import ChatGroq
 from minio import Minio
 
-from app.config import settings
-from app.services.system_mcp import SystemMCPService
-
 from app.agents.chatbot_agent import ChatbotAgent
-from app.agents.mention_agent import MentionAgent
+from app.agents.group_agent import GroupAgent
 from app.agents.social_agent import SocialAgent
+from app.agents.tool_selection import SEND_AI_MESSAGE_TOOL_NAME
 from app.agents.unified_agent import UnifiedAgent
 from app.models.chat import ChatInput, ChatRequest, ChatResponse
 from app.models.stream import (
@@ -31,7 +29,9 @@ from app.models.stream import (
 )
 from app.repositories.file_repo import FileRepository
 from app.repositories.message_repo import MessageRepository
+from app.services.group_action_service import handle_explicit_group_action
 from app.services.session_service import SessionService
+from app.services.system_mcp import SystemMCPService
 from app.services.tool_service import ToolService
 from app.services.vector_service import VectorService
 from app.tools.image_gen_tool import create_image_gen_tools, image_gen_available
@@ -50,6 +50,10 @@ TIMEOUT_PATTERNS = (
     "timed out",
     "deadline exceeded",
 )
+MAX_MODEL_HISTORY_MESSAGES = 12
+MAX_MODEL_HISTORY_MESSAGE_CHARS = 4000
+TRUNCATED_HISTORY_SUFFIX = "\n\n[Earlier content truncated to fit model limits.]"
+LOCAL_TIMEZONE = ZoneInfo("Asia/Ho_Chi_Minh")
 
 
 class ChatService:
@@ -66,7 +70,6 @@ class ChatService:
         file_repo: FileRepository | None = None,
         minio_client: Minio | None = None,
         bucket_name: str = "uploads",
-        checkpointer: Any | None = None,
         system_mcp: SystemMCPService | None = None,
     ) -> None:
         self._session_service = session_service
@@ -78,7 +81,6 @@ class ChatService:
         self._file_repo = file_repo
         self._minio_client = minio_client
         self._bucket_name = bucket_name
-        self._checkpointer = checkpointer
         self._system_mcp = system_mcp
 
     async def _resolve_attachments(
@@ -86,7 +88,7 @@ class ChatService:
         session_id: str,
         file_ids: list[str],
     ) -> list[dict[str, Any]]:
-        """Return attachment metadata dicts for the given file IDs within the session."""
+        """Return attachment metadata for file IDs within the session."""
         if not file_ids or self._file_repo is None:
             return []
         rows = await self._file_repo.find_many_by_session_and_ids(session_id, file_ids)
@@ -108,6 +110,7 @@ class ChatService:
         use_web_search: bool,
         extra_tools: list[BaseTool] | None = None,
         context_conversation_id: str | None = None,
+        platform_tools: list[BaseTool] | None = None,
     ) -> ChatbotAgent | UnifiedAgent:
         """
         Agent selection priority:
@@ -115,8 +118,8 @@ class ChatService:
            extra_tools present (e.g. image gen) → UnifiedAgent
         2. Fallback → ChatbotAgent
         """
-        tools: list[BaseTool] = []
-        if self._tool_service:
+        tools: list[BaseTool] = list(platform_tools) if platform_tools else []
+        if platform_tools is None and self._tool_service:
             tools = await self._tool_service.assemble_tools(
                 user_id, mcp_server_ids, use_web_search
             )
@@ -140,18 +143,18 @@ class ChatService:
                 )
             all_tools.extend(merged_extra)
             logger.info(
-                "Agent selected: UnifiedAgent (tools=%d has_context=%s) user_id=%s session_id=%s",
+                "Agent selected: UnifiedAgent "
+                "(tools=%d has_context=%s) user_id=%s session_id=%s",
                 len(all_tools),
                 has_context,
                 user_id,
                 session_id,
             )
-            return UnifiedAgent(
-                llm=self._llm, tools=all_tools, checkpointer=self._checkpointer
-            )
+            return UnifiedAgent(llm=self._llm, tools=all_tools)
 
         logger.info(
-            "Agent selected: ChatbotAgent (no tools, no context) user_id=%s session_id=%s",
+            "Agent selected: ChatbotAgent "
+            "(no tools, no context) user_id=%s session_id=%s",
             user_id,
             session_id,
         )
@@ -160,14 +163,22 @@ class ChatService:
     def _to_langchain_history(self, rows: list[dict[str, Any]]) -> list[BaseMessage]:
         """Convert persisted message rows into LangChain message objects."""
         history: list[BaseMessage] = []
-        for row in rows:
+        recent_rows = rows[-MAX_MODEL_HISTORY_MESSAGES:]
+        for row in recent_rows:
             role = str(row.get("role", ""))
-            content = str(row.get("content", ""))
+            content = self._trim_history_content(str(row.get("content", "")))
             if role == "assistant":
                 history.append(AIMessage(content=content))
             else:
                 history.append(HumanMessage(content=content))
         return history
+
+    def _trim_history_content(self, content: str) -> str:
+        """Cap persisted message content before it is sent back to the model."""
+        if len(content) <= MAX_MODEL_HISTORY_MESSAGE_CHARS:
+            return content
+        keep_chars = MAX_MODEL_HISTORY_MESSAGE_CHARS - len(TRUNCATED_HISTORY_SUFFIX)
+        return content[:keep_chars].rstrip() + TRUNCATED_HISTORY_SUFFIX
 
     async def _build_session_context(
         self,
@@ -191,12 +202,20 @@ class ChatService:
                 parts.append(skill_context)
 
         if context_conversation_id is not None:
+            local_now = datetime.now(LOCAL_TIMEZONE)
             parts.append(
                 f"\n\n## Active Conversation Context\n"
-                f"You are currently assisting inside conversation ID: `{context_conversation_id}`.\n"
-                f"When the user says 'this group', 'here', 'this conversation', or similar, "
-                f"they are referring to conversation ID: `{context_conversation_id}`.\n"
-                f"Use `getConversationInfo` or `getGroupInfo` to fetch details when needed.\n"
+                "You are currently assisting inside conversation ID: "
+                f"`{context_conversation_id}`.\n"
+                "Current local datetime: "
+                f"{local_now.isoformat(timespec='minutes')} "
+                "(Asia/Ho_Chi_Minh). Use this to resolve relative dates like "
+                "'today', 'tomorrow', 'hôm nay', and 'ngày mai'.\n"
+                "When the user says 'this group', 'here', 'this conversation', "
+                "or similar, they are referring to conversation ID: "
+                f"`{context_conversation_id}`.\n"
+                "Use `getConversationInfo` or `getGroupInfo` to fetch details "
+                "when needed.\n"
             )
 
         if self._file_repo is not None:
@@ -238,6 +257,31 @@ class ChatService:
             user_id=user_id,
             session_id=session_id,
             generated_attachments=generated_attachments,
+        )
+
+    async def _send_group_action_response(
+        self,
+        tools: list[BaseTool],
+        conversation_id: str,
+        content: str,
+    ) -> None:
+        """Publish a deterministic group action confirmation."""
+        send_tool = next(
+            (tool for tool in tools if tool.name == SEND_AI_MESSAGE_TOOL_NAME),
+            None,
+        )
+        if send_tool is None:
+            logger.error(
+                "No sendAiMessage tool available for group action response "
+                "conversation=%s",
+                conversation_id,
+            )
+            return
+        await send_tool.ainvoke(
+            {
+                "conversationId": conversation_id,
+                "content": content,
+            }
         )
 
     def _classify_stream_error(
@@ -308,18 +352,16 @@ class ChatService:
         image_tools = self._build_image_tools(
             user_id, session_id, generated_attachments
         )
-        session_context, agent = await asyncio.gather(
-            self._build_session_context(
-                user_id, session_id, context_conversation_id=conv_id
-            ),
-            self._select_agent(
+        platform_tools: list[BaseTool] = []
+        if self._tool_service:
+            platform_tools = await self._tool_service.assemble_tools(
                 user_id,
-                session_id,
                 request.mcp_server_ids,
                 request.use_web_search,
-                extra_tools=image_tools,
-                context_conversation_id=conv_id,
-            ),
+            )
+
+        session_context = await self._build_session_context(
+            user_id, session_id, context_conversation_id=conv_id
         )
 
         attachments = await self._resolve_attachments(session_id, request.file_ids)
@@ -328,6 +370,36 @@ class ChatService:
             "user",
             request.message,
             attachments=attachments,
+        )
+        all_tools = [*platform_tools, *image_tools]
+        if conv_id is not None:
+            action = await handle_explicit_group_action(
+                all_tools,
+                request.message,
+                conv_id,
+            )
+            if action is not None:
+                assistant = await self._message_repo.create_message(
+                    session_id,
+                    "assistant",
+                    action.content,
+                    attachments=None,
+                )
+                return ChatResponse(
+                    content=action.content,
+                    session_id=session_id,
+                    message_id=str(assistant["id"]),
+                    agent_type="group_action",
+                )
+
+        agent = await self._select_agent(
+            user_id,
+            session_id,
+            request.mcp_server_ids,
+            request.use_web_search,
+            extra_tools=image_tools,
+            context_conversation_id=conv_id,
+            platform_tools=platform_tools,
         )
         output = await agent.ainvoke(
             ChatInput(
@@ -369,18 +441,51 @@ class ChatService:
         image_tools = self._build_image_tools(
             user_id, session_id, generated_attachments
         )
-        session_context, agent = await asyncio.gather(
-            self._build_session_context(
-                user_id, session_id, context_conversation_id=conv_id
-            ),
-            self._select_agent(
+        platform_tools: list[BaseTool] = []
+        if self._tool_service:
+            platform_tools = await self._tool_service.assemble_tools(
                 user_id,
-                session_id,
                 request.mcp_server_ids,
                 request.use_web_search,
-                extra_tools=image_tools,
-                context_conversation_id=conv_id,
-            ),
+            )
+
+        session_context = await self._build_session_context(
+            user_id, session_id, context_conversation_id=conv_id
+        )
+
+        attachments = await self._resolve_attachments(session_id, request.file_ids)
+        await self._message_repo.create_message(
+            session_id,
+            "user",
+            request.message,
+            attachments=attachments,
+        )
+        all_tools = [*platform_tools, *image_tools]
+        if conv_id is not None:
+            action = await handle_explicit_group_action(
+                all_tools,
+                request.message,
+                conv_id,
+            )
+            if action is not None:
+                assistant = await self._message_repo.create_message(
+                    session_id,
+                    "assistant",
+                    action.content,
+                    attachments=None,
+                )
+                yield token_event(action.content)
+                yield done_event("group_action", str(assistant["id"]), None)
+                return
+
+        agent = await self._select_agent(
+            user_id,
+            session_id,
+            request.mcp_server_ids,
+            request.use_web_search,
+            extra_tools=image_tools,
+            context_conversation_id=conv_id,
+            platform_tools=platform_tools,
         )
         agent_type = agent.agent_type
         chat_input = ChatInput(
@@ -391,14 +496,6 @@ class ChatService:
             session_context=session_context,
         )
         config = {"configurable": {"thread_id": session_id}}
-
-        attachments = await self._resolve_attachments(session_id, request.file_ids)
-        await self._message_repo.create_message(
-            session_id,
-            "user",
-            request.message,
-            attachments=attachments,
-        )
 
         full_content = [""]
         try:
@@ -468,8 +565,8 @@ class ChatService:
     ) -> None:
         """Handle an @AI mention in a group conversation.
 
-        Creates a :class:`MentionAgent` that gathers context via read-only
-        MCP tools, generates a response, and deterministically delivers it
+        Creates a :class:`GroupAgent` that gathers context, performs group
+        actions when requested, generates a response, and deterministically delivers it
         to the group via ``sendAiMessage``.
         """
         rows = await self._message_repo.find_by_session(session_id)
@@ -488,28 +585,46 @@ class ChatService:
             generated_attachments,
         )
 
-        # Assemble MCP tools (full set — MentionAgent partitions internally).
+        # Assemble MCP tools (full set — GroupAgent partitions internally).
         tools: list[BaseTool] = []
         if self._tool_service:
-            tools = await self._tool_service.assemble_tools(user_id, [], False)
+            tools = await self._tool_service.assemble_tools(user_id, [], True)
         tools.extend(image_tools)
         logger.info(
-            "Social mention assist assembled tools: count=%d names=%s",
+            "Group assist assembled tools: count=%d names=%s",
             len(tools),
             [tool.name for tool in tools],
         )
 
         if self._llm is None:
-            raise ValueError("LLM is required for MentionAgent")
+            raise ValueError("LLM is required for GroupAgent")
 
-        agent = MentionAgent(
+        await self._message_repo.create_message(session_id, "user", content)
+        action = await handle_explicit_group_action(
+            tools,
+            content,
+            conversation_id,
+        )
+        if action is not None:
+            await self._send_group_action_response(
+                tools,
+                conversation_id,
+                action.content,
+            )
+            await self._message_repo.create_message(
+                session_id,
+                "assistant",
+                action.content,
+            )
+            return
+
+        agent = GroupAgent(
             llm=self._llm,
             tools=tools,
             conversation_id=conversation_id,
             generated_attachments=generated_attachments,
         )
 
-        await self._message_repo.create_message(session_id, "user", content)
         response_text = await agent.run(
             message=content,
             user_id=user_id,
@@ -522,7 +637,6 @@ class ChatService:
         self,
         *,
         user_id: str,
-        session_id: str,
         post_id: str,
         comment_id: str,
         content: str,
@@ -530,10 +644,7 @@ class ChatService:
         post_context: str,
         thread_context: str,
     ) -> None:
-        """Handle social mention-in-comment flow and publish AI reply."""
-        rows = await self._message_repo.find_by_session(session_id)
-        history = self._to_langchain_history(rows)
-
+        """Handle stateless social mention-in-comment flow and publish AI reply."""
         session_context = (
             "\n\n## Active Social Context\n"
             f"You are assisting on post ID: `{post_id}`.\n"
@@ -543,7 +654,7 @@ class ChatService:
         generated_attachments: list[dict[str, Any]] = []
         image_tools = self._build_image_tools(
             user_id,
-            session_id,
+            f"social:post:{post_id}",
             generated_attachments,
         )
 
@@ -566,8 +677,7 @@ class ChatService:
             generated_attachments=generated_attachments,
         )
 
-        await self._message_repo.create_message(session_id, "user", content)
-        response_text = await agent.run_mention_in_comment(
+        await agent.run_mention_in_comment(
             message=content,
             user_id=user_id,
             post_id=post_id,
@@ -576,24 +686,19 @@ class ChatService:
             post_context=post_context,
             thread_context=thread_context,
             session_context=session_context,
-            history=history,
+            history=[],
         )
-        await self._message_repo.create_message(session_id, "assistant", response_text)
 
     async def run_social_post_command_assist(
         self,
         *,
         user_id: str,
-        session_id: str,
         post_id: str,
         command_content: str,
         post_context: str,
         thread_context: str,
     ) -> None:
-        """Handle social post-command flow and publish AI reply."""
-        rows = await self._message_repo.find_by_session(session_id)
-        history = self._to_langchain_history(rows)
-
+        """Handle stateless social post-command flow and publish AI reply."""
         session_context = (
             "\n\n## Active Social Context\n"
             f"You are assisting on post ID: `{post_id}`.\n"
@@ -603,7 +708,7 @@ class ChatService:
         generated_attachments: list[dict[str, Any]] = []
         image_tools = self._build_image_tools(
             user_id,
-            session_id,
+            f"social:post:{post_id}",
             generated_attachments,
         )
 
@@ -621,14 +726,12 @@ class ChatService:
             generated_attachments=generated_attachments,
         )
 
-        await self._message_repo.create_message(session_id, "user", command_content)
-        response_text = await agent.run_post_command(
+        await agent.run_post_command(
             message=command_content,
             user_id=user_id,
             post_id=post_id,
             post_context=post_context,
             thread_context=thread_context,
             session_context=session_context,
-            history=history,
+            history=[],
         )
-        await self._message_repo.create_message(session_id, "assistant", response_text)

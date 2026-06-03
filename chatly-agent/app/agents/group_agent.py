@@ -1,7 +1,7 @@
 """Agent for @AI mentions in group conversations.
 
 Architecture:
-  1. ReAct loop with read-only tools to gather context (messages, group info, etc.)
+  1. ReAct loop with research/action tools for group context and tasks
   2. LLM generates a response as normal text
   3. Deterministic final step: call ``sendAiMessage`` MCP tool to deliver the response
 
@@ -20,22 +20,22 @@ from langgraph.prebuilt import create_react_agent
 from app.agents.tool_selection import (
     SEND_AI_MESSAGE_TOOL_NAME,
     SEND_TEXT_MESSAGE_TOOL_NAME,
-    partition_mention_tools,
+    partition_group_tools,
 )
-from app.prompts.mention_prompt import MENTION_SYSTEM_PROMPT
+from app.prompts.group_prompt import GROUP_SYSTEM_PROMPT
 
 logger = logging.getLogger(__name__)
 
-MENTION_FALLBACK_RESPONSE = "Sorry, I couldn't generate a response."
+GROUP_FALLBACK_RESPONSE = "Sorry, I couldn't generate a response."
 
 __all__ = [
-    "MentionAgent",
+    "GroupAgent",
     "SEND_AI_MESSAGE_TOOL_NAME",
     "SEND_TEXT_MESSAGE_TOOL_NAME",
 ]
 
 
-class MentionAgent:
+class GroupAgent:
     """Dedicated agent for @AI mention handling.
 
     Unlike ``UnifiedAgent``, this agent:
@@ -58,7 +58,7 @@ class MentionAgent:
             generated_attachments if generated_attachments is not None else []
         )
 
-        partition = partition_mention_tools(tools)
+        partition = partition_group_tools(tools)
         self._send_tool = partition.delivery_tool
 
         if self._send_tool is None:
@@ -78,9 +78,9 @@ class MentionAgent:
         session_context: str,
         history: list[Any] | None = None,
     ) -> str:
-        """Execute the full mention flow: research → generate → send."""
+        """Execute the full group mention flow: research → generate → send."""
         system = SystemMessage(
-            content=MENTION_SYSTEM_PROMPT.format(
+            content=GROUP_SYSTEM_PROMPT.format(
                 user_id=user_id,
                 conversation_id=self._conversation_id,
                 session_context=session_context,
@@ -99,12 +99,12 @@ class MentionAgent:
                     ai_text = str(m.content)
                     break
             if not ai_text:
-                ai_text = MENTION_FALLBACK_RESPONSE
+                ai_text = GROUP_FALLBACK_RESPONSE
         else:
             # No research tools — call LLM directly.
             result = await self._llm.ainvoke(msgs)
             ai_text = (
-                str(result.content) if result.content else MENTION_FALLBACK_RESPONSE
+                str(result.content) if result.content else GROUP_FALLBACK_RESPONSE
             )
 
         # ── Phase 2: Deterministic delivery ─────────────────────────────
@@ -120,13 +120,13 @@ class MentionAgent:
 
                 await self._send_tool.ainvoke(payload)
                 logger.info(
-                    "MentionAgent delivered response to conversation=%s image_count=%d",
+                    "GroupAgent delivered response to conversation=%s image_count=%d",
                     self._conversation_id,
                     len(image_urls),
                 )
             except Exception:
                 logger.exception(
-                    "MentionAgent failed to send message to conversation=%s",
+                    "GroupAgent failed to send message to conversation=%s",
                     self._conversation_id,
                 )
         else:

@@ -39,22 +39,18 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         qdrant_client = get_qdrant_client()
         await qdrant_client.get_collections()
         ensure_bucket_exists(get_storage_client(), get_bucket_name())
-        from app.db.checkpointer import get_checkpointer
-
-        get_checkpointer()
     yield
     await close_client()
     await close_qdrant_client()
-    from app.db.checkpointer import close_checkpointer
-
-    close_checkpointer()
 
 
 app = FastAPI(
     title="agent-server",
     version="0.1.0",
     lifespan=lifespan,
-    description="LangGraph-powered AI agent server with RAG, MCP tools, and web search.",
+    description=(
+        "LangGraph-powered AI agent server with RAG, MCP tools, and web search."
+    ),
 )
 
 app.add_middleware(RequestIDMiddleware)

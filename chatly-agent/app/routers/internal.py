@@ -4,7 +4,6 @@ All routes here are protected by the X-API-Key header (same key used for
 MCP SSE endpoints).  They are never exposed to end-users directly.
 """
 
-import asyncio
 import logging
 
 from fastapi import APIRouter, BackgroundTasks, Depends, status
@@ -31,8 +30,6 @@ router = APIRouter(
 )
 
 _AI_SESSION_TITLE = "Group AI"
-_SOCIAL_MENTION_SESSION_TITLE = "Social AI Mention"
-_SOCIAL_COMMAND_SESSION_TITLE = "Social AI Command"
 
 
 class AssistRequest(BaseModel):
@@ -52,6 +49,12 @@ class AssistResponse(BaseModel):
     """Immediate acknowledgement returned to the backend."""
 
     session_id: str
+    accepted: bool = True
+
+
+class AcceptedResponse(BaseModel):
+    """Immediate acknowledgement for stateless background triggers."""
+
     accepted: bool = True
 
 
@@ -98,7 +101,7 @@ async def _run_assist(
     content: str,
     chat_service: ChatService,
 ) -> None:
-    """Background task: run the MentionAgent and deliver response via sendAiMessage."""
+    """Background task: run the GroupAgent and deliver response via sendAiMessage."""
     try:
         await chat_service.run_group_assist(
             user_id=user_id,
@@ -114,7 +117,6 @@ async def _run_assist(
 
 async def _run_social_mention_assist(
     user_id: str,
-    session_id: str,
     post_id: str,
     comment_id: str,
     content: str,
@@ -127,7 +129,6 @@ async def _run_social_mention_assist(
     try:
         await chat_service.run_social_mention_assist(
             user_id=user_id,
-            session_id=session_id,
             post_id=post_id,
             comment_id=comment_id,
             content=content,
@@ -137,9 +138,8 @@ async def _run_social_mention_assist(
         )
     except Exception:
         logger.exception(
-            "social mention task failed user_id=%s session_id=%s post_id=%s comment_id=%s",
+            "social mention task failed user_id=%s post_id=%s comment_id=%s",
             user_id,
-            session_id,
             post_id,
             comment_id,
         )
@@ -147,7 +147,6 @@ async def _run_social_mention_assist(
 
 async def _run_social_post_command_assist(
     user_id: str,
-    session_id: str,
     post_id: str,
     command_content: str,
     post_context: str,
@@ -158,7 +157,6 @@ async def _run_social_post_command_assist(
     try:
         await chat_service.run_social_post_command_assist(
             user_id=user_id,
-            session_id=session_id,
             post_id=post_id,
             command_content=command_content,
             post_context=post_context,
@@ -166,9 +164,8 @@ async def _run_social_post_command_assist(
         )
     except Exception:
         logger.exception(
-            "social post-command task failed user_id=%s session_id=%s post_id=%s",
+            "social post-command task failed user_id=%s post_id=%s",
             user_id,
-            session_id,
             post_id,
         )
 
@@ -212,7 +209,7 @@ async def trigger_assist(
 
 @router.post(
     "/social/mention-comment",
-    response_model=AssistResponse,
+    response_model=AcceptedResponse,
     status_code=status.HTTP_202_ACCEPTED,
     summary="Trigger social AI for mention in comment",
     description=(
@@ -223,21 +220,12 @@ async def trigger_assist(
 async def trigger_social_mention_comment(
     payload: SocialMentionRequest,
     background_tasks: BackgroundTasks,
-    session_service: SessionService = Depends(get_session_service),  # noqa: B008
     chat_service: ChatService = Depends(get_chat_service),  # noqa: B008
-) -> AssistResponse:
-    """Accept social mention trigger and schedule social mention handling."""
-    session = await session_service.find_or_create_for_conversation(
-        user_id=payload.user_id,
-        conversation_id=f"social:post:{payload.post_id}",
-        title=_SOCIAL_MENTION_SESSION_TITLE,
-    )
-    session_id: str = session["id"]
-
+) -> AcceptedResponse:
+    """Accept social mention trigger and schedule stateless handling."""
     background_tasks.add_task(
         _run_social_mention_assist,
         user_id=payload.user_id,
-        session_id=session_id,
         post_id=payload.post_id,
         comment_id=payload.comment_id,
         content=payload.content,
@@ -247,12 +235,12 @@ async def trigger_social_mention_comment(
         chat_service=chat_service,
     )
 
-    return AssistResponse(session_id=session_id)
+    return AcceptedResponse()
 
 
 @router.post(
     "/social/post-command",
-    response_model=AssistResponse,
+    response_model=AcceptedResponse,
     status_code=status.HTTP_202_ACCEPTED,
     summary="Trigger social AI for post command",
     description=(
@@ -263,21 +251,12 @@ async def trigger_social_mention_comment(
 async def trigger_social_post_command(
     payload: SocialPostCommandRequest,
     background_tasks: BackgroundTasks,
-    session_service: SessionService = Depends(get_session_service),  # noqa: B008
     chat_service: ChatService = Depends(get_chat_service),  # noqa: B008
-) -> AssistResponse:
-    """Accept social post-command trigger and schedule background handling."""
-    session = await session_service.find_or_create_for_conversation(
-        user_id=payload.user_id,
-        conversation_id=f"social:post:{payload.post_id}",
-        title=_SOCIAL_COMMAND_SESSION_TITLE,
-    )
-    session_id: str = session["id"]
-
+) -> AcceptedResponse:
+    """Accept social post-command trigger and schedule stateless handling."""
     background_tasks.add_task(
         _run_social_post_command_assist,
         user_id=payload.user_id,
-        session_id=session_id,
         post_id=payload.post_id,
         command_content=payload.command_content,
         post_context=payload.post_context,
@@ -285,7 +264,7 @@ async def trigger_social_post_command(
         chat_service=chat_service,
     )
 
-    return AssistResponse(session_id=session_id)
+    return AcceptedResponse()
 
 
 # ---------------------------------------------------------------------------
@@ -325,7 +304,7 @@ async def trigger_briefing(
 
 
 class IndexFileRequest(BaseModel):
-    """Payload sent by the backend FileUploadService when an indexable file is uploaded."""
+    """Payload sent when the backend uploads an indexable file."""
 
     conversation_id: str = Field(
         ..., description="Group conversation that owns the file"

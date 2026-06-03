@@ -17,8 +17,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { agentService } from "@/services/agent.service";
 import type { AgentSession } from "@/types/agent";
-
-const NEW_SESSION_ID = "__new__";
+import { DRAFT_AGENT_SESSION_ID } from "@/constants/ai";
 
 interface ForwardToAiDialogProps {
     open: boolean;
@@ -29,7 +28,7 @@ interface ForwardToAiDialogProps {
 export function ForwardToAiDialog({ open, onOpenChange, onConfirm }: ForwardToAiDialogProps) {
     const { t } = useTranslation();
     const [searchQuery, setSearchQuery] = useState("");
-    const [selectedId, setSelectedId] = useState<string>(NEW_SESSION_ID);
+    const [selectedId, setSelectedId] = useState<string>(DRAFT_AGENT_SESSION_ID);
     const [sessions, setSessions] = useState<AgentSession[]>([]);
     const [loading, setLoading] = useState(false);
     const [submitting, setSubmitting] = useState(false);
@@ -37,7 +36,7 @@ export function ForwardToAiDialog({ open, onOpenChange, onConfirm }: ForwardToAi
     useEffect(() => {
         if (!open) {
             setSearchQuery("");
-            setSelectedId(NEW_SESSION_ID);
+            setSelectedId(DRAFT_AGENT_SESSION_ID);
             return;
         }
 
@@ -66,7 +65,7 @@ export function ForwardToAiDialog({ open, onOpenChange, onConfirm }: ForwardToAi
     const handleConfirm = async () => {
         try {
             setSubmitting(true);
-            await onConfirm(selectedId === NEW_SESSION_ID ? null : selectedId);
+            await onConfirm(selectedId === DRAFT_AGENT_SESSION_ID ? null : selectedId);
             onOpenChange(false);
         } finally {
             setSubmitting(false);
@@ -96,15 +95,14 @@ export function ForwardToAiDialog({ open, onOpenChange, onConfirm }: ForwardToAi
                 <ScrollArea className="max-h-80 rounded-xl border border-border/60">
                     <RadioGroup value={selectedId} onValueChange={setSelectedId}>
                         <div className="p-2 space-y-0.5">
-                            {/* New session option */}
                             {!searchQuery.trim() && (
                                 <label
                                     className={cn(
                                         "flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2 transition-colors",
-                                        selectedId === NEW_SESSION_ID ? "bg-brand/10" : "hover:bg-muted/60",
+                                        selectedId === DRAFT_AGENT_SESSION_ID ? "bg-brand/10" : "hover:bg-muted/60",
                                     )}
                                 >
-                                    <RadioGroupItem value={NEW_SESSION_ID} id={NEW_SESSION_ID} />
+                                    <RadioGroupItem value={DRAFT_AGENT_SESSION_ID} id={DRAFT_AGENT_SESSION_ID} />
                                     <div className="flex h-10 w-10 items-center justify-center rounded-full border border-dashed border-border/70 bg-muted/40">
                                         <Plus className="size-4 text-muted-foreground" />
                                     </div>

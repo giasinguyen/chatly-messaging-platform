@@ -1,4 +1,4 @@
-"""Unit tests for MentionAgent tool partitioning.
+"""Unit tests for GroupAgent tool partitioning.
 
 Verifies that sendTextMessage is excluded from the research tool list so the
 LLM cannot post a duplicate TEXT message before the deterministic sendAiMessage
@@ -10,11 +10,11 @@ from unittest.mock import MagicMock
 import pytest
 from langchain_core.tools import BaseTool
 
-import app.agents.mention_agent as mention_agent_module
-from app.agents.mention_agent import (
+import app.agents.group_agent as group_agent_module
+from app.agents.group_agent import (
     SEND_AI_MESSAGE_TOOL_NAME,
     SEND_TEXT_MESSAGE_TOOL_NAME,
-    MentionAgent,
+    GroupAgent,
 )
 
 
@@ -24,10 +24,10 @@ def _make_tool(name: str) -> BaseTool:
     return tool
 
 
-def _build_agent(tool_names: list[str]) -> MentionAgent:
+def _build_agent(tool_names: list[str]) -> GroupAgent:
     tools = [_make_tool(n) for n in tool_names]
     llm = MagicMock()
-    return MentionAgent(llm=llm, tools=tools, conversation_id="conv-1")
+    return GroupAgent(llm=llm, tools=tools, conversation_id="conv-1")
 
 
 @pytest.fixture(autouse=True)
@@ -43,10 +43,10 @@ def _mock_create_react_agent(monkeypatch: pytest.MonkeyPatch) -> None:
     def _fake_factory(_llm: MagicMock, tools: list[BaseTool]) -> _FakeGraph:
         return _FakeGraph(tools)
 
-    monkeypatch.setattr(mention_agent_module, "create_react_agent", _fake_factory)
+    monkeypatch.setattr(group_agent_module, "create_react_agent", _fake_factory)
 
 
-def _research_tool_names(agent: MentionAgent) -> list[str]:
+def _research_tool_names(agent: GroupAgent) -> list[str]:
     """Extract the names of tools passed to the ReAct graph."""
     if agent._graph is None:
         return []
@@ -87,13 +87,21 @@ def test_regular_tools_remain_in_research_tools() -> None:
     tool_names = [
         "readRecentMessages",
         "getGroupInfo",
+        "listGroupReminders",
+        "createGroupReminder",
         "createGroupPoll",
         SEND_TEXT_MESSAGE_TOOL_NAME,
         SEND_AI_MESSAGE_TOOL_NAME,
     ]
     agent = _build_agent(tool_names)
     research_names = _research_tool_names(agent)
-    for name in ["readRecentMessages", "getGroupInfo", "createGroupPoll"]:
+    for name in [
+        "readRecentMessages",
+        "getGroupInfo",
+        "listGroupReminders",
+        "createGroupReminder",
+        "createGroupPoll",
+    ]:
         assert name in research_names
 
 
@@ -104,7 +112,7 @@ async def test_missing_send_ai_message_tool_logs_warning(
     """If sendAiMessage is absent, agent should warn but not raise."""
     import logging
 
-    with caplog.at_level(logging.WARNING, logger="app.agents.mention_agent"):
+    with caplog.at_level(logging.WARNING, logger="app.agents.group_agent"):
         agent = _build_agent(["readRecentMessages"])
     assert agent._send_tool is None
     assert any("sendAiMessage" in record.message for record in caplog.records)

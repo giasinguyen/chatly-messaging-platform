@@ -4,7 +4,7 @@ Supported workflows:
 1. Mention in comment: user mentions @ai in a post comment and expects a reply.
 2. Post command: user writes an AI command in the post body.
 
-Like MentionAgent, this agent separates delivery from reasoning:
+Like GroupAgent, this agent separates delivery from reasoning:
 - ReAct loop is used for context/research tools.
 - A deterministic final step calls ``createAiPostComment`` to publish the AI reply.
 """
@@ -169,7 +169,9 @@ class SocialAgent:
             except Exception as exc:
                 if self._is_invalid_publish_tool_call(exc):
                     logger.warning(
-                        "SocialAgent detected invalid createAiPostComment tool-call in ReAct loop; falling back to direct LLM text generation"
+                        "SocialAgent detected invalid createAiPostComment "
+                        "tool-call in ReAct loop; falling back to direct LLM "
+                        "text generation"
                     )
                     fallback_messages = [
                         *messages,
